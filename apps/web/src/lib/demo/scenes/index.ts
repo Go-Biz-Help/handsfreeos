@@ -1,11 +1,13 @@
 import type { DemoState } from '../state';
 import type { DemoWorld } from '../world';
+import { ADDON_SCENES } from './addons';
 import { ASK_DO_SCENES } from './ask-do';
 import { ASK_LOOK_SCENES } from './ask-look';
 import { talkFromTheTruck } from './ask-voice';
 import { businessSetup } from './business-setup';
 import { busyCall } from './busy-call';
 import { CALENDAR_MONEY_SCENES } from './calendar-money';
+import { CALLS_COACH_SCENES } from './calls-coach';
 import { DAY_ONE_SCENES } from './day-one';
 import { GROWTH_SCENES } from './growth';
 import { leadText } from './lead-text';
@@ -15,6 +17,7 @@ import { PAPERWORK_CALL_SCENES } from './paperwork-calls';
 import { priceQuestion } from './price-question';
 import { quoteToInvoice } from './quote-to-invoice';
 import { reviewRequests } from './review-requests';
+import { SETUP_SCENES } from './setup';
 import { TEAMMATE_CHANNEL_SCENES } from './teammate-channels';
 import { TEAMMATE_SALES_SCENES } from './teammate-sales';
 import { TEAMMATE_VISIT_SCENES } from './teammate-visits';
@@ -48,6 +51,9 @@ export const DEMO_SCENES: readonly DemoScene[] = [
   ...DAY_ONE_SCENES,
   ...GROWTH_SCENES,
   ...WEBINAR_SEARCH_SCENES,
+  ...CALLS_COACH_SCENES,
+  ...ADDON_SCENES,
+  ...SETUP_SCENES,
   ...ASK_LOOK_SCENES,
   ...ASK_DO_SCENES,
   talkFromTheTruck,
@@ -97,6 +103,9 @@ export function buildWorld(state: DemoState, workspaceId: string): DemoWorld | n
     offers: [],
     imports: [],
     notes: [],
+    coach: null,
+    setup: null,
+    outreach: [],
   };
   scene.setup?.(world, state.startedAt);
   state.steps.forEach((offset, i) => scene.steps[i]?.change?.(world, state.startedAt + offset));

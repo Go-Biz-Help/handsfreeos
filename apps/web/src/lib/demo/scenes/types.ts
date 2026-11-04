@@ -26,6 +26,14 @@ export const SCENE_KIND_LABEL = {
   app: 'In the app',
 } as const;
 
+/** One of a scene's own answers (`DemoScene.answers`). */
+export type DemoAnswerFn = (
+  world: DemoWorld,
+  body: Record<string, unknown>,
+  real: () => Promise<Record<string, unknown> | null>,
+  signal?: AbortSignal | null,
+) => unknown;
+
 export interface DemoScene {
   readonly id: string;
   /** Its number in the presentation's list. */
@@ -39,17 +47,24 @@ export interface DemoScene {
   readonly setup?: (world: DemoWorld, at: number) => void;
   /**
    * Queries and commands the scene answers itself though they name nothing made up, by name (`import.create`), so
-   * none of them reaches the business: a screen's own steps, such as an import or a setup, played through.
+   * none of them reaches the business: a screen's own steps, such as an import or a setup, played through. An
+   * answer can start from the real one (`real`, null when it failed), and can be a whole `Response`, for a stream:
+   * `ai_team.test` names the worker's test chat (`/v1/ai-team/test`). `undefined` lets the request through.
    */
-  readonly answers?: Readonly<
-    Record<string, (world: DemoWorld, body: Record<string, unknown>) => unknown>
-  >;
+  readonly answers?: Readonly<Record<string, DemoAnswerFn>>;
+  /**
+   * Add-ons the scene shows as on though the business hasn't turned them on (`salescoach`): the menu, the add-on's
+   * pages and its permissions answer as if it had. Nothing is turned on, and only the scene's own answers reach them.
+   */
+  readonly addons?: readonly string[];
   readonly steps: readonly DemoStep[];
 }
 
 /** What a step's `run` can do on screen. Each waits for what it touches to be there. */
 export interface DemoPlayer {
   readonly workspaceId: string;
+  /** The business's name, for words a step types that name it. */
+  readonly business: string;
   /** The presenter, whose name a reply they type signs with. */
   readonly me: { readonly id: string; readonly name: string };
   /** The business's time zone, for words a step types that name a day. */

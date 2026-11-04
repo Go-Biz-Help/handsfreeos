@@ -55,10 +55,21 @@ export async function waitFor(target: string, ms = 8000): Promise<HTMLElement> {
   }
 }
 
-/** Glides the pointer to the middle of `el`, scrolling it into view first when it's off screen. */
+/** Whether a box that scrolls (the side menu, a long list) cuts `el` off at its top or bottom. */
+function clipped(el: HTMLElement): boolean {
+  const r = el.getBoundingClientRect();
+  for (let up = el.parentElement; up; up = up.parentElement) {
+    if (!/auto|scroll|hidden/.test(getComputedStyle(up).overflowY)) continue;
+    const box = up.getBoundingClientRect();
+    if (r.top < box.top || r.bottom > box.bottom) return true;
+  }
+  return false;
+}
+
+/** Glides the pointer to the middle of `el`, scrolling it into view first when it's off screen or cut off. */
 export async function pointAt(el: HTMLElement): Promise<void> {
   const box = el.getBoundingClientRect();
-  if (box.top < 0 || box.bottom > window.innerHeight) {
+  if (box.top < 0 || box.bottom > window.innerHeight || clipped(el)) {
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     await sleep(450);
   }

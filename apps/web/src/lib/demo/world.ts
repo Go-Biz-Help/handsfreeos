@@ -105,6 +105,20 @@ export interface DemoDraft {
   readonly knowledge?: readonly string[];
   /** An email reply's subject. */
   readonly subject?: string;
+  /**
+   * An add-on's action the teammate asks a person on the customer's record to OK (round seven), as the worker files
+   * one: approving does it as them, then `body` goes to the customer.
+   */
+  readonly ask?: {
+    readonly addonId: string;
+    readonly operation: string;
+    readonly tool: string;
+    readonly input: Readonly<Record<string, unknown>>;
+    readonly recordId: string;
+    readonly recordName: string;
+    /** What the card says it is: "Add 412 Oak St to Dana’s homes". */
+    readonly summary: string;
+  };
 }
 
 export type DemoDraftAction =
@@ -469,6 +483,64 @@ export interface DemoNote {
   readonly at: number;
 }
 
+/** A card AI Sales Coach shows on a call, as core's coach writes one: what to say, and what they said that set it off. */
+export interface DemoCoachCard {
+  readonly id: string;
+  readonly kind: 'objection' | 'fact' | 'step' | 'question' | 'nudge';
+  readonly title: string;
+  readonly say: string;
+  readonly heard: string;
+  readonly tip: string;
+  readonly at: number;
+}
+
+/** The call AI Sales Coach listens to, on its Live call tab: the script step it's at, and its cards. */
+export interface DemoCoachCall {
+  readonly id: string;
+  readonly person: DemoPerson;
+  /** A HandsFreeOS video call or Zoom meeting's id, or null for a call on the presenter's cell. */
+  readonly liveMeetingId: string | null;
+  readonly startedAt: number;
+  state: 'live' | 'writing' | 'done';
+  step: string;
+  endedAt: number | null;
+  readonly cards: DemoCoachCard[];
+}
+
+/**
+ * A message Social Outreach's extension drafted on someone's Facebook (docs/outreach.md): a first message to someone it
+ * found in the presenter's groups, or a reply handed over to them, waiting for their OK in Needs you.
+ */
+export interface DemoOutreachSend {
+  readonly id: string;
+  readonly profileId: string;
+  readonly name: string;
+  readonly kind: 'opener' | 'reply';
+  readonly text: string;
+  state: 'waiting' | 'approved';
+  /** A reply handed over to the presenter, and why it needs them ("they asked for you"). */
+  readonly needsYou: string | null;
+  /** The chat so far, oldest first. */
+  readonly recent: readonly {
+    readonly fromMe: boolean;
+    readonly text: string;
+    readonly at: number;
+  }[];
+  readonly at: number;
+}
+
+/** Where AI quick setup is up to, for the scene that plays it from the business's website. */
+export interface DemoSetup {
+  /** The website typed on the first screen; null before. */
+  site: string | null;
+  /** The AI teammate is reading it. */
+  reading: boolean;
+  /** It has: what it read fills the screens, and the scan's findings wait in "What Ava learned". */
+  read: boolean;
+  /** Save was pressed: the business has a teammate, in the test chat. */
+  saved: boolean;
+}
+
 export interface DemoWorld {
   readonly state: DemoState;
   readonly workspaceId: string;
@@ -502,6 +574,12 @@ export interface DemoWorld {
   readonly imports: DemoImport[];
   /** Notes on the scene's customers, which Search finds by their words. */
   readonly notes: DemoNote[];
+  /** The call AI Sales Coach is on, for a scene that shows it. */
+  coach: DemoCoachCall | null;
+  /** What Social Outreach drafted, waiting in Needs you. */
+  readonly outreach: DemoOutreachSend[];
+  /** Quick setup's progress, for the scene that plays it. */
+  setup: DemoSetup | null;
 }
 
 /** The wall-clock time `hour:minute`, `days` from `at`'s date, in `timeZone`, as ms since the epoch. */

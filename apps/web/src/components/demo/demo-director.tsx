@@ -155,6 +155,7 @@ export function DemoDirector({
     };
     return {
       workspaceId,
+      business: businessName,
       me,
       timeZone,
       async go(path) {
@@ -233,7 +234,7 @@ export function DemoDirector({
       waitFor,
       wait: sleep,
     };
-  }, [me, router, timeZone, workspaceId]);
+  }, [businessName, me, router, timeZone, workspaceId]);
 
   /** Keys come back to the player after a step: a step that focused a box would otherwise take the next Space. */
   const settle = () => {
@@ -286,6 +287,7 @@ export function DemoDirector({
       if (busyRef.current) return;
       busyRef.current = true;
       setBusy(true);
+      const before = stateRef.current?.scene ?? null;
       try {
         // Made-up messages sign off with the business's own teammate's name.
         const got = await apiBrowser()
@@ -315,6 +317,14 @@ export function DemoDirector({
         // Already there, but asked for with `?demo=<scene>`: the address drops it.
         else if (window.location.search) router.replace(href);
         else router.refresh();
+        // Ready once the address is there, so the first step's own move (to the calendar on another day) never
+        // lands before this one and is undone by it.
+        const end = Date.now() + 8000;
+        while (window.location.pathname + window.location.search !== href && Date.now() < end)
+          await sleep(100);
+        // A scene that shows an add-on as on, or follows one, changes the side menu, which moving to another page
+        // doesn't draw again: the whole page is read again.
+        if (sc.addons?.length || (before && findScene(before)?.addons?.length)) router.refresh();
         emitLocalChange(EVERYTHING);
       } finally {
         busyRef.current = false;

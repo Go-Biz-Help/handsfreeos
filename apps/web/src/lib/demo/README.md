@@ -57,7 +57,11 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
   and their answers (`reviewsConnected` shows Google as connected), Knowledge's promotions, leads on the Pipeline
   board (`onBoard`), a spreadsheet's import and the people it made, and notes, which Search finds by their words
   along with the scene's texts. `teammateAutomatic` makes the AI teammate read as answering on its own, for scenes
-  past its training. A business with no AI teammate (Bright Path has none) gets one made up, in training.
+  past its training. A business with no AI teammate (Bright Path has none) gets one made up, in training. Since
+  scenes 46 to 49: a call the AI teammate places (`direction: 'outbound'` on a call message, worded in the Inbox as
+  core's `callPreview` words it), the call AI Sales Coach listens to (`coach`, with its cards), a teammate's ask for
+  an add-on (`ask` on a draft: an approval, not a reply), and what Social Outreach drafted (`outreach`). Scene 39:
+  quick setup's progress (`setup`): the website typed, the AI teammate reading it, what it read, and Save.
 - **Made-up ids start with `de300000-0000-4000-8000-`** (`demoId`), so an answer for one can't be mistaken for a
   real record.
 - **The calendar's answers are in `respond-calendar.ts`:** a visit as the calendar and its sheet read it, the
@@ -72,7 +76,16 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
   helpers). It answers only when one of them holds every word typed.
 - **A scene's own answers** (`answers` on `DemoScene`, by operation name) come first, whatever the request names:
   scene 40's `import.create` and `import.start`, so the file never reaches Storage (the wizard skips the upload for
-  bucket `hfos-demo`) and nobody is added to the business.
+  bucket `hfos-demo`) and nobody is added to the business. Scenes 47 and 49 answer their add-on's look-ups this way
+  (`salescoach.live`, `outreach.waiting`) and the presses on them (Got it, Send, Approve all). An answer can
+  start from the real one (`real`), for a scene that changes part of it: scene 39 shows the business's quick setup
+  as a new owner's (`ai_setup.get`). It can also give back a whole `Response`: `ai_team.test` names the worker's test
+  chat (`/v1/ai-team/test`), which scene 39 streams with replies made up for the questions it asks.
+- **An add-on the business hasn't turned on** can show as on: `addons` on `DemoScene` (`['salescoach']`). While it
+  plays, `account.me` and `workspace.get` answer with it in the business's add-ons and every one of its permissions
+  held, so the side menu has its row and its pages open past the gate. Nothing is turned on: only the scene's own
+  answers reach the add-on, and every other request to it is refused as before. Starting a scene that has one, or
+  leaving one, draws the whole page again (the side menu doesn't redraw on a move to another page).
 
 ## Adding a scene
 
@@ -118,6 +131,9 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
    - **In the app** (`kind: 'app'`): scenes that show a screen rather than the AI teammate or Ask HandsFreeOS.
      `p.attach` drops a file on a file picker (point at its drop zone first), and `p.type` types into a box such as
      the Search box.
+   - **Add-ons** (`scenes/calls-coach.ts`, `scenes/addons.ts`) name theirs in `addons` and answer its look-ups in
+     `answers`. Their words are made up for the scene, AI Sales Coach's playbook and cards included. `p.point` scrolls a target into view when a box that scrolls cuts it
+     off, such as an add-on's row low in the side menu.
    - **Only what the Assistant can do.** It can't search notes or messages (Search everything is for people only),
      so a scene that finds something that way plays in the Search box instead.
 5. If a screen the scene opens asks for something `respond.ts` doesn't answer yet, the browser console says

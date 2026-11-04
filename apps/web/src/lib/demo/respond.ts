@@ -1,4 +1,5 @@
 import {
+  ADDON_CATALOG,
   CHAT_VISITOR_NAME,
   emptyTeammateConfig,
   type AssistantCard,
@@ -100,14 +101,18 @@ const iso = (ms: number) => new Date(ms).toISOString();
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-/** What a message or a call reads as in the inbox's row. */
+/** What a message or a call reads as in the inbox's row. A call out reads as core's callPreview words it. */
 const previewOf = (m: DemoConversation['messages'][number]) =>
   m.call
-    ? m.call.status === 'missed'
-      ? 'Missed call'
-      : m.call.status === 'completed'
-        ? 'Call answered by your AI teammate'
-        : 'Incoming call'
+    ? m.direction === 'outbound'
+      ? m.call.status === 'completed' && m.call.seconds !== null
+        ? `Call · ${Math.floor(m.call.seconds / 60)}:${String(m.call.seconds % 60).padStart(2, '0')}`
+        : 'Calling…'
+      : m.call.status === 'missed'
+        ? 'Missed call'
+        : m.call.status === 'completed'
+          ? 'Call answered by your AI teammate'
+          : 'Incoming call'
     : m.body || (m.media?.length ? 'Sent a photo' : '');
 
 /** A website chat's counterpart is its visitor; a text's is the phone number. */
@@ -361,9 +366,10 @@ function thread(w: DemoWorld, c: DemoConversation): Thread {
 }
 
 function draft(w: DemoWorld, c: DemoConversation, d: DemoDraft): Draft {
+  const ask = d.ask;
   return {
     id: d.id,
-    kind: 'reply',
+    kind: ask ? 'ask' : 'reply',
     status: d.status,
     teammate: { id: TEAMMATE, name: w.state.teammate },
     runId: RUN,
@@ -399,7 +405,17 @@ function draft(w: DemoWorld, c: DemoConversation, d: DemoDraft): Draft {
       ],
       discount: null,
       call: null,
-      ask: null,
+      ask: ask
+        ? {
+            addonId: ask.addonId,
+            addonName: ADDON_CATALOG.find((m) => m.id === ask.addonId)?.name ?? ask.addonId,
+            operation: ask.operation,
+            tool: ask.tool,
+            input: { ...ask.input },
+            recordId: ask.recordId,
+            summary: ask.summary,
+          }
+        : null,
       flags: [],
       funnel: null,
     },
@@ -411,7 +427,7 @@ function draft(w: DemoWorld, c: DemoConversation, d: DemoDraft): Draft {
     expiresAt: iso(d.at + 24 * 3600_000),
     createdAt: iso(d.at),
     canDecide: true,
-    record: null,
+    record: ask ? { id: ask.recordId, name: ask.recordName } : null,
     knowledge: (d.knowledge ?? []).map((title) => ({ title })),
   };
 }
@@ -1119,6 +1135,22 @@ function composeOptions(
   };
 }
 
+/**
+ * A business as account.me and workspace.get describe it, with the scene's add-ons on: in its list, and every one of
+ * their permissions held, as an owner holds them.
+ */
+type Shelled = { addons: string[]; permissions: string[] };
+function withAddons<T extends Shelled>(ws: T, addons: readonly string[]): T {
+  const keys = addons.flatMap(
+    (id) => ADDON_CATALOG.find((m) => m.id === id)?.permissions.map((p) => p.key) ?? [],
+  );
+  return {
+    ...ws,
+    addons: [...new Set([...ws.addons, ...addons])],
+    permissions: [...new Set([...ws.permissions, ...keys])],
+  };
+}
+
 const findConversation = (w: DemoWorld, id: unknown) =>
   w.conversations.find((c) => c.id === id || c.person.id === id) ?? null;
 
@@ -1163,13 +1195,36 @@ export async function demoResponse(
   }
 
   const op = /^\/v1\/(queries|commands)\/(.+)$/.exec(path);
+  // The scene's own answers, whatever they name: an import that never leaves the tab. The worker's test chat is
+  // `ai_team.test`.
+  const scene = findScene(state.scene);
+  const own = scene?.answers?.[path === '/v1/ai-team/test' ? 'ai_team.test' : (op?.[2] ?? '')];
+  if (own) {
+    const answer = await own(
+      w,
+      body,
+      async () => {
+        const r = await real();
+        return r.ok ? ((await r.json()) as Record<string, unknown>) : null;
+      },
+      signal,
+    );
+    if (answer instanceof Response) return answer;
+    if (answer !== undefined) return json(answer);
+  }
   if (!op) return null;
   const [, kind, name] = op;
-  // The scene's own answers, whatever they name: an import that never leaves the tab.
-  const own = findScene(state.scene)?.answers?.[name!];
-  if (own) {
-    const answer = own(w, body);
-    if (answer !== undefined) return json(answer);
+  // An add-on the scene shows as on: the shell draws its menu row and opens its pages.
+  if (scene?.addons?.length && (name === 'account.me' || name === 'workspace.get')) {
+    const r = await real();
+    if (!r.ok) return r;
+    const got = (await r.json()) as Record<string, unknown>;
+    const on = scene.addons;
+    return json(
+      name === 'account.me'
+        ? { ...got, workspaces: (got['workspaces'] as Shelled[]).map((x) => withAddons(x, on)) }
+        : { ...got, workspace: withAddons(got['workspace'] as Shelled, on) },
+    );
   }
   const c = findConversation(w, body['conversationId'] ?? body['personId']);
 

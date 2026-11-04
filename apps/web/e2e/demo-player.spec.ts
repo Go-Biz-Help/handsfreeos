@@ -491,6 +491,77 @@ test('demo player: moving in from another CRM, a form that texts back, Google re
   await expect(page.getByText('Rhonda Sutton')).toHaveCount(0);
 });
 
+test('demo player: the AI calls a new lead, a sales coach on the call, a home buyer’s text, and Social Outreach’s first messages', async ({
+  page,
+}) => {
+  test.setTimeout(600_000);
+  const workspaceId = await staffBusiness(page, 'demo-addons');
+  await page.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(director(page)).toBeVisible();
+
+  // Scene 46: the AI teammate calls the form's lead, the call is kept, and the estimate is booked.
+  await pick(page, 'ai-calls-lead', 'A quote request while you’re out');
+  await play(page, 5);
+  await expect(page).toHaveURL(/\/inbox\/de300000-/);
+  await expect(page.getByText('Outgoing call').first()).toBeVisible();
+  await expect(page.getByTestId('context-panel')).toContainText('Furnace replacement estimate');
+
+  // Scene 47: AI Sales Coach shows as on, with its row in the menu, and its cards come one by one.
+  await pick(page, 'sales-coach', 'Curtis joins the call');
+  await expect(page.locator(`aside a[href="/app/w/${workspaceId}/a/salescoach"]`)).toHaveCount(1);
+  await play(page, 5);
+  await expect(page.getByTestId('coach-card')).toHaveCount(3);
+  await expect(page.getByTestId('coach-live')).toContainText('Writing up the call');
+
+  // Scene 48: the teammate asks before adding the house, and the text goes once it's approved.
+  await pick(page, 'buyer-texts', 'A buyer texts about a house');
+  await play(page, 3);
+  await expect(page.getByText(/Great find, Joanna!/).first()).toBeVisible();
+  await expect(page.getByTestId('draft-card')).toHaveCount(0);
+
+  // Scene 49: three first messages OK'd, and the reply that asked for you handed over.
+  await pick(page, 'outreach-starts', 'It found people in your groups');
+  await play(page, 4);
+  await expect(page.getByTestId('waiting-message')).toHaveCount(0);
+  await expect(page.getByTestId('waiting-reply')).toContainText('Shonda Merritt');
+
+  // Nothing was turned on, and nothing was saved.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await expect(page.locator(`aside a[href="/app/w/${workspaceId}/a/salescoach"]`)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/a/salescoach`);
+  await expect(page.getByTestId('addon-unavailable')).toBeVisible();
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  for (const name of ['Tamika Rhodes', 'Joanna Whitlock'])
+    await expect(page.getByText(name)).toHaveCount(0);
+});
+
+test('demo player: a new owner sets up the AI teammate from their website', async ({ page }) => {
+  test.setTimeout(300_000);
+  const workspaceId = await staffBusiness(page, 'demo-setup');
+  await page.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(director(page)).toBeVisible();
+
+  // Scene 39: the website is read into the screens, Save sets it up, and the test chat answers.
+  await pick(page, 'website-setup', 'Paste your website');
+  await play(page, 9);
+  await expect(page).toHaveURL(/\/ai-team\/setup\?at=try/);
+  await expect(page.getByTestId('ai-setup-chat-code')).toBeVisible();
+  await expect(page.getByTestId('ai-setup-test')).toContainText('Katy, Cypress, Spring');
+  await expect(page.getByTestId('ai-setup-test')).toContainText('Saturday from 8 AM to noon');
+  await expect(
+    page.locator('[data-testid^="ai-setup-test-"][data-outcome="handed_off"]'),
+  ).toHaveCount(1);
+
+  // Nothing was saved: no teammate, no website, and nothing it read.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/ai-team/setup`);
+  await expect(page.getByTestId('ai-setup')).toHaveAttribute('data-step', 'business');
+  await expect(page.getByTestId('ai-setup-website-input')).toHaveValue('');
+});
+
 test('demo player: Admin → Demo player plays a scene in your business, each step with its voiceover', async ({
   page,
 }) => {
