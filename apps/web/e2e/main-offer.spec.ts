@@ -328,8 +328,10 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   const samples = messages.getByTestId('ready-messages-samples');
   await expect(samples).toContainText('First message, once they accept');
   await expect(samples).toContainText('If they go quiet: 6 follow-ups');
-  await expect(samples).toContainText('If they say yes: the video');
-  await expect(samples).toContainText('[video link]');
+  // No video message since decision 154: a yes gets the demo ask and the link; videos go in follow-ups.
+  await expect(samples).toContainText('If they want a call: the link');
+  await expect(samples).not.toContainText('If they say yes: the video');
+  await expect(samples).not.toContainText('[video link]');
   // Each can be put in their own words, or written again with a note on what's not quite right (decision 87).
   const followUp = messages.locator('[data-testid="ready-message"][data-slot="followUps.1"]');
   await followUp.getByTestId('ready-message-change').click();
