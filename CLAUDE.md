@@ -45,6 +45,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | HandsFreeOS video calls                      | `docs/video-calls.md`; setting up LiveKit is "Video calls: LiveKit" in `docs/operations.md`                       |
 | Webinars and their live polls                | `HANDSFREEOS_WEBINARS_IMPLEMENTATION_PLAN.md`, then "Webinars" in `docs/video-calls.md`                           |
 | Connecting Google and Outlook calendars      | `docs/calendar-setup.md`                                                                                          |
+| The demo player for videos and live shows    | `apps/web/src/lib/demo/README.md`                                                                                 |
 
 ## How the system works
 

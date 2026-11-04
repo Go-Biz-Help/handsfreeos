@@ -10,6 +10,8 @@ import {
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
+import { demoMiddleware } from '../demo/server';
+import { DEMO_COOKIE, parseDemoState } from '../demo/state';
 import { publicEnv } from '../env';
 import { getServerSession } from '../supabase/server';
 import { VIEW_AS_COOKIE, parseViewCookie, type ViewCookie } from '../view-as';
@@ -69,7 +71,10 @@ export async function apiServer(): Promise<{
 }> {
   const session = await getServerSession();
   if (!session) redirect('/sign-in');
-  const viewing = parseViewCookie((await cookies()).get(VIEW_AS_COOKIE)?.value);
+  const jar = await cookies();
+  const viewing = parseViewCookie(jar.get(VIEW_AS_COOKIE)?.value);
+  // A demo scene playing on this business's pages (staff only, lib/demo): its made-up records answer for themselves.
+  const demo = parseDemoState(jar.get(DEMO_COOKIE)?.value);
   const api = createApiClient({
     baseUrl: publicEnv.apiUrl,
     getToken: () => session.accessToken,
@@ -82,6 +87,7 @@ export async function apiServer(): Promise<{
         return request;
       },
     });
+  if (demo) api.use(demoMiddleware(demo));
   return {
     api,
     userId: viewing?.personId ?? session.userId,
