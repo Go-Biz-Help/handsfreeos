@@ -17,7 +17,7 @@ import {
   type ContactStart,
 } from '@hfos/core';
 import * as React from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
+import { View } from 'react-native';
 
 import { askForTime } from '@/calendar/actions';
 import {
@@ -28,10 +28,11 @@ import {
   type CalendarChoice,
   type CustomerChoice,
 } from '@/calendar/use-calendar';
-import { Check, UserPlus } from '@/components/icons';
+import { Chips } from '@/components/calendar/chips';
+import { ZoneChips } from '@/components/calendar/zone-chips';
+import { UserPlus } from '@/components/icons';
 import { useBusiness } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Sheet } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
@@ -40,7 +41,6 @@ import { toast } from '@/components/ui/toast';
 import { addCustomer } from '@/customers/add-customer';
 import { useNetwork } from '@/lib/network';
 import { matchesSearch } from '@/sync/compute';
-import { cn } from '@/lib/utils';
 
 /**
  * **Ask for a time** (the canvas's "New appointment"): what, which day, what time, who goes, and whether the customer
@@ -54,6 +54,9 @@ import { cn } from '@/lib/utils';
  * Someone not yet a customer is added here too: a search that finds nobody offers "Add “Dana Smith” as a new
  * contact", and a small form takes their name, number and email in this sheet (an iPhone shows one sheet at a time).
  * Adding works with no signal like everything else here, and the time asked for waits for them to be added first.
+ *
+ * The time starts on the business's clock. Time zone sets it on another one (a customer's "2 PM Pacific"), and the
+ * line under it says where that lands on the calendar (core `zone-pick.ts`, as on the web).
  */
 export function NewAppointmentSheet({
   open,
@@ -98,6 +101,8 @@ export function NewAppointmentSheet({
   // The next half hour, which is what someone asking from a customer's house means; inside the working day, so a
   // booking made late in the evening opens on the morning rather than at 9 PM.
   const [minutes, setMinutes] = React.useState(() => nextHalfHour(timeZone));
+  /** The zone the day and time are read in: the business's, or another picked under them. */
+  const [zone, setZone] = React.useState(timeZone);
   const [userIds, setUserIds] = React.useState<readonly string[]>([]);
   const [title, setTitle] = React.useState('');
   const [notify, setNotify] = React.useState(true);
@@ -114,6 +119,7 @@ export function NewAppointmentSheet({
     if (open) {
       setDay(date);
       setMinutes(nextHalfHour(timeZone));
+      setZone(timeZone);
       setTitle('');
       setChosen(null);
       setTyped('');
@@ -137,7 +143,7 @@ export function NewAppointmentSheet({
       await askForTime({
         workspaceId: business.id,
         calendarId: calendar.id,
-        startsAt: new Date(localInstant(day, clockOf(minutes), timeZone)).toISOString(),
+        startsAt: new Date(localInstant(day, clockOf(minutes), zone)).toISOString(),
         durationMinutes: length,
         serviceId: service?.serviceId ?? null,
         personId: forWhom?.id ?? null,
@@ -147,6 +153,7 @@ export function NewAppointmentSheet({
         address: forWhom?.address ?? null,
         leadId: null,
         notify,
+        timezone: zone,
         dependsOn: added && added.personId === forWhom?.id ? [added.changeId] : [],
       });
       toast.show(
@@ -300,6 +307,18 @@ export function NewAppointmentSheet({
           testID="new-appointment-time"
         />
         <Text className="mt-1 text-xs text-text-3">{fmtLength(length)}</Text>
+      </Field>
+
+      <Field label="Time zone">
+        <ZoneChips
+          // A fresh one each time the sheet opens, so a search left open last time is shut.
+          key={open ? 'open' : 'shut'}
+          value={zone}
+          onChange={setZone}
+          homeZone={timeZone}
+          at={localInstant(day, clockOf(minutes), zone)}
+          testID="new-appointment-zone"
+        />
       </Field>
 
       {onThisCalendar.length ? (
@@ -497,48 +516,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       </Text>
       {children}
     </View>
-  );
-}
-
-function Chips({
-  options,
-  value,
-  onChange,
-  testID,
-}: {
-  options: readonly { value: string; label: string }[];
-  value: string;
-  onChange: (value: string) => void;
-  testID?: string;
-}) {
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} testID={testID}>
-      <View className="flex-row gap-1.5 pr-3">
-        {options.map((o) => {
-          const on = o.value === value;
-          return (
-            <Pressable
-              key={o.value}
-              role="button"
-              accessibilityState={{ selected: on }}
-              testID={`${testID}-${o.value}`}
-              onPress={() => onChange(o.value)}
-              className={cn(
-                'h-11 flex-row items-center gap-1.5 rounded-full border px-3.5',
-                on ? 'border-transparent bg-accent-soft' : 'border-border-strong bg-card',
-              )}
-            >
-              {on ? <Icon as={Check} className="size-3.5 text-accent-text" /> : null}
-              <Text
-                className={cn('text-[13px] font-medium', on ? 'text-accent-text' : 'text-text-2')}
-              >
-                {o.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </ScrollView>
   );
 }
 

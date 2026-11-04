@@ -374,6 +374,8 @@ export interface BookingRequest extends CustomerFields {
   readonly notes?: string | null;
   /** The `ref` the page was opened with, for whoever's link it was. */
   readonly ref?: string | null;
+  /** The zone the page showed the times in, which the customer's messages then use. */
+  readonly timezone?: string | null;
 }
 
 export interface WaitlistRequest extends CustomerFields {

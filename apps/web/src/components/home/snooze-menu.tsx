@@ -1,14 +1,14 @@
 'use client';
-import { addDays, ATTENTION_WORDS, localDateOf, localInstant, snoozePickError } from '@hfos/core';
+import { addDays, ATTENTION_WORDS, instantOfInput, localDateOf, snoozePickError } from '@hfos/core';
 import { AlarmClock, CalendarClock, CalendarDays, Moon, Sun, type LucideIcon } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { ZonePick } from '@/components/calendar/zone-field';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import type { AttentionItem } from '@/lib/api/types';
-import { zoneLabel } from '@/lib/calendar/time';
 import { SheetRow } from './attention-bits';
 import { useAttentionEnv } from './attention-context';
 import { SNOOZE_MAX_DAYS, snoozeChoices, type SnoozeChoice } from './attention-words';
@@ -88,7 +88,10 @@ export function SnoozeRows({
   );
 }
 
-/** "Snooze until": a day and a time in the business's time zone, up to 30 days ahead. */
+/**
+ * "Snooze until": a day and a time, up to 30 days ahead, in the business's time zone, or on another zone's clock
+ * picked under them (core `zone-pick.ts`).
+ */
 export function PickTimeDialog({
   item,
   open,
@@ -105,11 +108,12 @@ export function PickTimeDialog({
   });
   const [date, setDate] = useState(bounds.tomorrow);
   const [time, setTime] = useState('09:00');
+  const [zone, setZone] = useState(env.timeZone);
   const [error, setError] = useState<string | null>(null);
+  const until = date && time ? instantOfInput(`${date}T${time}`, zone) : null;
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    const until = date && time ? localInstant(date, time, env.timeZone) : null;
     const problem = snoozePickError(until, Date.now());
     if (problem || until === null) return setError(problem);
     onOpenChange(false);
@@ -149,10 +153,17 @@ export function PickTimeDialog({
               {error}
             </p>
           ) : (
-            <p className="mt-1.5 text-[12.5px] text-text-3">
-              {ATTENTION_WORDS.pickZone(zoneLabel(env.timeZone))}
-            </p>
+            <p className="mt-1.5 text-[12.5px] text-text-3">{ATTENTION_WORDS.upTo30Days}.</p>
           )}
+          <ZonePick
+            id="snooze-zone"
+            value={zone}
+            onChange={setZone}
+            businessZone={env.timeZone}
+            at={until}
+            testId="snooze-zone"
+            className="mt-3"
+          />
           <div className="mt-4 flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
               {ATTENTION_WORDS.cancel}

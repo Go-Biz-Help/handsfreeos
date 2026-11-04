@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { ATTENTION_KINDS } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
-import { uuid } from '../schemas/common';
+import { timezone, uuid } from '../schemas/common';
 import { IntakeChannelKind } from '../schemas/intake';
 import { SETTINGS_AREAS } from './settings-map';
 import {
@@ -1020,10 +1020,18 @@ export const assistantTools = [
   define({
     name: 'update_my_hours',
     description:
-      'Change the person’s own working hours, or put time off in the calendar (a day, a run of days, or part of a day). Theirs alone. Use a local date like 2026-09-24 for whole days.',
+      'Change the person’s own working hours or the time zone they’re in, or put time off in the calendar (a day, a run of days, or part of a day). Theirs alone. Use a local date like 2026-09-24 for whole days.',
     input: z.object({
       action: z.enum(['set_hours', 'add_time_off', 'remove_time_off']),
-      weekly: WeeklyHoursInput.optional().describe('The working week, for set_hours'),
+      weekly: WeeklyHoursInput.optional().describe(
+        'The working week, for set_hours; leave out to change only the time zone',
+      ),
+      timeZone: z
+        .union([timezone, z.literal('business')])
+        .optional()
+        .describe(
+          'set_hours: the zone the hours are in, for someone who lives elsewhere (America/Denver), or business to follow the business’s again',
+        ),
       startDate: z
         .string()
         .refine(isLocalDate, { error: 'Use a date like 2026-09-24.' })

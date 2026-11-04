@@ -79,7 +79,8 @@ export async function armReminders(
     const prev = state.reminders[key];
     // Already sent, or already skipped, for this very start.
     if (prev && prev.startsAt === startIso && prev.status !== 'scheduled') continue;
-    const due = reminderDueAt(reminder, start, b.visit.timeZone);
+    // On the calendar's clock, as the business set it ("the day before at 6 PM"); the words are the customer's.
+    const due = reminderDueAt(reminder, start, b.calendar.timeZone);
     if (bookedTooLate(reminder, start, bookedAt) || due <= bookedAt) {
       await record(
         s,
@@ -166,7 +167,7 @@ export const appointmentReminder: JobHandler = async (ctx) => {
   const reminder = n.reminders.find((r) => reminderKey(r) === key);
   if (!reminder || (!n.reminderChannels.text && !n.reminderChannels.email))
     return note({ status: 'skipped', reason: 'reminders_off' });
-  const due = reminderDueAt(reminder, start, b.visit.timeZone);
+  const due = reminderDueAt(reminder, start, b.calendar.timeZone);
   if (due > now + 250) return { rescheduleAt: new Date(due) };
   // Settings → Automations: the day-before and day-of reminders each have a switch for the whole business, read
   // when the reminder is due, so one turned back on before then still goes.

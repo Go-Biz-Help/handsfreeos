@@ -182,17 +182,20 @@ export const webinarSchedule = defineCommand({
       };
     }
 
+    // A repeat keeps the clock of the zone it was set in: 9 AM Manila stays 9 AM there after Chicago's clocks change.
+    const zone = input.timezone ?? calendar.timeZone;
     const rule = RecurrenceRule.parse(
       webinarRepeatRule(
         input.repeat,
         input.times ?? webinarRepeatDefault(input.repeat),
-        HH_MM(startsAt, calendar.timeZone),
+        HH_MM(startsAt, zone),
       ),
     );
     const repeat = {
       ...common,
-      firstDate: localDateOf(startsAt, calendar.timeZone),
+      firstDate: localDateOf(startsAt, zone),
       rule,
+      timezone: zone,
       acknowledgeWarnings: input.acknowledgeWarnings,
     };
     let out;

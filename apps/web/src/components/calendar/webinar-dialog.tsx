@@ -1,5 +1,6 @@
 'use client';
 import {
+  fmtAtPicked,
   isWebinarCalendar,
   localInstant,
   minutesToClock,
@@ -22,8 +23,9 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { CalendarSummary } from '@/lib/api/types';
-import { fmtAt, fmtLength, timeOptionsWith, zoneLabel } from '@/lib/calendar/time';
+import { fmtLength, timeOptionsWith } from '@/lib/calendar/time';
 import { calendarConfig } from './config-cache';
+import { ZoneField } from './zone-field';
 
 /** The most people a webinar holds at once (WEBINAR_MAX_PEOPLE), and so the most seats it takes. */
 const MAX_SEATS = 500;
@@ -37,7 +39,8 @@ export interface ScheduledWebinar {
 /**
  * New webinar: a name, the date and time, how long, who presents, the seats, and whether it repeats (every week,
  * every 2 weeks or every month). It goes on the business's webinar calendar; when there's none, webinar.schedule
- * makes one ("Webinars", with you presenting), so nobody has to set a calendar up first.
+ * makes one ("Webinars", with you presenting), so nobody has to set a calendar up first. The time can be set on
+ * another zone's clock with the Time zone pick, and a repeat keeps that clock.
  */
 export function WebinarDialog({
   open,
@@ -69,6 +72,8 @@ export function WebinarDialog({
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(startDate ?? todayIn(timeZone));
   const [time, setTime] = useState(12 * 60);
+  /** The zone the date and start are read in: the calendar's, or another picked beside them. */
+  const [zone, setZone] = useState(timeZone);
   const [duration, setDuration] = useState<number | null>(null);
   const [userId, setUserId] = useState('');
   const [seats, setSeats] = useState<number | null>(null);
@@ -131,6 +136,7 @@ export function WebinarDialog({
   const every = repeat === 'none' ? null : repeat;
   const count = every ? Math.min(times ?? webinarRepeatDefault(every), webinarRepeatMax(every)) : 1;
   const blocked = none && !canManage;
+  const startsAt = localInstant(date, minutesToClock(time), zone);
 
   const change =
     <T,>(set: (v: T) => void) =>
@@ -151,7 +157,8 @@ export function WebinarDialog({
             workspaceId,
             ...(calendarId ? { calendarId } : {}),
             title: title.trim(),
-            startsAt: new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString(),
+            startsAt: new Date(startsAt).toISOString(),
+            timezone: zone,
             durationMinutes: length,
             ...(host ? { userIds: [host] } : {}),
             seats: seatCount,
@@ -162,18 +169,21 @@ export function WebinarDialog({
         }),
       );
       const booked = out.appointmentIds.length;
-      const startsAt = new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString();
+      const when = fmtAtPicked(startsAt, zone, timeZone);
       const what =
         booked === 1
-          ? `${title.trim()} for ${fmtAt(startsAt, timeZone)}`
-          : `${booked} dates of ${title.trim()}, from ${fmtAt(startsAt, timeZone)}`;
+          ? `${title.trim()} for ${when}`
+          : `${booked} dates of ${title.trim()}, from ${when}`;
       const skipped = out.skipped.length
         ? ` ${out.skipped.length === 1 ? '1 date didn’t fit' : `${out.skipped.length} dates didn’t fit`}: ${out.skipped[0]!.reason}`
         : '';
       const made = out.calendarMade ? ` It’s on a new ${out.calendarName} calendar.` : '';
       toast.success(`Scheduled ${what}, with ${seatsLabel(seatCount)}.${made}${skipped}`);
       setWarning(null);
-      onScheduled({ appointmentId: out.appointmentIds[0]!, startsAt });
+      onScheduled({
+        appointmentId: out.appointmentIds[0]!,
+        startsAt: new Date(startsAt).toISOString(),
+      });
     } catch (e) {
       if (e instanceof ApiError && e.rule === 'needs_confirmation') setWarning(e.message);
       else setError(errorMessage(e));
@@ -254,6 +264,14 @@ export function WebinarDialog({
               </Select>
             </Field>
           </div>
+          <ZoneField
+            id="webinar-zone"
+            value={zone}
+            onChange={change(setZone)}
+            calendarZone={timeZone}
+            at={startsAt}
+            testId="webinar-zone"
+          />
           <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-2.5">
             <Field label="Presenter" htmlFor="webinar-host" className="min-w-0">
               <Select
@@ -329,8 +347,7 @@ export function WebinarDialog({
               ? 'This business has no webinar calendar yet. Ask an owner or admin to schedule the first webinar, or to add a Webinar calendar in Settings → Calendars.'
               : none
                 ? 'It runs on HandsFreeOS video. A Webinars calendar is made for it, with you presenting, and people save a seat from your booking page or the webinar’s own link.'
-                : `It runs on HandsFreeOS video${current && found!.length === 1 ? `, on ${current.name}` : ''}. People save a seat from your booking page or the webinar’s own link.`}{' '}
-            Times are {zoneLabel(timeZone)}.
+                : `It runs on HandsFreeOS video${current && found!.length === 1 ? `, on ${current.name}` : ''}. People save a seat from your booking page or the webinar’s own link.`}
           </p>
           {warning ? (
             <div

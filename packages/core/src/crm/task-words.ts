@@ -56,20 +56,23 @@ export type DueTone = 'danger' | 'accent' | 'muted';
 
 /**
  * The end of a task's row: "Overdue · Sep 21, 10:00 AM" in red, "Today 2:00 PM" in the accent, "Sep 25" and
- * "Done Sep 13" quiet.
+ * "Done Sep 13" quiet. On the business's clock when its zone is given, as the task was set (the Time zone pick), so
+ * the day and the time match "today" and "overdue" wherever the screen is.
  */
 export function dueLabel(
   task: TaskDue & { readonly dueBucket: DueBucket },
   now: Date = new Date(),
+  timeZone?: string,
 ): { readonly text: string; readonly tone: DueTone } {
   const done = at(task.doneAt);
-  if (done) return { text: `Done ${formatDate(done.toISOString(), {}, now)}`, tone: 'muted' };
+  if (done)
+    return { text: `Done ${formatDate(done.toISOString(), { timeZone }, now)}`, tone: 'muted' };
   const due = at(task.dueAt);
   if (!due) return { text: 'No due date', tone: 'muted' };
-  const when = formatDate(due.toISOString(), { time: !task.allDay }, now);
+  const when = formatDate(due.toISOString(), { time: !task.allDay, timeZone }, now);
   if (task.dueBucket === 'overdue') return { text: `Overdue · ${when}`, tone: 'danger' };
   if (task.dueBucket === 'today')
-    return { text: task.allDay ? 'Today' : `Today ${timeOfDay(due)}`, tone: 'accent' };
+    return { text: task.allDay ? 'Today' : `Today ${timeOfDay(due, timeZone)}`, tone: 'accent' };
   return { text: when, tone: 'muted' };
 }
 

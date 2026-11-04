@@ -1,5 +1,5 @@
 /**
- * Dates and times on the booking pages, always in the business's time zone ("Times in Central Time").
+ * Dates and times on the booking pages, in the zone the page shows: the viewer's, else the calendar's (`viewer-zone.tsx`).
  * Clock times are built from parts, so the narrow space some browsers put before AM never leaks in.
  */
 import { localDateOf, parseLocalDate, weekdayOf, zonedParts } from '@hfos/core';

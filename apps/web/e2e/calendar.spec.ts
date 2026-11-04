@@ -18,14 +18,21 @@ test('books from a customer page in Chicago time, drags with a confirm, then com
   await page.getByTestId('action-book').click();
   const dialog = page.getByRole('dialog', { name: 'New appointment' });
   await expect(dialog.getByTestId('appointment-customer')).toContainText('Mike Johnson');
-  await expect(dialog).toContainText('Times are Central Time.');
+  await expect(dialog.getByLabel('Time zone')).toHaveValue('America/Chicago');
   await dialog.getByLabel('Date').fill(day);
-  await dialog.getByLabel('Start').selectOption('1140');
+  // Typed as 5 PM on Pacific's clock with the Time zone pick: it lands at 7 PM Chicago, and says so.
+  await dialog.getByLabel('Time zone').selectOption('America/Los_Angeles');
+  await dialog.getByLabel('Start').selectOption('1020');
+  await expect(dialog.getByTestId('appointment-zone-note')).toHaveText(
+    'That’s 7:00 PM Central Time on your calendar.',
+  );
   await dialog.getByTestId('appointment-book').click();
   await expect(dialog.getByTestId('appointment-warnings')).toBeVisible();
   await expect(dialog.getByTestId('appointment-book')).toHaveText('Book anyway');
   await dialog.getByTestId('appointment-book').click();
-  await expect(page.getByText(/^Booked Estimates with .* at 7:00 PM\.$/)).toBeVisible();
+  await expect(
+    page.getByText(/^Booked Estimates with .* at 7:00 PM \(5:00 PM Pacific Time\)\.$/),
+  ).toBeVisible();
   await expect(page.getByTestId('upcoming-appointments')).toContainText('7:00–8:00 PM');
   await expect(page.getByTestId('timeline')).toContainText('booked Estimates for');
 

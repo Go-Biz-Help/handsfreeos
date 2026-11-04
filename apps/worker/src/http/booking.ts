@@ -19,6 +19,7 @@ import {
   attendeeConfirmOnline,
   attendeeRescheduleOnline,
   bookableDurations,
+  canonicalTimeZone,
   computeSlots,
   DEPOSIT_HOLD_MINUTES,
   effectiveVideo,
@@ -674,6 +675,11 @@ const BookingBody = z.object({
   notes: z.string().trim().max(2000).nullable().optional(),
   /** The `ref` the page was opened with (`?ref=`): a link's, kept on the booking. Anything odd is left off. */
   ref: z.string().max(200).nullable().optional(),
+  /**
+   * The zone the page showed the times in (the visitor's device's, or the one they changed it to), which their
+   * messages then use. A zone HandsFreeOS doesn't know is left off: the booking still goes through.
+   */
+  timezone: z.string().max(64).nullable().optional(),
   ...customerFields,
 });
 
@@ -1319,6 +1325,7 @@ export async function registerBookingRoutes(app: FastifyInstance, deps: HttpDeps
             intake: body.intake,
             notes: body.notes ?? null,
             linkRef: linkRefOf(body.ref),
+            timezone: canonicalTimeZone(body.timezone) ?? undefined,
             clientId: body.clientId,
           },
           systemActor(scope),

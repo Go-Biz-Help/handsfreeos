@@ -180,6 +180,7 @@ export function RecordBody(props: RecordBodyProps) {
               <TaskRow
                 key={task.id}
                 task={task}
+                timeZone={data.timeZone}
                 onToggle={(t) => void toggleTask(business.id, t, me.user.id)}
               />
             ))
@@ -276,6 +277,7 @@ export function RecordBody(props: RecordBodyProps) {
       />
       <TaskSheet
         open={props.sheets.task}
+        timeZone={data.timeZone}
         members={members}
         myUserId={me.user.id}
         onClose={() => props.onSheet('task', false)}

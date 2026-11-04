@@ -5,9 +5,11 @@
  * They were `apps/web/src/lib/format.ts`, which the record page, the pipeline, tasks, files and the timeline all
  * read. The dates are written out by hand in US English rather than handed to `Intl`, for the reason the inbox's
  * `inbox/time.ts` gives: Hermes on a phone and a browser's ICU disagree about the space before AM and about a few
- * abbreviations, and the two apps must say exactly the same thing. Everything reads the moment as the device does
- * (its own clock and zone), which is what the web has always done here.
+ * abbreviations, and the two apps must say exactly the same thing. A moment reads on the device's own clock unless a
+ * zone is given: a task's due time and a lead's next action read on the business's, as they were set (the Time zone
+ * pick, `calendar/zone-pick.ts`), so a teammate who travels sees the same 2:00 PM the office does.
  */
+import { zonedParts } from '../calendar/engine/zoned';
 
 const MONTHS_SHORT = [
   'Jan',
@@ -26,24 +28,48 @@ const MONTHS_SHORT = [
 
 const DAY_MS = 86_400_000;
 
-const clock = (d: Date): string => {
-  const hours = d.getHours();
+interface Wall {
+  readonly year: number;
+  /** 1 is January. */
+  readonly month: number;
+  readonly day: number;
+  readonly hour: number;
+  readonly minute: number;
+}
+
+/** A moment's wall clock: in a zone when one is given, else on the device's own. */
+const wall = (d: Date, timeZone?: string): Wall =>
+  timeZone
+    ? zonedParts(d, timeZone)
+    : {
+        year: d.getFullYear(),
+        month: d.getMonth() + 1,
+        day: d.getDate(),
+        hour: d.getHours(),
+        minute: d.getMinutes(),
+      };
+
+const clock = ({ hour: hours, minute }: Wall): string => {
   const hour = hours % 12 === 0 ? 12 : hours % 12;
-  return `${hour}:${String(d.getMinutes()).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+  return `${hour}:${String(minute).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
 };
 
-/** "Sep 21", "Sep 21, 2025" in another year, and "Sep 21, 10:00 AM" with `time`. Nothing for no date. */
+/**
+ * "Sep 21", "Sep 21, 2025" in another year, and "Sep 21, 10:00 AM" with `time`. Nothing for no date. With `timeZone`,
+ * on that zone's clock rather than the device's.
+ */
 export function formatDate(
   iso: string | null | undefined,
-  opts: { time?: boolean } = {},
+  opts: { time?: boolean; timeZone?: string } = {},
   now: Date = new Date(),
 ): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const date = `${MONTHS_SHORT[d.getMonth()]!} ${d.getDate()}`;
-  const withYear = d.getFullYear() === now.getFullYear() ? date : `${date}, ${d.getFullYear()}`;
-  return opts.time ? `${withYear}, ${clock(d)}` : withYear;
+  const w = wall(d, opts.timeZone);
+  const date = `${MONTHS_SHORT[w.month - 1]!} ${w.day}`;
+  const withYear = w.year === wall(now, opts.timeZone).year ? date : `${date}, ${w.year}`;
+  return opts.time ? `${withYear}, ${clock(w)}` : withYear;
 }
 
 /**
@@ -72,10 +98,10 @@ export function monthYear(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : `${MONTHS_SHORT[d.getMonth()]!} ${d.getFullYear()}`;
 }
 
-/** "10:24 AM" on the device's own clock. */
-export function timeOfDay(iso: string | number | Date): string {
+/** "10:24 AM" on the device's own clock, or on a zone's when one is given. */
+export function timeOfDay(iso: string | number | Date, timeZone?: string): string {
   const d = iso instanceof Date ? iso : new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : clock(d);
+  return Number.isNaN(d.getTime()) ? '' : clock(wall(d, timeZone));
 }
 
 /** Whole days since a moment, never negative. */

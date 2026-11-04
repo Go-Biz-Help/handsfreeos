@@ -36,6 +36,7 @@ import { AddToCalendar } from './add-to-calendar';
 import { dayLong, dayShort, hoursLabel, joinNames, seatsLabel, timeOf, timeRange } from './format';
 import { callPhrase, CallButton, PublicFrame, PublicState } from './public-shell';
 import { TimePicker } from './time-picker';
+import { TimesIn, useViewerZone, zoneWords } from './viewer-zone';
 
 type Failure =
   | { kind: 'stale'; business: PublicBusiness | null }
@@ -54,8 +55,7 @@ const CANCEL_REASON: Record<string, string> = {
 };
 
 /** The rules in plain words (the canvas's "You can move or cancel until ..."). */
-function rulesText(view: ManageView): string {
-  const tz = view.appointment.timezone;
+function rulesText(view: ManageView, tz: string): string {
   const { reschedule: r, cancel: c } = view.policies;
   const at = (iso: string) => `${dayShort(iso, tz)} at ${timeOf(iso, tz)}`;
   const parts: string[] = [];
@@ -83,7 +83,7 @@ function rulesText(view: ManageView): string {
   return parts.join(' ');
 }
 
-/** "tomorrow at 10:00 AM", "today at 2:00 PM", else "Wednesday at 2:00 PM", in the business's zone. */
+/** "tomorrow at 10:00 AM", "today at 2:00 PM", else "Wednesday at 2:00 PM", in the zone the page shows. */
 function seeYouAt(startsAt: string, tz: string): string {
   const day = localDateOf(Date.parse(startsAt), tz);
   const today = localDateOf(Date.now(), tz);
@@ -117,6 +117,8 @@ export function ManageBooking({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Times in the viewer's zone (their device's, or the one they change it to), as the booking page shows them.
+  const [tz, setTz] = useViewerZone(view?.appointment.timezone ?? 'UTC');
 
   const toFailure = (e: unknown): Failure => {
     if (e instanceof ApiError && e.rule === 'manage_link_stale')
@@ -197,10 +199,7 @@ export function ManageBooking({
         sessionId: slot.sessionId,
       });
       const a = next.appointment;
-      applied(
-        next,
-        `Moved to ${dayLong(a.startsAt, a.timezone)}, ${timeRange(a.startsAt, a.endsAt, a.timezone)}.`,
-      );
+      applied(next, `Moved to ${dayLong(a.startsAt, tz)}, ${timeRange(a.startsAt, a.endsAt, tz)}.`);
     } catch (e) {
       await failedChange(e);
     } finally {
@@ -229,7 +228,7 @@ export function ManageBooking({
       const next = await confirmBooking(token);
       const a = next.appointment;
       setView(next);
-      setNotice(`You’re confirmed. See you ${seeYouAt(a.startsAt, a.timezone)}.`);
+      setNotice(`You’re confirmed. See you ${seeYouAt(a.startsAt, tz)}.`);
       window.scrollTo({ top: 0 });
     } catch (e) {
       await failedChange(e);
@@ -276,7 +275,6 @@ export function ManageBooking({
     );
 
   const a = view.appointment;
-  const tz = a.timezone;
   const bookAgain = view.calendar.bookingPath ? (
     <ButtonLink href={view.calendar.bookingPath} variant="primary" size="sm">
       Book again
@@ -319,7 +317,7 @@ export function ManageBooking({
   const canConfirm = !!view.confirmation;
   const asked = !!view.confirmation?.askedAt || highlightConfirm;
   const details = [
-    a.timezoneLabel,
+    zoneWords(tz, a.timezone, a.timezoneLabel),
     a.where,
     a.with.length ? `with ${joinNames(a.with)}` : null,
     a.kind === 'session' ? seatsLabel(a.seats) : null,
@@ -417,7 +415,7 @@ export function ManageBooking({
             </div>
             <div className="flex items-start gap-2.5 rounded-[10px] bg-accent-soft px-3 py-2.5 text-[13px] text-accent-text">
               <Info size={16} className="mt-0.5 flex-none" aria-hidden />
-              <span data-testid="manage-rules">{rulesText(view)}</span>
+              <span data-testid="manage-rules">{rulesText(view, tz)}</span>
             </div>
             {view.policies.text ? (
               <p className="whitespace-pre-line text-xs text-text-3">{view.policies.text}</p>
@@ -506,6 +504,14 @@ export function ManageBooking({
             <TimePicker
               timezone={tz}
               timezoneLabel={a.timezoneLabel}
+              zoneLine={
+                <TimesIn
+                  zone={tz}
+                  pageZone={a.timezone}
+                  pageLabel={a.timezoneLabel}
+                  onZone={setTz}
+                />
+              }
               minDate={today}
               maxDate={addDays(today, 60)}
               load={load}

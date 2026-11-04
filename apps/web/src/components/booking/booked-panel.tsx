@@ -25,6 +25,7 @@ import {
   timeRange,
 } from './format';
 import { callPhrase } from './public-shell';
+import { zoneWords } from './viewer-zone';
 
 /** What a customer paid to hold this time, once it is theirs. */
 function DepositPaid({ deposit, email }: { deposit: Held['deposit']; email: string | null }) {
@@ -111,7 +112,7 @@ export function BookedPanel({
     ],
     [
       'When',
-      `${dayLong(b.startsAt, tz)}, ${timeRange(b.startsAt, b.endsAt, tz)} ${b.timezoneLabel}`,
+      `${dayLong(b.startsAt, tz)}, ${timeRange(b.startsAt, b.endsAt, tz)} ${zoneWords(tz, b.timezone, b.timezoneLabel)}`,
     ],
     ['Where', b.where],
     ['Who', b.with.length ? `${joinNames(b.with)} from ${business.name}` : null],

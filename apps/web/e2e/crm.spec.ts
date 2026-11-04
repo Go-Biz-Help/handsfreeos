@@ -75,12 +75,18 @@ test('company → person with duplicate warning → lead → note → task → a
   await expect(page.getByTestId('open-lead-card')).toContainText('New');
   await expect(page.getByTestId('open-lead-card')).toContainText('No follow-up scheduled');
   await page.getByTestId('set-next-action').click();
-  await page
-    .getByTestId('next-action-form')
-    .getByLabel('Next action', { exact: true })
-    .fill('Send the estimate');
+  const nextForm = page.getByTestId('next-action-form');
+  await nextForm.getByLabel('Next action', { exact: true }).fill('Send the estimate');
+  // Its When starts on the business's zone; set on the customer's clock (2:00 PM Pacific), it shows on the business's.
+  await nextForm.getByLabel('When').fill('2030-03-05T14:00');
+  await expect(page.getByTestId('next-action-zone')).toHaveValue('America/Chicago');
+  await page.getByTestId('next-action-zone').selectOption('America/Los_Angeles');
+  await expect(page.getByTestId('next-action-zone-note')).toHaveText(
+    'That’s 4:00 PM Central Time for the business.',
+  );
   await page.getByTestId('next-action-save').click();
   await expect(page.getByTestId('open-lead-card')).toContainText('Send the estimate');
+  await expect(page.getByTestId('open-lead-card')).toContainText('Mar 5, 2030, 4:00 PM');
   await expect(page.getByTestId('open-lead-card')).not.toContainText('No follow-up scheduled');
   await expect(page.getByTestId('tab-leads')).toContainText('Leads · 1');
 

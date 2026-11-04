@@ -26063,6 +26063,7 @@ export interface operations {
                     serviceId?: string | null;
                     /** Format: date-time */
                     startsAt: string;
+                    timezone?: string;
                     title?: string;
                     userIds?: string[];
                     /** Format: uuid */
@@ -57555,6 +57556,7 @@ export interface operations {
                         weekdays?: number[];
                     };
                     serviceId?: string | null;
+                    timezone?: string;
                     title?: string;
                     userIds?: string[];
                     /** Format: uuid */
@@ -61049,6 +61051,7 @@ export interface operations {
                     /** Format: date-time */
                     startsAt: string;
                     times?: number;
+                    timezone?: string;
                     title: string;
                     userIds?: string[];
                     /** Format: uuid */
@@ -88459,6 +88462,7 @@ export interface operations {
                                 /** Format: date-time */
                                 startsAt: string;
                             }[];
+                            ownTimezone: string | null;
                             privateBusy: {
                                 /** Format: date-time */
                                 endsAt: string;

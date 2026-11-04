@@ -113,6 +113,46 @@ test('a signed-out customer books, reschedules and cancels', async ({ page, brow
   await customer.close();
 });
 
+/**
+ * A visitor whose computer is in another zone sees the times in theirs, can switch back to the business's, and their
+ * booking keeps the zone they saw (their texts and emails then use it).
+ */
+test('a visitor in another zone sees times in theirs, and can change it', async ({
+  page,
+  browser,
+}) => {
+  const owner = await ownerWithSite(page, 'booking-zone', 'Lone Star Zone HVAC');
+  const cal = await makeCalendar(owner, 'Furnace check');
+  const visitor = await browser.newContext({
+    viewport: { width: 1280, height: 832 },
+    timezoneId: 'America/Los_Angeles',
+  });
+  const c = await visitor.newPage();
+  await c.goto(cal.path);
+  await expect(c.getByTestId('times-in')).toContainText('Times in Pacific Time');
+  await c.getByTestId('times-in-change').click();
+  await c.getByTestId('times-in-zone').selectOption('America/Chicago');
+  await expect(c.getByTestId('times-in')).toContainText('Times in Central Time');
+  await c.getByTestId('times-in-change').click();
+  await c.getByTestId('times-in-zone').selectOption('America/Los_Angeles');
+  await expect(c.getByTestId('times-in')).toContainText('Times in Pacific Time');
+
+  const first = c.getByTestId('slot').first();
+  await expect(first).toBeVisible();
+  const picked = (await first.textContent())!.trim();
+  await first.click();
+  await c.getByRole('button', { name: `Continue with ${picked}` }).click();
+  await fillDetails(c, 'Paula Pacific');
+  const booking = c.waitForRequest(
+    (r) => r.method() === 'POST' && /\/public\/book\/[^/]+\/[^/]+\/bookings$/.test(r.url()),
+  );
+  await c.getByRole('button', { name: 'Book Furnace check' }).click();
+  expect((await booking).postDataJSON()).toMatchObject({ timezone: 'America/Los_Angeles' });
+  await expect(c.getByRole('heading', { name: 'You’re booked' })).toBeVisible();
+  await expect(c.getByTestId('booked-when')).toContainText('Pacific Time');
+  await visitor.close();
+});
+
 test('when someone else takes the time first, the page offers fresh times', async ({
   page,
   browser,

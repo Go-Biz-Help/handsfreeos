@@ -36,6 +36,8 @@ export interface AskForTime {
   readonly clientId?: string;
   /** Changes it waits for: adding the customer it's for, a moment ago in the same sheet. */
   readonly dependsOn?: readonly string[];
+  /** The zone the time was set in (the Time zone pick): another than the calendar's is the customer's. */
+  readonly timezone?: string;
 }
 
 /**
@@ -62,6 +64,7 @@ export async function askForTime(a: AskForTime): Promise<{ id: string; clientId:
       acknowledgeWarnings: a.acknowledgeWarnings ?? false,
       clientId,
       notify: a.notify,
+      ...(a.timezone ? { timezone: a.timezone } : {}),
     },
     { dependsOn: a.dependsOn ?? [] },
   );

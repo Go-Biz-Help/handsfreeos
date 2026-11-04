@@ -1,4 +1,5 @@
 'use client';
+import { useBusinessZone } from '@/components/shell/workspace-shell';
 import {
   CONTACT_EDIT_WORDS,
   isSocialChannel,
@@ -173,6 +174,8 @@ export function ContextPanel({
   /** What the AI teammate is doing in this conversation. */
   extra?: ReactNode;
 }) {
+  // A next action's day reads on the business's clock, as it was set.
+  const businessZone = useBusinessZone();
   const router = useRouter();
   const { person, conversation: c } = data;
   // Messenger or Instagram (20261025000200): its own words for somebody new, and the ads that brought them.
@@ -512,7 +515,9 @@ export function ContextPanel({
                 <Clock className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
                 <span className="truncate">
                   {lead.nextAction}
-                  {lead.nextActionAt ? ` · ${formatDate(lead.nextActionAt)}` : ''}
+                  {lead.nextActionAt
+                    ? ` · ${formatDate(lead.nextActionAt, { timeZone: businessZone })}`
+                    : ''}
                 </span>
               </div>
             ) : (
@@ -571,7 +576,7 @@ export function ContextPanel({
                       )}
                     >
                       {t.overdue ? 'Due ' : ''}
-                      {formatDate(t.dueAt, { time: !t.allDay })}
+                      {formatDate(t.dueAt, { time: !t.allDay, timeZone: businessZone })}
                     </div>
                   ) : null}
                 </div>

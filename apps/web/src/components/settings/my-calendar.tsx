@@ -1,9 +1,10 @@
 'use client';
-import { localInstant, minutesToClock, type WeeklyHours } from '@hfos/core';
+import { localInstant, minutesToClock, zonePickLabel, type WeeklyHours } from '@hfos/core';
 import { CalendarOff, Globe, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ZoneOptions } from '@/components/calendar/zone-field';
 import { hoursProblem, WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -75,12 +76,14 @@ export function timeOffLabel(t: TimeOffSpan, timeZone: string): string {
 }
 
 /**
- * Settings → My calendar: weekly hours with breaks, time off, and the Google or Outlook connection. Owners
- * and admins see the same page for a teammate (without connecting on their behalf).
+ * Settings → My calendar: weekly hours with breaks and the time zone they're in (for a teammate who lives somewhere
+ * else; the business's unless set), time off, and the Google or Outlook connection. Owners and admins see the same
+ * page for a teammate (without connecting on their behalf).
  */
 export function MyCalendar({
   workspaceId,
   person,
+  businessZone,
   connection,
   meeting,
   isSelf,
@@ -90,6 +93,8 @@ export function MyCalendar({
 }: {
   workspaceId: string;
   person: TeamSchedule;
+  /** The business's zone, which hours without their own follow. */
+  businessZone: string;
   connection: CalendarConnection | null;
   meeting: MeetingConnection | null;
   isSelf: boolean;
@@ -114,10 +119,18 @@ export function MyCalendar({
   }, [result, router, workspaceId]);
 
   // Local edits to the weekly hours, reset whenever the saved hours change.
-  const savedKey = JSON.stringify(person.weekly);
-  const [hours, setHours] = useState({ key: savedKey, value: person.weekly as WeeklyHours });
-  const current = hours.key === savedKey ? hours : { key: savedKey, value: person.weekly };
-  const dirty = JSON.stringify(current.value) !== savedKey;
+  const savedKey = JSON.stringify([person.weekly, person.ownTimezone]);
+  const [hours, setHours] = useState({
+    key: savedKey,
+    value: person.weekly as WeeklyHours,
+    zone: person.ownTimezone,
+  });
+  const current =
+    hours.key === savedKey
+      ? hours
+      : { key: savedKey, value: person.weekly, zone: person.ownTimezone };
+  const dirty = JSON.stringify([current.value, current.zone]) !== savedKey;
+  const undo = () => setHours({ key: savedKey, value: person.weekly, zone: person.ownTimezone });
   const problem = hoursProblem(current.value);
   const [saving, setSaving] = useState(false);
 
@@ -131,6 +144,7 @@ export function MyCalendar({
             ownerKind: 'user',
             ownerId: person.userId,
             weekly: current.value,
+            timezone: current.zone,
           },
         }),
       );
@@ -188,20 +202,41 @@ export function MyCalendar({
           </div>
           <WeeklyHoursEditor
             value={current.value}
-            onChange={(value) => setHours({ key: savedKey, value })}
+            onChange={(value) => setHours({ ...current, key: savedKey, value })}
             idPrefix="my-hours"
           />
+          <Field
+            label="Time zone"
+            htmlFor="my-hours-zone"
+            className="mt-3"
+            hint={
+              current.zone
+                ? `${isSelf ? 'Your' : 'Their'} hours and time off are on ${zonePickLabel(current.zone)}. The calendar still shows ${zonePickLabel(businessZone)}.`
+                : `${isSelf ? 'Your' : 'Their'} hours follow the business’s time zone. Pick another if ${isSelf ? 'you live' : `${firstName} lives`} somewhere else.`
+            }
+          >
+            <Select
+              id="my-hours-zone"
+              value={current.zone ?? ''}
+              onChange={(e) =>
+                setHours({ ...current, key: savedKey, zone: e.target.value || null })
+              }
+              data-testid="hours-zone"
+            >
+              <ZoneOptions
+                calendarZone={businessZone}
+                value={current.zone ?? businessZone}
+                first={{ id: '', label: `Same as the business (${zonePickLabel(businessZone)})` }}
+              />
+            </Select>
+          </Field>
           <p className="mt-1.5 text-[12.5px] text-text-3">
             {person.defaultHours && !dirty ? 'No hours saved yet, so weekdays 9 to 5 apply. ' : ''}
             Customers can only book inside these hours. Use + for a lunch break.
           </p>
           {dirty ? (
             <div className="mt-3 flex items-center justify-end gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setHours({ key: savedKey, value: person.weekly })}
-              >
+              <Button variant="ghost" size="sm" onClick={undo}>
                 Undo
               </Button>
               <Button

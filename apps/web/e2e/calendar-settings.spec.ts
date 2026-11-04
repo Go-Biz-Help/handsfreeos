@@ -38,6 +38,20 @@ test('hours, time off, a Google busy block, services and resources', async ({ pa
   await expect(page.getByLabel('Saturday start', { exact: true })).toHaveValue('540');
   await expect(mine).not.toContainText('No hours saved yet');
 
+  // The hours' own time zone, for someone who lives somewhere else, then back to the business's.
+  await expect(mine.getByLabel('Time zone')).toHaveValue('');
+  await mine.getByLabel('Time zone').selectOption('America/Denver');
+  await page.getByTestId('hours-save').click();
+  await expect(page.getByTestId('hours-save')).toBeHidden();
+  await page.reload();
+  await expect(mine.getByTestId('zone-chip')).toHaveText('Mountain Time');
+  await expect(mine.getByLabel('Time zone')).toHaveValue('America/Denver');
+  await mine.getByLabel('Time zone').selectOption('');
+  await page.getByTestId('hours-save').click();
+  await expect(page.getByTestId('hours-save')).toBeHidden();
+  await page.reload();
+  await expect(mine.getByTestId('zone-chip')).toHaveText('Central Time');
+
   // Time off, all day for three days, then taken away again.
   await page.getByTestId('time-off-add').click();
   const off = page.getByRole('dialog', { name: 'Add time off' });

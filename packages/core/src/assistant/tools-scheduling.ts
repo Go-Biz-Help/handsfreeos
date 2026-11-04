@@ -7,7 +7,7 @@
  */
 import { z } from 'zod';
 import { IntakeKind, LocationKind } from '../calendar/config';
-import { uuid } from '../schemas/common';
+import { timezone, uuid } from '../schemas/common';
 import { JOB_SET_STATUSES } from '../schemas/job';
 import {
   clock,
@@ -153,6 +153,11 @@ export const schedulingTools: readonly AssistantTool[] = [
       firstVisit: when
         .optional()
         .describe('The first visit’s start; the rest keep its time of day'),
+      timeZone: timezone
+        .optional()
+        .describe(
+          'book: the zone whose time of day they keep, when it was given on another zone’s clock (a customer’s “2 PM Pacific” is America/Los_Angeles); the calendar’s when left out',
+        ),
       repeats: z.enum(['weekly', 'every_2_weeks', 'monthly']).optional(),
       visits: z.int().min(2).max(52).optional().describe('How many visits in all'),
       durationMinutes: minutes.optional(),

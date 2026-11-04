@@ -76,6 +76,7 @@ export default async function MyCalendarPage({
       <MyCalendar
         workspaceId={workspaceId}
         person={person}
+        businessZone={team.timezone}
         connection={connections.items.find((c) => c.status !== 'pending') ?? null}
         meeting={meetings.items.find((c) => c.status !== 'pending') ?? null}
         isSelf={targetId === userId}

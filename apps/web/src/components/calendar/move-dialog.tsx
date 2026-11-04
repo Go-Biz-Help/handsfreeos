@@ -1,5 +1,5 @@
 'use client';
-import { localInstant, minutesToClock } from '@hfos/core';
+import { fmtAtPicked, localInstant, minutesToClock, zonePickLabel } from '@hfos/core';
 import { AlertTriangle, CircleAlert } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -12,16 +12,18 @@ import { ApiError, apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Appointment, AppointmentWarning } from '@/lib/api/types';
 import {
   dateOf,
-  fmtAt,
   fmtLength,
+  fmtRange,
   fmtWhen,
   minutesBetween,
   minutesOf,
   timeOptionsWith,
+  weekdayShort,
   zoneLabel,
 } from '@/lib/calendar/time';
 import { FreshTimes } from './appointment-dialog';
 import { customersOf, firstName, freshTimes, namesText } from './appt';
+import { ZoneField } from './zone-field';
 
 const LENGTHS = [15, 30, 45, 60, 75, 90, 120, 150, 180, 240, 300, 360, 480];
 
@@ -48,7 +50,7 @@ export function tellLabel(a: Pick<Appointment, 'attendees'>): string | null {
 /**
  * "Move this appointment?" after a drag (or a resize), and Reschedule from the details. Warnings can be
  * booked over with "Move anyway"; another appointment at the same time can't. Tell sends the customer a
- * note about the change.
+ * note about the change. Reschedule's date and start can be set on another zone's clock with the Time zone pick.
  */
 export function MoveDialog({
   workspaceId,
@@ -71,6 +73,8 @@ export function MoveDialog({
   const wasLength = minutesBetween(appt.startsAt, appt.endsAt);
   const [date, setDate] = useState(dateOf(wasStart, timeZone));
   const [time, setTime] = useState(minutesOf(wasStart, timeZone));
+  /** The zone the date and start are read in: the calendar's, or another picked beside them. */
+  const [zone, setZone] = useState(timeZone);
   const [length, setLength] = useState(wasLength);
   const [tell, setTell] = useState(true);
   const [warnings, setWarnings] = useState<AppointmentWarning[] | null>(null);
@@ -84,7 +88,7 @@ export function MoveDialog({
   });
 
   const start =
-    target.kind === 'drop' ? target.start : localInstant(date, minutesToClock(time), timeZone);
+    target.kind === 'drop' ? target.start : localInstant(date, minutesToClock(time), zone);
   const end = target.kind === 'drop' ? target.end : start + length * 60_000;
   const nextStaff = target.kind === 'drop' ? target.userIds : null;
   const staffNow = appt.staff.map((s) => s.userId);
@@ -100,6 +104,14 @@ export function MoveDialog({
     setWarnings(null);
     setError(null);
     setFull(null);
+  };
+  const when = (at: number) => fmtAtPicked(at, zone, timeZone);
+  /** Another zone picked: the Was and Now rows say their times on its clock too, "(2:00–3:00 PM Pacific Time)". */
+  const there = (from: number | string, to: number | string) => {
+    if (zone === timeZone) return '';
+    const day = dateOf(from, zone);
+    const clock = fmtRange(from, to, zone);
+    return ` (${day === dateOf(from, timeZone) ? clock : `${weekdayShort(day)} ${clock}`} ${zonePickLabel(zone)})`;
   };
 
   async function move() {
@@ -141,8 +153,8 @@ export function MoveDialog({
       }
       toast.success(
         staffChanged
-          ? `Moved to ${namesText(nextStaff!.map((u) => firstName(nameOf(u))))}${timeChanged ? `, ${fmtAt(start, timeZone)}` : ''}.`
-          : `Moved to ${fmtAt(start, timeZone)}.`,
+          ? `Moved to ${namesText(nextStaff!.map((u) => firstName(nameOf(u))))}${timeChanged ? `, ${when(start)}` : ''}.`
+          : `Moved to ${when(start)}.`,
       );
       onDone();
     } catch (e) {
@@ -227,16 +239,33 @@ export function MoveDialog({
               </Field>
             </div>
           ) : null}
+          {target.kind === 'pick' ? (
+            <div className="mt-2.5">
+              <ZoneField
+                id="move-zone"
+                value={zone}
+                onChange={(z) => {
+                  setZone(z);
+                  reset();
+                }}
+                calendarZone={timeZone}
+                at={start}
+                testId="move-zone"
+              />
+            </div>
+          ) : null}
           <dl className="mt-3.5 grid grid-cols-[48px_minmax(0,1fr)] gap-x-2.5 gap-y-1.5 text-[13.5px]">
             <dt className="text-text-3">Was</dt>
             <dd className={timeChanged ? 'text-text-3 line-through' : ''}>
               {fmtWhen(appt.startsAt, appt.endsAt, timeZone)}
+              {there(appt.startsAt, appt.endsAt)}
             </dd>
             {timeChanged ? (
               <>
                 <dt className="text-text-3">Now</dt>
                 <dd className="font-semibold" data-testid="move-now">
                   {fmtWhen(start, end, timeZone)}
+                  {there(start, end)}
                 </dd>
               </>
             ) : null}
@@ -281,11 +310,11 @@ export function MoveDialog({
                 <FreshTimes
                   times={full.times}
                   date={date}
-                  timeZone={timeZone}
+                  timeZone={zone}
                   testId="move-fresh-time"
                   onPick={(t) => {
-                    setDate(dateOf(t, timeZone));
-                    setTime(minutesOf(t, timeZone));
+                    setDate(dateOf(t, zone));
+                    setTime(minutesOf(t, zone));
                     reset();
                   }}
                 />
@@ -311,7 +340,7 @@ export function MoveDialog({
               />
               <p className="ml-7 mt-0.5 text-xs text-text-3">
                 {tell
-                  ? `We let ${customers.length === 1 ? firstName(customers[0]!.fullName) : 'them'} know it moved to ${fmtAt(start, timeZone)}.`
+                  ? `We let ${customers.length === 1 ? firstName(customers[0]!.fullName) : 'them'} know it moved to ${when(start)}.`
                   : 'Nobody is told. Tell them yourself.'}
               </p>
             </div>

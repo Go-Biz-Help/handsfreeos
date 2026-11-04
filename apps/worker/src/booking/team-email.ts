@@ -63,7 +63,8 @@ export async function emailTeam(
         limit 1`,
   );
   if (done) return;
-  const b = await loadBooking(ctx.tx, ctx, attendeeId);
+  // The team's copy tells the time on the business's clock, as its calendar does.
+  const b = await loadBooking(ctx.tx, ctx, attendeeId, { teamZone: true });
   if (!b || !b.calendar.config.notifications.staffEmail) return;
   const staffed = b.staffIds.length > 0;
   const ids = staffed ? b.staffIds : await standIns(ctx.tx, scope, b.calendar.ownerUserId);

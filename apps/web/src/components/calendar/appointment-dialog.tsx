@@ -1,6 +1,7 @@
 'use client';
 import {
   contactFromSearch,
+  fmtAtPicked,
   localInstant,
   minutesToClock,
   parseClock,
@@ -31,20 +32,19 @@ import { serviceCatalog } from '@/lib/calendar/catalogs';
 import { joinWords } from '@/lib/calendar/describe';
 import {
   dateOf,
-  fmtAt,
   fmtLength,
   fmtTime,
   minutesOf,
   timeOptionsWith,
   todayIn,
   weekdayShort,
-  zoneLabel,
 } from '@/lib/calendar/time';
 import { addressLine } from '@/lib/format';
 import { firstName, freshTimes, namesText, reservedText } from './appt';
 import { calendarConfig } from './config-cache';
 import { CustomerPicker, type PickedCustomer } from './customer-picker';
 import { TellField, useTextingReady } from './tell-field';
+import { ZoneField } from './zone-field';
 
 /**
  * Repeating a visit, when the calendar's Repeats section lets staff (Staff can repeat visits). Weekly repeats fall
@@ -115,8 +115,8 @@ export interface BookedResult {
 const MAX_SEATS = 500;
 
 export interface AppointmentPrefill {
+  /** The date and 'HH:MM' in the workspace's zone, which the Time zone pick starts on. */
   readonly date?: string | null;
-  /** 'HH:MM' in the workspace's zone. */
   readonly time?: string | null;
   readonly userId?: string | null;
   readonly calendarId?: string | null;
@@ -131,7 +131,8 @@ export interface AppointmentPrefill {
 /**
  * New appointment: customer, calendar, service, who, date, start, length and place. Warnings (outside hours,
  * busy, time off, buffers, a past time) come back from the server and can be booked over with "Book
- * anyway"; another appointment at the same time never can. Times are the workspace's zone, labelled. Tell
+ * anyway"; another appointment at the same time never can. Times start on the workspace's zone, and the Time zone
+ * pick under them takes them on another zone's clock (a customer's, "2 PM Pacific"), saying where that lands. Tell
  * (ticked by default) sends the customer a confirmation; the reminders follow the calendar's settings either
  * way. When the calendar lets staff repeat visits, Repeats books the same visit weekly, fortnightly or monthly,
  * and the dates that don't fit are listed rather than booked over. A Customer search that finds nobody offers to
@@ -179,6 +180,8 @@ export function AppointmentDialog({
   const [userId, setUserId] = useState(prefill.userId ?? '');
   const [date, setDate] = useState(prefill.date ?? todayIn(timeZone));
   const [time, setTime] = useState(prefill.time ? parseClock(prefill.time) : 9 * 60);
+  /** The zone the date and start are read in: the calendar's, or another picked beside them. */
+  const [zone, setZone] = useState(timeZone);
   const [duration, setDuration] = useState(60);
   const [locationIdx, setLocationIdx] = useState(0);
   const [tell, setTell] = useState(true);
@@ -331,6 +334,8 @@ export function AppointmentDialog({
   const visitCount = Math.min(visits, maxVisits);
   // A fresh time offered after a full resource can fall between the quarter hours.
   const timeOptions = timeOptionsWith(time);
+  const startsAt = localInstant(date, minutesToClock(time), zone);
+  const when = (at: number | string) => fmtAtPicked(at, zone, timeZone);
 
   const change =
     <T,>(set: (v: T) => void) =>
@@ -376,7 +381,7 @@ export function AppointmentDialog({
           body: {
             workspaceId,
             calendarId,
-            startsAt: new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString(),
+            startsAt: new Date(startsAt).toISOString(),
             durationMinutes: length,
             serviceId: service?.id ?? null,
             ...(withChoice && !many && !staffless ? { userIds: [withChoice] } : {}),
@@ -388,14 +393,14 @@ export function AppointmentDialog({
             acknowledgeWarnings: !!warnings,
             clientId: clientId.current,
             notify: tell,
+            // Another zone than the calendar's is the customer's: their texts and emails say the time in it.
+            timezone: zone,
           },
         }),
       );
       const title = service?.name ?? calendars?.find((c) => c.id === calendarId)?.name ?? 'It';
       const names = namesText(out.userIds.map((u) => firstName(nameOf(u))));
-      toast.success(
-        `Booked ${title}${names ? ` with ${names}` : ''} for ${fmtAt(out.startsAt, timeZone)}.`,
-      );
+      toast.success(`Booked ${title}${names ? ` with ${names}` : ''} for ${when(out.startsAt)}.`);
       clientId.current = crypto.randomUUID();
       setWarnings(null);
       onBooked(out);
@@ -424,7 +429,7 @@ export function AppointmentDialog({
           body: {
             workspaceId,
             calendarId,
-            startsAt: new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString(),
+            startsAt: new Date(startsAt).toISOString(),
             durationMinutes: length,
             serviceId: service?.id ?? null,
             ...(withChoice && !many && !staffless ? { userIds: [withChoice] } : {}),
@@ -436,7 +441,7 @@ export function AppointmentDialog({
         }),
       );
       toast.success(
-        `Published ${title} for ${fmtAt(out.startsAt, timeZone)}, with ${seatsLabel(out.capacity)}.`,
+        `Published ${title} for ${when(out.startsAt)}, with ${seatsLabel(out.capacity)}.`,
       );
       setWarnings(null);
       onBooked({ ...out, userIds: [], published: true });
@@ -465,6 +470,7 @@ export function AppointmentDialog({
             workspaceId,
             calendarId,
             firstDate: date,
+            timezone: zone,
             rule: {
               freq: rule.freq,
               interval: rule.interval,
@@ -486,22 +492,22 @@ export function AppointmentDialog({
         }),
       );
       const title = service?.name ?? calendars?.find((c) => c.id === calendarId)?.name ?? 'It';
-      const startsAt = new Date(localInstant(date, minutesToClock(time), timeZone)).toISOString();
+      const first = new Date(startsAt).toISOString();
       const booked = out.appointmentIds.length;
       toast.success(
-        `Booked ${booked === 1 ? '1 visit' : `${booked} visits`} of ${title}, ${REPEATS[repeat].label.toLowerCase()} from ${fmtAt(startsAt, timeZone)}.`,
+        `Booked ${booked === 1 ? '1 visit' : `${booked} visits`} of ${title}, ${REPEATS[repeat].label.toLowerCase()} from ${when(first)}.`,
       );
       if (out.skipped.length)
         toast.warning(
           `${out.skipped.length === 1 ? 'One date didn’t fit and wasn’t booked' : `${out.skipped.length} dates didn’t fit and weren’t booked`}: ${out.skipped
-            .map((k) => `${fmtAt(k.startsAt, timeZone)} (${k.reason})`)
+            .map((k) => `${when(k.startsAt)} (${k.reason})`)
             .join('; ')}.`,
           { duration: 12_000 },
         );
       onBooked({
         appointmentId: out.appointmentIds[0]!,
-        startsAt,
-        endsAt: new Date(Date.parse(startsAt) + length * 60_000).toISOString(),
+        startsAt: first,
+        endsAt: new Date(startsAt + length * 60_000).toISOString(),
         userIds: [],
       });
     } catch (e) {
@@ -666,6 +672,14 @@ export function AppointmentDialog({
                 </Select>
               </Field>
             </div>
+            <ZoneField
+              id="appt-zone"
+              value={zone}
+              onChange={change(setZone)}
+              calendarZone={timeZone}
+              at={startsAt}
+              testId="appointment-zone"
+            />
             {publishing ? (
               <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,2fr)] items-end gap-2.5">
                 <Field label="Seats" htmlFor="appt-seats" className="min-w-0">
@@ -762,12 +776,11 @@ export function AppointmentDialog({
                 </div>
               </div>
             ) : null}
-            <p className="text-[12.5px] text-text-3">
-              {travel && place?.kind === 'customer_address'
-                ? `${fmtLength(travel)} travel is kept before and after. `
-                : ''}
-              Times are {zoneLabel(timeZone)}.
-            </p>
+            {travel && place?.kind === 'customer_address' ? (
+              <p className="text-[12.5px] text-text-3">
+                {fmtLength(travel)} travel is kept before and after.
+              </p>
+            ) : null}
             {warnings?.length ? (
               <div className="flex flex-col gap-2" data-testid="appointment-warnings">
                 {warnings.map((w, i) => (
@@ -794,11 +807,11 @@ export function AppointmentDialog({
                   <FreshTimes
                     times={full.times}
                     date={date}
-                    timeZone={timeZone}
+                    timeZone={zone}
                     testId="appointment-fresh-time"
                     onPick={(t) => {
-                      change(setDate)(dateOf(t, timeZone));
-                      setTime(minutesOf(t, timeZone));
+                      change(setDate)(dateOf(t, zone));
+                      setTime(minutesOf(t, zone));
                     }}
                   />
                 ) : null}

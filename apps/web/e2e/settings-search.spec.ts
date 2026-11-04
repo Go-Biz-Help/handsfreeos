@@ -52,11 +52,11 @@ test('“quiet” finds Quiet hours, and choosing it rings the row, on its page 
   await quiet.click();
   await expect(row).toHaveClass(/ring-2/);
 
-  // ↓ moves over the rows, the page first and then its settings, and ↵ opens the one picked.
+  // ↓ moves over the rows, each page first and then its settings, and ↵ opens the one picked. "time zone" finds My
+  // calendar's Weekly hours (the zone your hours are in) above the business's own, in the menu's order.
   const box = nav.getByTestId('settings-search-input');
   await box.fill('time zone');
-  await box.press('ArrowDown');
-  await box.press('ArrowDown');
+  for (let i = 0; i < 4; i++) await box.press('ArrowDown');
   await box.press('Enter');
   await expect(page).toHaveURL(new RegExp(`/settings/workspace#workspace-time-zone$`));
   await expect(page.locator('#workspace-time-zone')).toHaveClass(/ring-2/);

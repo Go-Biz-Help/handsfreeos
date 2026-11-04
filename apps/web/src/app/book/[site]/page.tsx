@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BusinessPage } from '@/components/booking/business-page';
 import { BookingOff, PublicState } from '@/components/booking/public-shell';
+import { ViewerTimesIn } from '@/components/booking/viewer-zone';
 import { getSite, pageData } from '@/lib/api/public-booking';
 import { requestOrigin } from '@/lib/hosting/request-origin';
 
@@ -76,10 +77,7 @@ export default async function BookingSitePage({ params }: Props) {
           Check back soon, or contact {data.business.name}.
         </PublicState>
       )}
-      <p className="flex items-center gap-1.5 text-xs text-text-3">
-        <Globe size={14} aria-hidden />
-        Times in {data.timezoneLabel}
-      </p>
+      <ViewerTimesIn pageZone={data.timezone} pageLabel={data.timezoneLabel} />
     </main>
   );
 }
