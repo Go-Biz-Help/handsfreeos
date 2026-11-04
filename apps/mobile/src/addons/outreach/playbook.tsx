@@ -178,18 +178,17 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
         ) || W.empty
       );
     case 'video': {
+      // Its script only: the video itself is in the business's library (decision 154).
       const script = details.videoScript;
-      return [
-        V.summary(Boolean(script)),
-        script
-          ? [
-              V.runs(scriptMinutes(script)),
-              ...script.parts.map(
-                (p, i) => `${i + 1} · ${VIDEO_PARTS[p.part].title}\n${p.say}\n${V.show}: ${p.show}`,
-              ),
-            ].join('\n\n')
-          : V.none,
-      ].join('\n\n');
+      return script
+        ? [
+            V.summary(true),
+            V.runs(scriptMinutes(script)),
+            ...script.parts.map(
+              (p, i) => `${i + 1} · ${VIDEO_PARTS[p.part].title}\n${p.say}\n${V.show}: ${p.show}`,
+            ),
+          ].join('\n\n')
+        : V.none;
     }
     case 'openers':
       return list([...details.openerStyles, ...details.ownOpeners]);

@@ -265,11 +265,12 @@ describe('The short video’s script in the sheet', () => {
     const { props, el } = body({ onScript, liveVersion: 2 });
     await render(el);
     await fireEvent.press(screen.getByTestId('playbook-edit-video'));
+    // On the part's card and in the sheet.
     expect(
-      screen.getByText(
+      screen.getAllByText(
         'No script yet. The AI writes one from your main offer and this playbook’s niche.',
       ),
-    ).toBeTruthy();
+    ).toHaveLength(2);
     await fireEvent.press(screen.getByTestId('playbook-video-write'));
     await waitFor(() =>
       expect(onScript).toHaveBeenCalledWith({
