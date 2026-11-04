@@ -5,6 +5,7 @@ import {
   Bot,
   Bug,
   Building2,
+  Clapperboard,
   Handshake,
   HeartPulse,
   Inbox,
@@ -57,6 +58,7 @@ function AdminNav({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const demoOn = pathname.startsWith('/admin/demo');
   return (
     <nav aria-label="Support and admin" className="mt-3 flex flex-col gap-0.5">
       {deskSectionsFor(permissions).map(({ key, label }) => {
@@ -82,6 +84,23 @@ function AdminNav({
           </Link>
         );
       })}
+      {/* The web's own: the demo player plays on the web app only, so it isn't one of core's sections, which the
+          phone's Support desk lists too. Every support person may play the scenes in a business of their own. */}
+      <Link
+        href="/admin/demo"
+        onClick={onNavigate}
+        aria-current={demoOn ? 'page' : undefined}
+        data-testid="admin-nav-demo"
+        className={cn(
+          'flex h-10 items-center gap-2.5 rounded-control px-2.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring md:h-9',
+          demoOn
+            ? 'bg-accent-soft text-accent-text'
+            : 'text-text-2 hover:bg-card-2 hover:text-text',
+        )}
+      >
+        <Clapperboard className="h-[18px] w-[18px] flex-none" strokeWidth={demoOn ? 1.75 : 1.5} />
+        Demo player
+      </Link>
     </nav>
   );
 }

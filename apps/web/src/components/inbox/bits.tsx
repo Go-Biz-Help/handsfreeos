@@ -10,6 +10,7 @@ import { Clock, Globe, Image as ImageIcon, Moon, Phone, Play } from 'lucide-reac
 import { Fragment, useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { Avatar } from '@/components/ui/avatar';
 import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { DEMO_MEDIA_BUCKET } from '@/lib/demo/world';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import { MediaViewer } from './media-viewer';
@@ -198,6 +199,11 @@ export function QuietStrip({ children, className }: { children: ReactNode; class
 export function useSignedUrl(bucket: string, path: string): string | null {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
+    // A demo scene's made-up photo is a file of the web app's own (lib/demo), never in Storage.
+    if (bucket === DEMO_MEDIA_BUCKET) {
+      setUrl(path);
+      return;
+    }
     let cancelled = false;
     void supabaseBrowser()
       .storage.from(bucket)

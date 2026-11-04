@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { publicEnv } from '@/lib/env';
+import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import type { ReviewConnectionRow, ReviewRow } from '@/lib/api/types';
 
 const PROVIDER_LABEL = { google: 'Google', facebook: 'Facebook' } as const;
@@ -53,6 +54,8 @@ export function ReviewsBoard({
   canManage: boolean;
 }) {
   const router = useRouter();
+  // An answer posted from another screen (a teammate's, or the Assistant's) shows here without a reload.
+  useLiveRefresh(['review', 'review_connection']);
   const [busy, setBusy] = useState<string | null>(null);
   const [answering, setAnswering] = useState<string | null>(null);
   const [onlyUnanswered, setOnlyUnanswered] = useState(false);
@@ -241,7 +244,7 @@ export function ReviewsBoard({
       )}
 
       {shown.map((review) => (
-        <Card key={review.id} className="space-y-2 p-3">
+        <Card key={review.id} className="space-y-2 p-3" data-testid={`review-${review.id}`}>
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-medium">{review.authorName ?? 'Someone'}</span>
             {review.rating !== null && <Stars rating={review.rating} />}
@@ -263,7 +266,10 @@ export function ReviewsBoard({
           {review.body && <p className="text-[14px] leading-relaxed">{review.body}</p>}
 
           {review.replyBody ? (
-            <div className="rounded-lg border border-border bg-card-2 p-2">
+            <div
+              className="rounded-lg border border-border bg-card-2 p-2"
+              data-testid="review-answer"
+            >
               <p className="text-[12px] font-medium text-text-2">Your answer</p>
               <p className="text-[13px]">{review.replyBody}</p>
             </div>

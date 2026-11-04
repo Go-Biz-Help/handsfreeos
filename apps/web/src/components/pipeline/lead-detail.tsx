@@ -528,7 +528,9 @@ export function LeadDetail({
           {lead.expectedCloseOn ? formatDateOnly(lead.expectedCloseOn) : '—'}
         </dd>
         <dt className="text-text-2">Source</dt>
-        <dd className="font-medium">{lead.source ?? '—'}</dd>
+        <dd className="font-medium" data-testid="lead-source">
+          {lead.source ?? '—'}
+        </dd>
         <dt className="text-text-2">Tags</dt>
         <dd>
           <TagPicker

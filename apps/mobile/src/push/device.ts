@@ -11,6 +11,8 @@ import { appVersion } from '@/lib/app-version';
 import { session } from '@/lib/auth';
 import { cachedMe } from '@/lib/businesses';
 import { config } from '@/lib/config';
+import { isDemoId } from '@/demo/ids';
+import { playPress } from '@/demo/pretend';
 import { deviceStore } from '@/lib/device-store';
 import { networkSnapshot, subscribeNetwork } from '@/lib/network';
 import { pendingLinks } from '@/links/pending';
@@ -37,7 +39,7 @@ import {
   pushIsFor,
   type LocalNotification,
 } from './present';
-import { PressRunner, type PressOutcome } from './press';
+import { PressRunner, TAP, type PressOutcome } from './press';
 import { PushRegistration, type PushPermission } from './registration';
 import { pretendLocked, rememberPress } from './test-flags';
 
@@ -196,7 +198,8 @@ export const pressRunner = new PressRunner({
   // The check-in reminder's buttons write to the phone's copy and move the reminder, as the screen's do.
   change: (name, input, options) =>
     changeFromPress(name, input, options, (n, i, o) => changes.change(n, i, o)),
-  sendNow: (id) => changes.sendQueuedNow(id),
+  // A demo scene's made-up change (src/demo) was answered on the phone: nothing waits to go.
+  sendNow: (id) => (isDemoId(id) ? Promise.resolve(null) : changes.sendQueuedNow(id)),
   openLink: (path) => pendingLinks.open(path),
   startCall: (target, workspaceId) => startCall(target, { workspaceId }),
   appInFront: () => AppState.currentState === 'active',
@@ -235,7 +238,11 @@ async function readUnderBell(data: PushData): Promise<void> {
 export async function handleResponse(response: unknown): Promise<PressOutcome | null> {
   const press = pressOf(response);
   if (!press) return null;
-  void readUnderBell(press.data).catch((error: unknown) => log('Reading a pressed push', error));
+  // A demo scene's notification (src/demo) isn't under the bell; a tap on it plays the scene's step that waits for one.
+  const demo = isDemoId(press.data.notificationId);
+  if (demo && press.actionId === TAP) playPress('open');
+  if (!demo)
+    void readUnderBell(press.data).catch((error: unknown) => log('Reading a pressed push', error));
   try {
     const outcome = await pressRunner.handle(press, { followUp: followUpOfResponse(response) });
     rememberPress(outcome);

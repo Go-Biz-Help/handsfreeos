@@ -4,7 +4,6 @@ import {
   clock,
   confirmEach,
   conversationIn,
-  myFirstName,
   openConversation,
   shortDay,
   weekdayOf,
@@ -84,11 +83,13 @@ export const myDay: DemoScene = {
   steps: [
     {
       label: 'Open Ask HandsFreeOS (⌘J)',
+      voiceover: 'It’s the end of the day. Before you head home, open Ask HandsFreeOS.',
       run: (p) => p.openAssistant(),
     },
     {
       label: 'Ask: what’s my day tomorrow?',
-      say: 'Your whole day at a glance, without opening the calendar.',
+      voiceover:
+        'Ask what your day looks like tomorrow. Every job, in order, without opening the calendar.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const tomorrow = wallTime(at, tz, 1, 12);
@@ -121,8 +122,9 @@ export const myDay: DemoScene = {
       },
     },
     {
-      label: 'Ask: move the Johnson job to Friday',
-      say: 'It checks the new time is free, and tells Dave for you.',
+      label: 'Ask it to move the Johnson job',
+      voiceover:
+        'Dave Johnson’s install needs to move. Ask it to move the Johnson job, and it checks the new time is free first.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const days = moveDays(at, tz);
@@ -131,11 +133,11 @@ export const myDay: DemoScene = {
         const card = {
           toolCallId: MOVE,
           tool: 'reschedule_appointment',
-          title: 'Move Dave Johnson’s water heater install?',
+          title: 'Move Dave’s water heater install?',
           fields: [
             { label: 'Was', value: range(was, DAVE_MINUTES, tz) },
             { label: 'Now', value: range(now, DAVE_MINUTES, tz) },
-            { label: 'With', value: myFirstName(w) },
+            { label: 'With', value: w.state.me.name },
             { label: 'Tell Dave', value: 'A text with the new time' },
           ],
           confirmLabel: 'Move',
@@ -145,7 +147,7 @@ export const myDay: DemoScene = {
         w.answer = {
           steps: [
             { id: 'find', label: 'Looking at appointments' },
-            { id: 'free', label: 'Checking when you’re free' },
+            { id: 'free', label: 'Checking open times' },
           ],
           text: `${weekdayName(now, tz)} at ${clock(now, tz)} is open, the same time as tomorrow. Dave gets a text with the new time once you say yes.`,
           cards: [card],
@@ -160,6 +162,8 @@ export const myDay: DemoScene = {
     },
     {
       label: 'Say yes: it moves, and Dave gets a text',
+      voiceover:
+        'Say yes. The visit moves on your calendar, and Dave gets a text with the new time.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const now = wallTime(at, tz, moveDays(at, tz), DAVE_HOUR, DAVE_MINUTE);
@@ -195,15 +199,18 @@ export const myDay: DemoScene = {
     },
     {
       label: 'Dave texts back',
-      say: 'One sentence from you. The calendar, the customer and the text are all handled.',
+      voiceover:
+        'Dave texts back that the new day works even better. One sentence from you, and the calendar, the customer and the text are all handled.',
       change: (w, at) => {
+        const tz = w.state.timeZone;
         const c = conversationIn(w, CONVERSATION);
         c.unread = 1;
         c.messages.push({
           id: REPLY,
           at,
           direction: 'inbound',
-          body: 'Friday works even better for me. Thanks for the heads up!',
+          // The day it moved to, which is Friday only when tomorrow is Thursday.
+          body: `${weekdayName(wallTime(at, tz, moveDays(at, tz), 12), tz)} works even better for me. Thanks for the heads up!`,
         });
       },
       live: ['conversation', 'message'],

@@ -487,7 +487,10 @@ export function ContextPanel({
       <section className="flex flex-col gap-2">
         <Label>Open lead</Label>
         {lead ? (
-          <div className="rounded-[10px] border border-border bg-card p-3">
+          <div
+            className="rounded-[10px] border border-border bg-card p-3"
+            data-testid="context-open-lead"
+          >
             <div className="flex items-start justify-between gap-2">
               <span className="text-[13px] font-medium">{lead.title}</span>
               <StageBadge name={lead.stageName} kind="open" className="h-5 text-[11.5px]" />

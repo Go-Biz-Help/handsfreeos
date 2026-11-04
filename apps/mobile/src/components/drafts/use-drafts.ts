@@ -3,6 +3,7 @@ import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
+import { useDemoWorld } from '@/demo/hooks';
 import { useGrants } from '@/lib/grants';
 import { sees } from '@/view-as/state';
 import { useLens } from '@/view-as/use-lens';
@@ -116,9 +117,16 @@ export function useWaitingDrafts(
   // Viewing as a teammate (20261018000100): only the drafts on threads they see.
   const lens = useLens();
   const kindsKey = filter.kinds?.join(',') ?? null;
+  // A demo scene's made-up drafts (src/demo), after the real ones: the newest waiting.
+  const demo = useDemoWorld();
   return React.useMemo(() => {
     const kinds = kindsKey === null ? null : kindsKey.split(',');
-    const items = data
+    const made = (demo?.drafts ?? []).filter(
+      (d) =>
+        (conversationId === null || d.conversation_id === conversationId) &&
+        (kind === null || d.kind === kind),
+    );
+    const items = [...data, ...made]
       .filter((row) => !row.conversation_id || sees(lens?.conversations, row.conversation_id))
       .filter((row) => !kinds || kinds.includes(row.kind))
       .map((row) => ({
@@ -130,5 +138,5 @@ export function useWaitingDrafts(
       visible: items.filter((item) => !decisionStands(item.decision)),
       loading: isLoading,
     };
-  }, [data, decisions, canManage, isLoading, lens, kindsKey]);
+  }, [data, decisions, canManage, isLoading, lens, kindsKey, demo, conversationId, kind]);
 }

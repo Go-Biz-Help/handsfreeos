@@ -30,12 +30,14 @@ export const leadText: DemoScene = {
   steps: [
     {
       label: 'Open the Inbox',
-      say: 'It’s evening. You’re off the clock, having dinner with your family.',
+      voiceover:
+        'It’s evening. You’ve closed up for the day and you’re at dinner with your family. This is your HandsFreeOS inbox, where every text, call and chat lands.',
       run: (p) => p.go('inbox'),
     },
     {
       label: 'Dana texts: her water heater is leaking',
-      say: 'A brand-new customer. Nobody at the shop is there to answer.',
+      voiceover:
+        'A text comes in from someone you’ve never worked with. Her water heater is leaking all over the garage, and nobody at the shop is there to answer.',
       change: (w, at) => {
         w.conversations.unshift({
           id: CONVERSATION,
@@ -69,6 +71,8 @@ export const leadText: DemoScene = {
     },
     {
       label: 'Open Dana’s text',
+      voiceover:
+        'Normally a text like this waits until morning. By then, she’s called someone else.',
       change: (w) => {
         dana(w).unread = 0;
       },
@@ -79,7 +83,8 @@ export const leadText: DemoScene = {
     },
     {
       label: 'The AI teammate writes back with two times',
-      say: 'It answered in seconds. It’s still learning your business, so it asks you before it sends.',
+      voiceover:
+        'Your AI teammate has already written back. It tells her how to shut the water off and offers two real times from your calendar. While it’s still learning your business, it asks you before anything goes out.',
       change: (w, at) => {
         dana(w).drafts.push({
           id: OFFER,
@@ -97,6 +102,7 @@ export const leadText: DemoScene = {
     },
     {
       label: 'Tap Approve: the text goes to Dana',
+      voiceover: 'One tap from your phone, and the text is on its way to Dana.',
       change: (w, at) => {
         const c = dana(w);
         const d = c.drafts.find((x) => x.id === OFFER)!;
@@ -117,6 +123,8 @@ export const leadText: DemoScene = {
     },
     {
       label: 'Dana picks 9:00 AM',
+      voiceover:
+        'A minute later, Dana writes back. Nine o’clock works, and she’s shut the valve off.',
       change: (w, at) => {
         dana(w).messages.push({
           id: PICKED,
@@ -129,7 +137,8 @@ export const leadText: DemoScene = {
     },
     {
       label: 'It books the visit, and asks you first',
-      say: 'Look at the line above the text: approving books the visit on your calendar.',
+      voiceover:
+        'Your teammate writes the confirmation. The line above the text says what approving does: it books the visit on your calendar.',
       change: (w, at) => {
         dana(w).drafts.push({
           id: BOOK,
@@ -152,7 +161,8 @@ export const leadText: DemoScene = {
     },
     {
       label: 'Approve: the visit is booked and Dana gets the text',
-      say: 'Booked while you were at dinner. It’s on the calendar, and on her record.',
+      voiceover:
+        'Approve, and it’s done. The visit is on your calendar and on her record, and Dana knows exactly when you’re coming. All of that happened while you were at dinner.',
       change: (w, at) => {
         const c = dana(w);
         const d = c.drafts.find((x) => x.id === BOOK)!;

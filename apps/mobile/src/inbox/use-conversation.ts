@@ -17,6 +17,7 @@ import { useQuery } from '@powersync/react-native';
 import * as React from 'react';
 
 import { useBusiness } from '@/components/shell/business-context';
+import { useDemoWorld } from '@/demo/hooks';
 import { useNetwork } from '@/lib/network';
 import { seesThread } from '@/view-as/state';
 import { useLens } from '@/view-as/use-lens';
@@ -108,8 +109,11 @@ export function useConversation(conversationId: string): {
   ]);
   // Viewing as a teammate (20261018000100), a thread they don't see isn't here.
   const lens = useLens();
-  const row = rows[0] && seesThread(lens, rows[0], me.user.id) ? rows[0] : undefined;
-  const { data: people } = useQuery<{
+  // A demo scene's made-up conversation (src/demo) and its customer, which the copy doesn't hold.
+  const demo = useDemoWorld();
+  const demoRow = demo?.conversations.find((c) => c.id === conversationId);
+  const row = demoRow ?? (rows[0] && seesThread(lens, rows[0], me.user.id) ? rows[0] : undefined);
+  const { data: keptPeople } = useQuery<{
     id: string;
     first_name: string | null;
     last_name: string | null;
@@ -125,6 +129,11 @@ export function useConversation(conversationId: string): {
     postal_code: string | null;
     notes: string | null;
   }>(PERSON_SQL, [row?.person_id ?? '']);
+  const demoPerson = demoRow ? demo?.people.find((p) => p.id === demoRow.person_id) : undefined;
+  const people = React.useMemo(
+    () => (demoPerson ? [demoPerson] : keptPeople),
+    [demoPerson, keptPeople],
+  );
   const { data: optOuts } = useQuery<{ opted_out: number | null }>(OPTED_OUT_SQL, [
     business.id,
     row?.channel === 'sms' ? row.counterpart : '',
@@ -216,7 +225,14 @@ export function useThread(
   const { business } = useBusiness();
   const { online } = useNetwork();
   const ids = JSON.stringify(laneIds?.length ? laneIds : [conversationId]);
-  const { data: messages } = useQuery<MessageThreadRow>(MESSAGES_SQL, [business.id, ids]);
+  const { data: keptMessages } = useQuery<MessageThreadRow>(MESSAGES_SQL, [business.id, ids]);
+  // A demo scene's made-up messages (src/demo), in the made-up conversation they belong to.
+  const demo = useDemoWorld();
+  const messages = React.useMemo(() => {
+    const shown = new Set(JSON.parse(ids) as string[]);
+    const made = demo?.messages.filter((m) => !!m.conversation_id && shown.has(m.conversation_id));
+    return made?.length ? [...keptMessages, ...made] : keptMessages;
+  }, [keptMessages, demo, ids]);
   const { data: calls } = useQuery<CallThreadRow>(CALLS_SQL, [business.id, ids]);
   const { data: noteRows } = useQuery<NoteRow>(NOTES_SQL, [business.id, personId ?? '']);
   const outbox = useInboxOutbox();

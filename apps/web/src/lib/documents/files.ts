@@ -1,5 +1,6 @@
 'use client';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { DEMO_MEDIA_BUCKET } from '@/lib/demo/world';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { openPdf, pageSizes } from './pdf';
 
@@ -8,6 +9,8 @@ export async function documentFileUrl(
   file: { bucket: string; objectPath: string; name?: string },
   opts: { seconds?: number; download?: boolean } = {},
 ): Promise<string> {
+  // A demo scene's made-up contract is a file of the web app's own (lib/demo), never in Storage.
+  if (file.bucket === DEMO_MEDIA_BUCKET) return file.objectPath;
   const { data, error } = await supabaseBrowser()
     .storage.from(file.bucket)
     .createSignedUrl(

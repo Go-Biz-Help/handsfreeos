@@ -29,12 +29,14 @@ export const busyCall: DemoScene = {
   steps: [
     {
       label: 'Open the Inbox',
-      say: 'You’re under a sink across town. Your hands are full, and your phone is ringing.',
+      voiceover:
+        'You’re under a sink across town. Your hands are full, and your phone starts ringing.',
       run: (p) => p.go('inbox'),
     },
     {
       label: 'Marcus calls about a leak',
-      say: 'A new customer. Normally this goes to voicemail, and he calls the next plumber on Google.',
+      voiceover:
+        'It’s a new customer, Marcus, with a leak. Most of the time a call like this goes to voicemail, and he calls the next company on Google.',
       change: (w, at) => {
         startConversation(w, at, {
           id: CONVERSATION,
@@ -57,7 +59,8 @@ export const busyCall: DemoScene = {
     },
     {
       label: 'Your AI teammate answers',
-      say: 'It picks up on the second ring, in your business’s name.',
+      voiceover:
+        'Not today. Your AI teammate picks up on the second ring and answers in your business’s name.',
       change: (w) => {
         const c = conversationIn(w, CONVERSATION);
         c.unread = 0;
@@ -68,7 +71,8 @@ export const busyCall: DemoScene = {
     },
     {
       label: 'It gets the address and books Thursday',
-      say: 'It asked what’s wrong, took the address, and booked the first opening on your calendar.',
+      voiceover:
+        'It asks what’s wrong, takes his address, and books the first opening on your calendar. No phone tag.',
       change: (w, at) => {
         const c = conversationIn(w, CONVERSATION);
         const starts = thursday(at, w.state.timeZone);
@@ -82,7 +86,7 @@ export const busyCall: DemoScene = {
           'Marcus: Just a steady drip.',
           `${w.state.teammate}: Okay, good. What’s the address?`,
           'Marcus: 418 Live Oak Lane, Pflugerville.',
-          `${w.state.teammate}: Thanks. I can get a plumber out ${dayName(starts, w.state.timeZone)} at 10:00 AM. Does that work?`,
+          `${w.state.teammate}: Thanks. I can get a technician out ${dayName(starts, w.state.timeZone)} at 10:00 AM. Does that work?`,
           'Marcus: Thursday at ten is perfect.',
           `${w.state.teammate}: You’re booked. I’ll text you the details now. Anything else?`,
           'Marcus: No, that’s it. Thanks!',
@@ -103,6 +107,8 @@ export const busyCall: DemoScene = {
     },
     {
       label: 'It texts Marcus the details',
+      voiceover:
+        'Then it texts Marcus everything: the day, the time, the address and what the visit is for.',
       change: (w, at) => {
         const c = conversationIn(w, CONVERSATION);
         const starts = c.visits[0]!.startsAt;
@@ -111,7 +117,7 @@ export const busyCall: DemoScene = {
           at,
           direction: 'outbound',
           teammate: true,
-          body: `Hi Marcus, it’s ${w.state.teammate} with ${businessOf(w)}. You’re booked for ${dayName(starts, w.state.timeZone)} at 10:00 AM for the leak under your kitchen sink at 418 Live Oak Lane. Your plumber will text when they’re on the way.`,
+          body: `Hi Marcus, it’s ${w.state.teammate} with ${businessOf(w)}. You’re booked for ${dayName(starts, w.state.timeZone)} at 10:00 AM for the leak under your kitchen sink at 418 Live Oak Lane. Your technician will text when they’re on the way.`,
         });
       },
       live: ['message', 'conversation'],
@@ -119,7 +125,8 @@ export const busyCall: DemoScene = {
     },
     {
       label: 'Read what was said on the call',
-      say: 'Every word of the call is kept, and the visit is already on your calendar. You never put down your wrench.',
+      voiceover:
+        'Every word of the call is kept right here, and the visit is already on your calendar. You never put down your wrench.',
       run: (p) => p.click('@call-record-toggle'),
     },
   ],

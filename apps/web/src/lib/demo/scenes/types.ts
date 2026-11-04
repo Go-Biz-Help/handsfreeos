@@ -8,31 +8,63 @@ import type { DemoWorld } from '../world';
 export interface DemoStep {
   /** The side menu's line: what happens next. */
   readonly label: string;
-  /** A line for the presenter, under the label. */
-  readonly say?: string;
+  /**
+   * What a narrator says while the step plays, for a recorded video: a sentence or two, spoken, in plain words.
+   * The side menu shows it under the label, and Admin → Demo player shows every scene's lines as one script.
+   */
+  readonly voiceover: string;
   readonly change?: (world: DemoWorld, at: number) => void;
   /** What this tab hears changed afterwards (entity types), so the screens on show fetch again. */
   readonly live?: readonly string[];
   readonly run?: (player: DemoPlayer) => Promise<void>;
 }
 
+/** What a scene shows off, as the demo player and Admin → Demo player label it. */
+export const SCENE_KIND_LABEL = {
+  teammate: 'AI teammate',
+  assistant: 'Ask HandsFreeOS',
+  app: 'In the app',
+} as const;
+
+/** One of a scene's own answers (`DemoScene.answers`). */
+export type DemoAnswerFn = (
+  world: DemoWorld,
+  body: Record<string, unknown>,
+  real: () => Promise<Record<string, unknown> | null>,
+  signal?: AbortSignal | null,
+) => unknown;
+
 export interface DemoScene {
   readonly id: string;
   /** Its number in the presentation's list. */
   readonly number: number;
   readonly title: string;
-  /** Which AI it shows. */
-  readonly kind: 'teammate' | 'assistant';
+  /** What it shows: the AI teammate, Ask HandsFreeOS, or the app's own screens. */
+  readonly kind: 'teammate' | 'assistant' | 'app';
   /** Where the first step starts, in the business (e.g. `inbox`). */
   readonly startsOn: string;
   /** The made-up records it starts with. */
   readonly setup?: (world: DemoWorld, at: number) => void;
+  /**
+   * Queries and commands the scene answers itself though they name nothing made up, by name (`import.create`), so
+   * none of them reaches the business: a screen's own steps, such as an import or a setup, played through. An
+   * answer can start from the real one (`real`, null when it failed), and can be a whole `Response`, for a stream:
+   * `ai_team.test` names the worker's test chat (`/v1/ai-team/test`). `undefined` lets the request through.
+   */
+  readonly answers?: Readonly<Record<string, DemoAnswerFn>>;
+  /**
+   * Add-ons the scene shows as on though the business hasn't turned them on (`salescoach`): the menu, the add-on's
+   * pages and its permissions answer as if it had. Nothing is turned on, and only the scene's own answers reach them.
+   */
+  readonly addons?: readonly string[];
   readonly steps: readonly DemoStep[];
 }
 
 /** What a step's `run` can do on screen. Each waits for what it touches to be there. */
 export interface DemoPlayer {
   readonly workspaceId: string;
+  /** The business's name, for words a step types that name it. */
+  readonly business: string;
   /** The presenter, whose name a reply they type signs with. */
   readonly me: { readonly id: string; readonly name: string };
   /** The business's time zone, for words a step types that name a day. */
@@ -49,6 +81,16 @@ export interface DemoPlayer {
   closeAssistant(): Promise<void>;
   /** Types the question in Ask HandsFreeOS (opening it first if it's closed) and sends it. */
   ask(question: string): Promise<void>;
+  /**
+   * Says the words to Ask HandsFreeOS out loud, as the presenter would into the microphone (turning talking on
+   * first), and resolves once they've been heard. Nothing is recorded: it hears the words as written.
+   */
+  say(words: string): Promise<void>;
+  /** Puts a file in a file box (`<input type="file">`), as choosing it would, with no file picker. */
+  attach(
+    target: string,
+    file: { readonly name: string; readonly type: string; readonly text: string },
+  ): Promise<void>;
   /** Types into a box on the page (a textarea or an input), a letter at a time, without sending it. */
   type(target: string, text: string): Promise<void>;
   /** Tells this tab's screens these entity types changed, so they fetch again (after a run's own click). */

@@ -20,6 +20,7 @@ import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
+import { DEMO_MEDIA_BUCKET } from '@/lib/demo/world';
 import { formatBytes } from '@/lib/format';
 import { supabaseBrowser } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -157,10 +158,13 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
           body: { workspaceId, kind, fileName: parsed.file.name },
         }),
       );
-      const { error } = await supabaseBrowser()
-        .storage.from(created.bucket)
-        .upload(created.objectPath, parsed.file, { contentType: 'text/csv', upsert: false });
-      if (error) throw new Error(`Upload failed: ${error.message}`);
+      // A demo scene's import keeps the file in the tab (lib/demo): nothing goes to Storage.
+      if (created.bucket !== DEMO_MEDIA_BUCKET) {
+        const { error } = await supabaseBrowser()
+          .storage.from(created.bucket)
+          .upload(created.objectPath, parsed.file, { contentType: 'text/csv', upsert: false });
+        if (error) throw new Error(`Upload failed: ${error.message}`);
+      }
       unwrap(
         await apiBrowser().POST('/v1/commands/import.start', {
           body: {
@@ -284,6 +288,7 @@ export function ImportWizard({ workspaceId }: { workspaceId: string }) {
             </div>
           ) : (
             <div
+              data-testid="import-drop"
               onDragOver={(e) => {
                 e.preventDefault();
                 setOver(true);

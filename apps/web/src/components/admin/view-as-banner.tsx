@@ -3,6 +3,7 @@ import { Eye, KeyRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { apiBrowser, unwrap } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 
 /**
  * Shown across the top of a business a support person is looking at. Loud, and honest about two things: it
@@ -40,7 +41,11 @@ export function ViewAsBanner({
   const Icon = acting ? KeyRound : Eye;
   return (
     <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-warning-soft px-4 py-2 text-[13px] text-warning-text"
+      className={cn(
+        'flex flex-wrap items-center gap-x-3 gap-y-1 bg-warning-soft px-4 py-2 text-[13px] text-warning-text',
+        // The demo player says it in its own panel while it's open, so a recording doesn't show this (demo-director).
+        acting && '[[data-demo=on]_&]:hidden',
+      )}
       data-testid="view-as-banner"
     >
       <Icon className="h-4 w-4 flex-none" strokeWidth={1.75} />

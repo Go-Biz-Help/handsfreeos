@@ -130,6 +130,15 @@ export interface ChangesDeps {
    * business (20261018000100), where nothing is changed. Asked before anything is kept or sent.
    */
   readonly refuse?: (input: unknown) => string | null;
+  /**
+   * A change about made-up things, which the demo player answers on the phone (src/demo): a made-up id, a refusal's
+   * words, or null for a real change. What it answers is never kept or sent.
+   */
+  readonly pretend?: (
+    name: CommandName,
+    input: unknown,
+    online: boolean,
+  ) => { readonly id: string } | { readonly refused: string } | null;
 }
 
 interface Attached {
@@ -412,6 +421,9 @@ export class Changes {
       throw new ChangeError('failed', `${String(name)} isn’t a change this phone can make.`);
     const refused = this.deps.refuse?.(input);
     if (refused) throw new ChangeError('refused', refused);
+    const pretended = this.deps.pretend?.(name, input, isOnline(name));
+    if (pretended && 'refused' in pretended) throw new ChangeError('refused', pretended.refused);
+    if (pretended) return { id: pretended.id, queued: true } as ChangeResult<N>;
     const body = JSON.stringify(input);
     if (isOnline(name)) return (await this.sendNow(name, body, options)) as ChangeResult<N>;
     const attached = this.attached;

@@ -18,6 +18,7 @@ import * as React from 'react';
 import { useBusiness } from '@/components/shell/business-context';
 import type { OutboxRow } from '@/changes/outbox';
 import { SENT_SHOWN_MS } from '@/changes/rules';
+import { useDemoWorld } from '@/demo/hooks';
 
 import { seesThread } from '@/view-as/state';
 import { useLens } from '@/view-as/use-lens';
@@ -139,12 +140,17 @@ export function useConversations(): {
   const moved = useMovedHere();
   // Viewing as a teammate (20261018000100): only the threads they see.
   const lens = useLens();
+  // A demo scene playing here (src/demo): its made-up conversations beside the real ones.
+  const demo = useDemoWorld();
   return React.useMemo(() => {
     void moved; // Only says to work it out again.
     const names = new Map(members.map((m) => [m.id, m.fullName]));
     const self = { id: me.user.id, fullName: me.user.fullName || me.user.email };
+    const rows: readonly ListRow[] = demo?.conversations.length
+      ? [...demo.conversations, ...data]
+      : data;
     return {
-      items: data
+      items: rows
         .filter((row) => seesThread(lens, row, me.user.id))
         .map((row) => ({
           conversation: withMovedHere(withOwnChanges(conversationOf(row), outbox, self, names)),
@@ -152,7 +158,18 @@ export function useConversations(): {
         })),
       loading: isLoading,
     };
-  }, [data, outbox, members, me.user.id, me.user.fullName, me.user.email, isLoading, moved, lens]);
+  }, [
+    data,
+    outbox,
+    members,
+    me.user.id,
+    me.user.fullName,
+    me.user.email,
+    isLoading,
+    moved,
+    lens,
+    demo,
+  ]);
 }
 
 /** Whether the person has an address of their own here (M19), so My mail shows before any mail has come to it. */

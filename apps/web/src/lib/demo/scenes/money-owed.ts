@@ -114,11 +114,13 @@ export const moneyOwed: DemoScene = {
   steps: [
     {
       label: 'Open Ask HandsFreeOS (⌘J)',
+      voiceover: 'Ask HandsFreeOS knows your money too. Open it from anywhere.',
       run: (p) => p.openAssistant(),
     },
     {
       label: 'Ask: who owes me money?',
-      say: 'No reports to run. It adds it up and tells you who’s late.',
+      voiceover:
+        'Ask who owes you money. No reports to run. It adds up every unpaid invoice and shows you who’s late.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         w.answer = {
@@ -153,12 +155,13 @@ export const moneyOwed: DemoScene = {
     },
     {
       label: 'Ask it to text the three that are late',
-      say: 'It writes each one with the amount and a link to pay.',
+      voiceover:
+        'Ask it to text the three that are late a friendly nudge. It writes each one with the amount and a link to pay.',
       change: (w, at) => {
         const all = textCards(businessOf(w), at);
         for (const c of all) w.cards[c.toolCallId] = c;
         w.answer = {
-          steps: [{ id: 'write', label: 'Writing the texts' }],
+          steps: LATE.map((_, i) => ({ id: `text-${i}`, label: 'Preparing it for your OK' })),
           text: 'Here’s a text for each of the three, with the amount and their link to pay. They go from your business number once you say yes.',
           cards: all,
         };
@@ -172,7 +175,7 @@ export const moneyOwed: DemoScene = {
     },
     {
       label: 'Say yes to each text',
-      say: 'Anything that reaches a customer waits for your OK.',
+      voiceover: 'Say yes to each one. Anything that reaches a customer waits for your OK.',
       change: (w, at) => {
         w.answer = null;
         const business = businessOf(w);
@@ -191,7 +194,7 @@ export const moneyOwed: DemoScene = {
     },
     {
       label: 'Gary texts back',
-      say: 'Thirty-four days late, and paid the same night.',
+      voiceover: 'Gary texts back. Thirty-four days late, and paid the same night.',
       change: (w, at) => {
         const c = conversationIn(w, idOf(0, CONVERSATION));
         c.unread = 1;

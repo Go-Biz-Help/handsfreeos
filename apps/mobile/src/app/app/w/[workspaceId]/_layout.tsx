@@ -4,6 +4,7 @@ import * as React from 'react';
 import { AskFromNotification } from '@/components/changes/ask-from-notification';
 import { OpenBusiness } from '@/components/copy/copy-gate';
 import { FinishOnTheWeb } from '@/components/founding/finish-on-web';
+import { DemoPlayerBar } from '@/components/demo/demo-player';
 import { CallSheetHost } from '@/components/inbox/call-sheet';
 import { BusinessProvider } from '@/components/shell/business-context';
 import { BusinessSwitcher } from '@/components/shell/business-switcher';
@@ -19,7 +20,8 @@ export { ScreenError as ErrorBoundary } from '@/components/shell/screen-error';
 /**
  * One business, as /app/w/<business> on the web: its tabs, Ask HandsFreeOS, Search everything, the AI teammate's test
  * console and quick setup, setting the business up, Changes on this phone, (test builds) This phone's copy, and a
- * HandsFreeOS video call. The call sheet sits over all of them (`startCall`).
+ * HandsFreeOS video call. The call sheet sits over all of them (`startCall`), and so does the demo player while a scene
+ * plays here (src/demo).
  */
 export default function BusinessLayout() {
   const state = useSession();
@@ -92,6 +94,8 @@ function Business({ userId }: { userId: string }) {
           </Stack>
           <AskFromNotification />
           <CallSheetHost />
+          {/* A demo scene playing here (Admin → Demo player): its player, over every screen. */}
+          <DemoPlayerBar />
         </>
       )}
       <BusinessSwitcher

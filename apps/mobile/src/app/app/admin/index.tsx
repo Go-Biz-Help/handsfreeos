@@ -7,7 +7,7 @@ import { desk, useLive, useReloadOnReturn } from '@/admin/live';
 import { DESK_PHONE_WORDS } from '@/admin/words';
 import { DESK_ICONS } from '@/components/admin/desk-icons';
 import { deskHref, useDesk } from '@/components/admin/staff-context';
-import { ArrowLeft, BellRing, Globe, LogOut } from '@/components/icons';
+import { ArrowLeft, BellRing, Globe, LogOut, Presentation } from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { SignOutSheet } from '@/components/shell/sign-out-sheet';
@@ -15,6 +15,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
+import { PHONE_DEMO_WORDS } from '@/demo/words';
 import { useMe } from '@/lib/businesses';
 import { openWeb } from '@/lib/open-web';
 
@@ -79,6 +80,14 @@ export default function DeskHome() {
           detail={DESK_PHONE_WORDS.notificationsDetail}
           onPress={() => router.push(deskHref('notifications') as Href)}
           testID="desk-nav-notifications"
+        />
+        {/* Scenes for videos and live shows that play on this phone (src/demo), as the web's Admin → Demo player. */}
+        <ListRow
+          icon={Presentation}
+          label={PHONE_DEMO_WORDS.title}
+          detail={PHONE_DEMO_WORDS.detail}
+          onPress={() => router.push('/app/admin/demo' as Href)}
+          testID="desk-nav-demo"
         />
         {hasBusiness ? (
           <ListRow
