@@ -17,6 +17,7 @@ import {
   elementsIn,
   inTopBar,
   isHeading,
+  labelOf,
   namesOn,
   tabsIn,
   textLines,
@@ -72,6 +73,36 @@ function friendshipIn(
     )
       return friendship;
   return 'unknown';
+}
+
+/** The buttons beside Message that say nothing about where you stand: Follow, and Search, which looks through theirs. */
+const BESIDE_MESSAGE = /^(?:message|follow|following|search\b.*|.+['’]s profile)$/i;
+
+const buttonsIn = (root: Element): Element[] => [
+  ...root.querySelectorAll('[role="button"], button'),
+];
+
+/**
+ * Whether the top offers no Add friend at all: Message's row holds only Message, Follow, Search and one menu (the
+ * owner's problem reports of 4 Nov 2026). Facebook leaves Add friend out for someone who takes requests only from
+ * friends of friends, or who only lets people follow them. Any other button in the row might be a friend button in
+ * words the readers don't know yet, so then it isn't said.
+ */
+function noAddFriendIn(top: readonly Element[]): boolean {
+  for (const box of top)
+    for (const message of buttonsIn(box)) {
+      if (!/^message$/i.test(labelOf(message))) continue;
+      let row = message.parentElement;
+      while (row && row !== box && buttonsIn(row).length < 2) row = row.parentElement;
+      if (!row) return false;
+      const others = buttonsIn(row).filter(
+        (button) => button !== message && !BESIDE_MESSAGE.test(labelOf(button)),
+      );
+      return (
+        others.length === 0 || (others.length === 1 && others[0]!.hasAttribute('aria-expanded'))
+      );
+    }
+  return false;
 }
 
 /**
@@ -332,6 +363,7 @@ export function readProfile(
       profile: address.profile,
       intro,
       friendship,
+      ...(friendship === 'unknown' && noAddFriendIn(top) ? { noAddFriend: true as const } : {}),
       mutualFriends,
       ...(followers !== null ? { followers } : {}),
       ...(friends !== null ? { friends } : {}),

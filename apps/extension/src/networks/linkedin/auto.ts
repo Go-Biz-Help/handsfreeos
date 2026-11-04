@@ -208,6 +208,33 @@ export function topCardControl(doc: Document, pattern: RegExp): HTMLElement | nu
   );
 }
 
+/**
+ * A shown item saying this in a menu More opened, wherever LinkedIn draws it: from November 2026 the menu shows
+ * outside the top card, out of `topCardControl`'s reach, its Connect a link (the owner's problem reports of 4 Nov
+ * 2026, on 0.126.2: the AI helper found "Connect" there each time). One linking to LinkedIn's invitation box for
+ * someone else is never theirs.
+ */
+export function menuItem(doc: Document, href: string, pattern: RegExp): HTMLElement | null {
+  const theirs = classifyUrl(href).profile;
+  for (const place of placesOf(doc))
+    for (const menu of place.querySelectorAll('[role="menu"]')) {
+      if (!visible(menu) || menu.closest(OVER_THE_PAGE)) continue;
+      for (const item of menu.querySelectorAll<HTMLElement>(
+        `${CONTROLS}, [role="menuitem"], a[href]`,
+      )) {
+        if (!shown(item) || !says(item, pattern)) continue;
+        const url = item.matches('a[href]')
+          ? linkedinUrl(item.getAttribute('href') ?? '', href)
+          : null;
+        const invited = url?.searchParams.get('vanityName');
+        if (invited && theirs?.username && invited.toLowerCase() !== theirs.username.toLowerCase())
+          continue;
+        return item;
+      }
+    }
+  return null;
+}
+
 /** The invitation box's way to send as it is, when it asks nothing else: no field to fill in. */
 function sendAsItIs(doc: Document): HTMLElement | 'asks' | null {
   for (const box of boxesOver(doc)) {
@@ -237,7 +264,10 @@ export async function connect(doc: Document, href: string): Promise<ConnectResul
     const more = topCardControl(doc, MORE);
     if (!more) return 'none';
     more.click();
-    press = await waitFor(() => topCardControl(doc, CONNECT), 3_000);
+    press = await waitFor(
+      () => topCardControl(doc, CONNECT) ?? menuItem(doc, href, CONNECT),
+      3_000,
+    );
   }
   if (!press) return 'none';
   press.click();
@@ -284,7 +314,10 @@ export async function answerInvitation(
     const more = topCardControl(doc, MORE);
     if (!more) return 'none';
     more.click();
-    press = await waitFor(() => topCardControl(doc, pattern), 3_000);
+    press = await waitFor(
+      () => topCardControl(doc, pattern) ?? menuItem(doc, href, pattern),
+      3_000,
+    );
   }
   if (!press) return 'none';
   press.click();

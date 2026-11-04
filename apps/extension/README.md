@@ -1151,6 +1151,27 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### No Add friend, Connect in More's menu, and posts with nothing to open (0.126.3)
+
+The problem check of 4 Nov 2026, 19:23 UTC, found four problems on 0.126.2. From 0.126.3:
+
+- **Facebook, no Add friend at all.** Ten friend requests to seven people said Facebook "couldn't tell where things
+  stand". Their profiles have no friend button: only Message and Facebook's menu, or Message, Follow and Search. Facebook
+  leaves Add friend out for someone who takes requests only from friends of friends, or who only lets people follow
+  them. The profile reader says so now (`noAddFriend`, only when every other button beside Message is one it knows),
+  and the request is passed over with that line: nothing reported, nothing handed to the person, and a step tried again
+  is cleared. A button beside Message it doesn't know still reads as a page it couldn't read, so a renamed friend button
+  is never passed over.
+- **LinkedIn, Connect in More's menu.** More's menu now shows outside the profile's top card, so after pressing More the
+  runner never saw Connect, and the AI helper pressed it each time. The runner now looks in the menu More opened, on
+  the page or in LinkedIn's interop box (`menuItem`), and never presses one whose link invites someone else. Ignore
+  under More goes the same way.
+- **LinkedIn, no reactions to open.** A good post minutes old with no reactions was reported as "No reactions count on
+  the post". It's reported only when HandsFreeOS saw reactions on the post.
+- **Alignable, a group's discussion.** Who liked a good post on a group's own discussion page
+  (/groups/<group>/<discussion>) was never opened: only /biz/discussions/<id> counted. Both do now, and the page its
+  count may lead to (/biz/business_likes?resource=<id>) is read as the list of who liked it.
+
 ### Two misreads the problem check found (0.126.1)
 
 The scheduled problem check (docs/operations.md, "The daily problem check") found two steps that kept failing on the

@@ -18,6 +18,7 @@ import {
   monthlyLimitOn,
   readAlignable,
 } from '../src/networks/alignable/read';
+import { likersBox, openLikers } from '../src/networks/alignable/likers';
 import { readReplies } from '../src/networks/alignable/replies';
 import { ALIGNABLE } from '../src/networks/alignable/site';
 import { outlineLooking, readLooking } from '../src/networks/looking/read';
@@ -221,6 +222,36 @@ describe('posts, on a town’s group and a forum question', () => {
     ]);
     expect(read.answers).toEqual([]);
     expect(read.business).toBeNull();
+  });
+
+  it('opens who liked a post on a group’s own discussion page, and reads the page its count leads to', () => {
+    // The owner's problem reports of 4 Nov 2026 (0.126.2): a good post on a group's discussion page
+    // (/groups/<group>/<discussion>), whose count of likes links to /biz/business_likes, was never pressed.
+    const at = `${AL}/groups/austin-tx/need-a-roofer-123`;
+    const doc = page(
+      at,
+      `<section><div><div><div><a aria-label="Sam’s profile" href="/austin-tx/best-bakery?user=6"></a>
+          <div><div><a href="/austin-tx/best-bakery?user=6"><span>Sam Lee</span><span>at</span><span>Best Bakery</span></a></div>
+            <div><span>21h</span></div></div></div>
+          <p>Who does great roofing in Austin?</p>
+          <div><div><a id="likes" href="/biz/business_likes?resource=9"><span>2</span><span>Like</span></a>
+            <span><span>0</span><span>Share</span></span></div><hr>
+            <div><a href="/biz/discussions/91"><svg></svg>Comment</a><a href="/biz/business_likes"><div>Like</div></a>
+              <a href="/biz/connection_requests/make_connection?business_id=42&discussion_id=91&type=mgc"><div>Connect</div></a></div></div></div></div></section>`,
+    );
+    let pressed = 0;
+    doc.getElementById('likes')!.addEventListener('click', (event) => {
+      event.preventDefault();
+      pressed++;
+    });
+    expect(openLikers(doc, at)).toBe(true);
+    expect(pressed).toBe(1);
+    const likes = `${AL}/biz/business_likes?resource=9`;
+    const list = page(
+      likes,
+      '<main><a href="/austin-tx/acme-plumbing?user=5">Acme Plumbing</a></main>',
+    );
+    expect(likersBox(list, likes)?.tagName).toBe('MAIN');
   });
 
   it('reads a forum question’s post, then its answers and their replies, and its box to answer in', () => {

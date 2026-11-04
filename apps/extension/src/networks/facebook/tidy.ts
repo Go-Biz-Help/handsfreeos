@@ -120,6 +120,13 @@ export const FRIENDSHIP_WORDS: Readonly<Record<ProfilePage['friendship'], string
   unknown: 'it couldn’t tell where things stand',
 };
 
+/**
+ * A friend request on a profile with no Add friend at all, only Message or Follow (`noAddFriend`): nobody can send it,
+ * so it's passed over, never handed to the person or reported as a page it couldn't read.
+ */
+export const NO_ADD_FRIEND =
+  'Facebook shows no Add friend on their profile (they take requests only from friends of friends, or only let people follow them)';
+
 /** Whether an address is someone's profile, the only pages the extension cancels or unfriends on. */
 export function tidyPage(href: string): boolean {
   return classifyUrl(href).kind === 'profile';

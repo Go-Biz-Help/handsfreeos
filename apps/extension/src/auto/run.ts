@@ -65,7 +65,7 @@ import {
 import { linesOf, pageHeading, POSTS_READ } from '../networks/facebook/lookup';
 import type { FetchStep } from '../networks/facebook/fetch';
 import { facebook } from '../networks/facebook/kit';
-import { FRIENDSHIP_WORDS } from '../networks/facebook/tidy';
+import { FRIENDSHIP_WORDS, NO_ADD_FRIEND } from '../networks/facebook/tidy';
 import type { ProfileRef, ReadResult, ThreadRef } from '../networks/facebook/types';
 import { valueOf, type Hfos, type Job, type JobEnd } from '../jobs/job';
 import { nameForms, sameName } from '../networks/facebook/people';
@@ -364,6 +364,10 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   const { friendship } = opened.page.profile!;
   if (friendship === plan.after)
     return { done: false, line: `${item.name}: done already`, skip: true };
+  // No Add friend at all, only Message or Follow: Facebook lets only friends of friends ask them, or only lets people
+  // follow them. Nobody can send it, so it's passed over, with nothing for the AI helper or the person to do.
+  if (friendship === 'unknown' && opened.page.profile!.noAddFriend && job === 'friend_request')
+    return { done: false, line: `${item.name}: ${NO_ADD_FRIEND}`, skip: true };
   // Facebook's buttons didn't say where things stand: maybe a new layout, so the AI helper looks and the step is the
   // person's (decision 145). Anywhere else Facebook says, there's nothing to do.
   if (friendship === 'unknown')

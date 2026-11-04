@@ -559,3 +559,65 @@ describe('sending a message on Facebook', () => {
     expect(sent).toEqual([]);
   });
 });
+
+describe('a friend request on Facebook', () => {
+  /** Dana's friend request, picked for today. */
+  const request = {
+    ...approved(),
+    kind: 'friend_request',
+    send: null,
+    threadKey: null,
+  } as TodayListItem;
+
+  /** Dana's profile with her friend button gone, and Facebook's menu beside Message, as on the owner's pages. */
+  function noAddFriend(): Document {
+    const doc = load('profile-2026.html', DANA);
+    doc.title = '(2) Facebook';
+    doc.querySelector('[role="button"][aria-label="Friends"]')!.remove();
+    doc
+      .querySelector('[role="button"][aria-label="See options"]')!
+      .setAttribute('aria-label', 'More options');
+    return doc;
+  }
+
+  async function step(item: TodayListItem) {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork({ do: 'step', item }, ME.businessId, false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it('passes over one with no Add friend on their profile, handing nothing over (the owner’s reports of 4 Nov 2026)', async () => {
+    world.pages = (url) => (url === DANA ? noAddFriend() : null);
+    const outcome = await step(request);
+    expect(outcome).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook shows no Add friend on their profile (they take requests only from friends of friends, or only let people follow them)',
+      skip: true,
+    });
+    expect(world.noted).toEqual([]);
+  });
+
+  it('hands one over as a page it couldn’t read when a button it doesn’t know is beside Message', async () => {
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = noAddFriend();
+      doc
+        .querySelector('[role="button"][aria-label="Message"]')!
+        .insertAdjacentHTML(
+          'beforebegin',
+          '<div role="button" aria-label="Befriend Dana Reyes">Befriend</div>',
+        );
+      return doc;
+    };
+    expect(await step(request)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook says it couldn’t tell where things stand',
+      need: true,
+    });
+  });
+});
