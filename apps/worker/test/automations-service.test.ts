@@ -267,12 +267,13 @@ describe('tasks from what you say', () => {
     rows<{
       title: string;
       assignee_user_id: string | null;
-      due_at: Date | null;
+      due_ms: number | null;
       all_day: boolean;
       notes: string | null;
     }>(
       admin(),
-      sql`select title, assignee_user_id, due_at, all_day, notes from app.tasks
+      sql`select title, assignee_user_id, (extract(epoch from due_at) * 1000)::float8 as due_ms,
+                 all_day, notes from app.tasks
           where person_id = ${personId} order by created_at`,
     );
 
@@ -295,7 +296,7 @@ describe('tasks from what you say', () => {
       {
         title: 'Send Ned the quote',
         assignee_user_id: w.owner.id,
-        due_at: new Date(localInstant(tomorrow, '00:00', CHI)),
+        due_ms: localInstant(tomorrow, '00:00', CHI),
         all_day: true,
         notes: 'Added by the AI from your text to Ned Test.',
       },

@@ -1177,18 +1177,19 @@ describe('connecting Zoom', () => {
       id: string;
       title: string;
       assignee_user_id: string;
-      due_at: Date | null;
+      due_ms: number | null;
       notes: string;
     }>(
       admin(),
-      sql`select id, title, assignee_user_id, due_at, notes from app.tasks where person_id = ${person!.id}`,
+      sql`select id, title, assignee_user_id, (extract(epoch from due_at) * 1000)::float8 as due_ms, notes
+          from app.tasks where person_id = ${person!.id}`,
     );
     expect(made).toEqual([
       {
         id: task.taskId,
         title: 'Send the quote',
         assignee_user_id: tech.id,
-        due_at: new Date(new Date(at(-2, 16)).getTime() + 2 * 86_400_000),
+        due_ms: new Date(at(-2, 16)).getTime() + 2 * 86_400_000,
         notes: 'Added by the AI from your video call with Mike Johnson.',
       },
     ]);
