@@ -102,7 +102,9 @@ describe('a first message', () => {
     expect(REQUESTS_TASK).toContain(FIRST_MESSAGE_SHAPE);
     expect(opener({ platform: 'instagram', requests: true })).toContain(REQUESTS_TASK);
     const back = opener({ platform: 'instagram' });
-    expect(back).toContain('They just followed the owner back.');
+    expect(back).toContain(
+      'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
+    );
     expect(back).toContain(FIRST_MESSAGE_SHAPE);
     expect(opener({ platform: 'linkedin' })).toContain(FIRST_MESSAGE_SHAPE);
   });
@@ -172,6 +174,28 @@ describe('Reconnect', () => {
     expect(prompt).toMatch(/<offer>/);
     expect(prompt).toMatch(/The outcome, in a few words: more deals/);
     expect(prompt).not.toMatch(/Don’t pitch yet/);
+  });
+
+  it('is for someone the owner has talked with, and a first message for someone never talked to (decision 155)', () => {
+    expect(reconnect()).toContain(
+      'They’ve chatted with the owner before, but neither has written in over a month.',
+    );
+    expect(RECONNECT_CATCH_UP).toMatch(/^They’ve chatted with the owner before/);
+    for (const platform of ['facebook', 'linkedin', 'instagram'] as const) {
+      const first = todayDraftPrompt({
+        kind: 'opener',
+        business: 'Bright Books',
+        name: 'Dana Reyes',
+        facts: [],
+        recent: [],
+        playbook: crm,
+        platform,
+      });
+      expect(first).toContain(
+        'They and the owner haven’t talked yet, so this is the owner’s first message to them.',
+      );
+      expect(first).not.toMatch(/just accepted|it’s been a while/);
+    }
   });
 
   it('goes as two texts when the person sends a few, else as one message', () => {

@@ -355,8 +355,9 @@ describe('checking friends and chats', () => {
     expect(friends.checks).toMatchObject({ people: 4, checked: 2, good: 1, maybe: 1, today: 2 });
   });
 
-  it('puts a good fit gone quiet on Today to reconnect with', async () => {
+  it('puts a good fit gone quiet on Today to reconnect with, and one never talked to to say hi to (decision 155)', async () => {
     const blake = await idOf('blake.cho.2');
+    const casey = await idOf('casey.moreno.8');
     const looked = await look(blake, ['Owner at Cho Electric']);
     const { looked_at } = await kept(looked.checkId);
     await save(looked.checkId, new Date(looked_at).toISOString(), {
@@ -366,11 +367,17 @@ describe('checking friends and chats', () => {
       about: 'Owns Cho Electric',
       nextStep: 'Ask about the new shop',
     });
+    // Casey has been a friend three days, past the playbook's day before a first message.
+    await rows(
+      admin(),
+      sql`update addon_outreach.friends set since = ${daysAgo(3)}::timestamptz where profile_id = ${casey}`,
+    );
+    const of = (items: { kind: string; name: string }[], kind: string) =>
+      items.filter((i) => i.kind === kind).map((i) => i.name);
     const today = await runAs(owner, ws, 'outreach.today', {});
     const reconnect = today.items.filter((i: { kind: string }) => i.kind === 'reconnect');
-    // Avery wrote two days ago: not quiet yet. Blake's chat went quiet 40 days ago. Casey, who might fit, fills what's
-    // left after the good fits (decision 126, answer 5a).
-    expect(reconnect.map((i: { name: string }) => i.name)).toEqual(['Blake Cho', 'Casey Moreno']);
+    // Avery wrote two days ago: not quiet yet. Blake's chat, where he wrote, went quiet 40 days ago.
+    expect(reconnect.map((i: { name: string }) => i.name)).toEqual(['Blake Cho']);
     expect(reconnect[0]).toMatchObject({
       name: 'Blake Cho',
       why: ['Owns an electrical business'],
@@ -379,15 +386,65 @@ describe('checking friends and chats', () => {
       playbookName: 'CRM demos',
       threadKey: '2000002',
     });
-    // Put on Don't pitch, they're off the list.
+    // Casey, who might fit, has never talked with them: Say hi's first message, never Reconnect's catch-up.
+    const hi = today.items.filter((i: { kind: string }) => i.kind === 'opener');
+    expect(hi.map((i: { name: string }) => i.name)).toEqual(['Casey Moreno']);
+    expect(hi[0]).toMatchObject({
+      why: ['A friend you haven’t talked to yet', 'Runs a small landscaping crew'],
+      playbookName: 'CRM demos',
+    });
+    // Put on Don't pitch, Blake's off the list.
     await runAs(owner, ws, 'outreach.friend.set', { profileId: blake, dontPitch: true });
     const again = await runAs(owner, ws, 'outreach.today', {});
-    expect(
-      again.items
-        .filter((i: { kind: string }) => i.kind === 'reconnect')
-        .map((i: { name: string }) => i.name),
-    ).toEqual(['Casey Moreno']);
+    expect(of(again.items, 'reconnect')).toEqual([]);
+    expect(of(again.items, 'opener')).toEqual(['Casey Moreno']);
     await runAs(owner, ws, 'outreach.friend.set', { profileId: blake, dontPitch: false });
+    // Social Outreach wrote to Blake before: the catch-up is only ever its first message to someone.
+    const [sent] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into addon_outreach.sends (workspace_id, user_id, profile_id, kind, text, drafted, state,
+            done_at, created_at)
+          values (${ws}, ${owner.id}, ${blake}, 'opener', 'Hey Blake', 'Hey Blake', 'sent',
+            ${daysAgo(45)}::timestamptz, ${daysAgo(45)}::timestamptz)
+          returning id`,
+    );
+    expect(of((await runAs(owner, ws, 'outreach.today', {})).items, 'reconnect')).toEqual([]);
+    await rows(admin(), sql`delete from addon_outreach.sends where id = ${sent!.id}`);
+    expect(of((await runAs(owner, ws, 'outreach.today', {})).items, 'reconnect')).toEqual([
+      'Blake Cho',
+    ]);
+  });
+
+  it('throws out a catch-up drafted for someone never talked to as the next draft is queued (decision 155, 3a)', async () => {
+    const blake = await idOf('blake.cho.2');
+    const casey = await idOf('casey.moreno.8');
+    const queue = (profileId: string, kind: string) =>
+      runAs(owner, ws, 'outreach.send.queue', { profileId, kind, text: `A ${kind}` }) as Promise<{
+        sendId: string;
+        state: string;
+      }>;
+    const sendsOf = (profileId: string) =>
+      rows<{ kind: string; state: string }>(
+        admin(),
+        sql`select kind, state from addon_outreach.sends where profile_id = ${profileId} order by kind`,
+      );
+    // Drafted before the change: a catch-up for Casey, waiting for an OK, goes with the next draft queued.
+    expect((await queue(casey, 'reconnect')).state).toBe('waiting');
+    await queue(blake, 'reconnect');
+    expect(await sendsOf(casey)).toEqual([]);
+    // One OK'd is skipped; Blake's, to someone they've talked with, stays.
+    const okd = await queue(casey, 'reconnect');
+    await rows(
+      admin(),
+      sql`update addon_outreach.sends set state = 'approved', approved_at = now() where id = ${okd.sendId}`,
+    );
+    await queue(casey, 'opener');
+    expect(await sendsOf(casey)).toEqual([
+      { kind: 'opener', state: 'waiting' },
+      { kind: 'reconnect', state: 'skipped' },
+    ]);
+    expect(await sendsOf(blake)).toEqual([{ kind: 'reconnect', state: 'waiting' }]);
+    await rows(admin(), sql`delete from addon_outreach.sends where workspace_id = ${ws}`);
   });
 
   it('checks everyone again when asked, keeping what the AI said until then', async () => {
@@ -481,14 +538,25 @@ describe('checking friends and chats', () => {
     const found = await runAs(owner, ws, 'outreach.friends', { view: 'fits' });
     expect(found.checks.good).toBe(before.checks.good);
 
-    // A connection now: the same check counts at once.
+    // A connection now: the same check counts at once. Never talked to, they get Say hi once the playbook's day has
+    // gone by, never Reconnect's catch-up (decision 155).
     await runAs(owner, ws, 'outreach.friends.save', {
       platform: 'facebook',
       list: 'friends',
       people: [person('quinn.harper.3', 'Quinn Harper')],
     });
-    expect(await reconnecting()).toContain('Quinn Harper');
     expect(await fits()).toContain('Quinn Harper');
+    const sayingHi = async () =>
+      ((await runAs(owner, ws, 'outreach.today', {})).items as { kind: string; name: string }[])
+        .filter((i) => i.kind === 'opener')
+        .map((i) => i.name);
+    expect(await sayingHi()).not.toContain('Quinn Harper');
+    await rows(
+      admin(),
+      sql`update addon_outreach.friends set since = ${daysAgo(2)}::timestamptz where profile_id = ${quinn}`,
+    );
+    expect(await sayingHi()).toContain('Quinn Harper');
+    expect(await reconnecting()).not.toContain('Quinn Harper');
     // Read again, the look is of someone known.
     await look(quinn, ['Owner at Harper Roofing']);
     expect(await via()).toBe('known');
