@@ -29,6 +29,8 @@ import { settingsChannelConfirmTools } from '../src/assistant/tools-settings-cha
 import { settingsMeConfirmTools } from '../src/assistant/tools-settings-me';
 import { settingsMoneyConfirmTools } from '../src/assistant/tools-settings-money';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
+import { createFakeGeocoder } from '../src/geo/geocoder';
+import type { WorkerServices } from '../src/services';
 
 /**
  * Setting the business up by asking (M12), step one: the Assistant can read how any part of the business is set
@@ -305,7 +307,7 @@ describe('setting up a service by asking', () => {
       owner,
     );
     expect(card.title).toBe('Add Furnace check');
-    expect(card.fields.find((f) => f.label === 'Price')!.value).toBe('$129.00');
+    expect(card.fields.find((f) => f.label === 'Price shown')!.value).toBe('$129.00');
     expect(card.fields.find((f) => f.label === 'How long')!.value).toBe('45 min or 90 min');
     expect(card.fields.find((f) => f.label === 'Who can do it')!.value).toBe('Dale Owner');
 
@@ -401,6 +403,247 @@ const q = async <T>(name: string, input: Record<string, unknown> = {}) =>
     correlationId: randomUUID(),
     channel: 'test' as const,
   })) as T;
+
+/** The executor as the worker builds it, with a map that finds any address but one with "nowhere" in it. */
+const withMap = () =>
+  createToolExecutor(api(), null, null, '', undefined, {
+    services: { geocoder: createFakeGeocoder() } as unknown as WorkerServices,
+  });
+const prepareOn = async (
+  executor: ReturnType<typeof createToolExecutor>,
+  name: string,
+  args: Record<string, unknown>,
+) => {
+  const tool = assistantToolByName.get(name)!;
+  const parsed = tool.input.parse(args) as Record<string, unknown>;
+  const { card } = await executor.prepare(tool, parsed, ctxFor(owner), randomUUID());
+  const done = () =>
+    executor.commit(tool as never, parsed, ctxFor(owner), { toolCallId: randomUUID() });
+  return { card: card as Extract<AssistantCard, { type: 'confirm' }>, done };
+};
+const fieldOf = (card: { fields: { label: string; value: string }[] }, label: string) =>
+  card.fields.find((f) => f.label === label)?.value;
+
+interface ServiceRow {
+  id: string;
+  name: string;
+  durations: number[];
+  defaultDuration: number;
+  repeatMonths: number | null;
+  resources: { resourceId: string; quantity: number }[];
+  hours: { day: number; start: string; end: string }[] | null;
+}
+interface ResourceRow {
+  id: string;
+  name: string;
+  kind: string;
+  quantity: number;
+  hours: { day: number }[] | null;
+}
+interface TerritoryRow {
+  id: string;
+  name: string;
+  kind: string;
+  postalCodes: string[];
+  centerAddress: string | null;
+  radiusMiles: number | null;
+  userIds: string[];
+}
+
+describe('Settings → Calendars: services, resources and territories', () => {
+  let chairId: string;
+
+  it('adds a resource of any kind the screen has, with its own hours, only on Confirm', async () => {
+    const args = {
+      action: 'create',
+      name: 'Styling chair',
+      kind: 'chair',
+      quantity: 2,
+      hours: [{ day: 2, start: '09:00', end: '13:00' }],
+    };
+    const { card, done } = await prepareOn(createToolExecutor(api()), 'manage_resource', args);
+    expect(card.title).toBe('Add Styling chair');
+    expect(fieldOf(card, 'What it is')).toBe('Chair');
+    expect(fieldOf(card, 'How many')).toBe('2');
+    expect(fieldOf(card, 'Hours')).toBe('Tue 09:00–13:00');
+    const before = (await q<{ items: ResourceRow[] }>('resource.list')).items;
+    expect(before.some((r) => r.name === 'Styling chair')).toBe(false);
+    await done();
+    const chair = (await q<{ items: ResourceRow[] }>('resource.list')).items.find(
+      (r) => r.name === 'Styling chair',
+    )!;
+    chairId = chair.id;
+    expect([chair.kind, chair.quantity, chair.hours?.length]).toEqual(['chair', 2, 1]);
+
+    await expect(
+      prepareOn(createToolExecutor(api()), 'manage_resource', { ...args, name: 'styling chair' }),
+    ).rejects.toThrow('There’s already a resource called “styling chair”.');
+    await expect(
+      prepareOn(createToolExecutor(api()), 'manage_resource', {
+        action: 'change',
+        resourceId: chairId,
+        quantity: 2,
+      }),
+    ).rejects.toThrow('Nothing would change.');
+  });
+
+  it('changes how often a service repeats, what it needs and its hours, saying only what changes', async () => {
+    const furnace = (await q<{ items: ServiceRow[] }>('service.list')).items.find(
+      (s) => s.name === 'Furnace check',
+    )!;
+    const args = {
+      action: 'change',
+      serviceId: furnace.id,
+      repeatMonths: 12,
+      resources: [{ resourceId: chairId }],
+      hours: [{ day: 1, start: '08:00', end: '12:00' }],
+    };
+    const { card, done } = await prepareOn(createToolExecutor(api()), 'manage_service', args);
+    expect(card.title).toBe('Change Furnace check');
+    expect(fieldOf(card, 'Repeats')).toBe('Every 12 months');
+    expect(fieldOf(card, 'Needs')).toBe('Styling chair × 1');
+    expect(fieldOf(card, 'Hours')).toBe('Mon 08:00–12:00');
+    expect(fieldOf(card, 'How long')).toBeUndefined();
+    await done();
+    const now = (await q<{ items: ServiceRow[] }>('service.list')).items.find(
+      (s) => s.id === furnace.id,
+    )!;
+    expect(now.repeatMonths).toBe(12);
+    expect(now.resources).toEqual([{ resourceId: chairId, quantity: 1 }]);
+    expect(now.hours).toEqual([{ day: 1, start: '08:00', end: '12:00' }]);
+
+    await expect(prepareOn(createToolExecutor(api()), 'manage_service', args)).rejects.toThrow(
+      'Nothing would change. Furnace check is already set up that way.',
+    );
+    await expect(
+      prepareOn(createToolExecutor(api()), 'manage_service', {
+        ...args,
+        resources: [{ resourceId: randomUUID() }],
+      }),
+    ).rejects.toThrow('No resource has that id.');
+    await expect(
+      prepareOn(createToolExecutor(api()), 'manage_service', {
+        action: 'create',
+        name: 'furnace check',
+      }),
+    ).rejects.toThrow('There’s already a service called “furnace check”.');
+
+    // New lengths pick the first as the one booked unless they choose, as the screen does.
+    const shorter = await prepareOn(createToolExecutor(api()), 'manage_service', {
+      action: 'change',
+      serviceId: furnace.id,
+      durationsMinutes: [30],
+    });
+    expect(fieldOf(shorter.card, 'How long')).toBe('30 min');
+    await shorter.done();
+    const short = (await q<{ items: ServiceRow[] }>('service.list')).items.find(
+      (s) => s.id === furnace.id,
+    )!;
+    expect([short.durations, short.defaultDuration]).toEqual([[30], 30]);
+  });
+
+  it('archives a resource only on Confirm, saying what needs it will show something to fix', async () => {
+    const { card, done } = await prepareOn(createToolExecutor(api()), 'manage_resource', {
+      action: 'archive',
+      resourceId: chairId,
+    });
+    expect(card.title).toBe('Archive Styling chair');
+    expect(card.warnings[0]!.text).toContain('show something to fix');
+    await done();
+    expect(
+      (await q<{ items: ResourceRow[] }>('resource.list')).items.some((r) => r.id === chairId),
+    ).toBe(false);
+  });
+
+  it('adds a ZIP area, and one so many miles from an address found on the map', async () => {
+    const zip = await prepareOn(createToolExecutor(api()), 'manage_territory', {
+      action: 'create',
+      name: 'North',
+      postalCodes: ['75201', '75202'],
+      userIds: [owner.id],
+    });
+    expect(zip.card.title).toBe('Add North');
+    expect(fieldOf(zip.card, 'Covers')).toBe('75201, 75202');
+    expect(fieldOf(zip.card, 'Who covers it')).toBe('Dale Owner');
+    await zip.done();
+
+    const miles = {
+      action: 'create',
+      name: 'Downtown',
+      milesFrom: { address: '1500 Main St, Dallas TX 75201', miles: 10 },
+    };
+    // Without the map there is nothing to measure from, and it says what to do instead.
+    await expect(prepareOn(createToolExecutor(api()), 'manage_territory', miles)).rejects.toThrow(
+      'I can’t look addresses up on the map right now.',
+    );
+    await expect(
+      prepareOn(withMap(), 'manage_territory', {
+        ...miles,
+        milesFrom: { address: 'nowhere at all', miles: 10 },
+      }),
+    ).rejects.toThrow('wasn’t found on the map');
+    await expect(
+      prepareOn(withMap(), 'manage_territory', { ...miles, postalCodes: ['75201'] }),
+    ).rejects.toThrow('not both');
+    const far = await prepareOn(withMap(), 'manage_territory', miles);
+    expect(fieldOf(far.card, 'Covers')).toBe('10 miles from 1500 Main St, Dallas TX 75201');
+    await far.done();
+
+    const areas = (await q<{ items: TerritoryRow[] }>('territory.list')).items;
+    const north = areas.find((t) => t.name === 'North')!;
+    expect([north.kind, north.postalCodes.sort(), north.userIds]).toEqual([
+      'zip',
+      ['75201', '75202'],
+      [owner.id],
+    ]);
+    const downtown = areas.find((t) => t.name === 'Downtown')!;
+    expect([downtown.kind, downtown.radiusMiles, downtown.centerAddress]).toEqual([
+      'radius',
+      10,
+      '1500 Main St, Dallas TX 75201',
+    ]);
+    await expect(
+      prepareOn(withMap(), 'manage_territory', {
+        action: 'change',
+        territoryId: downtown.id,
+        milesFrom: miles.milesFrom,
+      }),
+    ).rejects.toThrow('Nothing would change.');
+  });
+
+  it('turns a ZIP area into a distance, saying its codes come off, and deletes one only on Confirm', async () => {
+    const north = (await q<{ items: TerritoryRow[] }>('territory.list')).items.find(
+      (t) => t.name === 'North',
+    )!;
+    const change = await prepareOn(withMap(), 'manage_territory', {
+      action: 'change',
+      territoryId: north.id,
+      milesFrom: { address: '200 Elm St, Plano TX 75074', miles: 5 },
+    });
+    expect(fieldOf(change.card, 'Covers')).toBe('5 miles from 200 Elm St, Plano TX 75074');
+    expect(fieldOf(change.card, 'Was')).toBe('75201, 75202');
+    expect(change.card.warnings[0]!.text).toContain('Its 2 ZIP codes come off');
+    await change.done();
+    const moved = (await q<{ items: TerritoryRow[] }>('territory.list')).items.find(
+      (t) => t.id === north.id,
+    )!;
+    expect([moved.kind, moved.postalCodes, moved.radiusMiles]).toEqual(['radius', [], 5]);
+
+    const gone = await prepareOn(createToolExecutor(api()), 'manage_territory', {
+      action: 'delete',
+      territoryId: north.id,
+    });
+    expect(gone.card.title).toBe('Delete North');
+    expect(gone.card.warnings[0]!.text).toContain('stop sending visits there');
+    expect(
+      (await q<{ items: TerritoryRow[] }>('territory.list')).items.some((t) => t.id === north.id),
+    ).toBe(true);
+    await gone.done();
+    expect(
+      (await q<{ items: TerritoryRow[] }>('territory.list')).items.some((t) => t.id === north.id),
+    ).toBe(false);
+  });
+});
 
 describe('the business itself', () => {
   it('changes the name and the open hours, and leaves the rest of the settings alone', async () => {

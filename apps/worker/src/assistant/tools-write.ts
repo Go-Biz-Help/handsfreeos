@@ -37,7 +37,7 @@ import { settingsBusinessConfirmTools } from './tools-settings-business';
 import { settingsChannelConfirmTools } from './tools-settings-channels';
 import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
-import { settingsCalendarConfirmTools } from './tools-settings-calendar';
+import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-settings-calendar';
 import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 import { billingAutoTools, billingConfirmTools } from './tools-billing';
@@ -240,13 +240,19 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
 // ---------- changes that wait for the person's OK ----------
 
 interface ConfirmTool {
-  prepare(db: Db, ctx: ToolContext, args: Args, toolCallId: string): Promise<PreparedAction>;
+  prepare(
+    db: Db,
+    ctx: ToolContext,
+    args: Args,
+    toolCallId: string,
+    deps?: SettingsDeps,
+  ): Promise<PreparedAction>;
   commit(
     db: Db,
     ctx: ToolContext,
     args: Args,
     /** `webUrl` is the web app's address: a link that goes to a customer needs the whole thing, not a path. */
-    extra: { lostReason?: string; toolCallId: string; webUrl: string },
+    extra: { lostReason?: string; toolCallId: string; webUrl: string } & SettingsDeps,
   ): Promise<CommittedAction>;
 }
 
@@ -860,6 +866,8 @@ export function createToolExecutor(
 ): ToolExecutor {
   // The main offer's score and tries are the builder's own, which ask the model with the worker's AI services.
   const offerDeps = workflows ? { ...workflows, httpDb: db } : null;
+  // The map, for a service area so many miles from an address: the worker's own, when it has its services.
+  const settingsDeps: SettingsDeps = { geocoder: addonActions?.services.geocoder ?? null };
   return {
     async run(tool: OfferedTool, args: Args, ctx: ToolContext) {
       // An add-on's tool is its own operation, run through the kernel as the person.
@@ -896,7 +904,7 @@ export function createToolExecutor(
       if (offer) return offer.prepare(db, ctx, args, toolCallId);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
-      return t.prepare(db, ctx, args, toolCallId);
+      return t.prepare(db, ctx, args, toolCallId, settingsDeps);
     },
     async commit(tool, args, ctx, extra) {
       if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
@@ -906,7 +914,7 @@ export function createToolExecutor(
       if (offer) return offer.commit(db, ctx, args, offerDeps);
       const t = confirmTools[tool.name];
       if (!t) throw new Error(`No confirmation for ${tool.name}`);
-      return t.commit(db, ctx, args, { ...extra, webUrl });
+      return t.commit(db, ctx, args, { ...extra, webUrl, ...settingsDeps });
     },
     async undo(tool, record, ctx) {
       switch (tool.name) {
