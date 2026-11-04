@@ -33,6 +33,10 @@ export interface DemoScene {
 /** What a step's `run` can do on screen. Each waits for what it touches to be there. */
 export interface DemoPlayer {
   readonly workspaceId: string;
+  /** The presenter, whose name a reply they type signs with. */
+  readonly me: { readonly id: string; readonly name: string };
+  /** The business's time zone, for words a step types that name a day. */
+  readonly timeZone: string;
   /** Opens a page of the business (`inbox/<id>`), as a click on a link would. */
   go(path: string): Promise<void>;
   /** Moves the pointer to the first match (a CSS selector, or `@id` for a data-testid) and clicks it. */
@@ -41,8 +45,14 @@ export interface DemoPlayer {
   point(target: string): Promise<void>;
   /** Points at Ask HandsFreeOS in the menu and opens it on a new chat. */
   openAssistant(): Promise<void>;
+  /** Closes Ask HandsFreeOS, so the page behind it shows in full. */
+  closeAssistant(): Promise<void>;
   /** Types the question in Ask HandsFreeOS (opening it first if it's closed) and sends it. */
   ask(question: string): Promise<void>;
+  /** Types into a box on the page (a textarea or an input), a letter at a time, without sending it. */
+  type(target: string, text: string): Promise<void>;
+  /** Tells this tab's screens these entity types changed, so they fetch again (after a run's own click). */
+  refresh(entityTypes: readonly string[]): void;
   /** Waits for a match to show (ms; 8 seconds unless given). */
   waitFor(target: string, ms?: number): Promise<Element>;
   wait(ms: number): Promise<void>;
