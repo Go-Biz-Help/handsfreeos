@@ -106,6 +106,7 @@ export function buildWorld(state: DemoState, workspaceId: string): DemoWorld | n
     coach: null,
     setup: null,
     outreach: [],
+    tasks: [],
   };
   scene.setup?.(world, state.startedAt);
   state.steps.forEach((offset, i) => scene.steps[i]?.change?.(world, state.startedAt + offset));

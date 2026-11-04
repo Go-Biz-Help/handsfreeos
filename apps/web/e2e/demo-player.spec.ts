@@ -356,7 +356,7 @@ test('demo player: the AI teammate texts back a missed call, reads a photo, move
     await expect(page.getByText(name)).toHaveCount(0);
 });
 
-test('demo player: a visit paid on the spot, a deposit to book, bookings online and around your own calendar, tune-ups that book themselves, a contract signed on a phone, and a call turned into tasks and a quote', async ({
+test('demo player: a visit paid on the spot, a deposit to book, bookings online and around your own calendar, tune-ups that book themselves, a contract signed on a phone, calls and your own texts turned into tasks, and a quote', async ({
   page,
 }) => {
   test.setTimeout(900_000);
@@ -404,7 +404,7 @@ test('demo player: a visit paid on the spot, a deposit to book, bookings online 
   await expect(page.locator('img[alt^="Signed by"]')).toBeVisible();
   await expect(page.getByTestId('document-steps')).toContainText('Signed: Heather Malone');
 
-  // Scene 37: a recorded call's task approved and its follow-up email sent, with the transcript kept.
+  // Scene 37: a recorded call's task added on its own and its follow-up email sent, with the transcript kept.
   await pick(page, 'call-to-tasks', 'Open today’s call');
   await play(page, 5);
   await expect(page.locator('[data-testid="call-suggestion"][data-status="pending"]')).toHaveCount(
@@ -418,13 +418,34 @@ test('demo player: a visit paid on the spot, a deposit to book, bookings online 
   await expect(page).toHaveURL(/\/money\/estimates\/de300000-/);
   await expect(page.getByTestId('document-activity')).toContainText('Lauren Hayes');
 
+  // Scene 67: a phone call's summary on the lead, its two tasks made on their own, then on the Tasks page.
+  await pick(page, 'phone-call-tasks', 'Open Darnell’s lead');
+  await play(page, 5);
+  await expect(page).toHaveURL(/\/tasks/);
+  await expect(
+    page.getByText('Text Darnell a price for a new 50-gallon water heater'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Added by the AI from your call with Darnell Ferris.').first(),
+  ).toBeVisible();
+
+  // Scene 68: the presenter's own text, and the two tasks the AI read from it.
+  await pick(page, 'text-tasks', 'Maya texts about her AC');
+  await play(page, 4);
+  await expect(page).toHaveURL(/\/tasks/);
+  await expect(page.getByText('Visit Maya to look at the upstairs AC')).toBeVisible();
+  await expect(page.getByText('Text Maya the tune-up price')).toBeVisible();
+
   // None of it was ever saved.
   await page.getByTestId('demo-exit').click();
   await expect(director(page)).toHaveCount(0);
   await page.goto(`/app/w/${workspaceId}/inbox`);
   await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
-  for (const name of ['Erin Ortiz', 'Paige Holloway', 'Curtis Becker'])
+  for (const name of ['Erin Ortiz', 'Paige Holloway', 'Curtis Becker', 'Maya Castellano'])
     await expect(page.getByText(name)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/tasks`);
+  await expect(page.getByTestId('tasks-page')).toBeVisible();
+  await expect(page.getByText('Visit Maya to look at the upstairs AC')).toHaveCount(0);
   await page.goto(`/app/w/${workspaceId}/documents`);
   await expect(page.getByRole('heading', { name: 'Documents' })).toBeVisible();
   await expect(page.getByText('AC system installation agreement')).toHaveCount(0);

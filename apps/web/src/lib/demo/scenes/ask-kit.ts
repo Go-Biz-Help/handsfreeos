@@ -167,6 +167,7 @@ const EMPTY: DemoWorld = {
   coach: null,
   setup: null,
   outreach: [],
+  tasks: [],
 };
 
 /** Ids for one scene's made-up records: its number keeps them apart from every other scene's. */

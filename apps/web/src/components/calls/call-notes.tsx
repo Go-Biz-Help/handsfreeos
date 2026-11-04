@@ -38,7 +38,10 @@ export function PhoneCallNotes({
       <Dialog open={open} onOpenChange={setOpen}>
         {open ? (
           <DialogContent title={title} className="w-[min(560px,calc(100vw-32px))]">
-            <div className="mt-2 flex max-h-[65vh] flex-col overflow-y-auto">
+            <div
+              className="mt-2 flex max-h-[65vh] flex-col overflow-y-auto"
+              data-testid="phone-call-notes"
+            >
               <CallReview workspaceId={workspaceId} callId={callId} version={0} />
             </div>
           </DialogContent>
