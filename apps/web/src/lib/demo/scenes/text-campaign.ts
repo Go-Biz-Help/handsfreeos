@@ -115,10 +115,7 @@ export const textCampaign: DemoScene = {
         const c = card(businessOf(w));
         w.cards[c.toolCallId] = c;
         w.answer = {
-          steps: [
-            { id: 'look', label: 'Checking your tags and customers' },
-            { id: 'start', label: 'Setting up the campaign' },
-          ],
+          steps: [{ id: 'start', label: 'Setting up the campaign' }],
           text: `Everyone tagged Past customer fits: ${PICKED.length + LEFT_OUT.length} people. ${PICKED.length} of them can get a text, and 3 are left out. I’ll write a text for each person about the job you last did for them. Nothing goes out until you approve.`,
           cards: [c],
         };

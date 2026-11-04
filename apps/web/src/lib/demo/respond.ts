@@ -1,4 +1,9 @@
-import { CHAT_VISITOR_NAME, type AssistantCard, type AssistantEvent } from '@hfos/core';
+import {
+  CHAT_VISITOR_NAME,
+  emptyTeammateConfig,
+  type AssistantCard,
+  type AssistantEvent,
+} from '@hfos/core';
 import type { Ok } from '../api/types';
 import { buildWorld } from './scenes';
 import type { DemoState } from './state';
@@ -606,9 +611,12 @@ function confirmCard(c: DemoConfirmCard): AssistantCard {
     title: c.title,
     fields: [...c.fields],
     body: c.body ?? null,
-    stageFrom: null,
-    stageTo: null,
-    warnings: c.note ? [{ kind: 'note', text: c.note }] : [],
+    stageFrom: c.stageFrom ?? null,
+    stageTo: c.stageTo ?? null,
+    warnings: [...(c.note ? [{ kind: 'note', text: c.note }] : []), ...(c.warnings ?? [])].slice(
+      0,
+      3,
+    ),
     reasons: [],
     confirmLabel: c.confirmLabel,
     editable: false,
@@ -863,17 +871,48 @@ export async function demoResponse(
       });
     }
     case 'ai_teammate.get': {
-      if (!w.teammateAutomatic) return null;
-      // Past its training: replies go out on their own, so the banner says so.
       const res = await real();
       if (!res.ok) return res;
       const got = (await res.json()) as Ok<'/v1/queries/ai_teammate.get'>;
+      if (got.teammate && !w.teammateAutomatic) return json(got);
+      // A business with no AI teammate yet (Bright Path has none) gets one in training, with its default
+      // settings, so its drafts and banners read as they would. Past its training, replies go out on their own.
+      const status = w.teammateAutomatic ? 'automatic' : (got.teammate?.status ?? 'training');
+      const since = new Date(w.state.startedAt - 30 * 24 * 3600_000).toISOString();
+      const teammate = got.teammate ?? {
+        id: TEAMMATE,
+        name: w.state.teammate,
+        status,
+        config: emptyTeammateConfig() as unknown as Record<string, unknown>,
+        configVersion: 1,
+        revision: 1,
+        labels: [],
+        trainingStartedAt: since,
+        automaticSince: null,
+        createdAt: since,
+        updatedAt: since,
+      };
+      const progress = got.progress ?? {
+        status,
+        approvedCount: 17,
+        editedCount: 1,
+        rejectedCount: 0,
+        approvalsNeeded: 20,
+        remaining: 3,
+        automaticVia: null,
+      };
       return json({
         ...got,
-        teammate: got.teammate ? { ...got.teammate, status: 'automatic' } : null,
-        progress: got.progress
-          ? { ...got.progress, status: 'automatic', remaining: 0, automaticVia: 'threshold' }
-          : null,
+        teammate: { ...teammate, status },
+        progress: w.teammateAutomatic
+          ? {
+              ...progress,
+              status,
+              approvedCount: Math.max(progress.approvedCount, progress.approvalsNeeded),
+              remaining: 0,
+              automaticVia: 'threshold',
+            }
+          : progress,
       });
     }
     case 'assistant_thread.get':

@@ -152,7 +152,7 @@ export const reviewRequests: DemoScene = {
         w.answer = {
           steps: [
             { id: 'done', label: 'Looking at appointments' },
-            { id: 'write', label: 'Writing the texts' },
+            ...JOBS.map((_, i) => ({ id: `text-${i}`, label: 'Preparing it for your OK' })),
           ],
           shows: [
             {
@@ -211,7 +211,7 @@ export const reviewRequests: DemoScene = {
           id: LINDA_REPLY,
           at,
           direction: 'inbound',
-          body: 'Done! Five stars. Your plumber was great, and so quick.',
+          body: 'Done! Five stars. Your tech was great, and so quick.',
         });
       },
       live: ['conversation', 'message'],

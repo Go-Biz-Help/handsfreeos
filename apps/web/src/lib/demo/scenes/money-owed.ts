@@ -161,7 +161,7 @@ export const moneyOwed: DemoScene = {
         const all = textCards(businessOf(w), at);
         for (const c of all) w.cards[c.toolCallId] = c;
         w.answer = {
-          steps: [{ id: 'write', label: 'Writing the texts' }],
+          steps: LATE.map((_, i) => ({ id: `text-${i}`, label: 'Preparing it for your OK' })),
           text: 'Here’s a text for each of the three, with the amount and their link to pay. They go from your business number once you say yes.',
           cards: all,
         };

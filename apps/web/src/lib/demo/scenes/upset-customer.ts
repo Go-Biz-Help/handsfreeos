@@ -21,7 +21,7 @@ const MINE = demoId(0x50013);
 const CALMER = demoId(0x50014);
 
 const answer = (me: string) =>
-  `Linda, this is ${me}, the owner. I’m so sorry. That’s on us, and you should have had a call. I can have a plumber there at 8:00 AM tomorrow, and there’s no charge for the visit. Does that work?`;
+  `Linda, this is ${me}, the owner. I’m so sorry. That’s on us, and you should have had a call. I can have a technician there at 8:00 AM tomorrow, and there’s no charge for the visit. Does that work?`;
 
 export const upsetCustomer: DemoScene = {
   id: 'upset-customer',
@@ -38,7 +38,7 @@ export const upsetCustomer: DemoScene = {
     {
       label: 'Linda texts, and she’s not happy',
       voiceover:
-        'Linda is not happy. The plumber was due between one and three, it’s half past four, and she took the afternoon off work.',
+        'Linda is not happy. The technician was due between one and three, it’s half past four, and she took the afternoon off work.',
       change: (w, at) => {
         startConversation(w, at, {
           id: CONVERSATION,
@@ -52,7 +52,7 @@ export const upsetCustomer: DemoScene = {
             customerSince: at - 400 * 24 * 3600_000,
           },
           firstId: UPSET,
-          body: 'Your plumber was supposed to come between 1 and 3 today. It’s 4:30 and nobody showed up or even called. I took the afternoon off work for this!!',
+          body: 'Your technician was supposed to come between 1 and 3 today. It’s 4:30 and nobody showed up or even called. I took the afternoon off work for this!!',
         });
       },
       live: ['conversation', 'message'],

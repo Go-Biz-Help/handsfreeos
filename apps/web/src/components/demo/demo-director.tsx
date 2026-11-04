@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { copyText } from '@/components/ui/copy-field';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { installDemoFetch } from '@/lib/demo/browser';
+import { demoEars } from '@/lib/demo/ears';
 import {
   DEMO_SCENES,
   findScene,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/demo/scenes';
 import { clearDemoState, readDemoState, writeDemoState, type DemoState } from '@/lib/demo/state';
 import { emitLocalChange } from '@/lib/realtime/live-provider';
+import { sayingMs, scriptVoice } from '@/lib/voice/session';
 import { cn } from '@/lib/utils';
 import { clickOn, find, pointAt, removePointer, sleep, waitFor } from './pointer';
 
@@ -186,6 +188,18 @@ export function DemoDirector({
         await sleep(350);
         await clickOn(await waitFor('@assistant-send'));
       },
+      async say(words) {
+        scriptVoice(demoEars);
+        if (!assistantRef.current.open) await openAssistant();
+        const talk = await waitFor('@assistant-talk');
+        const heard = demoEars.say(words);
+        if (talk.getAttribute('aria-pressed') === 'true') await pointAt(talk);
+        else await clickOn(talk);
+        // It listens once it has finished speaking.
+        const taken = await Promise.race([heard.then(() => true), sleep(45_000).then(() => false)]);
+        if (!taken) throw new Error('Ask HandsFreeOS didn’t start listening.');
+        await sleep(sayingMs(words) + 600);
+      },
       async type(target, text) {
         const box = await waitFor(target);
         await pointAt(box);
@@ -277,6 +291,7 @@ export function DemoDirector({
         stateRef.current = fresh;
         setState(fresh);
         setProblem(null);
+        demoEars.clear();
         const a = assistantRef.current;
         a.newChat();
         a.setOpen(false);
@@ -336,6 +351,8 @@ export function DemoDirector({
     setState(null);
     setOn(false);
     setProblem(null);
+    demoEars.clear();
+    scriptVoice(null);
     assistantRef.current.newChat();
     removePointer();
     emitLocalChange(EVERYTHING);

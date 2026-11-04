@@ -1,5 +1,8 @@
 import type { DemoState } from '../state';
 import type { DemoWorld } from '../world';
+import { ASK_DO_SCENES } from './ask-do';
+import { ASK_LOOK_SCENES } from './ask-look';
+import { talkFromTheTruck } from './ask-voice';
 import { businessSetup } from './business-setup';
 import { busyCall } from './busy-call';
 import { leadText } from './lead-text';
@@ -28,6 +31,9 @@ export const DEMO_SCENES: readonly DemoScene[] = [
   moneyOwed,
   myDay,
   reviewRequests,
+  ...ASK_LOOK_SCENES,
+  ...ASK_DO_SCENES,
+  talkFromTheTruck,
 ].sort((a, b) => a.number - b.number);
 
 export const findScene = (id: string) => DEMO_SCENES.find((s) => s.id === id) ?? null;

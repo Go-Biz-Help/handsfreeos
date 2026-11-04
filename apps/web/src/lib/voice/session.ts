@@ -51,6 +51,27 @@ const RECORDING_TYPES = [
 
 type AudioContextClass = typeof AudioContext;
 
+/**
+ * Words heard instead of the microphone: the demo player says the presenter's lines (lib/demo/ears.ts). While
+ * they're set, voice mode starts without the microphone, a turn takes the next line said, and a piece the voice
+ * can't say plays as a pause as long as it would take to say it.
+ */
+export interface ScriptedEars {
+  /** Calls `fn` with the next words said; what it returns stops waiting. */
+  hear(fn: (words: string) => void): () => void;
+}
+
+let scripted: ScriptedEars | null = null;
+
+/** Hears the demo player's lines (ears) or the microphone again (null). */
+export function scriptVoice(ears: ScriptedEars | null): void {
+  scripted = ears;
+}
+
+/** How long saying `text` out loud takes, at an easy pace. */
+export const sayingMs = (text: string): number =>
+  Math.max(900, text.trim().split(/\s+/).length * 380);
+
 export class VoiceSession {
   private snap: VoiceSnapshot = VOICE_OFF;
   private readonly listeners = new Set<() => void>();
@@ -117,7 +138,11 @@ export class VoiceSession {
     const Ctx: AudioContextClass | undefined =
       window.AudioContext ??
       (window as unknown as { webkitAudioContext?: AudioContextClass }).webkitAudioContext;
-    if (!Ctx || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+    const mic = !scripted;
+    if (
+      !Ctx ||
+      (mic && (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined'))
+    ) {
       this.set('off', VOICE_WORDS.unsupported);
       return false;
     }
@@ -125,15 +150,17 @@ export class VoiceSession {
     const ctx = this.ctx ?? new Ctx();
     this.ctx = ctx;
     const resumed = ctx.resume().catch(() => undefined);
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-    } catch (e) {
-      const blocked =
-        e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
-      this.set('off', blocked ? VOICE_WORDS.noMicWeb : VOICE_WORDS.unsupported);
-      return false;
+    if (mic) {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+      } catch (e) {
+        const blocked =
+          e instanceof DOMException && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+        this.set('off', blocked ? VOICE_WORDS.noMicWeb : VOICE_WORDS.unsupported);
+        return false;
+      }
     }
     await resumed;
     this.fetches = new AbortController();
@@ -188,6 +215,7 @@ export class VoiceSession {
   async listen(): Promise<string | null> {
     const ctx = this.ctx;
     const stream = this.stream;
+    if (this.on && ctx && !stream && scripted) return this.listenScripted(scripted);
     if (!this.on || !ctx || !stream) return null;
     this.hush();
     this.listening?.stop(false);
@@ -263,6 +291,45 @@ export class VoiceSession {
       else this.set('idle', errorMessage(e));
       return null;
     }
+  }
+
+  /** Hears the demo player's next line, with the meter moving while it's said, as if from the microphone. */
+  private async listenScripted(ears: ScriptedEars): Promise<string | null> {
+    this.hush();
+    this.listening?.stop(false);
+    this.set('listening');
+    const words = await new Promise<string | null>((resolve) => {
+      const turn = {
+        stop: () => {
+          stopWaiting();
+          if (this.listening === turn) this.listening = null;
+          resolve(null);
+        },
+      };
+      this.listening = turn;
+      const stopWaiting = ears.hear((said) => {
+        if (this.listening === turn) this.listening = null;
+        resolve(said);
+      });
+    });
+    if (words === null || !this.on) return null;
+    let cut = false;
+    const saying = { stop: () => (cut = true) };
+    this.listening = saying;
+    const end = performance.now() + sayingMs(words);
+    while (!cut && this.on && performance.now() < end) {
+      this.level(0.3 + Math.random() * 0.55);
+      await new Promise((r) => setTimeout(r, TICK_MS * 2));
+    }
+    if (this.listening === saying) this.listening = null;
+    this.level(0);
+    if (cut || !this.on) return null;
+    this.set('hearing');
+    const gen = this.gen;
+    await new Promise((r) => setTimeout(r, 500));
+    if (gen !== this.gen || !this.on) return null;
+    this.set('thinking');
+    return words;
   }
 
   /** Says `text` after anything already waiting to be said. */
@@ -365,6 +432,13 @@ export class VoiceSession {
       );
       return await ctx.decodeAudioData(audio);
     } catch (e) {
+      // In a demo the lines go on without the voice: a pause as long as saying them.
+      if (scripted && !signal.aborted && this.on)
+        return ctx.createBuffer(
+          1,
+          Math.ceil((ctx.sampleRate * sayingMs(text)) / 1000),
+          ctx.sampleRate,
+        );
       const stops = signal.aborted || !this.on ? null : speechStops(e);
       if (stops) this.stop(stops);
       return null;

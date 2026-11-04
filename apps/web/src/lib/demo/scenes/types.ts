@@ -52,6 +52,11 @@ export interface DemoPlayer {
   closeAssistant(): Promise<void>;
   /** Types the question in Ask HandsFreeOS (opening it first if it's closed) and sends it. */
   ask(question: string): Promise<void>;
+  /**
+   * Says the words to Ask HandsFreeOS out loud, as the presenter would into the microphone (turning talking on
+   * first), and resolves once they've been heard. Nothing is recorded: it hears the words as written.
+   */
+  say(words: string): Promise<void>;
   /** Types into a box on the page (a textarea or an input), a letter at a time, without sending it. */
   type(target: string, text: string): Promise<void>;
   /** Tells this tab's screens these entity types changed, so they fetch again (after a run's own click). */

@@ -204,6 +204,74 @@ test('demo player: Ask HandsFreeOS sets up services, chases what’s owed, moves
   }
 });
 
+test('demo player: Ask HandsFreeOS answers what needs you, quotes from a sentence, learns a closed day, hears you out loud and moves jobs', async ({
+  page,
+}) => {
+  test.setTimeout(480_000);
+  const workspaceId = await staffBusiness(page, 'demo-ask-ideas');
+  await page.goto(`/app/w/${workspaceId}?demo`);
+  await expect(director(page)).toBeVisible();
+  const panel = page.getByTestId('assistant-panel');
+  const thread = page.getByTestId('conversation');
+
+  // Scene 23: what needs you, two of the AI teammate's replies sent on your OK, and a text to the upset customer.
+  await pick(page, 'what-needs-me', 'Open Ask HandsFreeOS');
+  await play(page, 6);
+  await expect(panel.getByTestId('assistant-card-attention')).toContainText('Gina Torres');
+  await expect(panel.getByText('Approved. It goes to Linda now.')).toBeVisible();
+  await expect(panel.getByText('Sent to Gina Torres')).toBeVisible();
+
+  // Scene 24: an estimate written from one sentence, sent by text, and approved on the customer's phone.
+  await pick(page, 'estimate-sentence', 'Open Ask HandsFreeOS');
+  await play(page, 6);
+  await expect(page).toHaveURL(/\/money\/estimates\/de300000-/);
+  await expect(page.getByTestId('document-activity')).toContainText('Carol Jensen');
+
+  // Scene 28: a closed day told once, then the AI teammate gets it right with a customer.
+  await pick(page, 'teach-teammate', 'Open Ask HandsFreeOS');
+  await play(page, 4);
+  await expect(page).toHaveURL(/\/inbox\/de300000-/);
+  await expect(
+    thread.getByText(/we’re closed on Friday, November \d+ for the holiday/),
+  ).toBeVisible();
+  // Past its training (this business has no AI teammate, so the scene makes one up): it answers on its own.
+  await expect(page.getByTestId('handling-ai')).toContainText('It replies on its own.');
+
+  // Scene 22: asked out loud, the answer read back, and a spoken yes sends the text. The player says the lines,
+  // so no microphone is needed.
+  await pick(page, 'talk-from-the-truck', 'Open Ask HandsFreeOS');
+  await play(page, 4);
+  await expect(page).toHaveURL(/\/inbox\/de300000-/);
+  await expect(
+    thread.getByText('I’ll leave the garage open for you.', { exact: false }),
+  ).toBeVisible();
+
+  // Scene 58: what the AI teammate did today, and the reply it held for your OK.
+  await pick(page, 'teammate-today', 'Open Ask HandsFreeOS');
+  await play(page, 4);
+  await expect(panel.getByTestId('assistant-card-list')).toContainText('6 conversations');
+  await expect(panel.getByText('Approved. It goes to Ben now.')).toBeVisible();
+
+  // Scene 60: tomorrow's outdoor jobs moved to next week, a card each.
+  await pick(page, 'rain-day', 'Open Ask HandsFreeOS');
+  await play(page, 3);
+  await expect(panel.getByText(/^Moved to \w{3}, \w{3} \d+ at/)).toHaveCount(3);
+
+  // Scene 62: this year's water heater installs tagged on one card, then a plain answer.
+  await pick(page, 'tag-water-heaters', 'Open Ask HandsFreeOS');
+  await play(page, 4);
+  await expect(panel.getByText('Tags changed on 14 of 14')).toBeVisible();
+  await expect(panel.getByText(/4 of the 14/)).toBeVisible();
+
+  // None of it was ever saved.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  for (const name of ['Gina Torres', 'Joan Riley'])
+    await expect(page.getByText(name)).toHaveCount(0);
+});
+
 test('demo player: Admin → Demo player plays a scene in your business, each step with its voiceover', async ({
   page,
 }) => {

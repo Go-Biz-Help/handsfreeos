@@ -45,7 +45,8 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
 - **What the world can hold** (`world.ts`): texts, calls with a transcript, website chats from a visitor who isn't
   known until they give a name, drafts waiting for an OK, visits, hand-offs to a person (and Take it), estimates
   with the customer's approval, invoices made from them, services, and campaigns. `teammateAutomatic` makes the AI
-  teammate read as answering on its own, for scenes past its training.
+  teammate read as answering on its own, for scenes past its training. A business with no AI teammate (Bright
+  Path has none) gets one made up, in training.
 - **Made-up ids start with `de300000-0000-4000-8000-`** (`demoId`), so an answer for one can't be mistaken for a
   real record.
 
@@ -68,6 +69,18 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
    turn, `textedConversation` is a text it sent for the presenter, and `p.closeAssistant` gets it out of the way.
    Word cards and steps as the worker words them (`apps/worker/src/assistant`), so a scene shows only what it
    really does.
+   - **Most Ask HandsFreeOS scenes are only words:** `scenes/ask-kit.ts` builds one from beats (`askScene`). An
+     `ask` beat types the question and streams its scripted answer, then points at what it shows; a `confirm` beat
+     says yes to the answer's cards; `reply` is a customer texting back, opened in the Inbox. `ran(...)` lists the
+     answer's steps by the labels the worker shows for each tool (`PREPARING` for a card's tool with none), and
+     `textCard`, `approveTextCard` and `textsSent` are the texting cards and the conversations they start.
+     `scenes/ask-look.ts` and `scenes/ask-do.ts` are built this way.
+   - **Out loud:** `p.say` speaks a line to it instead of typing (`scenes/ask-voice.ts`). It turns talking on and
+     the turn hears the words as written (`ears.ts`, through `scriptVoice` in `lib/voice/session.ts`), so no
+     microphone is used. A spoken yes confirms the one waiting card, and a line its voice can't say plays as a
+     pause.
+   - **Only what the Assistant can do.** It can't search notes or messages (Search everything is for people only),
+     so a scene that finds something that way plays in the Search box instead.
 5. If a screen the scene opens asks for something `respond.ts` doesn't answer yet, the browser console says
    `demo: no made-up answer for …`. Add the answer there, typed with `Ok<…>` so the compiler checks its shape.
 6. Cover it in `e2e/demo-player.spec.ts`: play it to the end with Space, and check what it shows.

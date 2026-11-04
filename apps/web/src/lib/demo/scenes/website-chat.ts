@@ -141,7 +141,7 @@ export const websiteChat: DemoScene = {
           at,
           direction: 'outbound',
           teammate: true,
-          body: 'You’re all set for tomorrow at 8:00 AM, Priya. We’ll text 512-555-0187 when your plumber is on the way. Good night!',
+          body: 'You’re all set for tomorrow at 8:00 AM, Priya. We’ll text 512-555-0187 when your technician is on the way. Good night!',
         });
         c.visits.push({
           id: VISIT,

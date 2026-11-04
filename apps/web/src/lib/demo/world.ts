@@ -182,6 +182,11 @@ export interface DemoConfirmCard {
   /** A text or email's words, under the fields. */
   readonly body?: string;
   readonly note?: string;
+  /** Rules shown before saying yes, as the worker words them (a caution, a note), after `note`. */
+  readonly warnings?: readonly { readonly kind: string; readonly text: string }[];
+  /** A lead's move, shown as from → to. */
+  readonly stageFrom?: string;
+  readonly stageTo?: string;
   /** What Confirm says it did, and the page it opens (in the business, e.g. `campaigns/<id>`). */
   readonly outcome: string;
   readonly opens?: string;

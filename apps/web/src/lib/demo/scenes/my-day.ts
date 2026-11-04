@@ -4,7 +4,6 @@ import {
   clock,
   confirmEach,
   conversationIn,
-  myFirstName,
   openConversation,
   shortDay,
   weekdayOf,
@@ -134,11 +133,11 @@ export const myDay: DemoScene = {
         const card = {
           toolCallId: MOVE,
           tool: 'reschedule_appointment',
-          title: 'Move Dave Johnson’s water heater install?',
+          title: 'Move Dave’s water heater install?',
           fields: [
             { label: 'Was', value: range(was, DAVE_MINUTES, tz) },
             { label: 'Now', value: range(now, DAVE_MINUTES, tz) },
-            { label: 'With', value: myFirstName(w) },
+            { label: 'With', value: w.state.me.name },
             { label: 'Tell Dave', value: 'A text with the new time' },
           ],
           confirmLabel: 'Move',
@@ -148,7 +147,7 @@ export const myDay: DemoScene = {
         w.answer = {
           steps: [
             { id: 'find', label: 'Looking at appointments' },
-            { id: 'free', label: 'Checking when you’re free' },
+            { id: 'free', label: 'Checking open times' },
           ],
           text: `${weekdayName(now, tz)} at ${clock(now, tz)} is open, the same time as tomorrow. Dave gets a text with the new time once you say yes.`,
           cards: [card],

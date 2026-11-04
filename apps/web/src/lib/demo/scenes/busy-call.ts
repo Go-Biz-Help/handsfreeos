@@ -36,7 +36,7 @@ export const busyCall: DemoScene = {
     {
       label: 'Marcus calls about a leak',
       voiceover:
-        'It’s a new customer, Marcus, with a leak. Most of the time a call like this goes to voicemail, and he calls the next plumber on Google.',
+        'It’s a new customer, Marcus, with a leak. Most of the time a call like this goes to voicemail, and he calls the next company on Google.',
       change: (w, at) => {
         startConversation(w, at, {
           id: CONVERSATION,
@@ -86,7 +86,7 @@ export const busyCall: DemoScene = {
           'Marcus: Just a steady drip.',
           `${w.state.teammate}: Okay, good. What’s the address?`,
           'Marcus: 418 Live Oak Lane, Pflugerville.',
-          `${w.state.teammate}: Thanks. I can get a plumber out ${dayName(starts, w.state.timeZone)} at 10:00 AM. Does that work?`,
+          `${w.state.teammate}: Thanks. I can get a technician out ${dayName(starts, w.state.timeZone)} at 10:00 AM. Does that work?`,
           'Marcus: Thursday at ten is perfect.',
           `${w.state.teammate}: You’re booked. I’ll text you the details now. Anything else?`,
           'Marcus: No, that’s it. Thanks!',
@@ -117,7 +117,7 @@ export const busyCall: DemoScene = {
           at,
           direction: 'outbound',
           teammate: true,
-          body: `Hi Marcus, it’s ${w.state.teammate} with ${businessOf(w)}. You’re booked for ${dayName(starts, w.state.timeZone)} at 10:00 AM for the leak under your kitchen sink at 418 Live Oak Lane. Your plumber will text when they’re on the way.`,
+          body: `Hi Marcus, it’s ${w.state.teammate} with ${businessOf(w)}. You’re booked for ${dayName(starts, w.state.timeZone)} at 10:00 AM for the leak under your kitchen sink at 418 Live Oak Lane. Your technician will text when they’re on the way.`,
         });
       },
       live: ['message', 'conversation'],
