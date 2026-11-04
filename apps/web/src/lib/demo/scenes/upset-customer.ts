@@ -32,11 +32,13 @@ export const upsetCustomer: DemoScene = {
   steps: [
     {
       label: 'Open the Inbox',
+      voiceover: 'Some messages need a person. Watch what happens with this one.',
       run: (p) => p.go('inbox'),
     },
     {
       label: 'Linda texts, and she’s not happy',
-      say: 'The plumber never showed up. She took the afternoon off work for it.',
+      voiceover:
+        'Linda is not happy. The plumber was due between one and three, it’s half past four, and she took the afternoon off work.',
       change: (w, at) => {
         startConversation(w, at, {
           id: CONVERSATION,
@@ -58,7 +60,8 @@ export const upsetCustomer: DemoScene = {
     },
     {
       label: 'It hands her straight to you',
-      say: 'It hears she’s upset. It doesn’t argue or make promises: it says sorry, gets you, and leaves a note on what happened.',
+      voiceover:
+        'Your AI teammate hears that she’s upset. It doesn’t argue or make promises. It says sorry, gets you, and leaves a note on what happened.',
       change: (w, at) => {
         const c = conversationIn(w, CONVERSATION);
         c.unread = 0;
@@ -84,6 +87,7 @@ export const upsetCustomer: DemoScene = {
     },
     {
       label: 'Tap Take it',
+      voiceover: 'Tap Take it, and you’re in the conversation.',
       change: (w) => {
         const c = conversationIn(w, CONVERSATION);
         c.handoff = null;
@@ -96,6 +100,8 @@ export const upsetCustomer: DemoScene = {
     },
     {
       label: 'Make it right in your own words',
+      voiceover:
+        'You make it right in your own words: an apology, a visit first thing tomorrow, and no charge.',
       change: (w, at) => {
         conversationIn(w, CONVERSATION).messages.push({
           id: MINE,
@@ -109,7 +115,8 @@ export const upsetCustomer: DemoScene = {
     },
     {
       label: 'Linda calms down',
-      say: 'The AI caught it in seconds, and the human touch saved the customer.',
+      voiceover:
+        'Linda calms down. The AI caught it in seconds, and the human touch saved the customer.',
       change: (w, at) => {
         conversationIn(w, CONVERSATION).messages.push({
           id: CALMER,

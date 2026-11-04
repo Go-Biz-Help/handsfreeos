@@ -1,12 +1,28 @@
 'use client';
-import { ChevronLeft, ChevronRight, Clapperboard, EyeOff, RotateCcw, X } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clapperboard,
+  Copy,
+  EyeOff,
+  Mic,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAssistant } from '@/components/assistant/assistant-provider';
 import { Button } from '@/components/ui/button';
+import { copyText } from '@/components/ui/copy-field';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { installDemoFetch } from '@/lib/demo/browser';
-import { DEMO_SCENES, findScene, type DemoPlayer, type DemoScene } from '@/lib/demo/scenes';
+import {
+  DEMO_SCENES,
+  findScene,
+  voiceoverScript,
+  type DemoPlayer,
+  type DemoScene,
+} from '@/lib/demo/scenes';
 import { clearDemoState, readDemoState, writeDemoState, type DemoState } from '@/lib/demo/state';
 import { emitLocalChange } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
@@ -17,6 +33,8 @@ installDemoFetch();
 
 const PANEL_PX = 300;
 const onKey = (workspaceId: string) => `hfos-demo-panel:${workspaceId}`;
+/** Whether the side menu shows each step's voiceover: this browser's choice, on unless turned off. */
+const VOICEOVER_KEY = 'hfos-demo-voiceover';
 /** What the screens on show fetch again after Back, Restart or Exit. */
 const EVERYTHING = [
   'conversation',
@@ -31,19 +49,27 @@ const EVERYTHING = [
 /**
  * The demo player (staff only): pick a scene, then each press of Space (or →, or a presentation clicker) plays its
  * next step on the real screens, with a pointer that moves and clicks as a person would. The panel on the left lists
- * every step so the presenter knows what comes next, and is meant to be left out of what's shared; H hides it.
- * Opened with `?demo` on any page of the business, and kept open in this browser until Exit.
+ * every step with its voiceover so the presenter knows what comes next and what to say, and is meant to be left out
+ * of what's shared; H hides it. Opened with `?demo` on any page of the business (`?demo=<scene>` loads that scene,
+ * as Admin → Demo player does), and kept open in this browser until Exit.
+ *
+ * The founder can play it in a business they've opened as its owner (Bright Path Home Services, from Admin). The
+ * banner that says so steps aside while the player is open, so it stays out of a recording, and the panel says it
+ * instead.
  */
 export function DemoDirector({
   workspaceId,
   businessName,
   timeZone,
   me,
+  actingAsOwner = false,
 }: {
   workspaceId: string;
   businessName: string;
   timeZone: string;
   me: { id: string; name: string };
+  /** The founder is in someone else's business as its owner: what they change outside a scene is real. */
+  actingAsOwner?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,24 +81,42 @@ export function DemoDirector({
   const [state, setState] = useState<DemoState | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [voiceover, setVoiceover] = useState(true);
+  /** A scene asked for in the address (`?demo=<scene>`), loaded once the player is ready. */
+  const [asked, setAsked] = useState<string | null>(null);
   const busyRef = useRef(false);
   const stateRef = useRef(state);
   stateRef.current = state;
 
   // `?demo` opens it; this browser remembers until Exit; a scene left playing (a reload) opens it as well.
   useEffect(() => {
-    const asked = new URLSearchParams(window.location.search).has('demo');
+    const url = new URL(window.location.href);
+    const opened = url.searchParams.has('demo');
+    const scene = url.searchParams.get('demo');
     let remembered = false;
     try {
-      if (asked) localStorage.setItem(onKey(workspaceId), 'on');
+      if (opened) localStorage.setItem(onKey(workspaceId), 'on');
       remembered = localStorage.getItem(onKey(workspaceId)) === 'on';
+      setVoiceover(localStorage.getItem(VOICEOVER_KEY) !== 'off');
     } catch {
       // Private windows: it stays open for this page only.
     }
     const playing = readDemoState();
-    setOn(asked || remembered || !!playing);
+    setOn(opened || remembered || !!playing);
     if (playing) setState(playing);
+    // Loading it takes `?demo=<scene>` out of the address, so a reload mid-scene carries on (`load`).
+    if (scene && findScene(scene)) setAsked(scene);
   }, [pathname, workspaceId]);
+
+  // The founder's "you're in this business as its owner" banner steps aside while the player is open (the panel
+  // says it instead), so it stays out of a recording even with the panel hidden.
+  useEffect(() => {
+    if (!on) return;
+    document.documentElement.dataset.demo = 'on';
+    return () => {
+      delete document.documentElement.dataset.demo;
+    };
+  }, [on]);
 
   // The app moves right of the panel, so the panel can be left out of a shared window.
   useEffect(() => {
@@ -239,6 +283,8 @@ export function DemoDirector({
         removePointer();
         const href = `/app/w/${workspaceId}${sc.startsOn ? `/${sc.startsOn}` : ''}`;
         if (window.location.pathname !== href) router.push(href);
+        // Already there, but asked for with `?demo=<scene>`: the address drops it.
+        else if (window.location.search) router.replace(href);
         else router.refresh();
         emitLocalChange(EVERYTHING);
       } finally {
@@ -253,6 +299,31 @@ export function DemoDirector({
     const sc = stateRef.current ? findScene(stateRef.current.scene) : null;
     if (sc) void load(sc);
   }, [load]);
+
+  useEffect(() => {
+    if (!asked) return;
+    const sc = findScene(asked);
+    setAsked(null);
+    if (sc) void load(sc);
+  }, [asked, load]);
+
+  // The next step stays in sight as the list grows long.
+  useEffect(() => {
+    document
+      .querySelector('[data-testid="demo-next-step"]')
+      ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [done, state?.scene]);
+
+  const toggleVoiceover = () => {
+    setVoiceover((v) => {
+      try {
+        localStorage.setItem(VOICEOVER_KEY, v ? 'off' : 'on');
+      } catch {
+        // Kept for this page only.
+      }
+      return !v;
+    });
+  };
 
   const exit = useCallback(() => {
     clearDemoState(workspaceId);
@@ -332,6 +403,18 @@ export function DemoDirector({
         <Button
           size="icon"
           variant="ghost"
+          onClick={toggleVoiceover}
+          aria-pressed={voiceover}
+          aria-label={voiceover ? 'Hide the voiceover' : 'Show the voiceover'}
+          title={voiceover ? 'Hide the voiceover' : 'Show the voiceover'}
+          data-testid="demo-voiceover-toggle"
+          className={cn(voiceover && 'text-accent-text')}
+        >
+          <Mic className="h-4 w-4" />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
           onClick={() => setHidden(true)}
           aria-label="Hide the panel (H)"
           title="Hide the panel (H)"
@@ -351,6 +434,15 @@ export function DemoDirector({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+        {actingAsOwner ? (
+          <p
+            className="rounded-control bg-warning-soft px-3 py-2 text-[12px] leading-snug text-warning-text"
+            data-testid="demo-acting-note"
+          >
+            You’re in {businessName} as its owner. A scene’s people and messages are made up and
+            never saved, but anything else you change here is real.
+          </p>
+        ) : null}
         {scene ? (
           <>
             <div className="flex flex-col gap-1">
@@ -359,6 +451,17 @@ export function DemoDirector({
                 {scene.kind === 'assistant' ? 'Ask HandsFreeOS' : 'AI teammate'}
               </span>
               <span className="text-[15px] font-semibold leading-snug">{scene.title}</span>
+              {voiceover ? (
+                <button
+                  type="button"
+                  onClick={() => void copyText(voiceoverScript(scene), 'Copied the voiceover')}
+                  className="mt-0.5 inline-flex w-fit items-center gap-1 text-[12px] font-medium text-accent-text hover:underline"
+                  data-testid="demo-copy-voiceover"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  Copy the voiceover
+                </button>
+              ) : null}
             </div>
             <ol className="flex flex-col gap-1" data-testid="demo-steps">
               {scene.steps.map((step, i) => {
@@ -395,8 +498,16 @@ export function DemoDirector({
                       >
                         {step.label}
                       </span>
-                      {isNext && step.say ? (
-                        <span className="text-[12px] leading-snug text-text-2">“{step.say}”</span>
+                      {voiceover ? (
+                        <span
+                          className={cn(
+                            'text-[12px] leading-snug',
+                            ran ? 'text-text-3' : isNext ? 'text-text' : 'text-text-2',
+                          )}
+                          data-testid="demo-voiceover"
+                        >
+                          “{step.voiceover}”
+                        </span>
                       ) : null}
                     </span>
                   </li>

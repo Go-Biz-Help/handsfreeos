@@ -133,11 +133,14 @@ export const reviewRequests: DemoScene = {
   steps: [
     {
       label: 'Open Ask HandsFreeOS (⌘J)',
+      voiceover:
+        'Reviews bring in new customers, but asking for them is easy to forget. Open Ask HandsFreeOS.',
       run: (p) => p.openAssistant(),
     },
     {
       label: 'Ask for reviews from this week’s jobs',
-      say: 'It knows which jobs got done, and who to thank.',
+      voiceover:
+        'Ask it to get a review from everyone you finished a job for this week. It finds the jobs marked done and writes a thank-you for each, with your Google review link.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const all = textCards(w, at);
@@ -180,7 +183,8 @@ export const reviewRequests: DemoScene = {
     },
     {
       label: 'Say yes to each text',
-      say: 'Each one is personal: it says what you did for them.',
+      voiceover:
+        'Each one is personal: it says what you did for them. Say yes to each, and they go out from your business number.',
       change: (w, at) => {
         w.answer = null;
         JOBS.forEach((j, i) => {
@@ -198,7 +202,8 @@ export const reviewRequests: DemoScene = {
     },
     {
       label: 'Linda leaves five stars',
-      say: 'More reviews, and you didn’t have to remember a single one.',
+      voiceover:
+        'Linda leaves five stars, and texts to say so. More reviews, and you didn’t have to remember a single one.',
       change: (w, at) => {
         const c = conversationIn(w, idOf(0, CONVERSATION));
         c.unread = 1;

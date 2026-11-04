@@ -1,11 +1,26 @@
 # The demo player
 
 Scripted scenes that play on the real screens of a business, for recorded videos and live shows. HandsFreeOS staff
-open it with `?demo` on any page of a business of their own. They pick a scene, and each press of Space (or →, Page
-Down, or a presentation clicker) plays the next step. A pointer moves and clicks as a person would.
+start it from Admin → Demo player, or open it with `?demo` on any page of a business of their own (`?demo=<scene id>`
+loads that scene). They pick a scene, and each press of Space (or →, Page Down, or a presentation clicker) plays the
+next step. A pointer moves and clicks as a person would.
 
-The panel on the left lists every step, so the presenter knows what comes next. The app moves right of it, so the
-panel can be left out of what's shared, and H hides it. It stays open in that browser until Exit.
+The panel on the left lists every step with its voiceover, so the presenter knows what comes next and what to say;
+the microphone button hides the voiceover, and Copy the voiceover copies the scene's as one script. The app moves
+right of the panel, so it can be left out of what's shared, and H hides it. It stays open in that browser until Exit.
+
+## Where it plays
+
+- **The founder plays it in Bright Path Home Services**, the made-up home-services business that
+  `apps/worker/scripts/seed-demo.ts` writes for app-store reviewers. Admin → Demo player finds it by name
+  (`DEMO_BUSINESS` in `scenes/index.ts`, which must match the seed's `BUSINESS`), opens it as its owner
+  (`platform.view_as.start`) and loads the business with a whole page load, never a move inside the app: the cookie
+  below is for the business's pages only, and a page first loaded in Admin didn't see it.
+- **While the player is open, the "You're in … as its owner" banner steps aside** (`data-demo="on"` on the page),
+  so it stays out of a recording, and the panel says it instead. Outside a scene, what the founder changes there is
+  real, and it is the reviewers' business: stay inside the scenes.
+- **Anyone else in support plays it in a business of their own.** Never in support's read-only look, and never
+  while viewing the app as a teammate.
 
 ## How it works
 
@@ -38,7 +53,8 @@ panel can be left out of what's shared, and H hides it. It stays open in that br
 
 1. Add a file in `scenes/` exporting a `DemoScene`, and list it in `scenes/index.ts`.
 2. Give each step:
-   - a `label` (the panel's line) and, if it helps, `say` (a line for the presenter);
+   - a `label` (the panel's line) and a `voiceover`: what a narrator says while it plays, a sentence or two, spoken,
+     in plain words, never naming a weekday the scene works out (Admin → Demo player shows them as one script);
    - `change` for what it makes up, written against the world (`world.ts`), never the screen;
    - `live` for the entity types the screens on show should fetch again;
    - `run` for what the pointer does (`DemoPlayer` in `scenes/types.ts`). Aim at a `data-testid` as `@id`.

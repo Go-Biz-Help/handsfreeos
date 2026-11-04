@@ -84,11 +84,13 @@ export const myDay: DemoScene = {
   steps: [
     {
       label: 'Open Ask HandsFreeOS (⌘J)',
+      voiceover: 'It’s the end of the day. Before you head home, open Ask HandsFreeOS.',
       run: (p) => p.openAssistant(),
     },
     {
       label: 'Ask: what’s my day tomorrow?',
-      say: 'Your whole day at a glance, without opening the calendar.',
+      voiceover:
+        'Ask what your day looks like tomorrow. Every job, in order, without opening the calendar.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const tomorrow = wallTime(at, tz, 1, 12);
@@ -121,8 +123,9 @@ export const myDay: DemoScene = {
       },
     },
     {
-      label: 'Ask: move the Johnson job to Friday',
-      say: 'It checks the new time is free, and tells Dave for you.',
+      label: 'Ask it to move the Johnson job',
+      voiceover:
+        'Dave Johnson’s install needs to move. Ask it to move the Johnson job, and it checks the new time is free first.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const days = moveDays(at, tz);
@@ -160,6 +163,8 @@ export const myDay: DemoScene = {
     },
     {
       label: 'Say yes: it moves, and Dave gets a text',
+      voiceover:
+        'Say yes. The visit moves on your calendar, and Dave gets a text with the new time.',
       change: (w, at) => {
         const tz = w.state.timeZone;
         const now = wallTime(at, tz, moveDays(at, tz), DAVE_HOUR, DAVE_MINUTE);
@@ -195,15 +200,18 @@ export const myDay: DemoScene = {
     },
     {
       label: 'Dave texts back',
-      say: 'One sentence from you. The calendar, the customer and the text are all handled.',
+      voiceover:
+        'Dave texts back that the new day works even better. One sentence from you, and the calendar, the customer and the text are all handled.',
       change: (w, at) => {
+        const tz = w.state.timeZone;
         const c = conversationIn(w, CONVERSATION);
         c.unread = 1;
         c.messages.push({
           id: REPLY,
           at,
           direction: 'inbound',
-          body: 'Friday works even better for me. Thanks for the heads up!',
+          // The day it moved to, which is Friday only when tomorrow is Thursday.
+          body: `${weekdayName(wallTime(at, tz, moveDays(at, tz), 12), tz)} works even better for me. Thanks for the heads up!`,
         });
       },
       live: ['conversation', 'message'],

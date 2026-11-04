@@ -83,12 +83,14 @@ export const quoteToInvoice: DemoScene = {
   steps: [
     {
       label: 'Open Carol’s estimate',
-      say: 'Last week you quoted Carol for a new water heater. She opened it that evening, then went quiet.',
+      voiceover:
+        'Last week you quoted Carol for a new water heater. She opened it that evening, then went quiet.',
       run: (p) => p.point('@document-activity'),
     },
     {
       label: 'It reminds her on its own',
-      say: 'You set it once: when a quote sits for a few days, it sends one friendly nudge. Nobody has to remember.',
+      voiceover:
+        'You set this up once: when a quote sits for a few days, HandsFreeOS sends one friendly nudge. Nobody has to remember.',
       change: (w, at) => {
         const e = estimateOf(w);
         w.conversations.unshift({
@@ -122,7 +124,8 @@ export const quoteToInvoice: DemoScene = {
     },
     {
       label: 'Carol approves it by typing her name',
-      say: 'On her own page she typed her name and tapped Approve. Then she texted you.',
+      voiceover:
+        'Carol opens her estimate, types her name and taps Approve. Then she texts you to ask when you can start.',
       change: (w, at) => {
         estimateOf(w).accepted = { at, name: 'Carol Diaz' };
         const c = conversationIn(w, CONVERSATION);
@@ -139,7 +142,8 @@ export const quoteToInvoice: DemoScene = {
     },
     {
       label: 'The estimate keeps her name and the moment',
-      say: 'Her typed name, the time, and exactly what she saw are all kept with the estimate.',
+      voiceover:
+        'Her typed name, the moment she approved, and exactly what she saw are all kept with the estimate.',
       run: async (p) => {
         await p.go(`money/estimates/${ESTIMATE}`);
         await p.point('@document-activity');
@@ -147,7 +151,8 @@ export const quoteToInvoice: DemoScene = {
     },
     {
       label: 'Turn it into an invoice',
-      say: 'Every line comes across. Nothing to type again.',
+      voiceover:
+        'Turn it into an invoice. Every line comes across, so there’s nothing to type again.',
       change: (w, at) => {
         w.invoices.push({
           id: INVOICE,
@@ -165,7 +170,8 @@ export const quoteToInvoice: DemoScene = {
     },
     {
       label: 'Send it to Carol',
-      say: 'From a quiet quote to a sent invoice, and you never chased anyone.',
+      voiceover:
+        'Send it to Carol. From a quiet quote to a sent invoice, and you never chased anyone.',
       change: (w, at) => {
         const inv = w.invoices.find((i) => i.id === INVOICE);
         if (inv) inv.sentAt = at;

@@ -8,8 +8,11 @@ import type { DemoWorld } from '../world';
 export interface DemoStep {
   /** The side menu's line: what happens next. */
   readonly label: string;
-  /** A line for the presenter, under the label. */
-  readonly say?: string;
+  /**
+   * What a narrator says while the step plays, for a recorded video: a sentence or two, spoken, in plain words.
+   * The side menu shows it under the label, and Admin → Demo player shows every scene's lines as one script.
+   */
+  readonly voiceover: string;
   readonly change?: (world: DemoWorld, at: number) => void;
   /** What this tab hears changed afterwards (entity types), so the screens on show fetch again. */
   readonly live?: readonly string[];

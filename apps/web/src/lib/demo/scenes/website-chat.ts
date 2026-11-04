@@ -39,12 +39,12 @@ export const websiteChat: DemoScene = {
   steps: [
     {
       label: 'Open the Inbox',
-      say: 'It’s 11:40 at night. The shop is dark, but your website is still working.',
+      voiceover: 'It’s twenty to midnight. The shop is dark, but your website is still working.',
       run: (p) => p.go('inbox'),
     },
     {
       label: 'Someone starts a chat on your website',
-      say: 'A visitor on your drain cleaning page types a question into the chat window.',
+      voiceover: 'A visitor on your drain cleaning page opens the chat and types a question.',
       change: (w, at) => {
         startConversation(w, at, {
           id: CONVERSATION,
@@ -74,7 +74,8 @@ export const websiteChat: DemoScene = {
     },
     {
       label: 'The AI teammate answers in seconds',
-      say: 'No “we’ll get back to you in the morning.” It answers while she’s still on your site.',
+      voiceover:
+        'No “we’ll get back to you in the morning.” Your AI teammate answers in seconds, while she’s still on your site, and asks for her name and number.',
       change: (w, at) => {
         const c = priya(w);
         c.unread = 0;
@@ -91,6 +92,7 @@ export const websiteChat: DemoScene = {
     },
     {
       label: 'Priya gives her name and number',
+      voiceover: 'She gives her name and number, and asks if someone can come tomorrow morning.',
       change: (w, at) => {
         const c = priya(w);
         c.known = true;
@@ -106,7 +108,7 @@ export const websiteChat: DemoScene = {
     },
     {
       label: 'It offers two times',
-      say: 'It reads your calendar and only offers times you really have open.',
+      voiceover: 'It checks your calendar and only offers times you really have open.',
       change: (w, at) => {
         priya(w).messages.push({
           id: OFFER,
@@ -121,6 +123,7 @@ export const websiteChat: DemoScene = {
     },
     {
       label: 'She picks 8:00 AM',
+      voiceover: 'She picks eight o’clock.',
       change: (w, at) => {
         priya(w).messages.push({ id: PICKED, at, direction: 'inbound', body: '8 please!' });
       },
@@ -128,7 +131,8 @@ export const websiteChat: DemoScene = {
     },
     {
       label: 'It books the visit and texts her the details',
-      say: 'Booked before midnight. In the morning it’s just on your calendar.',
+      voiceover:
+        'It books the visit and texts her the details. Booked before midnight, and in the morning it’s just there on your calendar.',
       change: (w, at) => {
         const c = priya(w);
         const starts = wallTime(at, w.state.timeZone, 1, 8);

@@ -103,12 +103,14 @@ export const textCampaign: DemoScene = {
   steps: [
     {
       label: 'Open Ask HandsFreeOS (⌘J)',
-      say: 'This is the other AI. The teammate talks to your customers; this one works for you.',
+      voiceover:
+        'This is the other AI. The AI teammate talks to your customers. Ask HandsFreeOS works for you, from anywhere in the app.',
       run: (p) => p.openAssistant(),
     },
     {
       label: 'Ask: text past customers about a fall tune-up',
-      say: 'Plain English. No building lists, no writing texts.',
+      voiceover:
+        'Ask in plain English: text past customers about a fall tune-up. It finds everyone tagged Past customer, and tells you who it can reach and who it’s leaving out.',
       change: (w, at) => {
         const c = card(businessOf(w));
         w.cards[c.toolCallId] = c;
@@ -130,7 +132,8 @@ export const textCampaign: DemoScene = {
     },
     {
       label: 'Confirm: it writes a text for each person',
-      say: 'It asks first. Anything that reaches a customer waits for your OK.',
+      voiceover:
+        'It asks first. Anything that reaches a customer waits for your OK. Confirm, and it writes a text for each person.',
       change: (w, at) => {
         w.answer = null;
         w.confirmed.push(TOOL_CALL);
@@ -165,7 +168,8 @@ export const textCampaign: DemoScene = {
     },
     {
       label: 'Open the campaign',
-      say: 'Watch it write them. Each text is about that person’s last job.',
+      voiceover:
+        'Open the campaign and watch it write them. Each text mentions the job you last did for that person.',
       run: async (p) => {
         await p.click('[data-testid="assistant-card-confirm"] a[href*="/campaigns/"]');
         await p.waitFor('@campaign-view');
@@ -173,6 +177,7 @@ export const textCampaign: DemoScene = {
     },
     {
       label: 'Read the texts once they’re written',
+      voiceover: 'Read them over before anything goes out.',
       run: async (p) => {
         await p.waitFor('[data-testid="campaign-view"][data-status="review"]', 30_000);
         await p.point(`@recipient-draft-${demoId(0x70100)}`);
@@ -180,7 +185,8 @@ export const textCampaign: DemoScene = {
     },
     {
       label: 'Take Gary off: his heater went in last month',
-      say: 'You can change any text, or take anyone off, before it goes.',
+      voiceover:
+        'Gary had his water heater put in last month, so take him off. You can change any text, or take anyone off, before it goes.',
       change: (w) => {
         const r = w.campaigns.find((c) => c.id === CAMPAIGN)?.recipients.find((x) => x.id === GARY);
         if (r) r.removed = true;
@@ -189,7 +195,8 @@ export const textCampaign: DemoScene = {
     },
     {
       label: 'Approve all and send',
-      say: 'They go out 20 an hour, only while you’re open.',
+      voiceover:
+        'Approve them all. They go out twenty an hour, only while you’re open, and never during quiet hours.',
       change: (w, at) => {
         const c = w.campaigns.find((x) => x.id === CAMPAIGN);
         if (c) c.approvedAt = at;

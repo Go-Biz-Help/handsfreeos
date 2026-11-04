@@ -77,12 +77,14 @@ export const businessSetup: DemoScene = {
   steps: [
     {
       label: 'Open Ask HandsFreeOS (⌘J)',
-      say: 'Onboarding set up the basics on day one. When something changes, you just say it.',
+      voiceover:
+        'Your business was set up on day one, during onboarding. When something changes, you don’t dig through settings. You open Ask HandsFreeOS.',
       run: (p) => p.openAssistant(),
     },
     {
       label: 'Say your hours, services and prices',
-      say: 'One sentence. No settings pages to dig through.',
+      voiceover:
+        'Say it in one sentence: your new hours, three services with their prices, and that people should be able to book them online.',
       change: (w, at) => {
         const all = cards(businessOf(w));
         for (const c of all) w.cards[c.toolCallId] = c;
@@ -104,7 +106,8 @@ export const businessSetup: DemoScene = {
     },
     {
       label: 'Say yes to each one',
-      say: 'Nothing changes until you say so. Then it’s live.',
+      voiceover:
+        'It turns that into a card for each change. Nothing changes until you say yes, and then it’s live.',
       change: (w) => {
         w.answer = null;
         w.confirmed.push(HOURS, ...SERVICES.map((s) => s.card));
@@ -121,6 +124,7 @@ export const businessSetup: DemoScene = {
     },
     {
       label: 'Open your services',
+      voiceover: 'Here are your services, ready for customers to book.',
       run: async (p) => {
         await p.click(
           '[data-testid="assistant-card-confirm"] a[href*="/settings/calendars/services"]',
@@ -132,7 +136,8 @@ export const businessSetup: DemoScene = {
     },
     {
       label: 'Open Leak repair: 90 minutes, $189',
-      say: 'Everything it set up is right here, the same as if you’d typed it in yourself.',
+      voiceover:
+        'Open Leak repair: ninety minutes, a hundred and eighty-nine dollars. It’s exactly what you would have typed in yourself.',
       run: async (p) => {
         await p.click('[data-testid="service-row-Leak repair"]');
         await p.point('@service-editor');

@@ -25,11 +25,14 @@ export const priceQuestion: DemoScene = {
   steps: [
     {
       label: 'Open the Inbox',
+      voiceover:
+        'Not every question should be answered by an AI. Here’s one it knows to hand to you.',
       run: (p) => p.go('inbox'),
     },
     {
       label: 'Tom asks what a tankless water heater costs',
-      say: 'A customer you’ve worked for before wants a price for a big job.',
+      voiceover:
+        'Tom, a customer you’ve worked for before, wants a price on a big job: swapping his old tank water heater for a tankless one.',
       change: (w, at) => {
         startConversation(w, at, {
           id: CONVERSATION,
@@ -51,7 +54,8 @@ export const priceQuestion: DemoScene = {
     },
     {
       label: 'It doesn’t guess: it hands it to you',
-      say: 'Your price list doesn’t cover this, so it won’t make one up. It tells Tom you’ll get back to him, and leaves you a note.',
+      voiceover:
+        'Your price list doesn’t cover that, so your teammate won’t make a number up. It tells Tom you’ll get back to him shortly, and leaves you a note saying why.',
       change: (w, at) => {
         const c = conversationIn(w, CONVERSATION);
         c.unread = 0;
@@ -77,6 +81,7 @@ export const priceQuestion: DemoScene = {
     },
     {
       label: 'Tap Take it',
+      voiceover: 'Tap Take it, and the conversation is yours.',
       change: (w) => {
         const c = conversationIn(w, CONVERSATION);
         c.handoff = null;
@@ -89,7 +94,8 @@ export const priceQuestion: DemoScene = {
     },
     {
       label: 'Text Tom the price yourself',
-      say: 'You answer in your own words. The AI teammate stays quiet until you hand it back.',
+      voiceover:
+        'You text Tom the price in your own words. Your teammate stays quiet until you hand it back.',
       change: (w, at) => {
         conversationIn(w, CONVERSATION).messages.push({
           id: MINE,
@@ -103,6 +109,8 @@ export const priceQuestion: DemoScene = {
     },
     {
       label: 'Tom says yes',
+      voiceover:
+        'Tom says yes. The AI handled the easy part, and the money conversation stayed with you.',
       change: (w, at) => {
         conversationIn(w, CONVERSATION).messages.push({
           id: THANKS,

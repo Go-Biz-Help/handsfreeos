@@ -143,13 +143,16 @@ export default async function WorkspaceLayout({
                     <CallOverlays />
                     {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
                     <ExtensionSignInPrompt />
-                    {/* The demo player, for HandsFreeOS staff in a business of their own (`?demo` opens it). */}
-                    {staff && !viewingAs && !teammateView ? (
+                    {/* The demo player, for HandsFreeOS staff in a business of their own, or the founder in one they've
+                        opened as its owner (Admin → Demo player opens Bright Path Home Services). `?demo` opens it;
+                        never in support's read-only look or a view as a teammate. */}
+                    {staff && (!viewingAs || viewingAs.acting) && !teammateView ? (
                       <DemoDirector
                         workspaceId={workspaceId}
                         businessName={current.name}
                         timeZone={current.timezone}
                         me={{ id: signedInAs, name: me.user.fullName }}
+                        actingAsOwner={!!viewingAs?.acting}
                       />
                     ) : null}
                     {/* The tour of the menu: after the setup wizard, and from the card or Get help. */}

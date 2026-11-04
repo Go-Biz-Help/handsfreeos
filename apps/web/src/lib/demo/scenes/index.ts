@@ -32,6 +32,20 @@ export const DEMO_SCENES: readonly DemoScene[] = [
 
 export const findScene = (id: string) => DEMO_SCENES.find((s) => s.id === id) ?? null;
 
+/**
+ * The business Admin → Demo player opens, as the founder working in it as its owner: the made-up home-services
+ * business that apps/worker/scripts/seed-demo.ts writes for app-store reviewers. Found by this name, so it must match
+ * the seed's `BUSINESS`. Nothing a scene does is saved, so playing there leaves the reviewers' business as it was.
+ */
+export const DEMO_BUSINESS = 'Bright Path Home Services';
+
+/** A scene's voiceover as one script, to paste into a teleprompter or a video editor. */
+export const voiceoverScript = (scene: DemoScene): string =>
+  [
+    `Scene ${scene.number}: ${scene.title}`,
+    ...scene.steps.map((step, i) => `${i + 1}. ${step.label}\n${step.voiceover}`),
+  ].join('\n\n');
+
 /** What the scene has made up after the steps that have run, for answers in `workspaceId`. */
 export function buildWorld(state: DemoState, workspaceId: string): DemoWorld | null {
   const scene = findScene(state.scene);

@@ -182,7 +182,7 @@ test('demo player: Ask HandsFreeOS sets up services, chases what’s owed, moves
   await pick(page, 'my-day', 'Open Ask HandsFreeOS');
   await play(page, 5);
   await expect(thread.getByText(/Your appointment is now/)).toBeVisible();
-  await expect(thread.getByText(/Friday works even better/)).toBeVisible();
+  await expect(thread.getByText(/\w+day works even better/)).toBeVisible();
   await expect(page.getByTestId('context-panel').getByText('Water heater install')).toBeVisible();
 
   // Scene 11: a thank-you with the review link for each job done, and five stars back.
@@ -202,4 +202,49 @@ test('demo player: Ask HandsFreeOS sets up services, chases what’s owed, moves
   for (const name of ['Gary Holt', 'Dave Johnson', 'Linda Park']) {
     await expect(page.getByText(name)).toHaveCount(0);
   }
+});
+
+test('demo player: Admin → Demo player plays a scene in your business, each step with its voiceover', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const workspaceId = await staffBusiness(page, 'demo-admin');
+  await page.goto('/admin/demo');
+  await expect(page.getByRole('heading', { name: 'Demo player' })).toBeVisible();
+  await expect(page.getByTestId('admin-nav-demo')).toHaveAttribute('aria-current', 'page');
+  // Only the founder opens Bright Path Home Services as its owner; anyone else plays in a business of their own.
+  await expect(page.getByText(/Only the founder can open Bright Path Home Services/)).toBeVisible();
+  await expect(page.getByTestId(`demo-place-${workspaceId}`)).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  // Every scene's voiceover is there to read before recording.
+  const money = page.getByTestId('demo-admin-scene-money-owed');
+  await money.getByText('Voiceover · 5 steps').click();
+  await expect(money.getByText(/Thirty-four days late, and paid the same night\./)).toBeVisible();
+
+  // Play opens the business on that scene, and the address stops asking for it, so a reload carries on.
+  await page.getByTestId('demo-play-money-owed').click();
+  await expect(director(page)).toBeVisible();
+  await expect(page.getByTestId('demo-next-step')).toContainText('Open Ask HandsFreeOS');
+  await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}$`));
+  await expect(director(page).getByTestId('demo-voiceover')).toHaveCount(5);
+  await expect(page.getByTestId('demo-next-step')).toContainText(
+    'Ask HandsFreeOS knows your money',
+  );
+  // Not the founder in someone else's business: no note about changes being real.
+  await expect(page.getByTestId('demo-acting-note')).toHaveCount(0);
+
+  // The voiceover hides for a cleaner panel, and stays hidden after a reload, until it's shown again.
+  await page.getByTestId('demo-voiceover-toggle').click();
+  await expect(director(page).getByTestId('demo-voiceover')).toHaveCount(0);
+  await page.keyboard.press('Space');
+  await expect(page.getByTestId('demo-steps').locator('li').nth(0)).toContainText('✓');
+  await page.reload();
+  await expect(page.getByTestId('demo-steps').locator('li').nth(0)).toContainText('✓');
+  await expect(director(page).getByTestId('demo-voiceover')).toHaveCount(0);
+  await page.getByTestId('demo-voiceover-toggle').click();
+  await expect(director(page).getByTestId('demo-voiceover')).toHaveCount(5);
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
 });
