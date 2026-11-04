@@ -24,13 +24,14 @@
  * - **Reconnect** (decision 46): friends and people they've chatted with whom the AI found a good fit (./checks.ts),
  *   when neither side has written for a month: a short catch-up, then the first message's question (decision 152).
  *   They count against the first messages.
- * - **Send the video** (decision 66): someone who said yes to the first message, when the playbook has a video.
- * - **Send the link** (decisions 47 and 66): someone who said yes to the video (or to the first message, with no
- *   video), or whose chat the AI read as ready for the offer, or the person marked ready, until the link goes or the
- *   person writes to them again. It and the video count against the follow-ups.
+ * - **Send the video** (decision 66): gone (decision 154, 3a). A yes goes straight to Send the link.
+ * - **Send the link** (decisions 47, 66 and 153): someone who said yes to the first message (or to a video sent before
+ *   the library), or whose chat the AI read as ready for the offer, or the person marked ready, until the link goes or
+ *   the person writes to them again: the owner's demo ask. It counts against the follow-ups.
  * - **Follow up** and **Check in** (decision 67): someone who went quiet after a step, at the playbook's pace, then
  *   once a month; and likely prospects in chats that started another way, a few quiet days after the person wrote,
- *   unless the AI read in the chat that they said no or not now (decision 134).
+ *   unless the AI read in the chat that they said no or not now (decision 134). A follow-up after the demo ask may
+ *   carry one of the business's videos (decision 154), as another time after a missed demo and a reply may.
  * - **Reply**: likely prospects who wrote last, lately, and haven't been answered: never a chat the AI read as come to
  *   a close (they said no or not now, and nothing's left to do, `closedChat`), nor someone the person answered
  *   themselves after the extension saw their reply (decision 134).
@@ -57,6 +58,7 @@
 import { z } from 'zod';
 import { knowsBlocks, UNANSWERED_ASK, unansweredLine, type DraftKnows } from './knows';
 import { isTimeKind, timesLines, type DraftTimes } from './meeting-times';
+import { videoFits, videoLines, type DraftVideos } from './video-library';
 import { OCCASION_KINDS, type OccasionKind } from './occasions';
 import { quoteData } from '../../knowledge/prompt';
 import { intlTimeZone } from '../../intl/engine-zones';
@@ -1021,6 +1023,11 @@ export function todayDraftPrompt(input: {
    * goes to. Left out, it offers none.
    */
   readonly times?: DraftTimes | null;
+  /**
+   * The business's videos they haven't had (decision 154, ./video-library.ts): for a follow-up after the demo ask, the
+   * message after a missed demo and a reply. Left out, none.
+   */
+  readonly videos?: DraftVideos | null;
 }): string {
   const p = input.playbook;
   const declined = input.declined && declinedFor(input.kind) ? input.declined : null;
@@ -1145,6 +1152,10 @@ export function todayDraftPrompt(input: {
     input.kind === 'video' && p?.videoLink
       ? `Put this video link in every draft, exactly as written: ${quoteData(p.videoLink)}`
       : null,
+    // One of the business's videos, where it fits (decision 154, answer 2a).
+    ...(videoFits(input.kind, c?.step, { declined: declined !== null, requests })
+      ? videoLines(input.videos)
+      : []),
     // A style only words the first message's question (decision 137): nothing goes before or after it.
     input.opener?.kind === 'style'
       ? `Word the question in this style, as far as it fits one short question with nothing added: ${quoteData(input.opener.text)}`

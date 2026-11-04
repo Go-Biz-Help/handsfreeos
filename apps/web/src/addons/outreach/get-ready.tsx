@@ -898,17 +898,15 @@ export function MessagesBody({
             {told('first')}
             {samples.first.map((t, index) => message({ part: 'first', index }, t))}
           </section>
-          <section className="grid gap-2 py-4">
-            <h3 className="font-semibold">{M.video}</h3>
-            {samples.video ? (
-              <>
-                {told('video')}
-                {message({ part: 'video', index: 0 }, samples.video)}
-              </>
-            ) : (
-              <p className="rounded-menu bg-card-2 p-3 text-[13px] text-text-2">{M.noVideo}</p>
-            )}
-          </section>
+          {/* The video message only in samples written before the video library (decision 154): a yes gets the
+              link next. */}
+          {samples.video ? (
+            <section className="grid gap-2 py-4">
+              <h3 className="font-semibold">{M.video}</h3>
+              {told('video')}
+              {message({ part: 'video', index: 0 }, samples.video)}
+            </section>
+          ) : null}
           {samples.link ? (
             <section className="grid gap-2 py-4">
               <h3 className="font-semibold">{M.link}</h3>

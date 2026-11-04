@@ -192,8 +192,8 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   );
   for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
 
-  // The short video: the AI writes its script from the offer and the niche, one part is written again, and the link
-  // is put in (an address without https:// gets it).
+  // The short video: the AI writes its script from the offer and the niche, and one part is written again. The video
+  // itself goes in the video library (decision 154), which the step points to where its link was.
   await playbook.getByTestId('playbook-video-write').click();
   const parts = playbook.getByTestId('playbook-video-parts');
   await expect(parts.getByRole('listitem')).toHaveCount(6);
@@ -204,13 +204,13 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-video-say-call')).toHaveValue(
     /Said even more plainly\./,
   );
-  await playbook.getByTestId('playbook-video-link').fill('www.loom.com/share/abc123');
-  await playbook.getByTestId('playbook-video-link').blur();
-  await expect(playbook.getByTestId('playbook-video-link')).toHaveValue(
-    'https://www.loom.com/share/abc123',
+  await expect(playbook.getByTestId('playbook-video-link')).toHaveCount(0);
+  await expect(playbook.getByTestId('playbook-video-library-open')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/a/outreach/settings/videos`,
   );
   for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
-  await expect(playbook.getByTestId('review-video')).toContainText('Video linked, with its script');
+  await expect(playbook.getByTestId('review-video')).toContainText('Script written');
   await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
   await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');
   await expect(playbook.getByTestId('review-offer')).toContainText(

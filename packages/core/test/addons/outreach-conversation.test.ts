@@ -2,7 +2,8 @@
  * Social Outreach: the conversation after someone accepts (docs/outreach.md, decisions 65 to 67;
  * ../../src/addons/outreach/conversation.ts). The first message asks about the main offer; whoever goes quiet gets
  * follow-ups at the playbook's pace, then a check-in once a month; a yes is a positive reply and moves them to the
- * video, or the link with no video; a no ends it, until the person puts them back in play. What's sent keeps the
+ * link, the owner's demo ask (decisions 153 and 154: no video first); a no ends it, until the person puts them back in
+ * play. What's sent keeps the
  * main offer's version they were first pitched with.
  */
 import { rows, sql } from '@hfos/db/client';
@@ -26,7 +27,7 @@ import {
   TodayDraftAnswer,
 } from '../../src/addons/outreach/today';
 import { MainOfferParts } from '../../src/main-offer/parts';
-import { outreachBusiness, READY_VIDEO, runAs, runAsSystem } from './outreach-fixture';
+import { outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -54,11 +55,11 @@ describe('the conversation’s rules', () => {
     expect(checkInAfter(from).next).toBe('check_in');
   });
 
-  it('sends the video after a yes when there is one, then the link', () => {
-    expect(stepAfterYes('first', true)).toBe('video');
-    expect(stepAfterYes('first', false)).toBe('pitch');
-    expect(stepAfterYes('video', true)).toBe('pitch');
-    expect(stepAfterYes('link', true)).toBeNull();
+  it('sends the demo ask after a yes, with no video first (decision 154, 3a)', () => {
+    expect(stepAfterYes('first')).toBe('pitch');
+    // Someone sent a playbook's video before the library still gets the link after a yes.
+    expect(stepAfterYes('video')).toBe('pitch');
+    expect(stepAfterYes('link')).toBeNull();
   });
 
   it('fills the business’s own opener with the offer’s words, and holds one with nothing to put in', () => {
@@ -275,7 +276,8 @@ describe('a conversation on Today', () => {
     );
     expect(kept!.offer_version).toBe(1);
 
-    // A yes: a positive reply, and Send the video is next, with the playbook's video (Your messages waits on one).
+    // A yes: a positive reply, and Send the link is next, the demo ask: no video first, though the playbook has one
+    // (decision 154, 3a).
     expect(await answer(dana, 'yes')).toEqual({ noted: true });
     const [stage] = await rows<{ positive: boolean }>(
       admin(),
@@ -284,18 +286,21 @@ describe('a conversation on Today', () => {
     );
     expect(stage!.positive).toBe(true);
     expect(await conversation(dana)).toMatchObject({ answer: 'yes', next: null });
-    const video = (await runAs(owner, ws, 'outreach.today', {})).items.find(
+    const pitch = (await runAs(owner, ws, 'outreach.today', {})).items.find(
       (i: { name: string }) => i.name === 'Dana Reyes',
     );
-    expect(video).toMatchObject({
-      kind: 'video',
-      videoLink: READY_VIDEO,
-      why: ['Said yes to your first message'],
-    });
-    await send(dana, 'dana.reyes.5', 'Dana Reyes', 'video');
-    expect(await conversation(dana)).toMatchObject({ step: 'video', sent: 0, offer_version: 1 });
-    await answer(dana, 'yes');
+    expect(pitch).toMatchObject({ kind: 'pitch', why: ['Said yes to your first message'] });
     expect(await listed('Dana Reyes')).toEqual(['pitch']);
+    // Someone sent a playbook's video before the library, who says yes to it, gets the link too.
+    await rows(
+      admin(),
+      sql`update addon_outreach.follow_ups set step = 'video'
+          where workspace_id = ${ws} and profile_id = ${dana}`,
+    );
+    const afterVideo = (await runAs(owner, ws, 'outreach.today', {})).items.find(
+      (i: { name: string }) => i.name === 'Dana Reyes',
+    );
+    expect(afterVideo).toMatchObject({ kind: 'pitch', why: ['Said yes after your video'] });
     await send(dana, 'dana.reyes.5', 'Dana Reyes', 'pitch');
     expect(await conversation(dana)).toMatchObject({ step: 'link', next: 'follow_up' });
     expect(await listed('Dana Reyes')).toEqual([]);
@@ -414,9 +419,9 @@ describe('a conversation on Today', () => {
       sql`select offer_version from addon_outreach.sends where id = ${sendId}`,
     );
     expect(kept!.offer_version).toBe(1);
-    // A yes to it is a yes to the first message: Send the video is next.
+    // A yes to it is a yes to the first message: Send the link is next.
     await answer(hal, 'yes');
-    expect(await listed('Hal Reed')).toEqual(['video']);
+    expect(await listed('Hal Reed')).toEqual(['pitch']);
 
     // Ivy's chat was read as not interested, so her Reconnect only caught up: no conversation starts.
     const ivy = await profile('ivy.lane.5', 'Ivy Lane');

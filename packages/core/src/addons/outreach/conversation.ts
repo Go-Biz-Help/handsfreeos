@@ -7,9 +7,11 @@
  *    `FIRST_MESSAGE_SHAPE`). Reconnect asks it too, right after a short catch-up (`RECONNECT_QUESTION_SHAPE`). No message
  *    carries the guarantee (the owner, 2026-10-26: it read disjointed): a reply gives it only when they ask whether there
  *    is one.
- * 2. **Send the video** (`video`): to someone who said yes, the playbook's short video and a line selling the call.
- *    A playbook with no video yet skips it.
- * 3. **Send the link** (`pitch`): to someone who wants the call, the booking link (decision 24).
+ * 2. **Send the video** (`video`): gone (decision 154, 3a). It sent the playbook's short video to someone who said yes;
+ *    its step stays for the conversations it started, and a yes after it gets the link.
+ * 3. **Send the link** (`pitch`): to someone who said yes, the owner's demo ask with open times and the booking link
+ *    (decisions 24, 149 and 153). Follow-ups after it, another time after a missed demo, and a reply may carry one of
+ *    the business's videos (decision 154, ./video-library.ts).
  *
  * The AI reads each answer (`ANSWERS`): a yes moves them to the next step and is counted as a positive reply; a
  * question gets a short answer and why a call helps; later moves them to a check-in a month on; a no ends it. Whoever
@@ -87,13 +89,12 @@ export const checkInAfter = (
 });
 
 /**
- * The step a yes leads to: after the first message, the video when the playbook has one, else the link; after the
- * video, the link. After the link, a yes is theirs to book: it's a reply.
+ * The step a yes leads to: the demo ask with the link (decision 153), after the first message or, for someone sent a
+ * playbook's video before the library (decision 154, 3a: the video step is gone), after the video. After the link, a
+ * yes is theirs to book: it's a reply.
  */
-export function stepAfterYes(step: ConversationStep, hasVideo: boolean): 'video' | 'pitch' | null {
-  if (step === 'first') return hasVideo ? 'video' : 'pitch';
-  if (step === 'video') return 'pitch';
-  return null;
+export function stepAfterYes(step: ConversationStep): 'pitch' | null {
+  return step === 'first' || step === 'video' ? 'pitch' : null;
 }
 
 // ---- Your messages (Get ready, decision 63) ----
@@ -168,20 +169,18 @@ export function sampleAt(samples: MessageSamples, slot: SampleSlot): string | nu
 
 /**
  * Why there's no sample at a slot, for the refusal (decision 87): its own cause, never a guess. The video message is
- * there only once a playbook has its short video (decision 66); the follow-ups are as many as the pace sends;
- * anything else was there and went when the samples were written again.
+ * gone with the video step (decision 154, 3a); the follow-ups are as many as the pace sends; anything else was there
+ * and went when the samples were written again.
  */
 export function noSample(
   samples: MessageSamples,
   slot: SampleSlot,
-  video: { readonly has: boolean; readonly playbook: string | null },
 ): { readonly rule: string; readonly message: string } {
   if (slot.part === 'video' && samples.video === null)
     return {
       rule: 'outreach_message_no_video',
-      message: video.has
-        ? 'There’s no video message in these samples: they were written before your playbook had its short video. Press Write samples under Your messages to write them again with it.'
-        : `There’s no video message, because ${video.playbook ? `your playbook “${video.playbook}”` : 'your playbook'} has no short video yet. Paste its link under Your short video in the playbook, on the Playbooks tab, then press Write samples again. Someone who says yes then gets the video before your booking link.`,
+      message:
+        'There’s no video message any more: someone who says yes gets your demo ask and booking link next. Your videos go in follow-ups from your video library, in Settings → Videos.',
     };
   if (slot.part === 'followUps' && slot.index >= samples.followUps.length)
     return {

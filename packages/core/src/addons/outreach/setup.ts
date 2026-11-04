@@ -3,7 +3,7 @@
  * main app's onboarding, that takes a person from nothing to their first day. It's drawn on the canvas "Social Outreach
  * setup".
  *
- * - **A main setup, once:** their business (the main offer, a playbook, a short video if they want one, and the team's
+ * - **A main setup, once:** their business (the main offer, a playbook, videos if they want them (decision 154), and the team's
  *   rules: owners and admins), their computer (the extension), and them (their messages, the networks they use, then
  *   their goal, which counts each of those networks: decision 88). A member's main setup is their own four; the
  *   business's part shows beside it, done or waiting on an owner.
@@ -131,7 +131,7 @@ export interface SetupFacts {
   readonly settingsSaved: boolean;
   /** The business's rules were kept in the setup, or changed from the starting ones. */
   readonly rulesSaved: boolean;
-  /** A playbook in use has its short video linked. */
+  /** The business's video library has a video (decision 154): a playbook's, until it's first saved. */
   readonly video: boolean;
   /** The business said it doesn't use a short video. */
   readonly noVideo: boolean;
@@ -630,7 +630,7 @@ export const SetupOutput = z.object({
       template: z.string().nullable(),
       /** It has its niche and the niche's problem. */
       niche: z.boolean(),
-      /** Its short video is linked. */
+      /** Its short video is linked (before the video library, decision 154). */
       video: z.boolean(),
       /** The networks it runs on. */
       networks: z.array(z.enum(PLATFORM_KEYS)),
@@ -638,6 +638,8 @@ export const SetupOutput = z.object({
   ),
   /** The business doesn't use a short video. */
   noVideo: z.boolean(),
+  /** The videos in the business's video library (decision 154), the playbooks' until it's first saved. */
+  videos: z.number().int().min(0),
   /**
    * Groups this person is in, saved from their Facebook, and the business's groups in all; with the ones they're in
    * that the extension saw last (up to `SETUP_GROUPS_SHOWN`), each scored against the playbooks.
@@ -760,9 +762,9 @@ export const SETUP_WORDS = {
       hint: 'Who you’re looking for, how you sound and what you offer. Start from ours or write your own.',
     },
     video: {
-      name: 'Short video',
-      title: 'A short video',
-      hint: 'Optional. A 2 to 4 minute video your messages can link to. The AI writes the script; you record it.',
+      name: 'Videos',
+      title: 'Your videos',
+      hint: 'Optional. Videos the AI can send when someone hasn’t booked or missed their demo, kept in your video library. A playbook can write a script to record one from.',
     },
     rules: {
       name: 'Team rules',
@@ -836,7 +838,7 @@ export const SETUP_WORDS = {
     playbook: 'Pick a playbook and its niche.',
     playbookWaiting:
       'Waiting on your business’s playbook. Ask an owner of this business to write one on the Playbooks tab.',
-    video: 'Optional: link a short video, or say you don’t use one.',
+    video: 'Optional: add a video to your library, or say you don’t use one.',
     rules: 'Keep your team’s rules, or change them.',
     extension: 'Put the extension in Chrome and sign in.',
     extensionFirst: 'Put the extension in Chrome first, under Your computer.',
@@ -989,12 +991,14 @@ export const SETUP_WORDS = {
   rulesNew: 'New people',
   rulesNewAbout: 'They start doing everything themselves, until they pick.',
   rulesWarning: 'A warning from a network stops its day and halves its limits for a week.',
-  /** The video: optional (decision 83). */
-  videoWrite: 'Write the script',
-  videoOpen: 'Open the script',
+  /** The videos: optional (decision 83), in the video library since decision 154. */
+  videoAdd: 'Add a video',
+  videoOpen: 'Open your video library',
+  videoWrite: 'Write a script',
   noVideo: 'We don’t use one',
-  videoLinked: 'Your video is linked.',
-  videoNone: 'You don’t use one. Add one any time on the Playbooks tab.',
+  videoLinked: (n: number) =>
+    `${n.toLocaleString('en-US')} ${n === 1 ? 'video' : 'videos'} in your library.`,
+  videoNone: 'You don’t use one. Add one any time in Settings → Videos.',
   /** The offer and the playbook, built on their own pages: they come back here. */
   offerWrite: 'Write your main offer',
   offerOpen: 'Open your main offer',

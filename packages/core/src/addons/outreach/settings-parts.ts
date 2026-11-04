@@ -2,8 +2,9 @@
  * Social Outreach's Settings, a page for each part (Chris, 16 Oct 2026; the design is the "Social Outreach settings by
  * platform" canvas; regrouped by decision 129): **You**, what's the person's on every network (its key is still
  * `general`, as old links name it); then **each network**, what the extension does there for the person; **Your
- * computer**, with every job it can be asked to run now; and for owners and admins **Team**, everything about their
- * people and what the business allows, each network's say in one place; and for an owner **Start fresh**. Every change
+ * computer**, with every job it can be asked to run now; and for owners and admins **Videos**, the business's video
+ * library (decision 154, ./video-library.ts), and **Team**, everything about their people and what the business
+ * allows, each network's say in one place; and for an owner **Start fresh**. Every change
  * saves as it's made: no Save button.
  *
  * The web and the phone open a part from its key (`?part=` on the web), and build the menu from these words. Browser-safe.
@@ -19,6 +20,7 @@ export const SETTINGS_PART_KEYS = [
   'general',
   ...PLATFORM_KEYS,
   'computer',
+  'videos',
   'team',
   'fresh',
 ] as const;

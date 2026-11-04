@@ -154,53 +154,62 @@ export async function showOutreach(
     // Chrome hasn't let the extension on it. It has their profile there too, read and checked (decision 80).
     const network = isNetworkPart(shown.part) && !whose ? shown.part : null;
     const team = shown.part === 'team' && canManage;
-    const [me, people, business, live, setup, asks, readiness, wheels] = await Promise.all([
-      api
-        .POST('/v1/queries/outreach.automation', {
-          body: { workspaceId, ...(whose ? { userId: whose } : {}) },
-        })
-        .then(unwrapPage),
-      canManage
-        ? api
-            .POST('/v1/queries/outreach.automation.people', { body: { workspaceId } })
-            .then(unwrapPage)
-        : null,
-      canManage
-        ? api
-            .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
-            .then(unwrapPage)
-        : null,
-      computer ? liveOf() : null,
-      // Where the team gets the extension: the business's own link, read as everyone reads it.
-      computer
-        ? api
-            .POST('/v1/queries/outreach.setup', { body: { workspaceId } })
-            .then((r) => r.data ?? null)
-            .catch(() => null)
-        : null,
-      // A network's own asks there; on Your computer, everything asked of it (decision 127: it was Today's Details).
-      network || computer
-        ? api
-            .POST('/v1/queries/outreach.asks', {
-              body: { workspaceId, ...(network ? { kinds: [...ASK_KINDS_FOR.settings] } : {}) },
-            })
-            .then((r) => r.data ?? null)
-            .catch(() => null)
-        : null,
-      network
-        ? api
-            .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: network } })
-            .then((r) => r.data ?? null)
-            .catch(() => null)
-        : null,
-      // Who's on training wheels, to end them early: Team's (decision 129; it was Today's).
-      team
-        ? api
-            .POST('/v1/queries/outreach.wheels', { body: { workspaceId } })
-            .then((r) => r.data ?? null)
-            .catch(() => null)
-        : null,
-    ]);
+    // Videos: the playbooks' short videos, which the library reads as until it's first saved (decision 154).
+    const videos = shown.part === 'videos' && canManage;
+    const [me, people, business, live, setup, asks, readiness, wheels, playbookList] =
+      await Promise.all([
+        api
+          .POST('/v1/queries/outreach.automation', {
+            body: { workspaceId, ...(whose ? { userId: whose } : {}) },
+          })
+          .then(unwrapPage),
+        canManage
+          ? api
+              .POST('/v1/queries/outreach.automation.people', { body: { workspaceId } })
+              .then(unwrapPage)
+          : null,
+        canManage
+          ? api
+              .POST('/v1/queries/addon.settings', { body: { workspaceId, addonId: 'outreach' } })
+              .then(unwrapPage)
+          : null,
+        computer ? liveOf() : null,
+        // Where the team gets the extension: the business's own link, read as everyone reads it.
+        computer
+          ? api
+              .POST('/v1/queries/outreach.setup', { body: { workspaceId } })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
+        // A network's own asks there; on Your computer, everything asked of it (decision 127: it was Today's Details).
+        network || computer
+          ? api
+              .POST('/v1/queries/outreach.asks', {
+                body: { workspaceId, ...(network ? { kinds: [...ASK_KINDS_FOR.settings] } : {}) },
+              })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
+        network
+          ? api
+              .POST('/v1/queries/outreach.readiness', { body: { workspaceId, platform: network } })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
+        // Who's on training wheels, to end them early: Team's (decision 129; it was Today's).
+        team
+          ? api
+              .POST('/v1/queries/outreach.wheels', { body: { workspaceId } })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
+        videos
+          ? api
+              .POST('/v1/queries/outreach.playbook.list', { body: { workspaceId } })
+              .then((r) => r.data ?? null)
+              .catch(() => null)
+          : null,
+      ]);
     const canStartFresh = got.workspace.permissions.includes('addons.purge');
     return (
       <OutreachHome
@@ -221,6 +230,9 @@ export async function showOutreach(
           asks,
           readiness,
           wheels,
+          playbookVideos: (playbookList?.playbooks ?? [])
+            .filter((p) => !p.archivedAt)
+            .map((p) => ({ name: p.name, details: { videoLink: p.details.videoLink ?? null } })),
         }}
       />
     );

@@ -46044,6 +46044,7 @@ export interface operations {
                             step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         }[];
                         steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers")[];
+                        videos: number;
                     };
                 };
             };
@@ -80019,6 +80020,7 @@ export interface operations {
                             step: "offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers";
                         }[];
                         steps: ("offer" | "playbook" | "video" | "rules" | "extension" | "messages" | "networks" | "numbers")[];
+                        videos: number;
                     };
                 };
             };

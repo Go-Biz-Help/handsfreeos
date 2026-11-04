@@ -77,6 +77,7 @@ const SETUP: SetupOutput = {
   sendingAllowedMore: true,
   playbooks: [],
   noVideo: false,
+  videos: 0,
   groups: { mine: 0, business: 0, latest: [] },
   extensionLink: null,
 };

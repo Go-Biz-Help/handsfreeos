@@ -59,7 +59,16 @@ import {
 } from '@hfos/core/addons/outreach/settings-parts';
 import type { StageView } from '@hfos/core/addons/outreach/stages';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
-import { CircleDashed, Globe, Laptop, RotateCcw, UserRound, UsersRound } from 'lucide-react';
+import type { PlaybookVideo } from '@hfos/core/addons/outreach/video-library';
+import {
+  CircleDashed,
+  Clapperboard,
+  Globe,
+  Laptop,
+  RotateCcw,
+  UserRound,
+  UsersRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ComponentProps, ComponentType } from 'react';
@@ -257,6 +266,8 @@ export type OutreachShown =
       readonly readiness?: Readiness | null;
       /** On Team, who's on training wheels: null when it couldn't be had, or on another part. */
       readonly wheels?: WheelsList | null;
+      /** On Videos, the playbooks' short videos, the library until it's first saved (decision 154). */
+      readonly playbookVideos?: readonly PlaybookVideo[];
     };
 
 /** A row of links that looks like a segmented control: People's views, Left alone's lists, Find people's parts. */
@@ -402,6 +413,13 @@ function SettingsMenu({
       rows: [
         ...(canTeam
           ? [
+              {
+                key: 'videos',
+                label: P.videos,
+                icon: Clapperboard,
+                href: partHref('videos', false),
+                active: part === 'videos',
+              },
               {
                 key: 'team',
                 label: P.team,
@@ -755,6 +773,7 @@ export function OutreachHome({
               asks={shown.asks ?? null}
               readiness={shown.readiness ?? null}
               wheels={shown.wheels ?? null}
+              playbookVideos={shown.playbookVideos ?? []}
             />
           </div>
         </div>

@@ -120,9 +120,8 @@ async function samplesFrom(ctx: Ctx, asked: { playbookId: string | null } | 'sam
     parts.success ? parts.data : MainOfferParts.parse({}),
   );
   const d = playbook.details;
-  const hasVideo = Boolean(
-    d.videoLink ?? playbooks.find((p) => p.details.videoLink)?.details.videoLink,
-  );
+  // No video message: a yes gets the demo ask next, and videos come from the library (decision 154, 3a).
+  const hasVideo = false;
   const { followUps, followUpGaps } = paceOf(d.pace);
   const notes: MessageNotes = messageNotesOf(found.said?.message_notes);
   const facts: SamplesFacts = {
@@ -230,10 +229,7 @@ export const messageRewrite: AddonWorkerAction<MessageRewriteInput> = {
   async run(ctx, raw): Promise<ReadinessOutput> {
     const input = MessageRewriteInput.parse(raw);
     const slot = { part: input.part, index: input.index };
-    const { version, playbook, hasVideo, samples, notes, facts } = await samplesFrom(
-      ctx,
-      'samples',
-    );
+    const { version, samples, notes, facts } = await samplesFrom(ctx, 'samples');
     if (!samples)
       throw HfosError.rule(
         'outreach_messages_unseen',
@@ -242,10 +238,7 @@ export const messageRewrite: AddonWorkerAction<MessageRewriteInput> = {
       );
     const before = sampleAt(samples, slot);
     if (before === null) {
-      const why = noSample(samples, slot, {
-        has: hasVideo,
-        playbook: playbook.id === samples.playbookId ? playbook.name : null,
-      });
+      const why = noSample(samples, slot);
       throw HfosError.rule(why.rule, 409, why.message);
     }
     if (samples.version !== version)

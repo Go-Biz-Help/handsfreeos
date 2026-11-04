@@ -42,6 +42,7 @@ import { CopyField } from '@/components/ui/copy-field';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
+import { outreachHref } from './address';
 import { ExtensionDownload, StuckFold } from './extension-download';
 import { MessagesBody, NumbersBody } from './get-ready';
 import { RulesForm } from './settings-view';
@@ -321,9 +322,12 @@ function PlaybookStep({ workspaceId, setup, nav }: StepProps) {
   );
 }
 
-/** The short video: optional (decision 83). The AI writes its script on the playbook; or the business has none. */
+/**
+ * The videos: optional (decision 83), in the business's video library since decision 154 (Settings → Videos). A
+ * playbook still writes a script to record one from; or the business has none.
+ */
 function VideoStep({ workspaceId, setup, business, nav }: StepProps) {
-  const linked = setup.playbooks.find((p) => p.video);
+  const linked = setup.videos > 0;
   const target = setup.playbooks.find((p) => p.niche) ?? setup.playbooks[0];
   const none = async () => {
     const ok = await nav.act('none', async () =>
@@ -343,21 +347,26 @@ function VideoStep({ workspaceId, setup, business, nav }: StepProps) {
     <>
       {linked ? (
         <Note tone="good" testId="outreach-setup-video-linked">
-          {W.videoLinked}
+          {W.videoLinked(setup.videos)}
         </Note>
       ) : setup.noVideo ? (
         <Note testId="outreach-setup-video-none">{W.videoNone}</Note>
-      ) : !target ? (
-        <Note>{W.left.playbook}</Note>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
+        <ButtonLink
+          href={outreachHref(workspaceId, { view: 'settings', part: 'videos' })}
+          variant={linked || setup.noVideo ? 'secondary' : 'primary'}
+          data-testid="outreach-setup-video-open"
+        >
+          {linked ? W.videoOpen : W.videoAdd}
+        </ButtonLink>
         {target ? (
           <ButtonLink
-            href={playbookHref(workspaceId, (linked ?? target).id, { open: 'video' })}
-            variant={linked || setup.noVideo ? 'secondary' : 'primary'}
-            data-testid="outreach-setup-video-open"
+            href={playbookHref(workspaceId, target.id, { open: 'video' })}
+            variant="ghost"
+            data-testid="outreach-setup-video-script"
           >
-            {linked ? W.videoOpen : W.videoWrite}
+            {W.videoWrite}
           </ButtonLink>
         ) : null}
         {!linked && !setup.noVideo ? (
@@ -372,7 +381,7 @@ function VideoStep({ workspaceId, setup, business, nav }: StepProps) {
           </Button>
         ) : null}
       </div>
-      <StepFooter nav={nav} done={Boolean(linked) || setup.noVideo} optional />
+      <StepFooter nav={nav} done={linked || setup.noVideo} optional />
     </>
   );
 }

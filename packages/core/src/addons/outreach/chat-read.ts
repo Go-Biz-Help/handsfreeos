@@ -16,6 +16,7 @@ import { CANCEL_AFTER_WEEKS } from './tidy';
 import { ANYWHERE, CountryRule } from './countries';
 import { FOUND_CHECKS } from './finds';
 import { PLATFORM_KEYS } from './networks';
+import { VideoLibrary } from './video-library';
 
 /** Where a chat's reading is (`addon_outreach.file_chats.read_state`). */
 export const CHAT_READ_STATES = ['none', 'waiting', 'read', 'skipped', 'failed'] as const;
@@ -81,6 +82,12 @@ export const OutreachSettingsSchema = z.object({
    */
   noVideo: z.boolean().default(false),
   /**
+   * The business's video library (decision 154): the videos the AI may send when someone hasn't booked, missed their
+   * demo, or asks what a video answers, each with what it shows and when it helps. Null until it's first saved, when
+   * it reads as the playbooks' short videos (./video-library.ts `libraryOf`).
+   */
+  videos: VideoLibrary.nullable().default(null),
+  /**
    * An owner or admin kept the team's rules in the setup (decision 83), as they are or changed. The add-on's install
    * stores the starting rules, so rules kept is this, or rules changed from the starting ones.
    */
@@ -88,14 +95,21 @@ export const OutreachSettingsSchema = z.object({
 });
 export type OutreachSettings = z.output<typeof OutreachSettingsSchema>;
 
+/** The settings that can stop passing on their own (a link's rules, a country, a video), each way of leaving them out. */
+const FRAGILE = ['extensionLink', 'countries', 'videos'] as const;
+const DROPPABLE: readonly (readonly string[])[] = Array.from(
+  { length: 2 ** FRAGILE.length - 1 },
+  (_, i) => FRAGILE.filter((_, bit) => ((i + 1) >> bit) & 1),
+).sort((a, b) => a.length - b.length);
+
 /** The settings saved, or the defaults where they aren't. */
 export function outreachSettings(saved: unknown): OutreachSettings {
   const parsed = OutreachSettingsSchema.safeParse(saved ?? {});
   if (parsed.success) return parsed.data;
-  // A link, or a country setting, that no longer passes reads as none (Anywhere), and leaves the business's other
-  // settings as saved.
+  // A link, a country setting or a video library that no longer passes reads as none (Anywhere, the playbooks'
+  // videos), and leaves the business's other settings as saved: the fewest dropped first.
   if (saved && typeof saved === 'object')
-    for (const drop of [['extensionLink'], ['countries'], ['extensionLink', 'countries']]) {
+    for (const drop of DROPPABLE) {
       const rest = { ...(saved as Record<string, unknown>) };
       for (const key of drop) delete rest[key];
       const again = OutreachSettingsSchema.safeParse(rest);

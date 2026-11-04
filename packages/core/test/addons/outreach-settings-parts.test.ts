@@ -22,7 +22,14 @@ const shown = (...args: Parameters<typeof limitsShownOn>) =>
 
 describe('Settings, a page for each part', () => {
   it('lists You, then every network, then Your computer, Team and Start fresh', () => {
-    expect(SETTINGS_PART_KEYS).toEqual(['general', ...PLATFORM_KEYS, 'computer', 'team', 'fresh']);
+    expect(SETTINGS_PART_KEYS).toEqual([
+      'general',
+      ...PLATFORM_KEYS,
+      'computer',
+      'videos',
+      'team',
+      'fresh',
+    ]);
     expect(SETTINGS_PART_KEYS.filter(isNetworkPart)).toEqual(PLATFORM_KEYS);
   });
 
@@ -30,6 +37,7 @@ describe('Settings, a page for each part', () => {
     expect(settingsPartOf('linkedin')).toBe('linkedin');
     expect(settingsPartOf('computer')).toBe('computer');
     expect(settingsPartOf('team')).toBe('team');
+    expect(settingsPartOf('videos')).toBe('videos');
     for (const old of ['mine', 'business', null, undefined, '', 'nope']) {
       expect(settingsPartOf(old)).toBe('general');
     }

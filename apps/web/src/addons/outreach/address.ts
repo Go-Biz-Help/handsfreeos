@@ -17,7 +17,7 @@
  * - **Results** (`/results`): the stretch of days (`?period=today`, `week` or `month`) and whose steps
  *   (`?who=everyone`, for owners and admins).
  * - **Playbooks** (`/playbooks`): the business's playbooks, with how each opener did.
- * - **Settings** (`/settings`, You; `/settings/<part>` for a network, Your computer, Team or Start fresh), whose with
+ * - **Settings** (`/settings`, You; `/settings/<part>` for a network, Your computer, Videos, Team or Start fresh), whose with
  *   `?for=` someone's id, for owners and admins.
  *
  * Lists take a name searched for (`?q=`) and the page (`?page=2`). Today takes the network whose list it shows, and

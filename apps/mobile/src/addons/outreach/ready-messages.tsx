@@ -159,17 +159,16 @@ export function MessagesList({
               {samples.first.map((t, index) => message({ part: 'first', index }, t))}
             </>,
           )}
-          {part(
-            M.video,
-            samples.video ? (
-              <>
-                {told('video')}
-                {message({ part: 'video', index: 0 }, samples.video)}
-              </>
-            ) : (
-              <Note>{M.noVideo}</Note>
-            ),
-          )}
+          {/* The video message only in samples written before the video library (decision 154). */}
+          {samples.video
+            ? part(
+                M.video,
+                <>
+                  {told('video')}
+                  {message({ part: 'video', index: 0 }, samples.video)}
+                </>,
+              )
+            : null}
           {samples.link
             ? part(
                 M.link,

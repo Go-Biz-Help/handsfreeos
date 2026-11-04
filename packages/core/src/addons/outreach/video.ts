@@ -1,9 +1,10 @@
 /**
  * The playbook's short video (docs/outreach.md, decision 69; the main offer plan's "The short video: script and shot
- * list"): Send the video carries it to someone who said yes to the first message (decision 66). The AI writes its
- * script from the live main offer and the playbook's niche, part by part, each with what to say and what to show, and
- * the person records it themselves and pastes its link. One per playbook, the business's; each person's own comes
- * later.
+ * list"). The AI writes its script from the live main offer and the playbook's niche, part by part, each with what to
+ * say and what to show, and the person records it themselves. Since decision 154 the video goes in the business's
+ * video library (./video-library.ts), which the AI sends from in follow-ups: Send the video, which carried it to
+ * someone who said yes (decision 66), is gone, and the playbook's link (`VideoLink`) is read only to move it into the
+ * library.
  *
  * The worker asks the model (`outreach.video.script`, apps/worker/src/addons/outreach/video.ts): the whole script
  * (`write`), or one part again (`improve`). Nothing is saved there: the builder puts it on the playbook, and the
@@ -329,7 +330,7 @@ export function checkedScript(
 
 export const VIDEO_WORDS = {
   title: 'Your short video',
-  hint: 'Someone who says yes to your first message gets it next, then your booking link. The AI writes the script; you record it and paste the link.',
+  hint: 'The AI writes the script; you record it. Then add it to your video library in Settings → Videos, with what it shows, and the AI sends it in follow-ups where it fits.',
   write: 'Write the script',
   again: 'Write it again',
   improve: 'Improve',
@@ -348,15 +349,8 @@ export const VIDEO_WORDS = {
   /** Written from an earlier version of the main offer. */
   older: (version: number) =>
     `Written for version ${version} of your main offer. Write it again so it matches the live one.`,
-  /** The builder's summary, and the phone's playbook. */
-  summary: (linked: boolean, scripted: boolean) =>
-    linked
-      ? scripted
-        ? 'Video linked, with its script'
-        : 'Video linked'
-      : scripted
-        ? 'Script written, no link yet'
-        : 'No video yet',
+  /** The builder's summary, and the phone's playbook: the video itself is in the library (decision 154). */
+  summary: (scripted: boolean) => (scripted ? 'Script written' : 'No script yet'),
   /** The phone, which can't ask the AI. */
   onComputer: 'Write the script on your computer, under Playbooks in HandsFreeOS.',
 } as const;

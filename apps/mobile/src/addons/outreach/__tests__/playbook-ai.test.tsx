@@ -260,7 +260,7 @@ const script = (version: number | null, say = (p: string) => `Say ${p}.`): Video
 });
 
 describe('The short video’s script in the sheet', () => {
-  it('writes the script from the main offer and the niche, and saves it with the link', async () => {
+  it('writes the script from the main offer and the niche, and saves it, the video going in the library', async () => {
     const onScript = jest.fn(async (_i: VideoScriptInput) => script(2));
     const { props, el } = body({ onScript, liveVersion: 2 });
     await render(el);
@@ -290,14 +290,12 @@ describe('The short video’s script in the sheet', () => {
       screen.getByTestId('playbook-video-say-who'),
       'Hi, bakery owners: this is for you.',
     );
-    await fireEvent.changeText(
-      screen.getByTestId('playbook-video-link'),
-      'https://www.loom.com/share/abc123',
-    );
+    // The video's link goes in the video library now (decision 154), not on the playbook.
+    expect(screen.getByTestId('playbook-video-library')).toHaveTextContent(/Settings → Videos/);
+    expect(screen.queryByTestId('playbook-video-link')).toBeNull();
     await fireEvent.press(screen.getByTestId('playbook-save'));
     await waitFor(() => expect(props.onSave).toHaveBeenCalled());
     const details = saved(props.onSave);
-    expect(details.videoLink).toBe('https://www.loom.com/share/abc123');
     expect(details.videoScript.parts[0]).toEqual({
       part: 'who',
       say: 'Hi, bakery owners: this is for you.',

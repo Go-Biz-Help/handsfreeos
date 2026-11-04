@@ -100520,6 +100520,11 @@
                     "noVideo": {
                       "type": "boolean"
                     },
+                    "videos": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "groups": {
                       "type": "object",
                       "properties": {
@@ -100599,6 +100604,7 @@
                     "sendingAllowedMore",
                     "playbooks",
                     "noVideo",
+                    "videos",
                     "groups",
                     "extensionLink"
                   ],
@@ -219202,6 +219208,11 @@
                     "noVideo": {
                       "type": "boolean"
                     },
+                    "videos": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "groups": {
                       "type": "object",
                       "properties": {
@@ -219281,6 +219292,7 @@
                     "sendingAllowedMore",
                     "playbooks",
                     "noVideo",
+                    "videos",
                     "groups",
                     "extensionLink"
                   ],

@@ -60,6 +60,7 @@ import {
   type VideoPart,
   type VideoScript,
 } from '@hfos/core/addons/outreach/video';
+import { VIDEO_LIBRARY_WORDS as VL } from '@hfos/core/addons/outreach/video-library';
 import {
   findWordsHint,
   OUTREACH_WORDS as W,
@@ -87,7 +88,7 @@ import { toast } from 'sonner';
 import { Callout } from '@/components/crm/chips';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonClassName } from '@/components/ui/button';
+import { Button, ButtonLink, buttonClassName } from '@/components/ui/button';
 import { Field, FieldError, Hint, Label } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
 import { RadioCard } from '@/components/ui/radio-card';
@@ -1225,8 +1226,6 @@ export function PlaybookBuilder({
           draft={draft}
           liveVersion={mainOfferVersion}
           onScript={(script) => set('videoScript', script)}
-          onLink={(link) => set('videoLink', link)}
-          linkIssue={issueAt('videoLink')}
           scriptIssue={issueIn('videoScript')}
         />
       );
@@ -1925,11 +1924,7 @@ function Summary({
     case 'video':
       return (
         <>
-          {d.videoLink.trim() || d.videoScript ? (
-            V.summary(Boolean(d.videoLink.trim()), d.videoScript !== null)
-          ) : (
-            <Missing>{V.summary(false, false)}</Missing>
-          )}
+          {d.videoScript ? V.summary(true) : <Missing>{V.summary(false)}</Missing>}
           {d.videoScript ? (
             <div className="text-[13px] text-text-2">{V.runs(scriptMinutes(d.videoScript))}</div>
           ) : null}
@@ -2138,23 +2133,20 @@ function FollowUpPace({
 /**
  * The playbook's short video (decision 69): the AI writes its script from the main offer and the niche, part by part,
  * each with what to say and what to show, and writes one part again on Improve; the business changes the words as it
- * likes, records it, and pastes its link. All of it is saved with the playbook.
+ * likes, and records it. The script is saved with the playbook; the video goes in the business's video library
+ * (decision 154, Settings → Videos), where its link was.
  */
 function VideoStep({
   workspaceId,
   draft,
   liveVersion,
   onScript,
-  onLink,
-  linkIssue,
   scriptIssue,
 }: {
   workspaceId: string;
   draft: Draft;
   liveVersion: number | null;
   onScript: (script: VideoScript) => void;
-  onLink: (link: string) => void;
-  linkIssue: string | undefined;
   scriptIssue: string | undefined;
 }) {
   const [busy, setBusy] = useState<'write' | VideoPart | null>(null);
@@ -2300,19 +2292,19 @@ function VideoStep({
         )}
       </section>
       <div className="grid gap-5 md:grid-cols-2">
-        <section className="rounded-card border border-border bg-card p-5">
-          <Field label={V.link} htmlFor="pb-video-link" hint={V.linkHint} error={linkIssue}>
-            <Input
-              id="pb-video-link"
-              value={draft.videoLink}
-              placeholder={V.linkPlaceholder}
-              inputMode="url"
-              maxLength={VIDEO_LIMITS.link}
-              onChange={(e) => onLink(e.target.value)}
-              onBlur={() => onLink(withScheme(draft.videoLink))}
-              data-testid="playbook-video-link"
-            />
-          </Field>
+        <section
+          className="space-y-3 rounded-card border border-border bg-card p-5"
+          data-testid="playbook-video-library"
+        >
+          <p className="text-[13.5px] text-text-2">{VL.onPlaybook}</p>
+          <ButtonLink
+            size="sm"
+            variant="secondary"
+            href={outreachHref(workspaceId, { view: 'settings', part: 'videos' })}
+            data-testid="playbook-video-library-open"
+          >
+            {VL.open}
+          </ButtonLink>
         </section>
         <section className="rounded-card border border-border bg-card p-5">
           <h3 className="text-[15px] font-semibold">{V.tips}</h3>

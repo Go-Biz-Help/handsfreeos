@@ -39,6 +39,7 @@ import { days, groups, myGroups, playbooks, setup } from '../tables';
 import { automationOf } from './automation';
 import { inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
+import { libraryOf } from '../video-library';
 import { myComputers, workingOf } from './live';
 import { readinessFor } from './readiness';
 
@@ -119,6 +120,8 @@ async function shownSetup(ctx: Ctx, me: string, row: Row | undefined): Promise<S
   const rulesSaved =
     business_.rulesKept || JSON.stringify(business_.rules) !== JSON.stringify(NO_RULES);
   const details = new Map(fitting.map((p) => [p.id, p.details]));
+  // The video library (decision 154): the playbooks' short videos until it's first saved.
+  const library = libraryOf(business_.videos, fitting);
   const networks = networksShown(auto.settings, auto.rules.networksAllowed);
   const working = workingOf(computers);
   const readies = new Map(
@@ -133,7 +136,7 @@ async function shownSetup(ctx: Ctx, me: string, row: Row | undefined): Promise<S
     extensionAt: iso(row?.extensionAt ?? null),
     settingsSaved,
     rulesSaved,
-    video: fitting.some((p) => filled(p.details.videoLink)),
+    video: library.length > 0,
     noVideo: business_.noVideo,
     ready: readies.get('facebook')!.items,
     networks: networks.map((platform) => ({
@@ -180,6 +183,7 @@ async function shownSetup(ctx: Ctx, me: string, row: Row | undefined): Promise<S
       };
     }),
     noVideo: business_.noVideo,
+    videos: library.length,
     groups: {
       mine: Number(mine?.n ?? 0),
       business: Number(business?.n ?? 0),

@@ -600,3 +600,83 @@ describe('Team, for owners and admins', () => {
     );
   });
 });
+
+describe('Videos on the phone (decision 154)', () => {
+  const roofers = { name: 'Roofers', details: { videoLink: 'https://www.loom.com/share/roof' } };
+
+  it('is an owner’s or admin’s part of the menu, opened by its address', async () => {
+    const p = menuProps();
+    await render(<SettingsMenuBody automation={AUTOMATION} {...p} manages />);
+    await fireEvent.press(screen.getByTestId('settings-open-videos'));
+    expect(p.onPart).toHaveBeenCalledWith('videos');
+    expect(phonePartOf('videos')).toBe('videos');
+  });
+
+  it('shows the playbooks’ videos until it’s saved, checks a new one, and saves the whole library', async () => {
+    const p = partProps();
+    await render(
+      <SettingsPartBody
+        part="videos"
+        automation={AUTOMATION}
+        {...p}
+        manages
+        business={{}}
+        playbookVideos={[roofers]}
+      />,
+    );
+    expect(screen.getByTestId('settings-videos-from-playbooks')).toBeTruthy();
+    expect(screen.getAllByTestId('settings-video')).toHaveLength(1);
+    await fireEvent.press(screen.getByTestId('settings-videos-add'));
+    await fireEvent.changeText(screen.getByTestId('settings-video-name'), 'Tour');
+    await fireEvent.changeText(screen.getByTestId('settings-video-link'), 'loom.com/share/tour');
+    await fireEvent.press(screen.getByTestId('settings-video-save'));
+    // What it shows and when it helps is what the AI picks it by: it's asked for before anything's saved.
+    expect(screen.getByTestId('settings-video-problem')).toHaveTextContent(/so the AI knows when/);
+    expect(p.onSaveBusiness).not.toHaveBeenCalled();
+    await fireEvent.changeText(
+      screen.getByTestId('settings-video-about'),
+      'A quick tour, for someone who hasn’t booked.',
+    );
+    await fireEvent.press(screen.getByTestId('settings-video-save'));
+    expect(p.onSaveBusiness).toHaveBeenCalledTimes(1);
+    const edit = p.onSaveBusiness.mock.calls[0]![0];
+    expect(edit(outreachSettings({}))).toEqual({
+      videos: [
+        {
+          name: 'Roofers: short video',
+          link: 'https://www.loom.com/share/roof',
+          about: expect.stringContaining('how it works'),
+        },
+        {
+          name: 'Tour',
+          link: 'https://loom.com/share/tour',
+          about: 'A quick tour, for someone who hasn’t booked.',
+        },
+      ],
+    });
+  });
+
+  it('removes one at once, and keeps a saved library as its own', async () => {
+    const p = partProps();
+    const tour = {
+      name: 'Tour',
+      link: 'https://loom.com/share/tour',
+      about: 'A quick tour, for someone who hasn’t booked.',
+    };
+    await render(
+      <SettingsPartBody
+        part="videos"
+        automation={AUTOMATION}
+        {...p}
+        manages
+        business={{ videos: [tour] }}
+        playbookVideos={[roofers]}
+      />,
+    );
+    expect(screen.queryByTestId('settings-videos-from-playbooks')).toBeNull();
+    expect(screen.getAllByTestId('settings-video')).toHaveLength(1);
+    await fireEvent.press(screen.getByTestId('settings-video-remove'));
+    const edit = p.onSaveBusiness.mock.calls[0]![0];
+    expect(edit(outreachSettings({}))).toEqual({ videos: [] });
+  });
+});

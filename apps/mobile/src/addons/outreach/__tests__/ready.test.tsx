@@ -160,7 +160,7 @@ describe('Get ready on the phone', () => {
     expect(within(list).getAllByTestId('ready-message-mine')).toHaveLength(1);
     expect(within(list).getByText('If they go quiet: 2 follow-ups')).toBeTruthy();
     expect(within(list).getByText('2 days later')).toBeTruthy();
-    expect(within(list).getByText(READY_WORDS.messages.noVideo)).toBeTruthy();
+    expect(within(list).queryByText(READY_WORDS.messages.video)).toBeNull();
     await fireEvent.press(screen.getByTestId('ready-messages-ok'));
     await waitFor(() => expect(onMessages).toHaveBeenCalled());
   });

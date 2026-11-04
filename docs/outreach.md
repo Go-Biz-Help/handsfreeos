@@ -1225,8 +1225,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     question, not now or no (`answerOf`; the worker keeps it with `outreach.answer.note`). A reply's sighting carries
     no words, so the extension reads the chat before drafting (`bringInChat`). A yes moves them on: to **Send the
     video** (the playbook's short video with a line selling the call), or with no video yet straight to **Send the
-    link** (the demo link, decision 24), and after the video to the link. The draft comes back as that step, and the
-    extension queues it so. A question gets a short answer and why a call helps; not now, a check-in a month on; a no
+    link** (the demo link, decision 24), and after the video to the link (since decision 154 a yes always goes to the
+    link, and videos come from the library). The draft comes back as that step, and the extension queues it so. A question gets a short answer and why a call helps; not now, a check-in a month on; a no
     ends it and marks them not a fit, unless the person marked them themselves. On Today, the web copies the link or
     the video's link alone too. The playbook's video link is written in the plan's step 7; until then a yes gets the
     link. Built.
@@ -1262,7 +1262,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     version 5); a script written for an older main offer version says so. An owner or admin links it. The video is
     optional (decision 83): **Your messages** doesn't wait on it, and the setup's video step has **We don’t use
     one**, kept as the business's choice (`noVideo`). The phone shows
-    the script and changes the link; the script is written on the web. Built.
+    the script and changes the link; the script is written on the web. Built. Since decision 154 the video goes in the
+    business's video library instead of on the playbook, which keeps the script.
 70. **The daily numbers** (the main offer plan's step 8; `tracking.ts`, the boards in `design/tracking`; the owner's
     decision: the day's report is on to start). Results leads with the three numbers the video says to watch every
     day: first messages sent, said yes (`stages.positive_at`) and calls booked (`demos`, not taken back), for today,
@@ -1901,7 +1902,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       one marked **Most people start here**; Save waits for a pick. Decision 26's off stays until they pick.
     - **The short video is optional:** "ok just want to make sure its not required because some owners may not want
       one". **Your messages** no longer waits on a linked video (decision 69), and the video step has **We don’t use
-      one** (`noVideo`). Members never wait on it.
+      one** (`noVideo`). Members never wait on it. Since decision 154 it's done once the video library has a video.
 
     Every step ticks from what's true (`setupStepStates`, `networkStepStates`): Get ready's items for that network
     (`readinessFor`), the extension signed in (`extension_at`), their own settings saved (`settings_at`), the team's
@@ -3882,7 +3883,30 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       used to promise. With open times (decision 149) they go in just before "how's that sound?" ("I have tomorrow at
       11 ct or this friday at noon ct, how's that sound?"), then the link for any other time; with none, the link. A
       playbook with no video already goes from a yes straight to this step, as Chris's does; the video step stays for a
-      playbook that has one. No migration, and no new extension.
+      playbook that has one. No migration, and no new extension. Since decision 154 there's no video step at all.
+154.  **A video library the AI sends from** (Chris, 4 Nov 2026: "with follow ups if they don't book or miss the booking
+      we can send different videos. we should have a video link library each with a description of what they are so
+      the ai knows what to send and when based on the conversation"; picked 1a 2a 3a). `video-library.ts`.
+      - **One library for the whole business** (1a): Social Outreach → Settings → **Videos**, under Owners, on the web
+        and the phone, for owners and admins. Each video is a name, a link (Loom, YouTube or Google Drive: https with
+        a real host, as the playbook's link was) and what it shows and when it helps, which is what the AI picks it
+        by. Up to 20, each link once. Kept with the business's Social Outreach settings (`videos`), saved through
+        `addon.save_settings` as the rest of them are; each video has its own Save, and Remove saves at once. No
+        migration.
+      - **Where the AI may send one** (2a): a follow-up after the demo ask (the link step) when they haven't booked,
+        another time after a missed demo (decision 106), and a reply, when a video answers what they asked. Never to a
+        client, someone who turned the offer down (decision 134) or a message to their Requests. The draft is told the
+        videos they haven't had (`videoLines`), and the AI puts in at most one, only where it fits, with its link as
+        written. What was sent them (their sent messages and the person's side of the chat) is read for each video's
+        link, so one never goes twice; a draft with two videos, or one they've had, is dropped (`fitsVideos`).
+      - **The old video step is gone** (3a): a yes to the first message gets the demo ask straight away (decision 153;
+        `stepAfterYes`), Today no longer lists Send the video, and Your messages has no video sample (old samples
+        still show theirs). Someone already sent a video gets the link after a yes, as before. A playbook's short
+        video moves into the library: until the library is first saved, it reads as the playbooks' videos, by playbook
+        name, each said to be "the short video on how it works and how others got results" (`libraryOf`); any save
+        keeps it as the library's own. The playbook keeps its script writer (decision 69); where its link box was, it
+        points to Settings → Videos. The setup's video step (decision 83) is done once the library has a video, or the
+        business says it doesn't use one, and opens Videos.
 
 ## Rules worth knowing before changing anything
 

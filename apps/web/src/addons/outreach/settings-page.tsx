@@ -15,6 +15,7 @@
  *   settings to open; **For your team**: the choices people may pick, where a new person starts, where the team gets
  *   the extension (./extension-link.tsx) and the business's other Social Outreach settings (./business-settings.tsx);
  *   and **each network, for everyone**: whether the team may use it, and its daily limits for each person.
+ * - **Videos**, for owners and admins: the business's video library (decision 154, ./video-library.tsx).
  * - **Start fresh**, for owners (./start-fresh.tsx).
  *
  * Owners and admins open someone's settings from Team (`?for=`), with a line above every part saying whose they are
@@ -62,6 +63,10 @@ import { checkCounts } from '@hfos/core/addons/outreach/profile-check';
 import { SET_UP_PAGE_WORDS } from '@hfos/core/addons/outreach/set-up-page';
 import { networkSteps, outreachSetupPath, SETUP_WORDS } from '@hfos/core/addons/outreach/setup';
 import { START_FRESH_WORDS as F, OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import {
+  VIDEO_LIBRARY_WORDS as V,
+  type PlaybookVideo,
+} from '@hfos/core/addons/outreach/video-library';
 import { AlertCircle, ArrowLeft, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -98,14 +103,18 @@ import {
   wheelsOf,
 } from './settings-view';
 import { StartFresh } from './start-fresh';
+import { VideoLibrary } from './video-library';
 import type { Asks, Automation, AutomationPeople, Live, Readiness, WheelsList } from './types';
 import { useAct } from './use-act';
 import { useAutosave, type Autosave, type SaveStatus } from './use-autosave';
 import { ProfilesSideBySide } from './profile-whole';
 
-/** The business's settings the Settings pages change, as they read them: the extension's link has its own box. */
+/**
+ * The business's settings the Settings pages change, as they read them: the extension's link has its own box, and the
+ * video library its own page (decision 154).
+ */
 function teamOf(settings: unknown): TeamSettings {
-  const { extensionLink: _link, ...rest } = outreachSettings(settings);
+  const { extensionLink: _link, videos: _videos, ...rest } = outreachSettings(settings);
   return rest;
 }
 
@@ -145,6 +154,8 @@ interface Props {
   readiness?: Readiness | null;
   /** On Team: who's on training wheels, to end them early. */
   wheels?: WheelsList | null;
+  /** On Videos: the playbooks' short videos, the library until it's first saved (decision 154). */
+  playbookVideos?: readonly PlaybookVideo[];
 }
 
 export function SettingsView(props: Props) {
@@ -167,6 +178,7 @@ function SettingsPages({
   asks = null,
   readiness = null,
   wheels = null,
+  playbookVideos = [],
 }: Props) {
   const person = useAutosave<AutomationSettings>(
     me.settings,
@@ -205,7 +217,7 @@ function SettingsPages({
   const shown: SettingsPart =
     (part === 'computer' && !mine) ||
     (part === 'fresh' && !canStartFresh) ||
-    (part === 'team' && !business)
+    ((part === 'team' || part === 'videos') && !business)
       ? 'general'
       : part;
   return (
@@ -275,6 +287,15 @@ function SettingsPages({
           team={team}
           statuses={[team.status]}
         />
+      ) : shown === 'videos' && business ? (
+        <>
+          <PageTitle title={V.title} about={V.about} />
+          <VideoLibrary
+            workspaceId={workspaceId}
+            business={business}
+            playbookVideos={playbookVideos}
+          />
+        </>
       ) : shown === 'fresh' ? (
         <>
           <PageTitle title={F.title} about={F.about} />

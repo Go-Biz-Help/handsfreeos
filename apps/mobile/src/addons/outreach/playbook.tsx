@@ -16,6 +16,7 @@ import {
   type VideoScript,
   type VideoScriptInput,
 } from '@hfos/core/addons/outreach/video';
+import { VIDEO_LIBRARY_WORDS as VL } from '@hfos/core/addons/outreach/video-library';
 import {
   findWordsHint,
   OUTREACH_WORDS as W,
@@ -179,7 +180,7 @@ export function sectionWords(details: PlaybookDetails, section: Exclude<Section,
     case 'video': {
       const script = details.videoScript;
       return [
-        details.videoLink?.trim() || V.summary(false, Boolean(script)),
+        V.summary(Boolean(script)),
         script
           ? [
               V.runs(scriptMinutes(script)),
@@ -885,9 +886,10 @@ function SectionEditor({
 }
 
 /**
- * The playbook's short video (decision 69), as the web's builder has it: its link, and its script, which the AI writes
- * from the main offer and the niche, part by part, each with what to say and what to show, and writes one part again
- * on Improve. The business changes the words as it likes; all of it is saved with the part.
+ * The playbook's short video (decision 69), as the web's builder has it: its script, which the AI writes from the main
+ * offer and the niche, part by part, each with what to say and what to show, and writes one part again on Improve. The
+ * business changes the words as it likes; it's saved with the part. The video itself goes in the business's video
+ * library (decision 154, Settings → Videos), where its link was.
  */
 function VideoEditor({
   draft,
@@ -944,15 +946,7 @@ function VideoEditor({
   };
   return (
     <View className="gap-3" testID="playbook-video">
-      <Text className="text-[14px] font-medium">{V.link}</Text>
-      <WordsInput
-        value={d.videoLink ?? null}
-        onChange={(link) => set({ videoLink: link?.trim() || null })}
-        placeholder={V.linkPlaceholder}
-        multiline={false}
-        testID="playbook-video-link"
-      />
-      <Note>{V.linkHint}</Note>
+      <Note testID="playbook-video-library">{VL.onPlaybook}</Note>
       {script ? (
         <>
           <View className="flex-row flex-wrap items-center justify-between gap-2">

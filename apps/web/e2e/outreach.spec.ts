@@ -1148,6 +1148,33 @@ test('Settings opens You, LinkedIn’s page, Facebook’s and Team from its menu
     'true',
   );
 
+  // Videos, from the menu (decision 154): the business's video library, empty to start. A video needs what it shows
+  // and when it helps, which the AI picks it by; added, it's kept after a reload.
+  await page.getByTestId('outreach-settings-part-videos').click();
+  await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/videos$`));
+  await expect(view).toHaveAttribute('data-part', 'videos');
+  await expect(title).toHaveText('Videos');
+  await expect(page.getByTestId('outreach-videos-none')).toBeVisible();
+  await page.getByTestId('outreach-videos-add').click();
+  await page.getByTestId('outreach-video-name-input').fill('2-minute tour');
+  await page.getByTestId('outreach-video-link-input').fill('www.loom.com/share/tour');
+  await page.getByTestId('outreach-video-link-input').blur();
+  await expect(page.getByTestId('outreach-video-link-input')).toHaveValue(
+    'https://www.loom.com/share/tour',
+  );
+  await page.getByTestId('outreach-video-save').click();
+  await expect(page.getByTestId('outreach-video-form')).toContainText('so the AI knows when');
+  await page
+    .getByTestId('outreach-video-about-input')
+    .fill('A quick tour, for someone who hasn’t booked and wants to see it first.');
+  const videoSaved = saved('addon.save_settings');
+  await page.getByTestId('outreach-video-save').click();
+  expect((await videoSaved).ok()).toBe(true);
+  await page.reload();
+  await expect(page.getByTestId('outreach-video')).toHaveCount(1);
+  await expect(page.getByTestId('outreach-video-name')).toHaveText('2-minute tour');
+  await expect(page.getByTestId('outreach-videos-count')).toHaveText('1 of 20');
+
   // LinkedIn's page, from the menu: off for them, with a line to Team for an owner.
   await page.getByTestId('outreach-settings-part-linkedin').click();
   await expect(page).toHaveURL(new RegExp(`/a/outreach/settings/linkedin$`));

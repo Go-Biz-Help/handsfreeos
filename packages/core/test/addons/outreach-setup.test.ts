@@ -632,6 +632,31 @@ describe('each person’s setup', () => {
     expect(after.noVideo).toBe(true);
   });
 
+  it('counts the video library’s videos for the video step (decision 154)', async () => {
+    const stored = (await runAs(owner, ws, 'addon.settings', { addonId: 'outreach' })).settings;
+    const tour = {
+      name: '2-minute tour',
+      link: 'https://www.loom.com/share/tour',
+      about: 'A quick tour, for someone who hasn’t booked and wants to see it first.',
+    };
+    await runAs(owner, ws, 'addon.save_settings', {
+      addonId: 'outreach',
+      settings: settingsToSave(stored, { videos: [tour] }),
+    });
+    const setup: SetupOutput = await runAs(owner, ws, 'outreach.setup', {});
+    expect(setup.videos).toBe(1);
+    expect(setup.states.find((s) => s.step === 'video')?.state).toBe('done');
+    // Kept with the business's settings, checked as they're saved: a second copy of a link is refused.
+    expect(
+      await refused(
+        runAs(owner, ws, 'addon.save_settings', {
+          addonId: 'outreach',
+          settings: settingsToSave(stored, { videos: [tour, { ...tour, name: 'Again' }] }),
+        }),
+      ),
+    ).toBe('validation');
+  });
+
   it('stops sending someone who left it for later, and hides the reminder when asked', async () => {
     const later = await runAs(member, ws, 'outreach.setup.save', { started: true });
     expect(later).toMatchObject({ firstTime: false, reached: null, banner: true });
