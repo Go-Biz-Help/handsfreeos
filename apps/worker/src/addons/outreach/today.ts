@@ -37,6 +37,14 @@ import {
   type Answer,
   type ConversationStep,
 } from '@hfos/core/addons/outreach/conversation';
+import { outreachSettings } from '@hfos/core/addons/outreach/chat-read';
+import {
+  fitsVideos,
+  libraryOf,
+  sentLinks,
+  videoFits,
+  type DraftVideos,
+} from '@hfos/core/addons/outreach/video-library';
 import { FOR_CUSTOMERS, isClient } from '@hfos/core/addons/outreach/ops/common';
 import { demoLink, demoRef } from '@hfos/core/addons/outreach/demos';
 import { bestFit } from '@hfos/core/addons/outreach/fit';
@@ -67,6 +75,7 @@ import {
   draftOfferOf,
   demoWhen,
   DRAFTS_FOR,
+  firstStepFact,
   fitsComment,
   fitsGroupReply,
   fitsOccasion,
@@ -287,6 +296,27 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                   order by o.seen_at desc limit 1`,
             )
           : [];
+      // The business's video library (decision 154), kept with its Social Outreach settings, and what the person sent
+      // them, read for the videos they've had: one never goes twice.
+      const [installed] = videoFits(input.kind, conversation?.step, {
+        declined: false,
+        requests: false,
+      })
+        ? await rows<{ settings: unknown }>(
+            tx,
+            sql`select settings from app.addon_installations
+                where workspace_id = ${ws} and addon_id = 'outreach'`,
+          )
+        : [];
+      const sentTexts =
+        installed && profileId
+          ? await rows<{ text: string }>(
+              tx,
+              sql`select text from addon_outreach.sends
+                  where workspace_id = ${ws} and user_id = ${ctx.userId} and profile_id = ${profileId}
+                    and state = 'sent'`,
+            )
+          : [];
       // What the person told the AI of their messages, and the ones they wrote themselves (decision 87).
       const [said] = await rows<{ message_samples: unknown; message_notes: unknown }>(
         tx,
@@ -312,6 +342,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         occasion: occasion?.detail ?? null,
         samples: MessageSamples.safeParse(said?.message_samples ?? null).data ?? null,
         notes: messageNotesOf(said?.message_notes),
+        library: installed ? outreachSettings(installed.settings).videos : undefined,
+        sentTexts: sentTexts.map((t) => t.text),
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -326,7 +358,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       ...(found.profile?.group ? [`Found in the group ${found.profile.group}`] : []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
-      ...(found.check?.next_step ? [`A good first step: ${found.check.next_step}`] : []),
+      // Never in a first message, which is the owner's question and nothing else (decision 152).
+      ...[firstStepFact(input.kind, found.check?.next_step)].filter((f): f is string => f !== null),
     ];
     const kept = found.playbooks.flatMap((p) => {
       const read = PlaybookDetails.safeParse(upgradePlaybookDetails(p.details));
@@ -406,6 +439,18 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           ?.details.videoLink ??
         null);
     const recent = found.chat?.recent ?? [];
+    // The business's videos (decision 154): its library, or the playbooks' short videos until it's saved, with the
+    // ones they've had (in a message sent them, or the chat), never to a client.
+    const library = found.library === undefined || client ? [] : libraryOf(found.library, kept);
+    const videos: DraftVideos | null = library.length
+      ? {
+          videos: library,
+          sent: sentLinks(library, [
+            ...found.sentTexts,
+            ...recent.filter((m) => m.fromMe).map((m) => m.text),
+          ]),
+        }
+      : null;
     // They told the person no, or not now, before (decision 134): their answer kept for the conversation, their chat
     // read as not interested, or marked not a fit. A chat read since as ready for the offer says they came round.
     const said = found.conversation?.answer;
@@ -504,6 +549,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               knows,
               declined,
               times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, contact) : null,
+              videos,
               own: ownWordsFor(
                 kind,
                 found.samples,
@@ -542,7 +588,8 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               ? checked.filter(fitsGroupReply)
               : isOccasionKind(kind)
                 ? checked.filter(fitsOccasion)
-                : checked;
+                : // At most one of the business's videos, and never one they've had (decision 154).
+                  checked.filter((d) => fitsVideos(d, videos));
       // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
       // another time after a no-show (decision 106): one the AI left out goes on the end.
       const must =
@@ -579,7 +626,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         // A client's yes is kept, and answered as a reply: no video or link follows it.
         const next =
           answer === 'yes' && found.conversation && !client && !picked
-            ? stepAfterYes(found.conversation.step, videoLink !== null)
+            ? stepAfterYes(found.conversation.step)
             : null;
         if (next) {
           kind = next;

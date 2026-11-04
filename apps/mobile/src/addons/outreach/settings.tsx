@@ -20,12 +20,13 @@ import {
   settingsPartOf,
 } from '@hfos/core/addons/outreach/settings-parts';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
+import { VIDEO_LIBRARY_WORDS, type PlaybookVideo } from '@hfos/core/addons/outreach/video-library';
 import { useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { change, ChangeError } from '@/changes';
-import { CircleDashed, Globe, Laptop, UserRound, UsersRound } from '@/components/icons';
+import { CircleDashed, Globe, Laptop, UserRound, UsersRound, Video } from '@/components/icons';
 import { List, ListLabel, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,7 @@ import {
   useOutreachContext,
 } from './kit';
 import { SaveLine } from './settings-bits';
+import { VideoLibraryPart } from './video-library';
 import { GeneralMine, GeneralTeam } from './settings-general';
 import { NetworkMine, NetworkTeam } from './settings-network';
 import { useAskActions, useAsks, type AskActions } from './asks';
@@ -68,14 +70,22 @@ import { useProfileProps, type ProfileProps } from './ready';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const failed = (e: unknown) => (e instanceof ChangeError ? e.message : errorMessage(e));
 
-/** The parts the phone draws as a page: You (`general`), each network and Team. Your computer is the Live screen. */
-export type PhonePart = 'general' | Platform | 'team';
+/**
+ * The parts the phone draws as a page: You (`general`), each network, Videos (decision 154) and Team. Your computer is
+ * the Live screen.
+ */
+export type PhonePart = 'general' | Platform | 'videos' | 'team';
+
+/** The business's parts, never someone else's: Videos and Team. */
+const businessPart = (part: PhonePart | null): boolean => part === 'team' || part === 'videos';
 
 /** The part an address names, or null for the menu: no part, or one the phone opens elsewhere. */
 export function phonePartOf(raw: string | null | undefined): PhonePart | null {
   if (!raw) return null;
   const part = settingsPartOf(raw);
-  return part === 'general' || part === 'team' || isNetworkPart(part) ? part : null;
+  return part === 'general' || part === 'team' || part === 'videos' || isNetworkPart(part)
+    ? part
+    : null;
 }
 
 export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: string }) {
@@ -85,8 +95,8 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
   const [picked, setUserId] = React.useState<string | null>(
     whose && UUID.test(whose) ? whose.toLowerCase() : null,
   );
-  // Someone else's only for owners and admins, read as their grants come; Team is the business's.
-  const userId = ctx.manages && part !== 'team' ? picked : null;
+  // Someone else's only for owners and admins, read as their grants come; Team and Videos are the business's.
+  const userId = ctx.manages && !businessPart(part) ? picked : null;
   const mine = !userId || userId === ctx.userId;
   const automation = useOutreachAnswer(
     async () =>
@@ -128,6 +138,17 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
           ).settings
       : null,
     `outreach-business:${ws}`,
+    W.rows.settings,
+  );
+  // On Videos: the playbooks' short videos, which the library reads as until it's first saved (decision 154).
+  const playbookList = useOutreachAnswer(
+    ctx.manages && part === 'videos'
+      ? async () =>
+          unwrap(
+            await api.POST('/v1/queries/outreach.playbook.list', { body: { workspaceId: ws } }),
+          )
+      : null,
+    `playbooks:${ws}`,
     W.rows.settings,
   );
   // On You, and Team for owners and admins: how many the country setting holds back, for its lists (decisions 61, 86).
@@ -182,7 +203,7 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
         online={ctx.online}
         onRetry={automation.reload}
         onBackToYours={() => setUserId(null)}
-        onPart={(p) => openSettingsPart(ws, p, mine || p === 'team' ? null : userId)}
+        onPart={(p) => openSettingsPart(ws, p, mine || businessPart(p) ? null : userId)}
         onOpen={(view) => openOutreach(ws, view)}
       />
     );
@@ -203,6 +224,9 @@ export function SettingsScreen({ whose, part: raw }: { whose?: string; part?: st
       onLikeYours={part === 'instagram' ? () => openOutreach(ws, 'find', 'net=instagram') : null}
       people={team ? people.data : null}
       wheels={team ? wheels.data : null}
+      playbookVideos={(playbookList.data?.playbooks ?? [])
+        .filter((p) => !p.archivedAt)
+        .map((p) => ({ name: p.name, details: { videoLink: p.details.videoLink ?? null } }))}
       myId={ctx.userId}
       onTheirs={(id) => openSettingsPart(ws, 'general', id === ctx.userId ? null : id)}
       onTeam={() => openSettingsPart(ws, 'team')}
@@ -385,6 +409,13 @@ export function SettingsMenuBody({
           <ListLabel>{SETTINGS_WORDS.menu.owners}</ListLabel>
           <List>
             <ListRow
+              icon={Video}
+              label={VIDEO_LIBRARY_WORDS.title}
+              detail={VIDEO_LIBRARY_WORDS.row}
+              onPress={() => onPart('videos')}
+              testID="settings-open-videos"
+            />
+            <ListRow
               icon={UsersRound}
               label={W.settingsParts.team}
               detail={SETTINGS_WORDS.people}
@@ -436,16 +467,20 @@ interface PartProps {
   onTeam?: () => void;
   /** On Team: ends someone's training wheels on a network: the problem's words, or null once ended. */
   onEndWheels?: (userId: string, platform: Platform) => Promise<string | null>;
+  /** On Videos: the playbooks' short videos, the library until it's first saved (decision 154). */
+  playbookVideos?: readonly PlaybookVideo[];
 }
 
-/** A part's page: You, a network's, or Team. */
+/** A part's page: You, a network's, Videos or Team. */
 export function SettingsPartBody({ automation, error, ...rest }: PartProps) {
   const title =
     rest.part === 'general'
       ? SETTINGS_WORDS.general
       : rest.part === 'team'
         ? SETTINGS_WORDS.teamTitle
-        : PLATFORMS[rest.part];
+        : rest.part === 'videos'
+          ? VIDEO_LIBRARY_WORDS.title
+          : PLATFORMS[rest.part];
   if (!automation)
     return (
       <Screen title={title} leading="back" testID={`settings-part-${rest.part}`}>
@@ -482,12 +517,13 @@ function PartPage({
   onTheirs,
   onTeam,
   onEndWheels,
+  playbookVideos = [],
 }: Omit<PartProps, 'automation' | 'error'> & { title: string; automation: AutomationOutput }) {
   const mineID =
     part === 'general'
       ? 'settings-general'
-      : part === 'team'
-        ? 'settings-team'
+      : part === 'team' || part === 'videos'
+        ? `settings-${part}`
         : `settings-networks-${part}`;
   // One line for the page, fixed under its title so it shows wherever the change was made: how the latest save went,
   // the person's or the team's.
@@ -522,10 +558,23 @@ function PartPage({
             ? SETTINGS_WORDS.generalAbout
             : part === 'team'
               ? SETTINGS_WORDS.teamPageAbout
-              : SETTINGS_WORDS.networkAbout(PLATFORMS[part])}
+              : part === 'videos'
+                ? VIDEO_LIBRARY_WORDS.about
+                : SETTINGS_WORDS.networkAbout(PLATFORMS[part])}
         </Note>
         {!online ? <NeedsSignal words={W.needsSignal(W.rows.settings)} /> : null}
-        {part === 'team' ? (
+        {part === 'videos' ? (
+          manages && business ? (
+            <VideoLibraryPart
+              business={business}
+              playbookVideos={playbookVideos}
+              online={online}
+              onSave={onSaveBusiness}
+            />
+          ) : (
+            <Note>{VIDEO_LIBRARY_WORDS.ownersOnly}</Note>
+          )
+        ) : part === 'team' ? (
           manages && business ? (
             <>
               {people ? (

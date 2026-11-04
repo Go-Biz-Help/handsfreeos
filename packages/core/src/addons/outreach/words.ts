@@ -333,6 +333,7 @@ export const OUTREACH_WORDS = {
   settingsParts: {
     playbooks: 'Playbooks',
     computer: 'Your computer',
+    videos: 'Videos',
     team: 'Team',
     fresh: 'Start fresh',
   },

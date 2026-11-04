@@ -27,8 +27,8 @@ const FOUND_CHECK_STEPS = Array.from(
   (_, i) => FOUND_CHECKS.least + i * 10,
 );
 
-/** The business's Social Outreach settings these fields change: all but the extension's link, which has its own box. */
-export type TeamSettings = Omit<OutreachSettings, 'extensionLink'>;
+/** The business's Social Outreach settings these fields change: all but the extension's link and the video library, each with its own place. */
+export type TeamSettings = Omit<OutreachSettings, 'extensionLink' | 'videos'>;
 
 /** Why the countries can't be saved yet: Only these countries, with none picked. Null when they can. */
 export const countriesProblem = (countries: CountryRule): string | null =>

@@ -274,7 +274,7 @@ describe('in a business', () => {
       ),
     ).toBe('outreach_messages_unseen');
     await written(member.id, ['Just checking in.', 'Any thoughts?']);
-    // No video message: the playbook has no short video yet, and the refusal says so, never "written again".
+    // No video message since decision 154: the refusal says where videos go now, never "written again".
     const noVideo = await runAs(member, ws, 'outreach.messages.edit', {
       part: 'video',
       index: 0,
@@ -282,7 +282,7 @@ describe('in a business', () => {
     }).catch((e: unknown) => e as { rule: string; message: string });
     expect(noVideo).toMatchObject({ rule: 'outreach_message_no_video' });
     expect((noVideo as { message: string }).message).toMatch(
-      /has no short video yet\. Paste its link under Your short video/,
+      /There’s no video message any more.*Settings → Videos/,
     );
     const past = await runAs(member, ws, 'outreach.messages.edit', {
       part: 'followUps',

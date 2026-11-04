@@ -34,7 +34,6 @@ import { outreachAddon } from '../manifest';
 import { PLATFORMS } from '../networks';
 import { demos, profiles } from '../tables';
 import { contactable, inWorkspace, isClient, pitchable, saveProfile, type Ctx } from './common';
-import { playbooksInUse } from './friends';
 import { keepMarks } from './stages';
 
 /**
@@ -57,17 +56,17 @@ export async function wantLead(ctx: CommandContext, me: string, profileId: strin
 
 /**
  * Whether someone wants the offer, for the person `me`, as Today's Pitch reads it: the AI read their chat as ready,
- * the person marked them ready, they said yes to the step before the link (the video, or the first message when the
- * playbooks have no video), or a demo was booked or marked. `p` is the profile's alias.
+ * the person marked them ready, they said yes to the step before the link (the first message, or a video sent before
+ * the library: decision 154), or a demo was booked or marked. `p` is the profile's alias.
  */
-export const wantsTheOffer = (me: string, p: string, hasVideo: boolean) => sql`(
+export const wantsTheOffer = (me: string, p: string) => sql`(
   exists (select 1 from addon_outreach.file_chats wc
     where wc.profile_id = ${sql.raw(p)}.id and wc.user_id = ${me} and wc.pitch = 'ready')
   or exists (select 1 from addon_outreach.stages ws
     where ws.profile_id = ${sql.raw(p)}.id and ws.user_id = ${me} and ws.mark = 'ready')
   or exists (select 1 from addon_outreach.follow_ups wf
     where wf.profile_id = ${sql.raw(p)}.id and wf.user_id = ${me} and wf.answer = 'yes'
-      and (wf.step = 'video' or (wf.step = 'first' and not ${hasVideo})))
+      and wf.step in ('first', 'video'))
   or exists (select 1 from addon_outreach.demos wd
     where wd.profile_id = ${sql.raw(p)}.id and wd.user_id = ${me} and wd.undone_at is null))`;
 
@@ -138,13 +137,10 @@ export const leadOpen = defineAddonCommand(outreachAddon, {
             and 'outreach.use' = any (permissions)`,
     );
     if (!member) return skip('gone');
-    const hasVideo = (await playbooksInUse(ctx, profile.platform)).some(
-      (p) => !!p.details.videoLink,
-    );
     const [standing] = await rows<{ open: boolean; wants: boolean; group_name: string | null }>(
       ctx.tx,
       sql`select (${contactable('p')} and ${pitchable('p')} and not ${isClient('p')}) as open,
-            ${wantsTheOffer(input.userId, 'p', hasVideo)} as wants,
+            ${wantsTheOffer(input.userId, 'p')} as wants,
             coalesce(g.name, (select g2.name from addon_outreach.group_people gp
               join addon_outreach.groups g2 on g2.id = gp.group_id
               where gp.profile_id = p.id order by gp.seen_at limit 1)) as group_name

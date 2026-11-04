@@ -324,7 +324,7 @@ describe('drafts for Today', () => {
         dueAt: new Date(Date.now() + 86_400_000),
       });
     const res = (await draft(owner, { kind: 'reply', chatId })).json();
-    // No video yet: the link is next.
+    // A yes gets the link next (decision 153).
     expect(res).toMatchObject({ kind: 'pitch', answer: 'yes', simple: false });
     expect(res.drafts[0]).toMatch(/link to book a quick call/);
     const [kept] = await testDbs()
@@ -333,7 +333,8 @@ describe('drafts for Today', () => {
       .where(eq(followUps.profileId, profileId));
     expect(kept).toMatchObject({ answer: 'yes', next: null, dueAt: null });
 
-    // With a video, a yes to the first message gets the video, with its link on the end.
+    // With a playbook's video, a yes to the first message still gets the link: the video step is gone, and the video
+    // is in the library for follow-ups (decision 154, 3a).
     const [playbook] = await testDbs()
       .admin.db.select()
       .from(playbooks)
@@ -346,9 +347,9 @@ describe('drafts for Today', () => {
       .admin.db.update(followUps)
       .set({ answer: null, answeredAt: null })
       .where(eq(followUps.profileId, profileId));
-    const video = (await draft(owner, { kind: 'reply', chatId })).json();
-    expect(video).toMatchObject({ kind: 'video', answer: 'yes' });
-    expect(video.drafts[0]).toMatch(/short video[\s\S]*https:\/\/www\.loom\.com\/share\/abc123$/);
+    const still = (await draft(owner, { kind: 'reply', chatId })).json();
+    expect(still).toMatchObject({ kind: 'pitch', answer: 'yes' });
+    expect(still.drafts[0]).toMatch(/link to book a quick call/);
   });
 
   it('answers a client’s yes as a reply, with no link or video (decision 91)', async () => {

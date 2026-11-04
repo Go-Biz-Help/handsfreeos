@@ -2,7 +2,8 @@
  * Social Outreach: the conversation after someone accepts (docs/outreach.md, decisions 65 to 67;
  * ../../src/addons/outreach/conversation.ts). The first message asks about the main offer; whoever goes quiet gets
  * follow-ups at the playbook's pace, then a check-in once a month; a yes is a positive reply and moves them to the
- * video, or the link with no video; a no ends it, until the person puts them back in play. What's sent keeps the
+ * link, the owner's demo ask (decisions 153 and 154: no video first); a no ends it, until the person puts them back in
+ * play. What's sent keeps the
  * main offer's version they were first pitched with.
  */
 import { rows, sql } from '@hfos/db/client';
@@ -26,7 +27,7 @@ import {
   TodayDraftAnswer,
 } from '../../src/addons/outreach/today';
 import { MainOfferParts } from '../../src/main-offer/parts';
-import { outreachBusiness, READY_VIDEO, runAs, runAsSystem } from './outreach-fixture';
+import { outreachBusiness, runAs, runAsSystem } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const DAY = 86_400_000;
@@ -54,11 +55,11 @@ describe('the conversation’s rules', () => {
     expect(checkInAfter(from).next).toBe('check_in');
   });
 
-  it('sends the video after a yes when there is one, then the link', () => {
-    expect(stepAfterYes('first', true)).toBe('video');
-    expect(stepAfterYes('first', false)).toBe('pitch');
-    expect(stepAfterYes('video', true)).toBe('pitch');
-    expect(stepAfterYes('link', true)).toBeNull();
+  it('sends the demo ask after a yes, with no video first (decision 154, 3a)', () => {
+    expect(stepAfterYes('first')).toBe('pitch');
+    // Someone sent a playbook's video before the library still gets the link after a yes.
+    expect(stepAfterYes('video')).toBe('pitch');
+    expect(stepAfterYes('link')).toBeNull();
   });
 
   it('fills the business’s own opener with the offer’s words, and holds one with nothing to put in', () => {
@@ -70,7 +71,7 @@ describe('the conversation’s rules', () => {
     expect(ownOpenerFits('Hi {first name}!', null)).toBe(true);
   });
 
-  it('tells a draft the offer’s words for the conversation, never Reconnect, and the guarantee and price only if they ask', () => {
+  it('tells a draft the offer’s words for the conversation and Reconnect, and the guarantee and price only if they ask', () => {
     const offer = draftOfferOf(
       2,
       MainOfferParts.parse({
@@ -100,15 +101,16 @@ describe('the conversation’s rules', () => {
       });
     expect(prompt('opener')).toMatch(/The outcome, in a few words: 10 booked inspections/);
     expect(prompt('opener')).toMatch(/The price, only when they ask: \$2,000 a month/);
-    // The first message is one short question that makes them curious (decision 137).
-    expect(prompt('opener')).toMatch(/makes them curious enough to say yes/);
+    // The first message is one short question that says how the owner can help them (decisions 137 and 152).
+    expect(prompt('opener')).toMatch(/that says how the owner can help them/);
     // No message carries the guarantee (decision 65, 2026-10-26): it's there for a reply to someone who asks.
     expect(prompt('opener')).toMatch(
       /The guarantee, only when they ask whether there is one: a free month if not/,
     );
     expect(prompt('opener')).not.toMatch(/on its guarantee|outcome and guarantee as/);
     expect(TODAY_DRAFT_SYSTEM).toMatch(/Leave the guarantee out/);
-    expect(prompt('reconnect')).not.toMatch(/<offer>/);
+    // Reconnect asks the first message's question after its catch-up (decision 152), so it's told the offer too.
+    expect(prompt('reconnect')).toMatch(/The outcome, in a few words: 10 booked inspections/);
     expect(prompt('follow_up')).toMatch(
       /Where the conversation is: video sent\. This is follow-up 2 of 6\./,
     );
@@ -274,7 +276,8 @@ describe('a conversation on Today', () => {
     );
     expect(kept!.offer_version).toBe(1);
 
-    // A yes: a positive reply, and Send the video is next, with the playbook's video (Your messages waits on one).
+    // A yes: a positive reply, and Send the link is next, the demo ask: no video first, though the playbook has one
+    // (decision 154, 3a).
     expect(await answer(dana, 'yes')).toEqual({ noted: true });
     const [stage] = await rows<{ positive: boolean }>(
       admin(),
@@ -283,18 +286,21 @@ describe('a conversation on Today', () => {
     );
     expect(stage!.positive).toBe(true);
     expect(await conversation(dana)).toMatchObject({ answer: 'yes', next: null });
-    const video = (await runAs(owner, ws, 'outreach.today', {})).items.find(
+    const pitch = (await runAs(owner, ws, 'outreach.today', {})).items.find(
       (i: { name: string }) => i.name === 'Dana Reyes',
     );
-    expect(video).toMatchObject({
-      kind: 'video',
-      videoLink: READY_VIDEO,
-      why: ['Said yes to your first message'],
-    });
-    await send(dana, 'dana.reyes.5', 'Dana Reyes', 'video');
-    expect(await conversation(dana)).toMatchObject({ step: 'video', sent: 0, offer_version: 1 });
-    await answer(dana, 'yes');
+    expect(pitch).toMatchObject({ kind: 'pitch', why: ['Said yes to your first message'] });
     expect(await listed('Dana Reyes')).toEqual(['pitch']);
+    // Someone sent a playbook's video before the library, who says yes to it, gets the link too.
+    await rows(
+      admin(),
+      sql`update addon_outreach.follow_ups set step = 'video'
+          where workspace_id = ${ws} and profile_id = ${dana}`,
+    );
+    const afterVideo = (await runAs(owner, ws, 'outreach.today', {})).items.find(
+      (i: { name: string }) => i.name === 'Dana Reyes',
+    );
+    expect(afterVideo).toMatchObject({ kind: 'pitch', why: ['Said yes after your video'] });
     await send(dana, 'dana.reyes.5', 'Dana Reyes', 'pitch');
     expect(await conversation(dana)).toMatchObject({ step: 'link', next: 'follow_up' });
     expect(await listed('Dana Reyes')).toEqual([]);
@@ -386,5 +392,53 @@ describe('a conversation on Today', () => {
       line: 'Too new to judge: 4 first messages, 1 yes, 0 calls booked so far. Give it 96 more first messages before you change it.',
     });
     expect(versionWords({ messages: 120, positive: 9, booked: 3 }).tooNew).toBe(false);
+  });
+
+  it('starts a conversation with Reconnect’s question, but never for someone who said no (decision 152)', async () => {
+    const profile = async (username: string, name: string) => {
+      const [p] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into addon_outreach.profiles (workspace_id, platform, username, url, name)
+            values (${ws}, 'facebook', ${username}, ${`https://www.facebook.com/${username}`}, ${name})
+            returning id`,
+      );
+      return p!.id;
+    };
+    // Hal, an old friend, gets the catch-up and the question: their first message, with follow-ups to come.
+    const hal = await profile('hal.reed.5', 'Hal Reed');
+    const sendId = await send(hal, 'hal.reed.5', 'Hal Reed', 'reconnect');
+    expect(await conversation(hal)).toMatchObject({
+      step: 'first',
+      sent: 0,
+      next: 'follow_up',
+      answer: null,
+      offer_version: 1,
+    });
+    const [kept] = await rows<{ offer_version: number | null }>(
+      admin(),
+      sql`select offer_version from addon_outreach.sends where id = ${sendId}`,
+    );
+    expect(kept!.offer_version).toBe(1);
+    // A yes to it is a yes to the first message: Send the link is next.
+    await answer(hal, 'yes');
+    expect(await listed('Hal Reed')).toEqual(['pitch']);
+
+    // Ivy's chat was read as not interested, so her Reconnect only caught up: no conversation starts.
+    const ivy = await profile('ivy.lane.5', 'Ivy Lane');
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.file_chats (workspace_id, user_id, platform, name, name_key, first_at,
+            last_at, messages, last_from_me, profile_id, read_state, pitch)
+          values (${ws}, ${owner.id}, 'facebook', 'Ivy Lane', 'ivy lane', now() - interval '200 days',
+            now() - interval '60 days', 4, false, ${ivy}, 'read', 'not_interested')`,
+    );
+    await send(ivy, 'ivy.lane.5', 'Ivy Lane', 'reconnect');
+    expect(await conversation(ivy)).toBeNull();
+
+    // Someone mid-conversation keeps theirs as it is.
+    const gray = await profileOf('gray.lund.5');
+    const before = await conversation(gray);
+    await send(gray, 'gray.lund.5', 'Gray Lund', 'reconnect');
+    expect(await conversation(gray)).toEqual(before);
   });
 });

@@ -4,6 +4,7 @@
  * `follow_ups`, one per person and profile, each person's own. Today reads it (./today.ts).
  */
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { rows } from '@hfos/db/client';
 import { mainOffers } from '@hfos/db/schema';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -101,8 +102,10 @@ async function kept(ctx: Ctx, me: string, profileId: string) {
  * A message went to someone (sent by the extension, or copied from a draft): a step starts their conversation over
  * at it, with follow-ups to come; a follow-up counts one more; a check-in waits a month; a reply after their answer
  * starts the follow-ups again, or a check-in a month on when they said not now. A step, or a reply to anything but a
- * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect leaves it be: its
- * messages carry no pitch; and so do a demo's reminder, another time after a no-show and a birthday or new-job note.
+ * no, goes on with a conversation the person stopped (`outreach.conversation.stop`). Reconnect asks the first
+ * message's question after its catch-up (decision 152), so it starts a conversation at the first step for someone in
+ * none yet, unless they turned the offer down, when it only caught up; a demo's reminder, another time after a no-show
+ * and a birthday or new-job note leave it be.
  */
 export async function noteSent(
   ctx: Ctx,
@@ -118,7 +121,6 @@ export async function noteSent(
   // another time after a no-show (decision 106) are about the booking, and a birthday or new-job note (decision 108)
   // about them, and leave it be too.
   if (
-    sent.kind === 'reconnect' ||
     sent.kind === 'demo_reminder' ||
     sent.kind === 'rebook' ||
     sent.kind === 'birthday' ||
@@ -129,6 +131,26 @@ export async function noteSent(
   const ws = ctx.scope.workspaceId!;
   const at = sent.at;
   const row = await kept(ctx, me, sent.profileId);
+  if (sent.kind === 'reconnect') {
+    if (row || (await turnedDown(ctx, me, sent.profileId))) return;
+    const pace = await conversationPace(ctx);
+    await ctx.tx
+      .insert(followUps)
+      .values({
+        workspaceId: ws,
+        userId: me,
+        profileId: sent.profileId,
+        step: 'first',
+        stepAt: at,
+        sent: 0,
+        lastAt: at,
+        ...nextAfter(pace, 0, at),
+        offerVersion: sent.offerVersion,
+        updatedAt: at,
+      })
+      .onConflictDoNothing();
+    return;
+  }
   const step = STEP_OF_KIND[sent.kind];
   const pace = await conversationPace(ctx);
   if (step) {
@@ -201,6 +223,22 @@ export async function noteSent(
       })
       .where(eq(followUps.id, row.id));
   }
+}
+
+/**
+ * Whether someone with no conversation yet turned the offer down (decision 134), as Reconnect's drafts read it: marked
+ * not a fit, or their latest chat read as not interested.
+ */
+async function turnedDown(ctx: Ctx, me: string, profileId: string): Promise<boolean> {
+  const [found] = await rows<{ no: boolean }>(
+    ctx.tx,
+    sql`select exists (select 1 from addon_outreach.stages st
+          where st.profile_id = ${profileId} and st.user_id = ${me} and st.mark = 'lost')
+        or coalesce((select c.pitch = 'not_interested' from addon_outreach.file_chats c
+          where c.profile_id = ${profileId} and c.user_id = ${me}
+          order by c.last_at desc limit 1), false) as no`,
+  );
+  return found?.no ?? false;
 }
 
 /** Keeps a stage row's columns for one person and profile: a row made the first time. */

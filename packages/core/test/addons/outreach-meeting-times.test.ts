@@ -238,6 +238,8 @@ describe('what the AI is told', () => {
     expect(lines).toContain('The link for any other time');
     expect(lines).toContain('https://acme.com/book/acme/demo?ref=d_1');
     expect(lines).not.toContain('<open_times');
+    // In the owner's ask for the demo, just before its "how's that sound?" (decision 153).
+    expect(lines).toMatch(/just before “how’s that sound\?”/);
   });
 
   it('gives a reply what’s open, and asks for the email before it confirms', () => {

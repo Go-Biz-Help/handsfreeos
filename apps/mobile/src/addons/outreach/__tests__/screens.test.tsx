@@ -1228,9 +1228,9 @@ describe('A playbook on the phone', () => {
     expect(sectionWords(PLAYBOOK.details, 'offer')).toBe('A 20-minute demo');
     expect(sectionWords(PLAYBOOK.details, 'signs')).toBe('Nothing yet.');
     expect(sectionWords(PLAYBOOK.details, 'goal')).toBe('Book a demo');
-    // The short video: its link, and the script the AI writes, part by part.
+    // The short video's script the AI writes, part by part; the video itself is in the library (decision 154).
     expect(sectionWords(PLAYBOOK.details, 'video')).toBe(
-      'No video yet\n\nNo script yet. The AI writes one from your main offer and this playbook’s niche.',
+      'No script yet. The AI writes one from your main offer and this playbook’s niche.',
     );
     const scripted = sectionWords(
       {
@@ -1244,7 +1244,8 @@ describe('A playbook on the phone', () => {
       },
       'video',
     );
-    expect(scripted).toContain('https://www.loom.com/share/abc123');
+    expect(scripted).toContain('Script written');
+    expect(scripted).not.toContain('https://www.loom.com/share/abc123');
     expect(scripted).toContain('1 · Who it’s for, and the problem\nSay who.\nShow: You');
   });
 

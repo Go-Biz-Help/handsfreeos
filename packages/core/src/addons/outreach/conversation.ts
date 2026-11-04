@@ -2,12 +2,16 @@
  * The conversation after someone accepts (docs/outreach.md, decisions 65 to 68; the main offer plan's "The
  * conversation"): the video's three steps, after a warm-up, on Facebook.
  *
- * 1. **First message** (`opener`): one short, straight question that makes them curious, in the owner's words, with
- *    their kind of business put in (decision 137, `FIRST_MESSAGE_SHAPE`). No message carries the guarantee (the owner,
- *    2026-10-26: it read disjointed): a reply gives it only when they ask whether there is one.
- * 2. **Send the video** (`video`): to someone who said yes, the playbook's short video and a line selling the call.
- *    A playbook with no video yet skips it.
- * 3. **Send the link** (`pitch`): to someone who wants the call, the booking link (decision 24).
+ * 1. **First message** (`opener`): one short, straight question that says how the owner can help them, in the owner's
+ *    words, with their first name, their kind of business and what the offer is put in (decisions 137 and 152,
+ *    `FIRST_MESSAGE_SHAPE`). Reconnect asks it too, right after a short catch-up (`RECONNECT_QUESTION_SHAPE`). No message
+ *    carries the guarantee (the owner, 2026-10-26: it read disjointed): a reply gives it only when they ask whether there
+ *    is one.
+ * 2. **Send the video** (`video`): gone (decision 154, 3a). It sent the playbook's short video to someone who said yes;
+ *    its step stays for the conversations it started, and a yes after it gets the link.
+ * 3. **Send the link** (`pitch`): to someone who said yes, the owner's demo ask with open times and the booking link
+ *    (decisions 24, 149 and 153). Follow-ups after it, another time after a missed demo, and a reply may carry one of
+ *    the business's videos (decision 154, ./video-library.ts).
  *
  * The AI reads each answer (`ANSWERS`): a yes moves them to the next step and is counted as a positive reply; a
  * question gets a short answer and why a call helps; later moves them to a check-in a month on; a no ends it. Whoever
@@ -85,13 +89,12 @@ export const checkInAfter = (
 });
 
 /**
- * The step a yes leads to: after the first message, the video when the playbook has one, else the link; after the
- * video, the link. After the link, a yes is theirs to book: it's a reply.
+ * The step a yes leads to: the demo ask with the link (decision 153), after the first message or, for someone sent a
+ * playbook's video before the library (decision 154, 3a: the video step is gone), after the video. After the link, a
+ * yes is theirs to book: it's a reply.
  */
-export function stepAfterYes(step: ConversationStep, hasVideo: boolean): 'video' | 'pitch' | null {
-  if (step === 'first') return hasVideo ? 'video' : 'pitch';
-  if (step === 'video') return 'pitch';
-  return null;
+export function stepAfterYes(step: ConversationStep): 'pitch' | null {
+  return step === 'first' || step === 'video' ? 'pitch' : null;
 }
 
 // ---- Your messages (Get ready, decision 63) ----
@@ -166,20 +169,18 @@ export function sampleAt(samples: MessageSamples, slot: SampleSlot): string | nu
 
 /**
  * Why there's no sample at a slot, for the refusal (decision 87): its own cause, never a guess. The video message is
- * there only once a playbook has its short video (decision 66); the follow-ups are as many as the pace sends;
- * anything else was there and went when the samples were written again.
+ * gone with the video step (decision 154, 3a); the follow-ups are as many as the pace sends; anything else was there
+ * and went when the samples were written again.
  */
 export function noSample(
   samples: MessageSamples,
   slot: SampleSlot,
-  video: { readonly has: boolean; readonly playbook: string | null },
 ): { readonly rule: string; readonly message: string } {
   if (slot.part === 'video' && samples.video === null)
     return {
       rule: 'outreach_message_no_video',
-      message: video.has
-        ? 'There’s no video message in these samples: they were written before your playbook had its short video. Press Write samples under Your messages to write them again with it.'
-        : `There’s no video message, because ${video.playbook ? `your playbook “${video.playbook}”` : 'your playbook'} has no short video yet. Paste its link under Your short video in the playbook, on the Playbooks tab, then press Write samples again. Someone who says yes then gets the video before your booking link.`,
+      message:
+        'There’s no video message any more: someone who says yes gets your demo ask and booking link next. Your videos go in follow-ups from your video library, in Settings → Videos.',
     };
   if (slot.part === 'followUps' && slot.index >= samples.followUps.length)
     return {
@@ -399,15 +400,32 @@ export const AnswerNoteOutput = z.object({ noted: z.boolean() });
 // ---- Writing the samples (the worker's `outreach.messages.samples`) ----
 
 /**
- * What a first message is (decision 137, the owner, 30 Oct 2026, replacing decision 65's): one short, straight question
- * that makes them curious, in the owner's own words, with their kind of business put in. Your messages' samples and
- * Today's drafts (./today.ts) are written to it.
+ * What a first message is (decision 152, the owner, 4 Nov 2026, after decision 137's): one short, straight question
+ * that says how the owner can help them, in the owner's own words, with their first name, their kind of business and
+ * what the offer is put in. Your messages' samples and Today's drafts (./today.ts) are written to it, and Reconnect
+ * asks the same after its catch-up (`RECONNECT_QUESTION_SHAPE`).
  */
 export const FIRST_MESSAGE_EXAMPLE =
-  'If I had something that could make you more money while saving you time in your photography business, would you be interested?';
-/** The most words in a first message: the owner's example has 22. */
-export const FIRST_MESSAGE_WORDS = 30;
-export const FIRST_MESSAGE_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that makes them curious enough to say yes: the owner has something that could get them what the offer really does, put broadly rather than in the offer’s words, in their kind of business, and would they be interested. Like: “${FIRST_MESSAGE_EXAMPLE}” Keep close to those words, but say only what the offer really does: when it doesn’t make them money or save them time, put what it does get them in a few plain words instead (“bring more customers to your roofing business from Google”, “help raise your credit score”). When the offer is for people rather than businesses, leave out “in your … business” and fit the question to them. Never say what the thing is, how it works, its name, a link or the price, and put nothing before or after the question: no greeting, no line about them, no promise of more info.`;
+  'Hey Sam, if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested?';
+/** Reconnect's question after its catch-up (decision 152): why the owner is writing, in the owner's words. */
+export const RECONNECT_QUESTION_EXAMPLE =
+  'I was wondering if I could get you more deals while also saving you time for your roofing business using my easy to use CRM software, would you be interested?';
+/** The most words in a first message: the owner's example has 29. */
+export const FIRST_MESSAGE_WORDS = 35;
+/** What the question says, wherever it's asked: only what the offer really does and is, in a few plain words. */
+const QUESTION_RULES =
+  'Keep close to those words, but say only what the offer really does and what it really is. When it doesn’t get them more deals or save them time, put what it does get them in a few plain words instead (“bring more customers to your roofing business from Google”, “help raise your credit score”). Name what it is the way the offer does, in a few plain words (“my easy to use CRM software”, “my roof inspections”, “my credit repair program”), never by its brand name. When the offer is for people rather than businesses, leave out “for your … business” and fit the question to them. Never say how it works, a link or the price, and never promise more info.';
+export const FIRST_MESSAGE_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that says how the owner can help them: “Hey” and their first name, then if the owner could get them what the offer really does, put broadly rather than in the offer’s words, for their kind of business, using what the offer is, would they be interested. Like: “${FIRST_MESSAGE_EXAMPLE}” ${QUESTION_RULES} Their first name is the first word of their name when it reads as a person’s first name; when it doesn’t (a business’s page, initials), start with just “Hey,”. Put nothing else before or after the question: no line about them.`;
+/** Reconnect's question (decision 152): sent right after its catch-up, so it opens with no greeting of its own. */
+export const RECONNECT_QUESTION_SHAPE = `one short, straight question, under ${FIRST_MESSAGE_WORDS} words, that says why the owner is writing: “I was wondering if” the owner could get them what the offer really does, put broadly rather than in the offer’s words, for their kind of business, using what the offer is, would they be interested. Like: “${RECONNECT_QUESTION_EXAMPLE}” ${QUESTION_RULES}`;
+/**
+ * How the owner asks for the call once they're interested (decision 153, the owner, 4 Nov 2026): a time to show them,
+ * no pressure, and how's that sound. Send the link and Your messages' link sample are written to it.
+ */
+export const DEMO_ASK_EXAMPLE =
+  'Let’s schedule a time where I can demo it for you so you can see what it’s about. If you don’t like it, no pressure. How’s that sound?';
+/** The ask for the call, as a draft or a sample is told it (`DEMO_ASK_EXAMPLE`). */
+export const DEMO_ASK_SHAPE = `asks to set up a time to show them, in the owner’s words: “${DEMO_ASK_EXAMPLE}” Keep close to those words: “demo it for you” when the offer is something that can be shown, like software, and otherwise a quick call to walk them through it. Never a plan, numbers or results they’ll get from the call.`;
 /** A sample's kind of business: the made-up person's, from the playbook's niche. */
 const NICHE_KIND = 'Put in the kind of business the playbook’s niche runs, in a word or two.';
 
@@ -531,7 +549,7 @@ export function messageSamplesPrompt(f: SamplesFacts): string {
       p.hasVideo
         ? '- video: the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.'
         : '- video: null.',
-      '- link: the message when they want a call, with [booking link] and one line on what they’ll get from the call: a plan for their business, with their numbers.',
+      `- link: the message when they want a call, with [booking link]: it ${DEMO_ASK_SHAPE}`,
       `- followUps: ${f.followUps} short follow-ups in turn, for when they go quiet after the first message, each one or two lines, each different, never repeating one before.`,
       p.usefulWhat
         ? '- checkIn: a monthly check-in that gives them the useful thing, with no ask.'
@@ -648,7 +666,7 @@ function partTask(slot: SampleSlot, f: Pick<SamplesFacts, 'playbook' | 'followUp
     case 'video':
       return 'the message after they say yes, with [video link]: a short video on how it works and how others got results, and if a quick call sounds good, they can just say.';
     case 'link':
-      return 'the message when they want a call, with [booking link] and one line on what they’ll get from the call: a plan for their business, with their numbers.';
+      return `the message when they want a call, with [booking link]: it ${DEMO_ASK_SHAPE}`;
     case 'followUps':
       return `follow-up ${slot.index + 1} of ${f.followUps}, for when they go quiet after the first message: one or two lines.`;
     case 'checkIn':

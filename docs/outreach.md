@@ -395,7 +395,7 @@ became.
   zone) each person who noted a step in the last 14 days and has something on their list hears how much ("6 on your list for today").
   Both are add-on pushes (`pushAddonNotice`), on the person's add-ons switch, and open Today.
 - **Which openers work** (decision 23, `openers.ts`, `ops/openers.ts`): each playbook keeps two or three styles the
-  AI words a first message's one short question in (decision 137), and up to three of the business's own openers,
+  AI words a first message's one short question in (decisions 137 and 152), and up to three of the business's own openers,
   sent as written with the first name filled in. A first message's drafts take the opener the person has used least, and copying one notes which it was
   (`outreach.opener.use`). The Playbooks tab's **Which openers work** card counts, for each, the first messages sent
   with it, who wrote back and who booked a demo; owners and admins see everyone's.
@@ -1048,7 +1048,8 @@ These are settled too:
 46. **Find the fits among the person's friends and chats.** The extension opens each friend's profile, and the
     business page it links to, at a person's pace, about 40 a day; the AI reads what they say with the person's chat
     with them, when there is one, and says whether they fit a playbook, why, what they do and a first step. Those who
-    fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts. Friends with a
+    fit well and haven't heard from the person in a month go on Today as **Reconnect**, with drafts (a catch-up, then
+    the first message's question, since decision 152). Friends with a
     chat go first, then friends from the groups, then the rest. It runs with the once-a-day jobs, and from the
     Friends tab's **Check my friends**. Growth part 1. Built.
     - **46a. Research one person from their row.** The owner asked for a **Research** button on person rows (friends,
@@ -1215,7 +1216,7 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     comments first). Before a friend request the extension likes one of their posts, and when the post is about their
     work it leaves a short comment too, counted against the comments' limit (extension 0.33.0). Once they accept,
     the **First message** asks straight out whether they'd be open to the main offer's outcome, and says more info
-    follows if so (since decision 137, one short question that makes them curious instead). No message carries the
+    follows if so (since decision 152, one short question that says how the business can help instead). No message carries the
     guarantee (the owner, 2026-10-26: "it made them feel disjointed and unnatural"); a reply gives it only when they ask whether there is one, as the price. A personal line goes first only when the look-up found something real that fits.
     The business's own openers can say `{outcome}` and `{guarantee}`, filled from the offer's words in a few words.
     This replaces decision 47's moment to pitch for new friends; its read (`pitch`) stays for chats that started
@@ -1224,8 +1225,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     question, not now or no (`answerOf`; the worker keeps it with `outreach.answer.note`). A reply's sighting carries
     no words, so the extension reads the chat before drafting (`bringInChat`). A yes moves them on: to **Send the
     video** (the playbook's short video with a line selling the call), or with no video yet straight to **Send the
-    link** (the demo link, decision 24), and after the video to the link. The draft comes back as that step, and the
-    extension queues it so. A question gets a short answer and why a call helps; not now, a check-in a month on; a no
+    link** (the demo link, decision 24), and after the video to the link (since decision 154 a yes always goes to the
+    link, and videos come from the library). The draft comes back as that step, and the extension queues it so. A question gets a short answer and why a call helps; not now, a check-in a month on; a no
     ends it and marks them not a fit, unless the person marked them themselves. On Today, the web copies the link or
     the video's link alone too. The playbook's video link is written in the plan's step 7; until then a yes gets the
     link. Built.
@@ -1261,7 +1262,8 @@ From the main offer's plan (HANDSFREEOS_MAIN_OFFER_IMPLEMENTATION_PLAN.md, Chris
     version 5); a script written for an older main offer version says so. An owner or admin links it. The video is
     optional (decision 83): **Your messages** doesn't wait on it, and the setup's video step has **We don’t use
     one**, kept as the business's choice (`noVideo`). The phone shows
-    the script and changes the link; the script is written on the web. Built.
+    the script and changes the link; the script is written on the web. Built. Since decision 154 the video goes in the
+    business's video library instead of on the playbook, which keeps the script.
 70. **The daily numbers** (the main offer plan's step 8; `tracking.ts`, the boards in `design/tracking`; the owner's
     decision: the day's report is on to start). Results leads with the three numbers the video says to watch every
     day: first messages sent, said yes (`stages.positive_at`) and calls booked (`demos`, not taken back), for today,
@@ -1900,7 +1902,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       one marked **Most people start here**; Save waits for a pick. Decision 26's off stays until they pick.
     - **The short video is optional:** "ok just want to make sure its not required because some owners may not want
       one". **Your messages** no longer waits on a linked video (decision 69), and the video step has **We don’t use
-      one** (`noVideo`). Members never wait on it.
+      one** (`noVideo`). Members never wait on it. Since decision 154 it's done once the video library has a video.
 
     Every step ticks from what's true (`setupStepStates`, `networkStepStates`): Get ready's items for that network
     (`readinessFor`), the extension signed in (`extension_at`), their own settings saved (`settings_at`), the team's
@@ -3336,7 +3338,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       the contacts to be more straight forward but bring about curiosity", with "If i had something that could make you
       more money while saving you time in your [insert niche] business would you be interested", the niche photography
       or roofing). This replaces decision 65's first message, which asked whether they'd be open to the outcome, said
-      more info would follow, and put a line about them first. No migration, and no new extension.
+      more info would follow, and put a line about them first. No migration, and no new extension. Since decision 152
+      the question opens "Hey" and their first name and names what the offer is, and Reconnect asks it too.
       - **The shape** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question, under 30
         words, in the owner's words: the owner has something that could make them more money while saving them time,
         in their kind of business, and would they be interested. Nothing goes before or after it: no greeting, no line
@@ -3835,6 +3838,75 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         from the list, keeps them off for good, as anywhere.
       - The extension needs nothing new: it reads Today again within the hour while it waits (`IDLE_MS`), so an OK
         given after the day started is worked that hour. A chat with nobody kept for it yet waits for the person.
+152.  **First messages say how the business can help, and Reconnect asks it too** (Chris, 4 Nov 2026: "the social
+      outreach tool seemed to still be using the old method of seeing how their business was doing and starting a
+      conversation, what should be doing is saying how we can help them", with "Hey, if I could get you more deals
+      while also saving you time for your [insert business niche] business using my easy to use crm software would you
+      be interested?"). The old way was Reconnect's ("asks how they are or how their work is going. Don't pitch yet"),
+      which decision 137 left out, and the check's first step ("Ask how the new shop is going") going into every
+      draft. He picked 1b (Reconnect too, as "the catch up message and then immediately … I was wondering if i could
+      get you more deals…"), 2a (name what it is: "feels more straightforward") and 3b ("Hey [first name],"). This
+      replaces decision 137's question. No migration, and no new extension.
+      - **The first message** (`FIRST_MESSAGE_SHAPE`, `FIRST_MESSAGE_EXAMPLE` in `conversation.ts`): one question,
+        under 35 words, in the owner's words: "Hey" and their first name (just "Hey," when their name isn't a
+        person's), if the owner could get them what the offer really does, for their kind of business, using what the
+        offer is, would they be interested. "Hey Sam, if I could get you more deals while also saving you time for your
+        roofing business using my easy to use CRM software, would you be interested?" What it is comes from the offer,
+        in a few plain words ("my roof inspections", "my credit repair program"), never its brand name, how it works, a
+        link or the price; an offer that doesn't bring deals or save time says what it does get them, and one for
+        people rather than businesses leaves out "for your … business", as decision 137 said. Nothing else goes before
+        or after it. Their kind of business is still `THEIR_KIND`. Every first message: Today's drafts, the one text to
+        someone's Requests on Instagram, and Your messages' first samples, still as one text.
+      - **Reconnect** (`TASK.reconnect` in `today.ts`, `RECONNECT_QUESTION_SHAPE`): a short, warm catch-up that greets
+        them by first name, says it's been a while and hopes they and their work are doing well, from their pages or
+        the chat ("Hey Mike, it's been a while! Hope the new shop is keeping you busy."), then right after it the same
+        question opening "I was wondering if I could …". The catch-up asks nothing of its own, so the question is the
+        message's only one, as every draft asks at most one. Two texts when the person sends a few
+        (Settings → General, "Send a message as a few short texts"), else one message; the greeting is the catch-up's,
+        never a text of its own. Its drafts are told the main offer now, and the message goes with the offer's version.
+        It starts the conversation at the first message (`noteSent`) for someone in none yet, so a yes gets the video or
+        the link and silence gets the follow-ups, as after any first message; someone mid-conversation keeps theirs.
+      - **Not to someone who said no** (decision 134): marked not a fit, answered no or not now, or their chat read as
+        not interested, Reconnect only catches up, as before (`RECONNECT_CATCH_UP`), with nothing that pitches, and
+        starts no conversation (`turnedDown`).
+      - **The check's first step** (`firstStepFact`) still goes into Reconnect's catch-up and the other drafts, never a
+        first message. The ready-made CRM playbook's first style is now "Say it could get them more deals while saving
+        them time"; a playbook saved before keeps its styles, which only word the question. The AI's playbook help
+        suggests openers in the new shape, and the main offer builder's preview reads "Hey Sam, if I could get you … for
+        your business, would you be interested?". The business's own openers still go as written.
+153.  **The step after a yes asks for a demo, the owner's way** (Chris, 4 Nov 2026: "start scheduling a demo call by
+      saying something like let's schedule a time where i can demo it for you so you can see what it's about, if you
+      don't like it no pressure how's that sound?"; picked 1a, the times in the same message). **Send the link** (and
+      Your messages' link sample) now asks for a time to show them in those words (`DEMO_ASK_EXAMPLE`,
+      `DEMO_ASK_SHAPE` in `conversation.ts`): "demo it for you" when the offer can be shown, like software, otherwise a
+      quick call to walk them through it, and never the plan, numbers or results they'd get from the call, which it
+      used to promise. With open times (decision 149) they go in just before "how's that sound?" ("I have tomorrow at
+      11 ct or this friday at noon ct, how's that sound?"), then the link for any other time; with none, the link. A
+      playbook with no video already goes from a yes straight to this step, as Chris's does; the video step stays for a
+      playbook that has one. No migration, and no new extension. Since decision 154 there's no video step at all.
+154.  **A video library the AI sends from** (Chris, 4 Nov 2026: "with follow ups if they don't book or miss the booking
+      we can send different videos. we should have a video link library each with a description of what they are so
+      the ai knows what to send and when based on the conversation"; picked 1a 2a 3a). `video-library.ts`.
+      - **One library for the whole business** (1a): Social Outreach → Settings → **Videos**, under Owners, on the web
+        and the phone, for owners and admins. Each video is a name, a link (Loom, YouTube or Google Drive: https with
+        a real host, as the playbook's link was) and what it shows and when it helps, which is what the AI picks it
+        by. Up to 20, each link once. Kept with the business's Social Outreach settings (`videos`), saved through
+        `addon.save_settings` as the rest of them are; each video has its own Save, and Remove saves at once. No
+        migration.
+      - **Where the AI may send one** (2a): a follow-up after the demo ask (the link step) when they haven't booked,
+        another time after a missed demo (decision 106), and a reply, when a video answers what they asked. Never to a
+        client, someone who turned the offer down (decision 134) or a message to their Requests. The draft is told the
+        videos they haven't had (`videoLines`), and the AI puts in at most one, only where it fits, with its link as
+        written. What was sent them (their sent messages and the person's side of the chat) is read for each video's
+        link, so one never goes twice; a draft with two videos, or one they've had, is dropped (`fitsVideos`).
+      - **The old video step is gone** (3a): a yes to the first message gets the demo ask straight away (decision 153;
+        `stepAfterYes`), Today no longer lists Send the video, and Your messages has no video sample (old samples
+        still show theirs). Someone already sent a video gets the link after a yes, as before. A playbook's short
+        video moves into the library: until the library is first saved, it reads as the playbooks' videos, by playbook
+        name, each said to be "the short video on how it works and how others got results" (`libraryOf`); any save
+        keeps it as the library's own. The playbook keeps its script writer (decision 69); where its link box was, it
+        points to Settings → Videos. The setup's video step (decision 83) is done once the library has a video, or the
+        business says it doesn't use one, and opens Videos.
 
 ## Rules worth knowing before changing anything
 

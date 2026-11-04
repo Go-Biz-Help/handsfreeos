@@ -449,11 +449,6 @@ export async function todayFor(
     .find((p) => p.details.link);
   const demoFor = (profileId: string | null) =>
     linked && profileId ? demoLink(linked.details.link, demoRef(me, profileId)) : null;
-  // The short video for Send the video (decision 66): the first playbook in use with one, by name, likewise.
-  const videoed = [...playbooks]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .find((p) => p.details.videoLink);
-  const hasVideo = Boolean(videoed);
 
   // Requests the person got to confirm, as they picked and the AI says (decisions 30, 121 and 136). The rest lately
   // are theirs to decide, in Waiting for you.
@@ -1268,7 +1263,7 @@ export async function todayFor(
       );
   }
 
-  // Send the link, Send the video, follow-ups and check-ins share the follow-ups' limit, in that order (the main
+  // Send the link, follow-ups and check-ins share the follow-ups' limit, in that order (the main
   // offer plan's "The conversation", ../conversation.ts).
   let followLeft = leftToday(limits, 'follow_up');
   const nowAt = new Date(now).toISOString();
@@ -1418,9 +1413,10 @@ export async function todayFor(
     followLeft -= due.length;
   }
 
-  // Send the link (decisions 47 and 66): someone who said yes to the video, or to the first message when there's no
-  // video; or, in a chat that started another way, whose chat the AI read as ready for the offer, or the person
-  // marked ready. Until the link goes, they're booked or not a fit, or the person writes to them again.
+  // Send the link (decisions 47, 66 and 153): someone who said yes to the first message, or to a video sent before the
+  // library (decision 154, 3a: a yes no longer gets a video first); or, in a chat that started another way, whose chat
+  // the AI read as ready for the offer, or the person marked ready. Until the link goes, they're booked or not a fit,
+  // or the person writes to them again.
   if (followLeft > 0) {
     const ready = await rows<{
       id: string;
@@ -1447,7 +1443,7 @@ export async function todayFor(
             and not ${isClient('p')} and ${notLater(me, 'p')} and ${reach}
               and (c.pitch = 'ready' or s.mark = 'ready'
                 or (f.answer = 'yes' and f.stopped_at is null
-                  and (f.step = 'video' or (f.step = 'first' and not ${hasVideo}))))
+                  and f.step in ('first', 'video')))
               and (s.id is null or (s.pitched_at is null and s.mark is distinct from 'lost'))
               and ${notBooked('p')}
               and not exists (select 1 from addon_outreach.touches t
@@ -1477,48 +1473,6 @@ export async function todayFor(
           ],
           summary: p.summary,
           nextStep: p.next_step,
-          demoLink: demoFor(p.id),
-        }),
-      );
-  }
-
-  // Send the video (decision 66): someone who said yes to the first message, when a playbook has a video.
-  if (videoed && followLeft > 0) {
-    const yes = await rows<{
-      id: string;
-      name: string;
-      url: string;
-      chat_id: string | null;
-      thread_key: string | null;
-      summary: string | null;
-      next_step: string | null;
-    }>(
-      ctx.tx,
-      sql`select p.id, p.name, p.url, c.id as chat_id, c.thread_key, c.summary, c.next_step
-            from addon_outreach.follow_ups f join addon_outreach.profiles p on p.id = f.profile_id
-            ${latestChat('p')}
-            where f.workspace_id = ${ws} and f.user_id = ${me} and f.step = 'first' and f.answer = 'yes'
-              and f.stopped_at is null
-            and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach} and ${notBooked('p')}
-              and not exists (select 1 from addon_outreach.touches t
-                where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'message' and t.at > f.answered_at)
-            order by f.answered_at desc, p.id
-            limit ${followLeft}`,
-    );
-    followLeft -= yes.length;
-    for (const p of yes)
-      items.push(
-        item({
-          kind: 'video',
-          name: p.name,
-          profileId: p.id,
-          profileUrl: p.url,
-          chatId: p.chat_id,
-          threadKey: p.thread_key,
-          why: ['Said yes to your first message'],
-          summary: p.summary,
-          nextStep: p.next_step,
-          videoLink: videoed.details.videoLink ?? null,
           demoLink: demoFor(p.id),
         }),
       );

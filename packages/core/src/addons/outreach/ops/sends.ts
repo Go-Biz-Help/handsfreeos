@@ -449,12 +449,9 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         // Waits for an OK of its own (Waiting for you): handed over, or to someone who needs the person.
         handedOver: handOver,
         needsYou,
-        // The main offer's version it goes with: the one they were first pitched with, or the live one. A comment is
-        // public, and goes with none.
-        offerVersion:
-          input.kind === 'reconnect' || partner || post
-            ? null
-            : await offerVersionFor(ctx, me, profile.id),
+        // The main offer's version it goes with: the one they were first pitched with, or the live one, Reconnect's
+        // too since it asks the first message's question (decision 152). A comment is public, and goes with none.
+        offerVersion: partner || post ? null : await offerVersionFor(ctx, me, profile.id),
         createdAt: at,
         updatedAt: at,
       })

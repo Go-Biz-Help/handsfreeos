@@ -693,10 +693,9 @@ export const READY_WORDS = {
     write: 'Write samples',
     again: 'Write them again',
     first: 'First message, once they accept',
+    /** In samples written before the video library (decision 154). */
     video: 'If they say yes: the video',
     link: 'If they want a call: the link',
-    noVideo:
-      'Your playbook has no short video linked yet. Until it does, a yes gets your booking link next.',
     followUps: (n: number) => `If they go quiet: ${plural(n, 'follow-up')}`,
     checkIn: 'Then once a month: a check-in',
     ok: 'They read right',

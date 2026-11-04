@@ -106,7 +106,7 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await builder.getByLabel('The outcome, in a few words').fill('10 to 20 booked inspections');
   await builder.getByLabel('The guarantee, in a few words').fill('you only pay for results');
   await expect(builder.getByTestId('offer-preview')).toContainText(
-    'open to 10 to 20 booked inspections? If so',
+    'if I could get you 10 to 20 booked inspections for your business, would you be interested?',
   );
   await next.click();
 
@@ -192,8 +192,8 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   );
   for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
 
-  // The short video: the AI writes its script from the offer and the niche, one part is written again, and the link
-  // is put in (an address without https:// gets it).
+  // The short video: the AI writes its script from the offer and the niche, and one part is written again. The video
+  // itself goes in the video library (decision 154), which the step points to where its link was.
   await playbook.getByTestId('playbook-video-write').click();
   const parts = playbook.getByTestId('playbook-video-parts');
   await expect(parts.getByRole('listitem')).toHaveCount(6);
@@ -204,13 +204,13 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   await expect(playbook.getByTestId('playbook-video-say-call')).toHaveValue(
     /Said even more plainly\./,
   );
-  await playbook.getByTestId('playbook-video-link').fill('www.loom.com/share/abc123');
-  await playbook.getByTestId('playbook-video-link').blur();
-  await expect(playbook.getByTestId('playbook-video-link')).toHaveValue(
-    'https://www.loom.com/share/abc123',
+  await expect(playbook.getByTestId('playbook-video-link')).toHaveCount(0);
+  await expect(playbook.getByTestId('playbook-video-library-open')).toHaveAttribute(
+    'href',
+    `/app/w/${workspaceId}/a/outreach/settings/videos`,
   );
   for (let i = 0; i < 5; i++) await playbook.getByTestId('playbook-next').click();
-  await expect(playbook.getByTestId('review-video')).toContainText('Video linked, with its script');
+  await expect(playbook.getByTestId('review-video')).toContainText('Script written');
   await expect(playbook.getByTestId('review-niche')).toContainText('Roofers with 2 to 3 crews');
   await expect(playbook.getByTestId('review-niche')).toContainText('1 result as proof');
   await expect(playbook.getByTestId('review-offer')).toContainText(
@@ -328,8 +328,10 @@ test('an owner builds the main offer a step at a time, scores it and goes live, 
   const samples = messages.getByTestId('ready-messages-samples');
   await expect(samples).toContainText('First message, once they accept');
   await expect(samples).toContainText('If they go quiet: 6 follow-ups');
-  await expect(samples).toContainText('If they say yes: the video');
-  await expect(samples).toContainText('[video link]');
+  // No video message since decision 154: a yes gets the demo ask and the link; videos go in follow-ups.
+  await expect(samples).toContainText('If they want a call: the link');
+  await expect(samples).not.toContainText('If they say yes: the video');
+  await expect(samples).not.toContainText('[video link]');
   // Each can be put in their own words, or written again with a note on what's not quite right (decision 87).
   const followUp = messages.locator('[data-testid="ready-message"][data-slot="followUps.1"]');
   await followUp.getByTestId('ready-message-change').click();

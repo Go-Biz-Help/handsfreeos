@@ -595,7 +595,7 @@ export const messageSamplesSave = defineAddonCommand(outreachAddon, {
 
 /**
  * The person's samples as kept, and the one at a slot: refused with none, or with the reason that slot has nothing
- * (no short video yet, fewer follow-ups, or written again).
+ * (no video message since the video library, fewer follow-ups, or written again).
  */
 async function sampleOf(ctx: Ctx, me: string, slot: SampleSlot) {
   const row = await setupRow(ctx, me);
@@ -607,12 +607,7 @@ async function sampleOf(ctx: Ctx, me: string, slot: SampleSlot) {
       'There are no sample messages to change yet. Press Write samples under Your messages first.',
     );
   if (sampleAt(samples, slot) === null) {
-    const playbooks = await playbooksInUse(ctx);
-    const why = noSample(samples, slot, {
-      // As the samples are written: their playbook's video, or any playbook's.
-      has: playbooks.some((p) => !!p.details.videoLink?.trim()),
-      playbook: playbooks.find((p) => p.id === samples.playbookId)?.name ?? null,
-    });
+    const why = noSample(samples, slot);
     throw HfosError.rule(why.rule, 409, why.message);
   }
   return { samples, notes: messageNotesOf(row?.messageNotes) };
