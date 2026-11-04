@@ -979,11 +979,19 @@ describe('one person on two networks', () => {
     const onFacebook = await reach(lee, 'facebook', facebook('casey.north.4'), 'Casey North');
     const onLinkedIn = await reach(lee, 'linkedin', linkedIn('casey-north'), 'Casey North');
     await contact(lee, onLinkedIn, await contact(lee, onFacebook));
-    // The AI found Casey a good fit among Lee's LinkedIn connections: Reconnect.
+    // The AI found Casey a good fit among Lee's LinkedIn connections, and they talked there two months ago: Reconnect.
     await rows(
       admin(),
       sql`insert into addon_outreach.checks (workspace_id, user_id, profile_id, verdict, why, looked_at)
           values (${ws}, ${lee.id}, ${onLinkedIn}, 'good', array['Runs a small accounting firm'], now())`,
+    );
+    const talked = new Date(Date.now() - 60 * 86_400_000).toISOString();
+    await rows(
+      admin(),
+      sql`insert into addon_outreach.file_chats (workspace_id, user_id, platform, name, name_key, first_at, last_at,
+            messages, last_from_me, profile_id)
+          values (${ws}, ${lee.id}, 'linkedin', 'Casey North', 'casey north', ${talked}::timestamptz,
+            ${talked}::timestamptz, 2, false, ${onLinkedIn})`,
     );
     const onLinkedInToday = async () =>
       (await runAs(lee, ws, 'outreach.today', { platform: 'linkedin' })).items

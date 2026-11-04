@@ -213,7 +213,7 @@ joining by phone, team-only meetings.
   (provider `handsfree`, kept once per stretch) and deletes them. Fewer than 15 words isn't kept: "Can you hear me?"
   is no conversation. A call that isn't for an appointment keeps its transcript on the call instead (part 5).
 - **The transcript emits `appointment.transcript_ready`** exactly as Zoom's does, so After the call, the timeline's
-  summary and the suggestions need nothing of their own. The words themselves never go in an event or the
+  summary, the tasks it adds on its own and the suggestions need nothing of their own. The words themselves never go in an event or the
   activity log.
 - **The notice** is on the booking page (`aiNotes` on a place or service), in the confirmation and reminders
   (`whereLine`), and on the page before joining, for the customer and for anyone on the call's link. Joining is

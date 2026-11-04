@@ -67,9 +67,11 @@ import {
   inWorkspace,
   keepCountry,
   notOthers,
+  outreachWrote,
   pitchable,
   profilesFor,
   runsAGroup,
+  talkedWith,
   waitsForLook,
   type Ctx,
 } from './common';
@@ -108,19 +110,42 @@ export const knownCheck = (me: string) => sql`(ch.via = 'known' or ${knowsThem(m
 
 /**
  * Someone the person knows whom a check found a good fit, or who might fit (decision 126, answer 5a), to write to again
- * (decision 46): neither side has written in `quiet`, nobody on the team wrote to them since, and they haven't written
- * back since. Today's Reconnect takes the good fits first; the day's goal counts every one ready. `ch` is the check, `p`
- * its profile, and `lets` the business's country setting and the network.
+ * (decision 46): they've had a conversation (decision 155, `talkedWith`), and Social Outreach never wrote to them
+ * (`outreachWrote`), so its catch-up is its first message to them; neither side has written in `quiet`, nobody on the
+ * team wrote to them since, and they haven't written back since. Someone never talked to gets Say hi instead
+ * (`sayHiReady`). Today's Reconnect takes the good fits first; the day's goal counts every one ready. `ch` is the check,
+ * `p` its profile, and `lets` the business's country setting and the network.
  */
 export const reconnectReady = (me: string, quiet: string, lets: SQL) => sql`(ch.user_id = ${me}
   and ch.verdict in ('good', 'maybe') and ${knownCheck(me)}
   and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+  and ${talkedWith(me)} and not ${outreachWrote}
   and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me}
     and c.last_at >= ${quiet}::timestamptz)
   and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
     and t.user_id = ${me} and t.kind = 'message' and t.at >= ${quiet}::timestamptz)
   and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id
     and r.user_id = ${me} and r.seen_at >= ${quiet}::timestamptz))`;
+
+/** They accepted a request the person sent (the extension noted it), so were picked as a fit before it (decision 65). */
+export const acceptedMine = (me: string) => sql`exists (select 1 from addon_outreach.touches t
+    where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')`;
+
+/**
+ * A friend of the person's they've never talked to, for Say hi's first message (decisions 65 and 155): no message to
+ * them from anyone, no chat of the person's with them, and no conversation started. Either they accepted the person's
+ * request since `acceptedFrom` (`acceptedMine`), or a check found them a good fit or one who might fit, however they
+ * became friends: the person confirmed their request, connected on the network themselves, or has been friends a while.
+ * `f` is the friend row, `p` its profile, `ch` the person's check of them (left joined), and `lets` the business's
+ * country setting and the network (or, under Autopilot, the day's OK too).
+ */
+export const sayHiReady = (me: string, acceptedFrom: string, lets: SQL) => sql`(f.user_id = ${me}
+  and f.state = 'friends' and p.friendship <> 'self' and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
+  and ((${acceptedMine(me)} and f.since >= ${acceptedFrom}::timestamptz)
+    or (ch.user_id = ${me} and ch.verdict in ('good', 'maybe')))
+  and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id and t.kind = 'message')
+  and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id and c.user_id = ${me})
+  and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id and fu.user_id = ${me}))`;
 
 /**
  * Someone who sent the person a friend request they haven't answered (decision 136), the AI's to read: not one they
@@ -279,7 +304,7 @@ export async function likesBehind(
 
 /**
  * The good fits ready on a network for the day's goal (decision 126): for a first message, friends to reconnect with and
- * new friends who accepted with no message yet, today's among them; and for a friend request, people found, following
+ * friends never talked to for Say hi (decision 155), today's among them; and for a friend request, people found, following
  * them or in their groups whom a check found fit or might, still to reach. With whether new requests are held there
  * (decision 97), or paused by the network's monthly limit (decision 147).
  */
@@ -306,17 +331,9 @@ export async function goalStock(
             where ch.workspace_id = ${ws} and ${reconnectReady(me, ago(RECONNECT_QUIET_DAYS), lets)}) as reconnect,
           (select count(*)::int from addon_outreach.friends f
             join addon_outreach.profiles p on p.id = f.profile_id
-            where f.workspace_id = ${ws} and f.user_id = ${me} and f.state = 'friends'
-              and f.since >= ${ago(TODAY_WINDOW_DAYS.opener)}::timestamptz
-              and ${pitchable('p')} and ${inPlay(me, 'p')} and ${lets}
-              and exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                and t.user_id = ${me} and t.kind = 'friend_request')
-              and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id
-                and t.kind = 'message')
-              and not exists (select 1 from addon_outreach.file_chats c where c.profile_id = p.id
-                and c.user_id = ${me})
-              and not exists (select 1 from addon_outreach.follow_ups fu where fu.profile_id = p.id
-                and fu.user_id = ${me})) as accepted,
+            left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
+            where f.workspace_id = ${ws}
+              and ${sayHiReady(me, ago(TODAY_WINDOW_DAYS.opener), lets)}) as accepted,
           (select count(*)::int from addon_outreach.checks ch
             join addon_outreach.profiles p on p.id = ch.profile_id
             where ch.workspace_id = ${ws} and ch.user_id = ${me} and ch.verdict in ('good', 'maybe')

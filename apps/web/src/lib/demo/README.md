@@ -61,7 +61,11 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
   scenes 46 to 49: a call the AI teammate places (`direction: 'outbound'` on a call message, worded in the Inbox as
   core's `callPreview` words it), the call AI Sales Coach listens to (`coach`, with its cards), a teammate's ask for
   an add-on (`ask` on a draft: an approval, not a reply), and what Social Outreach drafted (`outreach`). Scene 39:
-  quick setup's progress (`setup`): the website typed, the AI teammate reading it, what it read, and Save.
+  quick setup's progress (`setup`): the website typed, the AI teammate reading it, what it read, and Save. Since
+  scenes 67 and 68 (and scene 37 again): a lead's phone call on the business number, answered in the browser, with
+  what the AI made of it (`phoneCall`, opened from **Notes from the call** on its timeline line), and the presenter's
+  tasks the AI added on its own from a call or from what they wrote (`tasks`), on the Tasks page, a made-up lead's
+  page and **Open task**, worded as the worker words them (`aiTaskNotes` in `@hfos/core`).
 - **Made-up ids start with `de300000-0000-4000-8000-`** (`demoId`), so an answer for one can't be mistaken for a
   real record.
 - **The calendar's answers are in `respond-calendar.ts`:** a visit as the calendar and its sheet read it, the

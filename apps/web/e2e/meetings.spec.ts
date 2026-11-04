@@ -12,7 +12,7 @@ import {
 /**
  * Video meetings, end to end on the stand-ins: the owner connects Zoom, a customer books an online visit set to
  * record, the appointment gets its Zoom link, the call ends with a transcript (Zoom's signed webhook), and the
- * owner adds the task the AI suggests from it.
+ * AI adds the task from it on its own ("Add tasks from what you say") while the follow-up email waits for an OK.
  */
 
 /** What the stand-in's webhooks are signed with (apps/worker/src/meetings/fake.ts). Not a secret. */
@@ -34,7 +34,7 @@ async function zoomWebhook(event: unknown): Promise<number> {
   return res.status;
 }
 
-test('a recorded Zoom call becomes a transcript and a suggested task someone adds', async ({
+test('a recorded Zoom call becomes a transcript and a task the AI adds on its own', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -122,15 +122,24 @@ test('a recorded Zoom call becomes a transcript and a suggested task someone add
     }),
   ).toBe(200);
 
-  // The transcript and the AI's suggestions show on the appointment; the owner adds the task.
+  // The transcript and what the AI made of it show on the appointment: the task is already added, the email waits.
   await expect(async () => {
     await page.reload();
     await expect(page.getByTestId('appointment-transcript')).toBeVisible({ timeout: 2_000 });
     await expect(page.getByTestId('call-suggestion').first()).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 45_000 });
-  const task = page.getByTestId('call-suggestion').filter({ hasText: 'Suggested task' });
-  await expect(task.getByLabel('Task')).toHaveValue('Send the quote');
-  await task.getByRole('button', { name: 'Add task' }).click();
+  const task = page.getByTestId('call-suggestion').filter({ hasText: 'Task added' });
   await expect(task).toHaveAttribute('data-status', 'approved');
-  await expect(task).toContainText('Done');
+  await expect(task.getByLabel('Task')).toHaveValue('Send the quote');
+  await expect(task.getByRole('button', { name: 'Add task' })).toHaveCount(0);
+  const email = page
+    .getByTestId('call-suggestion')
+    .filter({ hasText: 'Suggested follow-up email' });
+  await expect(email).toHaveAttribute('data-status', 'pending');
+  await expect(email.getByRole('button', { name: 'Send email' })).toBeVisible();
+
+  // It's on the task list.
+  await task.getByTestId('call-suggestion-task').click();
+  await expect(page).toHaveURL(/\/tasks\?/);
+  await expect(page.getByText('Send the quote').first()).toBeVisible();
 });

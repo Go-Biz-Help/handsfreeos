@@ -17527,7 +17527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The AI’s summary of a recorded call (an appointment’s, or a HandsFreeOS video call that isn’t for one), and its suggestions with where each stands.
+         * The AI’s summary of a recorded call (an appointment’s, a HandsFreeOS video call that isn’t for one, or a phone call on the business number), the tasks it added and what it suggests, with where each stands.
          * @description Requires workspace.read.
          */
         post: operations["query_call_suggestion_list"];
@@ -27325,6 +27325,8 @@ export interface operations {
                             /** @default true */
                             aiTags?: boolean;
                             /** @default true */
+                            aiTasks?: boolean;
+                            /** @default true */
                             approvalExpiry?: boolean;
                             /** @default false */
                             callBackMissed?: boolean;
@@ -27445,6 +27447,8 @@ export interface operations {
                                 aiDetails: boolean;
                                 /** @default true */
                                 aiTags: boolean;
+                                /** @default true */
+                                aiTasks: boolean;
                                 /** @default true */
                                 approvalExpiry: boolean;
                                 /** @default false */
@@ -67177,6 +67181,8 @@ export interface operations {
                     /** Format: uuid */
                     appointmentId?: string;
                     /** Format: uuid */
+                    callId?: string;
+                    /** Format: uuid */
                     videoCallId?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -67203,8 +67209,10 @@ export interface operations {
                             };
                             /** @enum {string} */
                             status: "pending" | "approved" | "dismissed";
+                            taskId: string | null;
                         }[];
                         summary: string | null;
+                        transcript: string | null;
                     };
                 };
             };

@@ -14,6 +14,7 @@ import { HANDOFF_NUDGE_JOB, handoffNudgeJob } from './handoff';
 import { LESSON_JOB, lessonJob, WEBSITE_RESCAN_JOB, websiteRescanJob } from './health';
 import { JOB_CHECK_JOB, jobCheckJob } from './job-check';
 import { PROMISE_JOB, promiseJob } from './promises';
+import { CONVERSATION_TASKS_JOB, conversationTasksJob } from './conversation-tasks';
 import { MAINTENANCE_JOB, maintenanceJob } from './maintenance';
 import { REENGAGE_JOB, reengageJob } from './reengage';
 import { REFERRAL_JOB, referralJob } from './referrals';
@@ -66,6 +67,14 @@ export {
   promiseJobKey,
   teamLines,
 } from './promises';
+export {
+  CONVERSATION_TASKS_ASK,
+  CONVERSATION_TASKS_JOB,
+  CONVERSATION_TASKS_SETTLE_MS,
+  conversationTasksKey,
+  onMessageTasks,
+  taskDueFrom,
+} from './conversation-tasks';
 export { INTAKE_DELAY_MS, INTAKE_JOB, intakeJobKey, onBookedIntake } from './intake';
 export {
   CONNECTION_BROKE_EVENTS,
@@ -106,6 +115,7 @@ export const automationJobs: JobMap = {
   [JOB_CHECK_JOB]: jobCheckJob,
   [HANDOFF_NUDGE_JOB]: handoffNudgeJob,
   [PROMISE_JOB]: promiseJob,
+  [CONVERSATION_TASKS_JOB]: conversationTasksJob,
   [EXPIRING_JOB]: expiringJob,
   [LESSON_JOB]: lessonJob,
   [WEBSITE_RESCAN_JOB]: websiteRescanJob,

@@ -1,4 +1,11 @@
-import { VIDEO_CALL_NAME, VIDEO_CALL_WORDS, callIdOfLink, videoCallAppPath } from '@hfos/core';
+import {
+  CALL_REVIEW_WORDS,
+  VIDEO_CALL_NAME,
+  VIDEO_CALL_WORDS,
+  callIdOfLink,
+  callReviewLabel,
+  videoCallAppPath,
+} from '@hfos/core';
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
 import { Linking, View } from 'react-native';
@@ -135,17 +142,13 @@ type Suggestion = {
   kind: 'task' | 'follow_up' | 'record_change';
   status: 'pending' | 'approved' | 'dismissed';
   preview: Record<string, unknown>;
+  taskId?: string | null;
 };
-type Review = { summary: string | null; items: Suggestion[] };
+type Review = { summary: string | null; transcript?: string | null; items: Suggestion[] };
 type Transcript = { id: string; provider: string; createdAt: string; body: string };
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
-const LABEL = {
-  task: 'Suggested task',
-  follow_up: 'Suggested follow-up email',
-  record_change: 'Suggested update to their record',
-};
-const APPROVE = { task: 'Add task', follow_up: 'Send email', record_change: 'Update record' };
+const APPROVE = CALL_REVIEW_WORDS.approve;
 const FIELDS = [
   ['firstName', 'First name'],
   ['lastName', 'Last name'],
@@ -155,10 +158,11 @@ const FIELDS = [
 const SHORT = 600;
 
 /**
- * A recorded call, once it's over: the AI's summary, the tasks, follow-up and record update it suggests (each
- * waits for an OK here or on the web), and what was said. Asked for online; nothing of it is kept on the phone.
- * An appointment's call, or a HandsFreeOS video call that wasn't for one (docs/video-calls.md, part 5), from the
- * line it has on the customer's timeline.
+ * A recorded call, once it's over: the AI's summary, the tasks it added, the follow-up and record update it suggests
+ * (each waits for an OK here or on the web), and what was said. Asked for online; nothing of it is kept on the phone.
+ * An appointment's call, a HandsFreeOS video call that wasn't for one (docs/video-calls.md, part 5), or a phone call
+ * on the business number (20261027023200), from the line it has on the customer's timeline. A phone call keeps its
+ * words on itself, so they come with the review.
  */
 export function CallRecord({
   workspaceId,
@@ -170,9 +174,10 @@ export function CallRecord({
   online: boolean;
   /** A HandsFreeOS video call: its transcript comes from the AI's notes, once the call ends. */
   ours?: boolean;
-} & ({ appointmentId: string } | { videoCallId: string })) {
+} & ({ appointmentId: string } | { videoCallId: string } | { callId: string })) {
   const appointmentId = 'appointmentId' in call ? call.appointmentId : undefined;
   const videoCallId = 'videoCallId' in call ? call.videoCallId : undefined;
+  const callId = 'callId' in call ? call.callId : undefined;
   const [review, setReview] = React.useState<Review | null>(null);
   const [transcripts, setTranscripts] = React.useState<Transcript[]>([]);
   const [titles, setTitles] = React.useState<Record<string, string>>({});
@@ -188,8 +193,15 @@ export function CallRecord({
       body: { workspaceId, ...(appointmentId ? { appointmentId } : { videoCallId }) },
     };
     const [r, t, c] = await Promise.allSettled([
-      api.POST('/v1/queries/call_suggestion.list', body).then(unwrap),
-      api.POST('/v1/queries/appointment.transcripts', body).then(unwrap),
+      api
+        .POST('/v1/queries/call_suggestion.list', {
+          body: callId ? { workspaceId, callId } : body.body,
+        })
+        .then(unwrap),
+      // A phone call's words come with its review.
+      callId
+        ? Promise.resolve({ items: [] as Transcript[] })
+        : api.POST('/v1/queries/appointment.transcripts', body).then(unwrap),
       // A HandsFreeOS call keeps its chat, whatever its AI notes.
       ours
         ? api
@@ -206,7 +218,7 @@ export function CallRecord({
     if (t.status === 'fulfilled') setTranscripts((t.value as { items: Transcript[] }).items);
     if (c.status === 'fulfilled' && c.value)
       setChat({ messages: c.value.messages, more: c.value.more });
-  }, [workspaceId, appointmentId, videoCallId, ours]);
+  }, [workspaceId, appointmentId, videoCallId, callId, ours]);
 
   React.useEffect(() => {
     if (online) void load();
@@ -240,12 +252,20 @@ export function CallRecord({
         The call’s transcript and suggestions show when the phone is online.
       </Text>
     );
-  const latest = transcripts[0];
+  const latest: Transcript | undefined =
+    transcripts[0] ??
+    (review?.transcript
+      ? { id: 'call', provider: 'phone', createdAt: '', body: review.transcript }
+      : undefined);
   if (!latest && !review?.summary && !review?.items.length)
     return (
       <View className="gap-3">
         <Text className="text-[13px] text-text-2" testID="call-record-waiting">
-          {ours ? VIDEO_CALL_WORDS.transcriptSoon : 'The transcript shows here after the call.'}
+          {callId
+            ? CALL_REVIEW_WORDS.saidSoon
+            : ours
+              ? VIDEO_CALL_WORDS.transcriptSoon
+              : 'The transcript shows here after the call.'}
         </Text>
         <CallChat messages={chat.messages} more={chat.more} />
       </View>
@@ -259,7 +279,7 @@ export function CallRecord({
       ) : null}
       {review?.items.map((s) => {
         const pending = s.status === 'pending';
-        const label = LABEL[s.kind];
+        const label = callReviewLabel(s.kind, s.status);
         const was = (s.preview.was ?? {}) as Record<string, unknown>;
         return (
           <View
@@ -267,10 +287,7 @@ export function CallRecord({
             className="gap-2 rounded-menu border border-border p-3"
             testID="call-suggestion"
           >
-            <Text className="text-[12px] font-semibold uppercase text-text-3">
-              {label}
-              {pending ? '' : s.status === 'approved' ? ' · Done' : ' · Dismissed'}
-            </Text>
+            <Text className="text-[12px] font-semibold uppercase text-text-3">{label}</Text>
             {s.kind === 'record_change' ? (
               FIELDS.filter(([k]) => text(s.preview[k])).map(([k, name]) => (
                 <Text key={k} className="text-[15px]" testID={`call-change-${k}`}>
@@ -333,12 +350,16 @@ export function CallRecord({
       {latest ? (
         <View testID="call-transcript">
           <Text className="mb-1 text-[12px] font-semibold uppercase text-text-3">
-            What was said ·{' '}
-            {latest.provider === 'handsfree'
-              ? VIDEO_CALL_NAME
-              : latest.provider === 'google_meet'
-                ? 'Google Meet'
-                : 'Zoom'}
+            {CALL_REVIEW_WORDS.said}
+            {latest.provider === 'phone'
+              ? ''
+              : ` · ${
+                  latest.provider === 'handsfree'
+                    ? VIDEO_CALL_NAME
+                    : latest.provider === 'google_meet'
+                      ? 'Google Meet'
+                      : 'Zoom'
+                }`}
           </Text>
           <Text className="text-[13px] text-text-2">
             {full || latest.body.length <= SHORT ? latest.body : `${latest.body.slice(0, SHORT)}…`}

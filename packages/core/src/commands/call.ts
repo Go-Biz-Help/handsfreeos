@@ -842,7 +842,8 @@ export const callAttachTranscript = defineCommand({
       .set({ transcript, transcriptStatus: input.status })
       .where(eq(calls.id, c.id));
     const next = { ...c, transcript };
-    if (c.activityId && transcript)
+    // Once the AI has summed the call up, its line shows the summary; words coming in again don't replace it.
+    if (c.activityId && transcript && !c.summary)
       await ctx.tx
         .update(activities)
         .set({ body: transcript })

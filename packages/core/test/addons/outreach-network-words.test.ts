@@ -73,7 +73,8 @@ describe('each network’s words for the AI', () => {
     expect(postCheckSystem('facebook')).toBe(POST_CHECK_SYSTEM);
     for (const kind of CUSTOMER_DRAFT_KINDS) expect(draft(kind, 'facebook')).toBe(draft(kind));
     expect(TODAY_DRAFT_SYSTEM).toContain('short Facebook messages');
-    expect(draft('opener')).toContain('accepted the owner’s friend request');
+    // Say hi goes to anyone never talked to, not only who accepted a request (decision 155).
+    expect(draft('opener')).toContain('They and the owner haven’t talked yet');
     expect(draft('comment')).toContain('posted this in a Facebook group');
     // A post Facebook's post search found (decision 141) is in no group: it's on Facebook.
     expect(draft('comment', 'facebook', null)).toContain('They posted this on Facebook.');
@@ -101,8 +102,8 @@ describe('each network’s words for the AI', () => {
     ])
       expect(text).not.toMatch(FACEBOOK_WORDS);
     expect(todayDraftSystem('linkedin')).toContain('short LinkedIn messages');
-    expect(draft('opener', 'linkedin')).toContain('accepted the owner’s invitation to connect');
-    expect(draft('reconnect', 'linkedin')).toContain('the owner’s connection');
+    expect(draft('opener', 'linkedin')).toContain('They and the owner haven’t talked yet');
+    expect(draft('reconnect', 'linkedin')).toContain('They’ve chatted with the owner before');
     // A post off a group, from LinkedIn's post search or the person's own feed, is on LinkedIn.
     expect(draft('comment', 'linkedin')).toContain('They posted this on LinkedIn.');
     expect(draft('warm_lead', 'linkedin')).toContain('own helpful post on LinkedIn');
