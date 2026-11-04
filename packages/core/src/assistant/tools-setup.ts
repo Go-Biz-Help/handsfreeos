@@ -14,6 +14,7 @@
 import { z } from 'zod';
 import { CUSTOM_FIELD_TYPES } from '../crm/custom-fields';
 import { CUSTOMIZABLE_PERMISSIONS, CUSTOMIZABLE_ROLES } from '../permissions';
+import { RECORD_KIND_STARTERS, RELATIONSHIP_STARTERS } from '../relationships/starters';
 import {
   RECORD_ICONS,
   RELATIONSHIP_CARDINALITIES,
@@ -106,10 +107,16 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_record_kind',
     description:
-      'Add, change, archive or bring back a kind of record the business keeps (pets, vehicles, properties): what one is called, its picture, its first fields, and what ties it to customers or companies. Archiving hides its tab, records and relationships; nothing is deleted. Ids are in get_settings (area relationships); archived ones in list_archived_setup.',
+      'Add, change, archive or bring back a kind of record the business keeps (pets, vehicles, properties): what one is called, its picture, its first fields, and what ties it to customers or companies. For create, starter makes one of the starters Settings → Relationships offers, with its fields and its tie to customers, just as the screen’s one press does; anything else given changes that part of it. Archiving hides its tab, records and relationships; nothing is deleted. Ids are in get_settings (area relationships); archived ones in list_archived_setup.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive', 'restore']),
       customRecordTypeId: uuid.optional().describe('The kind to change, archive or bring back'),
+      starter: z
+        .enum(RECORD_KIND_STARTERS.map((s) => s.key) as [string, ...string[]])
+        .optional()
+        .describe(
+          `For create: ${RECORD_KIND_STARTERS.map((s) => `${s.key} (${s.hint.toLowerCase()})`).join(', ')}`,
+        ),
       name: text(40).optional().describe('What one is called: Pet, Vehicle, Property'),
       plural: text(40).optional().describe('More than one, when it isn’t just an s: Properties'),
       nameLabel: text(40).optional().describe('What a record’s own name is called: Name, Plate'),
@@ -138,10 +145,16 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_relationship_type',
     description:
-      'Set up, change, archive or bring back a way two records relate: a customer and a pet, a parent and a student, spouses. Each end is a customer, a company or a kind of record, with what it is called. Only the names of the ends and how many each may have change later. Ids are in get_settings (area relationships); archived ones in list_archived_setup.',
+      'Set up, change, archive or bring back a way two records relate: a customer and a pet, a parent and a student, spouses. Each end is a customer, a company or a kind of record, with what it is called. For create, starter sets up one of the starters Settings → Relationships offers, just as the screen’s one press does; anything else given changes that part of it. Only the names of the ends and how many each may have change later. Ids are in get_settings (area relationships); archived ones in list_archived_setup.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive', 'restore']),
       relationshipTypeId: uuid.optional(),
+      starter: z
+        .enum(RELATIONSHIP_STARTERS.map((s) => s.key) as [string, ...string[]])
+        .optional()
+        .describe(
+          `For create: ${RELATIONSHIP_STARTERS.map((s) => `${s.key} (${s.name.toLowerCase()})`).join(', ')}`,
+        ),
       a: relationshipEnd.optional().describe('End A, for create'),
       b: relationshipEnd.optional().describe('End B, for create'),
       cardinality: cardinality.optional(),

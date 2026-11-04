@@ -8,6 +8,7 @@
  */
 import { AUTOMATIONS, type AutomationDef } from '../automations/catalog';
 import type { Permission } from '../permissions';
+import { RECORD_KIND_STARTERS, RELATIONSHIP_STARTERS } from '../relationships/starters';
 
 /** Every Automations row, with what each may say about itself (always on). */
 const AUTOMATION_ROWS: readonly AutomationDef[] = AUTOMATIONS;
@@ -702,6 +703,45 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'ai_tag_customers', field: 'onlyTagId' },
     { tool: 'ai_tag_customers', field: 'fixDetails' },
   ],
+  // ---- Relationships ----
+  'relationships.record_kinds': [
+    ...['create', 'change', 'archive', 'restore'].map((value) => ({
+      tool: 'manage_record_kind',
+      field: 'action',
+      value,
+    })),
+    ...RECORD_KIND_STARTERS.map((s) => ({
+      tool: 'manage_record_kind',
+      field: 'starter',
+      value: s.key,
+    })),
+    ...[
+      'name',
+      'plural',
+      'nameLabel',
+      'icon',
+      'fields',
+      'linkTo',
+      'linkLabel',
+      'linkCardinality',
+    ].map((field) => ({ tool: 'manage_record_kind', field })),
+  ],
+  'relationships.types': [
+    ...['create', 'change', 'archive', 'restore'].map((value) => ({
+      tool: 'manage_relationship_type',
+      field: 'action',
+      value,
+    })),
+    ...RELATIONSHIP_STARTERS.map((s) => ({
+      tool: 'manage_relationship_type',
+      field: 'starter',
+      value: s.key,
+    })),
+    ...['a', 'b', 'cardinality', 'sameBothWays', 'aLabel', 'bLabel'].map((field) => ({
+      tool: 'manage_relationship_type',
+      field,
+    })),
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -745,7 +785,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
 export const SETTINGS_NOT_YET: readonly string[] = [
-  'relationships',
   'calendars',
   'payments',
   'partners',
