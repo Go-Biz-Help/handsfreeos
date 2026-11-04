@@ -8,6 +8,8 @@ import type { Ok } from '../api/types';
 import { buildWorld } from './scenes';
 import type { DemoState } from './state';
 import {
+  businessOf,
+  DEMO_MEDIA_BUCKET,
   demoId,
   fullName,
   namesDemoRecord,
@@ -18,7 +20,10 @@ import {
   type DemoDraft,
   type DemoEstimate,
   type DemoInvoice,
+  type DemoLeadRecord,
+  type DemoLesson,
   type DemoLine,
+  type DemoReferral,
   type DemoService,
   type DemoWorld,
 } from './world';
@@ -49,6 +54,18 @@ const THREAD = demoId(0xa005);
 const ANSWER = demoId(0xa006);
 const WIDGET = demoId(0xa008);
 const FROM_NUMBER = '+15125550100';
+const STAGE = demoId(0xa00a);
+const PIPELINE = demoId(0xa00b);
+const SOCIAL_ACCOUNT = demoId(0xa00c);
+
+/** "brightpathhomeservices": the business's name as an address or a handle. */
+const slugOf = (w: DemoWorld) =>
+  businessOf(w)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '') || 'business';
+/** The business's mailbox that email scenes write to. */
+const mailboxOf = (w: DemoWorld) => `office@${slugOf(w)}.com`;
+const isSocial = (c: DemoConversation) => c.channel === 'messenger' || c.channel === 'instagram';
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const json = (body: unknown, status = 200) =>
@@ -57,10 +74,12 @@ const json = (body: unknown, status = 200) =>
 /** What a message or a call reads as in the inbox's row. */
 const previewOf = (m: DemoConversation['messages'][number]) =>
   m.call
-    ? m.call.status === 'completed'
-      ? 'Call answered by your AI teammate'
-      : 'Incoming call'
-    : m.body;
+    ? m.call.status === 'missed'
+      ? 'Missed call'
+      : m.call.status === 'completed'
+        ? 'Call answered by your AI teammate'
+        : 'Incoming call'
+    : m.body || (m.media?.length ? 'Sent a photo' : '');
 
 /** A website chat's counterpart is its visitor; a text's is the phone number. */
 const chatOf = (c: DemoConversation) => (c.channel === 'chat' ? (c.visitor ?? null) : null);
@@ -71,15 +90,19 @@ function summary(w: DemoWorld, c: DemoConversation): Summary {
   const visitor = chatOf(c);
   const known = c.known ?? true;
   const channel = c.channel ?? 'sms';
+  const email = channel === 'email' ? (c.person.email ?? null) : null;
+  const social = isSocial(c) ? (c.social ?? null) : null;
   return {
     id: c.id,
     channel,
-    counterpart: visitor ? visitor.id : c.person.phone,
+    counterpart: visitor
+      ? visitor.id
+      : (email ?? (social ? (social.username ?? social.name) : c.person.phone)),
     counterpartDisplay: visitor
       ? known
         ? visitor.name
         : CHAT_VISITOR_NAME
-      : phoneDisplay(c.person.phone),
+      : (email ?? social?.name ?? phoneDisplay(c.person.phone)),
     status: 'open',
     person: known ? { id: c.person.id, fullName: fullName(c.person) } : null,
     assignee: null,
@@ -91,7 +114,18 @@ function summary(w: DemoWorld, c: DemoConversation): Summary {
     awaitingReplySince: waiting,
     snoozedUntil: null,
     archived: false,
-    openLead: null,
+    openLead: c.openLead
+      ? {
+          id: c.openLead.id,
+          title: c.openLead.title,
+          stageId: STAGE,
+          pipelineId: PIPELINE,
+          stageName: c.openLead.stage,
+          valueCents: c.openLead.valueCents,
+          nextAction: null,
+          nextActionAt: null,
+        }
+      : null,
     createdAt: iso(c.createdAt),
     handledBy: c.takenOver ? 'person' : 'ai',
     teammate: { id: TEAMMATE, name: w.state.teammate },
@@ -105,7 +139,15 @@ function summary(w: DemoWorld, c: DemoConversation): Summary {
         id: c.id,
         channel,
         lineId: LINE,
-        lineDisplay: visitor ? visitor.site : phoneDisplay(FROM_NUMBER),
+        lineDisplay: visitor
+          ? visitor.site
+          : channel === 'email'
+            ? mailboxOf(w)
+            : social
+              ? channel === 'instagram'
+                ? `@${slugOf(w)}`
+                : w.state.business
+              : phoneDisplay(FROM_NUMBER),
         unreadCount: c.unread,
         status: 'open',
         archived: false,
@@ -159,7 +201,7 @@ function conversation(w: DemoWorld, c: DemoConversation): Conversation {
           lastName: p.lastName,
           phone: phoneDisplay(p.phone),
           phoneE164: p.phone,
-          email: null,
+          email: p.email ?? null,
           address: {
             line1: null,
             line2: null,
@@ -177,28 +219,78 @@ function conversation(w: DemoWorld, c: DemoConversation): Conversation {
     openTasks: [],
     sender: null,
     canText: visitor ? { ok: false, reason: 'chat_channel' } : { ok: true, reason: null },
-    social: null,
-    fromNumber: phoneDisplay(FROM_NUMBER),
+    social: socialOf(w, c),
+    fromNumber: (c.channel ?? 'sms') === 'sms' ? phoneDisplay(FROM_NUMBER) : null,
     rcs: false,
     quiet: { quiet: false, localTime: now, endsAt: null },
     timezone: w.state.timeZone,
   };
 }
 
+/** A Messenger or Instagram thread's Page or account, who wrote, and Meta's day to reply in. */
+function socialOf(w: DemoWorld, c: DemoConversation): Conversation['social'] {
+  if (!isSocial(c) || !c.social) return null;
+  const instagram = c.channel === 'instagram';
+  const lastIn = [...c.messages].reverse().find((m) => m.direction === 'inbound');
+  return {
+    account: {
+      id: SOCIAL_ACCOUNT,
+      platform: instagram ? 'instagram' : 'facebook',
+      name: w.state.business,
+      username: instagram ? slugOf(w) : null,
+      label: instagram ? `@${slugOf(w)}` : w.state.business,
+      status: 'active',
+      problem: null,
+    },
+    contact: { name: c.social.name, username: c.social.username },
+    everWrote: true,
+    window: {
+      open: true,
+      peopleOnly: false,
+      closesAt: iso((lastIn?.at ?? c.createdAt) + 24 * 3600_000),
+    },
+    textLimit: instagram ? 1000 : 2000,
+  };
+}
+
 function thread(w: DemoWorld, c: DemoConversation): Thread {
   const chat = c.channel === 'chat';
+  const email = c.channel === 'email';
+  const social = isSocial(c);
+  const sms = (c.channel ?? 'sms') === 'sms';
   const me = { id: w.state.me.id, fullName: w.state.me.name };
   const items = c.messages.map((m): ThreadMessage => ({
     type: m.call ? 'call' : 'message',
     id: m.id,
     occurredAt: iso(m.at),
     direction: m.direction,
-    status: m.call ? m.call.status : m.direction === 'inbound' ? 'received' : 'delivered',
+    status: m.call
+      ? m.call.status === 'missed'
+        ? 'no-answer'
+        : m.call.status
+      : m.direction === 'inbound'
+        ? 'received'
+        : 'delivered',
     channel: m.call ? null : (c.channel ?? 'sms'),
-    body: m.call ? null : m.body,
-    subject: null,
-    fromAddress: chat ? null : m.direction === 'inbound' ? c.person.phone : FROM_NUMBER,
-    media: [],
+    body: m.call ? null : m.body || null,
+    subject: m.subject ?? null,
+    fromAddress:
+      chat || social
+        ? null
+        : email
+          ? m.direction === 'inbound'
+            ? (c.person.email ?? null)
+            : mailboxOf(w)
+          : m.direction === 'inbound'
+            ? c.person.phone
+            : FROM_NUMBER,
+    media: (m.media ?? []).map((x) => ({
+      bucket: DEMO_MEDIA_BUCKET,
+      objectPath: x.path,
+      contentType: x.contentType,
+      sizeBytes: x.sizeBytes,
+      name: x.name,
+    })),
     sentBy: m.byMe ? me : null,
     errorCode: null,
     errorMessage: null,
@@ -216,14 +308,19 @@ function thread(w: DemoWorld, c: DemoConversation): Thread {
     conversationId: c.id,
     lineDisplay: null,
     bodyHtml: null,
-    toAddresses: chat || m.call ? [] : [m.direction === 'inbound' ? FROM_NUMBER : c.person.phone],
+    toAddresses:
+      chat || social || m.call
+        ? []
+        : email
+          ? [m.direction === 'inbound' ? mailboxOf(w) : (c.person.email ?? '')]
+          : [m.direction === 'inbound' ? FROM_NUMBER : c.person.phone],
     ccAddresses: [],
     via: null,
     teammate: m.teammate ? { id: TEAMMATE, name: w.state.teammate } : null,
     approvedBy: m.approved ? { id: w.state.me.id, fullName: w.state.me.name } : null,
     aiDraftId: m.draftId ?? null,
     handoffLine: !!m.handoffLine,
-    transport: m.call || chat ? null : 'sms',
+    transport: m.call || !sms ? null : m.media?.length ? 'mms' : 'sms',
     readAt: null,
     rich: null,
     buttonReply: null,
@@ -242,34 +339,42 @@ function draft(w: DemoWorld, c: DemoConversation, d: DemoDraft): Draft {
     teammate: { id: TEAMMATE, name: w.state.teammate },
     runId: RUN,
     conversationId: c.id,
-    channel: 'sms',
+    channel: c.channel ?? 'sms',
     person: { id: c.person.id, fullName: fullName(c.person) },
     lead: null,
     preview: {
-      message: { channel: 'sms', body: d.body, subject: null, inReplyToMessageId: d.inReplyTo },
-      actions: d.book
-        ? [
-            {
-              kind: 'book',
-              calendarId: CALENDAR,
-              startsAt: iso(d.book.startsAt),
-              serviceId: null,
-              durationMinutes: d.book.minutes,
-              sessionId: null,
-              notes: null,
-              postalCode: null,
-              point: null,
-              summary: d.book.summary,
-            },
-          ]
-        : [],
+      message: {
+        channel: c.channel ?? 'sms',
+        body: d.body,
+        subject: d.subject ?? null,
+        inReplyToMessageId: d.inReplyTo,
+      } as Draft['preview']['message'],
+      actions: [
+        ...(d.book
+          ? [
+              {
+                kind: 'book',
+                calendarId: CALENDAR,
+                startsAt: iso(d.book.startsAt),
+                serviceId: null,
+                durationMinutes: d.book.minutes,
+                sessionId: null,
+                notes: null,
+                postalCode: null,
+                point: null,
+                summary: d.book.summary,
+              } as const,
+            ]
+          : []),
+        ...actionOf(d),
+      ],
       discount: null,
       call: null,
       ask: null,
       flags: [],
       funnel: null,
     },
-    edits: null,
+    edits: d.edited ? { body: d.edited } : null,
     reason: null,
     decidedBy: d.status === 'pending' ? null : { id: w.state.me.id, fullName: w.state.me.name },
     decidedAt: d.decidedAt ? iso(d.decidedAt) : null,
@@ -278,54 +383,79 @@ function draft(w: DemoWorld, c: DemoConversation, d: DemoDraft): Draft {
     createdAt: iso(d.at),
     canDecide: true,
     record: null,
-    knowledge: [],
+    knowledge: (d.knowledge ?? []).map((title) => ({ title })),
   };
+}
+
+/** The draft's other action, as the API reads it back. */
+function actionOf(d: DemoDraft): Draft['preview']['actions'] {
+  const a = d.action;
+  if (!a) return [];
+  if (a.kind === 'reschedule')
+    return [
+      {
+        kind: 'reschedule',
+        appointmentId: a.visitId,
+        startsAt: iso(a.startsAt),
+        sessionId: null,
+        summary: a.summary,
+      },
+    ];
+  if (a.kind === 'cancel')
+    return [{ kind: 'cancel', appointmentId: a.visitId, reason: null, summary: a.summary }];
+  return [
+    { kind: 'share_link', document: 'estimate', documentId: a.estimateId, summary: a.summary },
+  ];
 }
 
 /** Newest first, as the API lists them. */
 const draftsOf = (w: DemoWorld, c: DemoConversation) =>
   [...c.drafts].sort((a, b) => b.at - a.at).map((d) => draft(w, c, d));
 
-function visits(w: DemoWorld, c: DemoConversation): Visits {
+/** Their visits; a cancelled one only when asked for, as the API lists them. */
+function visits(w: DemoWorld, c: DemoConversation, status: unknown): Visits {
+  const cancelled = Array.isArray(status) && status.includes('cancelled');
   return {
     timezone: w.state.timeZone,
-    items: c.visits.map((v) => ({
-      id: v.id,
-      calendar: { id: CALENDAR, name: 'Service calls', color: '#2d69d8' },
-      service: { id: demoId(0xa007), name: v.title },
-      kind: 'booking',
-      title: v.title,
-      startsAt: iso(v.startsAt),
-      endsAt: iso(v.startsAt + v.minutes * 60_000),
-      bufferBefore: 0,
-      bufferAfter: 0,
-      capacity: 1,
-      seatsTaken: 1,
-      status: 'scheduled',
-      location: {
-        kind: null,
-        address: null,
-        meetingUrl: null,
-        postalCode: null,
-        video: null,
-        meetingId: null,
-        meetingFor: null,
-        meetingError: null,
-        record: false,
-      },
-      seriesId: null,
-      occurrence: null,
-      source: 'ai_teammate',
-      leadId: null,
-      customRecord: null,
-      notes: null,
-      staff: [],
-      resources: [],
-      attendees: [],
-      heldUntil: null,
-      createdAt: iso(v.bookedAt),
-      updatedAt: iso(v.bookedAt),
-    })),
+    items: c.visits
+      .filter((v) => cancelled || !v.cancelled)
+      .map((v) => ({
+        id: v.id,
+        calendar: { id: CALENDAR, name: 'Service calls', color: '#2d69d8' },
+        service: { id: demoId(0xa007), name: v.title },
+        kind: 'booking',
+        title: v.title,
+        startsAt: iso(v.startsAt),
+        endsAt: iso(v.startsAt + v.minutes * 60_000),
+        bufferBefore: 0,
+        bufferAfter: 0,
+        capacity: 1,
+        seatsTaken: v.cancelled ? 0 : 1,
+        status: v.cancelled ? 'cancelled' : 'scheduled',
+        location: {
+          kind: null,
+          address: null,
+          meetingUrl: null,
+          postalCode: null,
+          video: null,
+          meetingId: null,
+          meetingFor: null,
+          meetingError: null,
+          record: false,
+        },
+        seriesId: null,
+        occurrence: null,
+        source: 'ai_teammate',
+        leadId: null,
+        customRecord: null,
+        notes: null,
+        staff: [],
+        resources: [],
+        attendees: [],
+        heldUntil: null,
+        createdAt: iso(v.bookedAt),
+        updatedAt: iso(v.bookedAt),
+      })),
   };
 }
 
@@ -728,6 +858,214 @@ function serviceRow(s: DemoService, i: number): ServiceItem {
   };
 }
 
+type Attention = Ok<'/v1/queries/attention.list'>;
+
+/** Home's card for a lesson the AI teammate made of the presenter's change, as the Action Center words it. */
+function lessonItem(w: DemoWorld, l: DemoLesson): Attention['items'][number] {
+  const chip = `Corrected once · “${l.line}”`;
+  return {
+    ...cardBase(l.id, l.at),
+    kind: 'ai_corrections',
+    subject: { type: 'lesson', id: l.id },
+    title: `${w.state.teammate} was corrected`,
+    detail: l.why,
+    valueCents: 0,
+    reasons: [{ code: 'corrected', label: chip, text: chip }],
+    score: 40,
+    handleLabel: 'Add to its instructions',
+    actions: { handle: true, letHandle: false, assign: false, snooze: true, dismiss: true },
+  };
+}
+
+/** Home's card for somebody a customer mentioned, as the Action Center words it: one press makes the lead. */
+function referralItem(r: DemoReferral): Attention['items'][number] {
+  return {
+    ...cardBase(r.id, r.at),
+    kind: 'referral_mentioned',
+    subject: { type: 'referral', id: r.id },
+    personId: r.from.id,
+    conversationId: r.conversationId,
+    title: `${fullName(r.from)} · Mentioned ${r.name}`,
+    detail: r.quote,
+    // Somebody new: the business's typical job, as an estimate.
+    valueCents: 45_000,
+    reasons: [
+      { code: 'referral', label: `${r.relation} · ${r.need}`, text: `${r.relation} · ${r.need}` },
+    ],
+    score: 60,
+    handleLabel: 'Create lead',
+    actions: { handle: true, letHandle: false, assign: true, snooze: true, dismiss: true },
+  };
+}
+
+/** What every made-up Home card shares: open, nobody's yet, nothing done about it. */
+function cardBase(id: string, at: number) {
+  return {
+    id,
+    state: 'open' as const,
+    personId: null,
+    leadId: null,
+    conversationId: null,
+    appointmentId: null,
+    startsAt: null,
+    reach: null,
+    callable: false,
+    addonAlert: null,
+    valueIsEstimate: true,
+    urgent: false,
+    urgency: 0,
+    since: iso(at),
+    urgentFrom: null,
+    dueAt: null,
+    openedAt: iso(at),
+    assignee: null,
+    snoozedUntil: null,
+    dismissedAt: null,
+    dismissReason: null,
+    handled: null,
+    auto: { action: null, state: null, scheduledFor: null, doneAt: null, skipReason: null },
+    letHandleMode: 'none' as const,
+  };
+}
+
+/** The business's pipeline, as Bright Path's seed names its stages. */
+const STAGES = [
+  { name: 'New', kind: 'open' },
+  { name: 'Quoted', kind: 'open' },
+  { name: 'Scheduled', kind: 'open' },
+  { name: 'Won', kind: 'won' },
+  { name: 'Lost', kind: 'lost' },
+] as const;
+const stageId = (name: string) =>
+  demoId(
+    0xa010 +
+      Math.max(
+        0,
+        STAGES.findIndex((s) => s.name === name),
+      ),
+  );
+
+function lead(w: DemoWorld, l: DemoLeadRecord): Ok<'/v1/queries/lead.get'> {
+  const stage = STAGES.find((s) => s.name === l.stage) ?? STAGES[0];
+  return {
+    lead: {
+      id: l.id,
+      title: l.title,
+      pipelineId: PIPELINE,
+      stageId: stageId(stage.name),
+      stageName: stage.name,
+      stageKind: stage.kind,
+      status: 'open',
+      person: { id: l.person.id, fullName: fullName(l.person), archived: false },
+      company: null,
+      valueCents: l.valueCents,
+      source: l.source,
+      assignee: { id: w.state.me.id, fullName: w.state.me.name },
+      expectedCloseOn: null,
+      nextAction: null,
+      nextActionAt: null,
+      needsNextAction: true,
+      nextActionOverdue: false,
+      lastContactAt: null,
+      wonAt: null,
+      lostAt: null,
+      lostReason: null,
+      position: 0,
+      tags: [],
+      stageEnteredAt: iso(l.at),
+      archivedAt: null,
+      createdAt: iso(l.at),
+      updatedAt: iso(l.at),
+      qualification: null,
+    },
+    stages: STAGES.map((s, i) => ({
+      id: stageId(s.name),
+      name: s.name,
+      kind: s.kind,
+      position: i,
+    })),
+  };
+}
+
+/** Where a Messenger or Instagram conversation's customer came from: the ad they tapped. */
+function attribution(w: DemoWorld, c: DemoConversation | null): Ok<'/v1/queries/attribution.list'> {
+  const ad = c?.social?.ad;
+  if (!c || !ad) return { touches: [], first: null, latest: null, total: 0 };
+  const id = demoId(0xa00d);
+  const instagram = c.channel === 'instagram';
+  return {
+    touches: [
+      {
+        id,
+        touchedAt: iso(ad.at),
+        kind: 'started',
+        platform: instagram ? 'instagram' : 'facebook',
+        channel: instagram ? 'instagram' : 'messenger',
+        source: 'ADS',
+        referralType: 'OPEN_THREAD',
+        ref: null,
+        adId: '120210000000000001',
+        adTitle: ad.headline,
+        adPhotoUrl: null,
+        postId: null,
+        refererUri: null,
+        conversationId: c.id,
+        personId: c.person.id,
+        leadId: c.openLead?.id ?? null,
+        accountName: w.state.business,
+        formName: null,
+        ad: {
+          externalId: '120210000000000001',
+          status: 'resolved',
+          name: ad.name,
+          adsetId: null,
+          adsetName: null,
+          campaignId: '120210000000000002',
+          campaignName: ad.campaign,
+          campaignObjective: 'OUTCOME_ENGAGEMENT',
+          creativeId: null,
+          creativeName: null,
+          creativeTitle: ad.headline,
+          creativeBody: ad.body,
+          creativeThumbnailUrl: null,
+          callToAction: 'MESSAGE_PAGE',
+          platforms: [instagram ? 'instagram' : 'facebook'],
+        },
+      },
+    ],
+    first: id,
+    latest: id,
+    total: 1,
+  };
+}
+
+/** Replying by email: from the business's mailbox, to the customer, on the thread's subject. */
+function composeOptions(
+  w: DemoWorld,
+  c: DemoConversation,
+): Ok<'/v1/queries/email.compose_options'> {
+  const subject = [...c.messages].reverse().find((m) => m.subject)?.subject ?? null;
+  const address = demoId(0xa00e);
+  return {
+    to: c.person.email ?? null,
+    conversationId: c.id,
+    canEmail: c.person.email ? { ok: true, reason: null } : { ok: false, reason: 'no_email' },
+    suppressed: null,
+    addresses: [
+      {
+        id: address,
+        address: mailboxOf(w),
+        displayName: w.state.business,
+        isDefault: true,
+        usable: true,
+      },
+    ],
+    fromAddressId: address,
+    mailboxes: [],
+    replySubject: subject ? (/^re:/i.test(subject) ? subject : `Re: ${subject}`) : null,
+  };
+}
+
 const findConversation = (w: DemoWorld, id: unknown) =>
   w.conversations.find((c) => c.id === id || c.person.id === id) ?? null;
 
@@ -789,6 +1127,18 @@ export async function demoResponse(
           becameAutomatic: false,
         },
       });
+    }
+    if (name === 'referral.create_lead') {
+      // The step that presses it has already made the lead.
+      const r = w.referrals.find((x) => x.id === body['referralId']);
+      const l = r?.leadId ? w.leads.find((x) => x.id === r.leadId) : null;
+      if (r && l)
+        return json({
+          referralId: r.id,
+          personId: l.person.id,
+          leadId: l.id,
+          existingPerson: false,
+        });
     }
     if (name === 'conversation.take_over' && c)
       return json({ conversationId: c.id, draftCancelled: false });
@@ -930,6 +1280,26 @@ export async function demoResponse(
       const found = w.campaigns.find((x) => x.id === body['campaignId']);
       return found ? json(campaign(found)) : null;
     }
+    case 'attention.list': {
+      const mine = [
+        ...w.referrals.filter((r) => !r.leadId).map(referralItem),
+        ...w.lessons.filter((l) => !l.applied).map((l) => lessonItem(w, l)),
+      ];
+      if (!mine.length) return null;
+      const res = await real();
+      if (!res.ok) return res;
+      const got = (await res.json()) as Attention;
+      return json({
+        ...got,
+        items: [...mine, ...got.items],
+        counts: {
+          ...got.counts,
+          total: got.counts.total + mine.length,
+          mine: got.counts.mine + mine.length,
+          everyone: got.counts.everyone + mine.length,
+        },
+      });
+    }
     case 'service.list': {
       if (!w.services.length) return null;
       const res = await real();
@@ -942,14 +1312,35 @@ export async function demoResponse(
     }
   }
   if (!names) return null;
+  // A made-up lead's page.
+  const l = w.leads.find((x) => x.id === (body['leadId'] ?? body['recordId']));
+  if (l || w.leads.some((x) => x.person.id === body['personId']))
+    switch (name) {
+      case 'lead.get':
+        return l ? json(lead(w, l)) : null;
+      case 'timeline.list':
+        return json({ items: [], nextCursor: null });
+      case 'task.list':
+        return json({ items: [], nextCursor: null, timezone: w.state.timeZone });
+      case 'file.list':
+        return json({ files: [] });
+      case 'workflow.run_list':
+        return json({ items: [], nextCursor: null });
+      case 'appointment.list':
+        return json({ timezone: w.state.timeZone, items: [] });
+    }
   // The panels beside a made-up conversation.
   switch (name) {
     case 'appointment.list':
-      return c ? json(visits(w, c)) : null;
+      return c ? json(visits(w, c, body['status'])) : null;
     case 'timeline.list':
       return c ? json(timeline(c)) : null;
     case 'attention.for_record':
       return json({ items: [] });
+    case 'attribution.list':
+      return json(attribution(w, c));
+    case 'email.compose_options':
+      return c ? json(composeOptions(w, c)) : null;
     case 'ai_teammate.feedback':
       return json({ feedback: [], messageRuns: [], canSaveRules: false });
     case 'funnel.of_person':

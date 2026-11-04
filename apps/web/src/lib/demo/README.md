@@ -42,9 +42,12 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
   both get the answers.
 - **The screens catch up.** After a step changes something, `emitLocalChange` (in `lib/realtime/live-provider.tsx`)
   tells this tab's screens, as a broadcast would, so they fetch again.
-- **What the world can hold** (`world.ts`): texts, calls with a transcript, website chats from a visitor who isn't
-  known until they give a name, drafts waiting for an OK, visits, hand-offs to a person (and Take it), estimates
-  with the customer's approval, invoices made from them, services, and campaigns. `teammateAutomatic` makes the AI
+- **What the world can hold** (`world.ts`): texts, calls with a transcript (or missed), website chats from a
+  visitor who isn't known until they give a name, emails, Messenger and Instagram messages (with the ad the customer
+  tapped), photos, drafts waiting for an OK (with what approving does: book, move or cancel a visit, or send a quote's
+  link; what the presenter changed; what it used from Knowledge), visits, hand-offs to a person (and Take it),
+  estimates with the customer's approval, invoices made from them, services, campaigns, leads with a page of their
+  own, and Home's cards for a lesson from the presenter's change and for a referral (Create lead). `teammateAutomatic` makes the AI
   teammate read as answering on its own, for scenes past its training. A business with no AI teammate (Bright
   Path has none) gets one made up, in training.
 - **Made-up ids start with `de300000-0000-4000-8000-`** (`demoId`), so an answer for one can't be mistaken for a
@@ -79,6 +82,12 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
      the turn hears the words as written (`ears.ts`, through `scriptVoice` in `lib/voice/session.ts`), so no
      microphone is used. A spoken yes confirms the one waiting card, and a line its voice can't say plays as a
      pause.
+   - **The AI teammate's scenes** use `scenes/teammate-kit.ts`: `customerSays`, `teammateSays` (past its
+     training), `draftReply` and `approveDraft` (in training), `newPerson` and `regular`, and `changeWords`, which
+     edits the end of a draft as a person would. A photo is a file in `public/demo/`, in bucket `hfos-demo`, shown
+     as it is. A Home card is aimed at by `[data-testid="attention-card"][data-item="<id>"]`; `@id` takes no
+     descendant, so write a CSS selector there. A toast's button is gone by the time a presenter has finished
+     talking: open its page with `p.go` in the next step.
    - **Only what the Assistant can do.** It can't search notes or messages (Search everything is for people only),
      so a scene that finds something that way plays in the Search box instead.
 5. If a screen the scene opens asks for something `respond.ts` doesn't answer yet, the browser console says

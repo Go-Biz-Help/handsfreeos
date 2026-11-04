@@ -11,6 +11,9 @@ import { myDay } from './my-day';
 import { priceQuestion } from './price-question';
 import { quoteToInvoice } from './quote-to-invoice';
 import { reviewRequests } from './review-requests';
+import { TEAMMATE_CHANNEL_SCENES } from './teammate-channels';
+import { TEAMMATE_SALES_SCENES } from './teammate-sales';
+import { TEAMMATE_VISIT_SCENES } from './teammate-visits';
 import { textCampaign } from './text-campaign';
 import { upsetCustomer } from './upset-customer';
 import { websiteChat } from './website-chat';
@@ -31,6 +34,9 @@ export const DEMO_SCENES: readonly DemoScene[] = [
   moneyOwed,
   myDay,
   reviewRequests,
+  ...TEAMMATE_VISIT_SCENES,
+  ...TEAMMATE_SALES_SCENES,
+  ...TEAMMATE_CHANNEL_SCENES,
   ...ASK_LOOK_SCENES,
   ...ASK_DO_SCENES,
   talkFromTheTruck,
@@ -64,6 +70,9 @@ export function buildWorld(state: DemoState, workspaceId: string): DemoWorld | n
     estimates: [],
     invoices: [],
     services: [],
+    lessons: [],
+    leads: [],
+    referrals: [],
     answer: null,
     cards: {},
     chat: [],

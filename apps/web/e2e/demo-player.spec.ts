@@ -272,6 +272,90 @@ test('demo player: Ask HandsFreeOS answers what needs you, quotes from a sentenc
     await expect(page.getByText(name)).toHaveCount(0);
 });
 
+test('demo player: the AI teammate texts back a missed call, reads a photo, moves and fills visits, makes a referral a lead, learns from a fix, and answers email, Messenger and Instagram', async ({
+  page,
+}) => {
+  test.setTimeout(900_000);
+  const workspaceId = await staffBusiness(page, 'demo-teammate-more');
+  await page.goto(`/app/w/${workspaceId}/inbox?demo`);
+  await expect(director(page)).toBeVisible();
+  const thread = page.getByTestId('conversation');
+  const side = page.getByTestId('context-panel');
+
+  // Scene 12: a missed call, texted back in seconds and booked by text.
+  await pick(page, 'missed-call', 'Open the Inbox');
+  await play(page, 7);
+  await expect(thread.getByText('Missed call')).toBeVisible();
+  await expect(thread.getByText(/Sorry we missed your call!/)).toBeVisible();
+  await expect(side.getByText('AC repair')).toBeVisible();
+
+  // Scene 13: it asks for a photo, the photo shows in the thread, and it reads what's wrong.
+  await pick(page, 'send-a-photo', 'Open the Inbox');
+  await play(page, 6);
+  await expect(thread.getByTestId('media-thumb').locator('img')).toHaveAttribute(
+    'src',
+    '/demo/water-heater-leak.svg',
+  );
+  await expect(thread.getByText(/coming from the relief valve pipe/)).toBeVisible();
+
+  // Scene 14: the customer moves her own visit, on your OK.
+  await pick(page, 'move-my-visit', 'Open the Inbox');
+  await play(page, 5);
+  await expect(thread.getByText(/I’ve moved your AC tune-up to tomorrow at 9:00 AM/)).toBeVisible();
+  await expect(page.getByTestId('draft-card')).toHaveCount(0);
+
+  // Scene 15: a question about a quote, answered from its lines, and the quote approved.
+  await pick(page, 'quote-question', 'Open the Inbox');
+  await play(page, 6);
+  await expect(page).toHaveURL(/\/money\/estimates\/de300000-/);
+  await expect(page.getByTestId('document-activity')).toContainText('Megan Cross');
+
+  // Scene 16: a cancelled time goes to the first person waiting, who takes it.
+  await pick(page, 'cancellation-fills', 'Open the Inbox');
+  await play(page, 5);
+  await expect(
+    thread.getByText(/A time opened on .+ at 9:00 AM \(Furnace tune-up\)/),
+  ).toBeVisible();
+  await expect(thread.getByText(/You're booked for .+ at 9:00 AM/)).toBeVisible();
+  await expect(side.getByText('Furnace tune-up')).toBeVisible();
+
+  // Scene 17: a neighbor mentioned in a text becomes a lead in one press on Home, and it says who sent her.
+  await pick(page, 'neighbor-referral', 'Open the Inbox');
+  await play(page, 7);
+  await expect(page).toHaveURL(/\/leads\/de300000-/);
+  await expect(page.getByTestId('lead-source')).toHaveText('Referred by Carla Benson');
+
+  // Scene 18: your change to its draft becomes a lesson on Home, and the next customer gets it right.
+  await pick(page, 'learns-from-fix', 'Open the Inbox');
+  await play(page, 8);
+  await expect(page.getByTestId('draft-text')).toContainText(
+    'We don’t work Sundays, but we can come',
+  );
+
+  // Scene 19: an email asking for a quote, answered with questions, and a lead on the pipeline.
+  await pick(page, 'property-manager-email', 'Open the Inbox');
+  await play(page, 5);
+  await expect(page.getByTestId('context-open-lead')).toContainText('Westpark Townhomes');
+
+  // Scene 20: a Messenger message from an ad, booked, with the ad it came from.
+  await pick(page, 'messenger-ad-lead', 'Open the Inbox');
+  await play(page, 6);
+  await expect(page.getByTestId('attribution-section')).toContainText('Fall furnace tune-ups');
+
+  // Scene 21: an Instagram question answered from the price list.
+  await pick(page, 'instagram-prices', 'Open the Inbox');
+  await play(page, 5);
+  await expect(thread.getByText(/An AC tune-up is \$89/)).toBeVisible();
+
+  // None of it was ever saved.
+  await page.getByTestId('demo-exit').click();
+  await expect(director(page)).toHaveCount(0);
+  await page.goto(`/app/w/${workspaceId}/inbox`);
+  await expect(page.getByRole('heading', { name: 'Inbox' })).toBeVisible();
+  for (const name of ['Hannah Pierce', 'Carla Benson', 'Diane Wexler', 'Nate Romero'])
+    await expect(page.getByText(name)).toHaveCount(0);
+});
+
 test('demo player: Admin → Demo player plays a scene in your business, each step with its voiceover', async ({
   page,
 }) => {
