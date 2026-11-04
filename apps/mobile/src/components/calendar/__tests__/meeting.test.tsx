@@ -209,6 +209,46 @@ describe('a recorded call', () => {
     });
   });
 
+  it('reads a phone call by the call: its words, and the task the AI added on its own', async () => {
+    const PHONE = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    answer({
+      summary: 'Mike wants the duct quote by Friday.',
+      transcript: 'Priya: I’ll send you the quote by Friday.',
+      items: [
+        {
+          id: 's5',
+          kind: 'task',
+          status: 'approved',
+          preview: { title: 'Send Mike the duct quote' },
+          taskId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+        },
+      ],
+    });
+    await render(<CallRecord workspaceId={WS} callId={PHONE} online />);
+    await waitFor(() => screen.getByTestId('call-summary'));
+    expect(post).toHaveBeenCalledWith('/v1/queries/call_suggestion.list', {
+      body: { workspaceId: WS, callId: PHONE },
+    });
+    // A phone call keeps its words on itself: no transcripts to ask for, and no chat.
+    expect(post).not.toHaveBeenCalledWith('/v1/queries/appointment.transcripts', expect.anything());
+    expect(post).not.toHaveBeenCalledWith('/v1/queries/video_call.chat', expect.anything());
+    expect(screen.getByTestId('call-suggestion')).toHaveTextContent(/Task added/);
+    expect(screen.queryByTestId('call-suggestion-approve')).toBeNull();
+    expect(screen.getByTestId('call-transcript')).toHaveTextContent(/What was said/);
+  });
+
+  it('says a phone call’s words come a few minutes after it ends', async () => {
+    answer({ summary: null, transcript: null, items: [] });
+    await render(
+      <CallRecord workspaceId={WS} callId="eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee" online />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('call-record-waiting')).toHaveTextContent(
+        'The call’s words show here a few minutes after it ends.',
+      ),
+    );
+  });
+
   it('keeps a HandsFreeOS call’s chat, folded under its count, with its links pressable', async () => {
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
     answer(

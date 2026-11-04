@@ -1,13 +1,17 @@
-import { businessOf, fullName, type DemoWorld } from '../world';
+import { aiTaskNotes } from '@hfos/core';
+import { businessOf, fullName, wallTime, type DemoPerson, type DemoWorld } from '../world';
 import { beatStep, dollars, idsFor, PREPARING, ran } from './ask-kit';
-import { DAY, halfHourBefore, localDate, MIN } from './calendar-kit';
-import { myFirstName } from './kit';
+import { DAY, halfHourBefore, HOUR, localDate, MIN } from './calendar-kit';
+import { conversationIn, myFirstName, openConversation, replyAsMe } from './kit';
 import { newPerson, regular } from './teammate-kit';
 import type { DemoPlayer, DemoScene } from './types';
 
 /**
- * Paperwork and calls: a contract signed on a phone (33), a recorded call that turns into a task and a follow-up
- * email (37), and a quote right after a HandsFreeOS video call, whose summary and chat stay on the lead (38).
+ * Paperwork and calls: a contract signed on a phone (33), a recorded call whose task the AI adds on its own and whose
+ * follow-up email waits for a tap (37), a quote right after a HandsFreeOS video call, whose summary and chat stay on
+ * the lead (38), a phone call on the business number that turns into tasks (67), and the presenter's own text that
+ * does too (68). Since 4 November 2026 the AI adds a call's tasks, and those from what the team writes, without
+ * asking (Settings → Automations, "Add tasks from what you say"); words to a customer still wait.
  */
 
 /** "Fri, Dec 4", for a local date, as the money cards write one. */
@@ -116,6 +120,15 @@ const s37 = idsFor(37);
 const CONSULT = s37(0x21);
 const TASK = s37(0x31);
 const FOLLOW_UP = s37(0x32);
+const TASK_MADE = s37(0x33);
+const CELESTE = newPerson(
+  s37(1),
+  'Celeste',
+  'Reyes',
+  3701,
+  'Houston',
+  'celeste@lonestardental.example.com',
+);
 
 function consultNotes(w: DemoWorld) {
   const v = w.visits.find((x) => x.id === CONSULT);
@@ -133,16 +146,19 @@ export const callToTasks: DemoScene = {
   setup: (w, at) => {
     const starts = halfHourBefore(at - 2 * 60 * MIN);
     const me = myFirstName(w);
+    // The AI added the task as the call's review came in, as the worker does; it's on the Tasks page too.
+    w.tasks.push({
+      id: TASK_MADE,
+      title: 'Measure both rooftop units at Lone Star Dental',
+      notes: aiTaskNotes(null, 'video_call', fullName(CELESTE)),
+      at: starts + 35 * MIN,
+      dueAt: null,
+      allDay: true,
+      person: CELESTE,
+    });
     w.visits.push({
       id: CONSULT,
-      person: newPerson(
-        s37(1),
-        'Celeste',
-        'Reyes',
-        3701,
-        'Houston',
-        'celeste@lonestardental.example.com',
-      ),
+      person: CELESTE,
       title: 'Rooftop units: Lone Star Dental',
       startsAt: starts,
       minutes: 30,
@@ -169,7 +185,8 @@ export const callToTasks: DemoScene = {
             id: TASK,
             kind: 'task',
             preview: { title: 'Measure both rooftop units at Lone Star Dental' },
-            status: 'pending',
+            status: 'approved',
+            taskId: TASK_MADE,
           },
           {
             id: FOLLOW_UP,
@@ -198,21 +215,15 @@ export const callToTasks: DemoScene = {
       run: (p) => p.point('[data-testid="call-review"] > p'),
     },
     {
-      label: 'Approve the task',
-      voiceover: 'It suggests a task: measure both units. One tap, and it’s on your list.',
-      change: (w) => {
-        const s = consultNotes(w).suggestions.find((x) => x.id === TASK);
-        if (s) s.status = 'approved';
-      },
-      run: async (p) => {
-        await p.click(NEXT_SUGGESTION);
-        await p.waitFor('[data-testid="call-suggestion"][data-status="approved"]', 15_000);
-      },
+      label: 'The task is already on your list',
+      voiceover:
+        'You told her you’d come measure both units, so that’s already a task on your list. Nobody had to write it down or approve it, and if you don’t need it, it’s one tap to delete.',
+      run: (p) => p.point('[data-testid="call-suggestion"][data-status="approved"]'),
     },
     {
       label: 'Send the follow-up email',
       voiceover:
-        'And it wrote the follow-up email you promised her, in your words. Read it, then one more tap sends it.',
+        'It wrote the follow-up email you promised her too, in your words. Anything that goes to a customer waits for you: read it, then one tap sends it.',
       change: (w) => {
         const s = consultNotes(w).suggestions.find((x) => x.id === FOLLOW_UP);
         if (s) s.status = 'approved';
@@ -230,7 +241,7 @@ export const callToTasks: DemoScene = {
     {
       label: 'The whole call is kept',
       voiceover:
-        'Two taps, and nothing from the call is forgotten. The whole conversation is kept too, word for word, if you ever need it.',
+        'One tap, and nothing from the call is forgotten. The whole conversation is kept too, word for word, if you ever need it.',
       run: async (p) => {
         await p.click('[data-testid="appointment-transcript"] summary');
         await p.point('[data-testid="appointment-transcript"] p');
@@ -468,4 +479,273 @@ export const videoQuote: DemoScene = {
   ],
 };
 
-export const PAPERWORK_CALL_SCENES: readonly DemoScene[] = [signOnPhone, callToTasks, videoQuote];
+// ------------------------------------------------------------------------------- 67. a phone call turns into tasks
+
+const s67 = idsFor(67);
+const DARNELL = newPerson(s67(1), 'Darnell', 'Ferris', 6701, 'Pearland');
+const DARNELL_LEAD = s67(0x21);
+const DARNELL_CALL = s67(0x22);
+const PRICE_TASK = s67(0x31);
+const STOCK_TASK = s67(0x32);
+const CALL_EMAIL = s67(0x33);
+const PRICE_TITLE = 'Text Darnell a price for a new 50-gallon water heater';
+const STOCK_TITLE = 'Check we have a 50-gallon gas water heater in stock for Darnell';
+
+/** What the AI made of the call, in the dialog Notes from the call opens. */
+const PHONE_NOTES = '@phone-call-notes';
+
+export const phoneCallTasks: DemoScene = {
+  id: 'phone-call-tasks',
+  number: 67,
+  title: 'A phone call turns into tasks',
+  kind: 'app',
+  startsOn: `leads/${DARNELL_LEAD}`,
+  // Twenty minutes ago Darnell called the business number about his water heater, and the presenter answered in the
+  // browser. The AI has listened back: the summary is on the call, and what was promised is on the Tasks page.
+  setup: (w, at) => {
+    const ended = at - 20 * MIN;
+    const me = w.state.me.name;
+    const person: DemoPerson = regular(DARNELL, at, 4);
+    const from = aiTaskNotes(null, 'phone_call', fullName(person));
+    w.tasks.push(
+      {
+        id: PRICE_TASK,
+        title: PRICE_TITLE,
+        notes: from,
+        at: ended + 2 * MIN,
+        // "Within the hour", from when the call ended.
+        dueAt: halfHourBefore(ended + HOUR + 29 * MIN),
+        allDay: false,
+        person,
+        lead: { id: DARNELL_LEAD, title: 'Water heater leaking' },
+      },
+      {
+        id: STOCK_TASK,
+        title: STOCK_TITLE,
+        notes: from,
+        at: ended + 2 * MIN,
+        dueAt: wallTime(at, w.state.timeZone, 0, 0),
+        allDay: true,
+        person,
+        lead: { id: DARNELL_LEAD, title: 'Water heater leaking' },
+      },
+    );
+    w.leads.push({
+      id: DARNELL_LEAD,
+      title: 'Water heater leaking',
+      person,
+      stage: 'New',
+      valueCents: 185_000,
+      source: 'Phone call',
+      at: ended - 7 * MIN,
+      phoneCall: {
+        id: DARNELL_CALL,
+        at: ended,
+        seconds: 372,
+        notes: {
+          id: s67(0x23),
+          at: ended + 2 * MIN,
+          summary:
+            'Darnell Ferris called about water pooling under the gas water heater in his garage. It’s 12 years old, and the leak is coming from the bottom of the tank, so it needs replacing rather than a repair. He wants a new 50-gallon gas heater put in this week. Next steps: check one is in stock, then text him a price within the hour.',
+          transcript: [
+            `Darnell Ferris: Hi, there’s water all over my garage floor, under the water heater.`,
+            `${me}: Sorry to hear that. Is it coming from the pipes on top, or from the bottom of the tank?`,
+            'Darnell Ferris: The bottom. It’s rusty down there, and it’s about twelve years old.',
+            `${me}: Then the tank itself is leaking, and it’ll need replacing. For now, turn the cold water valve above it to off, and turn the gas knob to pilot.`,
+            'Darnell Ferris: Okay, done. How fast can you put a new one in?',
+            `${me}: This week. Let me check we have a 50-gallon gas one in stock, and I’ll text you a price within the hour.`,
+            'Darnell Ferris: Perfect, thank you.',
+          ].join('\n'),
+          suggestions: [
+            {
+              id: s67(0x41),
+              kind: 'task',
+              preview: { title: STOCK_TITLE },
+              status: 'approved',
+              taskId: STOCK_TASK,
+            },
+            {
+              id: s67(0x42),
+              kind: 'task',
+              preview: { title: PRICE_TITLE },
+              status: 'approved',
+              taskId: PRICE_TASK,
+            },
+            {
+              id: CALL_EMAIL,
+              kind: 'follow_up',
+              preview: {
+                subject: 'Your water heater',
+                body: `Hi Darnell,\n\nThanks for calling. Keep the cold water valve off and the gas on pilot until we swap it out. I’m checking we have a 50-gallon gas heater in stock, and I’ll text you the price within the hour.\n\n${myFirstName(w)}\n${businessOf(w)}`,
+              },
+              status: 'pending',
+            },
+          ],
+        },
+      },
+    });
+  },
+  steps: [
+    {
+      label: 'Open Darnell’s lead',
+      voiceover:
+        'Darnell called your business number about water on his garage floor, and you picked up in the browser. You talked him through it, hung up, and got back to work.',
+      run: (p) => p.point('@timeline-call-answered'),
+    },
+    {
+      label: 'The summary is on the call',
+      voiceover:
+        'A couple of minutes after the call ended, the AI listened back. Its summary is the call’s line on his timeline: what’s wrong, and what you told him you’d do.',
+      run: (p) => p.point('[data-testid="timeline-call-answered"] > .whitespace-pre-wrap'),
+    },
+    {
+      label: 'Open the notes from the call',
+      voiceover:
+        'Everything you promised on the phone is already a task: check the heater’s in stock, and text him a price. Nobody wrote them down, and nobody had to approve them.',
+      run: async (p) => {
+        await p.click('@timeline-phone-call-notes');
+        await p.waitFor(PHONE_NOTES, 15_000);
+        await p.point('[data-testid="call-suggestion"][data-status="approved"]');
+      },
+    },
+    {
+      label: 'The email waits for you',
+      voiceover:
+        'It drafted the follow-up email too. Anything that goes to the customer still waits for your tap. And the whole call is kept, word for word.',
+      run: async (p) => {
+        await p.point('[data-testid="call-suggestion"][data-status="pending"] textarea');
+        await p.wait(1_200);
+        await p.point('@call-review-said');
+      },
+    },
+    {
+      label: 'Open your task list',
+      voiceover:
+        'And here they are on your task list: the price, due within the hour, each with a note saying which call it came from.',
+      run: async (p) => {
+        await closeDialog(p);
+        await p.go('tasks');
+        await p.waitFor(`@task-row-${PRICE_TASK}`, 15_000);
+        await p.point(`@task-row-${PRICE_TASK}`);
+      },
+    },
+  ],
+};
+
+// ------------------------------------------------------------------------------ 68. your own texts turn into tasks
+
+const s68 = idsFor(68);
+const MAYA = newPerson(s68(1), 'Maya', 'Castellano', 6801, 'Sugar Land');
+const MAYA_TEXTS = s68(0x21);
+const MAYA_ASKS = s68(0x22);
+const MY_REPLY = s68(0x23);
+const VISIT_TASK = s68(0x31);
+const TUNE_UP_TASK = s68(0x32);
+const REPLY =
+  'Hi Maya, sorry about that! I’ll swing by tomorrow at 10 to look at the upstairs unit, and I’ll text you the tune-up price tonight so you can decide.';
+
+export const textTasks: DemoScene = {
+  id: 'text-tasks',
+  number: 68,
+  title: 'Your own texts turn into tasks',
+  kind: 'app',
+  startsOn: 'inbox',
+  // A regular customer's text a few minutes ago, waiting for the presenter, who answers it themselves.
+  setup: (w, at) => {
+    w.conversations.unshift({
+      id: MAYA_TEXTS,
+      person: regular(MAYA, at, 3),
+      createdAt: at - 6 * MIN,
+      unread: 1,
+      messages: [
+        {
+          id: MAYA_ASKS,
+          at: at - 6 * MIN,
+          direction: 'inbound',
+          body: 'Hi! The upstairs AC is blowing warm air again. Could someone come look at it this week? And what do you charge for a tune-up on the downstairs one while you’re here?',
+        },
+      ],
+      drafts: [],
+      visits: [],
+      takenOver: true,
+    });
+  },
+  steps: [
+    {
+      label: 'Maya texts about her AC',
+      voiceover:
+        'Maya, a regular customer, texts that her upstairs AC is blowing warm air again, and asks what a tune-up costs for the other one.',
+      change: (w) => {
+        conversationIn(w, MAYA_TEXTS).unread = 0;
+      },
+      run: async (p) => {
+        await openConversation(p, MAYA_TEXTS);
+        await p.point(`@message-${MAYA_ASKS}`);
+      },
+    },
+    {
+      label: 'Answer her yourself',
+      voiceover:
+        'You answer her yourself, the way you always would: you’ll come by tomorrow morning, and send her the tune-up price tonight.',
+      change: (w, at) => {
+        conversationIn(w, MAYA_TEXTS).messages.push({
+          id: MY_REPLY,
+          at,
+          direction: 'outbound',
+          byMe: true,
+          body: REPLY,
+        });
+      },
+      run: (p) => replyAsMe(p, REPLY),
+    },
+    {
+      label: 'Both promises are on your task list',
+      voiceover:
+        'A couple of minutes later, the AI has read what you wrote, and both promises are on your task list: the visit, due tomorrow at ten, and the price, due today. You didn’t type a thing twice.',
+      change: (w, at) => {
+        const person = conversationIn(w, MAYA_TEXTS).person;
+        const from = aiTaskNotes(null, 'sms', fullName(person));
+        w.tasks.push(
+          {
+            id: VISIT_TASK,
+            title: 'Visit Maya to look at the upstairs AC',
+            notes: from,
+            at: at + 2 * MIN,
+            dueAt: wallTime(at, w.state.timeZone, 1, 10),
+            allDay: false,
+            person,
+          },
+          {
+            id: TUNE_UP_TASK,
+            title: 'Text Maya the tune-up price',
+            notes: from,
+            at: at + 2 * MIN,
+            dueAt: wallTime(at, w.state.timeZone, 0, 0),
+            allDay: true,
+            person,
+          },
+        );
+      },
+      live: ['task'],
+      run: async (p) => {
+        await p.go('tasks');
+        await p.waitFor(`@task-row-${VISIT_TASK}`, 15_000);
+        await p.point(`@task-row-${VISIT_TASK}`);
+      },
+    },
+    {
+      label: 'Each one says where it came from',
+      voiceover:
+        'Each task says which text it came from, and emails and website chats you write work the same way. If it ever adds one you don’t need, it’s one tap to delete.',
+      run: (p) => p.point(`@task-row-${TUNE_UP_TASK}`),
+    },
+  ],
+};
+
+export const PAPERWORK_CALL_SCENES: readonly DemoScene[] = [
+  signOnPhone,
+  callToTasks,
+  videoQuote,
+  phoneCallTasks,
+  textTasks,
+];

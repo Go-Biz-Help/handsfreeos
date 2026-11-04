@@ -1073,6 +1073,49 @@ export function scriptedPromise(message: string): Record<string, unknown> {
 }
 
 /**
+ * "Add tasks from what you say" for messages (automations/conversation-tasks.ts): each sentence of a NEW line the team
+ * wrote that the promise reader above would call a promise ("I'll send the quote tomorrow") is a task for the
+ * customer, due then; one that only names the act ("I'll send the quote") is due whenever, and a "will do" after a
+ * customer's ask is one too. Lines that promise nothing give none.
+ */
+export function scriptedConversationTasks(message: string): Record<string, unknown> {
+  const today = /^Today is \w+ (\d{4}-\d{2}-\d{2})/m.exec(message)?.[1] ?? null;
+  const customer = /^Customer: (.+)$/m.exec(message)?.[1]?.trim() ?? 'unknown';
+  const first = customer === 'unknown' ? 'the customer' : customer.split(' ')[0]!;
+  const said = unquote(quotedBlock(message, 'conversation') ?? '').split('\n');
+  const tasks: { title: string; notes: string | null; due: string | null }[] = [];
+  const add = (what: string, due: string | null) => {
+    const title = /^send /.test(what)
+      ? `Send ${first} ${what.replace(/^send (?:you |over )?/, '')}`
+      : /^call you back/.test(what)
+        ? `Call ${first} back`
+        : /^(?:swing|come|stop)\b/.test(what)
+          ? `Visit ${first}`
+          : `${what[0]!.toUpperCase()}${what.slice(1)} for ${first}`;
+    if (!tasks.some((t) => t.title === title)) tasks.push({ title, notes: null, due });
+  };
+  for (const line of said) {
+    const m = /^NEW \[[^\]]*\] [^:]+: (.*)$/.exec(line);
+    if (!m || !today) continue;
+    const before = tasks.length;
+    for (const sentence of m[1]!.split(/(?<=[.!?])\s+/)) {
+      const read = scriptedPromise(
+        `Said on Day ${today} (UTC).\n<team_message>\n${sentence}\n</team_message>`,
+      ) as { promise: boolean; what: string | null; due: string | null };
+      // With no time said, the promise reader gives nothing; the act alone is still a task, due whenever.
+      const act =
+        /\b(send (?:you |over )?(?:the |a |your )?[a-z]+|call you back|(?:swing|come|stop) by)\b/i.exec(
+          sentence,
+        )?.[1];
+      const what = read.what ?? act?.toLowerCase() ?? null;
+      if (what) add(what, read.due);
+    }
+    if (tasks.length === before && /\bwill do\b/i.test(m[1]!)) add('do what they asked', null);
+  }
+  return { tasks };
+}
+
+/**
  * "Learn from corrections": the newest correction teaches the AI something when it says why; the line is its reason,
  * as the business wrote it, unless what the AI knows or a waiting suggestion already says it word for word, and it
  * comes from the corrections whose reasons share a word (of five letters or more) with it. What
@@ -1282,6 +1325,10 @@ export const AUTOMATION_RULES: readonly ScriptRule[] = [
   {
     when: /Say whether the team’s words above promise the customer something by a time, and when it is due\.$/,
     json: (message) => scriptedPromise(message),
+  },
+  {
+    when: /List the tasks the team’s messages marked NEW call for, as the instructions above say\.$/,
+    json: (message) => scriptedConversationTasks(message),
   },
   {
     when: /Say whether the customer’s words above mention someone else who needs the business\.$/,

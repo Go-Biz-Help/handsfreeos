@@ -9583,6 +9583,18 @@ What it will never do, whatever the AI answers (the rules are in code, `packages
 
 **The Assistant, when asked.** Beside the pass, the Assistant can list many customers at once with their tags (`list_customers`, also "without this tag"), put tags on or take them off up to 200 customers in one card (`tag_customers`, making a new tag on the way), and change, add or take off any detail of one customer, the business's own fields included (`update_customer`). Each waits for Confirm, runs as the person ("via Assistant"), and keeps the reason they gave on every audit row.
 
+### Tasks from what you say (20261027023200)
+
+One row under **Pipeline and records**, **Add tasks from what you say** (`aiTasks`, on to begin with). The owner's decision, 4 November 2026, for every version of it: the AI just makes the task, because the worst case is a task nobody needed (deleted or ignored in a tap), not a needed task that never got made. So nobody approves these tasks first.
+
+- **After a call.** An appointment's recorded Zoom or Meet call, a HandsFreeOS video call, and now a phone call on the business number that someone on the team answered (in the browser, on a forwarding phone or their cell) or placed and was picked up. Once its words are in (`call.transcribed` for a phone call), the same review runs (`appointment.call_review`, then `call_suggestion.record`): the summary goes on the customer's timeline, and every task the team said it would do goes straight on the list of whoever was on the call, about the customer, due when they said. Its notes end with where it came from ("Added by the AI from your call with Mike Johnson."). The follow-up email and any change to the customer's record still wait for a tap. A voicemail, or a call the AI teammate took or placed, isn't reviewed.
+- **After a message someone on the team writes.** A text, email, website chat, portal, Messenger or Instagram message that a person sent (never the AI teammate, a reminder, a campaign or a workflow). Two minutes after the last one (`automations.conversation_tasks`, so a burst is one read) the AI reads the conversation's last messages, with the new ones marked, and adds a task for each thing they said they'd do, given to whoever wrote it: "I'll swing by Thursday at 10" is **Visit Mike**, due Thursday 10 AM. `app.conversation_task_reads` keeps how far each conversation was read, so a message is read once.
+- **Never twice.** The AI is shown the customer's open tasks and told to leave them out, and a title it repeats word for word isn't made again.
+- **Where it shows.** On a phone call's line on the timeline, **Notes from the call** (web and phone) opens the summary, the tasks marked **Task added** with **Open task**, the email to send, and **What was said**. An appointment's or video call's review shows the same.
+- **Turned off,** a call's tasks wait as **Suggested task** with **Add task**, as before, and messages make none.
+
+The AI's tokens count as `meetings` (calls) and `automations` (messages) in `app.ai_usage`. Needs `20261027023200_ai_tasks_from_conversations.sql` (a phone call's `summary`, `call_suggestions.call_id`, `app.conversation_task_reads`). See "Apply new migrations".
+
 Needs `20261007000600_the_ai_keeps_customers_tidy.sql`. See "Apply new migrations". Locally, `ASSISTANT_PROVIDER=scripted` makes the stand-in put on any listed tag a customer's history names, take off one they say they're "no longer" into, and take "my new email is …", "my new number is …" and "we moved to …" as details.
 
 ## Who can do what: roles and permissions

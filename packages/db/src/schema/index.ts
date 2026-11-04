@@ -1685,6 +1685,8 @@ export const calls = app.table('calls', {
   recordingSeconds: integer('recording_seconds'),
   transcript: text('transcript'),
   transcriptStatus: text('transcript_status'),
+  /** What the AI made of the call once its words were in, also its timeline line's body (20261027023200). */
+  summary: text('summary'),
   activityId: uuid('activity_id').references(() => activities.id, { onDelete: 'set null' }),
   ...timestamps(),
   // Milestone 10
@@ -2740,9 +2742,11 @@ export const callSuggestions = app.table('call_suggestions', {
   appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'cascade' }),
   /** Or a call that isn't for an appointment (20261027014600). */
   videoCallId: uuid('video_call_id'),
-  transcriptId: uuid('transcript_id')
-    .notNull()
-    .references(() => appointmentTranscripts.id, { onDelete: 'cascade' }),
+  /** Or a phone call on the business number, which keeps its own words: no transcript then (20261027023200). */
+  callId: uuid('call_id').references((): AnyPgColumn => calls.id, { onDelete: 'cascade' }),
+  transcriptId: uuid('transcript_id').references(() => appointmentTranscripts.id, {
+    onDelete: 'cascade',
+  }),
   kind: text('kind').notNull(),
   preview: jsonb('preview').$type<Json>().notNull().default({}),
   status: text('status').notNull().default('pending'),
@@ -7975,6 +7979,20 @@ export const contactAiSweeps = app.table('contact_ai_sweeps', {
   ...timestamps(),
 });
 
+/**
+ * How far the texts, emails and chats the team wrote in a conversation were read for tasks (20261027023200): every one
+ * up to `readThrough`. Only the worker reads and writes it.
+ */
+export const conversationTaskReads = app.table('conversation_task_reads', {
+  conversationId: uuid('conversation_id')
+    .primaryKey()
+    .references(() => conversations.id, { onDelete: 'cascade' }),
+  workspaceId: workspaceRef(),
+  readThrough: ts('read_through').notNull(),
+  tasks: integer('tasks').notNull().default(0),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 /** 0107: every look the AI took at a customer's tags and details, what it said and what was done with it. */
 export const contactAiReviews = app.table('contact_ai_reviews', {
   id: id(),
@@ -8561,6 +8579,7 @@ export const tables = {
   promises,
   contactAiSweeps,
   contactAiReviews,
+  conversationTaskReads,
   teammateLessons,
   campaigns,
   campaignRecipients,

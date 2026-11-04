@@ -197,6 +197,8 @@ export interface DemoSuggestion {
   /** A task's `title`; a follow-up email's `subject` and `body`. */
   readonly preview: Readonly<Record<string, string>>;
   status: 'pending' | 'approved' | 'dismissed';
+  /** The task it made: on its own, or once someone tapped Add task. */
+  taskId?: string;
 }
 
 /** What the AI heard on a recorded call: the summary, the words, and what it suggests doing next. */
@@ -206,6 +208,31 @@ export interface DemoCallNotes {
   readonly summary: string;
   readonly transcript: string;
   readonly suggestions: readonly DemoSuggestion[];
+}
+
+/** A call to the business number the presenter answered in the browser: its own line on the customer's timeline. */
+export interface DemoPhoneCall {
+  readonly id: string;
+  /** When it ended. */
+  readonly at: number;
+  readonly seconds: number;
+  readonly notes: DemoCallNotes;
+}
+
+/**
+ * A task on the Tasks page, the presenter's: one the AI added on its own from a call or from what they wrote
+ * ("Add tasks from what you say"), with its notes saying where it came from.
+ */
+export interface DemoTask {
+  readonly id: string;
+  readonly title: string;
+  readonly notes: string;
+  readonly at: number;
+  readonly dueAt: number | null;
+  readonly allDay: boolean;
+  readonly person: DemoPerson;
+  /** The made-up lead it's on too. */
+  readonly lead?: { readonly id: string; readonly title: string };
 }
 
 /** A HandsFreeOS video call that wasn't for an appointment: its own line on the customer's timeline. */
@@ -261,6 +288,8 @@ export interface DemoLeadRecord {
   readonly at: number;
   /** A video call with them, on the lead's timeline. */
   readonly videoCall?: DemoVideoCall;
+  /** A phone call on the business number the presenter answered, with what the AI made of it (20261027023200). */
+  readonly phoneCall?: DemoPhoneCall;
   /** It shows on the Pipeline board too, in its stage (or the first open one). */
   readonly onBoard?: boolean;
 }
@@ -580,6 +609,8 @@ export interface DemoWorld {
   readonly outreach: DemoOutreachSend[];
   /** Quick setup's progress, for the scene that plays it. */
   setup: DemoSetup | null;
+  /** The presenter's tasks the scene made up, on the Tasks page and their customer's page. */
+  readonly tasks: DemoTask[];
 }
 
 /** The wall-clock time `hour:minute`, `days` from `at`'s date, in `timeZone`, as ms since the epoch. */

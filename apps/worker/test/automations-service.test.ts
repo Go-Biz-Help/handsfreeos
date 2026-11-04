@@ -5,11 +5,17 @@
  * - a promise the team made ("I'll send the quote tomorrow") is read from their own message, opens a card once
  *   its time has passed with nothing sent, and closes once something is;
  * - a workflow approval with a day to run gets another push two hours before it expires;
- * - a Monday with last week far below the usual week gets the money card.
+ * - a Monday with last week far below the usual week gets the money card;
+ * - "Add tasks from what you say": what someone on the team writes they'll do, and what they said on a phone call,
+ *   is a task on their list, made without asking.
  */
 import {
   addDays,
   appointmentCreate,
+  callAttachTranscript,
+  callRecord,
+  callSuggestionList,
+  callUpdateStatus,
   localDateOf,
   localInstant,
   mondayOf,
@@ -24,6 +30,8 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  CONVERSATION_TASKS_JOB,
+  conversationTasksKey,
   EXPIRING_JOB,
   expiringJobKey,
   HANDOFF_NUDGE_JOB,
@@ -39,7 +47,18 @@ import {
   sys,
   type AttentionWorld,
 } from './attention-world';
-import { admin, at, CHI, drain, HOUR, iso, jobRow, makeCalendar, run } from './booking-world';
+import {
+  admin,
+  at,
+  CHI,
+  drain,
+  HOUR,
+  iso,
+  jobRow,
+  makeCalendar,
+  query,
+  run,
+} from './booking-world';
 import type { TestServices } from './helpers';
 import { addWorkflow, sid } from './workflow-world';
 
@@ -75,6 +94,16 @@ async function runNow(kind: string, dedupeKey: string): Promise<void> {
   );
   await drain(w);
 }
+
+/** Settings → Automations' "Add tasks from what you say", on or off. */
+const setAiTasks = (on: boolean) =>
+  rows(
+    admin(),
+    sql`update app.workspaces set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('automations',
+          coalesce(settings->'automations', '{}'::jsonb) || jsonb_build_object('switches',
+            coalesce(settings->'automations'->'switches', '{}'::jsonb) || jsonb_build_object('aiTasks', ${on}::boolean)))
+        where id = ${w.workspaceId}`,
+  );
 
 const pushes = (keyPrefix: string) =>
   rows<{ title: string; user_ids: string[] }>(
@@ -230,6 +259,173 @@ describe('promises not kept', () => {
     const kept = await itemOf(w, promise!.id, 'promise_due');
     expect(kept.state).toBe('resolved');
     expect(kept.resolution).toBe('done');
+  });
+});
+
+describe('tasks from what you say', () => {
+  const tasksOf = (personId: string) =>
+    rows<{
+      title: string;
+      assignee_user_id: string | null;
+      due_ms: number | null;
+      all_day: boolean;
+      notes: string | null;
+    }>(
+      admin(),
+      sql`select title, assignee_user_id, (extract(epoch from due_at) * 1000)::float8 as due_ms,
+                 all_day, notes from app.tasks
+          where person_id = ${personId} order by created_at`,
+    );
+
+  it('adds a task for what someone wrote they’d do: theirs, due when they said, and read once', async () => {
+    const ned = await filedCustomer(w, 'Ned');
+    const asked = await textIn(w, ned.phone, 'Can I get a price for the new unit?');
+    await run(w, messageSend, {
+      workspaceId: w.workspaceId,
+      conversationId: asked.conversationId,
+      channel: 'sms',
+      body: 'Sure thing, I’ll send the quote tomorrow.',
+    });
+    await drain(w);
+    // Read a couple of minutes later, so a burst of messages is one read.
+    const key = conversationTasksKey(asked.conversationId);
+    expect((await jobRow(key))?.status).toBe('pending');
+    await runNow(CONVERSATION_TASKS_JOB, key);
+    const tomorrow = addDays(localDateOf(Date.now(), CHI), 1);
+    expect(await tasksOf(ned.id)).toEqual([
+      {
+        title: 'Send Ned the quote',
+        assignee_user_id: w.owner.id,
+        due_ms: localInstant(tomorrow, '00:00', CHI),
+        all_day: true,
+        notes: 'Added by the AI from your text to Ned Test.',
+      },
+    ]);
+
+    // Something that promises nothing makes nothing, and what was read isn't read again.
+    await run(w, messageSend, {
+      workspaceId: w.workspaceId,
+      conversationId: asked.conversationId,
+      channel: 'sms',
+      body: 'Thanks for your patience!',
+    });
+    await drain(w);
+    await runNow(CONVERSATION_TASKS_JOB, key);
+    expect(await tasksOf(ned.id)).toHaveLength(1);
+    const [mark] = await rows<{ tasks: number }>(
+      admin(),
+      sql`select tasks from app.conversation_task_reads where conversation_id = ${asked.conversationId}`,
+    );
+    expect(mark!.tasks).toBe(1);
+  });
+
+  it('reads nothing the AI teammate or an automatic message sent, nor anything while it’s off', async () => {
+    const ola = await filedCustomer(w, 'Ola');
+    const asked = await textIn(w, ola.phone, 'Can you come by Friday?');
+    // An automatic message: nobody on the team wrote it.
+    await sys(w, messageSend, {
+      workspaceId: w.workspaceId,
+      conversationId: asked.conversationId,
+      channel: 'sms',
+      body: 'We’ll swing by Friday at 10.',
+    });
+    await drain(w);
+    expect(await jobRow(conversationTasksKey(asked.conversationId))).toBeUndefined();
+
+    await setAiTasks(false);
+    try {
+      await run(w, messageSend, {
+        workspaceId: w.workspaceId,
+        conversationId: asked.conversationId,
+        channel: 'sms',
+        body: 'Sure, I’ll swing by Friday at 10.',
+      });
+      await drain(w);
+      expect(await jobRow(conversationTasksKey(asked.conversationId))).toBeUndefined();
+    } finally {
+      await setAiTasks(true);
+    }
+    expect(await tasksOf(ola.id)).toEqual([]);
+  });
+
+  it('sums up a phone call on the business number and adds its task; the email waits for a person', async () => {
+    const pia = await filedCustomer(w, 'Pia');
+    const providerSid = `CAtasks${Date.now()}`;
+    const call = { workspaceId: w.workspaceId, providerSid };
+    const { callId } = await sys(w, callRecord, {
+      ...call,
+      direction: 'inbound',
+      from: pia.phone,
+      to: w.number!,
+    });
+    await sys(w, callUpdateStatus, {
+      ...call,
+      status: 'in_progress',
+      answeredVia: 'browser',
+      answeredByUserId: w.owner.id,
+    });
+    await sys(w, callUpdateStatus, { ...call, status: 'completed', durationSeconds: 140 });
+    await sys(w, callAttachTranscript, {
+      ...call,
+      transcript: 'Dale: I’ll send you the quote by Friday.\nPia: Great, thanks.',
+      status: 'completed',
+    });
+    await drain(w);
+
+    const review = await query(w, callSuggestionList, { workspaceId: w.workspaceId, callId });
+    expect(review.summary).toContain('I’ll send you the quote by Friday.');
+    expect(review.transcript).toContain('Pia: Great, thanks.');
+    expect(review.items.map((i) => [i.kind, i.status])).toEqual([
+      ['task', 'approved'],
+      ['follow_up', 'pending'],
+    ]);
+    // The summary is the call's line on her timeline; the words stay on the call.
+    const [line] = await rows<{ body: string }>(
+      admin(),
+      sql`select a.body from app.activities a join app.calls k on k.activity_id = a.id where k.id = ${callId}`,
+    );
+    expect(line!.body).toBe(review.summary);
+    expect(await tasksOf(pia.id)).toEqual([
+      expect.objectContaining({
+        title: 'Send the quote',
+        assignee_user_id: w.owner.id,
+        notes: 'Added by the AI from your call with Pia Test.',
+      }),
+    ]);
+    // Reviewed once: its words coming in again change nothing.
+    await sys(w, callAttachTranscript, {
+      ...call,
+      transcript: 'Dale: I’ll send you the quote by Friday.\nPia: Great, thanks.',
+      status: 'completed',
+    });
+    await drain(w);
+    expect(await tasksOf(pia.id)).toHaveLength(1);
+    const [still] = await rows<{ body: string }>(
+      admin(),
+      sql`select a.body from app.activities a join app.calls k on k.activity_id = a.id where k.id = ${callId}`,
+    );
+    expect(still!.body).toBe(review.summary);
+  });
+
+  it('leaves a voicemail alone: nobody on the team was on it', async () => {
+    const quin = await filedCustomer(w, 'Quin');
+    const providerSid = `CAvm${Date.now()}`;
+    const call = { workspaceId: w.workspaceId, providerSid };
+    const { callId } = await sys(w, callRecord, {
+      ...call,
+      direction: 'inbound',
+      from: quin.phone,
+      to: w.number!,
+    });
+    await sys(w, callUpdateStatus, { ...call, status: 'no_answer' });
+    await sys(w, callAttachTranscript, {
+      ...call,
+      transcript: 'Hi, can you send me the quote?',
+      status: 'completed',
+    });
+    await drain(w);
+    expect(await jobRow(`appointment.call_review:call:${callId}`)).toBeUndefined();
+    expect(await tasksOf(quin.id)).toEqual([]);
   });
 });
 

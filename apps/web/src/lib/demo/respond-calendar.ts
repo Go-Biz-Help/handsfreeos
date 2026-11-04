@@ -1,14 +1,17 @@
+import { taskDueBucket } from '@hfos/core';
 import type { Ok } from '../api/types';
 import {
   DEMO_MEDIA_BUCKET,
   demoId,
   fullName,
+  isDemoId,
   phoneDisplay,
   wallTime,
   type DemoCallNotes,
   type DemoDocument,
   type DemoLeadRecord,
   type DemoPerson,
+  type DemoTask,
   type DemoVisit,
   type DemoWorld,
 } from './world';
@@ -24,6 +27,7 @@ type AppointmentDetail = Ok<'/v1/queries/appointment.get'>['appointment'];
 type Team = Ok<'/v1/queries/schedule.team'>;
 type TeamPerson = Team['people'][number];
 type Suggestions = Ok<'/v1/queries/call_suggestion.list'>;
+type Tasks = Ok<'/v1/queries/task.list'>;
 type Chat = Ok<'/v1/queries/video_call.chat'>;
 type DocumentGet = Ok<'/v1/queries/document.get'>;
 type VideoCall = Ok<'/v1/queries/video_call.get'>;
@@ -289,9 +293,11 @@ function workingHours(w: DemoWorld, got: Team): TeamPerson['hours'] {
 
 // ------------------------------------------------------------------------------------------- after a recorded call
 
-/** A recorded call's notes: a visit's, or a lead's video call's. */
+/** A recorded call's notes: a visit's, a lead's video call's, or a phone call's. */
 export function notesOf(w: DemoWorld, body: Record<string, unknown>): DemoCallNotes | null {
   if (body['appointmentId']) return findVisit(w, body['appointmentId'])?.visit.notes ?? null;
+  if (body['callId'])
+    return w.leads.find((l) => l.phoneCall?.id === body['callId'])?.phoneCall?.notes ?? null;
   const call = w.leads.find((l) => l.videoCall?.id === body['videoCallId'])?.videoCall;
   return call?.notes ?? null;
 }
@@ -300,15 +306,18 @@ export const transcriptsOf = (n: DemoCallNotes | null, provider: string) => ({
   items: n ? [{ id: n.id, provider, createdAt: iso(n.at), body: n.transcript }] : [],
 });
 
-export function suggestionsOf(n: DemoCallNotes | null): Suggestions {
+/** A call's review; a phone call keeps its words on itself, so they come with it (`phone`). */
+export function suggestionsOf(n: DemoCallNotes | null, phone = false): Suggestions {
   return {
     summary: n?.summary ?? null,
+    transcript: phone ? (n?.transcript ?? null) : null,
     items: (n?.suggestions ?? []).map((s) => ({
       id: s.id,
       kind: s.kind,
       status: s.status,
       preview: { ...s.preview },
       createdAt: iso(n!.at),
+      taskId: s.taskId ?? null,
     })),
   };
 }
@@ -318,6 +327,7 @@ export function findSuggestion(w: DemoWorld, id: unknown) {
   const all = [
     ...sceneVisits(w).flatMap((s) => s.visit.notes?.suggestions ?? []),
     ...w.leads.flatMap((l) => l.videoCall?.notes.suggestions ?? []),
+    ...w.leads.flatMap((l) => l.phoneCall?.notes.suggestions ?? []),
   ];
   return all.find((s) => s.id === id) ?? null;
 }
@@ -470,27 +480,111 @@ export const webinarChatOf = (w: DemoWorld, callId: unknown): Chat | null =>
 /** A lead's timeline: its video call, as its own line with the AI's summary for a body. */
 export function leadTimeline(w: DemoWorld, l: DemoLeadRecord) {
   const call = l.videoCall;
-  const items = call
+  const phone = l.phoneCall;
+  const items = phone
     ? [
         {
-          id: demoId(0xb2000),
+          id: demoId(0xb2001),
           entry: 'activity',
           kind: 'call',
-          subtype: 'video',
-          body: call.notes.summary,
-          occurredAt: iso(call.at),
-          // The presenter had the call, so the line reads "Chris had a video call".
-          actor: { id: w.state.me.id, fullName: w.state.me.name },
-          actorType: 'person',
+          subtype: 'answered',
+          // The AI's summary is the call's line once its words are in.
+          body: phone.notes.summary,
+          occurredAt: iso(phone.at),
+          actor: null,
+          actorType: 'system',
           personId: l.person.id,
           companyId: null,
           leadId: l.id,
           customRecordId: null,
-          meta: { videoCallId: call.id, durationSeconds: call.seconds },
+          meta: {
+            callId: phone.id,
+            direction: 'inbound',
+            answeredVia: 'browser',
+            answeredByUserId: w.state.me.id,
+            durationSeconds: phone.seconds,
+          },
         },
       ]
-    : [];
+    : call
+      ? [
+          {
+            id: demoId(0xb2000),
+            entry: 'activity',
+            kind: 'call',
+            subtype: 'video',
+            body: call.notes.summary,
+            occurredAt: iso(call.at),
+            // The presenter had the call, so the line reads "Chris had a video call".
+            actor: { id: w.state.me.id, fullName: w.state.me.name },
+            actorType: 'person',
+            personId: l.person.id,
+            companyId: null,
+            leadId: l.id,
+            customRecordId: null,
+            meta: { videoCallId: call.id, durationSeconds: call.seconds },
+          },
+        ]
+      : [];
   return { items, nextCursor: null };
+}
+
+// --------------------------------------------------------------------------------------------- the presenter's tasks
+
+/** A scene's task as the Tasks page and a customer's page list it. */
+export function taskRow(w: DemoWorld, t: DemoTask): Tasks['items'][number] {
+  const dueAt = t.dueAt === null ? null : iso(t.dueAt);
+  const me = { id: w.state.me.id, fullName: w.state.me.name };
+  return {
+    id: t.id,
+    title: t.title,
+    notes: t.notes,
+    dueAt,
+    allDay: t.allDay,
+    dueBucket: taskDueBucket({ dueAt, allDay: t.allDay, doneAt: null }, w.state.timeZone),
+    assignee: me,
+    person: { id: t.person.id, fullName: fullName(t.person), archived: false },
+    company: null,
+    lead: t.lead ? { id: t.lead.id, title: t.lead.title } : null,
+    customRecord: null,
+    doneAt: null,
+    doneBy: null,
+    createdBy: null,
+    createdAt: iso(t.at),
+    updatedAt: iso(t.at),
+  };
+}
+
+/**
+ * `task.list` with the scene's tasks: one asked for by id, a made-up customer's or lead's alone, or the Tasks page's
+ * open list (mine or everyone's) with them on top. Null leaves the request to the real list.
+ */
+export async function tasksWith(
+  w: DemoWorld,
+  body: Record<string, unknown>,
+  real: () => Promise<Response>,
+): Promise<Tasks | Response | null> {
+  if (!w.tasks.length) return null;
+  const tz = w.state.timeZone;
+  if (body['taskId']) {
+    const t = w.tasks.find((x) => x.id === body['taskId']);
+    return t ? { items: [taskRow(w, t)], nextCursor: null, timezone: tz } : null;
+  }
+  const open = (body['status'] ?? 'open') !== 'done';
+  const on = (['personId', 'leadId', 'companyId', 'customRecordId'] as const).find((k) => body[k]);
+  if (on) {
+    const id = String(body[on]);
+    if (!isDemoId(id)) return null;
+    const mine = w.tasks.filter(
+      (t) => open && (on === 'personId' ? t.person.id === id : t.lead?.id === id),
+    );
+    return { items: mine.map((t) => taskRow(w, t)), nextCursor: null, timezone: tz };
+  }
+  if (!open || (body['assigneeUserId'] && body['assigneeUserId'] !== w.state.me.id)) return null;
+  const res = await real();
+  if (!res.ok) return res;
+  const got = (await res.json()) as Tasks;
+  return { ...got, items: [...w.tasks.map((t) => taskRow(w, t)), ...got.items] };
 }
 
 // ----------------------------------------------------------------------------------------------- a contract to sign

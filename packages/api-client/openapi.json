@@ -33904,6 +33904,10 @@
                           "aiDetails": {
                             "default": true,
                             "type": "boolean"
+                          },
+                          "aiTasks": {
+                            "default": true,
+                            "type": "boolean"
                           }
                         }
                       },
@@ -34209,6 +34213,10 @@
                             "aiDetails": {
                               "default": true,
                               "type": "boolean"
+                            },
+                            "aiTasks": {
+                              "default": true,
+                              "type": "boolean"
                             }
                           },
                           "required": [
@@ -34230,7 +34238,8 @@
                             "callBackMissed",
                             "callQuotes",
                             "aiTags",
-                            "aiDetails"
+                            "aiDetails",
+                            "aiTasks"
                           ],
                           "additionalProperties": false
                         },
@@ -145870,7 +145879,7 @@
     "/v1/queries/call_suggestion.list": {
       "post": {
         "operationId": "query_call_suggestion_list",
-        "summary": "The AI’s summary of a recorded call (an appointment’s, or a HandsFreeOS video call that isn’t for one), and its suggestions with where each stands.",
+        "summary": "The AI’s summary of a recorded call (an appointment’s, a HandsFreeOS video call that isn’t for one, or a phone call on the business number), the tasks it added and what it suggests, with where each stands.",
         "tags": [
           "queries"
         ],
@@ -145896,6 +145905,11 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "callId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   }
                 },
                 "required": [
@@ -145914,6 +145928,12 @@
                   "type": "object",
                   "properties": {
                     "summary": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "transcript": {
                       "type": [
                         "string",
                         "null"
@@ -145952,6 +145972,18 @@
                             },
                             "additionalProperties": {}
                           },
+                          "taskId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "type": "string",
                             "format": "date-time",
@@ -145963,6 +145995,7 @@
                           "kind",
                           "status",
                           "preview",
+                          "taskId",
                           "createdAt"
                         ],
                         "additionalProperties": false
@@ -145971,6 +146004,7 @@
                   },
                   "required": [
                     "summary",
+                    "transcript",
                     "items"
                   ],
                   "additionalProperties": false

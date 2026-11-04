@@ -18,6 +18,7 @@ import {
   notesOf,
   seatOf,
   suggestionsOf,
+  tasksWith,
   teamWithMe,
   transcriptsOf,
   videoCallOf,
@@ -1546,6 +1547,12 @@ export async function demoResponse(
       const out = await searchWith(w, body, real);
       return out instanceof Response ? out : out ? json(out) : null;
     }
+    case 'task.list': {
+      // The tasks the AI added in the scene: on the Tasks page, opened by Open task, and on the lead's page.
+      const out = await tasksWith(w, body, real);
+      if (out) return out instanceof Response ? out : json(out);
+      break;
+    }
     case 'service.list': {
       if (!w.services.length) return null;
       const res = await real();
@@ -1588,7 +1595,7 @@ export async function demoResponse(
       return json(transcriptsOf(notesOf(w, body), v ? 'zoom' : 'handsfree'));
     }
     case 'call_suggestion.list':
-      return json(suggestionsOf(notesOf(w, body)));
+      return json(suggestionsOf(notesOf(w, body), !!body['callId']));
     case 'video_call.chat': {
       const chat = videoChatOf(w, body['callId']) ?? webinarChatOf(w, body['callId']);
       if (chat) return json(chat);

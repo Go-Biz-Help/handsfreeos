@@ -65,6 +65,13 @@ will come, HandsFreeOS tells them, with the steps to fix it.
 >   email or phone the customer gave (`recordChanges`); `call_suggestion.record` keeps it as a `record_change`
 >   suggestion only when it differs from what's on file (20261027004200 allows the kind), showing what it would
 >   replace. Approving runs `person.update` as the person, with their edits. On the web and the phone.
+> - **Tasks made, not suggested (owner, 4 November 2026).** "It should just create the task … worse case is it
+>   creates an unneeded task vs a task that's needed not get created", for every call. `call_suggestion.record`
+>   now runs `task.create` for each task at once (given to the call's host, about the customer, on its record) and
+>   keeps the row as approved with the task's id; the follow-up email and record changes still wait. Phone calls on
+>   the business number get the same review (`call_suggestions.call_id`, `calls.summary`, 20261027023200), and the
+>   team's own messages make tasks too. Settings → Automations' **Add tasks from what you say** turns it off, and
+>   then tasks wait as before. See "Tasks from what you say" in `docs/operations.md`.
 
 ---
 
@@ -203,7 +210,8 @@ On `appointment.transcript_ready`, a worker job reads the transcript with the ap
 business's knowledge, and produces:
 
 - **A summary note** on the customer's timeline (who, what was discussed, what was agreed). Runs on its own.
-- **Suggested tasks** ("Send quote for the duct cleaning by Friday", assigned and dated). Wait for an OK.
+- **Tasks** ("Send quote for the duct cleaning by Friday", assigned and dated). Made on their own since 4 November
+  2026 (the owner: a task nobody needed is deleted in a tap, a missed one costs a customer).
 - **Suggested follow-up message** to the customer, drafted in the business's tone. Waits for an OK.
 - **Suggested record changes** (a deal's stage, a field on the customer, a next appointment). Wait for an OK.
 

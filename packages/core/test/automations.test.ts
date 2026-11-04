@@ -124,6 +124,7 @@ describe('automation settings', () => {
       approvalExpiry: true,
       aiTags: true,
       aiDetails: true,
+      aiTasks: true,
     });
     expect(defaultAutomationSettings().reengage).toEqual({
       template: DEFAULT_REENGAGE_TEMPLATE,

@@ -17,6 +17,7 @@ import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
 import { VideoCallNotes } from '@/video-call/call-notes';
+import { PhoneCallNotes } from './phone-call-notes';
 
 /**
  * A record's timeline on the phone, newest first, in the web's own words (core's `describeTimeline`). Each entry says
@@ -92,6 +93,11 @@ export function TimelineRow({
               {body}
             </Text>
           </View>
+        ) : null}
+        {entry.kind === 'call' &&
+        (entry.subtype === 'answered' || entry.subtype === 'outbound') &&
+        typeof entry.meta.callId === 'string' ? (
+          <PhoneCallNotes callId={entry.meta.callId} />
         ) : null}
         {entry.kind === 'call' &&
         entry.subtype === 'video' &&

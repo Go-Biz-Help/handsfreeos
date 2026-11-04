@@ -504,6 +504,19 @@ export const AUTOMATIONS = [
     adjust: 'ai_tags',
   },
   {
+    id: 'ai_tasks',
+    group: 'pipeline',
+    label: 'Add tasks from what you say',
+    oneLiner:
+      'The AI adds a task for what you tell a customer you’ll do, on calls and in your own messages.',
+    effect: 'records',
+    defaultOn: true,
+    binding: { store: 'automations', key: 'aiTasks' },
+    customerFacing: null,
+    needs: [],
+    adjust: null,
+  },
+  {
     id: 'pipeline_mismatch',
     group: 'pipeline',
     label: 'Deal in the wrong stage',
