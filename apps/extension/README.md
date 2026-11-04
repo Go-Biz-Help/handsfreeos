@@ -1136,6 +1136,23 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Two misreads the problem check found (0.126.1)
+
+The scheduled problem check (docs/operations.md, "The daily problem check") found two steps that kept failing on the
+owner's computer on 3 Nov 2026, each from a page the extension misread, not from anything the network refused:
+
+- **Facebook: a friend request "couldn't tell where things stand"** on profiles with no username. Their tabs link to
+  the profile by its number too, and with no name in the page's title, a tab whose word Facebook's own list doesn't know
+  (Check-ins, `sk=map`) was taken for the person's name, so Add Friend with their real name after it didn't count as
+  theirs. Links in the tabs are never taken for a name now (`TABS` in `src/networks/facebook/profile.ts`).
+- **LinkedIn: "LinkedIn didn't take the invitation"** after Connect. Its box "Add a note to your invitation?" now shows
+  inside the interop box's shadow root, where the page's own look-ups never reach, so Send without a note was never
+  pressed. The boxes over the page are looked for there too now (`boxesOver` in `src/networks/linkedin/auto.ts`), for
+  Connect's box and for Ignore's.
+
+Each is an entry in core's `PROBLEM_FIXES` (packages/core/src/support/problem-fixes.ts), so the desk's reports of them
+from older versions clear once this is live.
+
 ### Every reply caught, and LinkedIn's chats read again (0.126.0)
 
 The owner, 3 Nov 2026: "some messages on the different platforms being we are receiving aren't being recognized",
