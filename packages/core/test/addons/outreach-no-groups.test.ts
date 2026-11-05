@@ -24,7 +24,7 @@ import {
   todayDraftPrompt,
   todayDraftSystem,
 } from '../../src/addons/outreach/today';
-import { outreachBusiness, runAs } from './outreach-fixture';
+import { outreachBusiness, refused, runAs } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const GROUP = 'Denver Trades Owners | Plumbers, HVAC & Electricians';
@@ -270,10 +270,10 @@ describe('messages drafted before (3a)', () => {
     expect((await openerOn(owner, 'Dana Cole'))?.send).toMatchObject({ state: 'waiting' });
 
     // Drafted before: one waiting and one OK'd, and a teammate's.
-    await olden(waiting.sendId);
     const okd = await queue(owner, eli, 'Hey Eli, fellow group member here!');
-    await olden(okd.sendId, 'approved');
     const theirs = await queue(member, gray, 'Hey Gray, saw you in the group!');
+    await olden(waiting.sendId);
+    await olden(okd.sendId, 'approved');
     await olden(theirs.sendId);
 
     // Nothing lists them, OKs them or sends them: Today has them as not drafted, for the extension to write again.
@@ -281,6 +281,12 @@ describe('messages drafted before (3a)', () => {
     expect((await openerOn(owner, 'Dana Cole'))?.send).toBeNull();
     expect((await openerOn(owner, 'Eli Brook'))?.send).toBeNull();
     expect((await runAs(owner, ws, 'outreach.send.approve', {})).approved).toEqual([]);
+    // OK'd on its own, it says it's being written again.
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.send.approve', { sends: [{ sendId: waiting.sendId }] }),
+      ),
+    ).toBe('outreach_send_rewritten');
     const waitingFor = await runAs(owner, ws, 'outreach.waiting', { items: true });
     expect((waitingFor.items as { kind: string }[]).filter((i) => i.kind === 'message')).toEqual(
       [],

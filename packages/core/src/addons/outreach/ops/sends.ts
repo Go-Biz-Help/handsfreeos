@@ -30,6 +30,7 @@ import {
   REBOOK_NEEDS_YOU,
   replyNeedsYou,
   RULES_VERSION,
+  SEND_REWRITTEN,
   SendApproveInput,
   SendApproveOutput,
   SendDoneInput,
@@ -582,6 +583,20 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
       .limit(SENDS_MOST);
     // The phone's Approve all names what it showed: those handled elsewhere since are passed over (`partial`).
     if (named && waiting.length < named.size && !input.partial) {
+      // Drafted under older rules, it's written again instead (decision 157).
+      const [older] = await ctx.tx
+        .select({ id: sends.id })
+        .from(sends)
+        .where(
+          and(
+            mine(ctx, me),
+            eq(sends.state, 'waiting'),
+            inArray(sends.id, [...named.keys()]),
+            lt(sends.rulesVersion, RULES_VERSION),
+          ),
+        )
+        .limit(1);
+      if (older) throw HfosError.rule('outreach_send_rewritten', 409, SEND_REWRITTEN);
       const [oneOfTheirOwn] = await ctx.tx
         .select({ id: sends.id })
         .from(sends)
