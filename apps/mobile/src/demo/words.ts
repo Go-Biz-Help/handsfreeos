@@ -19,6 +19,10 @@ export const PHONE_DEMO_WORDS = {
   exit: 'Exit',
   hide: 'Hide the player',
   show: 'Show the demo player',
+  auto: 'Play on its own, with the player hidden',
+  autoHint:
+    '▶ plays the scene on its own with this player hidden, each step after its voiceover. Hold the top edge of the screen to stop.',
+  autoStop: 'Hold to stop playing on its own',
   done: 'That’s the whole scene. Exit when you’re ready.',
   say: 'Say',
   notificationsOff:
