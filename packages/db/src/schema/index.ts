@@ -1161,6 +1161,59 @@ export const registrationDrafts = app.table('registration_drafts', {
 });
 
 /**
+ * What the registration's last step found for exactly which details (20261027023500): one row per business, written
+ * by the worker each time it checks. `registration.submit` sends only details whose fingerprint was found all green.
+ */
+export const registrationChecks = app.table('registration_checks', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  fingerprint: text('fingerprint').notNull(),
+  allGreen: boolean('all_green').notNull(),
+  notGreen: jsonb('not_green').$type<string[]>().notNull().default([]),
+  checks: jsonb('checks').$type<Json[]>().notNull().default([]),
+  checkedAt: ts('checked_at').notNull().defaultNow(),
+});
+
+/** A business asking HandsFreeOS to check its registration by hand, because not everything was green. */
+export const registrationReviewStatus = app.enum('registration_review_status', [
+  'waiting',
+  'approved',
+  'sent_back',
+  'withdrawn',
+]);
+export type RegistrationReviewStatus = (typeof registrationReviewStatus.enumValues)[number];
+
+export const registrationReviews = app.table('registration_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** 'a2p_10dlc' or 'toll_free_verification', as registration.submit takes it. */
+  kind: text('kind').notNull(),
+  status: registrationReviewStatus('status').notNull().default('waiting'),
+  /** The business's details exactly as they'd be sent (BusinessProfile), sent as they are on approval. */
+  submission: jsonb('submission').$type<Json>().notNull(),
+  fingerprint: text('fingerprint').notNull(),
+  notGreen: jsonb('not_green').$type<string[]>().notNull().default([]),
+  note: text('note'),
+  /** The support desk's ticket (platform.tickets), not a foreign key: the desk is HandsFreeOS's, not the business's. */
+  ticketId: uuid('ticket_id'),
+  ticketNumber: bigint('ticket_number', { mode: 'number' }),
+  requestedBy: userRef('requested_by'),
+  requestedAt: ts('requested_at').notNull().defaultNow(),
+  decidedBy: userRef('decided_by'),
+  decidedAt: ts('decided_at'),
+  decisionNote: text('decision_note'),
+  registrationIds: uuid('registration_ids')
+    .array()
+    .notNull()
+    .default(sql`'{}'::uuid[]`),
+  sentAt: ts('sent_at'),
+  ...timestamps(),
+});
+
+/**
  * Milestone 17: moving a number a business already owns to us (0080).
  *
  * Deliberately **not** `app.port_state` and **not** `app.migration_port_requests` — that pair belongs to the

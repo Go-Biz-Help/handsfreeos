@@ -329,3 +329,29 @@ export function chatClient(key: string) {
     },
   };
 }
+
+/**
+ * The sign-up page's form, sent without a chat (/chat/<key> opened on its own): their details and their yes to texts,
+ * kept like the chat's details form. Throws a ChatError with the refusal's rule.
+ */
+export async function chatSignUp(
+  key: string,
+  input: IdentifyInput,
+): Promise<{ signedUp: boolean; texts: boolean }> {
+  let res: Response;
+  try {
+    res = await fetch(`${publicEnv.workerUrl}/public/chat/${encodeURIComponent(key)}/sign-up`, {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+      cache: 'no-store',
+      credentials: 'omit',
+    });
+  } catch {
+    throw new ChatError(0, 'unreachable', UNREACHABLE);
+  }
+  const json: unknown = await res.json().catch(() => null);
+  if (!res.ok) throw refusal(res, json);
+  const out = isObj(json) ? json : {};
+  return { signedUp: out.signedUp === true, texts: out.texts === true };
+}

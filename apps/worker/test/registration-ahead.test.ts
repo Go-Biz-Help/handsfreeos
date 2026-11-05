@@ -29,7 +29,7 @@ import { handlers } from '../src/handlers/index';
 import { processJobs } from '../src/jobs';
 import { processOnce } from '../src/outbox';
 import { jobs } from '../src/scheduled';
-import { payTextingFee, testServices, type TestServices } from './helpers';
+import { allGreen, payTextingFee, testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-registration-ahead-${process.pid}`;
 const actor = (u: TestUser): HumanActor => ({
@@ -131,7 +131,7 @@ describe('a texting registration sent before the number is here', () => {
     await executeCommand(
       api(),
       registrationSubmit,
-      { workspaceId, kind: 'a2p_10dlc', business },
+      await allGreen({ workspaceId, kind: 'a2p_10dlc', business }),
       actor(owner),
       meta(),
     );
@@ -220,7 +220,7 @@ describe('a texting registration sent before the number is here', () => {
     await executeCommand(
       api(),
       registrationSubmit,
-      { workspaceId, kind: 'toll_free_verification', business },
+      await allGreen({ workspaceId, kind: 'toll_free_verification', business }),
       actor(owner),
       meta(),
     );

@@ -10,6 +10,11 @@ import { describe, expect, it } from 'vitest';
 import {
   checkChatOnSite,
   checkOptInSurface,
+  checkOtherWay,
+  confirmationsFor,
+  notGreen,
+  SIGN_UP_MARK,
+  takesSignUps,
   checkPolicy,
   checkTerms,
   checkWebsite,
@@ -59,9 +64,18 @@ describe('the privacy policy', () => {
 
   it('passes a policy that promises the same thing in its own words', () => {
     const text =
-      'Privacy. We never sell or share your mobile phone number with anyone. Text messages you receive from us are about your appointments.';
+      'Privacy. We never sell or share your mobile phone number with anyone. Text messages you receive from us are about your appointments. Msg frequency varies; msg & data rates may apply.';
     expect(promisesNotToShare(pageText(text))).toBe(true);
     expect(checkPolicy(page({ html: text })).ok).toBe(true);
+  });
+
+  it('fails a policy that promises not to share but never says how often or that rates apply (30896)', () => {
+    const text =
+      'Privacy. We never sell or share your mobile phone number with anyone. Text messages you receive from us are about your appointments.';
+    const check = checkPolicy(page({ html: text }));
+    expect(check).toMatchObject({ ok: false, severity: 'blocker' });
+    expect(check.detail).toMatch(/Message frequency varies/);
+    expect(check.detail).toMatch(/Message and data rates may apply/);
   });
 
   it('fails a policy that never mentions texting, however much it promises', () => {
@@ -220,9 +234,47 @@ describe('the page where customers agree', () => {
 
   it('passes a page with the box and the wording on it', () => {
     expect(showsConsentBox(consentHtml())).toBe(true);
-    expect(checkOptInSurface(page({ html: consentHtml() }), 'hosted', ['Lone Star HVAC']).ok).toBe(
-      true,
+    expect(
+      checkOptInSurface(page({ html: consentHtml() }), 'own_site', ['Lone Star HVAC']).ok,
+    ).toBe(true);
+  });
+
+  it('passes our sign-up page only when sending it really signs someone up', () => {
+    const live = consentHtml().replace('<form>', `<form ${SIGN_UP_MARK}="live">`);
+    expect(takesSignUps(live)).toBe(true);
+    expect(checkOptInSurface(page({ html: live }), 'hosted', ['Lone Star HVAC']).ok).toBe(true);
+    // The page the 1 Nov reviewer pressed Send on: the form, but a Send that only said it was a picture.
+    const shown = consentHtml().replace(
+      '</form>',
+      '<p>This page only shows what the chat asks. To reach Lone Star HVAC, use the chat on their website.</p></form>',
     );
+    const check = checkOptInSurface(page({ html: shown }), 'hosted', ['Lone Star HVAC']);
+    expect(check).toMatchObject({ ok: false, severity: 'blocker' });
+    expect(check.detail).toMatch(/doesn’t sign anyone up/);
+    expect(check.detail).toMatch(/Ask HandsFreeOS to check it/);
+  });
+
+  it('turns down words by the phone field that don’t name the kinds of texts or say how often (30924)', () => {
+    // As the 23 Oct reviewer read it: who, STOP, even rates, but no kinds of texts and no frequency phrasing.
+    const html =
+      '<form><input type="tel" name="phone"><input type="checkbox" id="c">' +
+      '<label for="c">By providing your phone number you agree to receive text messages from Shop Your Solar. ' +
+      'Message and data rates may apply. Reply STOP to opt out, HELP for help.</label>' +
+      '<a href="/privacy">Privacy policy</a> <a href="/terms">Terms</a></form>';
+    const check = checkOptInSurface(page({ html }), 'own_site', ['Shop Your Solar']);
+    expect(check).toMatchObject({ ok: false, severity: 'blocker' });
+    expect(check.detail).toMatch(/kinds of texts/);
+    expect(check.detail).toMatch(/Message frequency varies/);
+  });
+
+  it('turns down “how many messages you get varies”, our old paraphrase of the frequency', () => {
+    const html =
+      '<form><input type="checkbox" id="c"><label for="c">Lone Star HVAC may text you appointment reminders. ' +
+      'How many messages you get varies, and message and data rates may apply. Reply STOP to stop and HELP for help.' +
+      '</label><a href="/privacy">Privacy policy</a> <a href="/terms">Terms</a></form>';
+    expect(readConsentBox(html, ['Lone Star HVAC']).missing).toEqual([
+      'the words “Message frequency varies”',
+    ]);
   });
 
   it('fails a page with the wording but no box to tick', () => {
@@ -258,9 +310,10 @@ describe('the page where customers agree', () => {
     expect(check).toMatchObject({ ok: false, severity: 'blocker' });
     for (const missing of [
       'business name',
+      'kinds of texts',
       'HELP',
       'rates may apply',
-      'how often',
+      'Message frequency varies',
       'privacy policy',
     ])
       expect(check.detail).toContain(missing);
@@ -363,6 +416,69 @@ describe('whether the chat is on the website (letting us collect it)', () => {
       true,
     );
     expect(checkChatOnSite(down, [chat()]).ok).toBe(false);
+  });
+});
+
+describe('other ways customers agree', () => {
+  const words = smsConsentWords('Lone Star HVAC', 'form', '/privacy');
+  const box =
+    `<form><input type="checkbox" id="c"><label for="c">${words.title}</label><p>${words.detail} ` +
+    '<a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a></p></form>';
+
+  it('checks each one like the main one, numbered in the order given', () => {
+    const ok = checkOtherWay(page({ html: box }), { path: 'own_site' }, 0, ['Lone Star HVAC']);
+    expect(ok).toMatchObject({ id: 'other_way_0', ok: true });
+    expect(ok.label).toMatch(/own website form/);
+    const down = checkOtherWay(page({ status: 404, html: '' }), { path: 'in_person' }, 1);
+    expect(down).toMatchObject({ id: 'other_way_1', ok: false, severity: 'blocker' });
+  });
+
+  it('says so when the chat was listed but never set up', () => {
+    expect(checkOtherWay(null, { path: 'hosted' }, 0).detail).toMatch(/isn’t set up/);
+  });
+});
+
+describe('what only the business can say', () => {
+  it('asks a business with its own form to try it, and everyone to say the list is complete', () => {
+    expect(
+      confirmationsFor({ optInPath: 'own_site', optInUrl: 'https://shopyoursolar.test/quote' }).map(
+        (c) => c.id,
+      ),
+    ).toEqual(['own_form_sends', 'only_these_ways']);
+    expect(
+      confirmationsFor({
+        optInPath: 'hosted',
+        otherWays: [{ path: 'in_person', url: 'https://drive.test/sheet' }],
+      }).map((c) => c.id),
+    ).toEqual(['in_person_words', 'only_these_ways']);
+    expect(confirmationsFor({ optInPath: '' })).toEqual([]);
+  });
+});
+
+describe('all green', () => {
+  const green = checkWebsite(page());
+  it('is nothing left: no issue of either kind, every look passed, every tick ticked', () => {
+    const confirmations = confirmationsFor({ optInPath: 'hosted' });
+    expect(
+      notGreen({ issues: [], checks: [green], confirmations, confirmed: ['only_these_ways'] }),
+    ).toEqual([]);
+  });
+
+  it('lists warnings too, the checks not run, and each tick left empty', () => {
+    const yellow = checkWebsite(page(), ['Somebody Else Plumbing']);
+    expect(yellow.severity).toBe('warning');
+    const left = notGreen({
+      issues: [{ message: 'Is this exactly the name on your EIN letter?' }],
+      checks: [green, yellow],
+      confirmations: confirmationsFor({ optInPath: 'hosted' }),
+      confirmed: [],
+    });
+    expect(left).toHaveLength(3);
+    expect(left[1]).toMatch(/^Your website opens: /);
+    expect(left[2]).toMatch(/^Not ticked/);
+    expect(notGreen({ issues: [], checks: null, confirmations: [], confirmed: [] })[0]).toMatch(
+      /haven’t run/,
+    );
   });
 });
 

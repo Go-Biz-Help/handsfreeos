@@ -13537,6 +13537,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/registration.request_review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask HandsFreeOS to check the texting registration by hand, when not everything on its last step is green. Opens a support ticket listing what isn’t green and the note; HandsFreeOS then approves it, and it’s sent to the carriers exactly as it is (with their fees, as usual), or sends it back saying what to change. Either way the person gets an email. Asking again replaces a check still waiting.
+         * @description Risk level 2. Requires channels.manage. Emits support_ticket.opened, registration_review.requested.
+         */
+        post: operations["command_registration_request_review"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/registration.review.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: approve a business’s texting registration after checking it by hand. It’s sent to the carriers exactly as the business left it (their fees as usual), and the business is told on the ticket.
+         * @description Risk level 3. Requires support.reply. Emits support_ticket.replied, platform.registration_review_decided.
+         */
+        post: operations["command_registration_review_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/registration.review.send_back": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: send a business’s texting registration back after checking it by hand, saying what to change. Nothing goes to the carriers; the business is told on the ticket.
+         * @description Risk level 2. Requires support.reply. Emits support_ticket.replied, platform.registration_review_decided.
+         */
+        post: operations["command_registration_review_send_back"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/registration.save_draft": {
         parameters: {
             query?: never;
@@ -13567,7 +13627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number. A local registration costs what the carriers charge for it (the brand’s fees once, the campaign’s review each time it is sent), and its steps wait until that is paid: the output’s fee says how much, and phone.setup_status where to pay it.
+         * Send the business details the carriers need before texts can go out: toll-free verification, or the 10DLC brand and campaign for a local number. Only details the registration’s last step in Settings → Texting & calls found all green in the last day go (every check passed, every tick ticked); anything else is refused, and the person either fixes it there or asks HandsFreeOS to check it (registration.request_review). After the carriers turn one down, send the corrected details again: a toll-free request is edited or replaced and a campaign is registered again. A local number’s business profile and brand are checked against what HandsFreeOS support corrected with the carriers, so changed details there apply to the campaign only. A local (10DLC) registration can be sent before the business has a number, for example while its own number is being moved here: once approved, every local number that joins the business is covered. Toll-free verification waits for the toll-free number. A local registration costs what the carriers charge for it (the brand’s fees once, the campaign’s review each time it is sent), and its steps wait until that is paid: the output’s fee says how much, and phone.setup_status where to pay it.
          * @description Risk level 3. Requires channels.manage. Emits registration.submitted, texting_fee.due.
          */
         post: operations["command_registration_submit"];
@@ -22391,6 +22451,46 @@ export interface paths {
          * @description Requires channels.manage.
          */
         post: operations["query_registration_get_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/registration.review.for_staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: the texting registration a ticket asks HandsFreeOS to check, with what wasn’t green and the details as they’d be sent.
+         * @description Requires support.read.
+         */
+        post: operations["query_registration_review_for_staff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/registration.review.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether HandsFreeOS is checking the texting registration by hand, approved it, or sent it back (and what it said).
+         * @description Requires channels.manage.
+         */
+        post: operations["query_registration_review_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -56163,6 +56263,161 @@ export interface operations {
             };
         };
     };
+    command_registration_request_review: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    business: {
+                        address: {
+                            city: string;
+                            /**
+                             * @default US
+                             * @enum {string}
+                             */
+                            country?: "US";
+                            line1: string;
+                            postalCode: string;
+                            state: string;
+                        };
+                        /** @enum {string} */
+                        businessType: "llc" | "corporation" | "sole_proprietor" | "partnership" | "non_profit";
+                        confirmed?: ("own_form_sends" | "in_person_words" | "only_these_ways" | "legal_name_exact" | "ages_checked" | "lending_ok")[];
+                        contact: {
+                            /** Format: email */
+                            email: string;
+                            firstName: string;
+                            lastName: string;
+                            phone: string;
+                        };
+                        displayName?: string;
+                        ein?: string | null;
+                        legalName: string;
+                        messageSamples: string[];
+                        /** @enum {string} */
+                        monthlyVolume: "under_1000" | "1000_10000" | "10000_100000" | "over_100000";
+                        optInDescription: string;
+                        /** @enum {string} */
+                        optInPath?: "hosted" | "own_site" | "in_person";
+                        optInProofUrl?: string | null;
+                        optInUrl?: string | null;
+                        otherWays?: {
+                            /** @enum {string} */
+                            path: "hosted" | "own_site" | "in_person";
+                            /** Format: uri */
+                            url: string;
+                        }[];
+                        policyContact?: {
+                            /** Format: email */
+                            email?: string;
+                            phone?: string;
+                        };
+                        policyUrl?: string | null;
+                        privacyPageUrl?: string | null;
+                        sensitiveTopics?: ("lending" | "debt" | "lead_selling" | "cannabis" | "gambling" | "alcohol" | "tobacco" | "firearms")[];
+                        termsPageUrl?: string | null;
+                        termsUrl?: string | null;
+                        /** @enum {string} */
+                        useCase: "customer_care" | "mixed" | "marketing";
+                        /** Format: uri */
+                        website: string;
+                    };
+                    /** @enum {string} */
+                    kind: "toll_free_verification" | "a2p_10dlc";
+                    note?: string;
+                    notGreen: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        reviewId: string;
+                        ticketNumber: number;
+                    };
+                };
+            };
+        };
+    };
+    command_registration_review_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note?: string;
+                    /** Format: uuid */
+                    reviewId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        reviewId: string;
+                        /** @enum {string} */
+                        status: "waiting" | "approved" | "sent_back" | "withdrawn";
+                    };
+                };
+            };
+        };
+    };
+    command_registration_review_send_back: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    /** Format: uuid */
+                    reviewId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        reviewId: string;
+                        /** @enum {string} */
+                        status: "waiting" | "approved" | "sent_back" | "withdrawn";
+                    };
+                };
+            };
+        };
+    };
     command_registration_save_draft: {
         parameters: {
             query?: never;
@@ -56220,6 +56475,7 @@ export interface operations {
                         };
                         /** @enum {string} */
                         businessType: "llc" | "corporation" | "sole_proprietor" | "partnership" | "non_profit";
+                        confirmed?: ("own_form_sends" | "in_person_words" | "only_these_ways" | "legal_name_exact" | "ages_checked" | "lending_ok")[];
                         contact: {
                             /** Format: email */
                             email: string;
@@ -56238,6 +56494,12 @@ export interface operations {
                         optInPath?: "hosted" | "own_site" | "in_person";
                         optInProofUrl?: string | null;
                         optInUrl?: string | null;
+                        otherWays?: {
+                            /** @enum {string} */
+                            path: "hosted" | "own_site" | "in_person";
+                            /** Format: uri */
+                            url: string;
+                        }[];
                         policyContact?: {
                             /** Format: email */
                             email?: string;
@@ -87508,6 +87770,100 @@ export interface operations {
                             [key: string]: unknown;
                         } | null;
                         savedAt: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_registration_review_for_staff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    reviewId?: string;
+                    /** Format: uuid */
+                    ticketId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        review: {
+                            businessName: string;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            /** @enum {string} */
+                            kind: "toll_free_verification" | "a2p_10dlc";
+                            note: string | null;
+                            notGreen: string[];
+                            /** Format: date-time */
+                            requestedAt: string;
+                            /** Format: uuid */
+                            reviewId: string;
+                            sentAt: string | null;
+                            /** @enum {string} */
+                            status: "waiting" | "approved" | "sent_back" | "withdrawn";
+                            submission: {
+                                [key: string]: unknown;
+                            };
+                            ticketNumber: number | null;
+                            /** Format: uuid */
+                            workspaceId: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_registration_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        review: {
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            /** @enum {string} */
+                            kind: "toll_free_verification" | "a2p_10dlc";
+                            /** Format: date-time */
+                            requestedAt: string;
+                            /** Format: uuid */
+                            reviewId: string;
+                            sentAt: string | null;
+                            /** @enum {string} */
+                            status: "waiting" | "approved" | "sent_back" | "withdrawn";
+                            ticketNumber: number | null;
+                        } | null;
                     };
                 };
             };

@@ -10,10 +10,10 @@
  * The six things a compliant opt-in has to carry, all of them here:
  *
  *   1. who is sending — the business's name, not ours
- *   2. what the messages are about
+ *   2. what kinds of messages they are, named (reminders, quotes, invoices…)
  *   3. that it is not a condition of buying anything
- *   4. that how many they get varies, and their own rates may apply
- *   5. STOP to stop, HELP for help
+ *   4. "Message frequency varies" and "Message and data rates may apply", in the carriers' own words
+ *   5. STOP to unsubscribe, HELP for help
  *   6. where the terms and the privacy policy are
  *
  * Browser-safe: the public form and the booking page are both rendered for signed-out visitors, and the
@@ -25,11 +25,26 @@ export type ConsentPlace = 'form' | 'booking' | 'chat';
 
 export { HELP_KEYWORDS, STOP_KEYWORDS } from './sms';
 
-const ABOUT: Readonly<Record<ConsentPlace, string>> = {
-  form: 'about what you have asked us',
-  booking: 'about this appointment',
-  chat: 'about what you have asked us',
+/**
+ * **What the texts are, named.** "About what you have asked us" was turned down (Twilio 30924): the reviewer reads the
+ * words by the phone field for the kinds of texts a customer is agreeing to, and wants them listed. These are the texts
+ * HandsFreeOS actually sends for a business: reminders, quotes, invoices, job updates and replies.
+ */
+export const CARE_TEXT_KINDS =
+  'appointment reminders, quotes, invoices, updates about your job and replies to your questions';
+const KINDS: Readonly<Record<ConsentPlace, string>> = {
+  form: CARE_TEXT_KINDS,
+  booking: 'confirmations, reminders and updates about this appointment',
+  chat: CARE_TEXT_KINDS,
 };
+
+/**
+ * **The carriers' own phrases, word for word.** Reviewers read for these sentences, and a plain-words version of them
+ * ("How many messages you get varies") was turned down for "lacking mandatory message frequency phrasing" (30924). So
+ * every box, the offers box, the copy for a business's own site and the description sent to the carrier end with this.
+ */
+export const CARRIER_DISCLOSURE =
+  'Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe. Reply HELP for help.';
 
 export interface SmsConsentWords {
   /** The line beside the tick box. Short enough to read, specific enough to mean something. */
@@ -62,9 +77,8 @@ export function smsConsentWords(
   return {
     title: place === 'booking' ? 'Text me about this appointment' : `Text me, ${who}`,
     detail:
-      `${who} may text you ${ABOUT[place]}. Agreeing is not a condition of buying anything. ` +
-      'How many messages you get varies, and message and data rates may apply. ' +
-      'Reply STOP to stop and HELP for help.',
+      `${who} may send you recurring texts: ${KINDS[place]}. ${CARRIER_DISCLOSURE} ` +
+      'Agreeing is not a condition of buying anything.',
     policyUrl: policyUrl?.trim() || null,
     termsUrl: termsUrl?.trim() || null,
   };
@@ -83,9 +97,8 @@ export function offersConsentWords(business: string): { title: string; detail: s
   return {
     title: `Also text me offers from ${who}`,
     detail:
-      `${who} may also text you now and then about offers and services that are due. This is separate ` +
-      'from the box above and never required. How many messages you get varies, and message and data ' +
-      'rates may apply. Reply STOP to stop and HELP for help.',
+      `${who} may also send you recurring texts about offers, promotions and services that are due. This is ` +
+      `separate from the box above and never required. ${CARRIER_DISCLOSURE}`,
   };
 }
 
@@ -204,14 +217,16 @@ function listUrls(urls: readonly string[]): string {
   return `${urls.slice(0, -1).join(', ')} and ${urls[urls.length - 1]}`;
 }
 
-/** What the six disclosures say, as one clause. Every web path's description ends with this. */
+/**
+ * What the customer reads beside the box, quoted for the carrier, and what else the reviewer checks there. Quoting it
+ * rather than describing it is what Twilio's 30924 asks for: the description has to show the consent language itself
+ * (who is texting, the kinds of texts, frequency, rates, STOP and HELP), not promise that it exists.
+ */
 function disclosureClause(who: string): string {
   return (
-    `Beside the box they are told that ${who} will be texting them and what about, that agreeing is not a ` +
-    'condition of buying anything, that how many messages they get varies, that message and data rates may ' +
-    'apply, and that they can reply STOP to stop or HELP for help, with links to the privacy policy and the ' +
-    'terms. The box is never ticked for them and is never required. The date and time of each agreement is ' +
-    'kept against that customer.'
+    `The words beside the box read: "${smsConsentWords(who, 'form').detail}" Links to the privacy policy and ` +
+    'the terms sit beside the box. The box is never ticked for them and is never required. The date and time ' +
+    'of each agreement is kept against that customer.'
   );
 }
 
@@ -219,6 +234,16 @@ function disclosureClause(who: string): string {
 const offersClause = (who: string): string =>
   `Offers from ${who} have a second, separate box that is also never ticked for them or required, so a ` +
   'customer can agree to texts about their own work without agreeing to offers.';
+
+/**
+ * Another way the same customers agree, beside the main one. Twilio's 30896: "If you support more than one opt-in
+ * path, list every method along with proofs." So each one names where a reviewer can see it.
+ */
+export interface OtherOptIn {
+  readonly path: OptInPath;
+  /** Where a reviewer sees it: the sign-up page for the chat, the page with the box, or the proof of the words. */
+  readonly url: string;
+}
 
 /** What the description can say beyond the path and the surfaces. */
 export interface OptInDetails {
@@ -228,15 +253,41 @@ export interface OptInDetails {
   readonly proofUrl?: string | null;
   /** The business sends offers too, so there is a second box for them. */
   readonly offers?: boolean;
+  /** The privacy policy the reviewer opens. Both links belong in the description itself (30924, 30896). */
+  readonly policyUrl?: string | null;
+  /** The terms the reviewer opens, beside the policy's. */
+  readonly termsUrl?: string | null;
+  /** Every other way customers agree, each with its proof. */
+  readonly otherWays?: readonly OtherOptIn[];
+}
+
+/** One more way customers agree, as the description says it. */
+function otherWaySentence(who: string, way: OtherOptIn): string {
+  const url = way.url.trim();
+  switch (way.path) {
+    case 'hosted':
+      return (
+        `Customers can also agree in the chat on ${who}'s website, which asks for their details after their ` +
+        `first message with the same box and words. A working sign-up page with that form is at ${url}.`
+      );
+    case 'own_site':
+      return `Customers can also agree on ${who}'s own website form at ${url}, which carries the same box and words.`;
+    case 'in_person':
+      return (
+        'Customers can also agree in person or over the phone, where they are told the same words before they ' +
+        `agree. The sign-up sheet or the words used are shown at ${url}.`
+      );
+  }
 }
 
 /**
  * The sentence the carrier reads, describing **the way this business actually collects consent** rather
- * than a way it might.
+ * than a way it might, and every other way it collects it too.
  *
  * This is the replacement for `optInDescriptionDefault`, which described booking pages and web forms
  * whether or not the business had either. Pass the path the wizard settled on and the surfaces that are
- * live, and what comes back is checkable: every URL in it is one a reviewer can open.
+ * live, and what comes back is checkable: every URL in it is one a reviewer can open, and it ends with the
+ * privacy policy and the terms, which carriers want written into it (Twilio 30924 and 30896).
  */
 export function optInDescriptionFor(
   business: string,
@@ -250,21 +301,36 @@ export function optInDescriptionFor(
   const proof = details.proofUrl?.trim() || null;
   const offers = details.offers ? ` ${offersClause(who)}` : '';
   const shown = proof ? ` What they see is shown at ${proof}.` : '';
+  const others = (details.otherWays ?? [])
+    .filter((w) => w.path !== path && w.url.trim())
+    .map((w) => ` ${otherWaySentence(who, w)}`)
+    .join('');
+  const policy = details.policyUrl?.trim() || null;
+  const terms = details.termsUrl?.trim() || null;
+  const links = (policy ? ` Privacy policy: ${policy}.` : '') + (terms ? ` Terms: ${terms}.` : '');
+  // Twilio's own START handling lets someone who replied STOP rejoin: the campaign declares the keyword, so the
+  // description says it too ("list every method").
+  const rejoin = ' Customers who replied STOP can rejoin by replying START.';
   switch (path) {
     case 'hosted': {
       // The chat on the business's own site, which asks for their details after their first message; any form or
       // booking page carrying the same box is said after it.
       const site = surfaces.siteUrl?.trim() || null;
       const chat = surfaces.chatUrl?.trim() || null;
-      const others = liveSurfaces({ formUrl: surfaces.formUrl, bookingUrl: surfaces.bookingUrl });
+      const more = liveSurfaces({ formUrl: surfaces.formUrl, bookingUrl: surfaces.bookingUrl });
       return (
         `Customers agree in the chat on ${site ?? `${who}'s website`}. After a visitor sends their first ` +
         'message, the chat asks for their name, mobile number and email, and they can tick a box giving ' +
         `${who} permission to text them. ` +
         disclosureClause(who) +
         offers +
-        (chat ? ` A page showing exactly what the chat asks is at ${chat}.` : '') +
-        (others.length ? ` The same box is on ${listUrls(others)}.` : '')
+        (chat
+          ? ` A working sign-up page with the same form, where anyone can fill it in and agree, is at ${chat}.`
+          : '') +
+        (more.length ? ` The same box is on ${listUrls(more)}.` : '') +
+        others +
+        rejoin +
+        links
       );
     }
     case 'own_site': {
@@ -278,20 +344,24 @@ export function optInDescriptionFor(
         `${where}. ` +
         disclosureClause(who) +
         offers +
-        shown
+        shown +
+        others +
+        rejoin +
+        links
       );
     }
     case 'in_person':
       return (
         `Customers give ${who} permission to text them in person or over the phone, when they ask for work ` +
-        `to be done. They are told that ${who} will be texting them and what about, that agreeing is not a ` +
-        'condition of buying anything, that how many messages they get varies, that message and data rates ' +
-        'may apply, and that they can reply STOP to stop or HELP for help. Whoever takes the permission ' +
-        'records it against that customer, with the date and time.' +
+        `to be done. Before they agree they are told: "${smsConsentWords(who, 'form').detail}" Whoever takes ` +
+        'the permission records it against that customer, with the date and time.' +
         (details.offers
           ? ' Offers are asked about separately, and only customers who say yes to them get them.'
           : '') +
-        (proof ? ` The sign-up sheet or the words used are shown at ${proof}.` : '')
+        (proof ? ` The sign-up sheet or the words used are shown at ${proof}.` : '') +
+        others +
+        rejoin +
+        links
       );
   }
 }

@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkDraft,
   checkSample,
+  descriptionGaps,
   hasBlockers,
   issuesFor,
   readsPromotional,
@@ -212,6 +213,69 @@ describe('the suggested examples pass our own checks', () => {
       expect(samples.some(sampleHasOptOut)).toBe(true);
     });
   }
+});
+
+describe('what the carrier is told is checked for what Twilio reads it for (30896, 30924)', () => {
+  const urls = {
+    privacyPageUrl: 'https://lonestarhvac.com/privacy',
+    termsPageUrl: 'https://lonestarhvac.com/terms',
+    optInPageUrl: 'https://app.handsfreeos.com/chat/wk_abc',
+  };
+  const ours = optInDescriptionFor(
+    BUSINESS,
+    'hosted',
+    { chatUrl: urls.optInPageUrl },
+    { policyUrl: urls.privacyPageUrl, termsUrl: urls.termsPageUrl },
+  );
+
+  it('finds nothing missing from the one we write', () => {
+    expect(descriptionGaps(ours, { ...good, ...urls }, BUSINESS)).toEqual([]);
+    expect(
+      issuesFor(
+        checkDraft({ ...good, ...urls, optInDescription: ours }, BUSINESS),
+        'optInDescription',
+      ),
+    ).toEqual([]);
+  });
+
+  it('blocks an edit that drops the links, the kinds of texts or the frequency', () => {
+    const edited =
+      'Customers agree on our website. Reply STOP to stop, HELP for help. Rates may apply.';
+    const gaps = descriptionGaps(edited, { ...good, ...urls }, BUSINESS);
+    expect(gaps).toEqual([
+      'your business name',
+      'the kinds of texts you send',
+      '“Message frequency varies”',
+      `where to see it (${urls.optInPageUrl})`,
+      'the link to your privacy policy',
+      'the link to your terms',
+    ]);
+    const [issue] = issuesFor(
+      checkDraft({ ...good, ...urls, optInDescription: edited }, BUSINESS),
+      'optInDescription',
+    );
+    expect(issue).toMatchObject({ severity: 'blocker' });
+    expect(issue!.message).toMatch(/Use our wording/);
+  });
+
+  it('takes an address written without its https://', () => {
+    const text = ours.replace('https://lonestarhvac.com/privacy', 'lonestarhvac.com/privacy');
+    expect(descriptionGaps(text, { ...good, ...urls }, BUSINESS)).toEqual([]);
+  });
+
+  it('wants every other way customers agree named, each with proof', () => {
+    const otherWays = [{ path: 'in_person' as const, url: 'https://drive.test/script' }];
+    expect(descriptionGaps(ours, { ...good, ...urls, otherWays }, BUSINESS)).toEqual([
+      'where to see it (https://drive.test/script)',
+    ]);
+    const blank = checkDraft({ ...good, otherWays: [{ path: 'own_site', url: '' }] }, BUSINESS);
+    expect(issuesFor(blank, 'otherWays')[0]!.message).toMatch(/page with your tick box/);
+    const same = checkDraft(
+      { ...good, otherWays: [{ path: 'hosted', url: 'https://x.test' }] },
+      BUSINESS,
+    );
+    expect(issuesFor(same, 'otherWays')[0]!.message).toMatch(/same as the main one/);
+  });
 });
 
 describe('the sentence the carrier reads describes the box it will look for', () => {

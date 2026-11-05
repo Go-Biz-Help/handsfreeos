@@ -249,6 +249,29 @@ const IdentifyBody = z
     error: 'Tell us your name, number or email.',
   });
 const ReadBody = z.object({ through: z.uuid() });
+/**
+ * The sign-up page's form (/chat/<key> opened on its own): the chat's details form, sent without a chat. A carrier's
+ * reviewer fills it in to see the opt-in work (Twilio 30896, 1 Nov: "the opt-in page is not getting submitted").
+ */
+const SignUpBody = z
+  .object({
+    name: z.string().max(200).optional(),
+    phone: z.string().max(40).optional(),
+    email: z.string().max(320).optional(),
+    smsConsent: z.boolean().default(false),
+    offersConsent: z.boolean().default(false),
+    callConsent: z.boolean().default(false),
+    turnstileToken: z.string().max(2048).optional(),
+    honeypot: z.string().max(500).optional(),
+  })
+  .refine((v) => !!(v.phone?.trim() || v.email?.trim()), {
+    path: ['phone'],
+    error: 'Add your mobile number or email.',
+  })
+  .refine((v) => !(v.smsConsent || v.offersConsent) || !!v.phone?.trim(), {
+    path: ['phone'],
+    error: 'Add your mobile number to get texts.',
+  });
 
 const filled = (v: string | undefined): string | undefined => v?.trim() || undefined;
 
@@ -689,6 +712,67 @@ export async function registerChatRoutes(app: FastifyInstance, deps: HttpDeps): 
             email: v.visitor.gave.email || !!email,
           },
         };
+      },
+    );
+
+    // ---------- the sign-up page: the details form on its own, no chat needed ----------
+    // Our own page (/chat/<key> opened in a tab), so there's no host website to check. Every new visit is counted the
+    // way a chat's start is, the human check runs when it's on, and a filled honeypot is a bot.
+    pub.post<Params>(
+      '/public/chat/:key/sign-up',
+      { config: { rateLimit: limits.ipStart } },
+      async (req, reply) => {
+        refuseHoneypot(req.body);
+        const route = await findWidget(req.params.key);
+        const body = parseBody(SignUpBody, req.body ?? {});
+        const scope = scopeOf(route);
+        const ws = route.workspaceId;
+        const ip = ipOf(req);
+        const widget = await worker(scope, (tx) => loadWidget(tx, route.widgetId));
+        if (!widget) throw widgetNotFound();
+        if (widget.pausedAt) throw widgetPaused();
+        limit(reply, [
+          { key: `a:${ip}:sign-up`, rule: limits.visitorIdentify },
+          { key: `w:${route.widgetId}:start`, rule: limits.widgetStart },
+          { key: `b:${ws}:start`, rule: limits.businessStart },
+        ]);
+        const network = await worker(scope, async (tx) => ({
+          blocked: await networkBlocked(tx, ws, ip),
+          recent: await newVisitorsFrom(tx, ws, ip, limits.networkNewVisitors.timeWindow),
+        }));
+        if (network.blocked) throw blocked('network');
+        if (network.recent >= limits.networkNewVisitors.max) throw networkFlood();
+        const verdict = await humanCheck(req, botCheck.enabled, body.turnstileToken);
+        const started = await run(scope, chatVisitorStart, {
+          workspaceId: ws,
+          widgetId: route.widgetId,
+          tokenHash: tokenHashOf(newVisitorToken()),
+          ipHmac: ip,
+          pagePath: `/chat/${req.params.key}`,
+        });
+        if (started.blocked) throw blocked('network');
+        const name = filled(body.name);
+        const phone = filled(body.phone);
+        const email = filled(body.email);
+        await run(scope, chatIdentify, {
+          workspaceId: ws,
+          visitorId: started.visitorId,
+          ...(name ? { name } : {}),
+          ...(phone ? { phone } : {}),
+          ...(email ? { email } : {}),
+          smsConsent: body.smsConsent,
+          offersConsent: body.offersConsent,
+          callConsent: body.callConsent,
+        });
+        if (verdict === 'pass')
+          await run(scope, chatVisitorRecordSeen, {
+            workspaceId: ws,
+            visitorId: started.visitorId,
+            turnstilePassed: true,
+            ipHmac: ip,
+          });
+        // Whether they asked for texts, for the thank-you's words; never whether a customer matched.
+        return { signedUp: true, texts: body.smsConsent && !!phone };
       },
     );
 
