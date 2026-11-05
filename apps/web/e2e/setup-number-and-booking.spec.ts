@@ -59,6 +59,7 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   const next = page.getByTestId('a2p-next');
 
   await page.getByLabel('Your EIN').fill('12-3456789');
+  const legalName = await page.getByLabel('The name on your IRS letter').inputValue();
   await next.click();
   // The website and the address are the ones already given.
   await expect(page.getByLabel('Your website')).toHaveValue(`https://${WEBSITE}/`);
@@ -66,8 +67,11 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   await expect(page.getByLabel('City', { exact: true })).toHaveValue(BUSINESS_ADDRESS.city);
   await expect(page.getByLabel('State', { exact: true })).toHaveValue(BUSINESS_ADDRESS.state);
   await expect(page.getByLabel('ZIP code')).toHaveValue(BUSINESS_ADDRESS.postalCode);
-  // The review opens the website, as a carrier's reviewer would: here, the stand-in is the one that answers.
-  await page.getByLabel('Your website').fill(KNOWLEDGE_SITE);
+  // The review opens the website, as a carrier's reviewer would: here, the stand-in is the one that answers, on its
+  // page for this business (a reviewer looks for the name).
+  await page
+    .getByLabel('Your website')
+    .fill(`${KNOWLEDGE_SITE}/for/${encodeURIComponent(legalName)}`);
   await next.click();
   await page.getByLabel('Phone', { exact: true }).fill('(713) 555-0162');
   await next.click();
@@ -105,7 +109,12 @@ test('setup: a local number on what we host, its fees paid, and the booking page
   await expect(page.getByRole('link', { name: /\/legal\/[a-z0-9-]+\/privacy$/ })).toBeVisible();
   await next.click();
 
-  // The review opens all of it, as a reviewer would, and lets it go: no reload needed.
+  // The review opens all of it, as a reviewer would, and lets it go once it's all green: no reload needed. What no
+  // check can see is a tick.
+  const ticks = page.getByTestId('registration-confirmations').getByRole('checkbox');
+  await expect(ticks.first()).toBeVisible({ timeout: 60_000 });
+  for (const tick of await ticks.all()) await tick.check();
+  await expect(page.getByTestId('registration-all-green')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('business-agree').check();
   const send = page.getByTestId('submit-registration');
   await expect(send).toBeEnabled({ timeout: 60_000 });

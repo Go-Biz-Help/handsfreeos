@@ -168,11 +168,15 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
 
   // 1. Who the carriers look up.
   await page.getByLabel('Your EIN').fill('12-3456789');
+  const legalName = await page.getByLabel('The name on your IRS letter').inputValue();
   await next.click();
 
   // 2. Where to find them. The stand-in website playwright.config.ts serves, because the wizard's
-  //    pre-flight really opens this address before it lets anything be submitted (FETCH_TEST_ORIGINS).
-  await page.getByLabel('Your website').fill(KNOWLEDGE_SITE);
+  //    pre-flight really opens this address before it lets anything be submitted (FETCH_TEST_ORIGINS). Its page for
+  //    this business, which names it as a reviewer looks for.
+  await page
+    .getByLabel('Your website')
+    .fill(`${KNOWLEDGE_SITE}/for/${encodeURIComponent(legalName)}`);
   await page.getByLabel('Street address').fill('4410 Westpark Dr');
   await page.getByLabel('City', { exact: true }).fill('Houston');
   await page.getByLabel('State', { exact: true }).fill('TX');
@@ -214,10 +218,14 @@ export async function setUpTexting(page: Page, workspaceId: string): Promise<str
 
   // The review opens the website, the policy, the terms and (for in-person consent) the proof before it will
   // let the registration go. Nothing is submitted until all four have been looked at.
-  await expect(page.getByText('Your privacy policy mentions texting')).toBeVisible({
+  await expect(page.getByText('Your privacy policy covers texting')).toBeVisible({
     timeout: 30_000,
   });
 
+  // Send goes only when every row is green (the owner's rule, 2026-11-05), and what no check can see is a tick.
+  const ticks = page.getByTestId('registration-confirmations').getByRole('checkbox');
+  for (const tick of await ticks.all()) await tick.check();
+  await expect(page.getByTestId('registration-all-green')).toBeVisible({ timeout: 30_000 });
   await page.getByTestId('business-agree').check();
   await page.getByTestId('submit-registration').click();
   // The details go to the (fake) carriers. On a cold server that can take a while, and they may approve before the
