@@ -2476,7 +2476,9 @@ function Row({ label, value, onJump }: { label: string; value: ReactNode; onJump
     <div className="flex items-start justify-between gap-4 border-b border-border py-2.5 last:border-0">
       <div className="min-w-0">
         <p className="text-[13px] text-text-2">{label}</p>
-        <div className="text-[13.5px]">{value || <span className="text-text-3">—</span>}</div>
+        <div className="text-[13.5px] [overflow-wrap:anywhere]">
+          {value || <span className="text-text-3">—</span>}
+        </div>
       </div>
       <button
         type="button"
@@ -2656,7 +2658,7 @@ function ReviewStep({
               <p className="text-[13px] leading-relaxed text-text-2">{check.detail}</p>
               {check.url ? (
                 <a
-                  className="text-[13px] underline text-text-3"
+                  className="text-[13px] underline text-text-3 [overflow-wrap:anywhere]"
                   href={check.url}
                   target="_blank"
                   rel="noreferrer"

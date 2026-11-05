@@ -38,9 +38,30 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
   const teammate = config.teammate?.name ?? null;
   const siteKey = config.humanCheck ? (config.humanCheck.siteKey ?? TURNSTILE_SITE_KEY) : null;
   const token = useRef<string | null>(null);
+  // Who's waiting for the human check's next token: Send waits for it, as the chat does, rather than asking twice.
+  const waiting = useRef<((t: string | null) => void) | null>(null);
   const honeypot = useRef<HTMLInputElement>(null);
   const [reset, setReset] = useState(0);
   const [done, setDone] = useState<{ texts: boolean; phone: string } | null>(null);
+
+  /** The check's token: one it already made, or the next it makes (null after 20 seconds). Each works once. */
+  function nextToken(): Promise<string | null> {
+    const ready = token.current;
+    if (ready) {
+      token.current = null;
+      return Promise.resolve(ready);
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        waiting.current = null;
+        resolve(null);
+      }, 20_000);
+      waiting.current = (t) => {
+        clearTimeout(timer);
+        resolve(t);
+      };
+    });
+  }
 
   async function submit(values: DetailsValues): Promise<FieldProblems | null> {
     const name = values.name.trim();
@@ -49,9 +70,10 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
     if ((values.smsConsent || values.offersConsent) && !phone)
       return { phone: 'Add your mobile number to get texts.' };
     if (!phone && !email) return { form: 'Add your mobile number or email.' };
-    if (siteKey && !token.current)
+    const check = siteKey ? await nextToken() : null;
+    if (siteKey && !check)
       return {
-        form: 'One moment: we’re checking you’re a person. Press Send again in a few seconds.',
+        form: 'We couldn’t check you’re a person just now. Reload the page, then press Send again.',
       };
     try {
       const out = await chatSignUp(widgetKey, {
@@ -61,7 +83,7 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
         smsConsent: !!phone && values.smsConsent,
         offersConsent: !!phone && !!values.offersConsent,
         callConsent: !!phone && !!values.callConsent,
-        ...(token.current ? { turnstileToken: token.current } : {}),
+        ...(check ? { turnstileToken: check } : {}),
         ...(honeypot.current?.value ? { honeypot: honeypot.current.value } : {}),
       });
       setDone({ texts: out.texts, phone });
@@ -77,10 +99,7 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
       };
     } finally {
       // Each check's token works once.
-      if (token.current) {
-        token.current = null;
-        setReset((n) => n + 1);
-      }
+      if (check) setReset((n) => n + 1);
     }
   }
 
@@ -158,7 +177,11 @@ export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widget
                     siteKey={siteKey}
                     resetKey={reset}
                     onToken={(t) => {
-                      token.current = t;
+                      const waiter = waiting.current;
+                      if (waiter && t) {
+                        waiting.current = null;
+                        waiter(t);
+                      } else token.current = t;
                     }}
                   />
                 ) : null}
