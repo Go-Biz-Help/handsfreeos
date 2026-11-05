@@ -15,8 +15,8 @@
 --        as well as one waiting for their OK (decision 134's policy). What was
 --        sent, skipped or not sent still stays.
 --
--- Adds a column, and swaps one delete policy for a wider one. The running
--- code deletes only messages waiting for an OK, as before.
+-- Adds a column, and widens one delete policy in place (renamed to say so).
+-- The running code deletes only messages waiting for an OK, as before.
 
 alter table addon_outreach.sends
   add column rules_version integer not null default 0;
@@ -24,6 +24,6 @@ alter table addon_outreach.sends
 comment on column addon_outreach.sends.rules_version is
   'The version of the AI''s rules it was drafted under: one drafted under older rules, still waiting or OK''d, is written again (decision 157).';
 
-drop policy sends_own_waiting_delete on addon_outreach.sends;
-create policy sends_own_open_delete on addon_outreach.sends as restrictive for delete to authenticated
+alter policy sends_own_waiting_delete on addon_outreach.sends
   using (user_id = (select auth.uid()) and state in ('waiting', 'approved'));
+alter policy sends_own_waiting_delete on addon_outreach.sends rename to sends_own_open_delete;
