@@ -8,6 +8,8 @@ next step. A pointer moves and clicks as a person would.
 The panel on the left lists every step with its voiceover, so the presenter knows what comes next and what to say;
 the microphone button hides the voiceover, and Copy the voiceover copies the scene's as one script. The app moves
 right of the panel, so it can be left out of what's shared, and H hides it. It stays open in that browser until Exit.
+All scenes, at the top of a scene, goes back to the list of scenes (and Back to scene returns to it). The founder's
+Exit leaves Bright Path and goes back to Admin → Demo player, as the phone's Exit does; anyone else's just closes it.
 
 ## Where it plays
 
