@@ -6783,6 +6783,8 @@ Everything else in HandsFreeOS works without the key. The Assistant's database t
 
 **Talking out loud.** The mic beside the box, on the web and in the phone app, lets people ask out loud and hear the answer, hands-free: it listens, answers in its own voice, and listens again until they turn it off. When a card waits for their OK it asks "Should I go ahead?", and a plain yes or no confirms or cancels it, the same as the buttons. Deepgram hears and speaks, with the worker's `DEEPGRAM_API_KEY` (the key call transcripts already use); without it the mic says talking out loud isn't set up. Recordings aren't kept. What it hears and says comes out of the business's usage balance at 1.5× (see "Usage balances: what businesses pay us"). The phone app asks for the microphone the first time someone taps a mic, so it needs a new build from the stores, not an over-the-air update.
 
+**Links and copying.** The Assistant writes a link or an email address exactly as it is, never spelled out ("dot com", "slash"), and both the web and the phone app make each one a link to press (`packages/core/src/assistant/answer-text.ts`, by the same rules as a video call's chat). A link it words differently shows the site after the words, so one link can't pass for another. Out loud, the voice skips the address and says it's on the screen. On the web, **Copy** under an answer takes all of it, and any part can be selected as on any page. In the phone app, Android selects any part of an answer by pressing and holding; on iOS, which only copies a whole block of text, pressing and holding opens the answer in **Select text**, where any part can be picked and copied.
+
 ### Before you start
 
 You need:

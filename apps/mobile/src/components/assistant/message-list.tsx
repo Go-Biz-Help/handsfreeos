@@ -10,6 +10,7 @@ import type { AnswerMessage, CallState, ChatMessage, Step } from '@/assistant/ch
 import { cn } from '@/lib/utils';
 import { useColors } from '@/theme';
 
+import { AnswerText } from './answer-text';
 import { AnswerCard } from './cards';
 import { ConfirmCard } from './confirm-card';
 import { NoticeCard } from './notices';
@@ -63,9 +64,7 @@ function Answer({
     <View className="gap-2.5 py-1" testID="assistant-answer">
       <Steps steps={message.steps} />
       {message.text ? (
-        <Text className="text-[15px] leading-[22px]" testID="assistant-answer-text">
-          {message.text}
-        </Text>
+        <AnswerText text={message.text} />
       ) : nothingYet && message.steps.length === 0 ? (
         <View className="flex-row items-center gap-2">
           <ActivityIndicator size="small" color={colors.text3} />
@@ -129,7 +128,9 @@ export function MessageRow({
     return (
       <View className="items-end py-1.5" testID="assistant-question">
         <View className="max-w-[86%] rounded-[16px] rounded-br-[5px] bg-accent px-3.5 py-2.5">
-          <Text className="text-[15px] leading-[21px] text-white">{message.text}</Text>
+          <Text selectable className="text-[15px] leading-[21px] text-white">
+            {message.text}
+          </Text>
         </View>
       </View>
     );

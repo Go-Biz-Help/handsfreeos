@@ -1,6 +1,7 @@
 import { ASSISTANT_WORDS, type AssistantCard } from '@hfos/core';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as React from 'react';
+import { Linking } from 'react-native';
 
 import { AssistantComposer } from '../composer';
 import { ConsentStep } from '../consent-step';
@@ -330,6 +331,37 @@ describe('the chat itself', () => {
     expect(
       screen.getByText('Four invoices are waiting to be paid, $6,565.14 in all.'),
     ).toBeTruthy();
+  });
+
+  it('makes a link in the answer one to press', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+    await render(
+      row(
+        answer({
+          text: 'Your booking link is https://handsfreeos.com/book/lone-star/main. Share it anywhere.',
+        }),
+      ),
+    );
+    expect(
+      screen.getByText(
+        'Your booking link is https://handsfreeos.com/book/lone-star/main. Share it anywhere.',
+      ),
+    ).toBeTruthy();
+    fireEvent.press(screen.getByTestId('assistant-link'));
+    expect(open).toHaveBeenCalledWith('https://handsfreeos.com/book/lone-star/main');
+    open.mockRestore();
+  });
+
+  it('opens the answer in Select text on a long press, to copy any part of it', async () => {
+    await render(row(answer({ text: 'Here it is:\n- [Pay](https://pay.example.com/x)' })));
+    expect(screen.queryByTestId('assistant-select-text-body')).toBeNull();
+    await fireEvent(screen.getByTestId('assistant-answer-text'), 'longPress');
+    expect(screen.getByTestId('assistant-select-text-body').props.value).toBe(
+      'Here it is:\n\n• Pay (https://pay.example.com/x)',
+    );
+    expect(screen.getByTestId('assistant-select-text-body').props.editable).toBe(false);
+    await fireEvent.press(screen.getByTestId('assistant-select-text-done'));
+    await waitFor(() => expect(screen.queryByTestId('assistant-select-text-body')).toBeNull());
   });
 
   it('Ask again asks the question that had no signal', async () => {

@@ -1,74 +1,45 @@
+import { answerBlocks, answerParts, type AnswerPart } from '@hfos/core';
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
-/** The only links an answer may carry: pages in this app (the same rule as the cards' hrefs). */
-const APP_PATH = /^\/app\/w\/[0-9a-f-]{36}(\/[A-Za-z0-9_\-/?=&.]*)?$/;
+const LINK = 'font-medium text-accent-text underline underline-offset-2 hover:no-underline';
 
-type Block = { kind: 'p'; lines: string[] } | { kind: 'ul' | 'ol'; items: string[] };
-
-/** Paragraphs, and runs of "- " or "1. " lines as lists. */
-function blocks(text: string): Block[] {
-  const out: Block[] = [];
-  let paragraph: string[] = [];
-  const flush = () => {
-    if (paragraph.length) out.push({ kind: 'p', lines: paragraph });
-    paragraph = [];
-  };
-  for (const raw of text.split('\n')) {
-    const line = raw.trimEnd();
-    if (!line.trim()) {
-      flush();
-      continue;
-    }
-    const bullet = /^\s*[-•*]\s+(.*)$/.exec(line);
-    const numbered = bullet ? null : /^\s*\d+[.)]\s+(.*)$/.exec(line);
-    if (!bullet && !numbered) {
-      paragraph.push(line);
-      continue;
-    }
-    flush();
-    const kind = bullet ? 'ul' : 'ol';
-    const item = (bullet ?? numbered)![1]!;
-    const last = out[out.length - 1];
-    if (last && last.kind === kind) last.items.push(item);
-    else out.push({ kind, items: [item] });
-  }
-  flush();
-  return out;
-}
-
-const INLINE = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
-
-/** **bold** and [links](/app/w/…); a link anywhere else shows as its words only. */
+/**
+ * A line's **bold** and links (core's `answerParts`): a page in the app opens in place; a web or email address
+ * opens outside, a page in a new tab with no referrer, with the site after words that don't say where it goes.
+ */
 function inline(text: string, onNavigate?: (href: string) => void): ReactNode[] {
-  const out: ReactNode[] = [];
-  let last = 0;
-  let key = 0;
-  for (const m of text.matchAll(INLINE)) {
-    if (m.index > last) out.push(text.slice(last, m.index));
-    if (m[1] !== undefined)
-      out.push(
-        <strong key={key++} className="font-semibold">
-          {m[1]}
-        </strong>,
-      );
-    else if (APP_PATH.test(m[3]!))
-      out.push(
+  return answerParts(text).map((p: AnswerPart, i) => {
+    const words = p.bold ? <strong className="font-semibold">{p.text}</strong> : p.text;
+    if (!p.href) return <Fragment key={i}>{words}</Fragment>;
+    if (p.inApp)
+      return (
         <Link
-          key={key++}
-          href={m[3]!}
-          onClick={() => onNavigate?.(m[3]!)}
+          key={i}
+          href={p.href}
+          onClick={() => onNavigate?.(p.href!)}
           className="font-medium text-accent-text hover:underline"
         >
-          {m[2]}
-        </Link>,
+          {words}
+        </Link>
       );
-    else out.push(m[2]);
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) out.push(text.slice(last));
-  return out;
+    return (
+      <Fragment key={i}>
+        <a
+          href={p.href}
+          {...(p.href.startsWith('mailto:')
+            ? {}
+            : { target: '_blank', rel: 'noopener noreferrer nofollow' })}
+          className={LINK}
+          data-testid="assistant-link"
+        >
+          {words}
+        </a>
+        {p.site ? <span className="text-text-3"> ({p.site})</span> : null}
+      </Fragment>
+    );
+  });
 }
 
 /** An answer's words with light formatting, and the typing caret while it streams in. */
@@ -81,10 +52,13 @@ export function RichText({
   caret?: boolean;
   onNavigate?: (href: string) => void;
 }) {
-  const list = blocks(text);
+  const list = answerBlocks(text);
   const caretMark = caret ? <span className="assistant-caret" aria-hidden /> : null;
   return (
-    <div className="flex flex-col gap-2 [overflow-wrap:anywhere]" data-testid="assistant-text">
+    <div
+      className="flex select-text flex-col gap-2 [overflow-wrap:anywhere]"
+      data-testid="assistant-text"
+    >
       {list.map((b, i) => {
         const tail = i === list.length - 1 ? caretMark : null;
         if (b.kind === 'p')
