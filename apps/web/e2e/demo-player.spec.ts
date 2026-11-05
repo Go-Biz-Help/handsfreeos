@@ -26,8 +26,11 @@ async function play(page: Page, count: number): Promise<void> {
   await expect(page.getByTestId('demo-scene-done')).toBeVisible();
 }
 
-/** Picks a scene and waits until it has loaded, so the first Space plays its first step. */
+/** Picks a scene (from All scenes, when one is already loaded) and waits until it has loaded, so the first Space
+ * plays its first step. */
 async function pick(page: Page, scene: string, firstStep: string): Promise<void> {
+  const all = page.getByTestId('demo-all-scenes');
+  if (await all.isVisible()) await all.click();
   await page.getByTestId(`demo-scene-${scene}`).click();
   await expect(page.getByTestId('demo-next-step')).toContainText(firstStep);
   await expect(page.getByTestId('demo-next')).not.toHaveAttribute('aria-busy', 'true');
@@ -613,6 +616,20 @@ test('demo player: Admin → Demo player plays a scene in your business, each st
   );
   // Not the founder in someone else's business: no note about changes being real.
   await expect(page.getByTestId('demo-acting-note')).toHaveCount(0);
+
+  // The app beside the panel is 1380 × 960 on this screen, not 16:9, so the player offers a window that is.
+  await expect(page.getByTestId('demo-frame')).toContainText('Beside this panel: 1380 × 960');
+  await expect(page.getByTestId('demo-make-wide')).toBeVisible();
+
+  // All scenes goes back to the list, and the scene that was loaded is one press away.
+  await expect(page.getByTestId('demo-scene-list')).toHaveCount(0);
+  await page.getByTestId('demo-all-scenes').click();
+  await expect(page.getByTestId('demo-scene-list')).toBeVisible();
+  await expect(page.getByTestId('demo-steps')).toHaveCount(0);
+  await expect(page.getByTestId('demo-scene-text-campaign')).toBeVisible();
+  await page.getByTestId('demo-back-to-scene').click();
+  await expect(page.getByTestId('demo-next-step')).toContainText('Open Ask HandsFreeOS');
+  await expect(page.getByTestId('demo-scene-list')).toHaveCount(0);
 
   // The voiceover hides for a cleaner panel, and stays hidden after a reload, until it's shown again.
   await page.getByTestId('demo-voiceover-toggle').click();

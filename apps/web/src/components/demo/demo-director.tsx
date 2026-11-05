@@ -6,6 +6,7 @@ import {
   Copy,
   EyeOff,
   Mic,
+  Ratio,
   RotateCcw,
   X,
 } from 'lucide-react';
@@ -35,6 +36,33 @@ import { clickOn, find, pointAt, removePointer, sleep, waitFor } from './pointer
 installDemoFetch();
 
 const PANEL_PX = 300;
+/** The window a 16:9 recording opens in, so it can be sized again from inside. */
+const FRAME_WINDOW = 'hfos-demo-16x9';
+/** 16:9 sizes for the app beside the panel, largest first: each scales cleanly to 720p, 1080p or 4K. */
+const FRAME_SIZES = [
+  [1920, 1080],
+  [1600, 900],
+  [1440, 810],
+  [1280, 720],
+  [1120, 630],
+  [960, 540],
+] as const;
+/** Room for a pop-up window's own bar above the page. */
+const WINDOW_BAR_PX = 90;
+
+/** The largest 16:9 size that fits beside the panel on this screen. */
+function frameSize(): { w: number; h: number } {
+  const room = {
+    w: window.screen.availWidth - PANEL_PX,
+    h: window.screen.availHeight - WINDOW_BAR_PX,
+  };
+  const [w, h] =
+    FRAME_SIZES.find(([fw, fh]) => fw <= room.w && fh <= room.h) ?? FRAME_SIZES.at(-1)!;
+  return { w, h };
+}
+
+/** Whether the app beside the panel is 16:9, to within a pixel. */
+const isWideFrame = (w: number, h: number) => Math.abs(w * 9 - h * 16) <= 16;
 const onKey = (workspaceId: string) => `hfos-demo-panel:${workspaceId}`;
 /** Whether the side menu shows each step's voiceover: this browser's choice, on unless turned off. */
 const VOICEOVER_KEY = 'hfos-demo-voiceover';
@@ -54,7 +82,8 @@ const EVERYTHING = [
  * next step on the real screens, with a pointer that moves and clicks as a person would. The panel on the left lists
  * every step with its voiceover so the presenter knows what comes next and what to say, and is meant to be left out
  * of what's shared; H hides it. Opened with `?demo` on any page of the business (`?demo=<scene>` loads that scene,
- * as Admin → Demo player does), and kept open in this browser until Exit.
+ * as Admin → Demo player does), and kept open in this browser until Exit. All scenes, at the top of a scene, goes
+ * back to the list of scenes; the founder's Exit goes back to Admin → Demo player, where they started.
  *
  * The founder can play it in a business they've opened as its owner (Bright Path Home Services, from Admin). The
  * banner that says so steps aside while the player is open, so it stays out of a recording, and the panel says it
@@ -85,6 +114,10 @@ export function DemoDirector({
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [voiceover, setVoiceover] = useState(true);
+  /** The list of scenes shows instead of the loaded scene's steps (All scenes). */
+  const [listing, setListing] = useState(false);
+  /** The size of the app beside the panel: what a recording that leaves the panel out captures. */
+  const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   /** A scene asked for in the address (`?demo=<scene>`), loaded once the player is ready. */
   const [asked, setAsked] = useState<string | null>(null);
   const busyRef = useRef(false);
@@ -122,6 +155,36 @@ export function DemoDirector({
       delete document.documentElement.dataset.demo;
     };
   }, [on]);
+
+  // The app's size beside the panel, kept up to date as the window is resized.
+  useEffect(() => {
+    if (!on || hidden) return;
+    const measure = () => setFrame({ w: window.innerWidth - PANEL_PX, h: window.innerHeight });
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [on, hidden]);
+
+  /**
+   * Makes the app beside the panel 16:9, so a recording that crops the panel away is 16:9 too. Only a window a page
+   * opened can be resized, so a browser tab opens the same page in a pop-up window of that size (the scene and the
+   * player carry over), and that window sizes itself again if it was moved off 16:9.
+   */
+  const makeWide = () => {
+    const { w, h } = frameSize();
+    if (window.name === FRAME_WINDOW) {
+      window.resizeTo(
+        w + PANEL_PX + (window.outerWidth - window.innerWidth),
+        h + (window.outerHeight - window.innerHeight),
+      );
+      return;
+    }
+    window.open(
+      window.location.href,
+      FRAME_WINDOW,
+      `popup,width=${w + PANEL_PX},height=${h},left=0,top=0`,
+    );
+  };
 
   // The app moves right of the panel, so the panel can be left out of a shared window.
   useEffect(() => {
@@ -293,6 +356,7 @@ export function DemoDirector({
       let loaded = () => {};
       loadingRef.current = new Promise<void>((resolve) => (loaded = resolve));
       const before = stateRef.current?.scene ?? null;
+      setListing(false);
       try {
         // Made-up messages sign off with the business's own teammate's name.
         const got = await apiBrowser()
@@ -381,14 +445,32 @@ export function DemoDirector({
     stateRef.current = null;
     setState(null);
     setOn(false);
+    setListing(false);
     setProblem(null);
     demoEars.clear();
     scriptVoice(null);
     assistantRef.current.newChat();
     removePointer();
+    if (actingAsOwner) {
+      // The founder opened this business from Admin → Demo player, so Exit leaves it and goes back to that list, as
+      // the phone's player does. A whole page load: Admin is outside the business's pages.
+      void apiBrowser()
+        .POST('/v1/commands/platform.view_as.end', { body: {} })
+        .catch(() => null)
+        .finally(() => window.location.assign('/admin/demo'));
+      return;
+    }
     emitLocalChange(EVERYTHING);
     router.refresh();
-  }, [router, workspaceId]);
+  }, [actingAsOwner, router, workspaceId]);
+
+  // The list opens with the scene that was playing in sight, however far down it is.
+  useEffect(() => {
+    if (!listing || !stateRef.current) return;
+    document
+      .querySelector(`[data-testid="demo-scene-${stateRef.current.scene}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }, [listing]);
 
   // Space, → or Page Down (what presentation clickers send) plays the next step; ← goes back; R restarts; H hides.
   useEffect(() => {
@@ -475,13 +557,44 @@ export function DemoDirector({
           size="icon"
           variant="ghost"
           onClick={exit}
-          aria-label="Exit the demo"
-          title="Exit the demo"
+          aria-label={actingAsOwner ? 'Exit to Admin → Demo player' : 'Exit the demo'}
+          title={actingAsOwner ? 'Exit to Admin → Demo player' : 'Exit the demo'}
           data-testid="demo-exit"
         >
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {frame ? (
+        <div
+          className="flex flex-none items-center gap-2 border-b border-border px-4 py-2 text-[12px]"
+          data-testid="demo-frame"
+        >
+          <Ratio
+            className={cn(
+              'h-3.5 w-3.5 flex-none',
+              isWideFrame(frame.w, frame.h) ? 'text-success-text' : 'text-text-3',
+            )}
+          />
+          <span className="flex-1 text-text-2">
+            Beside this panel: {frame.w} × {frame.h}
+            {isWideFrame(frame.w, frame.h) ? (
+              <span className="font-medium text-success-text"> · 16:9</span>
+            ) : null}
+          </span>
+          {isWideFrame(frame.w, frame.h) ? null : (
+            <button
+              type="button"
+              onClick={makeWide}
+              className="flex-none font-medium text-accent-text hover:underline"
+              title="Opens this page in a window where the app beside the panel is 16:9"
+              data-testid="demo-make-wide"
+            >
+              Make it 16:9
+            </button>
+          )}
+        </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
         {actingAsOwner ? (
@@ -493,9 +606,18 @@ export function DemoDirector({
             never saved, but anything else you change here is real.
           </p>
         ) : null}
-        {scene ? (
+        {scene && !listing ? (
           <>
             <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setListing(true)}
+                className="-ml-1 mb-1 inline-flex w-fit items-center gap-0.5 rounded-control px-1 py-0.5 text-[12.5px] font-medium text-accent-text hover:bg-card-2"
+                data-testid="demo-all-scenes"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                All scenes
+              </button>
               <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
                 Scene {scene.number} · {SCENE_KIND_LABEL[scene.kind]}
               </span>
@@ -564,7 +686,15 @@ export function DemoDirector({
               })}
               {done >= scene.steps.length ? (
                 <li className="px-2 py-2 text-[13px] text-text-2" data-testid="demo-scene-done">
-                  That’s the end of this scene. Pick another below, or press R to play it again.
+                  That’s the end of this scene. Press R to play it again, or{' '}
+                  <button
+                    type="button"
+                    onClick={() => setListing(true)}
+                    className="font-medium text-accent-text hover:underline"
+                  >
+                    pick another
+                  </button>
+                  .
                 </li>
               ) : null}
             </ol>
@@ -577,6 +707,16 @@ export function DemoDirector({
               </p>
             ) : null}
           </>
+        ) : scene ? (
+          <button
+            type="button"
+            onClick={() => setListing(false)}
+            className="-ml-1 inline-flex w-fit items-start gap-0.5 rounded-control px-1 py-0.5 text-left text-[12.5px] font-medium leading-snug text-accent-text hover:bg-card-2"
+            data-testid="demo-back-to-scene"
+          >
+            <ChevronLeft className="mt-px h-3.5 w-3.5 flex-none" />
+            Back to scene {scene.number}: {scene.title}
+          </button>
         ) : (
           <p className="text-[13px] leading-snug text-text-2">
             Pick a scene. Each press of Space plays its next step on the real screens. Nothing is
@@ -584,30 +724,32 @@ export function DemoDirector({
           </p>
         )}
 
-        <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
-            Scenes
-          </span>
-          {DEMO_SCENES.map((sc) => (
-            <button
-              key={sc.id}
-              type="button"
-              onClick={() => void load(sc)}
-              disabled={busy}
-              className={cn(
-                'flex items-start gap-2 rounded-control px-2 py-1.5 text-left text-[13px] leading-snug hover:bg-card-2',
-                sc.id === scene?.id && 'font-semibold',
-              )}
-              data-testid={`demo-scene-${sc.id}`}
-            >
-              <span className="w-4 flex-none text-text-3">{sc.number}</span>
-              <span>{sc.title}</span>
-            </button>
-          ))}
-        </div>
+        {!scene || listing ? (
+          <div className="flex flex-col gap-1" data-testid="demo-scene-list">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
+              Scenes
+            </span>
+            {DEMO_SCENES.map((sc) => (
+              <button
+                key={sc.id}
+                type="button"
+                onClick={() => void load(sc)}
+                disabled={busy}
+                className={cn(
+                  'flex items-start gap-2 rounded-control px-2 py-1.5 text-left text-[13px] leading-snug hover:bg-card-2',
+                  sc.id === scene?.id && 'font-semibold',
+                )}
+                data-testid={`demo-scene-${sc.id}`}
+              >
+                <span className="w-4 flex-none text-text-3">{sc.number}</span>
+                <span>{sc.title}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {scene ? (
+      {scene && !listing ? (
         <div className="flex flex-none flex-col gap-2 border-t border-border px-4 py-3">
           <div className="flex items-center gap-2">
             <Button
