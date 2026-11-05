@@ -32,6 +32,8 @@ import {
   notAllowedWords,
   NO_WHEELS,
   OTHER_PLATFORMS,
+  RequestClosedInput,
+  RequestClosedOutput,
   WHEELS,
   WarmUpMissedInput,
   WarmUpMissedOutput,
@@ -623,6 +625,42 @@ export const warmUpMissed = defineAddonCommand(outreachAddon, {
   },
 });
 
+/**
+ * Someone nobody can send a friend request (decision 156): the extension found no Add friend on their profile, so
+ * Today never picks them for a request, or a like before one, again. Marked again, the newest time stands.
+ */
+export const requestClosed = defineAddonCommand(outreachAddon, {
+  name: 'outreach.request.closed',
+  description:
+    'The extension found no way to send someone a friend request on their profile: they’re never picked for one again.',
+  risk: 0,
+  input: RequestClosedInput,
+  output: RequestClosedOutput,
+  permission: 'outreach.use',
+  scope: inWorkspace,
+  emits: ['outreach.request.closed'],
+  async handler(ctx, input) {
+    requireHuman(ctx);
+    const ws = ctx.scope.workspaceId!;
+    const [row] = await ctx.tx
+      .update(profiles)
+      .set({ requestClosedAt: changeMoment(ctx.meta) })
+      .where(and(eq(profiles.workspaceId, ws), eq(profiles.id, input.profileId)))
+      .returning({ id: profiles.id });
+    if (!row)
+      throw HfosError.notFound(
+        'That person isn’t kept in Social Outreach any more. Refresh your list for today.',
+      );
+    await ctx.emit({
+      type: 'outreach.request.closed',
+      entityType: 'outreach_profile',
+      entityId: row.id,
+      payload: {},
+    });
+    return { profileId: row.id };
+  },
+});
+
 export const wheelsEnd = defineAddonCommand(outreachAddon, {
   name: 'outreach.wheels.end',
   description:
@@ -761,5 +799,5 @@ export const automationPeople = defineAddonQuery(outreachAddon, {
   },
 });
 
-export const automationCommands = [automationSave, warmUpMissed, wheelsEnd] as const;
+export const automationCommands = [automationSave, warmUpMissed, requestClosed, wheelsEnd] as const;
 export const automationQueries = [automationGet, wheelsList, automationPeople] as const;

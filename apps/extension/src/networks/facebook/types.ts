@@ -88,6 +88,11 @@ export interface ProfilePage {
   /** What the buttons on the profile say about the two of you. */
   readonly friendship:
     'self' | 'friends' | 'request_sent' | 'request_received' | 'not_friends' | 'unknown';
+  /**
+   * Where things stand is unknown because the top offers no Add friend at all, only Message, Follow or both: Facebook
+   * takes their requests only from friends of friends, or lets people only follow them (./profile.ts).
+   */
+  readonly noAddFriend?: true;
   readonly mutualFriends: number | null;
   /** How many follow them, when the top says ("12K followers"): for the AI's partner check (decision 81). */
   readonly followers?: number;

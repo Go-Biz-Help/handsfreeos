@@ -99,7 +99,9 @@ async function noteReactors(
   note: Note,
 ): Promise<void> {
   if (!reactors.count) {
-    if (reactions !== 0)
+    // Only on a post HandsFreeOS saw reactions on: one its search saw no count on (null) has none to open, as on a
+    // post minutes old (the owner's problem reports of 4 Nov 2026, on 0.126.2).
+    if (reactions !== null && reactions > 0)
       await note('count', 'No reactions count on the post to open who reacted.', { count: false });
   } else if (!reactors.opened)
     await note('reactors', 'The post’s reactions count opened no box of who reacted.', {

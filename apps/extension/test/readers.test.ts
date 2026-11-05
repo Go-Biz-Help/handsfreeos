@@ -278,6 +278,55 @@ describe('a profile, as Facebook drew it in 2026', () => {
     expect(profile?.friendship).toBe('not_friends');
   });
 
+  describe('a profile with no Add friend at all', () => {
+    // The owner's problem reports of 4 Nov 2026 (0.126.2): profiles whose top has only Message and its menu, or Message,
+    // Follow and Search. Facebook leaves Add friend out for someone who takes requests only from friends of friends, or
+    // only lets people follow them, so no request can go, and the page is no layout the readers don't know.
+    const withButtons = (html: string, menu: string | null = 'More options') => {
+      const doc = load('profile-2026.html', url);
+      // No name in the title, as on the owner's pages: it comes from the links to her.
+      doc.title = '(2) Facebook';
+      doc.querySelector('[role="button"][aria-label="Friends"]')!.remove();
+      const options = doc.querySelector('[role="button"][aria-label="See options"]')!;
+      if (menu) options.setAttribute('aria-label', menu);
+      else options.remove();
+      doc
+        .querySelector('[role="button"][aria-label="Message"]')!
+        .insertAdjacentHTML('afterend', html);
+      return readPage(doc, url, NOW).profile;
+    };
+    const button = (label: string, words = label, more = '') =>
+      `<div role="button" aria-label="${label}"${more}><div role="none"><span dir="auto"><span>${words}</span></span></div></div>`;
+
+    it('says so when Message has only its menu beside it', () => {
+      const profile = withButtons('');
+      expect(profile?.friendship).toBe('unknown');
+      expect(profile?.noAddFriend).toBe(true);
+    });
+
+    it('says so when Message has Follow and Search beside it', () => {
+      const profile = withButtons(
+        button('Follow') + button('Search Dana Reyes’s profile', 'Search'),
+        null,
+      );
+      expect(profile?.friendship).toBe('unknown');
+      expect(profile?.noAddFriend).toBe(true);
+    });
+
+    it('never says so beside a button it doesn’t know, which could be a friend button in new words', () => {
+      expect(withButtons(button('Befriend Dana Reyes', 'Befriend'))?.noAddFriend).toBeUndefined();
+      expect(
+        withButtons(button('Friend status', 'Friends', ' aria-expanded="false"'))?.noAddFriend,
+      ).toBeUndefined();
+    });
+
+    it('never says so where Add friend is', () => {
+      const profile = withButtons(button('Add Friend Dana Reyes', 'Add friend'));
+      expect(profile?.friendship).toBe('not_friends');
+      expect(profile?.noAddFriend).toBeUndefined();
+    });
+  });
+
   it('reads a post that isn’t an article, without the hidden words around it or the empty ones loading', () => {
     expect(result.posts).toEqual([
       {

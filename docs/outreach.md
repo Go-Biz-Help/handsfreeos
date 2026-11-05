@@ -783,6 +783,7 @@ Operations, all through the kernel:
 | `outreach.automation.save`                            | `outreach.use`    | Save someone's settings; anyone's for owners and admins. A choice the business doesn't allow: `not_allowed`                                                                                                                                                                                                                         |
 | `outreach.automation.people`                          | `outreach.manage` | Everyone who uses Social Outreach, with what each lets the extension do on its own                                                                                                                                                                                                                                                  |
 | `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                                                                                                                                                                                                                                                 |
+| `outreach.request.closed`                             | `outreach.use`    | The extension found no Add friend on someone's Facebook profile: Today never picks them for a friend request, or a like before one, again (decision 156)                                                                                                                                                                            |
 | `outreach.send.queue`                                 | `outreach.use`    | A message the extension drafted: it waits for the person's OK, or goes as it is; a reply as Replies says; on Instagram and Alignable a comment on a good post, with its post (decision 92)                                                                                                                                          |
 | `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, all waiting (Approve all) but those that wait one at a time (`oneByOne`). `partial` passes over any named that no longer wait, and those one at a time (the phone's Approve all). One of those named among others: `outreach_send_one_by_one`. Waits on a phone 30 minutes, then asks |
 | `outreach.send.skip`                                  | `outreach.use`    | Skip a message: not sent, and off the list for today. Waits on a phone as long as it takes; never undoes a later OK: `outreach_send_okd_since`                                                                                                                                                                                      |
@@ -3935,6 +3936,17 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Catch-ups already drafted** (3a, `dropStaleCatchUps` in `ops/sends.ts`): one for someone Reconnect no longer
         takes goes as the person's next draft is queued: still waiting for an OK, it's deleted (the policy decision 134
         added lets the person delete their own); OK'd, it's skipped. Never-talked-to people then get Say hi.
+156.  **Someone with no Add friend is never picked for a friend request again** (Chris, 4 Nov 2026, "Stop picking
+      them" on the card "What should happen to Facebook people with no Add friend button?"). Some Facebook profiles show
+      only Message, Follow, Search and Facebook's menu: the person takes requests only from friends of friends, or only
+      lets people follow them. Extension 0.126.3 passes a request to one over quietly (`noAddFriend` in
+      `networks/facebook/profile.ts`), with nothing handed over. Now it also tells HandsFreeOS
+      (`outreach.request.closed`, which sets `profiles.request_closed_at`), and Today never picks them for a friend
+      request, or a like before one, again, so they stop taking a spot on the list. Every pick for a request leaves them
+      out (`requestable` in `ops/common.ts`, inside `stillToReach` for those found by topic and followers, and in the
+      warm leads', searched posts', groups' and group checks' picks), so the AI no longer checks them for one either.
+      They can still be messaged, answered and followed up as before. Not told (HandsFreeOS out of reach), the request
+      is still passed over, and the next pass that meets them tells it again.
 
 ## Rules worth knowing before changing anything
 

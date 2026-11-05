@@ -135,6 +135,13 @@ export const partnered = (p: string) =>
 export const pitchable = (p: string) => sql`(${notNever(p)} and not ${partnered(p)})`;
 
 /**
+ * A profile someone can still send a friend request (decision 156): not one whose page the extension found with no
+ * way to ask (`request_closed_at`, Facebook's no Add friend). Nobody else's pick for a request, or a like before one,
+ * takes them. `p` is its alias.
+ */
+export const requestable = (p: string) => sql`${sql.raw(p)}.request_closed_at is null`;
+
+/**
  * Any chat with someone either way, kept or noted, of the person `me` (an id, or a column of the query): never deleted
  * for not fitting (decision 121). `p` is the profile.
  */
