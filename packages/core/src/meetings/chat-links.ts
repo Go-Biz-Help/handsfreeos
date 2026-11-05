@@ -57,6 +57,20 @@ function hrefOf(core: string): string | null {
   return null;
 }
 
+/**
+ * Where a whole address goes, by the same rules as a typed one: a page, or `mailto:` for an email address (written
+ * with or without `mailto:`). Null when it isn't a safe link.
+ */
+export function chatLinkHref(address: string): string | null {
+  const core = address.trim();
+  if (!core || /\s/.test(core)) return null;
+  if (/^mailto:/i.test(core)) {
+    const email = core.slice('mailto:'.length);
+    return EMAIL.test(email) ? `mailto:${email}` : null;
+  }
+  return hrefOf(core);
+}
+
 /** The link in one word (no spaces), with the punctuation around it apart; null when there's none. */
 function linkIn(word: string): { before: string; link: ChatTextPart; after: string } | null {
   const before = OPENERS.exec(word)?.[0] ?? '';

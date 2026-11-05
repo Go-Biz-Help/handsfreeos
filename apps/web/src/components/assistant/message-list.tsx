@@ -1,11 +1,18 @@
 'use client';
-import { isSocialChannel, SOCIAL_CHANNEL_NAMES, type AssistantCard } from '@hfos/core';
+import {
+  answerCopyText,
+  ASSISTANT_WORDS,
+  isSocialChannel,
+  SOCIAL_CHANNEL_NAMES,
+  type AssistantCard,
+} from '@hfos/core';
 import {
   Activity,
   ArrowRight,
   Building2,
   CalendarDays,
   Check,
+  Copy,
   KanbanSquare,
   LoaderCircle,
   MessageCircle,
@@ -210,6 +217,42 @@ function Steps({ steps }: { steps: readonly Step[] }) {
   );
 }
 
+/**
+ * Copy, under a finished answer: all of its words (core's `answerCopyText`), with each link's address. A part of an
+ * answer is selected and copied as on any page.
+ */
+function CopyAnswer({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
+  const W = ASSISTANT_WORDS.copy;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const clipboard = typeof navigator === 'undefined' ? undefined : navigator.clipboard;
+        clipboard?.writeText(answerCopyText(text)).then(
+          () => setCopied(true),
+          () => undefined,
+        );
+      }}
+      aria-label={copied ? W.done : W.label}
+      className="-ml-1.5 -mt-1 inline-flex items-center gap-1 self-start rounded-md px-1.5 py-0.5 text-xs text-text-3 hover:bg-card-2 hover:text-text-2"
+      data-testid="assistant-copy"
+    >
+      {copied ? (
+        <Check className="h-3.5 w-3.5 text-success-text" strokeWidth={1.5} />
+      ) : (
+        <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
+      )}
+      {copied ? W.done : W.button}
+    </button>
+  );
+}
+
 function AnswerCardView({
   card,
   at,
@@ -284,6 +327,7 @@ function Answer({
           <Steps steps={[{ id: 'working', label: 'Working on it', status: 'running' }]} />
         ) : null}
         {m.text ? <RichText text={m.text} caret={m.live} onNavigate={a.closeIfCovering} /> : null}
+        {m.text && !m.live ? <CopyAnswer text={m.text} /> : null}
         {m.cards.map((card, i) => (
           <AnswerCardView key={cardKey(card, i)} card={card} at={m.createdAt} onEdit={onEdit} />
         ))}
