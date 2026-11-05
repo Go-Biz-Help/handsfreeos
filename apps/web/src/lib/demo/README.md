@@ -11,6 +11,11 @@ right of the panel, so it can be left out of what's shared, and H hides it. It s
 All scenes, at the top of a scene, goes back to the list of scenes (and Back to scene returns to it). The founder's
 Exit leaves Bright Path and goes back to Admin → Demo player, as the phone's Exit does; anyone else's just closes it.
 
+**Recording in 16:9 with the panel open.** The panel's top line shows the size of the app beside it, and says 16:9
+when it is. Make it 16:9 opens the same page in a pop-up window sized so the app beside the panel is a standard 16:9
+size (the largest of 1920 × 1080 down to 960 × 540 that fits the screen), and in that window it sizes it back if it was
+moved off. Record that window and crop the panel's 300 points off the left: what's left is 16:9.
+
 ## Where it plays
 
 - **The founder plays it in Bright Path Home Services**, the made-up home-services business that

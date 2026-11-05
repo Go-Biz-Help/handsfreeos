@@ -6,6 +6,7 @@ import {
   Copy,
   EyeOff,
   Mic,
+  Ratio,
   RotateCcw,
   X,
 } from 'lucide-react';
@@ -35,6 +36,33 @@ import { clickOn, find, pointAt, removePointer, sleep, waitFor } from './pointer
 installDemoFetch();
 
 const PANEL_PX = 300;
+/** The window a 16:9 recording opens in, so it can be sized again from inside. */
+const FRAME_WINDOW = 'hfos-demo-16x9';
+/** 16:9 sizes for the app beside the panel, largest first: each scales cleanly to 720p, 1080p or 4K. */
+const FRAME_SIZES = [
+  [1920, 1080],
+  [1600, 900],
+  [1440, 810],
+  [1280, 720],
+  [1120, 630],
+  [960, 540],
+] as const;
+/** Room for a pop-up window's own bar above the page. */
+const WINDOW_BAR_PX = 90;
+
+/** The largest 16:9 size that fits beside the panel on this screen. */
+function frameSize(): { w: number; h: number } {
+  const room = {
+    w: window.screen.availWidth - PANEL_PX,
+    h: window.screen.availHeight - WINDOW_BAR_PX,
+  };
+  const [w, h] =
+    FRAME_SIZES.find(([fw, fh]) => fw <= room.w && fh <= room.h) ?? FRAME_SIZES.at(-1)!;
+  return { w, h };
+}
+
+/** Whether the app beside the panel is 16:9, to within a pixel. */
+const isWideFrame = (w: number, h: number) => Math.abs(w * 9 - h * 16) <= 16;
 const onKey = (workspaceId: string) => `hfos-demo-panel:${workspaceId}`;
 /** Whether the side menu shows each step's voiceover: this browser's choice, on unless turned off. */
 const VOICEOVER_KEY = 'hfos-demo-voiceover';
@@ -88,6 +116,8 @@ export function DemoDirector({
   const [voiceover, setVoiceover] = useState(true);
   /** The list of scenes shows instead of the loaded scene's steps (All scenes). */
   const [listing, setListing] = useState(false);
+  /** The size of the app beside the panel: what a recording that leaves the panel out captures. */
+  const [frame, setFrame] = useState<{ w: number; h: number } | null>(null);
   /** A scene asked for in the address (`?demo=<scene>`), loaded once the player is ready. */
   const [asked, setAsked] = useState<string | null>(null);
   const busyRef = useRef(false);
@@ -125,6 +155,36 @@ export function DemoDirector({
       delete document.documentElement.dataset.demo;
     };
   }, [on]);
+
+  // The app's size beside the panel, kept up to date as the window is resized.
+  useEffect(() => {
+    if (!on || hidden) return;
+    const measure = () => setFrame({ w: window.innerWidth - PANEL_PX, h: window.innerHeight });
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [on, hidden]);
+
+  /**
+   * Makes the app beside the panel 16:9, so a recording that crops the panel away is 16:9 too. Only a window a page
+   * opened can be resized, so a browser tab opens the same page in a pop-up window of that size (the scene and the
+   * player carry over), and that window sizes itself again if it was moved off 16:9.
+   */
+  const makeWide = () => {
+    const { w, h } = frameSize();
+    if (window.name === FRAME_WINDOW) {
+      window.resizeTo(
+        w + PANEL_PX + (window.outerWidth - window.innerWidth),
+        h + (window.outerHeight - window.innerHeight),
+      );
+      return;
+    }
+    window.open(
+      window.location.href,
+      FRAME_WINDOW,
+      `popup,width=${w + PANEL_PX},height=${h},left=0,top=0`,
+    );
+  };
 
   // The app moves right of the panel, so the panel can be left out of a shared window.
   useEffect(() => {
@@ -504,6 +564,37 @@ export function DemoDirector({
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {frame ? (
+        <div
+          className="flex flex-none items-center gap-2 border-b border-border px-4 py-2 text-[12px]"
+          data-testid="demo-frame"
+        >
+          <Ratio
+            className={cn(
+              'h-3.5 w-3.5 flex-none',
+              isWideFrame(frame.w, frame.h) ? 'text-success-text' : 'text-text-3',
+            )}
+          />
+          <span className="flex-1 text-text-2">
+            Beside this panel: {frame.w} × {frame.h}
+            {isWideFrame(frame.w, frame.h) ? (
+              <span className="font-medium text-success-text"> · 16:9</span>
+            ) : null}
+          </span>
+          {isWideFrame(frame.w, frame.h) ? null : (
+            <button
+              type="button"
+              onClick={makeWide}
+              className="flex-none font-medium text-accent-text hover:underline"
+              title="Opens this page in a window where the app beside the panel is 16:9"
+              data-testid="demo-make-wide"
+            >
+              Make it 16:9
+            </button>
+          )}
+        </div>
+      ) : null}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
         {actingAsOwner ? (

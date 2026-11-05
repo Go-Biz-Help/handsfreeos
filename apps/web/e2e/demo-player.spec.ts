@@ -617,6 +617,10 @@ test('demo player: Admin → Demo player plays a scene in your business, each st
   // Not the founder in someone else's business: no note about changes being real.
   await expect(page.getByTestId('demo-acting-note')).toHaveCount(0);
 
+  // The app beside the panel is 1380 × 960 on this screen, not 16:9, so the player offers a window that is.
+  await expect(page.getByTestId('demo-frame')).toContainText('Beside this panel: 1380 × 960');
+  await expect(page.getByTestId('demo-make-wide')).toBeVisible();
+
   // All scenes goes back to the list, and the scene that was loaded is one press away.
   await expect(page.getByTestId('demo-scene-list')).toHaveCount(0);
   await page.getByTestId('demo-all-scenes').click();
