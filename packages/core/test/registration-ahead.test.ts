@@ -8,6 +8,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { HfosError } from '../src/errors';
+import { allGreen } from './registration-green';
 import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type {
   CommandDef,
@@ -32,11 +33,15 @@ const human = (u: TestUser): HumanActor => ({
   claims: u.claims,
 });
 const meta = (): RequestMeta => ({ correlationId: randomUUID(), channel: 'test' });
+// A registration is let through only when its details were checked all green (registration-green.ts).
 const run = <I extends z.ZodType, O extends z.ZodType>(
   cmd: CommandDef<I, O>,
   input: unknown,
   u: TestUser,
-) => executeCommand(db(), cmd, input, human(u), meta()).then((r) => r.output);
+) =>
+  (cmd === (registrationSubmit as unknown) ? allGreen(input) : Promise.resolve(input)).then(
+    (sent) => executeCommand(db(), cmd, sent, human(u), meta()).then((r) => r.output),
+  );
 const ask = <I extends z.ZodType, O extends z.ZodType>(
   q: QueryDef<I, O>,
   input: unknown,

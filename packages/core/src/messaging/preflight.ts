@@ -14,7 +14,14 @@
  */
 
 /** The things worth going and looking at. Ids are stable: the wizard keys its rows on them. */
-export type PreflightId = 'website' | 'policy' | 'terms' | 'opt_in_surface' | 'chat_on_site';
+export type PreflightId =
+  | 'website'
+  | 'policy'
+  | 'terms'
+  | 'opt_in_surface'
+  | 'chat_on_site'
+  /** Another way customers agree (`OtherOptIn`), numbered in the order the business listed them. */
+  | `other_way_${number}`;
 
 export interface PreflightCheck {
   readonly id: PreflightId;
@@ -70,6 +77,25 @@ export function pageText(html: string): string {
 export function mentionsTexting(text: string): boolean {
   return /\b(text messag|sms|mobile messag|text you|texting)/.test(text);
 }
+
+/**
+ * **The kinds of texts, named**: what a reviewer reads the words by the phone field for (Twilio 30924, "fails to
+ * mention what types of text messages will be sent"). "Text me about what you asked" names none; "appointment
+ * reminders and quotes" names two. Read on lower-cased page text.
+ */
+export const TEXT_KINDS_RE =
+  /\b(appointments?|reminders?|confirmations?|quotes?|estimates?|invoices?|bills?|billing|receipts?|payments?|orders?|deliver(y|ies)|shipping|alerts?|notifications?|updates?|offers?|promotions?|promos?|deals?|discounts?|coupons?|marketing|newsletters?|customer (care|service|support)|follow[- ]?ups?|bookings?|schedul\w*|jobs?)\b/;
+
+/**
+ * **How often, in the carriers' phrasing**: "Message frequency varies", or a number ("up to 4 msgs a month"). A
+ * paraphrase ("how many messages you get varies") was turned down as "lacking mandatory message frequency phrasing".
+ */
+export const FREQUENCY_RE =
+  /\bfrequency\b|\bup to \d+ (messages|msgs|texts)\b|\b\d+ (messages|msgs|texts) (a|per|each|every) (day|week|month)\b/;
+
+/** "Message and data rates may apply", or the usual short forms of it ("Msg & data rates may apply"). */
+export const RATES_RE =
+  /(rates may apply|data rates|msg\s*(&|and)\s*data|message\s*(&|and)\s*data)/;
 
 /**
  * Does the policy promise not to share the numbers?
@@ -196,17 +222,17 @@ export function readConsentBox(html: string, names: readonly string[] = []): Con
   const to = Math.min(clean.length, Math.max(best.box.at, best.stop) + 1500);
   const region = clean.slice(from, to);
   const text = pageText(region);
+  // The kinds of texts are read in the words about texting themselves, not anywhere on the form: a contact form
+  // that says "Get a quote" above its fields hasn't told anybody what the texts will be.
+  const at = text.search(/\bstop\b/);
+  const disclosure = at < 0 ? text : text.slice(Math.max(0, at - 600), at + 300);
   const missing: string[] = [];
   if (names.length && !namesBusiness(text, names)) missing.push('your business name');
-  if (!/\bhelp\b/.test(text)) missing.push('HELP for help');
-  if (!/(rates may apply|data rates|msg\s*(&|and)\s*data|message\s*(&|and)\s*data)/.test(text))
-    missing.push('that message and data rates may apply');
-  if (
-    !/(frequency|\bvar(y|ies)\b|how many (messages|texts)|up to \d+ (messages|msgs|texts)|\d+ (messages|msgs|texts) (a|per|each) (day|week|month))/.test(
-      text,
-    )
-  )
-    missing.push('how often you text (for example “how many messages you get varies”)');
+  if (!TEXT_KINDS_RE.test(disclosure))
+    missing.push('the kinds of texts you send (like “appointment reminders, quotes and invoices”)');
+  if (!FREQUENCY_RE.test(text)) missing.push('the words “Message frequency varies”');
+  if (!RATES_RE.test(text)) missing.push('the words “Message and data rates may apply”');
+  if (!/\bhelp\b/.test(text)) missing.push('“Reply HELP for help”');
   const privacyLink =
     /<a\b[^>]*href\s*=\s*["'][^"']*privacy[^"']*["']/i.test(region) ||
     /<a\b[^>]*>[^<]*privacy[^<]*<\/a>/i.test(region);
@@ -318,7 +344,7 @@ export function checkWebsite(
 export function checkPolicy(page: FetchedPage | null): PreflightCheck {
   const base = {
     id: 'policy' as const,
-    label: 'Your privacy policy mentions texting',
+    label: 'Your privacy policy covers texting',
     severity: 'blocker' as const,
   };
   if (!page)
@@ -352,10 +378,23 @@ export function checkPolicy(page: FetchedPage | null): PreflightCheck {
         'That policy mentions texting but does not say phone numbers are never shared. That exact promise is what the reviewer is looking for.',
       url: page.finalUrl ?? page.url,
     };
+  // Twilio's 30896: the policy itself has to say how often and that rates apply, not only the box.
+  const lacks = [
+    ...(FREQUENCY_RE.test(text) ? [] : ['“Message frequency varies”']),
+    ...(RATES_RE.test(text) ? [] : ['“Message and data rates may apply”']),
+  ];
+  if (lacks.length)
+    return {
+      ...base,
+      ok: false,
+      detail: `That policy promises the numbers aren’t shared, but never says ${listOf(lacks)}. The reviewer reads the policy for ${lacks.length === 1 ? 'it' : 'both'} too, so add ${lacks.length === 1 ? 'it' : 'them'} to its part about text messages, or let us host a policy for you.`,
+      url: page.finalUrl ?? page.url,
+    };
   return {
     ...base,
     ok: true,
-    detail: 'It mentions texting and promises the numbers are not shared.',
+    detail:
+      'It mentions texting, says how often and that rates may apply, and promises the numbers are not shared.',
     url: page.finalUrl ?? page.url,
   };
 }
@@ -566,11 +605,64 @@ export function checkOptInSurface(
         'The box is there and says what it has to, but the page has no link to your terms. Add one beside the privacy policy link.',
       url,
     };
+  // Our own sign-up page has to take a sign-up: a reviewer fills it in and presses Send (the 1 Nov rejection, where it
+  // only showed the form). The page marks itself when it does; this is ours to fix, never the business's.
+  if (path === 'hosted' && !takesSignUps(page.html))
+    return {
+      ...base,
+      ok: false,
+      detail:
+        'The page shows the form, but sending it doesn’t sign anyone up, and a reviewer who tries it turns the registration down. This one is ours to fix: press “Ask HandsFreeOS to check it” below.',
+      url,
+    };
   return {
     ...base,
     ok: true,
-    detail: 'The box is there, starts empty, is optional, and says what it has to.',
+    detail:
+      path === 'hosted'
+        ? 'The form is there and works: the box starts empty, is optional, says what it has to, and sending it signs the person up.'
+        : 'The box is there, starts empty, is optional, and says what it has to.',
     url,
+  };
+}
+
+/**
+ * The attribute our sign-up page (the website chat's form, opened on its own at /chat/<key>) carries when pressing
+ * Send really signs someone up. One copy, so the page and the check can't drift.
+ */
+export const SIGN_UP_MARK = 'data-hfos-signup';
+
+/** Does this page carry a form that really takes a sign-up (`SIGN_UP_MARK="live"`)? */
+export const takesSignUps = (html: string): boolean =>
+  new RegExp(`${SIGN_UP_MARK}\\s*=\\s*["']?live`, 'i').test(html);
+
+/** The words each way customers agree goes by, in the review's rows. */
+const WAY_NAMES: Readonly<Record<'hosted' | 'own_site' | 'in_person', string>> = {
+  hosted: 'the chat on your website',
+  own_site: 'your own website form',
+  in_person: 'in person or on the phone',
+};
+
+/**
+ * Another way customers agree, checked the way the main one is (Twilio 30896: "list every method along with
+ * proofs"): its page has to open and carry the box and the words, or its proof has to open without signing in.
+ */
+export function checkOtherWay(
+  page: FetchedPage | null,
+  way: { readonly path: 'hosted' | 'own_site' | 'in_person' },
+  index: number,
+  names: readonly string[] = [],
+): PreflightCheck {
+  const check = checkOptInSurface(page, way.path, names);
+  const missing =
+    !page && way.path === 'hosted'
+      ? 'Your website chat isn’t set up to ask about texts yet. Choose “Let us collect it for you” above it, or take this way out of the list.'
+      : null;
+  return {
+    ...check,
+    id: `other_way_${index}`,
+    label: `Customers also agree ${WAY_NAMES[way.path]}`,
+    detail: missing ?? check.detail,
   };
 }
 
@@ -655,3 +747,102 @@ export function checkChatOnSite(
 /** True when something here would get the registration turned down. */
 export const preflightBlocked = (checks: readonly PreflightCheck[]): boolean =>
   checks.some((c) => c.severity === 'blocker' && !c.ok);
+
+// ---------- what only the business can say ----------
+
+/**
+ * Things no machine can test, which the business says are true before it sends: whether its own form really goes
+ * through, what is said in person, and that nothing was left out. Each is a tick on the last step, and every one has to
+ * be ticked for the registration to be all green.
+ */
+export const CONFIRMATION_IDS = [
+  'own_form_sends',
+  'in_person_words',
+  'only_these_ways',
+  'legal_name_exact',
+  'ages_checked',
+  'lending_ok',
+] as const;
+export type ConfirmationId = (typeof CONFIRMATION_IDS)[number];
+
+export interface Confirmation {
+  readonly id: ConfirmationId;
+  /** What the business ticks, said as they would say it. */
+  readonly label: string;
+}
+
+/** What each question the form check leaves to the business (an issue's `confirm`) asks it to tick. */
+const QUESTION_TICKS: Record<string, (legalName: string) => string> = {
+  legal_name_exact: (legal) =>
+    `“${legal}” is exactly the name on our IRS letter for our EIN, letter for letter.`,
+  ages_checked: () =>
+    'We check customers’ ages before they agree to texts about the age-restricted things we picked.',
+  lending_ok: () =>
+    'We lend to customers ourselves, and we’ll answer the carriers’ extra questions about it.',
+};
+
+/**
+ * The ticks this registration needs: from the ways customers agree, and from each question the form check leaves to
+ * the business (`issues`, core's `checkDraft`, whose `confirm` names the tick).
+ */
+export function confirmationsFor(input: {
+  readonly optInPath?: 'hosted' | 'own_site' | 'in_person' | '' | null;
+  readonly optInUrl?: string | null;
+  readonly otherWays?: readonly { readonly path: string; readonly url: string }[];
+  readonly issues?: readonly { readonly confirm?: ConfirmationId }[];
+  readonly legalName?: string;
+}): Confirmation[] {
+  const ways = [
+    ...(input.optInPath ? [{ path: input.optInPath, url: input.optInUrl ?? '' }] : []),
+    ...(input.otherWays ?? []),
+  ];
+  const own = ways.filter((w) => w.path === 'own_site' && w.url.trim()).map((w) => w.url.trim());
+  const list: Confirmation[] = [];
+  if (own.length)
+    list.push({
+      id: 'own_form_sends',
+      label: `I filled in my own form at ${listOf(own)}, ticked the box and sent it, and it went through without an error.`,
+    });
+  if (ways.some((w) => w.path === 'in_person'))
+    list.push({
+      id: 'in_person_words',
+      label:
+        'What customers see or hear in person or on the phone names the kinds of texts and says “Message frequency varies”, “Message and data rates may apply”, “Reply STOP to unsubscribe” and “Reply HELP for help”.',
+    });
+  if (ways.length)
+    list.push({
+      id: 'only_these_ways',
+      label: 'These are all the ways customers agree to get our texts.',
+    });
+  for (const issue of input.issues ?? []) {
+    const id = issue.confirm;
+    if (!id || list.some((c) => c.id === id)) continue;
+    const label = QUESTION_TICKS[id];
+    if (label) list.push({ id, label: label((input.legalName ?? '').trim()) });
+  }
+  return list;
+}
+
+/**
+ * Everything standing between this registration and "all green", each said in a sentence: what the form check found
+ * (blockers and warnings alike), each look that didn't pass, and each tick not ticked. Empty means it may go.
+ *
+ * **All green, not just no red.** The owner's rule (2026-11-05), after two rejections a warning could have caught: a
+ * registration goes to the carriers only when nothing here is left, and otherwise HandsFreeOS checks it by hand first
+ * ("Ask HandsFreeOS to check it"). The same list goes on the ticket, so staff see what the business saw.
+ */
+export function notGreen(input: {
+  readonly issues: readonly { readonly message: string; readonly confirm?: ConfirmationId }[];
+  readonly checks: readonly PreflightCheck[] | null;
+  readonly confirmations: readonly Confirmation[];
+  readonly confirmed: readonly string[];
+}): string[] {
+  // A question the business answers with a tick counts as that tick, below, not as a fault.
+  const out = input.issues.filter((i) => !i.confirm).map((i) => i.message);
+  if (!input.checks)
+    out.push('The checks of your website, policy, terms and sign-up page haven’t run.');
+  else for (const c of input.checks) if (!c.ok) out.push(`${c.label}: ${c.detail}`);
+  for (const c of input.confirmations)
+    if (!input.confirmed.includes(c.id)) out.push(`Not ticked: “${c.label}”`);
+  return out;
+}

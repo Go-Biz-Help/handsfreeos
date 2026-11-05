@@ -159,17 +159,20 @@ test('after their first message: the details form with the texts box, even with 
   );
   await context.close();
 
-  // Opened on its own, the chat's address shows the same form for a reviewer, and sends nothing.
+  // Opened on its own, the chat's address is a sign-up page with the same form, and it works: a carrier's reviewer
+  // fills it in, ticks the box and is signed up (Twilio 30896, 1 Nov: "the opt-in page is not getting submitted").
   await page.goto(`${APP}/chat/${biz.key}`);
-  await expect(
-    page.getByRole('heading', { level: 1, name: /website chat asks to text you/ }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /Get texts from/ })).toBeVisible();
+  await expect(page.getByTestId('chat-showcase')).toHaveAttribute('data-hfos-signup', 'live');
   await expect(page.getByTestId('chat-showcase-form-texts')).not.toBeChecked();
   await page.getByTestId('chat-showcase-form-name').fill('Sam Reviewer');
+  await page.getByTestId('chat-showcase-form-texts').check();
   await page.getByTestId('chat-showcase-form-submit').click();
-  await expect(page.getByTestId('chat-showcase-form')).toContainText(
-    'only shows what the chat asks',
-  );
+  await expect(page.getByTestId('chat-showcase-form')).toContainText('mobile number');
+  await page.getByTestId('chat-showcase-form-phone').fill('(512) 555-0199');
+  await page.getByTestId('chat-showcase-form-submit').click();
+  await expect(page.getByTestId('chat-showcase-done')).toContainText('You’re signed up.');
+  await expect(page.getByTestId('chat-showcase-done')).toContainText('Reply STOP to unsubscribe');
 });
 
 test('a site that isn’t on the widget’s list: the browser refuses the chat window', async ({

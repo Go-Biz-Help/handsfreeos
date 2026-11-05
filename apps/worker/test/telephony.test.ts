@@ -51,7 +51,13 @@ import { jobs, unansweredCheck } from '../src/scheduled';
 import { FAKE_AUTH_TOKEN, fakeSid } from '../src/telephony/fake';
 import { ProviderError } from '../src/telephony/provider';
 import { twilioSignature, verifyTwilioSignature } from '../src/telephony/signature';
-import { payTextingFee, TEST_PUBLIC_URL, testServices, type TestServices } from './helpers';
+import {
+  allGreen,
+  payTextingFee,
+  TEST_PUBLIC_URL,
+  testServices,
+  type TestServices,
+} from './helpers';
 
 const env = testEnv();
 const WORKER_ID = `vitest-telephony-${process.pid}`;
@@ -448,11 +454,11 @@ describe('carrier registration', () => {
     await executeCommand(
       api(),
       registrationSubmit,
-      {
+      await allGreen({
         workspaceId,
         kind: 'toll_free_verification',
         business: { ...business, legalName: 'Reject Me HVAC LLC' },
-      },
+      }),
       actor(owner),
       meta(),
     );
@@ -483,7 +489,7 @@ describe('carrier registration', () => {
     await executeCommand(
       api(),
       registrationSubmit,
-      { workspaceId, kind: 'toll_free_verification', business },
+      await allGreen({ workspaceId, kind: 'toll_free_verification', business }),
       actor(owner),
       meta(),
     );
@@ -1244,15 +1250,15 @@ describe('local numbers (10DLC)', () => {
     const before = s.telephony.registrations.length;
     const fixedSample =
       'Hi Mike, your estimate for the new AC unit is ready. Reply with questions or STOP to opt out.';
-    const submit = (secondSample: string) =>
+    const submit = async (secondSample: string) =>
       executeCommand(
         api(),
         registrationSubmit,
-        {
+        await allGreen({
           workspaceId,
           kind: 'a2p_10dlc',
           business: { ...business, messageSamples: [business.messageSamples[0], secondSample] },
-        },
+        }),
         actor(owner),
         meta(),
       );

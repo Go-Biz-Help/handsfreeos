@@ -8,10 +8,16 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketI
   const ticket = unwrapPage(
     await api.POST('/v1/queries/support.ticket.get', { body: { ticketId } }),
   );
-  const [me, staff, replies] = await Promise.all([
+  const [me, staff, replies, check] = await Promise.all([
     api.POST('/v1/queries/platform.me', { body: {} }).then(unwrapPage),
     api.POST('/v1/queries/support.staff.list', { body: {} }).then(unwrapPage),
     api.POST('/v1/queries/support.canned_reply.list', { body: {} }).then(unwrapPage),
+    // A business's "Ask HandsFreeOS to check it" for its texting registration: shown with Approve and Send back.
+    api
+      .POST('/v1/queries/registration.review.for_staff', { body: { ticketId } })
+      .then(unwrapPage)
+      .then((r) => r.review)
+      .catch(() => null),
   ]);
   const permissions = me.staff?.permissions ?? [];
   return (
@@ -36,6 +42,7 @@ export default async function TicketPage({ params }: { params: Promise<{ ticketI
         founder: me.staff?.founder === true,
       }}
       meUserId={userId}
+      registrationReview={check}
     />
   );
 }

@@ -3,12 +3,20 @@ import { registerZoomRoutes } from '../meetings/routes';
 import cors from '@fastify/cors';
 import formbody from '@fastify/formbody';
 import {
+  BusinessProfile,
   checkChatOnSite,
+  checkDraft,
   checkOptInSurface,
+  checkOtherWay,
   checkPolicy,
   checkTerms,
   checkWebsite,
   dispositionOf,
+  draftFromProfile,
+  executeCommand,
+  notGreen,
+  registrationFingerprint,
+  registrationRecordCheck,
   formatPhone,
   HfosError,
   policyAsText,
@@ -16,6 +24,7 @@ import {
   SPOKEN_VOICE_HEADER,
   termsOfService,
   type FetchedPage,
+  type PreflightCheck,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { scheduledJobs, telephonyAccounts } from '@hfos/db/schema';
@@ -34,6 +43,7 @@ import { ACCOUNT_JOBS } from '../telephony/account-switch';
 import { loadAccount } from '../telephony/accounts';
 import { ProviderError } from '../telephony/provider';
 import { renewAfterRefusal } from '../telephony/tokens';
+import { systemActor, workerMeta } from '../services';
 import { registerWorkflowRoutes } from '../workflows/index';
 import { registerBuilderRoutes } from '../workflows/builder-routes';
 import { registerPollCueRoutes } from '../forms/poll-cue-routes';
@@ -218,6 +228,27 @@ const PreflightInput = z.strictObject({
           postalCode: z.string().trim().max(20).optional(),
         })
         .optional(),
+    })
+    .optional(),
+  /** Every other way customers agree, each with its page or proof: each is opened and checked like the main one. */
+  otherWays: z
+    .array(
+      z.strictObject({
+        path: z.enum(['hosted', 'own_site', 'in_person']),
+        url: z.string().trim().max(500),
+      }),
+    )
+    .max(3)
+    .default([]),
+  /**
+   * The registration exactly as Send would send it. When it reads as one, the pages checked are the ones it names, and
+   * what was found is written down against its fingerprint (`registration.record_check`): `registration.submit` lets
+   * through only details found all green, whoever sends them.
+   */
+  submission: z
+    .strictObject({
+      kind: z.enum(['a2p_10dlc', 'toll_free_verification']),
+      business: z.unknown(),
     })
     .optional(),
 });
@@ -531,6 +562,22 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     const input = parseBody(PreflightInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
 
+    // The registration as Send would send it, when it reads as one: then its own pages are the ones checked, so what
+    // is written down as all green is what was looked at.
+    const read = input.submission ? BusinessProfile.safeParse(input.submission.business) : null;
+    const sent = read?.success ? read.data : null;
+    const optInPath = sent?.optInPath ?? input.optInPath;
+    const targets = sent
+      ? {
+          website: sent.website,
+          policyUrl: sent.privacyPageUrl ?? sent.policyUrl ?? null,
+          termsUrl: sent.termsPageUrl ?? sent.termsUrl ?? null,
+          optInUrl: sent.optInUrl ?? null,
+          optInProofUrl: sent.optInProofUrl ?? null,
+          otherWays: sent.otherWays ?? [],
+        }
+      : input;
+
     /**
      * One address, fetched as forgivingly as the check allows: a reviewer would follow redirects and would
      * not mind a slow page, so neither do we. Anything that goes wrong becomes a FetchedPage saying so,
@@ -571,13 +618,13 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     // Fetched together: four sequential round trips would have the business watching a spinner for
     // the better part of half a minute.
     const names = input.names.filter(Boolean);
-    const [website, policy, terms, optIn, chats] = await Promise.all([
-      open(input.website),
-      hostedOr(input.policyUrl, 'privacy'),
-      hostedOr(input.termsUrl, 'terms'),
-      open(input.optInPath === 'in_person' ? input.optInProofUrl : input.optInUrl),
+    const [website, policy, terms, optIn, chats, others] = await Promise.all([
+      open(targets.website),
+      hostedOr(targets.policyUrl, 'privacy'),
+      hostedOr(targets.termsUrl, 'terms'),
+      open(optInPath === 'in_person' ? targets.optInProofUrl : targets.optInUrl),
       // The hosted path is the chat on their own site: its key (in the snippet) and where it was last seen open.
-      input.optInPath === 'hosted'
+      optInPath === 'hosted'
         ? asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
             rows<{ key: string; seen_origin: string | null; paused: boolean }>(
               tx,
@@ -586,24 +633,62 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
             ),
           )
         : Promise.resolve(null),
+      Promise.all(targets.otherWays.map((w) => open(w.url))),
     ]);
 
-    return {
-      checks: [
-        checkWebsite(website, names, input.legalName ?? null),
-        checkPolicy(policy),
-        checkTerms(terms),
-        checkOptInSurface(optIn, input.optInPath, names),
-        ...(chats
-          ? [
-              checkChatOnSite(
-                website,
-                chats.map((c) => ({ key: c.key, seenOrigin: c.seen_origin, paused: c.paused })),
-              ),
-            ]
-          : []),
-      ],
-    };
+    const checks: PreflightCheck[] = [
+      checkWebsite(website, names, input.legalName ?? sent?.legalName ?? null),
+      checkPolicy(policy),
+      checkTerms(terms),
+      checkOptInSurface(optIn, optInPath, names),
+      ...(chats
+        ? [
+            checkChatOnSite(
+              website,
+              chats.map((c) => ({ key: c.key, seenOrigin: c.seen_origin, paused: c.paused })),
+            ),
+          ]
+        : []),
+      ...targets.otherWays.map((w, i) => checkOtherWay(others[i] ?? null, w, i, names)),
+    ];
+    if (!input.submission) return { checks, notGreen: null };
+
+    // What stands between these details and all green: the form's own check of them (questions only the business
+    // can answer are its ticks, checked at the send), and every look above that didn't pass.
+    if (!sent) {
+      const first = read?.error?.issues[0]?.message;
+      return {
+        checks,
+        notGreen: [
+          `Some details can’t be sent as they are${first ? `: ${first}` : '.'} Go back through the steps and fix the one marked.`,
+        ],
+      };
+    }
+    const [ws] = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
+      rows<{ name: string; organization_id: string }>(
+        tx,
+        sql`select name::text as name, organization_id from app.workspaces where id = ${input.workspaceId}`,
+      ),
+    );
+    if (!ws) throw HfosError.notFound('That business isn’t there anymore.');
+    const issues = checkDraft(draftFromProfile(sent), sent.displayName ?? names[0] ?? ws.name);
+    const left = notGreen({ issues, checks, confirmations: [], confirmed: [] });
+    await executeCommand(
+      deps.httpDb,
+      registrationRecordCheck,
+      {
+        workspaceId: input.workspaceId,
+        fingerprint: registrationFingerprint(input.submission.kind, sent),
+        notGreen: left.slice(0, 60).map((l) => l.slice(0, 2000)),
+        checks: checks.map((c) => ({ ...c })),
+      },
+      systemActor(
+        { workspaceId: input.workspaceId, organizationId: ws.organization_id },
+        actor.userId,
+      ),
+      workerMeta(),
+    );
+    return { checks, notGreen: left };
   });
 
   return app;

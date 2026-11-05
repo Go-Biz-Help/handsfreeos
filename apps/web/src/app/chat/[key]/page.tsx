@@ -11,8 +11,8 @@ import { CHAT_WINDOW_HEADER, chatWindowFrom } from '@/lib/chat/frame';
  * own preview page. No app shell and no session. proxy.ts has already set the frame rule and looked the widget
  * up; without its answer (it always runs first) the window refuses rather than show unframed-for-anyone.
  *
- * Opened on its own in a tab, it shows what the chat asks visitors instead (ChatShowcase): the page a texting
- * registration gives the carrier's reviewer.
+ * Opened on its own in a tab, it's the chat's sign-up page instead (ChatShowcase): its details form, which works, and
+ * the page a texting registration gives the carrier's reviewer.
  */
 async function context() {
   return chatWindowFrom((await headers()).get(CHAT_WINDOW_HEADER));
@@ -25,8 +25,8 @@ export async function generateMetadata(): Promise<Metadata> {
     title: {
       absolute: ctx?.standalone
         ? name
-          ? `How ${name}’s website chat asks to text you`
-          : 'Website chat'
+          ? `Get texts from ${name}`
+          : 'Sign up for texts'
         : name
           ? `Chat with ${name}`
           : 'Chat',
@@ -44,7 +44,7 @@ export default async function ChatWindowPage() {
     return ctx.lookup.config.paused ? (
       <ChatUnavailable kind="paused" />
     ) : (
-      <ChatShowcase config={ctx.lookup.config} />
+      <ChatShowcase config={ctx.lookup.config} widgetKey={ctx.key} />
     );
   return (
     <ChatWindow

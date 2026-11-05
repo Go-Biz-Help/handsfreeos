@@ -22,6 +22,7 @@
  */
 import {
   checkDraft,
+  confirmationsFor,
   formatPhone,
   hasBlockers,
   issuesFor,
@@ -29,7 +30,6 @@ import {
   optInDescriptionFor,
   ownSiteBoxText,
   privacyPolicy,
-  preflightBlocked,
   sampleSuggestions,
   senderForCarriers,
   SENSITIVE_TOPICS,
@@ -43,11 +43,14 @@ import {
   updatedPolicyHtml,
   updatedPolicyText,
   normalizeChatOrigin,
+  notGreen as notGreenList,
   type A2pDraft,
   type A2pField,
   type A2pIssue,
   type BusinessAddress,
   type ChatAskFor,
+  type Confirmation,
+  type ConfirmationId,
   type OptInPath,
   type PolicyKind,
   type PolicyUpdateInput,
@@ -125,6 +128,30 @@ export interface WizardForm {
   policyPhone: string;
   /** Topics the carriers treat differently: the ids picked, [] for "None of these", null before answering. */
   sensitive: string[] | null;
+  /**
+   * Every other way customers agree, each with its page or proof (Twilio 30896: "list every method along with
+   * proofs"). The description names each one, and the last step opens each link.
+   */
+  otherWays: OtherWayAnswer[];
+  /** The ticks on the last step only the business can give (core's confirmationsFor). */
+  confirmed: string[];
+}
+
+/** Another way customers agree, as typed. */
+export interface OtherWayAnswer {
+  path: OptInPath;
+  url: string;
+}
+
+/** The business's latest ask for HandsFreeOS to check its registration (`registration.review.get`). */
+interface ReviewInfo {
+  readonly reviewId: string;
+  readonly status: 'waiting' | 'approved' | 'sent_back' | 'withdrawn';
+  readonly requestedAt: string;
+  readonly decidedAt: string | null;
+  readonly decisionNote: string | null;
+  readonly ticketNumber: number | null;
+  readonly sentAt: string | null;
 }
 
 const BUSINESS_TYPES = [
@@ -193,6 +220,7 @@ export function wizardFormFrom(
     messageSamples?: string[];
     useCase?: string;
     monthlyVolume?: string;
+    otherWays?: { path?: OptInPath; url?: string }[];
   };
   const [meFirst = '', ...meRest] = me.fullName.trim().split(/\s+/);
   return {
@@ -226,6 +254,11 @@ export function wizardFormFrom(
     policyEmail: b.policyContact?.email ?? '',
     policyPhone: b.policyContact?.phone ? formatPhone(b.policyContact.phone) : '',
     sensitive: Array.isArray(b.sensitiveTopics) ? b.sensitiveTopics : null,
+    otherWays: Array.isArray(b.otherWays)
+      ? b.otherWays.flatMap((w) => (w.path && w.url ? [{ path: w.path, url: w.url }] : []))
+      : [],
+    // Ticked again each time: they say something is true now.
+    confirmed: [],
   };
 }
 
@@ -246,10 +279,45 @@ export function withDraft(base: WizardForm, draft: Record<string, unknown> | nul
     } else if (key === 'samples') {
       if (Array.isArray(value) && value.every((v) => typeof v === 'string'))
         next[key] = [value[0] ?? '', value[1] ?? ''];
+    } else if (key === 'confirmed') {
+      if (Array.isArray(value) && value.every((v) => typeof v === 'string')) next[key] = value;
+    } else if (key === 'otherWays') {
+      if (Array.isArray(value))
+        next[key] = value.flatMap((w: unknown) => {
+          const o = (w ?? {}) as { path?: unknown; url?: unknown };
+          return OPT_IN_PATH_IDS.includes(o.path as OptInPath) && typeof o.url === 'string'
+            ? [{ path: o.path as OptInPath, url: o.url }]
+            : [];
+        });
     } else if (typeof value === typeof was) next[key] = value;
   }
   return next as unknown as WizardForm;
 }
+
+const OPT_IN_PATH_IDS: readonly OptInPath[] = ['hosted', 'own_site', 'in_person'];
+
+/**
+ * The privacy policy and terms a reviewer is given: the business's own when it gave them, ours when we host them, and
+ * nothing before a site exists. The description has to name both (Twilio 30924 and 30896).
+ */
+function legalPagesOf(f: WizardForm, s: HostedSurfaces, origin: string) {
+  return {
+    policyUrl: f.ownPolicyUrl.trim()
+      ? withScheme(f.ownPolicyUrl)
+      : s.siteSlug
+        ? `${origin}/legal/${s.siteSlug}/privacy`
+        : null,
+    termsUrl: f.ownTermsUrl.trim()
+      ? withScheme(f.ownTermsUrl)
+      : s.siteSlug
+        ? `${origin}/legal/${s.siteSlug}/terms`
+        : null,
+  };
+}
+
+/** The other ways customers agree that say something: a path and a link. */
+const otherWaysOf = (f: WizardForm) =>
+  f.otherWays.filter((w) => w.url.trim()).map((w) => ({ path: w.path, url: withScheme(w.url) }));
 
 /** The form as the checks read it. */
 const draftOf = (f: WizardForm): A2pDraft => ({
@@ -332,7 +400,7 @@ const STEPS: readonly Step[] = [
     key: 'optin',
     title: 'How customers agree to get texts',
     blurb: 'The part that is checked hardest — and the part we can do for you.',
-    fields: ['optInPath', 'optInUrl', 'optInProofUrl', 'optInDescription'],
+    fields: ['optInPath', 'optInUrl', 'optInProofUrl', 'otherWays', 'optInDescription'],
   },
   {
     key: 'policy',
@@ -583,6 +651,8 @@ function describeFor(
     pageUrl: f.optInPath === 'own_site' ? withScheme(f.optInUrl) || null : null,
     proofUrl: withScheme(f.optInProofUrl) || null,
     offers: sendsOffers(f.useCase),
+    ...legalPagesOf(f, s, origin),
+    otherWays: otherWaysOf(f),
   });
 }
 
@@ -768,6 +838,8 @@ function OptInStep({
     },
   });
   const smsSection = policy.sections.find((s) => /text messages/i.test(s.heading));
+  // The sentence as we'd write it now, which "Use our wording" puts back.
+  const ourWording = describeFor(businessName, form, surfaces, origin);
 
   return (
     <div className="space-y-4">
@@ -979,19 +1051,169 @@ function OptInStep({
       ) : null}
 
       {form.optInPath ? (
+        <OtherWays
+          main={form.optInPath}
+          ways={form.otherWays}
+          chatUrl={urls.chatUrl}
+          onChange={(next) => set('otherWays', next)}
+          issues={issuesFor(issues, 'otherWays')}
+        />
+      ) : null}
+
+      {form.optInPath ? (
         <Field label="What we will tell the carriers" htmlFor="optin-description">
           <Textarea
             id="optin-description"
             value={form.optIn}
             onChange={(e) => set('optIn', e.target.value)}
-            rows={6}
+            rows={8}
           />
-          <p className="mt-1.5 text-[13px] text-text-3">
-            Written from your answer above. Edit it if it does not describe how you really do it —
-            but everything it claims has to be true, because it is checked.
-          </p>
+          <div className="mt-1.5 flex flex-wrap items-start justify-between gap-2">
+            <p className="min-w-0 flex-1 text-[13px] text-text-3">
+              Written from your answers above. Edit it if it does not describe how you really do it
+              — but everything it claims has to be true, because it is checked.
+            </p>
+            {form.optIn !== ourWording ? (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => set('optIn', ourWording)}
+                data-testid="optin-use-our-wording"
+              >
+                Use our wording
+              </Button>
+            ) : null}
+          </div>
           <Issues issues={issuesFor(issues, 'optInDescription')} />
         </Field>
+      ) : null}
+    </div>
+  );
+}
+
+/** What each way customers agree is called here, and what its link is. */
+const WAY_CHOICES: readonly {
+  value: OptInPath;
+  title: string;
+  link: string;
+  placeholder: string;
+}[] = [
+  {
+    value: 'hosted',
+    title: 'The chat on your website',
+    link: 'Its sign-up page',
+    placeholder: 'https://app.handsfreeos.com/chat/…',
+  },
+  {
+    value: 'own_site',
+    title: 'A form on your own website',
+    link: 'The page with the tick box',
+    placeholder: 'yoursite.com/contact',
+  },
+  {
+    value: 'in_person',
+    title: 'In person or on the phone',
+    link: 'A link to what customers see or hear',
+    placeholder: 'https://drive.google.com/…',
+  },
+];
+
+/**
+ * "Any other ways customers agree?" A reviewer who finds a way the registration didn't mention turns it down (Twilio
+ * 30896: "if you support more than one opt-in path, list every method along with proofs"), so each other way is named
+ * with its proof, said in the description, and opened by the last step's checks.
+ */
+function OtherWays({
+  main,
+  ways,
+  chatUrl,
+  onChange,
+  issues,
+}: {
+  main: OptInPath;
+  ways: readonly OtherWayAnswer[];
+  /** The chat's sign-up page, once the chat is ready: filled in for "The chat on your website". */
+  chatUrl: string | null;
+  onChange: (next: OtherWayAnswer[]) => void;
+  issues: readonly A2pIssue[];
+}) {
+  const free = WAY_CHOICES.filter((c) => c.value !== main && !ways.some((w) => w.path === c.value));
+  const update = (i: number, patch: Partial<OtherWayAnswer>) =>
+    onChange(ways.map((w, j) => (j === i ? { ...w, ...patch } : w)));
+  return (
+    <div className="rounded-menu border border-border bg-card p-4" data-testid="optin-other-ways">
+      <p className="text-[13.5px] font-semibold">Any other ways customers agree?</p>
+      <p className="mt-1 text-[13px] text-text-2">
+        Add each other way customers say yes to your texts, with where a reviewer can see it. The
+        carriers turn a registration down when they find a way it didn&rsquo;t list.
+      </p>
+      {ways.map((way, i) => {
+        const choice = WAY_CHOICES.find((c) => c.value === way.path)!;
+        return (
+          <div key={i} className="mt-3 space-y-2 border-t border-border pt-3">
+            <div className="flex items-end gap-2">
+              <Field label="How" htmlFor={`a2p-other-${i}-path`} className="min-w-0 flex-1">
+                <Select
+                  id={`a2p-other-${i}-path`}
+                  value={way.path}
+                  onChange={(e) =>
+                    update(i, {
+                      path: e.target.value as OptInPath,
+                      url: e.target.value === 'hosted' && chatUrl ? chatUrl : way.url,
+                    })
+                  }
+                >
+                  {WAY_CHOICES.filter(
+                    (c) =>
+                      c.value !== main &&
+                      (c.value === way.path || !ways.some((w) => w.path === c.value)),
+                  ).map((c) => (
+                    <option key={c.value} value={c.value}>
+                      {c.title}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => onChange(ways.filter((_, j) => j !== i))}
+                data-testid={`optin-other-${i}-remove`}
+              >
+                Remove
+              </Button>
+            </div>
+            <Field label={choice.link} htmlFor={`a2p-other-${i}-url`}>
+              <Input
+                id={`a2p-other-${i}-url`}
+                value={way.url}
+                onChange={(e) => update(i, { url: e.target.value })}
+                placeholder={choice.placeholder}
+                data-testid={`optin-other-${i}-url`}
+              />
+            </Field>
+          </div>
+        );
+      })}
+      <Issues issues={issues} />
+      {free.length && ways.length < 3 ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="mt-3"
+          onClick={() =>
+            onChange([
+              ...ways,
+              { path: free[0]!.value, url: free[0]!.value === 'hosted' && chatUrl ? chatUrl : '' },
+            ])
+          }
+          data-testid="optin-other-add"
+        >
+          Add another way
+        </Button>
       ) : null}
     </div>
   );
@@ -1056,6 +1278,29 @@ export function A2pWizard({
   // four requests to somebody else's website, and the answers only change when an answer above them does.
   const [checks, setChecks] = useState<PreflightCheck[] | null>(null);
   const [checking, setChecking] = useState(false);
+  /**
+   * What the worker found standing between these exact details and all green (the form's own check and every look
+   * above), or null before it has looked. Send works only when it's empty and every tick is ticked: the owner's rule
+   * (2026-11-05), held by `registration.submit` too.
+   */
+  const [found, setFound] = useState<string[] | null>(null);
+  // The business's latest ask for HandsFreeOS to check it, and the note it's writing for the next one.
+  const [review, setReview] = useState<ReviewInfo | null>(null);
+  const [note, setNote] = useState('');
+  const [asking, setAsking] = useState(false);
+  const loadReview = useCallback(async () => {
+    try {
+      const got = unwrap(
+        await apiBrowser().POST('/v1/queries/registration.review.get', { body: { workspaceId } }),
+      );
+      setReview(got.review);
+    } catch {
+      // The wizard works without it; the ticket's emails still reach the business.
+    }
+  }, [workspaceId]);
+  useEffect(() => {
+    void loadReview();
+  }, [loadReview]);
 
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
 
@@ -1115,14 +1360,6 @@ export function A2pWizard({
       ? textingFeeLines({ ...feesPaidFor, monthlyVolume: form.volume || 'under_1000' })
       : [];
   const feeTotal = textingFeeTotal(feeLines);
-  const issues = useMemo(() => checkDraft(draftOf(form), businessName), [form, businessName]);
-  const step = STEPS[at]!;
-
-  /** Blockers on the fields this step owns — what stops it advancing. */
-  const stepBlockers = step.fields.flatMap((field) =>
-    issuesFor(issues, field).filter((i) => i.severity === 'blocker'),
-  );
-
   const surfaceUrls = urlsOf(surfaces, origin, withScheme(form.website));
   /**
    * The page we are about to tell the carrier the agreement box is on: for the chat, the page showing what it asks
@@ -1136,16 +1373,84 @@ export function A2pWizard({
         : null;
   const proofUrl = withScheme(form.optInProofUrl) || null;
   /** Theirs when they gave us one, ours when we are hosting it, and nothing before a site exists. */
-  const policyUrl = form.ownPolicyUrl.trim()
-    ? withScheme(form.ownPolicyUrl)
-    : surfaces.siteSlug
-      ? `${origin}/legal/${surfaces.siteSlug}/privacy`
-      : null;
-  const termsUrl = form.ownTermsUrl.trim()
-    ? withScheme(form.ownTermsUrl)
-    : surfaces.siteSlug
-      ? `${origin}/legal/${surfaces.siteSlug}/terms`
-      : null;
+  const { policyUrl, termsUrl } = legalPagesOf(form, surfaces, origin);
+  const otherWays = otherWaysOf(form);
+
+  // What the checks read: the answers, and the addresses the reviewer is given, which the description has to name.
+  const issues = useMemo(
+    () =>
+      checkDraft(
+        {
+          ...draftOf(form),
+          privacyPageUrl: policyUrl,
+          termsPageUrl: termsUrl,
+          optInPageUrl: form.optInPath === 'in_person' ? proofUrl : optInUrl,
+          otherWays: otherWaysOf(form),
+          displayName: businessName,
+        },
+        businessName,
+      ),
+    [form, businessName, policyUrl, termsUrl, optInUrl, proofUrl],
+  );
+  const step = STEPS[at]!;
+
+  /** Blockers on the fields this step owns — what stops it advancing. */
+  const stepBlockers = step.fields.flatMap((field) =>
+    issuesFor(issues, field).filter((i) => i.severity === 'blocker'),
+  );
+
+  /** The ticks only the business can give: from the ways customers agree, and from the questions above. */
+  const confirmations = confirmationsFor({
+    optInPath: form.optInPath,
+    optInUrl,
+    otherWays,
+    issues,
+    legalName: form.legalName,
+  });
+
+  const kind = local ? ('a2p_10dlc' as const) : ('toll_free_verification' as const);
+  /** The registration exactly as Send sends it: what the checks write down, and what a check by HandsFreeOS sees. */
+  const business = {
+    legalName: form.legalName,
+    businessType: form.businessType as 'llc',
+    ein: form.businessType === 'sole_proprietor' ? null : form.ein || null,
+    website: withScheme(form.website),
+    address: {
+      line1: form.line1,
+      city: form.city,
+      state: form.state,
+      postalCode: form.postalCode,
+      country: 'US' as const,
+    },
+    contact: {
+      firstName: form.contactFirst,
+      lastName: form.contactLast,
+      email: form.contactEmail,
+      phone: form.contactPhone,
+    },
+    useCase: form.useCase as 'customer_care',
+    messageSamples: form.samples.map((s) => s.trim()).filter(Boolean),
+    optInDescription: form.optIn,
+    optInPath: form.optInPath || undefined,
+    optInUrl,
+    optInProofUrl: proofUrl,
+    policyUrl: form.ownPolicyUrl.trim() ? withScheme(form.ownPolicyUrl) : null,
+    termsUrl: form.ownTermsUrl.trim() ? withScheme(form.ownTermsUrl) : null,
+    policyContact: {
+      ...(form.policyEmail.trim() ? { email: form.policyEmail.trim() } : {}),
+      ...(form.policyPhone.trim() ? { phone: form.policyPhone.trim() } : {}),
+    },
+    privacyPageUrl: policyUrl,
+    termsPageUrl: termsUrl,
+    displayName: businessName,
+    sensitiveTopics: (form.sensitive ?? []) as SensitiveTopicId[],
+    monthlyVolume: form.volume as 'under_1000',
+    ...(otherWays.length ? { otherWays } : {}),
+    confirmed: form.confirmed as ConfirmationId[],
+  };
+  // The details the checks look at, without the ticks: ticking one doesn't open four websites again.
+  const { confirmed: _ticks, ...checked } = business;
+  const checkedKey = JSON.stringify({ kind, checked });
 
   // What our policy and terms are written from, so the review checks them as they'll read once sent. Kept while
   // none of it changes, so the check runs again only when it does.
@@ -1159,7 +1464,11 @@ export function A2pWizard({
     if (!form.optInPath) return;
     setChecking(true);
     try {
-      const { checks: got } = await registrationPreflight({
+      const sending = JSON.parse(checkedKey) as {
+        kind: typeof kind;
+        checked: Record<string, unknown>;
+      };
+      const got = await registrationPreflight({
         workspaceId,
         website: withScheme(form.website),
         policyUrl,
@@ -1170,11 +1479,15 @@ export function A2pWizard({
         names: [businessName, form.legalName].filter((n) => n.trim()),
         legalName: form.legalName.trim() || undefined,
         policyBusiness: hostedFrom,
+        otherWays: (sending.checked['otherWays'] as OtherWayAnswer[] | undefined) ?? [],
+        submission: { kind: sending.kind, business: sending.checked },
       });
-      setChecks(got);
+      setChecks(got.checks);
+      setFound(got.notGreen);
     } catch (err) {
       toast.error(errorMessage(err));
       setChecks(null);
+      setFound(null);
     } finally {
       setChecking(false);
     }
@@ -1189,13 +1502,17 @@ export function A2pWizard({
     optInUrl,
     proofUrl,
     hostedFrom,
+    checkedKey,
   ]);
 
   // Opening the review runs them; going back and changing something throws the old answers away, so a
   // business never submits on the strength of a check of a website it has since corrected.
   useEffect(() => {
     if (step.key === 'review') void runPreflight();
-    else setChecks(null);
+    else {
+      setChecks(null);
+      setFound(null);
+    }
   }, [step.key, runPreflight]);
 
   async function submit() {
@@ -1206,46 +1523,7 @@ export function A2pWizard({
       await saving.current;
       const done = unwrap(
         await apiBrowser().POST('/v1/commands/registration.submit', {
-          body: {
-            workspaceId,
-            kind: local ? 'a2p_10dlc' : 'toll_free_verification',
-            business: {
-              legalName: form.legalName,
-              businessType: form.businessType as 'llc',
-              ein: form.businessType === 'sole_proprietor' ? null : form.ein || null,
-              website: withScheme(form.website),
-              address: {
-                line1: form.line1,
-                city: form.city,
-                state: form.state,
-                postalCode: form.postalCode,
-                country: 'US',
-              },
-              contact: {
-                firstName: form.contactFirst,
-                lastName: form.contactLast,
-                email: form.contactEmail,
-                phone: form.contactPhone,
-              },
-              useCase: form.useCase as 'customer_care',
-              messageSamples: form.samples.map((s) => s.trim()).filter(Boolean),
-              optInDescription: form.optIn,
-              optInPath: form.optInPath || undefined,
-              optInUrl,
-              optInProofUrl: proofUrl,
-              policyUrl: form.ownPolicyUrl.trim() ? withScheme(form.ownPolicyUrl) : null,
-              termsUrl: form.ownTermsUrl.trim() ? withScheme(form.ownTermsUrl) : null,
-              policyContact: {
-                ...(form.policyEmail.trim() ? { email: form.policyEmail.trim() } : {}),
-                ...(form.policyPhone.trim() ? { phone: form.policyPhone.trim() } : {}),
-              },
-              privacyPageUrl: policyUrl,
-              termsPageUrl: termsUrl,
-              displayName: businessName,
-              sensitiveTopics: (form.sensitive ?? []) as SensitiveTopicId[],
-              monthlyVolume: form.volume as 'under_1000',
-            },
-          },
+          body: { workspaceId, kind, business },
         }),
       );
       sent.current = true;
@@ -1261,6 +1539,51 @@ export function A2pWizard({
       } else toast.error(errorMessage(err));
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** Everything that isn't green, as the business sees it and as the ticket lists it. */
+  const left =
+    found === null
+      ? null
+      : [
+          ...found,
+          ...notGreenList({ issues: [], checks: [], confirmations, confirmed: form.confirmed }),
+        ];
+  const allGreen = left !== null && left.length === 0;
+
+  /** "Ask HandsFreeOS to check it": a ticket to our support desk with what isn't green; staff approve or send back. */
+  async function askReview() {
+    setAsking(true);
+    setServerErrors([]);
+    try {
+      await saving.current;
+      const out = unwrap(
+        await apiBrowser().POST('/v1/commands/registration.request_review', {
+          body: {
+            workspaceId,
+            kind,
+            business,
+            notGreen: (
+              left ?? ['The checks of your website, policy, terms and sign-up page haven’t run.']
+            ).slice(0, 60),
+            ...(note.trim() ? { note: note.trim() } : {}),
+          },
+        }),
+      );
+      setNote('');
+      toast.success(
+        `Sent to HandsFreeOS as ticket #${out.ticketNumber}. We’ll email you once we’ve checked it.`,
+      );
+      await loadReview();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'validation' && Array.isArray(err.details)) {
+        const details = err.details as { path?: string; message?: string }[];
+        setServerErrors(details.map((d) => d.message ?? 'Check this.'));
+        toast.error('A few details need a look.');
+      } else toast.error(errorMessage(err));
+    } finally {
+      setAsking(false);
     }
   }
 
@@ -1294,6 +1617,7 @@ export function A2pWizard({
               ? 'Couldn’t save just now. We’ll try again when you change something.'
               : null}
       </p>
+      <ReviewBanner review={review} />
       <h2 className="text-[19px] font-semibold">{step.title}</h2>
       <p className="mb-5 mt-1 text-[13.5px] text-text-2">{step.blurb}</p>
 
@@ -1544,6 +1868,17 @@ export function A2pWizard({
           checks={checks}
           checking={checking}
           onRecheck={() => void runPreflight()}
+          left={left}
+          confirmations={confirmations}
+          confirmed={form.confirmed}
+          onConfirm={(id, on) =>
+            set(
+              'confirmed',
+              on
+                ? [...form.confirmed.filter((c) => c !== id), id]
+                : form.confirmed.filter((c) => c !== id),
+            )
+          }
           agreed={agreed}
           onAgreed={setAgreed}
           onJump={(key) => setAt(STEPS.findIndex((s) => s.key === key))}
@@ -1587,6 +1922,51 @@ export function A2pWizard({
         </div>
       ) : null}
 
+      {step.key === 'review' && left !== null && !allGreen ? (
+        <div
+          className="mt-5 rounded-menu border border-border bg-card-2 p-4"
+          data-testid="registration-ask-review"
+        >
+          <p className="text-[13.5px] font-semibold">Not all green? HandsFreeOS can check it</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-text-2">
+            Registrations go to the carriers only when every row above is green, because the
+            carriers turn down anything less and the wait starts again. If you think a row is wrong,
+            or you can&rsquo;t fix it yet, ask us. We&rsquo;ll look at it by hand, then send it
+            exactly as it is or tell you what to change.
+          </p>
+          <Field
+            label="Anything we should know (optional)"
+            htmlFor="a2p-review-note"
+            className="mt-3"
+          >
+            <Textarea
+              id="a2p-review-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value.slice(0, 2000))}
+              rows={3}
+              placeholder="Our sign-up form does work: the error shows only when the phone field is empty."
+              data-testid="registration-review-note"
+            />
+          </Field>
+          <Button
+            type="button"
+            variant="secondary"
+            className="mt-3"
+            onClick={askReview}
+            disabled={asking || busy || checking || !agreed}
+            data-testid="registration-ask-review-button"
+          >
+            {asking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {review?.status === 'waiting' ? 'Ask HandsFreeOS again' : 'Ask HandsFreeOS to check it'}
+          </Button>
+          {!agreed ? (
+            <p className="mt-1.5 text-[13px] text-text-3">
+              Tick &ldquo;These details are accurate&rdquo; above first.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="mt-6 flex items-center justify-between gap-3">
         <Button
           type="button"
@@ -1602,12 +1982,7 @@ export function A2pWizard({
             type="button"
             onClick={submit}
             disabled={
-              busy ||
-              checking ||
-              hasBlockers(issues) ||
-              !agreed ||
-              !checks ||
-              preflightBlocked(checks)
+              busy || checking || asking || hasBlockers(issues) || !agreed || !checks || !allGreen
             }
             data-testid="submit-registration"
           >
@@ -2114,6 +2489,54 @@ function Row({ label, value, onJump }: { label: string; value: ReactNode; onJump
   );
 }
 
+/**
+ * Where the business's ask for HandsFreeOS to check it stands: waiting, approved and on its way, or sent back with
+ * what to change. Shown on every step, so coming back to the registration says it first.
+ */
+function ReviewBanner({ review }: { review: ReviewInfo | null }) {
+  if (!review) return null;
+  const ticket = review.ticketNumber ? ` (ticket #${review.ticketNumber})` : '';
+  if (review.status === 'waiting')
+    return (
+      <Callout
+        tone="info"
+        icon={Loader2}
+        className="mb-4"
+        data-testid="registration-review-waiting"
+      >
+        HandsFreeOS is checking this{ticket}. We&rsquo;ll email you once it&rsquo;s approved and
+        sent, or if anything needs changing. Sending it yourself once it&rsquo;s all green, or
+        asking again, replaces this check.
+      </Callout>
+    );
+  if (review.status === 'approved')
+    return (
+      <Callout tone="info" icon={Check} className="mb-4" data-testid="registration-review-approved">
+        HandsFreeOS checked this and approved it{ticket}. It&rsquo;s on its way to the carriers.
+      </Callout>
+    );
+  if (review.status === 'sent_back')
+    return (
+      <Callout
+        tone="warning"
+        icon={CircleAlert}
+        className="mb-4"
+        data-testid="registration-review-sent-back"
+      >
+        <div>
+          <p className="font-semibold">HandsFreeOS sent this back{ticket}</p>
+          {review.decisionNote ? (
+            <p className="mt-1 whitespace-pre-line">{review.decisionNote}</p>
+          ) : null}
+          <p className="mt-1">
+            Change it, then send it once every row is green, or ask us to check it again.
+          </p>
+        </div>
+      </Callout>
+    );
+  return null;
+}
+
 function ReviewStep({
   form,
   businessName,
@@ -2122,6 +2545,10 @@ function ReviewStep({
   checks,
   checking,
   onRecheck,
+  left,
+  confirmations,
+  confirmed,
+  onConfirm,
   agreed,
   onAgreed,
   onJump,
@@ -2135,12 +2562,19 @@ function ReviewStep({
   checks: readonly PreflightCheck[] | null;
   checking: boolean;
   onRecheck: () => void;
+  /** Everything that isn't green yet (the worker's list and the unticked ticks), or null before it has looked. */
+  left: readonly string[] | null;
+  /** The ticks only the business can give, and which are ticked. */
+  confirmations: readonly Confirmation[];
+  confirmed: readonly string[];
+  onConfirm: (id: ConfirmationId, on: boolean) => void;
   agreed: boolean;
   onAgreed: (next: boolean) => void;
   onJump: (key: string) => void;
 }) {
   const blockers = issues.filter((i) => i.severity === 'blocker');
-  const warnings = issues.filter((i) => i.severity === 'warning');
+  // A question only the business can answer is a tick below, not a warning.
+  const warnings = issues.filter((i) => i.severity === 'warning' && !i.confirm);
   const pathLabel = OPT_IN_PATHS.find((p) => p.value === form.optInPath)?.title ?? '—';
   const useCaseLabel = USE_CASES.find((u) => u.value === form.useCase)?.title ?? form.useCase;
 
@@ -2161,12 +2595,25 @@ function ReviewStep({
             </ul>
           </div>
         </Callout>
-      ) : (
-        <Callout tone="info" icon={Check}>
-          Nothing here looks like it would be refused. The carriers usually answer within three to
-          seven working days.
+      ) : left !== null && left.length === 0 ? (
+        <Callout tone="info" icon={Check} data-testid="registration-all-green">
+          Everything is green. The carriers usually answer within three to seven working days.
         </Callout>
-      )}
+      ) : left !== null ? (
+        <Callout tone="warning" icon={CircleAlert} data-testid="registration-not-green">
+          <div>
+            <p className="font-semibold">
+              {left.length === 1
+                ? 'One thing isn’t green yet'
+                : `${left.length} things aren’t green yet`}
+            </p>
+            <p className="mt-1">
+              It goes to the carriers only when everything is green. Fix what you can, or ask
+              HandsFreeOS to check it below.
+            </p>
+          </div>
+        </Callout>
+      ) : null}
 
       <div className="rounded-menu border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between gap-3">
@@ -2228,10 +2675,32 @@ function ReviewStep({
         ) : null}
       </div>
 
+      {confirmations.length ? (
+        <div
+          className="space-y-2.5 rounded-menu border border-border bg-card p-4"
+          data-testid="registration-confirmations"
+        >
+          <p className="text-[13.5px] font-semibold">Only you can say these are true</p>
+          <p className="text-[13px] text-text-2">
+            No check can test them, and a reviewer will. Tick each one once you&rsquo;ve made sure.
+          </p>
+          {confirmations.map((c) => (
+            <Checkbox
+              key={c.id}
+              className="text-[13px]"
+              label={c.label}
+              checked={confirmed.includes(c.id)}
+              onChange={(e) => onConfirm(c.id, e.target.checked)}
+              data-testid={`registration-confirm-${c.id}`}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {warnings.length ? (
         <Callout tone="warning" icon={CircleAlert}>
           <div>
-            <p className="font-semibold">Worth a second look</p>
+            <p className="font-semibold">Not green: worth fixing first</p>
             <ul className="mt-1.5 list-disc space-y-1 pl-4">
               {warnings.map((issue, i) => (
                 <li key={i}>{issue.message}</li>

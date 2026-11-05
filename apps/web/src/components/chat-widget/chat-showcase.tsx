@@ -1,17 +1,32 @@
 'use client';
 /**
- * What the website chat asks visitors, shown on its own (/chat/<key> opened in a tab): the page a carrier's reviewer is
- * given for a texting registration, because a reviewer rarely starts a chat to find the box. It shows the details form
- * exactly as the chat does after a visitor's first message: name, mobile and email, the box to agree to texts with its
- * wording, the offers and calls boxes when the business has them, and the privacy policy and terms. It sends nothing.
+ * The website chat's sign-up page: /chat/<key> opened on its own, the page a texting registration gives the carrier's
+ * reviewer. It's the chat's details form (name, mobile and email, the box to agree to texts with its wording, the
+ * offers and calls boxes when the business has them, and the privacy policy and terms), and it works: Send keeps them
+ * as a customer with their yes to texts, exactly as the chat does, and says they're signed up.
+ *
+ * **Why it has to work** (Twilio 30896, 1 Nov 2026): the reviewer filled in this page, pressed Send, and was told the
+ * page only showed what the chat asks. To them the opt-in was broken, and the campaign was turned down. The worker's
+ * check for the registration looks for `data-hfos-signup="live"` on this page (core's SIGN_UP_MARK), so a page that
+ * stops taking sign-ups stops passing.
  */
+import { CARRIER_DISCLOSURE, SIGN_UP_MARK } from '@hfos/core';
+import { useRef, useState } from 'react';
+import { Turnstile } from '@/components/booking/turnstile';
+import { ApiError } from '@/lib/api/errors';
+import { fieldErrors } from '@/lib/api/field-errors';
+import { chatSignUp } from '@/lib/chat/client';
 import { widgetVars } from '@/lib/chat/look';
 import type { ChatConfig } from '@/lib/chat/lookup';
-import { AFTER_FIRST_INTRO, ChatFooter, ChatHeader, ChatStyles, DetailsForm } from './chat-parts';
+import type { DetailsValues, FieldProblems } from '@/lib/chat/session';
+import { ChatFooter, ChatHeader, ChatStyles, DetailsForm } from './chat-parts';
 
 const NONE = { name: false, phone: false, email: false } as const;
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || null;
 
-export function ChatShowcase({ config }: { config: ChatConfig }) {
+const SIGN_UP_INTRO = 'Leave your details, and tick the box if you’d like texts from us.';
+
+export function ChatShowcase({ config, widgetKey }: { config: ChatConfig; widgetKey: string }) {
   const business = config.business.name || 'This business';
   const { colors, vars } = widgetVars(config.look);
   const { askFor } = config;
@@ -21,21 +36,67 @@ export function ChatShowcase({ config }: { config: ChatConfig }) {
     email: askFor.email !== 'never',
   };
   const teammate = config.teammate?.name ?? null;
+  const siteKey = config.humanCheck ? (config.humanCheck.siteKey ?? TURNSTILE_SITE_KEY) : null;
+  const token = useRef<string | null>(null);
+  const honeypot = useRef<HTMLInputElement>(null);
+  const [reset, setReset] = useState(0);
+  const [done, setDone] = useState<{ texts: boolean; phone: string } | null>(null);
+
+  async function submit(values: DetailsValues): Promise<FieldProblems | null> {
+    const name = values.name.trim();
+    const phone = values.phone.trim();
+    const email = values.email.trim();
+    if ((values.smsConsent || values.offersConsent) && !phone)
+      return { phone: 'Add your mobile number to get texts.' };
+    if (!phone && !email) return { form: 'Add your mobile number or email.' };
+    if (siteKey && !token.current)
+      return {
+        form: 'One moment: we’re checking you’re a person. Press Send again in a few seconds.',
+      };
+    try {
+      const out = await chatSignUp(widgetKey, {
+        ...(name ? { name } : {}),
+        ...(phone ? { phone } : {}),
+        ...(email ? { email } : {}),
+        smsConsent: !!phone && values.smsConsent,
+        offersConsent: !!phone && !!values.offersConsent,
+        callConsent: !!phone && !!values.callConsent,
+        ...(token.current ? { turnstileToken: token.current } : {}),
+        ...(honeypot.current?.value ? { honeypot: honeypot.current.value } : {}),
+      });
+      setDone({ texts: out.texts, phone });
+      return null;
+    } catch (e) {
+      const fields = fieldErrors(e);
+      if (Object.keys(fields).length) return fields;
+      const rule = e instanceof ApiError ? e.rule : undefined;
+      if (rule === 'rate_limited')
+        return { form: 'You’re sending quickly. Wait a moment, then try again.' };
+      return {
+        form: e instanceof Error && e.message ? e.message : 'That didn’t go through. Try again.',
+      };
+    } finally {
+      // Each check's token works once.
+      if (token.current) {
+        token.current = null;
+        setReset((n) => n + 1);
+      }
+    }
+  }
+
   return (
     <main
       className="hfos-w min-h-dvh bg-bg px-4 py-10 text-text"
       style={vars}
       data-testid="chat-showcase"
+      {...{ [SIGN_UP_MARK]: 'live' }}
     >
       <ChatStyles page />
       <div className="mx-auto max-w-[420px]">
-        <h1 className="text-[22px] font-semibold leading-tight">
-          How {business}’s website chat asks to text you
-        </h1>
+        <h1 className="text-[22px] font-semibold leading-tight">Get texts from {business}</h1>
         <p className="mt-2 text-[14.5px] leading-relaxed text-text-2">
-          After a visitor sends their first message, the chat on {business}’s website asks how to
-          reach them, as shown below. Ticking a box is up to them, and they can carry on chatting
-          without giving anything.
+          This is the same form the chat on {business}’s website shows after a visitor’s first
+          message. Fill it in and press Send to sign up. Ticking the box is up to you.
         </p>
         <div className="mt-6 flex flex-col overflow-hidden rounded-[18px] border border-border bg-card shadow-2">
           <ChatHeader
@@ -46,24 +107,63 @@ export function ChatShowcase({ config }: { config: ChatConfig }) {
             onClose={null}
           />
           <div className="flex flex-col gap-2 bg-bg px-3.5 py-3.5">
-            <p className="self-center text-xs text-text-3">After the visitor’s first message</p>
-            <DetailsForm
-              testId="chat-showcase-form"
-              intro={AFTER_FIRST_INTRO}
-              show={show}
-              required={NONE}
-              needContact={false}
-              consentText={config.smsConsent?.detail ?? config.smsConsent?.text ?? null}
-              consentPolicyUrl={config.smsConsent?.policyUrl ?? null}
-              consentTermsUrl={config.smsConsent?.termsUrl ?? null}
-              offers={config.offersConsent}
-              calls={config.callConsent}
-              withMessage={false}
-              submitLabel="Send"
-              onSubmit={async () => ({
-                form: `This page only shows what the chat asks. To reach ${business}, use the chat on their website.`,
-              })}
-            />
+            {done ? (
+              <div
+                role="status"
+                className="rounded-[14px] border border-border bg-card px-4 py-4 text-[14px] leading-relaxed"
+                data-testid="chat-showcase-done"
+              >
+                <p className="font-semibold">You’re signed up.</p>
+                {done.texts ? (
+                  <p className="mt-1.5 text-text-2">
+                    {business} may now text {done.phone}. {CARRIER_DISCLOSURE}
+                  </p>
+                ) : (
+                  <p className="mt-1.5 text-text-2">
+                    {business} has your details and will get back to you. You didn’t tick the box,
+                    so you won’t get texts.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <DetailsForm
+                  testId="chat-showcase-form"
+                  intro={SIGN_UP_INTRO}
+                  show={show}
+                  required={NONE}
+                  needContact
+                  consentText={config.smsConsent?.detail ?? config.smsConsent?.text ?? null}
+                  consentPolicyUrl={config.smsConsent?.policyUrl ?? null}
+                  consentTermsUrl={config.smsConsent?.termsUrl ?? null}
+                  offers={config.offersConsent}
+                  calls={config.callConsent}
+                  withMessage={false}
+                  submitLabel="Send"
+                  onSubmit={submit}
+                />
+                {/* Empty from a person; a bot fills it in. */}
+                <input
+                  ref={honeypot}
+                  type="text"
+                  name="company_website"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  className="absolute left-[-9999px] h-px w-px opacity-0"
+                />
+                {siteKey ? (
+                  <Turnstile
+                    invisible
+                    siteKey={siteKey}
+                    resetKey={reset}
+                    onToken={(t) => {
+                      token.current = t;
+                    }}
+                  />
+                ) : null}
+              </>
+            )}
           </div>
           <ChatFooter />
         </div>

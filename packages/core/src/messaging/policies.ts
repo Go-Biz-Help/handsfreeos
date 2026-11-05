@@ -17,6 +17,7 @@
  *
  * Browser-safe: the wizard previews the policy before the business turns it on.
  */
+import { CARE_TEXT_KINDS } from './consent';
 
 /** What a policy needs to know about the business. All of it is already on the registration form. */
 export interface PolicyBusiness {
@@ -113,14 +114,14 @@ export function privacyPolicy(business: PolicyBusiness, on: Date = new Date()): 
       {
         heading: 'Text messages',
         paragraphs: [
-          `If you give ${who} permission to text you, we use your mobile number to send you messages about ` +
-            'your appointments, estimates and the work we are doing for you.' +
+          `If you give ${who} permission to text you, we use your mobile number to send you recurring texts: ` +
+            `${CARE_TEXT_KINDS}.` +
             (business.offers
               ? ' If you also tick the separate box for offers, we text you now and then about offers and ' +
                 'services that are due.'
               : '') +
             ' Agreeing is never a condition ' +
-            "of buying anything from us. How many messages you get varies, and your carrier's message and " +
+            "of buying anything from us. Message frequency varies, and your carrier's message and " +
             'data rates may apply.',
           'You can stop the messages at any time by replying STOP, and get help by replying HELP.',
           MOBILE_DATA_CLAUSE,
@@ -175,8 +176,7 @@ export function termsOfService(business: PolicyBusiness, on: Date = new Date()):
       {
         heading: 'Text messages',
         paragraphs: [
-          `By giving ${who} permission to text you, you agree to receive messages about your appointments, ` +
-            'estimates and work' +
+          `By giving ${who} permission to text you, you agree to receive recurring texts: ${CARE_TEXT_KINDS}` +
             (business.offers
               ? ', and, if you also tick the separate box for them, about offers and services that are due'
               : '') +

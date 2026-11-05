@@ -11,6 +11,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  CARE_TEXT_KINDS,
+  CARRIER_DISCLOSURE,
   HELP_KEYWORDS,
   STOP_KEYWORDS,
   callConsentWords,
@@ -40,12 +42,25 @@ describe('every place we ask, we say the same six things', () => {
       expect(smsConsentWords(BUSINESS, place).detail).toMatch(/not a condition/i);
   });
 
-  it('says how many messages varies, and that rates may apply', () => {
+  it('says how often and that rates apply in the carriers’ own words, which a paraphrase failed (30924)', () => {
     for (const place of PLACES) {
       const { detail } = smsConsentWords(BUSINESS, place);
-      expect(detail).toMatch(/varies/i);
-      expect(detail).toMatch(/message and data rates may apply/i);
+      expect(detail).toContain(CARRIER_DISCLOSURE);
+      expect(detail).toContain('Message frequency varies.');
+      expect(detail).toContain('Message and data rates may apply.');
+      expect(detail).toContain('Reply STOP to unsubscribe.');
+      expect(detail).toContain('Reply HELP for help.');
     }
+  });
+
+  it('names the kinds of texts, which “about what you have asked us” didn’t (30924)', () => {
+    for (const place of PLACES) {
+      const { detail } = smsConsentWords(BUSINESS, place);
+      expect(detail).toMatch(/recurring texts: /);
+      expect(detail).toMatch(/reminders/);
+      expect(detail).not.toMatch(/what you have asked us/);
+    }
+    expect(smsConsentWords(BUSINESS, 'chat').detail).toContain(CARE_TEXT_KINDS);
   });
 
   it('offers the way out and the way to get help, in the words that actually work', () => {
@@ -78,17 +93,28 @@ describe('what the carrier is told matches what the customer saw', () => {
   it('describes the tick box rather than a promise about one', () => {
     const description = optInDescriptionDefault(BUSINESS);
     expect(description).toContain(BUSINESS);
-    for (const phrase of [/tick a box/i, /never ticked for them/i, /varies/i, /rates may apply/i])
+    for (const phrase of [
+      /tick a box/i,
+      /never ticked for them/i,
+      /Message frequency varies/,
+      /rates may apply/i,
+    ])
       expect(description).toMatch(phrase);
     expect(description).toContain('STOP');
     expect(description).toContain('HELP');
   });
 
   it('is long enough for the registration to accept it', () => {
-    // RegistrationSubmitInput asks for 40 characters and takes at most 1,000.
+    // RegistrationSubmitInput asks for 40 characters and takes at most 2,000 (Twilio's own limit is 2,048).
     const description = optInDescriptionDefault(BUSINESS);
     expect(description.length).toBeGreaterThanOrEqual(40);
-    expect(description.length).toBeLessThanOrEqual(1000);
+    expect(description.length).toBeLessThanOrEqual(2000);
+  });
+
+  it('quotes the words customers read beside the box, rather than describing them', () => {
+    expect(optInDescriptionDefault(BUSINESS)).toContain(
+      `The words beside the box read: "${smsConsentWords(BUSINESS, 'form').detail}"`,
+    );
   });
 });
 
@@ -162,7 +188,40 @@ describe('the description names the pages a reviewer can open', () => {
       },
     );
     expect(text).toContain('at https://www.gobizhelp.com/contact');
-    expect(text).toMatch(/links to the privacy policy and the terms/);
+    expect(text).toMatch(/Links to the privacy policy and the terms sit beside the box/);
+  });
+
+  it('writes the privacy policy and terms links into it, which carriers ask for (30924, 30896)', () => {
+    const text = optInDescriptionFor(
+      'Go Biz Help',
+      'hosted',
+      {},
+      { policyUrl: 'https://gobizhelp.test/privacy', termsUrl: 'https://gobizhelp.test/terms' },
+    );
+    expect(text).toMatch(
+      /Privacy policy: https:\/\/gobizhelp\.test\/privacy\. Terms: https:\/\/gobizhelp\.test\/terms\.$/,
+    );
+  });
+
+  it('lists every other way customers agree, each with where to see it (30896)', () => {
+    const text = optInDescriptionFor(
+      'Go Biz Help',
+      'hosted',
+      { chatUrl: 'https://app.handsfreeos.test/chat/wk_x' },
+      {
+        otherWays: [
+          { path: 'own_site', url: 'https://gobizhelp.test/contact' },
+          { path: 'in_person', url: 'https://drive.test/script' },
+          // The main way again is said once, not twice.
+          { path: 'hosted', url: 'https://app.handsfreeos.test/chat/wk_x' },
+        ],
+      },
+    );
+    expect(text).toContain('own website form at https://gobizhelp.test/contact');
+    expect(text).toContain('in person or over the phone');
+    expect(text).toContain('https://drive.test/script');
+    expect(text.match(/chat\/wk_x/g)).toHaveLength(1);
+    expect(text).toMatch(/rejoin by replying START/);
   });
 
   it('says offers have their own box, and where proof of in-person agreement is', () => {
@@ -183,9 +242,9 @@ describe('the description names the pages a reviewer can open', () => {
     expect(text).toMatch(/after a visitor sends their first message/i);
     expect(text).toMatch(/name, mobile number and email/);
     expect(text).toContain(
-      'A page showing exactly what the chat asks is at https://app.handsfreeos.com/chat/wk_AbCdEfGhIjKlMnOpQrSt.',
+      'A working sign-up page with the same form, where anyone can fill it in and agree, is at https://app.handsfreeos.com/chat/wk_AbCdEfGhIjKlMnOpQrSt.',
     );
-    expect(text).toMatch(/links to the privacy policy and the terms/);
+    expect(text).toMatch(/Links to the privacy policy and the terms/);
     // A form already carrying the box is said too; nothing claims one that isn't there.
     expect(text).not.toMatch(/\/f\//);
     expect(
@@ -203,8 +262,19 @@ describe('the description names the pages a reviewer can open', () => {
       chatUrl: 'https://app.handsfreeos.com/chat/cw_abcdefghijklmnopqrstuvwx',
       siteUrl: 'https://www.lonestarhvacandroofing.com',
     };
-    const text = optInDescriptionFor('Lone Star HVAC & Roofing', 'hosted', urls, { offers: true });
-    expect(text.length).toBeLessThanOrEqual(1500);
+    const text = optInDescriptionFor('Lone Star HVAC & Roofing', 'hosted', urls, {
+      offers: true,
+      policyUrl: 'https://app.handsfreeos.com/legal/lone-star-hvac-and-roofing/privacy',
+      termsUrl: 'https://app.handsfreeos.com/legal/lone-star-hvac-and-roofing/terms',
+      otherWays: [
+        { path: 'own_site', url: 'https://www.lonestarhvacandroofing.com/contact-us' },
+        {
+          path: 'in_person',
+          url: 'https://drive.google.com/file/d/1AbCdEfGhIjKlMnOpQrStUvWxYz/view',
+        },
+      ],
+    });
+    expect(text.length).toBeLessThanOrEqual(2000);
   });
 });
 
