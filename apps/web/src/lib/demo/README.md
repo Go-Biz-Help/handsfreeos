@@ -157,7 +157,14 @@ Scenes 54 (Approve from the lock screen) and 55 (Woken for a real emergency) are
 they play on the phone app, from its own Admin → Demo player (`apps/mobile/src/demo`, the screen is
 `app/app/admin/demo.tsx`). The presenter picks one of their own businesses there (Bright Path Home Services when they
 are in it) and plays the scene with Next on a small player over the business's screens; Hide makes it a button at the
-edge so a screen recording shows only the app.
+edge.
+
+- **Play on its own (▶) for a screen recording:** the player goes completely out of sight and plays each step once the
+  last one's voiceover has had time to be said (about 2.4 words a second, `demo/autoplay.ts`), three seconds after
+  starting. A step the presenter acts on (lock your phone) buzzes, since its cue is out of sight. Approve on the lock
+  screen and a tap on the alert still wait for the presenter's press, and time spent unlocking the phone afterwards
+  counts toward that step's voiceover. Holding the top edge of the screen brings the player back, and so does the end
+  of the scene or a step that fails.
 
 - **The same rules as here:** made-up ids with the same prefix (`demo/ids.ts`), nothing saved or sent, Exit leaves the
   business as it was. One kept value says where the scene is up to (`demo/state.ts`, on the phone like a teammate

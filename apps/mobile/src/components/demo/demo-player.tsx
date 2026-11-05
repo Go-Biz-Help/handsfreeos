@@ -1,13 +1,14 @@
 import { router, type Href } from 'expo-router';
 import * as React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ChevronDown, Presentation, RotateCcw, X } from '@/components/icons';
+import { ChevronDown, Play, Presentation, RotateCcw, X } from '@/components/icons';
 import { businessHref } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
+import { autoNext } from '@/demo/autoplay';
 import { useBusinessDemo } from '@/demo/hooks';
 import { clearDemoPushes, notificationsAllowed, scheduleDemoPush } from '@/demo/push';
 import { findPhoneScene } from '@/demo/scenes';
@@ -37,7 +38,9 @@ function playerOf(demo: PhoneDemo): PhoneDemoPlayer {
  * The demo player over a business's screens while a scene plays on this phone (src/demo, Admin → Demo player): the
  * step that's next and what to say over it, Next, Back, Start over and Exit. Hidden, it's a small button at the edge,
  * so a screen recording shows only the app. A step can also be played from the scene's notification (Approve, or a
- * tap on it), and the player follows.
+ * tap on it), and the player follows. Play on its own hides it completely and plays each step once its voiceover has
+ * been said (`autoplay.ts`), waiting for the notification's press where a step needs one; holding the top edge of the
+ * screen stops it.
  */
 export function DemoPlayerBar() {
   const demo = useBusinessDemo();
@@ -47,6 +50,29 @@ export function DemoPlayerBar() {
   const [busy, setBusy] = React.useState(false);
   const [problem, setProblem] = React.useState<string | null>(null);
   const busyRef = React.useRef(false);
+  /** When Play on its own started, while it's on: the player is out of sight and plays the steps itself. */
+  const [auto, setAuto] = React.useState<number | null>(null);
+  const nextRef = React.useRef<() => Promise<void>>(async () => undefined);
+
+  // Play on its own: the next step once the last one's voiceover has been said, the presenter's press on the
+  // notification where a step waits for one, and the player back once the scene is over.
+  React.useEffect(() => {
+    if (auto === null || !demo || busy) return;
+    const scene = findPhoneScene(demo.scene);
+    if (!scene) return;
+    const plan = autoNext(demo, scene, auto, Date.now());
+    if (plan.kind === 'press') return;
+    const timer = setTimeout(() => {
+      if (plan.kind === 'end') {
+        setAuto(null);
+        return;
+      }
+      // A step the presenter acts on (lock the phone now) buzzes, since its cue is out of sight.
+      if (scene.steps[demo.steps.length]?.cue) Vibration.vibrate();
+      void nextRef.current();
+    }, plan.inMs);
+    return () => clearTimeout(timer);
+  }, [auto, demo, busy]);
 
   // Made-up messages sign off with the business's own teammate's name, once it's known on the phone.
   React.useEffect(() => {
@@ -74,6 +100,8 @@ export function DemoPlayerBar() {
       await s.run?.(playerOf(moved));
     } catch (error) {
       setProblem(error instanceof Error ? error.message : String(error));
+      // The player comes back to say so.
+      setAuto(null);
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -95,11 +123,30 @@ export function DemoPlayerBar() {
     router.navigate(businessHref(demo.workspaceId) as Href);
   }
 
+  nextRef.current = next;
+
   function exit() {
     void clearDemoPushes().catch(() => undefined);
     dropDemo();
     router.replace('/app/admin/demo' as Href);
   }
+
+  if (auto !== null)
+    return (
+      <Pressable
+        accessibilityLabel={W.autoStop}
+        onLongPress={() => setAuto(null)}
+        delayLongPress={600}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: '25%',
+          right: '25%',
+          height: Math.max(insets.top, 24),
+        }}
+        testID="demo-player-auto"
+      />
+    );
 
   if (hidden)
     return (
@@ -185,6 +232,20 @@ export function DemoPlayerBar() {
         </Button>
         <Pressable
           role="button"
+          accessibilityLabel={W.auto}
+          onPress={() => {
+            setProblem(null);
+            setAuto(Date.now());
+          }}
+          disabled={busy || !step}
+          hitSlop={4}
+          className="size-9 items-center justify-center rounded-control border border-border-strong"
+          testID="demo-player-play-alone"
+        >
+          <Icon as={Play} className="size-4 text-accent-text" />
+        </Pressable>
+        <Pressable
+          role="button"
           accessibilityLabel={W.again}
           onPress={again}
           disabled={busy}
@@ -205,6 +266,7 @@ export function DemoPlayerBar() {
           <Icon as={X} className="size-4 text-text-2" />
         </Pressable>
       </View>
+      {step ? <Text className="text-[12px] text-text-3">{W.autoHint}</Text> : null}
     </View>
   );
 }
