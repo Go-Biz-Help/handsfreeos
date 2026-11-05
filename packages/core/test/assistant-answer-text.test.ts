@@ -61,6 +61,20 @@ describe('links in an answer', () => {
   });
 });
 
+describe('a long answer full of marks', () => {
+  it('is read quickly, whatever it holds', () => {
+    const odd = [
+      `* ${' '.repeat(60_000)}\rx`,
+      `0) ${' '.repeat(60_000)}\rx`,
+      '['.repeat(60_000),
+      `[\\](${'[!](!'.repeat(15_000)}`,
+    ];
+    const started = performance.now();
+    for (const text of odd) answerCopyText(text);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});
+
 describe('what Copy takes', () => {
   it('takes the words without their marks, lists a line each, and each link’s address', () => {
     const text =

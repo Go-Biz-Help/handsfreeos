@@ -45,8 +45,9 @@ export function answerBlocks(text: string): AnswerBlock[] {
       flush();
       continue;
     }
-    const bullet = /^\s*[-•*]\s+(.*)$/.exec(line);
-    const numbered = bullet ? null : /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    // Each part takes what the one before can't, so a long line is read once, never over and over.
+    const bullet = /^\s*[-•*]\s+(\S.*)$/s.exec(line);
+    const numbered = bullet ? null : /^\s*\d+[.)]\s+(\S.*)$/s.exec(line);
     if (!bullet && !numbered) {
       paragraph.push(line);
       continue;
@@ -64,7 +65,8 @@ export function answerBlocks(text: string): AnswerBlock[] {
   );
 }
 
-const INLINE = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
+/** **bold**, and [words](address). Neither part runs past the next bracket, so text full of them reads quickly. */
+const INLINE = /\*\*([^*]+)\*\*|\[([^[\]]+)\]\(([^()[\]\s]+)\)/g;
 
 /** The address as people write it: no `https://`, `www.` or `mailto:`, no slash at the end, in lower case. */
 function bare(address: string): string {
