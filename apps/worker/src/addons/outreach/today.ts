@@ -106,6 +106,7 @@ import {
   askStructured,
 } from '../../ai/ask';
 import type { AddonWorkerAction } from '../types';
+import { groupNamesIn, namesAGroup, withoutGroupLines } from '@hfos/core/addons/outreach/no-groups';
 import { businessKnows } from './knows';
 import { partnerDraft } from './partner-drafts';
 import { bookingOf, draftTimes, keepTimes, meetingFor, offeredWords } from './times';
@@ -317,6 +318,21 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                     and state = 'sent'`,
             )
           : [];
+      // The groups they're known to be in, and the person's own (decision 157): none is ever named to them.
+      const groups = await rows<{ name: string }>(
+        tx,
+        sql`select distinct g.name from addon_outreach.groups g
+            where g.workspace_id = ${ws} and g.name is not null
+              and (${
+                profileId
+                  ? sql`g.id = (select p.group_id from addon_outreach.profiles p where p.id = ${profileId})
+                or exists (select 1 from addon_outreach.group_people gp
+                  where gp.group_id = g.id and gp.profile_id = ${profileId}) or`
+                  : sql``
+              }
+                exists (select 1 from addon_outreach.my_groups m
+                  where m.group_id = g.id and m.user_id = ${ctx.userId} and m.joined))`,
+      );
       // What the person told the AI of their messages, and the ones they wrote themselves (decision 87).
       const [said] = await rows<{ message_samples: unknown; message_notes: unknown }>(
         tx,
@@ -344,6 +360,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         notes: messageNotesOf(said?.message_notes),
         library: installed ? outreachSettings(installed.settings).videos : undefined,
         sentTexts: sentTexts.map((t) => t.text),
+        groups: groups.map((g) => g.name),
       };
     });
     const name = found.profile?.name ?? found.chat?.name;
@@ -352,10 +369,17 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     if (input.kind === 'warm_lead' && !found.engaged)
       throw HfosError.notFound('Their comment isn’t on your list anymore. Reload Today.');
     if (!name) throw HfosError.notFound('That person isn’t on your list anymore. Reload Today.');
+    // Their groups, and the post's, never named to them (decision 157).
+    const groupNames = [
+      ...new Set(
+        [...found.groups, found.profile?.group, found.post?.group, found.engaged?.group].filter(
+          (g): g is string => !!g,
+        ),
+      ),
+    ];
     const facts = [
       ...found.lines,
       ...(found.profile?.intro ?? []),
-      ...(found.profile?.group ? [`Found in the group ${found.profile.group}`] : []),
       ...(found.check?.about ? [found.check.about] : []),
       ...(found.check?.why ?? []),
       // Never in a first message, which is the owner's question and nothing else (decision 152).
@@ -511,7 +535,13 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
           found.post?.body,
         ])
       : undefined;
-    const draft = async (kind: CustomerDraftKind) => {
+    // What the AI is told of them: nothing that names one of their groups or says they're in one (decision 157).
+    const toldFacts = withoutGroupLines(facts, groupNames);
+    const toldLookup = withoutGroupLines(input.lookup, groupNames);
+    const draft = async (
+      kind: CustomerDraftKind,
+      again: readonly string[] | null = null,
+    ): Promise<{ value: TodayDraftAnswer; drafts: string[] }> => {
       const { value } = await askStructured(ctx, ctx.scope, {
         system: todayDraftSystem(platform),
         messages: [
@@ -521,7 +551,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
               kind,
               business: found.business?.name ?? 'the business',
               name,
-              facts,
+              facts: toldFacts,
               recent,
               playbook: playbook
                 ? { name: playbook.name, ...playbook.details, link, videoLink }
@@ -536,7 +566,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 : found.post
                   ? { text: found.post.body, group: found.post.group }
                   : null,
-              lookup: input.lookup,
+              lookup: toldLookup,
               opener,
               voice: found.voice,
               lastAt: found.lastAt,
@@ -557,6 +587,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                 found.conversation,
                 playbook?.id ?? null,
               ),
+              again,
             }),
           },
         ],
@@ -572,24 +603,29 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         DRAFTS_FOR[kind],
         found.voice.split && !underAPost(kind) && kind !== 'warm_lead' && kind !== 'opener',
       );
+      // Never a group (decision 157): a draft that mentions one goes, and when every one did, the AI writes again once,
+      // told which of their groups' names to leave out.
+      const quiet = checked.filter((d) => !namesAGroup(d, groupNames));
+      if (checked.length && !quiet.length && !again)
+        return draft(kind, [...new Set(checked.flatMap((d) => groupNamesIn(d, groupNames)))]);
       // To their Requests: only one short text with no link goes. A comment opens with no stock praise (decision 141:
       // a "Great post!" before its point goes), and one that waits to be posted (Instagram's and Alignable's, decision
       // 92) never carries a link, and on Instagram no hashtag, within its 30 words; nor does a birthday or new-job note
       // (decision 108), nor a reply in a group (decision 114).
       const drafts =
         toRequests && kind === 'opener'
-          ? checked.filter(fitsRequests)
+          ? quiet.filter(fitsRequests)
           : kind === 'comment'
-            ? checked.flatMap((d) => {
+            ? quiet.flatMap((d) => {
                 const said = withoutStockPraise(d);
                 return said && fitsComment(said, platform) ? [said] : [];
               })
             : kind === 'group_reply'
-              ? checked.filter(fitsGroupReply)
+              ? quiet.filter(fitsGroupReply)
               : isOccasionKind(kind)
-                ? checked.filter(fitsOccasion)
+                ? quiet.filter(fitsOccasion)
                 : // At most one of the business's videos, and never one they've had (decision 154).
-                  checked.filter((d) => fitsVideos(d, videos));
+                  quiet.filter((d) => fitsVideos(d, videos));
       // The link always goes with the link and the video with the video (decisions 47 and 66), and the link with
       // another time after a no-show (decision 106): one the AI left out goes on the end.
       const must =

@@ -4,7 +4,7 @@
  * person's groups (decision 114): each drafted one waits for the person's OK or goes as it is, and the extension says
  * when it went. Each person's are their own.
  */
-import { and, desc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import { HfosError } from '../../../errors';
 import { requireHuman, userIdOf } from '../../../kernel/actor';
@@ -29,6 +29,7 @@ import {
   SEND_POST_MOST,
   REBOOK_NEEDS_YOU,
   replyNeedsYou,
+  RULES_VERSION,
   SendApproveInput,
   SendApproveOutput,
   SendDoneInput,
@@ -142,6 +143,12 @@ const refOf = (s: { chatId: string | null; profileId: string }): ChatRef => ({
 
 export const mine = (ctx: Ctx, me: string) =>
   and(eq(sends.workspaceId, ctx.scope.workspaceId!), eq(sends.userId, me));
+
+/**
+ * Drafted under the AI's rules as they are (../sends.ts `RULES_VERSION`, decision 157): one waiting or OK'd under older
+ * rules is never sent, OK'd or listed, till it's written again.
+ */
+export const draftedNow = gte(sends.rulesVersion, RULES_VERSION);
 
 /**
  * Whether a comment of the person's on a network waits for their OK under the comments-only hold (../sends.ts
@@ -287,6 +294,23 @@ async function dropStaleCatchUps(ctx: CommandContext, me: string, at: Date): Pro
   );
 }
 
+/**
+ * Messages drafted under older rules (decision 157, ../sends.ts `RULES_VERSION`): the person's own still waiting for an
+ * OK, or OK'd and not yet sent, go, so Today lists them again and the extension writes them under the rules as they
+ * are. Run as each draft is queued, as `dropStaleCatchUps` is; till then nothing lists, OKs or sends them.
+ */
+async function rewriteOlder(ctx: CommandContext, me: string): Promise<void> {
+  await ctx.tx
+    .delete(sends)
+    .where(
+      and(
+        mine(ctx, me),
+        inArray(sends.state, ['waiting', 'approved']),
+        lt(sends.rulesVersion, RULES_VERSION),
+      ),
+    );
+}
+
 export const sendQueue = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.queue',
   description:
@@ -301,6 +325,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     await dropStaleCatchUps(ctx, me, changeMoment(ctx.meta));
+    await rewriteOlder(ctx, me);
     const open = () =>
       listed(
         ctx,
@@ -477,6 +502,8 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         // The main offer's version it goes with: the one they were first pitched with, or the live one, Reconnect's
         // too since it asks the first message's question (decision 152). A comment is public, and goes with none.
         offerVersion: partner || post ? null : await offerVersionFor(ctx, me, profile.id),
+        // Drafted under the rules as they are (decision 157).
+        rulesVersion: RULES_VERSION,
         createdAt: at,
         updatedAt: at,
       })
@@ -545,6 +572,8 @@ export const sendApprove = defineAddonCommand(outreachAddon, {
         and(
           mine(ctx, me),
           eq(sends.state, 'waiting'),
+          // One drafted under older rules is written again first (decision 157).
+          draftedNow,
           ...(named ? [inArray(sends.id, [...named.keys()])] : []),
           ...(alone ? [] : [eq(sends.handedOver, false), isNull(sends.needsYou)]),
         ),
@@ -835,7 +864,10 @@ export const sendsList = defineAddonQuery(outreachAddon, {
     if (!me) throw HfosError.forbidden('Only a person has messages of their own to send.');
     const { wheels } = await automationOf(ctx, me);
     return {
-      sends: await listed(ctx, and(mine(ctx, me), inArray(sends.state, ['waiting', 'approved']))),
+      sends: await listed(
+        ctx,
+        and(mine(ctx, me), inArray(sends.state, ['waiting', 'approved']), draftedNow),
+      ),
       wheels,
     };
   },
@@ -949,6 +981,8 @@ export async function sendsAgain(
         postId: row.postId,
         approvedAt: at,
         notBefore,
+        // Drafted under older rules, it's written again instead (decision 157).
+        rulesVersion: row.rulesVersion,
       })
       .onConflictDoNothing()
       .returning({ id: sends.id });
@@ -1012,7 +1046,8 @@ export async function sendsToday(ctx: Ctx, me: string, todayFrom: string, now: D
             where o.send_id = s.id and o.state in ('drafted', 'checking')) as times_held
         from addon_outreach.sends s left join addon_outreach.profiles p on p.id = s.profile_id
         where s.workspace_id = ${ctx.scope.workspaceId} and s.user_id = ${me}
-          and (s.state in ('waiting', 'approved')
+          -- One drafted under older rules is written again: it's as good as not drafted (decision 157).
+          and ((s.state in ('waiting', 'approved') and s.rules_version >= ${RULES_VERSION})
             or (s.state in ('skipped', 'failed') and s.done_at >= ${todayFrom}::timestamptz))`,
   );
   // A comment or a reply in a group is its post's; anything else is its person's and kind's.

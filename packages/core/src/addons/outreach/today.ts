@@ -76,6 +76,7 @@ import {
   type ConversationStep,
   type OwnWords,
 } from './conversation';
+import { NO_GROUPS, noGroupsAgain } from './no-groups';
 import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
@@ -630,12 +631,19 @@ export type TodayDraftOutput = z.output<typeof TodayDraftOutput>;
 
 export const TODAY_DRAFT_ASK = 'Write the message.';
 
-/** What a draft's AI is told it is, on the network the message goes on. */
-export const todayDraftSystem = (platform: Platform = 'facebook') =>
+/**
+ * What a draft's AI is told it is, on the network the message goes on. Nothing to a customer mentions a group
+ * (decision 157); a partner's messages to someone who runs one still may, as their group is why the owner writes.
+ */
+export const todayDraftSystem = (
+  platform: Platform = 'facebook',
+  o: { readonly partner?: boolean } = {},
+) =>
   [
     `You write short ${NETWORKS[platform].name} messages and comments that a small business owner sends themselves, as part of their own outreach.`,
     `Write as the owner, in the first person, ${NETWORKS[platform].words.messageLike}: no greeting card language, no hype, no pressure.`,
     ...DRAFT_RULES,
+    ...(o.partner ? [] : [NO_GROUPS]),
     ...(COMMENT_RULES[platform] ? [COMMENT_RULES[platform]] : []),
   ].join('\n');
 
@@ -986,7 +994,9 @@ export function todayDraftPrompt(input: {
   readonly offer?: DraftOffer | null;
   /** Where they are in the conversation, for a follow-up, a check-in or a reply. */
   readonly conversation?: DraftConversation | null;
-  /** Their post, for a comment, and the group it's in. */
+  /**
+   * Their post, for a comment, and the group it's in: only whether it's in one is told (decision 157), never which.
+   */
   readonly post?: { readonly text: string; readonly group: string | null } | null;
   /** What the extension looked up on their profile and business page just before. */
   readonly lookup?: readonly string[];
@@ -1033,6 +1043,11 @@ export function todayDraftPrompt(input: {
    * message after a missed demo and a reply. Left out, none.
    */
   readonly videos?: DraftVideos | null;
+  /**
+   * Writing again after every draft mentioned a group (decision 157, ./no-groups.ts): the names of theirs it used, to
+   * leave out. Left out, it's the first try.
+   */
+  readonly again?: readonly string[] | null;
 }): string {
   const p = input.playbook;
   const declined = input.declined && declinedFor(input.kind) ? input.declined : null;
@@ -1134,7 +1149,6 @@ export function todayDraftPrompt(input: {
       ? `<their_pages>\n${quoteData(input.lookup.join('\n'))}\n</their_pages>`
       : null,
     input.recent.length ? `<chat>\n${quoteData(chatLines(input.recent))}\n</chat>` : null,
-    input.post?.group ? `<group>${quoteData(input.post.group)}</group>` : null,
     input.post ? `<post>\n${quoteData(input.post.text)}\n</post>` : null,
     requests
       ? REQUESTS_TASK
@@ -1174,6 +1188,7 @@ export function todayDraftPrompt(input: {
           theyWroteLast: input.recent.at(-1)?.fromMe === false,
         })
       : null,
+    input.again ? noGroupsAgain(input.again) : null,
     `Give ${DRAFTS_FOR[input.kind]} different drafts to pick from.`,
     input.kind === 'reply' ? REPLY_SIMPLE_ASK : null,
     input.kind === 'reply' ? UNANSWERED_ASK : null,
