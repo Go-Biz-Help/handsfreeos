@@ -720,11 +720,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/payments',
     permission: 'money.manage',
     canChange: [
-      'ways to pay, sales tax and your business address',
-      'terms, notes, and how estimates and invoices are numbered',
-      'deposits, and how long an estimate is good for',
-      'invoice reminders and estimate nudges',
-      'rename a payout account, make one the default, or disconnect it',
+      'bank transfer on or off (card is always on), sales tax, its name and whether new items start taxable',
+      'your business address on documents, or taking it off',
+      'when invoices are due, the notes at the bottom of estimates and invoices, and how long an estimate is good for',
+      'the deposit an estimate asks for: none, a share or a set amount',
+      'invoice reminders before, on and after the due date, and the nudge for an estimate nobody answered',
+      'rename a payout account, make one the default, or disconnect it (plans still billing through it keep billing at Stripe or Square only if you say so)',
+      'who may bill into each payout account',
       'the letters in front of invoice and estimate numbers, and the next number (it only goes up)',
     ],
     handovers: [

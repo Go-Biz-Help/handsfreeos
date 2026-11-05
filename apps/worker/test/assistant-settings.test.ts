@@ -7,6 +7,7 @@ import {
   executeQuery,
   hasWorkspacePermission,
   organizationCreate,
+  personCreate,
   registry,
   serviceCreate,
   SETTINGS_AREAS,
@@ -16,7 +17,7 @@ import {
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
-import { sql } from '@hfos/db/client';
+import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -916,7 +917,9 @@ describe('how you get paid', () => {
     expect(after.settings.reminders.afterDueDays).toEqual(before.settings.reminders.afterDueDays);
 
     const early = await prepare('update_money_settings', { terms: 'due_on_receipt' }, owner);
-    expect(early.card.warnings[0]!.text).toContain('before the invoice');
+    expect(early.card.warnings[0]!.text).toContain(
+      'a reminder before the due date never goes out. To fix it: only remind from the due date',
+    );
   });
 
   it('still saves once invoices have gone out and the counter has moved past the saved number', async () => {
@@ -934,6 +937,143 @@ describe('how you get paid', () => {
     );
     expect(after.settings.tax.rateBp).toBe(600);
     expect(after.nextInvoiceNumber).toMatch(/1500$/);
+  });
+});
+
+interface MoneyRow {
+  businessAddress: string;
+  notes: { invoice: string; estimate: string };
+  deposit: { kind: string; percentBp: number };
+  reminders: { beforeDueDays: number[]; onDue: boolean; afterDueDays: number[] };
+}
+
+describe('Settings → Payments: every row', () => {
+  const money = (args: Record<string, unknown>) =>
+    prepareOn(createToolExecutor(api()), 'update_money_settings', args);
+
+  it('takes the address and a note off, asks for a share up front, and lists only what changes', async () => {
+    const set = await money({
+      businessAddress: 'Lone Star HVAC\n2210 Oak St\nHouston, TX 77008',
+      invoiceNote: 'Thanks for choosing us.',
+    });
+    expect(fieldOf(set.card, 'Your address')).toBe(
+      'Lone Star HVAC, 2210 Oak St, Houston, TX 77008',
+    );
+    expect(fieldOf(set.card, 'Note on invoices')).toBe('“Thanks for choosing us.”');
+    expect(set.card.fields.map((f) => f.label)).toEqual(['Your address', 'Note on invoices']);
+    await set.done();
+
+    const off = await money({
+      businessAddress: null,
+      invoiceNote: null,
+      depositPercent: 30,
+      remindBeforeDueDays: [],
+      remindOnDueDay: true,
+      remindAfterDueDays: [14, 7, 7],
+    });
+    expect(fieldOf(off.card, 'Your address')).toBe('Off documents');
+    expect(fieldOf(off.card, 'Note on invoices')).toBe('None');
+    // A share on its own turns the deposit on, the way typing in the screen's box does.
+    expect(fieldOf(off.card, 'Deposit')).toBe('30% up front');
+    expect(fieldOf(off.card, 'Invoice reminders')).toBe('on the day, 7 and 14 days after');
+    expect(off.card.warnings.map((w) => w.text).join(' ')).toContain('New estimates and invoices');
+    await off.done();
+
+    const { settings } = await q<{ settings: MoneyRow }>('money.settings');
+    expect(settings.businessAddress).toBe('');
+    expect(settings.notes.invoice).toBe('');
+    expect(settings.deposit).toMatchObject({ kind: 'percent', percentBp: 3_000 });
+    expect(settings.reminders).toMatchObject({
+      beforeDueDays: [],
+      onDue: true,
+      afterDueDays: [7, 14],
+    });
+
+    await expect(money({ depositPercent: 30 })).rejects.toThrow('Nothing would change.');
+    await expect(money({ depositDollars: 0 })).rejects.toThrow('A deposit of $0 asks for nothing.');
+  });
+
+  it('says when a change sets two settings fighting, with the fixes in words', async () => {
+    const { card } = await money({ estimateGoodForDays: 10, nudgeEstimateAfterDays: 12 });
+    expect(fieldOf(card, 'Nudge an unanswered estimate')).toBe('After 12 days, once');
+    expect(card.warnings.map((w) => w.text)).toContain(
+      'The estimate nudge would go out after the estimate stops being good (10 days). To fix it: nudge after 3 days, or don’t nudge.',
+    );
+  });
+
+  it('renames a payout account, makes another the default, and leaves plans billing only when told to', async () => {
+    const admin = testDbs().admin.db;
+    const account = async (label: string, isDefault: boolean, daysAgo: number) =>
+      (
+        await rows<{ id: string }>(
+          admin,
+          sql`insert into app.payment_connections (workspace_id, provider, environment, status,
+                external_account_id, label, display_name, token_enc, token_key_id, connected_at, is_default)
+              values (${workspaceId}, 'stripe', 'live', 'active', ${`acct_${randomUUID().slice(0, 12)}`},
+                ${label}, ${label}, 'sealed', 'key-1', now() - make_interval(days => ${daysAgo}::int), ${isDefault})
+              returning id`,
+        )
+      )[0]!.id;
+    const main = await account('Main', true, 30);
+    const spare = await account('Spare', false, 1);
+    const pay = (args: Record<string, unknown>) =>
+      prepareOn(createToolExecutor(api()), 'manage_payment_account', args);
+
+    const rename = await pay({ action: 'rename', connectionId: spare, label: 'Truck sales' });
+    expect(rename.card.title).toBe('Rename Stripe · Spare');
+    expect(fieldOf(rename.card, 'Now called')).toBe('Truck sales');
+    await rename.done();
+    await expect(
+      pay({ action: 'rename', connectionId: spare, label: 'Truck sales' }),
+    ).rejects.toThrow('It’s already called Truck sales.');
+
+    const def = await pay({ action: 'make_default', connectionId: spare });
+    expect(fieldOf(def.card, 'New invoices')).toBe('Paid into Stripe · Truck sales');
+    expect(def.card.warnings[0]!.text).toContain('Instead of Stripe · Main.');
+    await def.done();
+
+    // A plan billing through Main: disconnecting refuses until the person says it may keep billing.
+    const { personId } = (await run(
+      personCreate,
+      { workspaceId, firstName: 'Gus', lastName: 'Plan', email: `gus-${suffix}@example.com` },
+      owner,
+    )) as { personId: string };
+    await rows(
+      admin,
+      sql`insert into app.subscriptions (workspace_id, plan_name, person_id, connection_id, status)
+          values (${workspaceId}, 'Comfort Club', ${personId}, ${main}, 'unmanaged')`,
+    );
+    await rows(
+      admin,
+      sql`update app.subscriptions set status = 'active' where person_id = ${personId}`,
+    );
+    await expect(pay({ action: 'disconnect', connectionId: main })).rejects.toThrow(
+      'A plan still bills through Stripe · Main. Cancel it first',
+    );
+    const anyway = await pay({ action: 'disconnect', connectionId: main, keepPlansBilling: true });
+    expect(anyway.card.title).toBe('Disconnect Stripe · Main');
+    expect(fieldOf(anyway.card, 'Plans billing through it')).toBe('1, still billing at Stripe');
+    expect(anyway.card.warnings.map((w) => w.text).join(' ')).toContain(
+      'Stripe keeps charging that customer every cycle',
+    );
+    await anyway.done();
+
+    const { connections } = await q<{
+      connections: { id: string; status: string; isDefault: boolean; label: string | null }[];
+    }>('payment_connection.list', { includeDisconnected: true });
+    expect(connections.find((c) => c.id === main)!.status).toBe('disconnected');
+    expect(connections.find((c) => c.id === spare)).toMatchObject({
+      isDefault: true,
+      label: 'Truck sales',
+    });
+    const [plan] = await rows<{ status: string }>(
+      admin,
+      sql`select status::text as status from app.subscriptions where person_id = ${personId}`,
+    );
+    expect(plan!.status).toBe('unmanaged');
+    await expect(pay({ action: 'make_default', connectionId: main })).rejects.toThrow(
+      'No connected payment account has that id.',
+    );
   });
 });
 

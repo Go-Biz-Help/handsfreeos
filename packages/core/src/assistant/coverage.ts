@@ -793,6 +793,63 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     tool: 'update_booking_site',
     field,
   })),
+  // ---- Payments ----
+  // Connecting Stripe or Square is signing in to them (payment_connection.connect is NEVER, with a handover);
+  // what is already connected is here.
+  'payments.accounts': [
+    ...['rename', 'make_default', 'disconnect'].map((value) => ({
+      tool: 'manage_payment_account',
+      field: 'action',
+      value,
+    })),
+    { tool: 'manage_payment_account', field: 'label' },
+    { tool: 'manage_payment_account', field: 'keepPlansBilling' },
+    { tool: 'do_payment_connection_set_access', field: 'usedBy' },
+    { tool: 'do_payment_connection_set_access', field: 'userIds' },
+  ],
+  'payments.ways_to_pay': [{ tool: 'update_money_settings', field: 'offerBankTransfer' }],
+  'payments.bank_transfer': [
+    { tool: 'update_money_settings', field: 'offerBankTransfer' },
+    { tool: 'update_numbering_and_ways_to_pay', field: 'offerBankTransfer' },
+  ],
+  'payments.tax': ['taxRatePercent', 'taxName', 'newItemsTaxable'].map((field) => ({
+    tool: 'update_money_settings',
+    field,
+  })),
+  'payments.tax_rate': [{ tool: 'update_money_settings', field: 'taxRatePercent' }],
+  'payments.tax_name': [{ tool: 'update_money_settings', field: 'taxName' }],
+  'payments.taxable': [{ tool: 'update_money_settings', field: 'newItemsTaxable' }],
+  'payments.numbering': [
+    'invoicePrefix',
+    'invoiceNextNumber',
+    'estimatePrefix',
+    'estimateNextNumber',
+  ].map((field) => ({ tool: 'update_numbering_and_ways_to_pay', field })),
+  'payments.address': [{ tool: 'update_money_settings', field: 'businessAddress' }],
+  'payments.terms': ['terms', 'estimateGoodForDays', 'invoiceNote', 'estimateNote'].map(
+    (field) => ({ tool: 'update_money_settings', field }),
+  ),
+  'payments.due': ['due_on_receipt', 'net_7', 'net_14', 'net_30'].map((value) => ({
+    tool: 'update_money_settings',
+    field: 'terms',
+    value,
+  })),
+  'payments.estimate_valid': [{ tool: 'update_money_settings', field: 'estimateGoodForDays' }],
+  'payments.deposits': [
+    ...['none', 'percent', 'amount'].map((value) => ({
+      tool: 'update_money_settings',
+      field: 'depositKind',
+      value,
+    })),
+    { tool: 'update_money_settings', field: 'depositPercent' },
+    { tool: 'update_money_settings', field: 'depositDollars' },
+  ],
+  'payments.reminders': [
+    'remindBeforeDueDays',
+    'remindOnDueDay',
+    'remindAfterDueDays',
+    'nudgeEstimateAfterDays',
+  ].map((field) => ({ tool: 'update_money_settings', field })),
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -821,6 +878,10 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'a preview page the person opens to chat with their own chat box; test chats create and send nothing, so there is nothing to set',
   'tags.ai_changes':
     'what the AI changed lately and why, to read (ai_tagging_status): nothing to set, and a tag it put on comes off with tag_customers',
+  'payments.card':
+    'always on, with nothing to switch: every customer can pay by card, Apple Pay or Google Pay, and nothing is ever added for paying that way',
+  'payments.cash':
+    'never offered to customers, so nothing to set; a cash or cheque payment is recorded by hand on its invoice (record_payment)',
   'facebook_instagram.lead_ads':
     'what each Page’s lead ads send in, to read (get_settings, area facebook_instagram); letting leads in is connecting Facebook again or Meta’s own Leads Access, which only the person can do, and whether they open a lead is Lead intake’s (manage_lead_intake)',
   ...Object.fromEntries(
@@ -835,4 +896,4 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * The Settings pages (and add-ons' settings) whose rows aren't checked yet, in menu order: the daily routine takes
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
-export const SETTINGS_NOT_YET: readonly string[] = ['payments', 'partners', 'realestate'];
+export const SETTINGS_NOT_YET: readonly string[] = ['partners', 'realestate'];
