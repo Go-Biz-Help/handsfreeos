@@ -25,6 +25,8 @@ const world = vi.hoisted(() => ({
   opened: [] as string[],
   noted: [] as unknown[],
   posted: [] as { path: string; body: Record<string, unknown> }[],
+  /** A command that can't reach HandsFreeOS. */
+  unreachable: null as string | null,
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -40,6 +42,7 @@ vi.mock('../src/hfos/session', () => {
     answerWith: async (_t: string, fn: () => Promise<unknown>) => ({ ok: true, value: await fn() }),
     api: () => ({
       POST: async (path: string, options: { body: Record<string, unknown> }) => {
+        if (path === world.unreachable) throw new Error('Couldn’t reach HandsFreeOS.');
         world.posted.push({ path, body: options.body });
         return { data: { ok: true }, response: { ok: true, status: 200 } };
       },
@@ -133,6 +136,7 @@ beforeEach(() => {
   world.opened = [];
   world.noted = [];
   world.posted = [];
+  world.unreachable = null;
 });
 
 /** Dana's follow-up, OK'd, to go in her chat. */
@@ -591,15 +595,32 @@ describe('a friend request on Facebook', () => {
     }
   }
 
+  const PASSED_OVER = {
+    done: false,
+    line: 'Dana Reyes: Facebook shows no Add friend on their profile (they take requests only from friends of friends, or only let people follow them)',
+    skip: true,
+  };
+  const CLOSED = '/v1/commands/outreach.request.closed';
+
   it('passes over one with no Add friend on their profile, handing nothing over (the owner’s reports of 4 Nov 2026)', async () => {
     world.pages = (url) => (url === DANA ? noAddFriend() : null);
     const outcome = await step(request);
-    expect(outcome).toEqual({
-      done: false,
-      line: 'Dana Reyes: Facebook shows no Add friend on their profile (they take requests only from friends of friends, or only let people follow them)',
-      skip: true,
-    });
+    expect(outcome).toEqual(PASSED_OVER);
     expect(world.noted).toEqual([]);
+  });
+
+  it('tells HandsFreeOS, so Today never picks them for a request again (decision 156)', async () => {
+    world.pages = (url) => (url === DANA ? noAddFriend() : null);
+    await step(request);
+    expect(world.posted.filter((p) => p.path === CLOSED)).toEqual([
+      { path: CLOSED, body: { workspaceId: ME.businessId, profileId: request.profileId } },
+    ]);
+  });
+
+  it('still passes them over when HandsFreeOS can’t be told', async () => {
+    world.pages = (url) => (url === DANA ? noAddFriend() : null);
+    world.unreachable = CLOSED;
+    expect(await step(request)).toEqual(PASSED_OVER);
   });
 
   it('hands one over as a page it couldn’t read when a button it doesn’t know is beside Message', async () => {
@@ -619,5 +640,6 @@ describe('a friend request on Facebook', () => {
       line: 'Dana Reyes: Facebook says it couldn’t tell where things stand',
       need: true,
     });
+    expect(world.posted.filter((p) => p.path === CLOSED)).toEqual([]);
   });
 });

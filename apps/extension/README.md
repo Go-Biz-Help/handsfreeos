@@ -1161,7 +1161,9 @@ The problem check of 4 Nov 2026, 19:23 UTC, found four problems on 0.126.2. From
   them. The profile reader says so now (`noAddFriend`, only when every other button beside Message is one it knows),
   and the request is passed over with that line: nothing reported, nothing handed to the person, and a step tried again
   is cleared. A button beside Message it doesn't know still reads as a page it couldn't read, so a renamed friend button
-  is never passed over.
+  is never passed over. The runner also tells HandsFreeOS (`outreach.request.closed`, decision 156 in
+  docs/outreach.md), so Today never picks them for a friend request, or a like before one, again. If HandsFreeOS can't
+  be told, the request is still passed over.
 - **LinkedIn, Connect in More's menu.** More's menu now shows outside the profile's top card, so after pressing More the
   runner never saw Connect, and the AI helper pressed it each time. The runner now looks in the menu More opened, on
   the page or in LinkedIn's interop box (`menuItem`), and never presses one whose link invites someone else. Ignore

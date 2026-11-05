@@ -106,6 +106,7 @@ export const outreachAddon = defineAddon({
       'outreach.demo.booked',
       'outreach.automation.saved',
       'outreach.warm_up.missed',
+      'outreach.request.closed',
       'outreach.send.queued',
       'outreach.send.approved',
       'outreach.send.skipped',

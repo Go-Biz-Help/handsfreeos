@@ -70,6 +70,7 @@ import {
   outreachWrote,
   pitchable,
   profilesFor,
+  requestable,
   runsAGroup,
   talkedWith,
   waitsForLook,
@@ -196,14 +197,15 @@ export const myOwnProfile = (me: string, p = 'p') => {
 
 /**
  * Someone found by topic who's still someone to reach (decision 92): not the person (`myOwnProfile`), a friend or
- * anyone asked either way, in Contacts or a client, left alone (Don't pitch, Never contact, a partner, not a fit) or
- * running a group. `p` is the profile.
+ * anyone asked either way, in Contacts or a client, left alone (Don't pitch, Never contact, a partner, not a fit),
+ * running a group, or someone whose page offers no friend request (`requestable`, decision 156). `p` is the profile.
  */
 export const stillToReach = (
   me: string,
 ) => sql`(p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
   and not ${myOwnProfile(me)}
   and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and not ${runsAGroup('p')}
+  and ${requestable('p')}
   and not exists (select 1 from addon_outreach.friends fr where fr.profile_id = p.id and fr.user_id = ${me}
     and fr.state in ('friends', 'request_sent', 'request_received'))
   and not exists (select 1 from addon_outreach.touches t where t.profile_id = p.id and t.user_id = ${me}

@@ -8517,6 +8517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/outreach.request.closed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The extension found no way to send someone a friend request on their profile: they’re never picked for one again.
+         * @description Risk level 0. Requires outreach.use. Emits outreach.request.closed.
+         */
+        post: operations["command_outreach_request_closed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/outreach.request.set_aside": {
         parameters: {
             query?: never;
@@ -45605,6 +45625,38 @@ export interface operations {
                     "application/json": {
                         /** @enum {string} */
                         answer: "confirm" | "delete";
+                        /** Format: uuid */
+                        profileId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_outreach_request_closed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    profileId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
                         /** Format: uuid */
                         profileId: string;
                     };

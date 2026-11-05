@@ -976,6 +976,17 @@ export type WarmUpMissedInput = z.input<typeof WarmUpMissedInput>;
 export const WarmUpMissedOutput = z.object({ profileId: z.uuid() });
 
 /**
+ * A profile that offers no friend request (decision 156: Facebook shows no Add friend, for someone who takes requests
+ * only from friends of friends, or only lets people follow them): never picked for one again.
+ */
+export const RequestClosedInput = z.object({
+  workspaceId: z.uuid(),
+  profileId: z.uuid(),
+});
+export type RequestClosedInput = z.input<typeof RequestClosedInput>;
+export const RequestClosedOutput = z.object({ profileId: z.uuid() });
+
+/**
  * The warm-up's timing: a friend request goes at least this long after the like, so a day or two later (decision 33),
  * and a like older than the window doesn't count.
  */

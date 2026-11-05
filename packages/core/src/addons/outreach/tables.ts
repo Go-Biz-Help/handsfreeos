@@ -188,6 +188,11 @@ export const profiles = addonOutreach.table(
     /** When the extension found no post of theirs to like before a friend request (decision 33): it goes without. */
     warmUpMissedAt: ts('warm_up_missed_at'),
     /**
+     * When the extension found their profile offers no friend request (decision 156: Facebook shows no Add friend):
+     * never picked for one, or a like before one, again.
+     */
+    requestClosedAt: ts('request_closed_at'),
+    /**
      * Where they live (decisions 61 and 86): a country's two-letter code, and how it's known (`seen` a "Lives in",
      * `friends` a look, `from` only a "From", `guessed` the AI's guess), or `unknown` when nothing said; null for both
      * until it's worked out.

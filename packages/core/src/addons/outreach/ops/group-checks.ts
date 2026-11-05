@@ -53,6 +53,7 @@ import {
   inWorkspace,
   notOthers,
   pitchable,
+  requestable,
   type Ctx,
 } from './common';
 import { tally } from './tallies';
@@ -157,6 +158,7 @@ export async function peopleLeft(
           and not gp.runs_group and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')}
           and ${notOthers(me, 'g')} and ${lets}
           and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
+          and ${requestable('p')}
           and not exists (select 1 from addon_outreach.group_people x
             where x.profile_id = p.id and x.runs_group)
           and not exists (select 1 from addon_outreach.friends f

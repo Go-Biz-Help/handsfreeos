@@ -365,9 +365,19 @@ async function onProfile(item: TodayListItem, job: AutoJob, businessId: string):
   if (friendship === plan.after)
     return { done: false, line: `${item.name}: done already`, skip: true };
   // No Add friend at all, only Message or Follow: Facebook lets only friends of friends ask them, or only lets people
-  // follow them. Nobody can send it, so it's passed over, with nothing for the AI helper or the person to do.
-  if (friendship === 'unknown' && opened.page.profile!.noAddFriend && job === 'friend_request')
+  // follow them. Nobody can send it, so it's passed over, with nothing for the AI helper or the person to do, and
+  // HandsFreeOS remembers it so Today never picks them for one again (decision 156). Not remembered, it's still
+  // passed over: the next pass that meets them says so again.
+  if (friendship === 'unknown' && opened.page.profile!.noAddFriend && job === 'friend_request') {
+    if (item.profileId)
+      await call(
+        api().POST('/v1/commands/outreach.request.closed', {
+          body: { workspaceId: businessId, profileId: item.profileId },
+        }),
+        businessId,
+      ).catch(() => undefined);
     return { done: false, line: `${item.name}: ${NO_ADD_FRIEND}`, skip: true };
+  }
   // Facebook's buttons didn't say where things stand: maybe a new layout, so the AI helper looks and the step is the
   // person's (decision 145). Anywhere else Facebook says, there's nothing to do.
   if (friendship === 'unknown')
