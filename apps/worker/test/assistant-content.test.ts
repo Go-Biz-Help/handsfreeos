@@ -30,7 +30,7 @@ import {
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { asService, closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { installRealestate } from '../../../packages/core/test/addons/realestate-fixture';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
@@ -47,6 +47,9 @@ import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 const CHI = 'America/Chicago';
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
+/** A change only the worker makes, such as the review sync's: people can only disconnect. */
+const asTheSync = (query: ReturnType<typeof sql>) =>
+  asService({ workspaceId })((tx) => rows(tx, query));
 const actor = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -490,8 +493,8 @@ describe('reviews', () => {
       admin(),
       sql`update app.reviews set url = 'https://www.facebook.com/review/fay' where id = ${ids['Fay']}`,
     );
-    await rows(
-      admin(),
+    // What the review sync writes when Google asks for the sign-in again.
+    await asTheSync(
       sql`update app.review_connections set status = 'needs_attention',
             last_error = 'Google asked for the sign-in again.'
           where workspace_id = ${workspaceId} and provider = 'google'`,
@@ -506,8 +509,7 @@ describe('reviews', () => {
     ).find((c) => c.place === 'Google');
     expect(google?.status).toContain('Disconnect on its card, then Connect');
     expect(google?.problem).toBe('Google asked for the sign-in again.');
-    await rows(
-      admin(),
+    await asTheSync(
       sql`update app.review_connections set status = 'connected', last_error = null
           where workspace_id = ${workspaceId} and provider = 'google'`,
     );
@@ -538,8 +540,7 @@ describe('reviews', () => {
   });
 
   it('answers while Google needs signing in again, as the screen does, saying it may wait', async () => {
-    await rows(
-      admin(),
+    await asTheSync(
       sql`update app.review_connections set status = 'needs_attention'
           where workspace_id = ${workspaceId} and provider = 'google'`,
     );
@@ -548,8 +549,7 @@ describe('reviews', () => {
     expect(card.confirmLabel).toBe('Post the answer');
     expect(card.warnings.map((w) => w.text).join(' ')).toContain('Google needs signing in again');
 
-    await rows(
-      admin(),
+    await asTheSync(
       sql`update app.review_connections set status = 'pending'
           where workspace_id = ${workspaceId} and provider = 'google'`,
     );
@@ -680,7 +680,7 @@ describe('forms', () => {
   it('fills it in for a customer only on Confirm, showing each answer and what sending it does', async () => {
     const answers = {
       [Q.name]: 'Sam',
-      [Q.phone]: '512-555-0199',
+      [Q.phone]: '512-555-0197',
       [Q.what]: 'The AC blows warm air.',
       [Q.when]: 'This week',
     };
