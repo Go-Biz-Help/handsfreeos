@@ -597,6 +597,8 @@ function bookingInput(args: Args, calendar: CalendarGet['calendar'], person: Per
     // A calendar without staff books nobody; people the model named are dropped.
     userIds: calendar.config.team.assignment === 'none' ? undefined : args['userIds'],
     leadId: str(args['leadId']),
+    // The pet, vehicle or property it's for, as a record's Book fills it in.
+    customRecordId: str(args['customRecordId']),
     notes: str(args['notes']),
     location: address
       ? { kind: 'customer_address', address, postalCode: person.address.postalCode }
@@ -646,6 +648,9 @@ const bookAppointment: ConfirmTool = {
         fields: [
           { label: 'Customer', value: [person.fullName, person.phone].filter(Boolean).join(' · ') },
           { label: 'What', value: what },
+          ...(appt.customRecord
+            ? [{ label: appt.customRecord.kind || 'For', value: appt.customRecord.name }]
+            : []),
           { label: 'When', value: `${rangeLabel(start, end, tz)} ${zoneLabel(tz, start)}` },
           // Nobody works it on a calendar without staff: no With row.
           ...(staff.length
@@ -661,6 +666,7 @@ const bookAppointment: ConfirmTool = {
       result: {
         customer: person.fullName,
         what,
+        ...(appt.customRecord ? { for: appt.customRecord.name } : {}),
         when: atLabel(start, tz),
         with: staff,
         tellCustomer: notify,

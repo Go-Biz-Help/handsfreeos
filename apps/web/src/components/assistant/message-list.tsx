@@ -9,6 +9,7 @@ import {
 import {
   Activity,
   ArrowRight,
+  Box,
   Building2,
   CalendarDays,
   Check,
@@ -95,6 +96,12 @@ async function labelFor(workspaceId: string, page: PageRecord): Promise<string> 
       );
       return run.person ? `${run.workflow.name} · ${run.person.fullName}` : run.workflow.name;
     }
+    case 'custom_record':
+      return unwrap(
+        await api.POST('/v1/queries/custom_record.get', {
+          body: { workspaceId, customRecordId: page.id },
+        }),
+      ).record.name;
   }
 }
 
@@ -123,6 +130,7 @@ const PAGE_ICON: Record<PageRecordType, typeof UserRound> = {
   appointment: CalendarDays,
   workflow: Workflow,
   workflow_run: Activity,
+  custom_record: Box,
 };
 
 interface Suggestion {

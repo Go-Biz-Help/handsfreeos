@@ -4,10 +4,19 @@
  * runs as the person, through the same commands as the screens, only after Confirm, marked as done through the
  * Assistant, with the reason they gave on every audit row.
  */
-import { HfosError, normalizePhone } from '@hfos/core/server';
+import {
+  addressKey,
+  addressLine,
+  contactLabelWords,
+  formatPhone,
+  HfosError,
+  normalizePhone,
+  otherAddressesStored,
+  type OtherAddressOut,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { command, paths, query } from './tools-read';
+import { command, paths, query, when } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -27,6 +36,7 @@ const defined = (o: Args) =>
 const listWords = (xs: readonly string[], max = 3): string =>
   xs.length <= max ? xs.join(', ') : `${xs.slice(0, max).join(', ')} and ${xs.length - max} more`;
 const clip = (s: string, max: number) => (s.length > max ? `${s.slice(0, max - 1)}…` : s);
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 interface Tag {
   id: string;
@@ -60,6 +70,177 @@ async function makeTags(db: Db, ctx: ToolContext, names: string[], reason: strin
   return made;
 }
 
+// ---------- other numbers, emails and addresses ----------
+
+type Stored = { label?: string };
+type StoredPhone = Stored & { phone: string };
+type StoredEmail = Stored & { email: string };
+type StoredAddress = ReturnType<typeof otherAddressesStored>[number];
+const labelled = (label: unknown): Stored => (str(label) ? { label: str(label)! } : {});
+const listArg = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** A list after taking some off and adding some: one added that is already there takes its new label. */
+function edited<T>(now: T[], add: T[], drop: (t: T) => boolean, key: (t: T) => string): T[] {
+  const out = now.filter((t) => !drop(t));
+  for (const a of add) {
+    const i = out.findIndex((t) => key(t) === key(a));
+    if (i >= 0) out[i] = a;
+    else out.push(a);
+  }
+  return out;
+}
+
+/** Each one named to take off must be on the list, so nothing is said to be gone that wasn't there. */
+function mustBeThere(asked: string[], found: (s: string) => boolean, what: string, read: string) {
+  const stray = asked.filter((x) => !found(x));
+  if (stray.length)
+    throw HfosError.validation(
+      [],
+      `“${stray[0]}” isn’t one of their other ${what}, so it can’t be taken off. ${read} lists the ones they have.`,
+    );
+}
+
+const phoneWords = (p: StoredPhone) =>
+  `${formatPhone(p.phone) || p.phone}${p.label ? ` (${p.label})` : ''}`;
+const emailWords = (e: StoredEmail) => `${e.email}${e.label ? ` (${e.label})` : ''}`;
+const placeWords = (a: StoredAddress) =>
+  `${addressLine({
+    line1: a.line1 ?? null,
+    line2: a.line2 ?? null,
+    city: a.city ?? null,
+    state: a.state ?? null,
+    postalCode: a.postalCode ?? null,
+  })} (${contactLabelWords(a.label, 'address')})`;
+
+/** One list's change: what the command takes as the whole list, and the card's words before and after. */
+export interface OtherListChange {
+  readonly key: 'otherPhones' | 'otherEmails' | 'otherAddresses';
+  readonly label: string;
+  readonly next: object[];
+  readonly before: string[];
+  readonly after: string[];
+}
+
+/**
+ * The other numbers, emails or addresses of a person or company after the add… and remove… arguments, as the edit
+ * dialog's rows would save them: a number in E.164, an email lowercased, an address by its parts. `which` says the
+ * lists to look at. A list that wouldn't change is left out.
+ */
+export function otherContactsEdit(
+  now: {
+    otherPhones?: { phoneE164: string; label: string | null }[];
+    otherEmails?: { email: string; label: string | null }[];
+    otherAddresses?: OtherAddressOut[];
+  },
+  args: Args,
+  which: readonly ('phones' | 'emails' | 'addresses')[],
+  read: string,
+): OtherListChange[] {
+  const out: OtherListChange[] = [];
+  if (which.includes('phones')) {
+    const was: StoredPhone[] = (now.otherPhones ?? []).map((p) => ({
+      phone: p.phoneE164,
+      ...labelled(p.label),
+    }));
+    const add = listArg<{ phone: string; label?: string }>(args['addOtherPhones']).map((p) => {
+      const e164 = normalizePhone(p.phone);
+      if (!e164)
+        throw HfosError.validation(
+          [],
+          `“${p.phone}” isn’t a phone number. Give all 10 digits with the area code, or a + and the country code for a number outside the US.`,
+        );
+      return { phone: e164, ...labelled(p.label) };
+    });
+    const drop = listArg<string>(args['removeOtherPhones']).map((p) => normalizePhone(p) ?? p);
+    mustBeThere(drop, (d) => was.some((p) => p.phone === d), 'numbers', read);
+    const next = edited(
+      was,
+      add,
+      (p) => drop.includes(p.phone),
+      (p) => p.phone,
+    );
+    if (!same(next, was))
+      out.push({
+        key: 'otherPhones',
+        label: 'Other numbers',
+        next,
+        before: was.map(phoneWords),
+        after: next.map(phoneWords),
+      });
+  }
+  if (which.includes('emails')) {
+    const was: StoredEmail[] = (now.otherEmails ?? []).map((e) => ({
+      email: e.email.toLowerCase(),
+      ...labelled(e.label),
+    }));
+    const add = listArg<{ email: string; label?: string }>(args['addOtherEmails']).map((e) => ({
+      email: e.email.trim().toLowerCase(),
+      ...labelled(e.label),
+    }));
+    const drop = listArg<string>(args['removeOtherEmails']).map((e) => e.trim().toLowerCase());
+    mustBeThere(drop, (d) => was.some((e) => e.email === d), 'emails', read);
+    const next = edited(
+      was,
+      add,
+      (e) => drop.includes(e.email),
+      (e) => e.email,
+    );
+    if (!same(next, was))
+      out.push({
+        key: 'otherEmails',
+        label: 'Other emails',
+        next,
+        before: was.map(emailWords),
+        after: next.map(emailWords),
+      });
+  }
+  if (which.includes('addresses')) {
+    const was = otherAddressesStored(now.otherAddresses ?? []);
+    const add = listArg<Args>(args['addOtherAddresses']).map((a) => {
+      const [one] = otherAddressesStored([
+        {
+          label: str(a['label']) ?? null,
+          line1: str(a['line1']) ?? null,
+          line2: str(a['line2']) ?? null,
+          city: str(a['city']) ?? null,
+          state: str(a['state']) ?? null,
+          postalCode: str(a['postalCode']) ?? null,
+          country: 'US',
+        },
+      ]);
+      if (!one)
+        throw HfosError.validation(
+          [],
+          'Each address added needs a street, a town or a ZIP code. Give at least one of them.',
+        );
+      return one;
+    });
+    const drop = listArg<string>(args['removeOtherAddresses']).map((x) => x.trim().toLowerCase());
+    const matches = (a: StoredAddress, d: string) =>
+      a.line1?.toLowerCase() === d ||
+      placeWords(a).toLowerCase().startsWith(d) ||
+      addressLine({
+        line1: a.line1 ?? null,
+        line2: a.line2 ?? null,
+        city: a.city ?? null,
+        state: a.state ?? null,
+        postalCode: a.postalCode ?? null,
+      }).toLowerCase() === d;
+    mustBeThere(drop, (d) => was.some((a) => matches(a, d)), 'addresses', read);
+    const next = edited(was, add, (a) => drop.some((d) => matches(a, d)), addressKey);
+    if (!same(next, was))
+      out.push({
+        key: 'otherAddresses',
+        label: 'Other addresses',
+        next,
+        before: was.map(placeWords),
+        after: next.map(placeWords),
+      });
+  }
+  return out;
+}
+
 // ---------- looking things up ----------
 
 interface PersonListItem {
@@ -68,6 +249,24 @@ interface PersonListItem {
   phone: string | null;
   email: string | null;
   tags: Tag[];
+  client: boolean;
+  openLeads: number;
+  lastActivityAt: string | null;
+  company: { id: string; name: string } | null;
+  address: { city: string | null } | null;
+  archivedAt: string | null;
+}
+interface CompanyListItem {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  tags: Tag[];
+  peopleCount: number;
+  openLeads: number;
+  client: boolean;
+  archivedAt: string | null;
 }
 
 export const contactReadTools: Record<
@@ -86,6 +285,11 @@ export const contactReadTools: Record<
         q: str(args['query']),
         tagId: str(args['tagId']),
         withoutTagId: str(args['withoutTagId']),
+        standing: str(args['standing']),
+        assignedUserId: str(args['assignedUserId']),
+        companyId: str(args['companyId']),
+        includeArchived: args['includeArchived'] === true,
+        sort: str(args['sort']),
         limit: typeof args['limit'] === 'number' ? args['limit'] : 50,
         cursor: str(args['cursor']),
       }),
@@ -99,6 +303,13 @@ export const contactReadTools: Record<
           phone: c.phone,
           email: c.email,
           tags: c.tags.map((t) => t.name),
+          // The Client badge: someone the business works or worked for, or who has paid it; otherwise a lead.
+          client: c.client,
+          openLeads: c.openLeads,
+          lastActivity: c.lastActivityAt ? when(c.lastActivityAt, ctx.timezone) : null,
+          company: c.company ? { id: c.company.id, name: c.company.name } : null,
+          town: c.address?.city ?? null,
+          ...(c.archivedAt ? { archived: true } : {}),
         })),
         count: items.length,
         nextCursor,
@@ -113,6 +324,66 @@ export const contactReadTools: Record<
                 label: c.fullName,
                 detail: c.tags.length ? c.tags.map((t) => t.name).join(', ') : 'No tags',
                 href: p.person(c.id),
+              })),
+            },
+          }
+        : {}),
+    };
+  },
+
+  async list_companies(db, ctx, args) {
+    const { items, nextCursor } = await query<{
+      items: CompanyListItem[];
+      nextCursor: string | null;
+    }>(
+      db,
+      ctx,
+      'company.list',
+      defined({
+        q: str(args['query']),
+        tagId: str(args['tagId']),
+        standing: str(args['standing']),
+        assignedUserId: str(args['assignedUserId']),
+        includeArchived: args['includeArchived'] === true,
+        limit: typeof args['limit'] === 'number' ? args['limit'] : 50,
+        cursor: str(args['cursor']),
+      }),
+    );
+    const p = paths(ctx.workspaceId);
+    return {
+      result: {
+        companies: items.map((c) => ({
+          id: c.id,
+          name: c.name,
+          phone: c.phone,
+          email: c.email,
+          website: c.website,
+          tags: c.tags.map((t) => t.name),
+          people: c.peopleCount,
+          openLeads: c.openLeads,
+          client: c.client,
+          ...(c.archivedAt ? { archived: true } : {}),
+        })),
+        count: items.length,
+        nextCursor,
+      },
+      ...(items.length
+        ? {
+            card: {
+              type: 'list' as const,
+              title: `${count(items.length, 'company', 'companies')}${nextCursor ? '+' : ''}`,
+              items: items.slice(0, 12).map((c) => ({
+                title: c.name,
+                detail: [
+                  c.phone ?? c.email,
+                  `${count(c.peopleCount, 'person', 'people')}`,
+                  c.openLeads ? `${count(c.openLeads, 'open lead')}` : null,
+                  c.client ? 'Client' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · '),
+                tone: 'muted' as const,
+                href: p.company(c.id),
               })),
             },
           }
@@ -531,6 +802,7 @@ interface PersonFull {
   } | null;
   otherEmails: { email: string; label: string | null }[];
   otherPhones: { phone: string; phoneE164: string; label: string | null }[];
+  otherAddresses: OtherAddressOut[];
   notes: string | null;
   source: string | null;
   company: { id: string; name: string } | null;
@@ -667,6 +939,10 @@ async function customerChange(db: Db, ctx: ToolContext, args: Args) {
       );
     }
   }
+  for (const c of otherContactsEdit(person, args, ['addresses'], 'get_customer')) {
+    patch[c.key] = c.next;
+    line(c.label, c.before, c.after);
+  }
   for (const [k, label] of [
     ['notes', 'Notes'],
     ['source', 'Came from'],
@@ -704,7 +980,7 @@ async function customerChange(db: Db, ctx: ToolContext, args: Args) {
       if (!field)
         throw HfosError.validation(
           [],
-          'One of those isn’t one of this business’s customer fields. It may have been deleted. Read the customer again with get_customer and use the field ids it gives.',
+          'One of those isn’t one of this business’s customer fields. It may have been deleted. Read the customer again with get_customer, which lists every field with its id, and use those.',
         );
       if (JSON.stringify(person.custom[id] ?? null) === JSON.stringify(value ?? null)) continue;
       values[id] = value;

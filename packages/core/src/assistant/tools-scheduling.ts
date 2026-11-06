@@ -51,9 +51,10 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'list_appointments',
     description:
-      'Appointments in a date range, including ones already done, missed or (when asked) cancelled: one customer’s (personId from search_customers), one calendar’s, or one teammate’s (userId from list_team). Leave out the dates for today, or for one customer the 30 days either side of today; at most 62 days. Returns each appointment’s id for get_appointment and the tools that change it.',
+      'Appointments in a date range, including ones already done, missed or (when asked) cancelled: one customer’s (personId from search_customers), one pet’s, vehicle’s or property’s (customRecordId from find_records, as its Appointments tab lists them), one calendar’s, or one teammate’s (userId from list_team). Leave out the dates for today, or for one customer or record the 30 days either side of today; at most 62 days. Returns each appointment’s id for get_appointment and the tools that change it.',
     input: z.object({
       personId: uuid.optional(),
+      customRecordId: uuid.optional(),
       calendarId: uuid.optional(),
       userId: uuid.optional().describe('Only appointments this teammate works'),
       from: dayOrWhen.optional(),

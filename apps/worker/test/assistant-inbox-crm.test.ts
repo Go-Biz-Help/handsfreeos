@@ -2,14 +2,17 @@
  * The Assistant's inbox and customer tools, against the real database: a conversation's own buttons (assign, close,
  * reopen, snooze, read and unread, the AI teammate, linking an unknown number, a held text and a failed one), archiving
  * anything and bringing it back, companies, who looks after a customer, what a customer said about calls and texts,
- * the business's own records and what they're related to, and a file on a record. Every change shows its card first,
- * changes nothing until Confirm, and then runs the command as the person, "via Assistant".
+ * the business's own records and what they're related to, and the files on a record (read, never deleted). Every
+ * change shows its card first, changes nothing until Confirm, and then runs the command as the person, "via
+ * Assistant".
  */
 import { randomUUID } from 'node:crypto';
 import {
   aiTeammateCreate,
   aiTeammateSetStatus,
   assistantToolByName,
+  companyCreate,
+  customFieldCreate,
   customRecordTypeCreate,
   executeCommand,
   formatClock,
@@ -248,7 +251,6 @@ const NAMES = [
   'find_records',
   'get_record_details',
   'manage_record',
-  'delete_file',
 ];
 
 describe('the tools', () => {
@@ -265,7 +267,6 @@ describe('the tools', () => {
         'record_consent',
         'manage_company',
         'manage_record',
-        'delete_file',
       ]),
     );
     // Archiving and choosing who looks after a customer are owners' and admins'.
@@ -274,6 +275,8 @@ describe('the tools', () => {
     expect(member).not.toContain('assign_customer');
     const owner = toolsFor((p) => hasWorkspacePermission('owner', p)).map((t) => t.name);
     expect(owner).toEqual(expect.arrayContaining(NAMES));
+    // Removing a file deletes it for good, past the Deleted bin: that stays the person's.
+    expect(assistantToolByName.has('delete_file')).toBe(false);
   });
 });
 
@@ -735,6 +738,11 @@ describe('merging two records for the same customer', () => {
       blocked: true,
       why: 'They were merged into Rosa Diaz, who has everything of theirs now.',
     });
+    // Asked about the duplicate, the Assistant points to the record kept, as its page's notice does.
+    expect((await read('get_customer', { personId: rosie })).person).toMatchObject({
+      archived: true,
+      mergedInto: { id: rosa, name: 'Rosa Diaz' },
+    });
   });
 
   it('asks before merging two customers who share no number or email, and never one into itself', async () => {
@@ -820,6 +828,64 @@ describe('companies', () => {
     ).rejects.toThrow('Nothing would change.');
   });
 
+  it('adds and takes off its other numbers, emails and addresses, and fills in its own fields', async () => {
+    const contract = (
+      await run(
+        customFieldCreate,
+        { workspaceId, entity: 'company', label: 'Contract', type: 'text' },
+        dale,
+      )
+    ).customFieldId;
+    const args = {
+      action: 'change',
+      companyId: bayou,
+      addOtherPhones: [{ phone: '713-555-0101', label: 'Billing' }],
+      addOtherEmails: [{ email: 'Front@Bayou.test', label: 'Front desk' }],
+      addOtherAddresses: [{ line1: '400 Main St', city: 'Houston', label: 'Billing' }],
+      values: { [contract]: 'Yearly' },
+    };
+    const { card } = await prepare('manage_company', args);
+    expect(field(card, 'Other numbers')).toBe('(713) 555-0101 (Billing) (was none)');
+    expect(field(card, 'Other emails')).toBe('front@bayou.test (Front desk) (was none)');
+    expect(field(card, 'Other addresses')).toBe('400 Main St, Houston (Billing) (was none)');
+    expect(field(card, 'Contract')).toBe('Yearly');
+    const before = await read('get_record_details', { recordType: 'company', recordId: bayou });
+    expect(before.otherPhones).toEqual([]);
+    await commit('manage_company', args);
+    const after = await read('get_record_details', { recordType: 'company', recordId: bayou });
+    expect(after.otherPhones).toEqual([{ phone: '(713) 555-0101', label: 'Billing' }]);
+    expect(after.otherEmails).toEqual([{ email: 'front@bayou.test', label: 'Front desk' }]);
+    expect(after.otherAddresses).toEqual([{ address: '400 Main St, Houston', label: 'Billing' }]);
+    expect(after.fields).toEqual([
+      { id: contract, name: 'Contract', type: 'text', value: 'Yearly' },
+    ]);
+
+    const off = {
+      action: 'change',
+      companyId: bayou,
+      removeOtherPhones: ['(713) 555-0101'],
+      removeOtherAddresses: ['400 main st'],
+    };
+    const gone = await prepare('manage_company', off);
+    expect(field(gone.card, 'Other numbers')).toBe('none (was (713) 555-0101 (Billing))');
+    expect(field(gone.card, 'Other addresses')).toBe('none (was 400 Main St, Houston (Billing))');
+    expect(field(gone.card, 'Other emails')).toBeUndefined();
+    await commit('manage_company', off);
+    const now = await read('get_record_details', { recordType: 'company', recordId: bayou });
+    expect(now).toMatchObject({
+      otherPhones: [],
+      otherAddresses: [],
+      otherEmails: [{ email: 'front@bayou.test', label: 'Front desk' }],
+    });
+    await expect(
+      prepare('manage_company', {
+        action: 'change',
+        companyId: bayou,
+        removeOtherEmails: ['x@y.test'],
+      }),
+    ).rejects.toThrow('isn’t one of their other emails');
+  });
+
   it('archives it and brings it back', async () => {
     const { card } = await prepare('archive_or_restore', {
       action: 'archive',
@@ -834,6 +900,55 @@ describe('companies', () => {
     ]);
     await commit('archive_or_restore', { action: 'restore', what: 'company', id: bayou });
     expect(await archived('companies', bayou)).toBe(false);
+  });
+
+  it('reads it in full, with its people and open leads, and lists the companies', async () => {
+    const kim = (
+      await run(
+        personCreate,
+        { workspaceId, firstName: 'Kim', lastName: 'Tran', companyId: bayou },
+        dale,
+      )
+    ).personId;
+    const lead = (
+      await run(
+        leadCreate,
+        { workspaceId, title: 'Cleaning contract', companyId: bayou, valueCents: 120_000 },
+        dale,
+      )
+    ).leadId;
+    const details = await read('get_record_details', { recordType: 'company', recordId: bayou });
+    expect(details).toMatchObject({
+      name: 'Bayou Dental',
+      website: 'bayoudental.test',
+      archived: false,
+      people: [expect.objectContaining({ id: kim, name: 'Kim Tran' })],
+      openLeads: [
+        expect.objectContaining({ id: lead, title: 'Cleaning contract', value: '$1,200' }),
+      ],
+    });
+    expect(details.added).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const { leads } = await read('list_leads', { companyId: bayou });
+    expect(leads).toEqual([
+      expect.objectContaining({
+        id: lead,
+        title: 'Cleaning contract',
+        company: { id: bayou, name: 'Bayou Dental' },
+      }),
+    ]);
+
+    const other = (await run(companyCreate, { workspaceId, name: 'Gulf Air' }, dale)).companyId;
+    const { companies, nextCursor } = await read('list_companies', {});
+    expect(nextCursor).toBe(null);
+    expect(companies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: bayou, name: 'Bayou Dental', people: 1, openLeads: 1 }),
+        expect.objectContaining({ id: other, name: 'Gulf Air', people: 0, openLeads: 0 }),
+      ]),
+    );
+    expect(
+      (await read('list_companies', { query: 'Gulf' })).companies.map((c: { id: string }) => c.id),
+    ).toEqual([other]);
   });
 });
 
@@ -1031,6 +1146,26 @@ describe('the business’s own records', () => {
     expect(details.fields.find((f: { label: string }) => f.label === 'Breed').value).toBe(
       'Basset hound',
     );
+    expect(details.added).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // Only a record kept to its people (a Real Estate deal) has an Assigned card.
+    expect(details.keptToItsPeople).toBeUndefined();
+  });
+
+  it('counts each kind’s records and pages through them, saying when each changed', async () => {
+    await commit('manage_record', { action: 'create', typeId: petType, name: 'Bella' });
+    const first = await read('find_records', { typeId: petType, limit: 1 });
+    expect(first.kinds.find((k: { typeId: string }) => k.typeId === petType).records).toBe(2);
+    expect(first.records).toHaveLength(1);
+    expect(first.records[0].updated).toBeTruthy();
+    expect(first.nextCursor).toBeTruthy();
+    expect(first.more).toMatch(/nextCursor/);
+    const second = await read('find_records', {
+      typeId: petType,
+      limit: 1,
+      cursor: first.nextCursor,
+    });
+    expect(second.records).toHaveLength(1);
+    expect([first.records[0].name, second.records[0].name].sort()).toEqual(['Bella', 'Maximus']);
   });
 
   it('relates it to a second owner, changes the note on the pair, and takes it apart', async () => {
@@ -1107,47 +1242,53 @@ describe('the business’s own records', () => {
   });
 });
 
-describe('a file on a record', () => {
-  it('lists it and deletes it for good, only from the record it’s on', async () => {
-    const insertFile = async (recordId: string, name: string) =>
+describe('the files on a record', () => {
+  it('lists each with its lock and a link to it, and never deletes one', async () => {
+    const insertFile = async (recordId: string, name: string, locked = false) =>
       (
         await one<{ id: string }>(
-          sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, size_bytes, status, created_by)
+          sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, size_bytes, status, created_by,
+                locked_at, locked_reason)
               values (${workspaceId}, 'person', ${recordId}, ${`${workspaceId}/${randomUUID()}`}, ${name},
-                'image/jpeg', 204800, 'ready', ${dale.id})
+                'image/jpeg', 204800, 'ready', ${dale.id},
+                ${locked ? sql`now()` : null}, ${locked ? 'signed' : null})
               returning id`,
         )
       ).id;
     const photo = await insertFile(bob, 'Water heater.jpg');
-    const annsPhoto = await insertFile(ann, 'Porch.jpg');
-    const files = (await read('get_record_details', { recordType: 'person', recordId: bob })).files;
-    expect(files).toEqual([
-      expect.objectContaining({
-        fileId: photo,
-        name: 'Water heater.jpg',
-        size: '200 KB',
-        addedBy: 'Dale Owner',
-      }),
-    ]);
-
-    const args = { recordType: 'person', recordId: bob, fileId: photo };
-    const { card } = await prepare('delete_file', args);
-    expect(card.title).toBe('Delete Water heater.jpg?');
-    expect(field(card, 'On')).toBe('Bob Reyes');
-    expect(card.warnings[0]?.kind).toBe('caution');
-    const deleted = async (id: string) =>
-      (
-        await one<{ gone: boolean }>(
-          sql`select deleted_at is not null as gone from app.files where id = ${id}`,
-        )
-      ).gone;
-    expect(await deleted(photo)).toBe(false);
-    await commit('delete_file', args);
-    expect(await deleted(photo)).toBe(true);
-
-    await expect(
-      prepare('delete_file', { recordType: 'person', recordId: bob, fileId: annsPhoto }),
-    ).rejects.toThrow('That file isn’t on this record');
-    expect(await deleted(annsPhoto)).toBe(false);
+    const signed = await insertFile(bob, 'Signed estimate.pdf', true);
+    const { result, card } = (await tools().run(
+      tool('get_record_details'),
+      argsOf('get_record_details', { recordType: 'person', recordId: bob }),
+      ctx(),
+    )) as {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result: any;
+      card: Extract<AssistantCard, { type: 'list' }>;
+    };
+    expect(result.files).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fileId: photo,
+          name: 'Water heater.jpg',
+          size: '200 KB',
+          addedBy: 'Dale Owner',
+        }),
+        expect.objectContaining({
+          fileId: signed,
+          signedAndKept: 'Signed and kept: it can’t be deleted or renamed.',
+        }),
+      ]),
+    );
+    expect(
+      result.files.find((f: { fileId: string }) => f.fileId === photo).signedAndKept,
+    ).toBeUndefined();
+    // Each opens on the customer's Files tab, as a search result's does.
+    expect(card.title).toBe('Files · 2');
+    const row = card.items.find((i) => i.title === 'Water heater.jpg')!;
+    expect(row.href).toBe(`/app/w/${workspaceId}/customers/people/${bob}?tab=files&file=${photo}`);
+    expect(card.items.find((i) => i.title === 'Signed estimate.pdf')!.detail).toMatch(
+      /^Signed · kept · /,
+    );
   });
 });

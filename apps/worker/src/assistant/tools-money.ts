@@ -392,10 +392,16 @@ export const moneyReadTools: Record<string, MoneyTool> = {
     };
   },
 
-  /** "Does ABC Dental owe us anything?" */
+  /** "Does ABC Dental owe us anything?", or one lead's, as its Money card shows. */
   async customer_money(db, ctx, args) {
     const ws = ctx.workspaceId;
-    const personId = String(args['personId']);
+    const leadId = typeof args['leadId'] === 'string' ? args['leadId'] : null;
+    const personId = typeof args['personId'] === 'string' ? args['personId'] : null;
+    if (!leadId && !personId)
+      throw HfosError.validation(
+        [{ path: 'personId', message: 'Say whose money.' }],
+        'Say whose money to look at: a customer’s personId (search_customers finds it), or a leadId for one lead’s.',
+      );
     const got = await query<{
       estimates: EstimateItem[];
       invoices: InvoiceItem[];
@@ -403,20 +409,34 @@ export const moneyReadTools: Record<string, MoneyTool> = {
       balanceCents: number;
       collectedCents: number;
       quotedCents: number;
-    }>(db, ctx, 'money.for_record', { recordType: 'person', recordId: personId });
-    const who =
-      got.invoices[0]?.person.fullName ??
-      got.estimates[0]?.person.fullName ??
-      (await personName(db, ctx, personId));
+    }>(
+      db,
+      ctx,
+      'money.for_record',
+      leadId
+        ? { recordType: 'lead', recordId: leadId }
+        : { recordType: 'person', recordId: personId },
+    );
+    const who = leadId
+      ? await leadTitle(db, ctx, leadId)
+      : (got.invoices[0]?.person.fullName ??
+        got.estimates[0]?.person.fullName ??
+        (await personName(db, ctx, personId!)));
     const open = got.invoices.filter((i) => i.balanceCents > 0 && i.state !== 'void');
     const href = moneyPaths(ws).invoices();
     const plans = got.subscriptions.filter((s) => s.status === 'active' || s.status === 'past_due');
     if (got.invoices.length === 0 && got.estimates.length === 0 && plans.length === 0)
-      return nothing(who, 'Nothing has been quoted or billed to them yet.', href);
+      return nothing(
+        who,
+        leadId
+          ? 'Nothing has been quoted or billed on this lead yet.'
+          : 'Nothing has been quoted or billed to them yet.',
+        href,
+      );
 
     return {
       result: {
-        customer: who,
+        ...(leadId ? { lead: who } : { customer: who }),
         owes: money(got.balanceCents),
         paid: money(got.collectedCents),
         quotedOut: money(got.quotedCents),
@@ -455,7 +475,7 @@ export const moneyReadTools: Record<string, MoneyTool> = {
             .slice(0, 3)
             .map((e) => estimateRow(e, ws, ctx.timezone)),
         ].slice(0, 8),
-        href: `/app/w/${ws}/customers/people/${personId}`,
+        href: leadId ? `/app/w/${ws}/leads/${leadId}` : `/app/w/${ws}/customers/people/${personId}`,
       },
     };
   },
@@ -545,6 +565,11 @@ function estimateRow(e: EstimateItem, ws: string, timezone: string): Row {
 async function personName(db: Db, ctx: ToolContext, personId: string): Promise<string> {
   const got = await query<{ person: { fullName: string } }>(db, ctx, 'person.get', { personId });
   return got.person.fullName;
+}
+
+async function leadTitle(db: Db, ctx: ToolContext, leadId: string): Promise<string> {
+  const got = await query<{ lead: { title: string } }>(db, ctx, 'lead.get', { leadId });
+  return got.lead.title;
 }
 
 // ---------------------------------------------------------------------------

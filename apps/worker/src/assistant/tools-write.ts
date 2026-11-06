@@ -1,9 +1,12 @@
 import {
   ADDON_CATALOG,
+  contactLabelWords,
+  conversationOpen,
   HfosError,
   isAddonAiTool,
   isScreenActionTool,
   isScreenReadTool,
+  normalizePhone,
   type AssistantCard,
   type Catalog,
 } from '@hfos/core/server';
@@ -108,6 +111,8 @@ const FIELD_WORDS: Record<string, string> = {
   dueAt: 'due time',
   allDay: 'due time',
   assigneeUserId: 'assignee',
+  notes: 'notes',
+  leadId: 'lead',
 };
 
 const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>> = {
@@ -120,7 +125,9 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
       // A task nobody was named for is the asker's own, as when they add one themselves.
       assigneeUserId: args['assigneeUserId'] ?? ctx.actor.userId,
       personId: args['personId'] ?? null,
+      companyId: args['companyId'] ?? null,
       leadId: args['leadId'] ?? null,
+      customRecordId: args['customRecordId'] ?? null,
     });
     const assignee = args['assigneeUserId'] ?? ctx.actor.userId;
     const who =
@@ -153,7 +160,10 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
         taskId: args['taskId'],
         title: args['title'],
         dueAt: args['dueAt'],
+        allDay: args['allDay'],
         assigneeUserId: args['assigneeUserId'],
+        notes: args['notes'],
+        leadId: args['leadId'],
       }),
     );
     const changed = [...new Set(updated.map((f) => FIELD_WORDS[f] ?? f))];
@@ -195,16 +205,20 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
 
   async add_note(db, ctx, args) {
     const p = paths(ctx.workspaceId);
+    // Note, Call or Visit, as the Log activity sheet's choice; when it happened, for one logged after the fact.
+    const kind = (str(args['kind']) ?? 'note') as 'note' | 'call' | 'visit';
     const target = defined({
       personId: args['personId'],
       leadId: args['leadId'],
       companyId: args['companyId'],
+      customRecordId: args['customRecordId'],
     });
-    const { activityId } = await command<{ activityId: string }>(db, ctx, 'activity.log', {
-      kind: 'note',
-      body: args['body'],
-      ...target,
-    });
+    const { activityId } = await command<{ activityId: string }>(
+      db,
+      ctx,
+      'activity.log',
+      defined({ kind, body: args['body'], occurredAt: str(args['occurredAt']), ...target }),
+    );
     let name = 'the record';
     let href: string | null = null;
     if (typeof args['personId'] === 'string') {
@@ -219,21 +233,29 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
     } else if (typeof args['companyId'] === 'string') {
       name = 'the company';
       href = p.company(args['companyId']);
+    } else if (typeof args['customRecordId'] === 'string') {
+      const { record } = await query<{ record: { name: string } }>(db, ctx, 'custom_record.get', {
+        customRecordId: args['customRecordId'],
+      });
+      name = record.name;
+      href = `/app/w/${ctx.workspaceId}/customers/records/${args['customRecordId']}`;
     }
     const body = String(args['body']);
+    const word = { note: 'Note', call: 'Call', visit: 'Visit' }[kind];
+    const at = str(args['occurredAt']);
     return {
-      result: { activityId, added: true },
+      result: { activityId, added: true, kind, ...(at ? { when: when(at, ctx.timezone) } : {}) },
       command: 'activity.log',
       card: {
         type: 'done',
         toolCallId: PENDING_ID,
         kind: 'note',
-        title: `Note on ${name}`,
-        detail: `“${body.length > 120 ? `${body.slice(0, 117)}…` : body}”`,
+        title: `${word} on ${name}`,
+        detail: `${at ? `${when(at, ctx.timezone)} · ` : ''}“${body.length > 120 ? `${body.slice(0, 117)}…` : body}”`,
         href,
         undoable: true,
       },
-      record: { activityId, outcome: `Added a note on ${name}`, href },
+      record: { activityId, kind, outcome: `Added a ${kind} on ${name}`, href },
     };
   },
 };
@@ -267,11 +289,133 @@ interface TextTarget {
   blocked: string | null;
   fromNumber: string | null;
   quiet: { quiet: boolean; localTime: string } | null;
+  /** Another of their numbers or emails, as the screen's Text ▾ and Email ▾ pick one; null for the main one. */
+  to?: string | null;
+}
+
+interface OnFile {
+  fullName: string;
+  phoneE164: string | null;
+  email: string | null;
+  otherPhones: { phone: string; phoneE164: string; label: string | null }[];
+  otherEmails: { email: string; label: string | null }[];
+}
+
+/**
+ * Another of the customer's numbers or emails, named in `to`: it has to be one they have on file, as the screen
+ * offers only those. Null for none, or for their main one. Its words are the screen's: "(512) 555-0101 · Work".
+ */
+async function otherOnFile(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  channel: 'sms' | 'email',
+): Promise<{ value: string; words: string; person: OnFile } | null> {
+  const to = str(args['to']);
+  if (!to) return null;
+  const personId = str(args['personId']);
+  if (!personId)
+    throw HfosError.validation(
+      [],
+      'to goes with personId: say whose number or email it is, or leave to out to use the conversation.',
+    );
+  const { person } = await query<{ person: OnFile }>(db, ctx, 'person.get', { personId });
+  const first = firstName(person.fullName);
+  if (channel === 'sms') {
+    const e164 = normalizePhone(to);
+    if (e164 && e164 === person.phoneE164) return null;
+    const found = person.otherPhones.find((p) => p.phoneE164 === e164);
+    if (!found)
+      throw HfosError.validation(
+        [],
+        `${to} isn’t one of ${first}’s numbers. get_customer lists the ones on file; add it with update_customer first.`,
+      );
+    return {
+      value: found.phoneE164,
+      words: `${found.phone} · ${contactLabelWords(found.label, 'phone')}`,
+      person,
+    };
+  }
+  const email = to.toLowerCase();
+  if (email === person.email?.toLowerCase()) return null;
+  const found = person.otherEmails.find((e) => e.email.toLowerCase() === email);
+  if (!found)
+    throw HfosError.validation(
+      [],
+      `${to} isn’t one of ${first}’s emails. get_customer lists the ones on file; add it with update_customer first.`,
+    );
+  return {
+    value: found.email,
+    words: `${found.email} · ${contactLabelWords(found.label, 'email')}`,
+    person,
+  };
+}
+
+/** Their conversation with that number or address, when there is one already. */
+async function laneWith(
+  db: Db,
+  ctx: ToolContext,
+  personId: string,
+  channel: 'sms' | 'email',
+  counterpart: string,
+): Promise<string | null> {
+  const { items } = await query<{ items: { id: string; counterpart: string }[] }>(
+    db,
+    ctx,
+    'inbox.list',
+    { personId, channel, limit: 50 },
+  );
+  return items.find((c) => c.counterpart.toLowerCase() === counterpart.toLowerCase())?.id ?? null;
+}
+
+/** The conversation another number or address is texted or emailed in: the screen's own way of opening it. */
+async function openWith(
+  db: Db,
+  ctx: ToolContext,
+  personId: string,
+  channel: 'sms' | 'email',
+  to: string,
+): Promise<string> {
+  const { conversationId } = await command<{ conversationId: string }>(
+    db,
+    ctx,
+    conversationOpen.name,
+    { personId, channel, to },
+  );
+  return conversationId;
 }
 
 async function textTarget(db: Db, ctx: ToolContext, args: Args): Promise<TextTarget> {
   const personId = str(args['personId']) ?? null;
   let conversationId = str(args['conversationId']) ?? null;
+  const other = await otherOnFile(db, ctx, args, 'sms');
+  if (other && personId) {
+    const lane = await laneWith(db, ctx, personId, 'sms', other.value);
+    const t = lane ? await textTarget(db, ctx, { conversationId: lane }) : null;
+    const setup = t
+      ? null
+      : await query<{
+          number: { display: string } | null;
+          messagingReady: boolean;
+          quiet: { quiet: boolean; localTime: string };
+        }>(db, ctx, 'phone.setup_status').catch(() => null);
+    return {
+      name: other.person.fullName,
+      phone: other.words,
+      personId,
+      conversationId: null,
+      blocked:
+        t?.blocked ??
+        (setup && !setup.number
+          ? 'no_number'
+          : setup && !setup.messagingReady
+            ? 'not_ready'
+            : null),
+      fromNumber: t?.fromNumber ?? setup?.number?.display ?? null,
+      quiet: t?.quiet ?? setup?.quiet ?? null,
+      to: other.value,
+    };
+  }
   if (!conversationId && personId) {
     const { items } = await query<{ items: { id: string }[] }>(db, ctx, 'inbox.list', {
       personId,
@@ -397,8 +541,11 @@ const sendText: ConfirmTool = {
   },
   async commit(db, ctx, args, extra) {
     const t = await textTarget(db, ctx, args);
+    // Another of their numbers goes in its own conversation, opened as the screen's Text ▾ opens it.
+    const conversationId =
+      t.to && t.personId ? await openWith(db, ctx, t.personId, 'sms', t.to) : t.conversationId;
     const sent = await command<{ conversationId: string }>(db, ctx, 'message.send', {
-      ...(t.conversationId ? { conversationId: t.conversationId } : { personId: t.personId }),
+      ...(conversationId ? { conversationId } : { personId: t.personId }),
       channel: 'sms',
       body: args['body'],
       acknowledgeQuietHours: true,
@@ -422,19 +569,27 @@ interface ComposeOptions {
 }
 
 async function emailTarget(db: Db, ctx: ToolContext, args: Args) {
-  const conversationId = str(args['conversationId']);
   const personId = str(args['personId']);
+  const other = await otherOnFile(db, ctx, args, 'email');
+  // Another of their emails: its own conversation when there is one, else a new one the send opens.
+  const lane = other && personId ? await laneWith(db, ctx, personId, 'email', other.value) : null;
+  const conversationId = lane ?? (other ? undefined : str(args['conversationId']));
   if (!conversationId && !personId)
     throw HfosError.validation(
       [],
       'Say who the email is for: give their personId (search_customers finds it) or the conversationId.',
     );
-  const opts = await query<ComposeOptions>(
+  const found = await query<ComposeOptions>(
     db,
     ctx,
     'email.compose_options',
     conversationId ? { conversationId } : { personId },
   );
+  // Their main email's state says nothing of another one: a bounce on it is said when it goes.
+  const opts: ComposeOptions =
+    other && !lane
+      ? { ...found, to: other.value, canEmail: { ok: true, reason: null }, suppressed: null }
+      : found;
   const from =
     opts.addresses.find((a) => a.id === opts.fromAddressId) ??
     opts.addresses.find((a) => a.isDefault) ??
@@ -455,8 +610,10 @@ async function emailTarget(db: Db, ctx: ToolContext, args: Args) {
     opts,
     from,
     name,
-    conversationId: conversationId ?? opts.conversationId ?? null,
+    conversationId: other ? null : (conversationId ?? opts.conversationId ?? null),
     personId: personId ?? null,
+    to: other?.value ?? null,
+    toWords: other?.words ?? null,
   };
 }
 
@@ -475,7 +632,7 @@ const sendEmail: ConfirmTool = {
         conversationId: e.conversationId,
         title: `Email ${first}?`,
         fields: [
-          { label: 'To', value: [e.name, e.opts.to].filter(Boolean).join(' · ') },
+          { label: 'To', value: [e.name, e.toWords ?? e.opts.to].filter(Boolean).join(' · ') },
           { label: 'From', value: e.from ? e.from.address : 'Your business address' },
           { label: 'Subject', value: String(args['subject']) },
         ],
@@ -492,8 +649,10 @@ const sendEmail: ConfirmTool = {
   },
   async commit(db, ctx, args, extra) {
     const e = await emailTarget(db, ctx, args);
+    const conversationId =
+      e.to && e.personId ? await openWith(db, ctx, e.personId, 'email', e.to) : e.conversationId;
     const sent = await command<{ conversationId: string }>(db, ctx, 'message.send', {
-      ...(e.conversationId ? { conversationId: e.conversationId } : { personId: e.personId }),
+      ...(conversationId ? { conversationId } : { personId: e.personId }),
       channel: 'email',
       subject: args['subject'],
       body: args['body'],
@@ -513,10 +672,13 @@ interface LeadLite {
   stageId: string;
   stageName: string;
   valueCents: number;
+  source: string | null;
+  expectedCloseOn: string | null;
   person: { fullName: string } | null;
   company: { name: string } | null;
   assignee: { id: string; fullName: string } | null;
   nextAction: string | null;
+  nextActionAt: string | null;
 }
 const leadGet = (db: Db, ctx: ToolContext, leadId: unknown) =>
   query<{ lead: LeadLite; stages: { id: string; name: string; kind: string }[] }>(
@@ -670,62 +832,131 @@ const createCustomer: ConfirmTool = {
   },
 };
 
+/** Who a new lead is for, as the New lead dialog's Who is it for? asks: a person, or a company. */
+async function leadFor(db: Db, ctx: ToolContext, args: Args) {
+  const personId = str(args['personId']);
+  const companyId = str(args['companyId']);
+  if (!personId === !companyId)
+    throw HfosError.validation(
+      [{ path: 'personId', message: 'Pick a person or a company.' }],
+      'Say who the lead is for: a person (personId) or a company (companyId), one of the two.',
+    );
+  if (personId) {
+    const { person } = await query<{ person: { fullName: string } }>(db, ctx, 'person.get', {
+      personId,
+    });
+    return { name: person.fullName, first: firstName(person.fullName) };
+  }
+  const { company } = await query<{ company: { name: string } }>(db, ctx, 'company.get', {
+    companyId,
+  });
+  return { name: company.name, first: company.name };
+}
+
+interface PipelineLite {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  archivedAt: string | null;
+  stages: { id: string; name: string; kind: string }[];
+}
+
+/**
+ * The stage a new lead starts in, and its pipeline: the stage asked for, in whichever pipeline it is, or the first
+ * open stage of the first pipeline, as lead.create picks it.
+ */
+async function startStage(db: Db, ctx: ToolContext, stageId: unknown) {
+  const { pipelines } = await query<{ pipelines: PipelineLite[] }>(db, ctx, 'pipeline.list');
+  const live = pipelines.filter((p) => !p.archivedAt);
+  if (stageId) {
+    const pipeline = live.find((p) => p.stages.some((s) => s.id === stageId));
+    if (!pipeline)
+      throw HfosError.validation(
+        [{ path: 'stageId', message: 'That stage isn’t in a pipeline.' }],
+        'That stage isn’t in any of this business’s pipelines. Use a stage id from the pipelines in your context, or leave stageId out for the first stage.',
+      );
+    return { pipeline, stage: pipeline.stages.find((s) => s.id === stageId)! };
+  }
+  const pipeline = live[0];
+  return {
+    pipeline: pipeline ?? null,
+    stage: pipeline?.stages.find((s) => s.kind === 'open') ?? null,
+  };
+}
+
 const createLead: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const [{ person }, { pipelines }, who] = await Promise.all([
-      query<{ person: { fullName: string } }>(db, ctx, 'person.get', {
-        personId: args['personId'],
-      }),
-      query<{
-        pipelines: {
-          isDefault: boolean;
-          archivedAt: string | null;
-          stages: { id: string; name: string; kind: string }[];
-        }[];
-      }>(db, ctx, 'pipeline.list'),
+    const [who, { pipeline, stage }, owner] = await Promise.all([
+      leadFor(db, ctx, args),
+      startStage(db, ctx, args['stageId']),
       teammate(db, ctx, args['assigneeUserId']),
     ]);
-    const stages = pipelines.filter((p) => !p.archivedAt).flatMap((p) => p.stages);
-    const stage =
-      stages.find((s) => s.id === args['stageId']) ??
-      pipelines.find((p) => p.isDefault && !p.archivedAt)?.stages.find((s) => s.kind === 'open');
     const value = typeof args['value'] === 'number' ? Math.round(args['value'] * 100) : 0;
+    const next = str(args['nextAction']);
+    const nextAt = str(args['nextActionAt']);
     return {
       card: confirmCard(toolCallId, 'create_lead', {
-        title: `Open a lead for ${firstName(person.fullName)}?`,
+        title: `Open a lead for ${who.first}?`,
         fields: [
           { label: 'Lead', value: String(args['title']) },
-          { label: 'Customer', value: person.fullName },
+          { label: args['companyId'] ? 'Company' : 'Customer', value: who.name },
           { label: 'Value', value: money(value) },
-          ...(stage ? [{ label: 'Stage', value: stage.name }] : []),
-          ...(who ? [{ label: 'Assigned', value: who }] : []),
-          ...(str(args['nextAction'])
-            ? [{ label: 'Next', value: String(args['nextAction']) }]
+          ...(stage && pipeline
+            ? [{ label: 'Stage', value: `${stage.name} · ${pipeline.name}` }]
             : []),
+          ...(owner ? [{ label: 'Assigned', value: owner }] : []),
+          ...(next
+            ? [
+                {
+                  label: 'Next',
+                  value: `${next}${nextAt ? ` · ${when(nextAt, ctx.timezone)}` : ''}`,
+                },
+              ]
+            : []),
+          ...(str(args['expectedCloseOn'])
+            ? [{ label: 'Expected close', value: String(args['expectedCloseOn']) }]
+            : []),
+          ...(str(args['source']) ? [{ label: 'Source', value: String(args['source']) }] : []),
         ],
         body: null,
         stageFrom: null,
         stageTo: null,
-        warnings: [],
+        warnings:
+          nextAt && !next
+            ? [
+                {
+                  kind: 'note',
+                  text: 'A time for the next step needs the step too, so it’s left off.',
+                },
+              ]
+            : [],
         reasons: [],
         confirmLabel: 'Open lead',
         editable: false,
       }),
-      result: { title: args['title'], customer: person.fullName },
+      result: { title: args['title'], customer: who.name },
     };
   },
   async commit(db, ctx, args) {
+    // The stage's own pipeline: without it lead.create looks for the stage in the first pipeline only.
+    const { pipeline, stage } = await startStage(db, ctx, args['stageId']);
+    const next = str(args['nextAction']);
     const { leadId } = await command<{ leadId: string }>(
       db,
       ctx,
       'lead.create',
       defined({
         title: args['title'],
-        personId: args['personId'],
+        personId: str(args['personId']),
+        companyId: str(args['companyId']),
         valueCents: typeof args['value'] === 'number' ? Math.round(args['value'] * 100) : undefined,
-        stageId: args['stageId'],
+        pipelineId: pipeline?.id,
+        stageId: stage?.id,
         assigneeUserId: args['assigneeUserId'],
-        nextAction: str(args['nextAction']),
+        nextAction: next,
+        nextActionAt: next ? str(args['nextActionAt']) : undefined,
+        expectedCloseOn: str(args['expectedCloseOn']),
+        source: str(args['source']),
       }),
     );
     return {
@@ -736,10 +967,16 @@ const createLead: ConfirmTool = {
   },
 };
 
+/** What a detail of a lead says on a card: "none" when it has none. */
+const said = (v: unknown) => (v === null || v === undefined || v === '' ? 'none' : String(v));
+
 const updateLead: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { lead } = await leadGet(db, ctx, args['leadId']);
     const fields: { label: string; value: string }[] = [];
+    const title = str(args['title']);
+    if (title && title !== lead.title)
+      fields.push({ label: 'Title', value: `${lead.title} → ${title}` });
     if (args['assigneeUserId'] !== undefined) {
       const who =
         args['assigneeUserId'] === null
@@ -752,15 +989,26 @@ const updateLead: ConfirmTool = {
         label: 'Value',
         value: `${money(lead.valueCents)} → ${money(Math.round(args['value'] * 100))}`,
       });
-    if (args['nextAction'] !== undefined)
+    if (args['expectedCloseOn'] !== undefined && args['expectedCloseOn'] !== lead.expectedCloseOn)
+      fields.push({
+        label: 'Expected close',
+        value: `${said(lead.expectedCloseOn)} → ${said(args['expectedCloseOn'])}`,
+      });
+    if (args['source'] !== undefined && (str(args['source']) ?? null) !== lead.source)
+      fields.push({
+        label: 'Source',
+        value: `${said(lead.source)} → ${said(str(args['source']))}`,
+      });
+    const next = nextActionOf(lead, args);
+    if (next)
       fields.push({
         label: 'Next',
-        value: `${lead.nextAction ?? 'none'} → ${str(args['nextAction']) ?? 'none'}`,
+        value: `${said(lead.nextAction)}${lead.nextActionAt ? ` · ${when(lead.nextActionAt, ctx.timezone)}` : ''} → ${said(next.text)}${next.dueAt ? ` · ${when(next.dueAt, ctx.timezone)}` : ''}`,
       });
     if (!fields.length)
       throw HfosError.validation(
         [],
-        'Nothing would change. Give assigneeUserId, value or nextAction; a nextActionAt only counts with a nextAction.',
+        'Nothing would change. Give what’s different: title, assigneeUserId, value, expectedCloseOn, source, nextAction or nextActionAt.',
       );
     return {
       card: confirmCard(toolCallId, 'update_lead', {
@@ -779,31 +1027,48 @@ const updateLead: ConfirmTool = {
   },
   async commit(db, ctx, args) {
     const leadId = args['leadId'];
-    if (args['assigneeUserId'] !== undefined || typeof args['value'] === 'number')
-      await command(
-        db,
-        ctx,
-        'lead.update',
-        defined({
-          leadId,
-          assigneeUserId: args['assigneeUserId'],
-          valueCents:
-            typeof args['value'] === 'number' ? Math.round(args['value'] * 100) : undefined,
-        }),
-      );
-    if (args['nextAction'] !== undefined)
-      await command(db, ctx, 'lead.set_next_action', {
-        leadId,
-        text: str(args['nextAction']) ?? null,
-        dueAt: args['nextActionAt'] ?? null,
-      });
+    const details = defined({
+      title: str(args['title']),
+      assigneeUserId: args['assigneeUserId'],
+      valueCents: typeof args['value'] === 'number' ? Math.round(args['value'] * 100) : undefined,
+      expectedCloseOn: args['expectedCloseOn'],
+      source: args['source'] === undefined ? undefined : (str(args['source']) ?? null),
+    });
+    if (Object.keys(details).length) await command(db, ctx, 'lead.update', { leadId, ...details });
+    const { lead } = await leadGet(db, ctx, leadId);
+    const next = nextActionOf(lead, args);
+    if (next) await command(db, ctx, 'lead.set_next_action', { leadId, ...next });
     return {
       outcome: 'Saved the changes',
       href: paths(ctx.workspaceId).lead(String(leadId)),
-      command: 'lead.update',
+      command: Object.keys(details).length ? 'lead.update' : 'lead.set_next_action',
     };
   },
 };
+
+/**
+ * The next action to set, as the lead's next action box sets it: the step and when. A time alone moves the step the
+ * lead has; a lead with no step can't take a time alone. Null when neither was asked for.
+ */
+function nextActionOf(
+  lead: LeadLite,
+  args: Args,
+): { text: string | null; dueAt: string | null } | null {
+  if (args['nextAction'] === undefined && args['nextActionAt'] === undefined) return null;
+  const text =
+    args['nextAction'] === undefined ? lead.nextAction : (str(args['nextAction']) ?? null);
+  if (!text && args['nextAction'] === undefined)
+    throw HfosError.validation(
+      [{ path: 'nextActionAt', message: 'Say what the next step is.' }],
+      `${lead.title} has no next step, so a time alone has nothing to go on. Give nextAction too.`,
+    );
+  const dueAt = !text
+    ? null
+    : args['nextActionAt'] === undefined
+      ? lead.nextActionAt
+      : ((args['nextActionAt'] as string | null) ?? null);
+  return { text, dueAt };
+}
 
 const confirmTools: Record<string, ConfirmTool> = {
   send_text: sendText,
@@ -966,7 +1231,7 @@ export function createToolExecutor(
           return 'Undone. The task is open again.';
         case 'add_note':
           await command(db, ctx, 'activity.delete', { activityId: record['activityId'] });
-          return 'Undone. The note is gone.';
+          return `Undone. The ${typeof record['kind'] === 'string' ? record['kind'] : 'note'} is gone.`;
         default:
           throw HfosError.conflict(
             'This can’t be undone from here. Only a task or note the Assistant added, or a task it completed, can be.',

@@ -37,7 +37,14 @@ import { screenReadToolsFor } from './tools-screen-reads';
 
 export interface PageRecord {
   readonly type:
-    'person' | 'company' | 'lead' | 'conversation' | 'appointment' | 'workflow' | 'workflow_run';
+    | 'person'
+    | 'company'
+    | 'lead'
+    | 'conversation'
+    | 'appointment'
+    | 'workflow'
+    | 'workflow_run'
+    | 'custom_record';
   readonly id: string;
 }
 
@@ -188,6 +195,13 @@ async function pageLabel(
       case 'company':
         return (await ask<{ company: { name: string } }>('company.get', { companyId: page.id }))
           .company.name;
+      case 'custom_record': {
+        // A pet, vehicle or property: "Rex (dog)".
+        const { record } = await ask<{
+          record: { name: string; type: { singular: string } };
+        }>('custom_record.get', { customRecordId: page.id });
+        return `${record.name} (${record.type.singular.toLowerCase()})`;
+      }
       case 'lead': {
         const { lead } = await ask<{
           lead: { title: string; person: { fullName: string } | null };

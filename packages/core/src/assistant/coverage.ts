@@ -356,6 +356,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'account.delete': 'deleting the person’s own account, which only they do, on Account',
   'workspace.delete': 'deleting the whole business for good',
   'bin.empty': 'emptying the Deleted bin, which stays the person’s (the owner, 2026-10-26)',
+  'file.delete':
+    'deleting a file for good: it skips the Deleted bin and its stored copy is erased, which stays the person’s (the owner, 2026-10-26)',
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'migration.rollback': 'taking back everything a move from another CRM brought, for good',

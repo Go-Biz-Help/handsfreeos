@@ -235,6 +235,8 @@ export function assistantRequest(
 
 const STEP_LABEL: Record<string, string> = {
   search_customers: 'Searching customers',
+  list_customers: 'Looking through customers',
+  list_companies: 'Looking through companies',
   get_customer: 'Looking at the customer',
   list_leads: 'Looking at leads',
   get_lead: 'Looking at the lead',

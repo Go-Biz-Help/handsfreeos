@@ -152,14 +152,14 @@ export const APP_PLACES: readonly AppPlace[] = [
   },
   {
     label: 'A customer’s page',
-    what: 'one person: everything the business has done with them (a company’s page is the same, without calling, texting, booking or money)',
+    what: 'one person: everything the business has done with them',
     where: ['Contacts'],
     then: 'press the person',
     onScreen: [
       'At the top: their tags (Add tag, or + to change them), and ⋯ with Edit details, Merge…, Archive and Delete for good… (owners)',
-      'Along the top: Call, Text, Email, Book, Note, Log call, Task, Lead, File, and Add to workflow…',
+      'Along the top: Call, Text, Email (with a choice of number or email when they have more than one), Video call, Book, Note, Log call, Task, Lead, File, Document (for whoever may send documents), and Add to workflow…',
       'Tabs: Timeline, Appointments, Money, Leads, Tasks, Files, Details (Details has Edit, Calls from us, and their Fields)',
-      'Beside them: Assigned to, Upcoming appointments, Regular services, Conversations, Workflows, Open lead, Relationships',
+      'Beside them: Assigned to, Upcoming appointments, Regular services, Conversations, Where they came from (the ads and links that brought them, when any did), Partner (while partners are on), Workflows, Open lead, Relationships',
     ],
     howTo: [
       'Tag them: their page, Add tag (or + beside their tags), then press a tag or New tag',
@@ -170,6 +170,9 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Open a lead for them: their page, press Lead',
       'Add a task for them: their page, press Task, then New task',
       'Upload a photo or file: their page, press File, then Choose file',
+      'Remove a file: their page, Files tab, ⋯ beside the file, then Remove (for whoever may delete files); it’s gone for good, and a signed one can’t be removed',
+      'Send them a document to sign: their page, press Document',
+      'Start a video call with them: their page, press Video call; the link goes by text or email',
       'Write them an estimate or invoice: their page, Money tab, New estimate or New invoice',
       'Put them on a maintenance plan: their page, Money tab, Put on a plan',
       'Put them on a workflow: their page, press Add to workflow…, pick one, then Add (their name); only published workflows that start By hand are offered',
@@ -184,11 +187,65 @@ export const APP_PLACES: readonly AppPlace[] = [
     canChange: [
       'choose who looks after them: add, take off, make main (owners and admins)',
       'record that they agreed in writing to calls (and where), or don’t want calls; record that they don’t want texts',
-      'delete a file on their record',
+      'text or email another of their numbers or emails on file',
       'add their pets, vehicles or properties, change them, and relate records',
       'put them on a maintenance plan',
     ],
+    notHere: [
+      'removing a file through the Assistant (it’s gone for good, so it stays the person’s)',
+    ],
     path: '/customers/people/[personId]',
+  },
+  {
+    label: 'A company’s page',
+    what: 'one company: its people, leads, notes, tasks and files',
+    where: ['Contacts', 'Companies'],
+    then: 'press the company',
+    onScreen: [
+      'At the top: its tags, and ⋯ with Edit details, Archive company and Delete for good… (owners)',
+      'Along the top: Note, Log call, Task, Lead, File',
+      'Tabs: Timeline, Leads, Tasks, Files, Details (Details has Edit and its Fields)',
+      'Beside them: Assigned to, Open lead, Relationships (its People, with Add person)',
+    ],
+    howTo: [
+      'Change its name, number, email or address: its page, ⋯, Edit details',
+      'Put someone at the company: its page, the Relationships card, Add person beside People',
+      'Fill in a field of your own: its page, Details tab, Edit beside Fields',
+      'Archive it: its page, ⋯, then Archive company',
+      'Delete it for good: its page, ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin',
+    ],
+    canChange: [
+      'change its details, other numbers, emails and addresses, and its own fields',
+      'add a note, a logged call, a task or a lead on it',
+      'archive it and bring it back (owners and admins)',
+    ],
+    notHere: ['calling, texting, booking or billing a company (do it with one of its people)'],
+    path: '/customers/companies/[companyId]',
+  },
+  {
+    label: 'A record’s page',
+    what: 'one of the business’s own records (a pet, a vehicle, a property): its visits, tasks, files and who it belongs to',
+    where: ['Contacts'],
+    then: 'press the tab for its kind (Pets, Vehicles…), then the record',
+    onScreen: [
+      'At the top: ⋯ with Edit details, Archive and its kind (Archive pet…), and Delete for good… (owners)',
+      'Along the top: Book, Note, Task, File',
+      'Tabs: Timeline, Appointments, Tasks, Files, Details (Details has Edit and its Fields)',
+      'Beside them: Assigned to (when it’s kept to its people), Relationships, Upcoming appointments, and the conversations of the customers it belongs to',
+    ],
+    howTo: [
+      'Book it in: its page, press Book',
+      'Add a note or a task: its page, Note or Task',
+      'Link it to its owner: its page, the Relationships card, Add',
+      'Archive it: its page, ⋯, then Archive and its kind (Archive pet…)',
+      'Delete it for good: its page, ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin',
+    ],
+    canChange: [
+      'change its name, notes and fields, and relate it to customers and other records',
+      'book it, and add a note or a task on it',
+      'archive it and bring it back',
+    ],
+    path: '/customers/records/[recordId]',
   },
   {
     label: 'Pipeline',
@@ -221,7 +278,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     onScreen: [
       'The stages to press, and the next action (Set, or Change)',
       'Value, Assigned to, Last contact, Expected close, Source, Tags',
-      'Note, Log call, Won and Lost (Reopen once closed); ⋯ has Edit details and Archive lead',
+      'Note, Log call, Won and Lost (Reopen once closed); ⋯ has Edit details, Archive lead and Delete for good… (owners)',
       'Its full page adds Book, File, Add to workflow…, Qualification, Money (New estimate), Upcoming appointments and Workflows',
     ],
     howTo: [
@@ -231,9 +288,12 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Change its value, owner or close date: ⋯, then Edit details',
       'Quote a lead: Open full page, then New estimate in its Money card',
       'Book it: Open full page, then Book',
+      'Delete a lead for good: ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin',
     ],
-    notHere: ['deleting a lead (archive it)'],
-    canChange: ['archive it and bring it back (owners and admins)'],
+    canChange: [
+      'archive it and bring it back (owners and admins)',
+      'delete it through the Deleted bin (owners)',
+    ],
     path: '/leads/[leadId]',
   },
   {

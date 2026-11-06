@@ -9,6 +9,8 @@ import {
   calendarGet,
   calendarSave,
   calendarSetStatus,
+  customRecordCreate,
+  customRecordTypeCreate,
   executeCommand,
   executeQuery,
   localDateOf,
@@ -301,6 +303,34 @@ describe('looking appointments up', () => {
       waitlist: [],
     });
     expect(card).toMatchObject({ type: 'appointment', appointmentId: visit });
+  });
+
+  it('books a visit for a customer’s pet, as its page’s Book does, and lists the pet’s own', async () => {
+    const pet = (await run(customRecordTypeCreate, { workspaceId, singular: 'Pet' }, owner))
+      .customRecordTypeId;
+    const rex = (await run(customRecordCreate, { workspaceId, typeId: pet, name: 'Rex' }, owner))
+      .customRecordId;
+    const dee = await person('Dee', 'Moss', {
+      address: { line1: '9 Elm St', city: 'Houston', state: 'TX', postalCode: '77002' },
+    });
+    const { card, parsed } = await prepare('book_appointment', {
+      calendarId: tuneUps,
+      personId: dee,
+      startsAt: offsetAt(10, '15:00'),
+      serviceId,
+      customRecordId: rex,
+      notify: false,
+    });
+    expect(field(card, 'Pet')).toBe('Rex');
+    await confirm('book_appointment', parsed);
+    const { result, card: list } = await read('list_appointments', { customRecordId: rex });
+    expect(result['appointments']).toEqual([
+      expect.objectContaining({
+        customers: [{ name: 'Dee Moss', personId: dee }],
+        forRecord: 'Rex',
+      }),
+    ]);
+    expect(list).toMatchObject({ type: 'list', title: 'Rex’s appointments' });
   });
 });
 

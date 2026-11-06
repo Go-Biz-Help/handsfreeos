@@ -3,11 +3,13 @@
  * tags on or off many in one go, a new tag made on the way; any detail of a customer changed, added or taken off;
  * and the AI's pass over the whole list started, read and stopped; and Settings → Tags' tags added, renamed,
  * recoloured and deleted. Every change waits for Confirm, runs as the person "via Assistant", and keeps the reason
- * they gave on its audit row.
+ * they gave on its audit row. Then a customer read in full, and the list narrowed as Contacts narrows it.
  */
 import { randomUUID } from 'node:crypto';
 import {
   assistantToolByName,
+  companyCreate,
+  customFieldCreate,
   executeCommand,
   hasWorkspacePermission,
   organizationCreate,
@@ -74,6 +76,9 @@ const prepare = async (name: string, args: Record<string, unknown>) => {
 };
 const commit = (name: string, args: Record<string, unknown>) =>
   tools().commit(tool(name), argsOf(name, args), ctx(), { toolCallId: randomUUID() });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const read = async (name: string, args: Record<string, unknown>): Promise<any> =>
+  ((await tools().run(tool(name), argsOf(name, args), ctx())) as { result: unknown }).result;
 const field = (card: { fields: { label: string; value: string }[] }, label: string) =>
   card.fields.find((f) => f.label === label)?.value;
 const tagsOn = async (personId: string) =>
@@ -125,6 +130,7 @@ describe('the tools', () => {
   it('each have their executor, and only owners and admins start a pass over the list', () => {
     for (const name of [
       'list_customers',
+      'list_companies',
       'ai_tagging_status',
       'tag_customers',
       'ai_tag_customers',
@@ -132,7 +138,9 @@ describe('the tools', () => {
     ])
       expect(executorFor(name), name).toBeTruthy();
     const member = toolsFor((p) => hasWorkspacePermission('member', p)).map((t) => t.name);
-    expect(member).toEqual(expect.arrayContaining(['list_customers', 'tag_customers']));
+    expect(member).toEqual(
+      expect.arrayContaining(['list_customers', 'list_companies', 'tag_customers']),
+    );
     expect(member).not.toContain('ai_tag_customers');
   });
 });
@@ -363,5 +371,114 @@ describe('Settings → Tags: manage_tag', () => {
     await expect(prepare('manage_tag', { action: 'delete', tagId })).rejects.toThrow(
       'No tag has that id.',
     );
+  });
+});
+
+// Last, so the people it adds don't change the counts above.
+describe('a customer in full, and the list narrowed', () => {
+  it('adds labelled addresses, takes one off, and reads them back with every field of their own', async () => {
+    const gate = (
+      await run(
+        customFieldCreate,
+        { workspaceId, entity: 'person', label: 'Gate code', type: 'text' },
+        owner,
+      )
+    ).customFieldId;
+    const plan = (
+      await run(
+        customFieldCreate,
+        {
+          workspaceId,
+          entity: 'person',
+          label: 'Plan',
+          type: 'choice',
+          options: [{ label: 'Gold' }],
+        },
+        owner,
+      )
+    ).customFieldId;
+    const ben = people['Ben']!;
+    const args = {
+      personId: ben,
+      addOtherAddresses: [
+        { line1: '12 Elm St', city: 'Austin', state: 'TX', postalCode: '78701', label: 'Rental' },
+        { line1: '9 Oak Ave', city: 'Austin', label: 'Job site' },
+      ],
+    };
+    const { card } = await prepare('update_customer', args);
+    expect(field(card, 'Other addresses')).toBe(
+      'none → 12 Elm St, Austin, TX 78701 (Rental), 9 Oak Ave, Austin (Job site)',
+    );
+    await commit('update_customer', args);
+
+    const off = { personId: ben, removeOtherAddresses: ['9 Oak Ave'] };
+    expect(field((await prepare('update_customer', off)).card, 'Other addresses')).toBe(
+      '12 Elm St, Austin, TX 78701 (Rental), 9 Oak Ave, Austin (Job site) → 12 Elm St, Austin, TX 78701 (Rental)',
+    );
+    await commit('update_customer', off);
+    await expect(
+      prepare('update_customer', { personId: ben, removeOtherAddresses: ['1 Nowhere Rd'] }),
+    ).rejects.toThrow('isn’t one of their other addresses');
+
+    const { person } = await read('get_customer', { personId: ben });
+    expect(person.otherAddresses).toEqual([
+      { address: '12 Elm St, Austin, TX 78701', label: 'Rental' },
+    ]);
+    // Empty ones too, so a gate code nobody has written yet can be filled in by its id.
+    expect(person.fields).toEqual([
+      { id: gate, name: 'Gate code', type: 'text', value: null },
+      {
+        id: plan,
+        name: 'Plan',
+        type: 'choice',
+        choices: [{ value: expect.any(String), label: 'Gold' }],
+        value: null,
+      },
+    ]);
+    expect(person).toMatchObject({
+      callsFromUs: 'Not asked',
+      badge: expect.stringMatching(/^Customer since /),
+      lookedAfterBy: { main: null, alsoOnIt: [] },
+    });
+  });
+
+  it('narrows to a company and to who looks after them, saying who is a client and where they are', async () => {
+    const acme = (await run(companyCreate, { workspaceId, name: 'Acme Bulk' }, owner)).companyId;
+    const dee = (
+      await run(
+        personCreate,
+        {
+          workspaceId,
+          firstName: 'Dee',
+          lastName: 'Bulk',
+          companyId: acme,
+          ownerUserId: owner.id,
+          address: { city: 'Austin' },
+        },
+        owner,
+      )
+    ).personId;
+    expect((await read('list_customers', { companyId: acme })).customers).toEqual([
+      expect.objectContaining({
+        id: dee,
+        name: 'Dee Bulk',
+        client: false,
+        openLeads: 0,
+        company: { id: acme, name: 'Acme Bulk' },
+        town: 'Austin',
+      }),
+    ]);
+    const mine = await read('list_customers', { assignedUserId: owner.id });
+    expect(mine.customers.map((c: { id: string }) => c.id)).toEqual([dee]);
+    // Nobody here has been worked for or paid yet: all leads, no clients.
+    expect((await read('list_customers', { standing: 'client' })).customers).toEqual([]);
+    expect(
+      (await read('list_customers', { standing: 'lead' })).customers.map(
+        (c: { name: string }) => c.name,
+      ),
+    ).toContain('Dee Bulk');
+    expect((await read('list_companies', {})).companies).toEqual([
+      expect.objectContaining({ id: acme, name: 'Acme Bulk', people: 1, client: false }),
+    ]);
   });
 });

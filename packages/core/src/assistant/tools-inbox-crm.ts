@@ -11,7 +11,7 @@
  */
 import { z } from 'zod';
 import { uuid } from '../schemas/common';
-import { define, text, when, type AssistantTool } from './tool-kit';
+import { define, otherAddressInput, text, when, type AssistantTool } from './tool-kit';
 
 /** A detail that can be set, or taken off with null. */
 const clearable = (max: number) => z.string().trim().max(max).nullable().optional();
@@ -137,7 +137,7 @@ export const inboxCrmTools: readonly AssistantTool[] = [
   define({
     name: 'manage_company',
     description:
-      'Add a company to Contacts, or change a company’s details (companyId from search_customers): name, main phone and email, website, address (only the parts that change; null clears a part), notes and source. Pass only what changes; null takes a detail off. A person joins a company with update_customer (companyId), tags go on with tag_customers, who looks after it is assign_customer, and archiving is archive_or_restore.',
+      'Add a company to Contacts, or change a company’s details (companyId from search_customers or list_companies): name, main phone and email, website, address (only the parts that change; null clears a part), other numbers, emails and addresses (add or remove; one added again takes its new label), notes, source and the business’s own company fields (values by field id, from get_record_details; null clears one). Pass only what changes; null takes a detail off. To make another number, email or address the main one, set it as the main one, add the old main one as another and remove the one moved. A person joins a company with update_customer (companyId), tags go on with tag_customers, who looks after it is assign_customer, and archiving is archive_or_restore.',
     input: z.object({
       action: z.enum(['create', 'change']),
       companyId: uuid.optional().describe('change: the company'),
@@ -154,8 +154,35 @@ export const inboxCrmTools: readonly AssistantTool[] = [
           postalCode: clearable(20),
         })
         .optional(),
+      addOtherPhones: z
+        .array(
+          z.object({
+            phone: z.string().trim().max(40),
+            label: z.string().trim().max(40).optional(),
+          }),
+        )
+        .max(5)
+        .optional(),
+      removeOtherPhones: z.array(z.string().trim().max(40)).max(20).optional(),
+      addOtherEmails: z
+        .array(
+          z.object({
+            email: z.string().trim().max(254),
+            label: z.string().trim().max(40).optional(),
+          }),
+        )
+        .max(5)
+        .optional(),
+      removeOtherEmails: z.array(z.string().trim().max(254)).max(20).optional(),
+      addOtherAddresses: z.array(otherAddressInput).max(5).optional(),
+      removeOtherAddresses: z
+        .array(z.string().trim().max(300))
+        .max(20)
+        .optional()
+        .describe('Each by its street or its whole line, as get_record_details gives it'),
       notes: clearable(10000).describe('Replaces the notes'),
       source: clearable(80),
+      values: fieldValues.describe('The business’s own company fields by id; null clears one'),
     }),
     autonomy: 'confirm',
     permission: 'records.write',
@@ -196,11 +223,12 @@ export const inboxCrmTools: readonly AssistantTool[] = [
   define({
     name: 'find_records',
     description:
-      'The business’s own kinds of records (pets, vehicles, properties…): the kinds with their typeId and fields (field ids, for manage_record values), how records relate (relationship types, each with its end A and end B), and the records themselves by name or anything in their fields, one kind or all, with their ids and who each is related to. Customers and companies are search_customers.',
+      'The business’s own kinds of records (pets, vehicles, properties…): the kinds with their typeId, how many records each has, and their fields (field ids, for manage_record values), how records relate (relationship types, each with its end A and end B), and the records themselves by name or anything in their fields, one kind or all, with their ids, when each was last changed and who each is related to. Pass nextCursor back for the next page. Customers and companies are search_customers.',
     input: z.object({
       query: z.string().trim().max(120).optional(),
       typeId: uuid.optional().describe('Only this kind'),
-      limit: z.int().min(1).max(50).default(20),
+      limit: z.int().min(1).max(100).default(20),
+      cursor: z.string().max(400).optional().describe('nextCursor from the page before'),
     }),
     autonomy: 'auto',
     permission: 'records.read',
@@ -208,7 +236,7 @@ export const inboxCrmTools: readonly AssistantTool[] = [
   define({
     name: 'get_record_details',
     description:
-      'One customer, company, lead or record of the business’s own kinds, for what get_customer doesn’t show: who looks after a customer or company, what it’s related to (each pair’s relationshipId, the other record and the note) and its files (fileId, name, type, size). A record comes with its kind, notes and fields too.',
+      'One customer, company, lead or record of the business’s own kinds, for what get_customer doesn’t show: who looks after a customer or company, what it’s related to (each pair’s relationshipId, the other record and the note) and its files (fileId, name, type, size, whether it’s signed and kept), with a card to open each. A company comes in full: its details, other numbers, emails and addresses, notes, source, tags, its own fields (with their ids, empty ones too), its people and its open leads. A record comes with its kind, notes, fields, when it was added, and who looks after it when it’s kept to its people.',
     input: z.object({
       recordType: z.enum(['person', 'company', 'lead', 'record']),
       recordId: uuid,
@@ -243,18 +271,6 @@ export const inboxCrmTools: readonly AssistantTool[] = [
         .nullable()
         .optional()
         .describe('On the pair, like “Primary driver”'),
-    }),
-    autonomy: 'confirm',
-    permission: 'records.write',
-  }),
-  define({
-    name: 'delete_file',
-    description:
-      'Delete a file from a customer’s, company’s, lead’s or record’s Files (fileId from get_record_details, with the recordType and recordId it was asked about). It’s gone for good: nobody can open it again.',
-    input: z.object({
-      recordType: z.enum(['person', 'company', 'lead', 'record']),
-      recordId: uuid,
-      fileId: uuid,
     }),
     autonomy: 'confirm',
     permission: 'records.write',

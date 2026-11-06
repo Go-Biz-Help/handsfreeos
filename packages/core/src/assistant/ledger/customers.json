@@ -125,22 +125,22 @@
       "path": "Contacts → All / Leads / Clients",
       "kind": "do",
       "file": "apps/web/src/components/crm/customers-list.tsx:218",
-      "covered": "partly",
-      "by": "read_search_everything badges only; list_customers has no such filter"
+      "covered": "yes",
+      "by": "list_customers standing (lead or client); list_companies standing"
     },
     {
       "path": "Contacts → tag filter",
       "kind": "do",
       "file": "apps/web/src/components/crm/customers-list.tsx:238",
-      "covered": "partly",
-      "by": "list_customers tagId, withoutTagId: people only"
+      "covered": "yes",
+      "by": "list_customers tagId, withoutTagId; list_companies tagId"
     },
     {
       "path": "Contacts → assigned-to filter",
       "kind": "do",
       "file": "apps/web/src/components/crm/customers-list.tsx:252",
-      "covered": "no",
-      "by": "list_customers has no assignee filter"
+      "covered": "yes",
+      "by": "list_customers assignedUserId; list_companies assignedUserId"
     },
     {
       "path": "Contacts → show archived",
@@ -181,15 +181,15 @@
       "path": "Contacts → People → company under the name",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:519",
-      "covered": "partly",
-      "by": "search_customers company; not in list_customers"
+      "covered": "yes",
+      "by": "list_customers company, town"
     },
     {
       "path": "Contacts → People → Client badge",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:519",
-      "covered": "partly",
-      "by": "read_search_everything client badge only"
+      "covered": "yes",
+      "by": "list_customers client; list_companies client"
     },
     {
       "path": "Contacts → People → Tags",
@@ -202,15 +202,15 @@
       "path": "Contacts → People → Open leads",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:519",
-      "covered": "partly",
-      "by": "search_customers openLeads; list_leads personId"
+      "covered": "yes",
+      "by": "list_customers openLeads"
     },
     {
       "path": "Contacts → People → Last activity",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:519",
-      "covered": "no",
-      "by": "no tool returns last activity"
+      "covered": "yes",
+      "by": "list_customers lastActivity"
     },
     {
       "path": "Contacts → People → open a person",
@@ -265,29 +265,29 @@
       "path": "Contacts → Companies → Contact: phone, email",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:673",
-      "covered": "partly",
-      "by": "search_customers phone only"
+      "covered": "yes",
+      "by": "list_companies phone, email, website"
     },
     {
       "path": "Contacts → Companies → Tags",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:673",
-      "covered": "no",
-      "by": "company tags not returned"
+      "covered": "yes",
+      "by": "list_companies tags"
     },
     {
       "path": "Contacts → Companies → People count",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:673",
-      "covered": "no",
-      "by": "no tool counts a company's people"
+      "covered": "yes",
+      "by": "list_companies people"
     },
     {
       "path": "Contacts → Companies → Open leads",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:673",
-      "covered": "no",
-      "by": "list_leads has no companyId"
+      "covered": "yes",
+      "by": "list_companies openLeads; list_leads companyId"
     },
     {
       "path": "Contacts → Companies → open a company",
@@ -300,8 +300,8 @@
       "path": "Contacts → Companies → Show more",
       "kind": "do",
       "file": "apps/web/src/components/crm/customers-list.tsx:759",
-      "covered": "no",
-      "by": "no paged company list"
+      "covered": "yes",
+      "by": "list_companies cursor, nextCursor"
     },
     {
       "path": "Contacts → a kind's records → name",
@@ -321,8 +321,8 @@
       "path": "Contacts → a kind's records → Updated",
       "kind": "see",
       "file": "apps/web/src/components/crm/customers-list.tsx:846",
-      "covered": "no",
-      "by": "find_records has no updated date"
+      "covered": "yes",
+      "by": "find_records updated"
     },
     {
       "path": "Contacts → a kind's records → open a record",
@@ -335,8 +335,8 @@
       "path": "Contacts → a kind's records → Show more",
       "kind": "do",
       "file": "apps/web/src/components/crm/customers-list.tsx:900",
-      "covered": "partly",
-      "by": "find_records limit 50, no cursor"
+      "covered": "yes",
+      "by": "find_records cursor, nextCursor (up to 100 a page); kinds records is the tab’s count"
     },
     {
       "path": "Add or edit person → First name",
@@ -433,8 +433,8 @@
       "path": "Add or edit person → other addresses, label Home/Work/Billing/Job site/Rental/Other",
       "kind": "do",
       "file": "apps/web/src/components/crm/person-dialog.tsx:486",
-      "covered": "no",
-      "by": "no tool sets other addresses"
+      "covered": "yes",
+      "by": "update_customer addOtherAddresses (with labels), removeOtherAddresses; get_customer otherAddresses"
     },
     {
       "path": "Add or edit person → Tags",
@@ -496,15 +496,15 @@
       "path": "Add or edit company → other numbers and emails with labels",
       "kind": "do",
       "file": "apps/web/src/components/crm/company-dialog.tsx:329",
-      "covered": "no",
-      "by": "manage_company has no other phones or emails"
+      "covered": "yes",
+      "by": "manage_company addOtherPhones, addOtherEmails (with labels)"
     },
     {
       "path": "Add or edit company → make main, remove another",
       "kind": "do",
       "file": "apps/web/src/components/crm/company-dialog.tsx:336",
-      "covered": "no",
-      "by": "manage_company has no other phones or emails"
+      "covered": "partly",
+      "by": "manage_company removeOtherPhones, removeOtherEmails; make main as for a person: set phone or email and add the old one back, in one call"
     },
     {
       "path": "Add or edit company → duplicate warning, Add anyway",
@@ -531,8 +531,8 @@
       "path": "Add or edit company → other addresses",
       "kind": "do",
       "file": "apps/web/src/components/crm/company-dialog.tsx:393",
-      "covered": "no",
-      "by": "no tool sets other addresses"
+      "covered": "yes",
+      "by": "manage_company addOtherAddresses (with labels), removeOtherAddresses"
     },
     {
       "path": "Add or edit company → Tags",
@@ -622,8 +622,8 @@
       "path": "Customer page → header → customer since and source (web, phone)",
       "kind": "see",
       "file": "apps/mobile/src/components/customers/bits.tsx:140",
-      "covered": "partly",
-      "by": "get_customer source; no createdAt"
+      "covered": "yes",
+      "by": "get_customer badge (Customer since), added, source"
     },
     {
       "path": "Customer page → header → Owes badge",
@@ -637,7 +637,7 @@
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:312",
       "covered": "partly",
-      "by": "get_customer openLeads; client badge only in search"
+      "by": "get_customer openLeads; the client badge from list_customers client"
     },
     {
       "path": "Customer page → Archived notice",
@@ -650,8 +650,8 @@
       "path": "Customer page → Merged into notice and link",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:452",
-      "covered": "partly",
-      "by": "mergedInto not returned"
+      "covered": "yes",
+      "by": "get_customer mergedInto, note"
     },
     {
       "path": "Customer page → deleted: in the Deleted bin, open it",
@@ -755,15 +755,15 @@
       "path": "Customer page → Text (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/crm/record-page.tsx:495",
-      "covered": "partly",
-      "by": "send_text to the main number only"
+      "covered": "yes",
+      "by": "send_text to: any number on file, in its own conversation as Text ▾ opens it"
     },
     {
       "path": "Customer page → Email, pick which address (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/crm/record-page.tsx:519",
-      "covered": "partly",
-      "by": "send_email to the main address only"
+      "covered": "yes",
+      "by": "send_email to: any email on file"
     },
     {
       "path": "Customer page → Video call (web, phone)",
@@ -790,8 +790,8 @@
       "path": "Customer page → Log call or visit",
       "kind": "do",
       "file": "apps/web/src/components/crm/record-page.tsx:572",
-      "covered": "no",
-      "by": "add_note writes kind note only"
+      "covered": "yes",
+      "by": "add_note kind call or visit, occurredAt"
     },
     {
       "path": "Customer page → Task (person)",
@@ -804,8 +804,8 @@
       "path": "Customer page → Task (company; web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/crm/record-page.tsx:581",
-      "covered": "partly",
-      "by": "create_task has no companyId"
+      "covered": "yes",
+      "by": "create_task companyId"
     },
     {
       "path": "Customer page → Lead (person)",
@@ -818,8 +818,8 @@
       "path": "Customer page → Lead (company)",
       "kind": "do",
       "file": "apps/web/src/components/crm/record-page.tsx:590",
-      "covered": "no",
-      "by": "create_lead needs a person; no companyId"
+      "covered": "yes",
+      "by": "create_lead companyId"
     },
     {
       "path": "Customer page → File (web)",
@@ -881,8 +881,8 @@
       "path": "Tasks → row: title, due, assignee, done",
       "kind": "see",
       "file": "apps/web/src/components/tasks/task-list.tsx:143",
-      "covered": "partly",
-      "by": "get_customer openTasks: open only, no notes"
+      "covered": "yes",
+      "by": "list_tasks personId, companyId, leadId, customRecordId and status (open, done, all): title, due, assignee, notes, done"
     },
     {
       "path": "Tasks → tick done (web, phone)",
@@ -902,8 +902,8 @@
       "path": "Tasks → Edit",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-list.tsx:177",
-      "covered": "partly",
-      "by": "update_task title, dueAt, assignee only"
+      "covered": "yes",
+      "by": "update_task title, dueAt, allDay, assigneeUserId, notes, leadId"
     },
     {
       "path": "Tasks → Open lead",
@@ -944,8 +944,8 @@
       "path": "Task dialog → specific time or all day",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-dialog.tsx:184",
-      "covered": "partly",
-      "by": "create_task allDay; update_task has none"
+      "covered": "yes",
+      "by": "create_task and update_task allDay"
     },
     {
       "path": "Task dialog → Assigned to",
@@ -958,15 +958,15 @@
       "path": "Task dialog → Related lead",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-dialog.tsx:220",
-      "covered": "partly",
-      "by": "create_task leadId; update_task can't change it"
+      "covered": "yes",
+      "by": "create_task and update_task leadId"
     },
     {
       "path": "Task dialog → Notes",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-dialog.tsx:231",
-      "covered": "partly",
-      "by": "create_task notes; update_task has none"
+      "covered": "yes",
+      "by": "create_task and update_task notes"
     },
     {
       "path": "Files → file: name, type, size, added by, when",
@@ -979,29 +979,29 @@
       "path": "Files → locked mark",
       "kind": "see",
       "file": "apps/web/src/components/files/file-grid.tsx:151",
-      "covered": "no",
-      "by": "no locked flag returned"
+      "covered": "yes",
+      "by": "get_record_details files signedAndKept; its Files card says Signed · kept"
     },
     {
       "path": "Files → open or preview (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/files/file-grid.tsx:136",
-      "covered": "no",
-      "by": "no file link returned"
+      "covered": "yes",
+      "by": "get_record_details Files card: each file opens on its record’s Files tab (?file=)"
     },
     {
       "path": "Files → Download",
       "kind": "do",
       "file": "apps/web/src/components/files/file-grid.tsx:172",
-      "covered": "no",
-      "by": "no file link returned"
+      "covered": "partly",
+      "by": "get_record_details Files card opens the file on its tab, where Download is; no download link of its own"
     },
     {
       "path": "Files → Remove",
       "kind": "do",
       "file": "apps/web/src/components/files/file-grid.tsx:174",
-      "covered": "yes",
-      "by": "delete_file (deletes for good: see notes)"
+      "covered": "never",
+      "by": "Never: Remove deletes the file for good, past the Deleted bin (file.delete in NEVER_FOR_THE_ASSISTANT); the places map hands it over: their page, Files tab, ⋯, Remove"
     },
     {
       "path": "Files → Choose or drop a file (JPEG, PNG, HEIC, PDF, Word, Excel, CSV; 25 MB)",
@@ -1035,8 +1035,8 @@
       "path": "Details → other addresses",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:834",
-      "covered": "no",
-      "by": "get_customer has no otherAddresses"
+      "covered": "yes",
+      "by": "get_customer otherAddresses (with labels)"
     },
     {
       "path": "Details → company, source, notes",
@@ -1049,15 +1049,15 @@
       "path": "Details → added on",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:834",
-      "covered": "no",
-      "by": "get_customer has no createdAt"
+      "covered": "yes",
+      "by": "get_customer added, badge"
     },
     {
       "path": "Details → Calls from us status",
       "kind": "see",
       "file": "apps/web/src/components/crm/call-consent.tsx:84",
-      "covered": "partly",
-      "by": "only on record_consent card; get_customer has no callConsent"
+      "covered": "yes",
+      "by": "get_customer callsFromUs, callsAgreedWhere"
     },
     {
       "path": "Calls from us → Change",
@@ -1119,15 +1119,15 @@
       "path": "Company page → custom fields: see and edit",
       "kind": "do",
       "file": "apps/web/src/components/crm/custom-fields.tsx:114",
-      "covered": "no",
-      "by": "manage_company has no fields; none returned"
+      "covered": "yes",
+      "by": "get_record_details company fields (every one, empty too); manage_company values"
     },
     {
       "path": "Company page → Details: website, email, address, notes, source",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:834",
-      "covered": "partly",
-      "by": "manage_company sets; only name, phone read back"
+      "covered": "yes",
+      "by": "get_record_details company: phone, email, website, address, other numbers, emails and addresses, notes, source, tags, added"
     },
     {
       "path": "Money → Owes, Nothing owed",
@@ -1245,8 +1245,8 @@
       "path": "Log activity → Note, Call or Visit",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:145",
-      "covered": "partly",
-      "by": "add_note writes notes only"
+      "covered": "yes",
+      "by": "add_note kind"
     },
     {
       "path": "Log activity → what happened",
@@ -1259,15 +1259,15 @@
       "path": "Log activity → When",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:162",
-      "covered": "no",
-      "by": "add_note has no time"
+      "covered": "yes",
+      "by": "add_note occurredAt"
     },
     {
       "path": "Log activity → Related lead",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:171",
-      "covered": "partly",
-      "by": "add_note on the lead instead of both"
+      "covered": "yes",
+      "by": "add_note personId with leadId puts it on both"
     },
     {
       "path": "Log activity → next action for the lead",
@@ -1280,7 +1280,7 @@
       "path": "Log activity → Save",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:212",
-      "covered": "partly",
+      "covered": "yes",
       "by": "add_note"
     },
     {
@@ -1462,15 +1462,15 @@
       "path": "Open lead card → days in stage",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:969",
-      "covered": "partly",
-      "by": "read_lead_board stageEnteredAt, top of column only"
+      "covered": "yes",
+      "by": "get_customer openLeads and get_lead daysInStage"
     },
     {
       "path": "Open lead card → next action and when",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-page.tsx:969",
-      "covered": "partly",
-      "by": "get_lead nextAction; no time"
+      "covered": "yes",
+      "by": "get_customer openLeads and get_lead nextAction, nextActionAt"
     },
     {
       "path": "Open lead card → open the lead",
@@ -1553,15 +1553,15 @@
       "path": "Company page → People · n (web, phone)",
       "kind": "see",
       "file": "apps/web/src/components/relationships/relationships-card.tsx:110",
-      "covered": "no",
-      "by": "a company's people are not listed"
+      "covered": "yes",
+      "by": "get_record_details company people"
     },
     {
       "path": "Company page → open a person from People (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/relationships/relationships-card.tsx:110",
-      "covered": "partly",
-      "by": "get_customer, once found by search"
+      "covered": "yes",
+      "by": "get_record_details company people ids, then get_customer"
     },
     {
       "path": "Company page → Add person",
@@ -1665,22 +1665,22 @@
       "path": "Record page → Book",
       "kind": "do",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:242",
-      "covered": "partly",
-      "by": "book_appointment needs a person; no record link"
+      "covered": "yes",
+      "by": "book_appointment customRecordId, with its customer"
     },
     {
       "path": "Record page → Note",
       "kind": "do",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:251",
-      "covered": "no",
-      "by": "add_note has no record target"
+      "covered": "yes",
+      "by": "add_note customRecordId"
     },
     {
       "path": "Record page → Task",
       "kind": "do",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:260",
-      "covered": "no",
-      "by": "create_task has no record target"
+      "covered": "yes",
+      "by": "create_task customRecordId"
     },
     {
       "path": "Record page → File",
@@ -1693,8 +1693,8 @@
       "path": "Record page → tabs",
       "kind": "do",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
-      "covered": "partly",
-      "by": "some tabs have no tool"
+      "covered": "yes",
+      "by": "read_timeline_list, list_appointments customRecordId, list_tasks customRecordId, get_record_details files and fields"
     },
     {
       "path": "Record page → Timeline",
@@ -1707,15 +1707,15 @@
       "path": "Record page → Appointments",
       "kind": "see",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
-      "covered": "partly",
-      "by": "list_appointments has no record filter"
+      "covered": "yes",
+      "by": "list_appointments customRecordId"
     },
     {
       "path": "Record page → Tasks",
       "kind": "see",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
-      "covered": "no",
-      "by": "no tool lists a record's tasks"
+      "covered": "yes",
+      "by": "list_tasks customRecordId, status open, done or all"
     },
     {
       "path": "Record page → Files",
@@ -1735,15 +1735,15 @@
       "path": "Record page → Details: added on",
       "kind": "see",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:404",
-      "covered": "no",
-      "by": "no date returned"
+      "covered": "yes",
+      "by": "get_record_details added"
     },
     {
       "path": "Record page → Team: who looks after it",
       "kind": "see",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:428",
-      "covered": "partly",
-      "by": "owner and team not returned for a record"
+      "covered": "yes",
+      "by": "get_record_details keptToItsPeople, lookedAfterBy"
     },
     {
       "path": "Record page → Team: assign, take off, make main",
@@ -1770,8 +1770,8 @@
       "path": "Lead page → menu → Edit",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:331",
-      "covered": "partly",
-      "by": "update_lead value, assignee only"
+      "covered": "yes",
+      "by": "update_lead title, value, assigneeUserId, expectedCloseOn, source"
     },
     {
       "path": "Lead page → menu → Archive",
@@ -1854,8 +1854,8 @@
       "path": "Lead page → next action, when, overdue",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:436",
-      "covered": "partly",
-      "by": "get_lead nextAction, needsNextAction; no time"
+      "covered": "yes",
+      "by": "get_lead nextAction, nextActionAt, nextActionOverdue"
     },
     {
       "path": "Lead page → set next action inline (web, phone)",
@@ -1868,15 +1868,15 @@
       "path": "Lead page → lost reason and date",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:494",
-      "covered": "partly",
-      "by": "read_lead_board only, top of column"
+      "covered": "yes",
+      "by": "get_lead lost, lostReason"
     },
     {
       "path": "Lead page → won date",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:503",
-      "covered": "partly",
-      "by": "read_lead_board only, top of column"
+      "covered": "yes",
+      "by": "get_lead won"
     },
     {
       "path": "Lead page → details: value, assignee, created",
@@ -1889,15 +1889,15 @@
       "path": "Lead page → details: expected close, source, last contact",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:518",
-      "covered": "partly",
-      "by": "read_lead_board only, top of column"
+      "covered": "yes",
+      "by": "get_lead expectedClose, source, lastContact"
     },
     {
       "path": "Lead page → tags",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:536",
-      "covered": "partly",
-      "by": "read_lead_board tags only"
+      "covered": "yes",
+      "by": "get_lead tags"
     },
     {
       "path": "Lead page → change tags",
@@ -1917,8 +1917,8 @@
       "path": "Lead page → Log call",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:557",
-      "covered": "no",
-      "by": "add_note writes notes only"
+      "covered": "yes",
+      "by": "add_note leadId, kind call"
     },
     {
       "path": "Lead page → Book",
@@ -1966,15 +1966,15 @@
       "path": "Lead page → Qualification: status, answers, summary",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:1",
-      "covered": "no",
-      "by": "get_lead has no qualification"
+      "covered": "yes",
+      "by": "get_lead qualification: status, answers (who, when), stillToAsk, questionsStillToAsk, ruledOutBy"
     },
     {
       "path": "Lead page → Money: estimates, invoices for the lead",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-money.tsx:322",
-      "covered": "partly",
-      "by": "customer_money by person, not by lead"
+      "covered": "yes",
+      "by": "customer_money leadId"
     },
     {
       "path": "Lead page → Money → New estimate",
@@ -2008,8 +2008,8 @@
       "path": "Lead page → tasks",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:689",
-      "covered": "partly",
-      "by": "get_customer openTasks of the person"
+      "covered": "yes",
+      "by": "list_tasks leadId"
     },
     {
       "path": "Lead page → files",
@@ -2029,8 +2029,8 @@
       "path": "Edit lead → Title",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:108",
-      "covered": "no",
-      "by": "update_lead has no title"
+      "covered": "yes",
+      "by": "update_lead title"
     },
     {
       "path": "Edit lead → Value",
@@ -2050,21 +2050,21 @@
       "path": "Edit lead → Expected close",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:143",
-      "covered": "no",
-      "by": "update_lead has no expectedCloseOn"
+      "covered": "yes",
+      "by": "update_lead expectedCloseOn"
     },
     {
       "path": "Edit lead → Source",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:151",
-      "covered": "no",
-      "by": "update_lead has no source"
+      "covered": "yes",
+      "by": "update_lead source"
     },
     {
       "path": "Edit lead → Save",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:159",
-      "covered": "partly",
+      "covered": "yes",
       "by": "update_lead"
     },
     {
@@ -2092,8 +2092,8 @@
       "path": "New lead → Who is it for (person or company)",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:149",
-      "covered": "partly",
-      "by": "create_lead personId; no companyId"
+      "covered": "yes",
+      "by": "create_lead personId or companyId"
     },
     {
       "path": "New lead → Title",
@@ -2141,22 +2141,22 @@
       "path": "New lead → When and time zone",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:239",
-      "covered": "partly",
-      "by": "create_lead has no time; update_lead after"
+      "covered": "yes",
+      "by": "create_lead nextActionAt, with its offset"
     },
     {
       "path": "New lead → Expected close",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:259",
-      "covered": "no",
-      "by": "create_lead has no expectedCloseOn"
+      "covered": "yes",
+      "by": "create_lead expectedCloseOn"
     },
     {
       "path": "New lead → Source",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:267",
-      "covered": "no",
-      "by": "create_lead has no source"
+      "covered": "yes",
+      "by": "create_lead source"
     },
     {
       "path": "New lead → Create",
@@ -2323,8 +2323,8 @@
       "path": "Phone Contacts → company row",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:235",
-      "covered": "partly",
-      "by": "search_customers companies: name, phone"
+      "covered": "yes",
+      "by": "list_companies rows: name, phone, email, people, open leads"
     },
     {
       "path": "Phone customer or company → Photo: take one or choose",
@@ -2405,7 +2405,7 @@
       "where": "A company's page (Contacts → Companies → a company): header phone/email/address, Details tab (Phone, other numbers, Email, other emails, Website, Address, other addresses, Assigned to, Source, Created, Notes), Fields, People · N in Relationships, its Leads and Tasks tabs; and the Companies tab columns (Contact, Tags, People, Open leads)",
       "gap": "No tool reads a company in full. get_record_details for a company returns only name, archived, lookedAfterBy, relationships and files. search_customers returns a company's id, name and phone, at most 3. Some of it can be reached: read_search_everything, or read_search_kind with kind 'companies' and the company's name, returns the main phone, email, address (street and city), people count and open-lead count, and read_search_kind with kind 'contacts' and the company's name finds the people there. Nothing returns the website, other numbers, emails or addresses, notes, source, tags, the company's own fields, created date, the named list of people from company.get, or the company's leads. list_leads has no companyId, though lead.list takes one.",
       "fix": "In get_record_details, when recordType is company (tools-inbox-crm.ts about()), also return from company.get: email, phone, website, address, otherPhones, otherEmails and otherAddresses (each with its label), notes, source, tags (names), createdAt, fields (fieldId, label, type, value via customValueText over custom_field.list {entity:'company'}), people [{id, name, phone, email, archived}], and openLeads from lead.list {companyId, status:'open'} (id, title, stage, value). Add companyId to list_leads in tools.ts:88-101 and pass it through in tools-read.ts list_leads.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2415,7 +2415,7 @@
       "where": "Contacts list: All / Leads / Clients segmented filter, Assigned to anyone picker, Client badge, Open leads and Last activity columns, company/address line; the Companies tab list",
       "gap": "list_customers passes only q, tagId, withoutTagId, limit and cursor to person.list. It can't filter to leads or clients, by who a customer is assigned to, or by company, although person.list takes standing, assignedUserId and companyId. It returns id, name, phone, email and tag names, with no client flag, open-lead count, last activity, company or address. No tool lists companies: search_customers stops at 3 and needs words; read_search_kind (which takes standing) needs at least 2 characters to search; find_archived lists only archived companies; crm.summary gives only the counts.",
       "fix": "Add standing ('lead'|'client'), assignedUserId, companyId, includeArchived and sort ('name'|'recent') to list_customers (tools.ts:63-75), and pass them to person.list in tools-contacts.ts:77-91. Return client, openLeads, lastActivityAt, company {id, name} and address.city. Add a list_companies tool on company.list (q, tagId, assignedUserId, standing, includeArchived, limit, cursor) returning id, name, phone, email, website, tags, peopleCount, openLeads, client and nextCursor.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2425,7 +2425,7 @@
       "where": "A customer's, company's, lead's and record's page: Log call (and the Note sheet's Note / Call / Visit choice, When, Related lead, Set a next action from this)",
       "gap": "add_note always calls activity.log with kind 'note'. It takes no occurredAt and no customRecordId. The Assistant can't log a call or a visit, back-date an entry, or put a note on a pet, vehicle or property, although activity.log takes all three and the places map tells it to use 'Note or Log call'. The only part already covered: it can attach the note to a lead together with a person.",
       "fix": "Add kind ('note'|'call'|'visit', default 'note'), occurredAt (when, optional) and customRecordId to add_note (tools.ts:1163-1174), or rename it log_activity. Pass them to activity.log in tools-write.ts:195-206, title the done card 'Call on …' or 'Visit on …', and link a record with recordHref. Keep it auto with Undo, as activity.delete already undoes it (tools-write.ts:928).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2435,7 +2435,7 @@
       "where": "A lead (web full page and side sheet, phone lead screen): next action time, Lost: reason · date, Won · date, Value, Assigned to, Last contact, Expected close, Source, Tags, “N days in stage”, its company, archived",
       "gap": "get_lead and list_leads use leadResult, which drops nextActionAt, nextActionOverdue, lostReason, lostAt, wonAt, lastContactAt, expectedCloseOn, source, tags, stageEnteredAt, company and archivedAt, although lead.get and lead.list return them. Some of it can be reached: read_lead_board returns the full lead cards, but for one pipeline, without archived leads, and cut off after 16,000 characters (about 20 leads). read_timeline_list on a lead shows the 'Lost: <reason>' line with its date. Neither is the natural path for 'when is the follow-up due?', and get_lead answers with the next action but not its time.",
       "fix": "In tools-read.ts:210-222 leadResult, add: nextActionAt (formatted with when()), nextActionOverdue, lostReason, lostAt, wonAt, lastContactAt, expectedCloseOn, source, tags (names), daysInStage (from stageEnteredAt), company {id, name} and archived. Widen the LeadItem interface (tools-read.ts:136-151) to match, and update get_lead's description ('…next action and when, last contact, expected close, source, tags, why it was lost…').",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2445,7 +2445,7 @@
       "where": "A customer's page: Details tab rows Other addresses (with labels), Calls from us (Not asked / Agreed in writing (where) / Doesn’t want calls), Created and the “Customer since” badge, the Archived badge and the “merged into … Open (name)” notice; phone head line (customer since · source) and the possible-duplicate banner",
       "gap": "Archived is already readable: get_record_details for a person returns archived, and find_archived lists archived customers with the date. get_customer still leaves out otherAddresses (with labels), callConsent (consent and where it's written), createdAt (Customer since), mergedInto (the record a duplicate was merged into) and the company's id, all of which person.get returns. The Assistant can't say whether someone agreed to calls, give their second address, say how long they've been a customer, or point from a merged duplicate to the record kept.",
       "fix": "In tools-read.ts get_customer (313-327), add otherAddresses [{label, address line}], calls {consent: 'not asked'|'agreed in writing'|'doesn’t want calls', where: callConsent.source}, customerSince: createdAt, archived: !!archivedAt, mergedInto {id, name}, and company {id, name} in place of the bare name. Add these fields to the PersonItem interface (tools-read.ts:121-135).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2455,7 +2455,7 @@
       "where": "Edit lead dialog (⋯ → Edit details on a lead): Title, Expected close, Source",
       "gap": "update_lead takes only assigneeUserId, value, nextAction and nextActionAt. It can't rename a lead or change its Expected close or Source, although lead.update takes title, expectedCloseOn and source, and the places map tells it 'Change its value, owner or close date: ⋯, then Edit details'. A nextActionAt on its own is refused. The model can work around that by sending the current nextAction text again.",
       "fix": "Add title (text 160), expectedCloseOn (YYYY-MM-DD, nullable) and source (max 80, nullable) to update_lead (tools.ts:1297-1308). In tools-write.ts updateLead, add card rows Title, Expected close and Source (before → after) and pass them to lead.update. When only nextActionAt is given, call lead.set_next_action with the lead's current nextAction text, and refuse only when the lead has none.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2465,7 +2465,7 @@
       "where": "New lead dialog (Lead button on a person's or company's page, Pipeline → New lead): Who is it for? (person or company), Pipeline, Next action + When, Expected close, Source",
       "gap": "create_lead needs a personId, so it can't open a lead for a company, although lead.create takes a companyId. It also leaves out the dialog's next-action time, Expected close and Source. Correction: the New lead dialog doesn't set tags. Additional bug: create_lead's commit sends stageId without pipelineId. lead.create then takes the first pipeline and refuses a stage from any other, so a lead can't be opened in a second pipeline, even though the card shows that stage.",
       "fix": "In tools.ts:1282-1295, make personId optional and add companyId (exactly one required), nextActionAt (when), expectedCloseOn (date) and source. In tools-write.ts createLead (672-735), read the company's name for the card, find the stage's pipeline and pass pipelineId, and pass companyId, nextActionAt, expectedCloseOn and source to lead.create.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2475,7 +2475,7 @@
       "where": "A company's page: Details tab → Fields → Edit (the business's own company fields)",
       "gap": "No tool sets or reads a company's own fields. manage_company has no field values. manage_record 'change' runs record.set_fields only with recordType 'custom_record', and update_customer only with 'person'. get_record_details for a company returns no fields.",
       "fix": "Add values (field id → value, null clears it) to manage_company 'change' (tools-inbox-crm.ts:138-160). Check them with valueLines against custom_field.list {entity:'company'} and run record.set_fields {recordType:'company'} in the commit. Return the company's fields (fieldId, label, type, value) from get_record_details (crm-1).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2485,7 +2485,7 @@
       "where": "Edit details (person and company): Add another address with its label, Make main for a number/email/address; company's Add another phone / email",
       "gap": "For a person, 'Make main' on a number or email is already possible: update_customer can set phone or email, removeOtherPhones/removeOtherEmails and addOtherPhones/addOtherEmails (with labels) in one call. What's missing: update_customer can't add, remove, relabel or make main a person's other addresses (otherAddresses), and manage_company can't touch a company's other phones, emails or addresses at all, although company.update takes otherPhones, otherEmails and otherAddresses.",
       "fix": "Add addOtherAddresses [{line1, line2, city, state, postalCode, label}] and removeOtherAddresses to update_customer, built as tools-contacts.ts:610-660 builds the phone and email lists. Add addOtherPhones, removeOtherPhones, addOtherEmails, removeOtherEmails, addOtherAddresses and removeOtherAddresses to manage_company, with card rows 'Other numbers', 'Other emails' and 'Other addresses'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2495,7 +2495,7 @@
       "where": "Details tab → Fields (fields marked to show when empty, choice fields shown by their label)",
       "gap": "update_customer's description tells the model to take field ids 'from get_customer', and its own refusal sends it back there (tools-contacts.ts:707). get_customer lists only fields that already have a value, with the raw stored value, no type, and no choice labels. An empty field (gate code, account number) has no id the model is told about. get_settings with area fields does read custom_field.list, but nothing points the model there.",
       "fix": "In tools-read.ts get_customer (301-311), always read custom_field.list {entity:'person'} and return every field as {id, name, type, choices (value and label), value: customValueText(field, custom[id]) or null}. Also change update_customer's description to 'by field id, from get_customer (every field, empty ones too)'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2505,7 +2505,7 @@
       "where": "A lead's full page: Qualification card (the AI teammate's qualifying answers, status, the questions still missing)",
       "gap": "lead.get returns lead.qualification, but get_lead drops it in leadResult. No other Assistant source reads it. The timeline gets only a 'lead_qualified' line, with the lead's title, once it's qualified. The Assistant can't say whether a lead is qualified, not a fit or in progress, what the customer answered, or which questions are still missing.",
       "fix": "In tools-read.ts get_lead (376-399), return qualification: status; answers [{question (from ai_teammate.get config.qualify.questions by id), answer, by: 'AI teammate' or the person's name, at}]; missing (the question texts); notAFit. Mention qualification in get_lead's description.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2515,7 +2515,7 @@
       "where": "Tasks tab on a company's page and on a record's page (New task), and every record's Tasks tab including done tasks",
       "gap": "create_task takes only personId and leadId, so it can't put a task on a company or on a pet, vehicle or property, although task.create takes companyId and customRecordId. list_tasks always asks for status 'open' and has no person, lead, company or record filter. Its rows give only the person's name, not the lead, company or record, although task.list takes all those filters and returns them.",
       "fix": "Add companyId and customRecordId to create_task (tools.ts:1129-1143) and pass them in tools-write.ts create_task. Add personId, leadId, companyId, customRecordId and status ('open'|'done'|'all', default open) to list_tasks (tools.ts:132-142) and pass them in tools-read.ts:440-446. Return each task's lead.title, company.name, customRecord (name, kind), notes and doneAt.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2525,7 +2525,7 @@
       "where": "Files tab (customer, company, lead, record): each file's “Signed · kept” lock, opening it, Download",
       "gap": "No Assistant read says whether a file is locked ('Signed · kept'): get_record_details drops locked, although file.list returns it. Opening a file is partly covered: read_search_everything with the file's name returns a path to the file on its record's Files tab (?tab=files&file=<id>), but it's a path, not a full link, and get_record_details gives no link at all.",
       "fix": "In get_record_details' files (tools-inbox-crm.ts:1910-1917), add locked: f.locked (and the words 'Signed and kept: it can’t be deleted'). Add href: the record's page (pageOf) + '?tab=files&file=<id>', made a full link from the web app's address as the commits' webUrl is, or return a list card with those hrefs.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2535,7 +2535,7 @@
       "where": "Files tab ⋯ → Remove (shown only to people with Delete files, files.delete)",
       "gap": "delete_file runs file.delete, which removes the file for good (no Deleted bin; the worker deletes the stored object, and its own card says it 'can’t be brought back'). That breaks the owner's settled rule that the Assistant never deletes anything for good (docs/operations.md, settings-map's Deleted bin handover, and the public site's 'It never deletes anything for good'). It's also offered with records.write, while the screen shows Remove only with files.delete. Correction: the database's refusal reaches the person as plain words ('Only the person who added this file can delete it…'), not a raw error, but only after Confirm. A member who uploaded a file can also delete it through the Assistant although the screen hides Remove from them.",
       "fix": "Add 'file.delete': 'deleting a file for good, which stays the person’s (the owner, 2026-10-26)' to NEVER_FOR_THE_ASSISTANT. Remove delete_file from tools-inbox-crm.ts (core 249-260 and worker 2266-2300, plus inboxCrmConfirmTools and inboxCrmStepLabels), and remove the places-map canChange line 'delete a file on their record'. Have the Assistant point to 'their page, Files tab, ⋯ beside the file, Remove'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2545,7 +2545,7 @@
       "where": "A record's own page (Contacts → a kind's tab → a pet, vehicle or property)",
       "gap": "AssistantPageRecord's types are person, company, lead, conversation, appointment, workflow and workflow_run, and RECORD_ROUTES has no customers/records. On a record's page (/customers/records/<id>), the panel is told 'No customer, lead or appointment is on screen', so 'this', 'add a note to this' or 'who owns this dog?' can't be tied to the record.",
       "fix": "Add 'custom_record' to AssistantPageRecord.type (schemas/assistant.ts:319-330) and ['custom_record','customers/records'] to RECORD_ROUTES (words.ts:413-420). In context.ts pageLabel, read custom_record.get and label it '<name> (<kind singular>)'. In prompt.ts pageLines, say 'get_record_details with recordType record reads it'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2555,7 +2555,7 @@
       "where": "A record kept to its people (e.g. a Real Estate deal): the Assigned card with its main person and team",
       "gap": "get_record_details for a record returns name, kind, typeId, archived, notes and fields, but not keptToTeam, owner or team, which custom_record.get has and the Assigned card shows. No other read returns them (the records search gives only archivedAt). Meanwhile do_custom_record_assign and do_custom_record_unassign are offered.",
       "fix": "In tools-inbox-crm.ts getRecordDetails' record branch (1870-1885), add keptToTeam: record.keptToTeam and lookedAfterBy {main: owner {userId, name}, alsoOnIt: team [{userId, name}]}, as the person and company branch does (1860-1863).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2565,7 +2565,7 @@
       "where": "Contacts → a kind's tab (Pets · N): the count on the tab, Show more, the Updated column",
       "gap": "find_records caps limit at 50, has no cursor, and drops custom_record.list's nextCursor. It doesn't return each kind's recordCount (from custom_record_type.list) or updatedAt. Its card title is count(items.length), so 'How many vehicles?' is answered from at most 50 rows without saying there are more.",
       "fix": "In find_records, take a cursor and return nextCursor and a 'more' note. Return recordCount on each kind (it's already in custom_record_type.list's output) and updatedAt on each record. Word the card title with '+' when nextCursor is set.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2575,7 +2575,7 @@
       "where": "A record's page: Book (an appointment tied to the pet/vehicle/property), and its Appointments tab",
       "gap": "A repeat series can already be tied to a record: manage_repeat_visits takes customRecordId. A single booking can't: book_appointment (and update_appointment) take no customRecordId, although appointment.create does. list_appointments can't filter to a record's visits, although appointment.list takes customRecordId. So 'Book Max in Tuesday' books only the owner, and Max's Appointments tab can't be read.",
       "fix": "Add customRecordId to book_appointment (tools.ts:1345-1361) and pass it to appointment.create in its commit. Add customRecordId as a filter to list_appointments (tools-scheduling.ts:37-52) and pass it to appointment.list.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2585,7 +2585,7 @@
       "where": "A customer's page: Text ▾ and Email ▾ when they have more than one number or email (each “number · Work” choice)",
       "gap": "send_text and send_email pick the target from personId (the main number, or their first text thread) or a conversationId. The Assistant can't text or email one of a person's other numbers or addresses unless a thread with it already exists, although message.send takes toPhone and toEmail. The screen's Text ▾ and Email ▾ offer each 'number · label'.",
       "fix": "Add an optional to to send_text (a phone from get_customer's phone or otherPhones) and to send_email (from email or otherEmails), checked against person.get. Pass toPhone or toEmail to message.send in the commits (tools-write.ts:399-405,494-500), and show 'To: (512) 555-0101 · Work' on the card.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2595,7 +2595,7 @@
       "where": "A lead's ⋯ (Lead actions) menu: Edit details, Archive lead, Delete for good… (owners)",
       "gap": "The lead's ⋯ menu has Delete for good… for owners (lead-delete, on the web and the phone), and move_to_bin takes leads. But the places map says '⋯ has Edit details and Archive lead' and lists 'deleting a lead (archive it)' under Not in HandsFreeOS, and the prompt tells the model to say plainly that HandsFreeOS doesn't do anything on that list.",
       "fix": "In places-map.ts:224, change the ⋯ line to '⋯ has Edit details, Archive lead and Delete for good… (owners)'. Add the howTo 'Delete a lead for good: ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin'. Remove notHere 'deleting a lead (archive it)' (line 235). Add 'delete it through the Deleted bin (owners)' to canChange.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2605,7 +2605,7 @@
       "where": "A company's page and a record's page (pet, vehicle, property)",
       "gap": "The places map has no entry for a record's page. The company page is only 'the same, without calling, texting, booking or money' inside the customer page's entry. That leaves out the company's People list and Add person in Relationships, and wrongly implies Merge…, Calls from us, Regular services, Conversations, Workflows and Document are there. How to archive or book a pet, or where its buttons are, has nothing to go on.",
       "fix": "Add places entries 'A company’s page' (path /customers/companies/[companyId]): Note, Log call, Task, Lead, File; ⋯ Edit details, Archive, Delete for good… (owners); tabs; Assigned to, Open lead, Relationships with People and Add person. Add 'A record’s page' (path /customers/records/[recordId]): Book, Note, Task, File; ⋯ Edit details, Archive, Delete for good…; Appointments, Tasks and Files tabs; Assigned (when kept to its people) and Relationships.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2615,7 +2615,7 @@
       "where": "A customer's page: the buttons along the top and the cards beside them",
       "gap": "The customer page's 'Along the top' line leaves out Document (shown with documents.send) and the video call button. 'Beside them' leaves out the Facebook/Instagram ads card (AttributionCard) and the Partner card. The places map has no Documents place either, so asked where to send a document from a customer, the model has nothing to quote.",
       "fix": "Change places-map.ts:160 to 'Along the top: Call, Text, Email, Video call, Book, Note, Log call, Task, Lead, File, Document (with Send documents), and Add to workflow…'. Change line 162 to add 'the ads and links that brought them (when any did), Partner (while partners are on)'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2625,7 +2625,7 @@
       "where": "A lead's full page: Money card (what has been quoted or billed on this job)",
       "gap": "customer_money always reads money.for_record with recordType 'person', and its documents don't say which lead they're for. get_money_document doesn't return the lead either. A lead's Money card (what's quoted or billed on that job) can't be read apart from the customer's other jobs, although money.for_record takes a lead.",
       "fix": "Add an optional leadId to customer_money (tools.ts:249-255; personId optional when leadId is given) that reads money.for_record {recordType:'lead', recordId: leadId}. Or return each estimate's and invoice's lead {id, title} in customer_money and get_money_document.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     }
   ]

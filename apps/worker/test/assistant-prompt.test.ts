@@ -58,6 +58,15 @@ describe('Assistant context (PERF-M20)', () => {
       `On screen now: An invoice (Money → Invoices, then press the invoice), showing invoice id ${ID}.`,
     );
     expect(on('/audit')).toContain('On screen now: Audit log (Audit log).');
+    expect(on(`/customers/companies/${ID}`)).toContain(
+      'On screen now: A company’s page (Contacts → Companies, then press the company)',
+    );
+    // A pet, vehicle or property on screen is a record "this" can mean, read with get_record_details.
+    expect(
+      turnText({ ...PROMPT, page: { type: 'custom_record', id: ID, label: 'Rex (pet)' } }),
+    ).toContain(
+      `On screen now: Rex (pet), one of the business’s own records (customRecordId ${ID}). "It" or "this" usually means this record; get_record_details with recordType record reads it`,
+    );
     expect(on(`/a/realestate/deals/${ID}`)).toContain(
       `On screen now: the page at /a/realestate/deals/${ID}, which isn’t one of the places above, showing deal id ${ID}.`,
     );

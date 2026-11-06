@@ -325,6 +325,7 @@ export const AssistantPageRecord = z.object({
     'appointment',
     'workflow',
     'workflow_run',
+    'custom_record',
   ]),
   id: uuid,
 });

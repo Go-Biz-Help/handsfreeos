@@ -50,6 +50,21 @@ export const UpcomingVisits = z
   .describe(
     'When the change takes someone or something off visits already booked: keep (they stay as booked), reassign (to someone else on the calendar who is free) or cancel_and_notify (cancelled, and each customer is told)',
   );
+/** Another address on file, as the edit dialog's Add another address takes it. */
+export const otherAddressInput = z.object({
+  line1: z.string().trim().max(200).optional(),
+  line2: z.string().trim().max(200).optional(),
+  city: z.string().trim().max(100).optional(),
+  state: z.string().trim().max(50).optional(),
+  postalCode: z.string().trim().max(20).optional(),
+  label: z
+    .string()
+    .trim()
+    .max(40)
+    .optional()
+    .describe('Home, Work, Billing, Job site, Rental, Other, or any word'),
+});
+
 export const clock = z
   .string()
   .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use a 24-hour time like 08:00.');

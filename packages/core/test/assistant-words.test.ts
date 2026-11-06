@@ -208,11 +208,13 @@ describe('a confirmation once it is answered', () => {
 
 describe('the record a question is asked from', () => {
   const ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
-  it('reads the customer, company, lead, conversation, workflow or appointment the page is showing', () => {
+  it('reads the customer, company, record, lead, conversation, workflow or appointment the page is showing', () => {
     const at = (rest: string, appt: string | null = null) =>
       assistantPageRecord(`/app/w/${WS}/${rest}`, WS, appt);
     expect(at(`customers/people/${ID}`)).toEqual({ type: 'person', id: ID });
     expect(at(`customers/companies/${ID}`)).toEqual({ type: 'company', id: ID });
+    // A pet, vehicle or property: one of the business's own kinds of records.
+    expect(at(`customers/records/${ID}`)).toEqual({ type: 'custom_record', id: ID });
     expect(at(`leads/${ID}`)).toEqual({ type: 'lead', id: ID });
     expect(at(`inbox/${ID}`)).toEqual({ type: 'conversation', id: ID });
     expect(at(`workflows/${ID}`)).toEqual({ type: 'workflow', id: ID });
