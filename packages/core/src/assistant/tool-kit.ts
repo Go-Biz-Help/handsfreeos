@@ -5,6 +5,7 @@
  */
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
+import { IMPACT_DECISIONS } from '../calendar/impact';
 import type { Permission } from '../permissions';
 
 export type ToolAutonomy = 'auto' | 'confirm';
@@ -37,6 +38,18 @@ export const dayOrWhen = z.union([
   when,
 ]);
 export const minutes = z.int().min(5).max(720).describe('Length in minutes');
+/** A whole local day, kept as it is: '2026-09-17'. */
+export const localDay = z.string().refine(isLocalDate, { error: 'Use a date like 2026-09-17.' });
+/**
+ * What happens to visits already booked when a calendar change takes someone or something off them, as Before you
+ * save asks. Keeping them is always allowed; an answer a visit can't take (nobody left to reassign to) keeps it.
+ */
+export const UpcomingVisits = z
+  .enum(IMPACT_DECISIONS)
+  .default('keep')
+  .describe(
+    'When the change takes someone or something off visits already booked: keep (they stay as booked), reassign (to someone else on the calendar who is free) or cancel_and_notify (cancelled, and each customer is told)',
+  );
 export const clock = z
   .string()
   .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/, 'Use a 24-hour time like 08:00.');

@@ -1,10 +1,5 @@
 'use client';
-import {
-  allSteps,
-  parseDefinition,
-  type CalendarConfig,
-  type WorkflowDefinition,
-} from '@hfos/core';
+import { parseDefinition, sendsReminder, type CalendarConfig } from '@hfos/core';
 import { AlertTriangle, ChevronDown, Info, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -28,26 +23,6 @@ interface Row {
   readonly w: WorkflowSummary;
   /** It texts or emails before the appointment starts, as calendar reminders do. */
   readonly reminds: boolean;
-}
-
-/** A workflow that messages the customer before their appointment: what Notifications' reminders already do. */
-export function sendsReminder(def: WorkflowDefinition): boolean {
-  const locs = allSteps(def);
-  const messages = locs.some(
-    ({ step }) =>
-      step.type === 'action' && (step.action === 'send_text' || step.action === 'send_email'),
-  );
-  if (!messages) return false;
-  const beforeStart = (anchor: string, direction: string) =>
-    anchor === 'appointment.starts_at' && direction === 'before';
-  const t = def.trigger;
-  if (t.kind === 'date' && beforeStart(t.anchor, t.offset.direction)) return true;
-  return locs.some(
-    ({ step }) =>
-      step.type === 'wait' &&
-      step.until.kind === 'date_field' &&
-      beforeStart(step.until.anchor, step.until.offset.direction),
-  );
 }
 
 const RECIPES = [

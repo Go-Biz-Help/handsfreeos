@@ -3,16 +3,19 @@ import {
   assistantToolByName,
   AssistantCard,
   calendarCreate,
+  calendarSave,
   executeCommand,
   executeQuery,
   hasWorkspacePermission,
   organizationCreate,
   registry,
+  resourceCreate,
   serviceCreate,
   SETTINGS_AREAS,
   settingsArea,
   TEAMMATE_TOOL_NAMES,
   settingsMapText,
+  type CalendarConfig,
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
@@ -246,6 +249,18 @@ const calendars = () =>
     correlationId: randomUUID(),
     channel: 'test' as const,
   }) as Promise<{ items: { id: string; name: string; status: string }[] }>;
+const calendarOf = async (calendarId: string) =>
+  (
+    (await executeQuery(
+      api(),
+      registry.query('calendar.get')!,
+      { workspaceId, calendarId },
+      actor(owner),
+      { correlationId: randomUUID(), channel: 'test' as const },
+    )) as {
+      calendar: { status: string; color: string; revision: number; config: CalendarConfig };
+    }
+  ).calendar;
 
 describe('setting up a calendar by asking', () => {
   it('shows what it will do, changes nothing until Confirm, then sets it up', async () => {
@@ -257,7 +272,7 @@ describe('setting up a calendar by asking', () => {
         name: 'Duct cleaning',
         teammates: [owner.id],
         hours: [{ day: 1, start: '08:00', end: '17:00' }],
-        minNoticeHours: 4,
+        minNoticeMinutes: 240,
       },
       owner,
     );
@@ -266,7 +281,9 @@ describe('setting up a calendar by asking', () => {
     expect(card.confirmLabel).toBe('Set it up');
     expect(card.editable).toBe(false);
     expect(card.fields.map((f) => f.label)).toContain('Hours');
+    expect(card.fields.find((f) => f.label === 'How it works')!.value).toBe('Start from scratch');
     expect(card.fields.find((f) => f.label === 'Notice to book')!.value).toBe('4 hours');
+    expect(card.warnings[0]!.text).toContain('starts as a draft');
     expect(AssistantCard.safeParse(card).success).toBe(true);
     // Nothing happened yet: the card is a proposal.
     expect((await calendars()).items.length).toBe(before);
@@ -274,9 +291,78 @@ describe('setting up a calendar by asking', () => {
     const done = await confirm(tool!, parsed, owner);
     expect(done.command).toBe('calendar.create');
     expect(done.outcome).toContain('Duct cleaning');
+    expect(done.outcome).toContain('isn’t taking bookings yet');
     const made = (await calendars()).items.find((c) => c.name === 'Duct cleaning');
     expect(made).toBeTruthy();
+    expect(made!.status).toBe('draft');
     expect(done.href).toContain(made!.id);
+    // The people asked for are on it, though Start from scratch puts nobody on.
+    expect((await calendarOf(made!.id)).config.team.members.map((m) => m.userId)).toEqual([
+      owner.id,
+    ]);
+  });
+
+  it('sets one up from how it should work, with what each booking needs and how many', async () => {
+    const { resourceId } = await run(
+      resourceCreate,
+      { workspaceId, name: 'Duct vacuum', quantity: 3 },
+      owner,
+    );
+    const { card, parsed, tool } = await prepare(
+      'manage_calendar',
+      {
+        action: 'create',
+        name: 'Crew jobs',
+        preset: 'round_robin',
+        teammates: [owner.id],
+        resources: [{ resourceId, quantity: 2 }],
+        minNoticeMinutes: 1440,
+        color: '#0e7490',
+      },
+      owner,
+    );
+    const shown = (label: string) => card.fields.find((f) => f.label === label)?.value;
+    expect(shown('How it works')).toBe('Round Robin');
+    expect(shown('Who works it')).toBe('Dale Owner');
+    expect(shown('What each booking needs')).toBe('Duct vacuum × 2');
+    expect(shown('Notice to book')).toBe('1 day');
+    expect(shown('Colour')).toBe('teal');
+    await confirm(tool!, parsed, owner);
+
+    const made = (await calendars()).items.find((c) => c.name === 'Crew jobs')!;
+    const calendar = await calendarOf(made.id);
+    expect(calendar.status).toBe('draft');
+    expect(calendar.color).toBe('#0e7490');
+    expect(calendar.config.team.assignment).toBe('round_robin');
+    expect(calendar.config.team.members.map((m) => m.userId)).toEqual([owner.id]);
+    expect(calendar.config.resources.required).toEqual([{ resourceId, quantity: 2 }]);
+    expect(calendar.config.window.minNoticeMinutes).toBe(1440);
+  });
+
+  it('archives one, still finds it, and brings it back as a draft', async () => {
+    const id = (await calendars()).items.find((c) => c.name === 'Crew jobs')!.id;
+    const archive = await prepare('manage_calendar', { action: 'archive', calendarId: id }, owner);
+    expect(archive.card.title).toBe('Archive Crew jobs');
+    expect(archive.card.warnings).toEqual([
+      {
+        kind: 'caution',
+        text: 'It stops taking bookings and leaves the calendar. Its history stays.',
+      },
+    ]);
+    await confirm(archive.tool!, archive.parsed, owner);
+    // Off the list the screen opens on, but what the Assistant reads still has it, so it can bring it back.
+    expect((await calendars()).items.some((c) => c.id === id)).toBe(false);
+    const listed = await readTool('get_settings', 'calendars', owner);
+    expect(JSON.stringify(listed.result)).toContain(id);
+
+    const back = await prepare('manage_calendar', { action: 'to_draft', calendarId: id }, owner);
+    expect(back.card.title).toBe('Bring Crew jobs back as a draft');
+    const done = await confirm(back.tool!, back.parsed, owner);
+    expect(done.outcome).toContain('back to a draft');
+    expect((await calendars()).items.find((c) => c.id === id)!.status).toBe('draft');
+    await expect(
+      prepare('manage_calendar', { action: 'to_draft', calendarId: id }, owner),
+    ).rejects.toThrow('Crew jobs is already a draft.');
   });
 
   it('pauses one, and says visits already booked stay', async () => {
@@ -365,6 +451,58 @@ describe('changing a calendar that is already set up', () => {
     expect(after.calendar.config.window.minNoticeMinutes).toBe(240);
     expect(after.calendar.revision).toBeGreaterThan(before.calendar.revision);
   });
+
+  it('keeps each person’s weight when the team is sent again, and sets the booking rules', async () => {
+    const id = (await calendars()).items.find((c) => c.name === 'Duct cleaning')!.id;
+    const now = await calendarOf(id);
+    await run(
+      calendarSave,
+      {
+        workspaceId,
+        calendarId: id,
+        baseRevision: now.revision,
+        draft: {
+          ...now.config,
+          team: {
+            ...now.config.team,
+            members: now.config.team.members.map((m) => ({ ...m, weight: 3 })),
+          },
+        },
+        impactDecisions: {},
+      },
+      owner,
+    );
+
+    const { card, parsed, tool } = await prepare(
+      'manage_calendar',
+      {
+        action: 'change',
+        calendarId: id,
+        teammates: [owner.id],
+        maxDaysAhead: 30,
+        dailyLimitPerPerson: 4,
+        bookOnlyTo: '2099-12-31',
+      },
+      owner,
+    );
+    const shown = (label: string) => card.fields.find((f) => f.label === label)?.value;
+    expect(shown('Who works it')).toBe('Dale Owner');
+    expect(shown('Books up to')).toBe('30 days ahead');
+    expect(shown('Daily limit per person')).toBe('4');
+    expect(shown('Only between')).toBe('now to 2099-12-31');
+    await confirm(tool!, parsed, owner);
+
+    const after = await calendarOf(id);
+    expect(after.config.team.members).toEqual([
+      expect.objectContaining({ userId: owner.id, weight: 3 }),
+    ]);
+    expect(after.config.window).toMatchObject({
+      maxDaysAhead: 30,
+      dailyLimitPerPerson: 4,
+      dateTo: '2099-12-31',
+      minNoticeMinutes: 240,
+    });
+  });
 });
 
 describe('the booking page', () => {
@@ -423,6 +561,37 @@ describe('the booking page', () => {
     )!.value;
     expect(address).toBe(`${web}/book/settings-hvac-${suffix}`);
     expect(prepared.result).toMatchObject({ address });
+  });
+
+  it('changes a calendar’s link name, says the whole new link, and keeps the old one working', async () => {
+    const web = 'https://app.hfos.test';
+    const executor = createToolExecutor(api(), null, null, web);
+    const id = (await calendars()).items.find((c) => c.name === 'Duct cleaning')!.id;
+    const tool = assistantToolByName.get('manage_calendar')!;
+    const parsed = tool.input.parse({ action: 'change', calendarId: id, bookingLink: 'ducts' });
+    const { card } = await executor.prepare(tool, parsed as never, ctxFor(owner), randomUUID());
+    const fields = (card as Extract<AssistantCard, { type: 'confirm' }>).fields;
+    expect(fields.find((f) => f.label === 'Booking link')!.value).toBe(
+      `${web}/book/settings-hvac-${suffix}/ducts`,
+    );
+    const done = await executor.commit(tool as never, parsed as never, ctxFor(owner), {
+      toolCallId: randomUUID(),
+    });
+    expect(done.outcome).toContain(`/book/settings-hvac-${suffix}/ducts`);
+    expect(done.outcome).toContain('The old link keeps working.');
+
+    // The booking page's own address keeps no old one, so the card says what moving it costs.
+    const site = assistantToolByName.get('update_booking_site')!;
+    const moved = await executor.prepare(
+      site,
+      site.input.parse({ slug: `hvac-${suffix}` }) as never,
+      ctxFor(owner),
+      randomUUID(),
+    );
+    expect((moved.card as Extract<AssistantCard, { type: 'confirm' }>).warnings).toContainEqual({
+      kind: 'caution',
+      text: 'Links you’ve already shared stop working.',
+    });
   });
 });
 
@@ -670,6 +839,38 @@ describe('Settings → Calendars: services, resources and territories', () => {
     expect(
       (await q<{ items: TerritoryRow[] }>('territory.list')).items.some((t) => t.id === north.id),
     ).toBe(false);
+  });
+
+  it('adds and takes off a few ZIP codes without the whole list sent again', async () => {
+    const east = await prepareOn(createToolExecutor(api()), 'manage_territory', {
+      action: 'create',
+      name: 'East',
+      postalCodes: ['75214', '75218', '75223'],
+    });
+    await east.done();
+    const eastOf = async () =>
+      (await q<{ items: TerritoryRow[] }>('territory.list')).items.find((t) => t.name === 'East')!;
+    const id = (await eastOf()).id;
+
+    const change = await prepareOn(createToolExecutor(api()), 'manage_territory', {
+      action: 'change',
+      territoryId: id,
+      addPostalCodes: ['75228'],
+      removePostalCodes: ['75223'],
+    });
+    expect(fieldOf(change.card, 'Adds')).toBe('75228');
+    expect(fieldOf(change.card, 'Takes off')).toBe('75223');
+    expect(fieldOf(change.card, 'Covers')).toBe('3 ZIP codes');
+    await change.done();
+    expect([...(await eastOf()).postalCodes].sort()).toEqual(['75214', '75218', '75228']);
+
+    await expect(
+      prepareOn(createToolExecutor(api()), 'manage_territory', {
+        action: 'change',
+        territoryId: id,
+        addPostalCodes: ['75214'],
+      }),
+    ).rejects.toThrow('Nothing would change. East is already set up that way.');
   });
 });
 

@@ -96,6 +96,29 @@ export function allSteps(def: WorkflowDefinition): StepLocation[] {
   return out;
 }
 
+/**
+ * A workflow that texts or emails the customer before their appointment starts: what a calendar's own reminders
+ * (Notifications) already do, so the calendar's Automations warns they could hear from the business twice.
+ */
+export function sendsReminder(def: WorkflowDefinition): boolean {
+  const locs = allSteps(def);
+  const messages = locs.some(
+    ({ step }) =>
+      step.type === 'action' && (step.action === 'send_text' || step.action === 'send_email'),
+  );
+  if (!messages) return false;
+  const beforeStart = (anchor: string, direction: string) =>
+    anchor === 'appointment.starts_at' && direction === 'before';
+  const t = def.trigger;
+  if (t.kind === 'date' && beforeStart(t.anchor, t.offset.direction)) return true;
+  return locs.some(
+    ({ step }) =>
+      step.type === 'wait' &&
+      step.until.kind === 'date_field' &&
+      beforeStart(step.until.anchor, step.until.offset.direction),
+  );
+}
+
 /** The first step with this id, in document order. */
 export function findStep(def: WorkflowDefinition, stepId: string): StepLocation | null {
   return allSteps(def).find((l) => l.step.id === stepId) ?? null;

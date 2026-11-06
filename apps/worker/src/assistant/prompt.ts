@@ -114,6 +114,8 @@ export interface PromptContext {
     readonly services: readonly { readonly id: string; readonly name: string }[];
     readonly people: readonly string[];
   }[];
+  /** Calendars past the 8 listed: get_settings (calendars) reads them all. */
+  readonly moreCalendars?: number;
   readonly services: readonly {
     readonly id: string;
     readonly name: string;
@@ -277,6 +279,11 @@ export function lastingText(c: PromptContext): string {
             const status = k.status === 'active' ? '' : ` [${k.status}]`;
             return `- ${k.name}${status} (calendar id ${k.id}): ${parts.join('; ')}`;
           }),
+          ...(c.moreCalendars
+            ? [
+                `- …and ${c.moreCalendars} more, not listed here: get_settings (calendars) has them all.`,
+              ]
+            : []),
         ]
       : ['Calendars: none set up yet. Owners and admins add them in Settings → Calendars.']),
     ...(c.services.length

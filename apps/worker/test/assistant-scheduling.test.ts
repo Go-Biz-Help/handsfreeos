@@ -754,13 +754,40 @@ describe('a calendar’s other sections', () => {
   it('reads them in the words the change takes', async () => {
     const { result } = await read('get_calendar_settings', { calendarId: tuneUps });
     expect(result).toMatchObject({
-      calendar: { name: 'Tune-ups', books: 'open hours' },
+      calendar: {
+        name: 'Tune-ups',
+        status: 'active',
+        books: 'open_hours',
+        timeZone: CHI,
+        timeZoneIs: 'the business’s',
+      },
+      team: {
+        assignment: 'fixed',
+        peoplePerBooking: 1,
+        members: [{ userId: owner.id, name: 'Dale Owner', weight: 1, mustGo: false }],
+      },
+      services: { mode: 'one', items: [{ serviceId, name: 'AC tune-up' }] },
+      lengths: { minutes: [60] },
+      bookingWindow: { minNoticeMinutes: 0 },
+      calendarConnections: { checkPeoplesCalendars: true, addToTheirCalendars: true },
       waitlist: { on: true, offersLastMinutes: 60 },
       repeats: { staffCanRepeat: true },
       payments: { take: 'none' },
       crm: { customerOwner: 'who_takes_the_booking', createLead: null },
     });
-    expect((result['earlierVersions'] as unknown[]).length).toBeGreaterThan(0);
+    // Its link, the summary the builder shows beside its settings, and who saved each earlier version.
+    const calendar = result['calendar'] as Record<string, unknown>;
+    expect(String(calendar['bookingLink'])).toContain(`/book/c/${tuneUps}`);
+    expect(result['howItWorks']).toContain('Every booking goes to Dale.');
+    expect(result['sections']).toContainEqual({
+      name: 'Team & assignment',
+      summary: '1 person · fixed person',
+    });
+    expect(result['versionSavedBy']).toBe('Dale Owner');
+    const earlier = result['earlierVersions'] as { by: string; saved: string }[];
+    expect(earlier.length).toBeGreaterThan(0);
+    expect(earlier[0]!.by).toBe('Dale Owner');
+    expect(earlier[0]!.saved).toBeTruthy();
   });
 
   it('shows each change as before → after, saves nothing until Confirm, then saves it', async () => {
@@ -863,5 +890,97 @@ describe('a calendar’s other sections', () => {
     expect(after.revision).toBe(before.revision + 1);
     expect(after.config.waitlist.enabled).toBe(false);
     expect(after.config.payments.mode).toBe('none');
+  });
+
+  it('sets who works it, how long a visit is and the calendar connections, and keeps a weight sent without one', async () => {
+    const { card, parsed } = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      team: { assignment: 'weighted', members: [{ userId: owner.id, weight: 2, mustGo: true }] },
+      lengths: { minutes: [60, 90], customerPicks: true },
+      calendarConnections: { addToTheirCalendars: false },
+    });
+    expect(card.fields.map((f) => f.value)).toContain('Added Dale Owner');
+    expect(field(card, 'Assignment')).toBe('fixed person → weighted round robin');
+    expect(field(card, 'Lengths')).toBe('1 hour → 1 hour, 90 minutes');
+    expect(field(card, 'Customer picks the length')).toBe('off → on');
+    expect(field(card, 'Add to staff calendars')).toBe('on → off');
+    await confirm('update_calendar_settings', parsed);
+    const set = await calendarNow(ducts);
+    expect(set.config.team.assignment).toBe('weighted');
+    expect(set.config.team.members).toEqual([
+      expect.objectContaining({ userId: owner.id, weight: 2, required: true }),
+    ]);
+    expect(set.config.durations).toMatchObject({ minutes: [60, 90], customerChooses: true });
+    expect(set.config.integrations).toMatchObject({
+      checkStaffCalendars: true,
+      writeEvents: false,
+    });
+
+    // Sent again with nothing but who: the weight and Must go stay. A crew bigger than the team is something to fix.
+    const crew = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      team: { members: [{ userId: owner.id }], peoplePerBooking: 2 },
+    });
+    expect(field(crew.card, 'Crew size')).toBe('1 → 2');
+    expect(crew.card.warnings).toContainEqual({
+      kind: 'caution',
+      text: 'Crew of 2 but only 1 person.',
+    });
+    await confirm('update_calendar_settings', crew.parsed);
+    const after = await calendarNow(ducts);
+    expect(after.config.team.crewSize).toBe(2);
+    expect(after.config.team.members).toEqual([
+      expect.objectContaining({ userId: owner.id, weight: 2, required: true }),
+    ]);
+  });
+
+  it('applies a fix Things to check offers, and says when it isn’t offered any more', async () => {
+    const { result } = await read('get_calendar_settings', { calendarId: ducts });
+    expect(result['needsFixing']).toContainEqual({
+      issue: 'crew_exceeds_team',
+      severity: 'must fix',
+      message: 'Crew of 2 but only 1 person.',
+      section: 'Team & assignment',
+      blocks: 'turning it on',
+      fixes: [{ fixId: 'shrink_crew', label: 'Set crew to 1' }],
+    });
+    const fix = { issue: 'crew_exceeds_team', fixId: 'shrink_crew' };
+    const { card, parsed } = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      action: 'apply_fix',
+      fix,
+    });
+    expect(card.title).toBe('Fix Duct cleaning: Set crew to 1?');
+    expect(card.confirmLabel).toBe('Apply the fix');
+    expect(field(card, 'Crew size')).toBe('2 → 1');
+    await confirm('update_calendar_settings', parsed);
+    expect((await calendarNow(ducts)).config.team.crewSize).toBe(1);
+
+    await expect(
+      prepare('update_calendar_settings', { calendarId: ducts, action: 'apply_fix', fix }),
+    ).rejects.toThrow('That fix isn’t offered any more');
+  });
+
+  it('keeps an online place’s video and recording when the places are sent again', async () => {
+    const zoom = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      locations: { places: [{ kind: 'virtual', video: 'zoom', record: true }] },
+    });
+    await confirm('update_calendar_settings', zoom.parsed);
+    const { parsed } = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      locations: { places: [{ kind: 'virtual' }, { kind: 'phone' }], customerPicks: true },
+    });
+    await confirm('update_calendar_settings', parsed);
+    const { options } = (await calendarNow(ducts)).config.locations;
+    expect(options[0]).toMatchObject({ kind: 'virtual', video: 'zoom', record: true });
+    expect(options[1]).toMatchObject({ kind: 'phone' });
+
+    const { result } = await read('get_calendar_settings', { calendarId: ducts });
+    expect((result['locations'] as { places: unknown[] }).places[0]).toMatchObject({
+      kind: 'virtual',
+      video: 'zoom',
+      record: true,
+    });
   });
 });

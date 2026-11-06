@@ -119,6 +119,18 @@ export const CALENDAR_PRESETS: readonly CalendarPreset[] = [
   },
 ];
 
+/** The colours Name, color and time zone… offers for a calendar, by the name people say them with. */
+export const CALENDAR_COLORS = [
+  { hex: '#2d69d8', name: 'blue' },
+  { hex: '#0e7490', name: 'teal' },
+  { hex: '#7c3aed', name: 'purple' },
+  { hex: '#c2410c', name: 'orange' },
+  { hex: '#008743', name: 'green' },
+  { hex: '#be185d', name: 'pink' },
+  { hex: '#996300', name: 'amber' },
+  { hex: '#5b616a', name: 'grey' },
+] as const;
+
 export interface PresetContext {
   /** The person creating the calendar. */
   readonly me: string;

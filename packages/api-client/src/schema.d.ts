@@ -67390,6 +67390,7 @@ export interface operations {
                                 };
                             };
                             description: string | null;
+                            howItWorks: string[];
                             /** Format: uuid */
                             id: string;
                             issues: {
@@ -67417,6 +67418,11 @@ export interface operations {
                             permanentPath: string;
                             public: boolean;
                             revision: number;
+                            sections: {
+                                key: string;
+                                name: string;
+                                summary: string;
+                            }[];
                             slug: string;
                             /** @enum {string} */
                             status: "draft" | "active" | "paused" | "archived";

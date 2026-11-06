@@ -1,6 +1,7 @@
 'use client';
 import {
   applyPatch,
+  CALENDAR_COLORS,
   hasBlockingIssues,
   inferLabels,
   parseConfig,
@@ -114,16 +115,7 @@ const ICONS: Record<ModuleKey, LucideIcon> = {
   automations: Workflow,
 };
 
-const COLORS = [
-  '#2d69d8',
-  '#0e7490',
-  '#7c3aed',
-  '#c2410c',
-  '#008743',
-  '#be185d',
-  '#996300',
-  '#5b616a',
-];
+const COLORS = CALENDAR_COLORS.map((c) => c.hex);
 
 interface Details {
   name: string;

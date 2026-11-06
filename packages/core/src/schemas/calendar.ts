@@ -250,6 +250,10 @@ export const CalendarGetOutput = z.object({
     ownTimezone: z.string().nullable(),
     /** Conflicts in the saved settings, computed now. */
     issues: z.array(CalendarIssueOut),
+    /** "How this calendar works": the builder's plain sentences about the saved settings. */
+    howItWorks: z.array(z.string()),
+    /** Settings on this calendar: each section's name and its one-line summary, as the builder lists them. */
+    sections: z.array(z.object({ key: z.string(), name: z.string(), summary: z.string() })),
   }),
   /** Newest first, at most 50. */
   revisions: z.array(CalendarRevisionOut),

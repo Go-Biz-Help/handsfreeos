@@ -13,6 +13,7 @@ export * from './webinars';
 export * from './rules';
 export * from './labels';
 export * from './diff';
+export * from './describe';
 export * from './impact';
 export * from './engine/index';
 export * from './layout';

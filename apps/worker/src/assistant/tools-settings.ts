@@ -127,7 +127,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
         })),
     },
   ],
-  calendars: [{ name: 'calendar.list', as: 'calendars' }],
+  // Archived ones too, listed last with their status, as Settings → Calendars shows them.
+  calendars: [{ name: 'calendar.list', as: 'calendars', input: () => ({ includeArchived: true }) }],
   services: [{ name: 'service.list', as: 'services' }],
   resources: [{ name: 'resource.list', as: 'resources' }],
   territories: [{ name: 'territory.list', as: 'territories' }],

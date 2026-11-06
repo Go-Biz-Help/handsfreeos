@@ -120981,7 +120981,7 @@
                     "default": 50,
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 200
+                    "maximum": 500
                   }
                 }
               }
@@ -143313,6 +143313,35 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "howItWorks": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "sections": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "summary": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "name",
+                              "summary"
+                            ],
+                            "additionalProperties": false
+                          }
                         }
                       },
                       "required": [
@@ -143334,7 +143363,9 @@
                         "updatedAt",
                         "config",
                         "ownTimezone",
-                        "issues"
+                        "issues",
+                        "howItWorks",
+                        "sections"
                       ],
                       "additionalProperties": false
                     },
