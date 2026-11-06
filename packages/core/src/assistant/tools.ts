@@ -227,7 +227,8 @@ export const assistantTools = [
   /**
    * The money read tools run on their own for anyone with `money.read`, which is everyone — but a member only
    * ever sees the documents for the jobs they are on, because the rule is in the database under the queries
-   * these call. The two that move money are `money.manage`, so a member is never offered them at all.
+   * these call. The two that move money are `money.bill`, as their commands are (estimate.send and
+   * invoice.record_cash_payment): whoever the business lets bill gets them, and a member who doesn't never does.
    *
    * The AI teammate has none of these: it may not quote a price it was not given, and an AI that can issue an
    * invoice is a different conversation.
@@ -235,7 +236,7 @@ export const assistantTools = [
   define({
     name: 'money_owed',
     description:
-      'What is unpaid: the total owed, how much of it is late, how much is on its way by bank transfer, and the invoices behind it (newest first, with ids). Use it for “what are we owed?”, “what is overdue?”, “who hasn’t paid?”. A member sees only the jobs they are on.',
+      'What is unpaid: the total owed, how much of it is late, how much is on its way by bank transfer, how many invoices each is, and the invoices behind it with ids (newest first; overdue ones the longest late first). Use it for “what are we owed?”, “what is overdue?”, “who hasn’t paid?”. A member sees only the jobs they are on. Paid, draft or voided invoices, or a filter by account, are read_invoice_list.',
     input: z.object({
       overdueOnly: z.boolean().default(false).describe('Only invoices past their due date'),
       personId: uuid.optional().describe('Only this customer’s invoices'),
@@ -247,7 +248,7 @@ export const assistantTools = [
   define({
     name: 'money_collected',
     description:
-      'What has actually come in over the last so many days, less anything refunded in the same window, with the payments behind it. Use it for “what did we collect this month?” — for a calendar month pass the days since the 1st.',
+      'What has actually come in over the last so many days, less anything refunded in the same window, with the payments behind it (newest first: who paid, for which invoice, how, when and what was refunded). Use it for “what did we collect this month?” or “who paid us today?” — for a calendar month pass the days since the 1st. Failed payments, ones on their way, or a filter by how or which account are read_payment_list.',
     input: z.object({
       days: z.number().int().min(1).max(365).default(30).describe('How many days back to count'),
     }),
@@ -265,7 +266,7 @@ export const assistantTools = [
   define({
     name: 'estimates_waiting',
     description:
-      'Estimates that have gone out and are still waiting on an answer, oldest first, with how long each has been out, whether the customer opened it, and when it stops being good.',
+      'Estimates that have gone out and are still waiting on an answer, oldest first, with how long each has been out, whether the customer opened it, and when it stops being good. Approved, declined, expired, draft or voided ones are read_estimate_list with that status.',
     input: z.object({ limit: z.number().int().min(1).max(20).default(8) }),
     autonomy: 'auto',
     permission: 'money.read',
@@ -275,7 +276,7 @@ export const assistantTools = [
   define({
     name: 'send_estimate',
     description:
-      'Send an estimate that is already written (a draft — get its id from customer_money or estimates_waiting) to the customer, by email, text or both. Sending takes its number and freezes it, so it cannot be edited afterwards. Nothing goes out until the person says yes on the card.',
+      'Send an estimate that is still a draft to the customer, by email, text or both. A draft’s id is in customer_money (its estimates, state Draft) or read_estimate_list with status draft, or came back from write_estimate. Sending takes its number and freezes it, so it cannot be edited afterwards. One already out is sent again by giving them its link (get_customer_link) in a text or email. Nothing goes out until the person says yes on the card.',
     input: z.object({
       estimateId: uuid,
       channels: z
@@ -287,12 +288,12 @@ export const assistantTools = [
       message: z.string().trim().max(2000).optional().describe('A line to go out with the link'),
     }),
     autonomy: 'confirm',
-    permission: 'money.manage',
+    permission: 'money.bill',
   }),
   define({
     name: 'record_payment',
     description:
-      'Write down a payment the business took by hand — cash, a cheque, or one taken somewhere off HandsFreeOS. It records money already received; it never charges anyone. Leave out the amount for the whole balance. Nothing is recorded until the person says yes on the card.',
+      'Write down a payment the business took by hand — cash, a check, or one taken somewhere off HandsFreeOS — on an invoice that has gone out and still has something owed. It records money already received; it never charges anyone. Leave out the amount for the whole balance; it can’t be more than is owed. Nothing is recorded until the person says yes on the card.',
     input: z.object({
       invoiceId: uuid,
       amount: dollars.optional().describe('Leave it out to record the whole balance'),
@@ -302,10 +303,10 @@ export const assistantTools = [
         .trim()
         .max(120)
         .optional()
-        .describe('A cheque number, or where it was taken'),
+        .describe('A check number, or where it was taken'),
     }),
     autonomy: 'confirm',
-    permission: 'money.manage',
+    permission: 'money.bill',
   }),
 
   // ---------- workflows and the knowledge base (auto) ----------

@@ -185,10 +185,11 @@ describe('Assistant money tools', () => {
         name,
         { autonomy: 'auto', permission: 'money.read' },
       ]);
+    // On the permission their commands and the screens' Send and Record a payment ask for: whoever bills.
     for (const name of WRITES)
       expect([name, tool(name)]).toMatchObject([
         name,
-        { autonomy: 'confirm', permission: 'money.manage' },
+        { autonomy: 'confirm', permission: 'money.bill' },
       ]);
   });
 

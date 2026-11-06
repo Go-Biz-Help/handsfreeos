@@ -19,7 +19,7 @@
  * search, a template update): it is one or two indexed reads and an HMAC, for someone who bills.
  */
 import { HfosError } from '@hfos/core/server';
-import { asUser, asWorker, rows, sql, type Tx } from '@hfos/db/client';
+import { asUser, asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
@@ -29,7 +29,13 @@ import {
   requirePermission,
   type HttpDeps,
 } from '../http/common';
-import { estimateUrlFor, invoiceUrlFor, planUrlFor, type MoneyDocumentKind } from './links';
+import {
+  estimateUrlFor,
+  invoiceUrlFor,
+  planUrlFor,
+  type MoneyDocumentKind,
+  type MoneyLinks,
+} from './links';
 
 export const MoneyLinkInput = z.object({
   workspaceId: z.uuid(),
@@ -87,6 +93,33 @@ function unusable(kind: MoneyDocumentKind, status: string): HfosError | null {
 const gone = (kind: MoneyDocumentKind): HfosError =>
   HfosError.notFound(`That ${kind} isn’t there anymore. Refresh the page and try again.`);
 
+/**
+ * The customer's link, minted as the worker with its link key: the one the texts and emails send. Refused in words
+ * when there is nothing a customer could use behind it. Whoever asks must already have been shown the document as
+ * themselves: Copy link below, and the Assistant's get_customer_link (assistant/tools-billing.ts), read it first.
+ */
+export async function customerLink(
+  db: Db,
+  links: MoneyLinks,
+  workspaceId: string,
+  kind: MoneyDocumentKind,
+  id: string,
+): Promise<string> {
+  const url = await asWorker(db, { workspaceId }, async (tx) => {
+    const status = await statusOf(tx, kind, workspaceId, id);
+    if (!status) throw gone(kind);
+    const refused = unusable(kind, status);
+    if (refused) throw refused;
+    return kind === 'estimate'
+      ? estimateUrlFor(tx, links, id)
+      : kind === 'invoice'
+        ? invoiceUrlFor(tx, links, id)
+        : planUrlFor(tx, links, id);
+  });
+  if (!url) throw gone(kind);
+  return url;
+}
+
 export function registerMoneyLinkRoutes(app: FastifyInstance, deps: HttpDeps): void {
   app.post('/v1/money/link', async (req, reply) => {
     void reply.header('cache-control', 'no-store');
@@ -99,18 +132,14 @@ export function registerMoneyLinkRoutes(app: FastifyInstance, deps: HttpDeps): v
       );
       if (!seen) throw gone(input.kind);
     }
-    const url = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, async (tx) => {
-      const status = await statusOf(tx, input.kind, input.workspaceId, input.id);
-      if (!status) throw gone(input.kind);
-      const refused = unusable(input.kind, status);
-      if (refused) throw refused;
-      return input.kind === 'estimate'
-        ? estimateUrlFor(tx, deps.moneyLinks, input.id)
-        : input.kind === 'invoice'
-          ? invoiceUrlFor(tx, deps.moneyLinks, input.id)
-          : planUrlFor(tx, deps.moneyLinks, input.id);
-    });
-    if (!url) throw gone(input.kind);
-    return { url };
+    return {
+      url: await customerLink(
+        deps.httpDb,
+        deps.moneyLinks,
+        input.workspaceId,
+        input.kind,
+        input.id,
+      ),
+    };
   });
 }

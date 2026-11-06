@@ -25,21 +25,35 @@ import {
   isManualPaymentMethod,
   lineRateLabel,
   money,
+  MONEY_LINK_WHAT_IT_DOES,
   numberingAtCounter,
   numberingChangeProblem,
   numberPreview,
   percentLabel,
+  PAYMENT_PROVIDER_LABELS,
   planPriceLabel,
+  purposeLabel,
+  SUBSCRIPTION_WORDS,
   TERMS_WORDS,
+  totalsRows,
   type AssistantCard,
   type DocumentNumbering,
   type DocumentTotals,
   type EstimateStatus,
   type MoneySettings,
+  type PaymentTerms,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { customerLink } from '../money/link-routes';
+import type { MoneyLinks } from '../money/links';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { moneyPaths } from './tools-money';
+import {
+  moneyPaths,
+  noContact,
+  paymentHow as paymentWords,
+  reachable,
+  unreachable,
+} from './tools-money';
 import { command, query, quoted } from './tools-read';
 import type { SettingsConfirmTool } from './tools-settings-calendar';
 
@@ -126,6 +140,7 @@ interface Totals {
   subtotalCents: number;
   discountCents: number;
   discountPercentBp: number | null;
+  taxableBaseCents: number;
   taxCents: number;
   taxRateBp: number;
   taxLabel: string | null;
@@ -164,6 +179,10 @@ interface Estimate {
   notes: string | null;
   revision: number;
   lines: LineOut[];
+  firstViewedAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  assignee: { id: string; fullName: string } | null;
 }
 interface EstimateGet {
   estimate: Estimate;
@@ -197,6 +216,13 @@ interface Invoice {
   notes: string | null;
   revision: number;
   lines: LineOut[];
+  estimateId: string | null;
+  subscriptionId: string | null;
+  firstViewedAt: string | null;
+  paidAt: string | null;
+  voidedAt: string | null;
+  createdAt: string;
+  assignee: { id: string; fullName: string } | null;
 }
 interface Payment {
   id: string;
@@ -259,8 +285,18 @@ interface Subscription {
   hasCard: boolean;
   cardBrand: string | null;
   cardLast4: string | null;
+  cardExpiryMonth: number | null;
+  cardExpiryYear: number | null;
   cardRequestedAt: string | null;
   nextBillingOn: string | null;
+  startedOn: string | null;
+  pausedAt: string | null;
+  cancelReason: string | null;
+  endedOn: string | null;
+  failedCycles: number;
+  lastError: string | null;
+  /** Their own copy of what the plan includes, kept from when they joined. */
+  includes: string[];
 }
 interface Connection {
   id: string;
@@ -285,8 +321,11 @@ const invoiceOf = (db: Db, ctx: ToolContext, invoiceId: unknown) =>
   query<InvoiceGet>(db, ctx, 'invoice.get', { invoiceId });
 const personOf = async (db: Db, ctx: ToolContext, personId: unknown) =>
   (await query<{ person: Person }>(db, ctx, 'person.get', { personId })).person;
+/** Every account, disconnected ones too: an invoice or plan still names the one it was paid into. */
 const connectionsOf = (db: Db, ctx: ToolContext) =>
-  query<{ connections: Connection[] }>(db, ctx, 'payment_connection.list')
+  query<{ connections: Connection[] }>(db, ctx, 'payment_connection.list', {
+    includeDisconnected: true,
+  })
     .then((r) => r.connections)
     .catch(() => [] as Connection[]);
 
@@ -301,7 +340,7 @@ async function ifAllowed<T>(run: Promise<T>): Promise<T | null> {
 }
 
 const providerName = (p: string | null | undefined) =>
-  p === 'square' ? 'Square' : p === 'stripe' ? 'Stripe' : (p ?? 'the provider');
+  p ? (PAYMENT_PROVIDER_LABELS[p] ?? p) : 'the provider';
 
 /** "Stripe · Lone Star HVAC", the way every money screen names an account. */
 const accountLabel = (c: Connection) => {
@@ -315,18 +354,26 @@ const usableAccounts = (all: readonly Connection[]) =>
     .filter((c) => c.status === 'active' && c.usableByMe)
     .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
 
-const METHOD_WORDS: Readonly<Record<string, string>> = {
-  card: 'card',
-  ach: 'bank transfer',
-  bank_transfer: 'bank transfer',
-  cash: 'cash',
-  check: 'cheque',
-  other: 'taken another way',
-};
-const paymentWords = (p: Payment) =>
-  p.method === 'card' && p.cardBrand && p.cardLast4
-    ? `${p.cardBrand} •••• ${p.cardLast4}`
-    : (METHOD_WORDS[p.method] ?? p.method);
+/**
+ * The account a new invoice is paid into: the one named, which must be one this person may bill into, or else their
+ * usual one (null with none). What the Paid into picker offers, said before the card rather than after the press.
+ */
+async function accountFor(
+  db: Db,
+  ctx: ToolContext,
+  named: string | undefined,
+): Promise<Connection | null> {
+  const mine = usableAccounts(await connectionsOf(db, ctx));
+  if (!named) return mine[0] ?? null;
+  const found = mine.find((c) => c.id === named);
+  if (!found)
+    throw HfosError.rule(
+      'payment_account_not_yours',
+      409,
+      'That payment account isn’t one you can bill into right now. get_settings with area payments lists them.',
+    );
+  return found;
+}
 
 // ---------------------------------------------------------------------------
 // Lines, discounts and deposits, as the editor sends them
@@ -354,6 +401,29 @@ interface LineArg {
   taxable?: boolean;
   discountDollars?: number;
 }
+
+/** One line changed where it is (`changeLines`): only what is given changes. */
+interface LineChange {
+  n: number;
+  name?: string;
+  description?: string | null;
+  quantity?: number;
+  unitPrice?: number;
+  unitLabel?: string;
+  taxable?: boolean;
+  discountDollars?: number;
+}
+
+const lineChanged = (l: LineIn, c: LineChange): LineIn => ({
+  ...l,
+  name: c.name ?? l.name,
+  description: c.description === undefined ? l.description : c.description,
+  quantity: c.quantity === undefined ? l.quantity : Math.round(c.quantity * 1000) / 1000,
+  unitLabel: c.unitLabel ?? l.unitLabel,
+  unitPriceCents: c.unitPrice === undefined ? l.unitPriceCents : cents(c.unitPrice),
+  taxable: c.taxable ?? l.taxable,
+  discountCents: c.discountDollars === undefined ? l.discountCents : cents(c.discountDollars),
+});
 
 const lineIn = (l: LineOut): LineIn => ({
   productId: l.productId,
@@ -422,7 +492,10 @@ function lineFrom(l: LineArg, products: Map<string, Product>, settings: MoneySet
   };
 }
 
-/** The lines after a change: the whole list replaced, or some taken off and some added. */
+/**
+ * The lines after a change: the whole list replaced, or some changed where they are, some taken off and some added,
+ * every one numbered as it was before the change.
+ */
 function linesAfter(
   args: Args,
   existing: readonly LineIn[],
@@ -432,20 +505,27 @@ function linesAfter(
   const given = list<LineArg>(args['lines']);
   const added = list<LineArg>(args['addLines']) ?? [];
   const removed = list<number>(args['removeLines']) ?? [];
-  if (given && removed.length)
+  const changed = list<LineChange>(args['changeLines']) ?? [];
+  if (given && (removed.length || changed.length))
     throw HfosError.validation(
-      [{ path: 'removeLines', message: 'Pass one or the other.' }],
-      'Pass the whole list of lines, or the line numbers to take off — not both.',
+      [{ path: removed.length ? 'removeLines' : 'changeLines', message: 'Pass one or the other.' }],
+      'Pass the whole list of lines, or the line numbers to change or take off — not both.',
     );
-  for (const n of removed)
+  const numbered = [
+    ...removed.map((n) => ['removeLines', n] as const),
+    ...changed.map((c) => ['changeLines', c.n] as const),
+  ];
+  for (const [path, n] of numbered)
     if (n > existing.length)
       throw HfosError.validation(
-        [{ path: 'removeLines', message: `There is no line ${n}.` }],
+        [{ path, message: `There is no line ${n}.` }],
         `There is no line ${n}; it has ${counted(existing.length, 'line')}.`,
       );
   const kept = given
     ? given.map((l) => lineFrom(l, products, settings))
-    : existing.filter((_, i) => !removed.includes(i + 1));
+    : existing
+        .map((l, i) => changed.filter((c) => c.n === i + 1).reduce(lineChanged, l))
+        .filter((_, i) => !removed.includes(i + 1));
   return [...kept, ...added.map((l) => lineFrom(l, products, settings))];
 }
 
@@ -494,13 +574,14 @@ const CHANGES = [
   'lines',
   'addLines',
   'removeLines',
+  'changeLines',
   'discountPercent',
   'discountDollars',
   'note',
   'leadId',
 ] as const;
 const ESTIMATE_CHANGES = [...CHANGES, 'depositPercent', 'depositDollars', 'goodUntil'] as const;
-const INVOICE_CHANGES = [...CHANGES, 'dueOn', 'connectionId'] as const;
+const INVOICE_CHANGES = [...CHANGES, 'dueOn', 'terms', 'connectionId'] as const;
 
 interface Draft {
   kind: 'estimate' | 'invoice';
@@ -521,9 +602,36 @@ interface Draft {
   day: string | null;
   /** Invoices: the account it is paid into, when one is named. */
   connectionId: string | undefined;
+  /** Invoices: their own terms' words ("Net 7"), when they change; left out, they stay as they are. */
+  terms: string | undefined;
+  /** A new one opened from a lead is with the lead's owner, as the screen starts it; left out, the asker. */
+  assigneeUserId: string | null | undefined;
+  /** That owner's name, for the card, when it isn't the person asking. */
+  startedBy: string | null;
   account: string | null;
   totals: DocumentTotals;
   settings: MoneySettings;
+}
+
+/**
+ * An invoice's own terms as When it is due sets them: a choice is its words with no date (the due date is worked out
+ * when it is sent), null is the business's own terms, and a date picked takes their place. Undefined: unchanged.
+ */
+function termsOf(
+  args: Args,
+  settings: MoneySettings,
+): { words: string | undefined; clearsDay: boolean } {
+  const asked = args['terms'] as PaymentTerms | null | undefined;
+  if (asked === undefined) return { words: undefined, clearsDay: false };
+  if (asked !== null && str(args['dueOn']))
+    throw HfosError.validation(
+      [{ path: 'terms', message: 'Pass one or the other.' }],
+      'Pass a due date or terms, not both: picking terms leaves the date to be worked out when it is sent.',
+    );
+  return {
+    words: TERMS_WORDS[asked ?? settings.terms],
+    clearsDay: args['dueOn'] === undefined,
+  };
 }
 
 async function draftOf(
@@ -556,6 +664,10 @@ async function draftOf(
         [{ path: 'lines', message: 'Add a line.' }],
         `A new ${kind} needs at least one line. Pass them in lines: a productId from the catalogue, or a name and unitPrice.`,
       );
+    const leadId = (args['leadId'] as string | null | undefined) ?? null;
+    // Opened from a lead, it's with whoever owns the lead, as New estimate and New invoice start it (money/seed.ts).
+    const owner = leadId ? (await leadOf(db, ctx, leadId))?.assignee : undefined;
+    const terms = kind === 'invoice' && args['terms'] ? termsOf(args, settings) : null;
     draft = {
       kind,
       before: null,
@@ -567,9 +679,12 @@ async function draftOf(
       title: str(args['title']) ?? null,
       notes: str(args['note']),
       noteChanged: !!str(args['note']),
-      leadId: (args['leadId'] as string | null | undefined) ?? null,
+      leadId,
       day: (args[dayKey] as string | null | undefined) ?? null,
       connectionId: str(args['connectionId']),
+      terms: terms?.words,
+      assigneeUserId: leadId ? (owner?.id ?? null) : undefined,
+      startedBy: owner && owner.id !== ctx.actor.userId ? owner.fullName : null,
     };
   } else {
     const keys = kind === 'estimate' ? ESTIMATE_CHANGES : INVOICE_CHANGES;
@@ -598,6 +713,8 @@ async function draftOf(
         `That would leave the ${kind} with no lines, and it needs at least one. Keep a line, or add one in addLines.`,
       );
     const est = kind === 'estimate' ? (doc as Estimate) : null;
+    const terms =
+      kind === 'invoice' ? termsOf(args, settings) : { words: undefined, clearsDay: false };
     draft = {
       kind,
       before: {
@@ -612,17 +729,22 @@ async function draftOf(
       deposit: deposit ?? (est ? depositNow(est.deposit) : { kind: 'none' }),
       depositSent: deposit,
       title: args['title'] === undefined ? doc.title : (str(args['title']) ?? null),
-      notes: str(args['note']) ?? doc.notes,
-      noteChanged: !!str(args['note']),
+      // null takes the note off, as clearing Notes for the customer does; left out, it stays.
+      notes: args['note'] === null ? null : (str(args['note']) ?? doc.notes),
+      noteChanged: args['note'] === null || !!str(args['note']),
       leadId:
         args['leadId'] === undefined ? doc.leadId : ((args['leadId'] as string | null) ?? null),
-      day:
-        args[dayKey] === undefined
+      day: terms.clearsDay
+        ? null
+        : args[dayKey] === undefined
           ? est
             ? est.expiresOn
             : (doc as Invoice).dueOn
           : ((args[dayKey] as string | null) ?? null),
       connectionId: str(args['connectionId']),
+      terms: terms.words,
+      assigneeUserId: undefined,
+      startedBy: null,
     };
   }
 
@@ -683,12 +805,20 @@ function depositWords(d: Draft): string {
     : `${money(d.totals.depositCents)} up front`;
 }
 
+interface LeadLite {
+  title: string;
+  assignee: { id: string; fullName: string } | null;
+}
+
+/** A lead as the person sees it, or null when they can't (the command says why, if it matters). */
+async function leadOf(db: Db, ctx: ToolContext, leadId: string): Promise<LeadLite | null> {
+  const got = await query<{ lead: LeadLite }>(db, ctx, 'lead.get', { leadId }).catch(() => null);
+  return got?.lead ?? null;
+}
+
 async function leadTitle(db: Db, ctx: ToolContext, leadId: string | null): Promise<string> {
   if (!leadId) return '';
-  const got = await query<{ lead: { title: string } }>(db, ctx, 'lead.get', { leadId }).catch(
-    () => null,
-  );
-  return got?.lead.title ?? '';
+  return (await leadOf(db, ctx, leadId))?.title ?? '';
 }
 
 function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
@@ -712,10 +842,17 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
           ? [{ label: 'Was', value: money(d.before.totalCents) }]
           : []),
         ...(kind === 'estimate' ? [{ label: 'Deposit', value: depositWords(d) }] : []),
-        { label: dayLabel, value: d.day ? dayWords(d.day, ctx.timezone) : '' },
+        {
+          label: dayLabel,
+          value: d.day ? dayWords(d.day, ctx.timezone) : (d.terms ?? ''),
+        },
         { label: 'Paid into', value: d.account ?? '' },
         { label: 'Lead', value: lead },
-        { label: 'Note', value: d.noteChanged && d.notes ? clip(d.notes, 90) : '' },
+        { label: 'With', value: d.startedBy ?? '' },
+        {
+          label: 'Note',
+          value: d.noteChanged ? (d.notes ? clip(d.notes, 90) : 'Taken off') : '',
+        },
       ];
       const draftName = d.before?.number ?? `the draft ${kind}`;
       return {
@@ -752,6 +889,7 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
         title: d.title,
         lines: d.lines,
         discount: d.discount,
+        ...(d.assigneeUserId !== undefined ? { assigneeUserId: d.assigneeUserId } : {}),
       };
       if (kind === 'estimate') {
         const out = d.before
@@ -784,6 +922,7 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
             baseRevision: d.before.revision,
             notes: d.notes ?? null,
             dueOn: d.day,
+            ...(d.terms ? { terms: d.terms } : {}),
             ...(d.connectionId ? { connectionId: d.connectionId } : {}),
           })
         : await command<{ invoiceId: string }>(
@@ -794,6 +933,7 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
               ...header,
               notes: d.notes,
               dueOn: d.day,
+              terms: d.terms,
               connectionId: d.connectionId,
               // Where it came from, for reporting and the timeline: the Assistant, on this person's say-so.
               origin: 'assistant',
@@ -924,6 +1064,7 @@ const manageEstimate: SettingsConfirmTool = {
         'This estimate doesn’t ask for a deposit. Invoice the whole job instead.',
       );
     const due = str(args['dueOn']);
+    const account = await accountFor(db, ctx, str(args['connectionId']));
     return {
       card: billCard(toolCallId, 'manage_estimate', {
         title: `Turn ${estimateName(e)} into an invoice`,
@@ -942,6 +1083,7 @@ const manageEstimate: SettingsConfirmTool = {
             label: 'Due',
             value: due ? dayWords(due, ctx.timezone) : 'From your terms, when it’s sent',
           },
+          { label: 'Paid into', value: account ? accountLabel(account) : '' },
         ],
         confirmLabel: 'Make the invoice',
         warnings: [
@@ -998,6 +1140,7 @@ const manageEstimate: SettingsConfirmTool = {
         estimateId,
         purpose: args['bill'] === 'deposit_only' ? 'deposit' : 'standard',
         dueOn: str(args['dueOn']),
+        connectionId: str(args['connectionId']),
       }),
     );
     return {
@@ -1007,30 +1150,6 @@ const manageEstimate: SettingsConfirmTool = {
     };
   },
 };
-
-/** The channels a customer can actually be reached on, of the ones asked for. */
-function reachable(person: Person, asked: readonly string[]) {
-  const can = asked.filter((c) => (c === 'sms' ? !!person.phone : !!person.email));
-  const missing = asked.filter((c) => !can.includes(c));
-  const how = (c: string) =>
-    c === 'sms' ? `Text · ${person.phone ?? ''}` : `Email · ${person.email ?? ''}`;
-  return { can, missing, words: can.map(how).join(' and ') };
-}
-
-/** Why nothing can go to someone, from the ways asked for that they have nothing on file for. */
-const unreachable = (who: string, missing: readonly string[], what: string) =>
-  `${who} has no ${
-    missing.length > 1
-      ? 'mobile number or email address'
-      : missing[0] === 'sms'
-        ? 'mobile number'
-        : 'email address'
-  } on file, so ${what} can’t go to them. Add one on their page in Customers, then try again.`;
-
-const noContact = (who: string, channel: string) =>
-  channel === 'sms'
-    ? `No mobile number on file for ${who}, so no text goes.`
-    : `No email address on file for ${who}, so no email goes.`;
 
 const manageInvoice: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -1614,6 +1733,19 @@ const PLAN_STATUS: Readonly<Record<string, string>> = {
   cancelled: 'Ended',
   unmanaged: 'Billing at the provider, not managed here',
 };
+/** The plans the Plans table counts as members: billing, or with a payment that failed (plans-list.tsx). */
+const BILLING = new Set(['active', 'past_due']);
+
+/** An invoice one of a plan's cycles raised, as subscription.get lists them under What it has billed. */
+interface Cycle {
+  id: string;
+  number: string | null;
+  state: string;
+  totalCents: number;
+  balanceCents: number;
+  createdAt: string;
+}
+
 const planStatus = (s: Subscription) =>
   s.status === 'draft' && s.hasCard ? 'Being set up' : (PLAN_STATUS[s.status] ?? s.status);
 
@@ -2259,6 +2391,7 @@ const linesResult = (lines: readonly LineOut[]) =>
   lines.map((l, i) => ({
     n: i + 1,
     name: l.name,
+    ...(l.description ? { description: l.description } : {}),
     ...(l.productId ? { productId: l.productId } : {}),
     quantity: l.quantity,
     unit: l.unitLabel,
@@ -2267,6 +2400,19 @@ const linesResult = (lines: readonly LineOut[]) =>
     taxable: l.taxable,
     amount: money(l.amountCents),
   }));
+
+/**
+ * The subtotal and the tax as the document's totals block says them (core's totalsRows): the subtotal before any
+ * discount, and "$64.50 (Sales tax · 8.25% on $781.82)" in the business's own name for its tax.
+ */
+function totalsResult(t: Totals) {
+  const rows = totalsRows(t);
+  const tax = rows.find((r) => r.key === 'tax');
+  return {
+    subtotal: rows.find((r) => r.key === 'subtotal')?.value ?? money(t.subtotalCents),
+    tax: tax ? `${tax.value} (${tax.label})` : 'none',
+  };
+}
 
 const discountResult = (t: Totals) =>
   t.discountCents > 0
@@ -2298,21 +2444,26 @@ async function estimateDocument(
       canChange: e.status === 'draft',
       customer: { personId: e.person.id, name: e.person.fullName },
       for: e.title,
+      leadId: e.leadId,
+      startedBy: e.assignee?.fullName ?? null,
       lines: linesResult(e.lines),
+      ...totalsResult(e.totals),
       discount: discountResult(e.totals),
-      tax: `${money(e.totals.taxCents)} (${percentLabel(e.totals.taxRateBp)})`,
       total: money(e.totals.totalCents),
       deposit:
         e.depositCents > 0
           ? `${money(e.depositCents)}${e.deposit.kind === 'percent' ? ` (${percentLabel(e.deposit.percentBp)})` : ''}`
           : 'none',
       goodUntil: e.expiresOn,
+      writtenAt: e.createdAt,
       sentAt: e.sentAt,
+      openedAt: e.firstViewedAt,
       note: e.notes,
       ...(e.acceptedAt
         ? { approved: { at: e.acceptedAt, how: e.acceptedVia, name: quoted(e.acceptedName) } }
         : {}),
       ...(e.declinedAt ? { declined: { at: e.declinedAt, why: quoted(e.declinedReason) } } : {}),
+      ...(e.voidedAt ? { voidedAt: e.voidedAt } : {}),
       ...(e.voidReason ? { voidReason: e.voidReason } : {}),
       invoices: invoices.map((i) => ({
         id: i.id,
@@ -2344,7 +2495,12 @@ async function estimateDocument(
 }
 
 async function invoiceDocument(db: Db, ctx: ToolContext, invoiceId: string): Promise<ToolOutcome> {
-  const { invoice: i, payments, refunds } = await invoiceOf(db, ctx, invoiceId);
+  // The accounts are for whoever bills; someone who may only look sees no Paid into, as on the screen.
+  const [{ invoice: i, payments, refunds }, accounts] = await Promise.all([
+    invoiceOf(db, ctx, invoiceId),
+    connectionsOf(db, ctx),
+  ]);
+  const paidInto = accounts.find((c) => c.id === i.connectionId);
   const href = moneyPaths(ctx.workspaceId).invoice(i.id);
   const state = stateWord('invoice', i.state);
   const pending = (p: Payment) =>
@@ -2360,17 +2516,28 @@ async function invoiceDocument(db: Db, ctx: ToolContext, invoiceId: string): Pro
       canChange: i.status === 'draft',
       customer: { personId: i.person.id, name: i.person.fullName },
       for: i.title,
+      // A deposit, a plan's cycle or a setup fee wears its own pill on the Invoices list.
+      ...(purposeLabel(i.purpose) ? { purpose: purposeLabel(i.purpose) } : {}),
+      leadId: i.leadId,
+      ...(i.estimateId ? { fromEstimateId: i.estimateId } : {}),
+      ...(i.subscriptionId ? { fromPlanSubscriptionId: i.subscriptionId } : {}),
+      ...(paidInto ? { paidInto: accountLabel(paidInto) } : {}),
+      startedBy: i.assignee?.fullName ?? null,
       lines: linesResult(i.lines),
+      ...totalsResult(i.totals),
       discount: discountResult(i.totals),
-      tax: `${money(i.totals.taxCents)} (${percentLabel(i.totals.taxRateBp)})`,
       total: money(i.totals.totalCents),
       paid: money(i.amountPaidCents),
       refunded: money(i.amountRefundedCents),
       owed: money(i.balanceCents),
       dueOn: i.dueOn,
       terms: i.terms,
+      writtenAt: i.createdAt,
       sentAt: i.sentAt,
+      openedAt: i.firstViewedAt,
+      ...(i.paidAt ? { paidAt: i.paidAt } : {}),
       note: i.notes,
+      ...(i.voidedAt ? { voidedAt: i.voidedAt } : {}),
       ...(i.voidReason ? { voidReason: i.voidReason } : {}),
       payments: payments.map((p) => ({
         paymentId: p.id,
@@ -2451,7 +2618,7 @@ export const billingAutoTools: Record<
     const planId = str(args['planId']);
     const personId = str(args['personId']);
     const narrowed = !!(planId || personId);
-    const [{ plans }, subs, services] = await Promise.all([
+    const [{ plans }, subs, services, summary, accounts] = await Promise.all([
       query<{ plans: Plan[] }>(db, ctx, 'plan.list', { includeArchived: true }),
       // Who is on a plan is for whoever bills; someone who may only look sees the catalogue.
       ifAllowed(
@@ -2464,6 +2631,18 @@ export const billingAutoTools: Record<
         }),
       ),
       serviceNames(db, ctx),
+      // What the plans bring in a month is the Summary's, for whoever manages money, as the Plans tab shows it.
+      narrowed
+        ? null
+        : ifAllowed(
+            query<{ monthlyRecurringCents: number; activePlans: number }>(
+              db,
+              ctx,
+              'money.summary',
+              {},
+            ),
+          ),
+      connectionsOf(db, ctx),
     ]);
     const shown = plans.filter(
       (p) =>
@@ -2471,8 +2650,37 @@ export const billingAutoTools: Record<
         (!planId || p.id === planId),
     );
     const customers = subs?.subscriptions ?? null;
-    const live = (customers ?? []).filter((s) => s.status !== 'cancelled');
-    const onIt = (id: string) => live.filter((s) => s.planId === id).length;
+    // Members, as the Plans table counts them: the plans billing, and the ones whose payment failed.
+    const billing = (customers ?? []).filter((s) => BILLING.has(s.status));
+    const onIt = (id: string) => billing.filter((s) => s.planId === id).length;
+    const waitingOn = (id: string) =>
+      (customers ?? []).filter((s) => s.planId === id && s.status === 'draft').length;
+    const pausedOn = (id: string) =>
+      (customers ?? []).filter((s) => s.planId === id && s.status === 'paused').length;
+    // What the yearly plans come to in a year, worked out as the Plans tab does (plans-list.tsx).
+    const yearlyCents = plans
+      .filter((p) => !p.archivedAt && p.interval === 'year')
+      .reduce((sum, p) => sum + (p.priceCents * onIt(p.id)) / p.intervalCount, 0);
+    // One customer's plans: what each has billed, as their plan's page lists it.
+    const billed =
+      narrowed && customers && customers.length <= 3
+        ? new Map(
+            await Promise.all(
+              customers.map(
+                async (s) =>
+                  [
+                    s.id,
+                    (
+                      await query<{ invoices: Cycle[] }>(db, ctx, 'subscription.get', {
+                        subscriptionId: s.id,
+                      })
+                    ).invoices,
+                  ] as const,
+              ),
+            ),
+          )
+        : null;
+    const paidInto = (s: Subscription) => accounts.find((c) => c.id === s.connectionId);
     const paths = moneyPaths(ws);
     const items: ListCard['items'] = narrowed
       ? (customers ?? []).slice(0, 12).map((s) => ({
@@ -2493,7 +2701,7 @@ export const billingAutoTools: Record<
           title: p.name,
           detail: [
             planPriceLabel(p.priceCents, p.interval, p.intervalCount),
-            customers ? counted(onIt(p.id), 'customer') : null,
+            customers ? counted(onIt(p.id), 'member') : null,
             p.archivedAt ? 'not on sale' : null,
           ]
             .filter(Boolean)
@@ -2507,40 +2715,146 @@ export const billingAutoTools: Record<
           planId: p.id,
           name: p.name,
           price: planPriceLabel(p.priceCents, p.interval, p.intervalCount),
+          ...(p.description ? { description: p.description } : {}),
           includes: p.includes,
           taxable: p.taxable,
           visits: visitsWords(p, services),
           onSale: !p.archivedAt,
           // Counted only across everyone: narrowed to one customer, the count would be theirs alone.
-          ...(customers && !personId ? { customersOnIt: onIt(p.id) } : {}),
+          ...(customers && !personId
+            ? {
+                members: onIt(p.id),
+                ...(waitingOn(p.id) ? { waitingOnACard: waitingOn(p.id) } : {}),
+                ...(pausedOn(p.id) ? { paused: pausedOn(p.id) } : {}),
+              }
+            : {}),
         })),
+        ...(summary
+          ? {
+              aMonth: money(summary.monthlyRecurringCents),
+              ...(yearlyCents > 0
+                ? { plansThatBillOnceAYear: money(Math.round(yearlyCents)) }
+                : {}),
+            }
+          : {}),
         ...(customers
           ? {
-              customers: customers.map((s) => ({
-                subscriptionId: s.id,
-                personId: s.person.id,
-                customer: s.person.fullName,
-                plan: s.planName,
-                planId: s.planId,
-                price: planPriceLabel(s.priceCents, s.interval, s.intervalCount),
-                status: planStatus(s),
-                nextBilling: s.nextBillingOn,
-                card: s.hasCard
-                  ? s.cardBrand && s.cardLast4
-                    ? `${s.cardBrand} •••• ${s.cardLast4}`
-                    : 'on file'
-                  : s.cardRequestedAt
-                    ? 'asked for, not added yet'
-                    : 'none',
-              })),
+              customers: customers.map((s) => {
+                const account = paidInto(s);
+                const cycles = billed?.get(s.id);
+                return {
+                  subscriptionId: s.id,
+                  personId: s.person.id,
+                  customer: s.person.fullName,
+                  plan: s.planName,
+                  planId: s.planId,
+                  price: planPriceLabel(s.priceCents, s.interval, s.intervalCount),
+                  status: planStatus(s),
+                  // The badge, in the words the Plans tab's status filter uses.
+                  badge: SUBSCRIPTION_WORDS[s.status] ?? s.status,
+                  since: s.startedOn,
+                  nextBilling: s.nextBillingOn,
+                  card: s.hasCard
+                    ? s.cardBrand && s.cardLast4
+                      ? `${s.cardBrand} •••• ${s.cardLast4}`
+                      : `held by ${providerName(s.provider ?? account?.provider)}`
+                    : s.cardRequestedAt
+                      ? 'asked for, not added yet'
+                      : 'none',
+                  ...(s.hasCard && s.cardExpiryMonth && s.cardExpiryYear
+                    ? {
+                        cardExpires: `${String(s.cardExpiryMonth).padStart(2, '0')}/${String(s.cardExpiryYear).slice(-2)}`,
+                      }
+                    : {}),
+                  ...(!s.hasCard && s.cardRequestedAt
+                    ? { lastAskedForCard: s.cardRequestedAt }
+                    : {}),
+                  paidInto: account ? accountLabel(account) : null,
+                  ...(account && account.status !== 'active'
+                    ? { accountNeedsReconnecting: true }
+                    : {}),
+                  // Their own copy, which stays as it was when the plan's own list changes.
+                  includes: s.includes,
+                  chargedBy: providerName(s.provider ?? account?.provider),
+                  ...(s.failedCycles > 0 || s.lastError
+                    ? { lastFailure: s.lastError, failedCyclesInARow: s.failedCycles }
+                    : {}),
+                  ...(s.pausedAt && s.status === 'paused' ? { pausedAt: s.pausedAt } : {}),
+                  ...(s.endedOn ? { endedOn: s.endedOn } : {}),
+                  ...(s.cancelReason ? { cancelReason: s.cancelReason } : {}),
+                  ...(cycles
+                    ? {
+                        billed: cycles.slice(0, 6).map((c) => ({
+                          invoiceId: c.id,
+                          number: c.number,
+                          state: stateWord('invoice', c.state),
+                          total: money(c.totalCents),
+                          owed: money(c.balanceCents),
+                          raised: c.createdAt,
+                        })),
+                      }
+                    : {}),
+                };
+              }),
             }
           : { note: 'Who is on a plan is only for people who bill.' }),
       },
       card: {
         type: 'list',
         title: narrowed ? 'On a plan' : 'Plans you sell',
-        ...(customers ? { aside: counted(live.length, 'customer') + ' on a plan' } : {}),
+        ...(customers ? { aside: counted(billing.length, 'member') } : {}),
         items,
+      },
+    };
+  },
+};
+
+/**
+ * The ones that need the worker's link key: a customer's own link is minted as the worker, as Copy link mints it
+ * (money/link-routes.ts), after the person has been shown the document or plan as themselves.
+ */
+export const billingLinkTools: Record<
+  string,
+  (db: Db, ctx: ToolContext, args: Args, links: MoneyLinks | null) => Promise<ToolOutcome>
+> = {
+  /** "What's the pay link for INV-1042?" / "Send me Maria's estimate link." */
+  async get_customer_link(db, ctx, args, links) {
+    const kind = args['kind'] as 'invoice' | 'estimate' | 'plan';
+    const id = str(args['id']);
+    if (!id || !['invoice', 'estimate', 'plan'].includes(kind))
+      throw HfosError.validation(
+        [{ path: id ? 'kind' : 'id', message: 'Needed.' }],
+        'Say whose link: kind invoice, estimate or plan, and its id from money_owed, customer_money or list_plans.',
+      );
+    // Read as the person first: what they can't see on the screen has no link for them either.
+    const seen =
+      kind === 'invoice'
+        ? (await invoiceOf(db, ctx, id)).invoice
+        : kind === 'estimate'
+          ? (await estimateOf(db, ctx, id)).estimate
+          : (
+              await query<{ subscription: Subscription }>(db, ctx, 'subscription.get', {
+                subscriptionId: id,
+              })
+            ).subscription;
+    const what =
+      'planName' in seen
+        ? `${seen.planName} plan`
+        : (seen.number ?? (kind === 'invoice' ? 'the draft invoice' : 'the draft estimate'));
+    if (!links)
+      throw HfosError.rule(
+        'money_link_unavailable',
+        503,
+        `We couldn’t get the link to ${what} just now. Press Copy link on its page in Money instead.`,
+      );
+    const link = await customerLink(db, links, ctx.workspaceId, kind, id);
+    return {
+      result: {
+        kind,
+        for: `${what} · ${seen.person.fullName}`,
+        link,
+        // Said with the link, as the Copy link button says it.
+        note: MONEY_LINK_WHAT_IT_DOES[kind],
       },
     };
   },
@@ -2562,6 +2876,7 @@ export const billingConfirmTools: Record<string, SettingsConfirmTool> = {
 export const billingStepLabels: Record<string, string> = {
   get_money_document: 'Opening the document',
   list_plans: 'Looking at plans',
+  get_customer_link: 'Getting their link',
   write_estimate: 'Writing the estimate',
   manage_estimate: 'Getting the estimate ready',
   write_invoice: 'Writing the invoice',

@@ -41,7 +41,7 @@ import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-setting
 import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
 import { publicOriginFor, withWholeLinks } from './full-links';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
-import { billingAutoTools, billingConfirmTools } from './tools-billing';
+import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
 import { extraAutoTools, extraConfirmTools } from './tools-extra';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
@@ -848,6 +848,7 @@ export const executorFor = (name: string) =>
   workflowAutoTools[name] ??
   formAutoTools[name] ??
   moreAutoTools[name] ??
+  billingLinkTools[name] ??
   capabilityTools[name] ??
   mainOfferAutoTools[name] ??
   mainOfferConfirmTools[name] ??
@@ -869,6 +870,8 @@ export function createToolExecutor(
   const offerDeps = workflows ? { ...workflows, httpDb: db } : null;
   // The map, for a service area so many miles from an address: the worker's own, when it has its services.
   const settingsDeps: SettingsDeps = { geocoder: addonActions?.services.geocoder ?? null, webUrl };
+  // A customer's own link is minted with the worker's link key, as Copy link mints it.
+  const moneyLinks = addonActions?.services.moneyLinks ?? null;
   // A public page's path in what a tool found goes to the model as a whole link, never a path it must finish.
   const linked = (ctx: ToolContext) => (value: unknown) =>
     withWholeLinks(value, () => publicOriginFor(db, ctx, webUrl));
@@ -884,6 +887,8 @@ export function createToolExecutor(
     if (capabilities) return capabilities(db, ctx, args, addonCatalog);
     const offer = mainOfferAutoTools[tool.name];
     if (offer) return offer(db, ctx, args, offerDeps);
+    const link = billingLinkTools[tool.name];
+    if (link) return link(db, ctx, args, moneyLinks);
     const run =
       readTools[tool.name] ??
       contactReadTools[tool.name] ??
@@ -981,6 +986,8 @@ export function createToolExecutor(
         tool.name in contactReadTools ||
         tool.name in settingsReadTools ||
         tool.name in moneyReadTools ||
+        // A customer's link is read and signed, never written.
+        tool.name in billingLinkTools ||
         tool.name in capabilityTools
       );
     },

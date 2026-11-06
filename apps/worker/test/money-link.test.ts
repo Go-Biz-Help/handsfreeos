@@ -2,9 +2,12 @@
  * `POST /v1/money/link`: a customer's own link, for whoever bills to copy. Signed in, with `money.bill` — and
  * only for the customers they're on unless they manage money (0106) — only for something a customer can
  * actually use, never cached — and **exactly the link the messages send**, which is also what
- * `/test/money/link` hands a browser test.
+ * `/test/money/link` hands a browser test. The Assistant's get_customer_link gives the same link, by the same
+ * rules.
  */
+import { randomUUID } from 'node:crypto';
 import {
+  assistantToolByName,
   createTokenVerifier,
   estimateCreate,
   invoiceCreate,
@@ -13,9 +16,18 @@ import {
   subscriptionStart,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
-import { closeTestDbs, createTestUser, signInTestUser, testDbs, testEnv } from '@hfos/db/testing';
+import {
+  closeTestDbs,
+  createTestUser,
+  signInTestUser,
+  testDbs,
+  testEnv,
+  type TestUser,
+} from '@hfos/db/testing';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { ToolContext } from '../src/assistant/runtime';
+import { createToolExecutor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
 import { jobs } from '../src/scheduled';
 import {
@@ -36,12 +48,14 @@ let app: FastifyInstance;
 let ownerToken: string;
 let memberToken: string;
 let memberId: string;
+let marco: TestUser;
 
 const ONE_LINE = [{ name: 'AC tune-up', quantity: 1, unitPriceCents: 18_000, taxable: true }];
 
 beforeAll(async () => {
   w = await moneyWorld('money-link');
   const member = await createTestUser('money-link-marco', { fullName: 'Marco Tech' });
+  marco = member;
   memberId = member.id;
   await rows(
     admin(),
@@ -223,5 +237,114 @@ describe('copying a customer’s link', () => {
     expect(nowhere.statusCode).toBe(404);
     const unreadable = await copyLink(ownerToken, { kind: 'receipt', id: voided.id });
     expect(unreadable.statusCode).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('the Assistant giving a customer’s link', () => {
+  const ctxOf = (u: TestUser): ToolContext => ({
+    actor: { type: 'human', userId: u.id, email: u.email, claims: u.claims },
+    workspaceId: w.workspaceId,
+    organizationId: w.organizationId,
+    correlationId: randomUUID(),
+    timezone: 'America/Chicago',
+  });
+
+  /** get_customer_link as the runtime runs it: with the worker's services, so with the same link key. */
+  async function link(args: { kind: string; id: string }, u: TestUser = w.owner, key = true) {
+    const tool = assistantToolByName.get('get_customer_link')!;
+    const executor = createToolExecutor(
+      testDbs().worker.db,
+      null,
+      null,
+      '',
+      undefined,
+      key ? { services: w.s } : null,
+    );
+    const out = await executor.run(
+      tool,
+      tool.input.parse(args) as Record<string, unknown>,
+      ctxOf(u),
+    );
+    return out.result as { kind: string; for: string; link: string; note: string };
+  }
+
+  it('gives the very link Copy link gives, and says anyone who has it can use it', async () => {
+    const invoice = await sentInvoice(w);
+    const got = await link({ kind: 'invoice', id: invoice.id });
+    expect(got.link).toBe(await sentLink({ invoiceId: invoice.id }));
+    expect(got.for).toBe(`${invoice.number} · ${w.person.name}`);
+    expect(got.note).toBe('Anyone with this link can pay this invoice.');
+
+    const estimate = await sentEstimate(w);
+    expect((await link({ kind: 'estimate', id: estimate.id })).link).toBe(
+      await sentLink({ estimateId: estimate.id }),
+    );
+
+    const subscriptionId = await plan();
+    const theirs = await link({ kind: 'plan', id: subscriptionId });
+    expect(theirs.link).toBe(await sentLink({ subscriptionId }));
+    expect(theirs.for).toBe(`Comfort Club plan · ${w.person.name}`);
+  });
+
+  it('refuses a draft and a voided one with the button’s own words', async () => {
+    const draft = (await run(w, invoiceCreate, {
+      workspaceId: w.workspaceId,
+      personId: w.person.id,
+      title: 'AC tune-up',
+      lines: ONE_LINE,
+    })) as { invoiceId: string };
+    await expect(link({ kind: 'invoice', id: draft.invoiceId })).rejects.toMatchObject({
+      rule: 'money_document_not_sent',
+      message: 'Send the invoice first. A draft has no page a customer can open.',
+    });
+    const voided = await sentInvoice(w);
+    await run(w, invoiceVoid, { workspaceId: w.workspaceId, invoiceId: voided.id });
+    await expect(link({ kind: 'invoice', id: voided.id })).rejects.toMatchObject({
+      rule: 'money_document_voided',
+    });
+  });
+
+  it('reads as the person first: someone who bills gets only their own customers’ links', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.member_permission_overrides (workspace_id, user_id, permission, allowed)
+          values (${w.workspaceId}, ${memberId}, 'money.bill', true)`,
+    );
+    try {
+      const invoice = await sentInvoice(w);
+      // Not on the customer: to them it isn't there, and no link is made.
+      await expect(link({ kind: 'invoice', id: invoice.id }, marco)).rejects.toMatchObject({
+        code: 'not_found',
+      });
+      await rows(
+        admin(),
+        sql`update app.people set team_user_ids = array_append(team_user_ids, ${memberId}::uuid)
+            where id = ${w.person.id}`,
+      );
+      expect((await link({ kind: 'invoice', id: invoice.id }, marco)).link).toBe(
+        await sentLink({ invoiceId: invoice.id }),
+      );
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.people set team_user_ids = array_remove(team_user_ids, ${memberId}::uuid)
+            where id = ${w.person.id}`,
+      );
+      await rows(
+        admin(),
+        sql`delete from app.member_permission_overrides
+            where workspace_id = ${w.workspaceId} and user_id = ${memberId}`,
+      );
+    }
+  });
+
+  it('without the link key, says to press Copy link instead of guessing an address', async () => {
+    const invoice = await sentInvoice(w);
+    await expect(link({ kind: 'invoice', id: invoice.id }, w.owner, false)).rejects.toMatchObject({
+      rule: 'money_link_unavailable',
+      message: expect.stringContaining('Press Copy link on its page in Money instead'),
+    });
   });
 });

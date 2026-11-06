@@ -12,14 +12,20 @@
  */
 import { randomUUID } from 'node:crypto';
 import {
+  assistantToolByName,
   createTokenVerifier,
   estimateCreate,
+  estimateSend,
   executeCommand,
+  executeQuery,
   invoiceCreate,
   invoiceRecordCashPayment,
   invoiceSend,
+  invoiceVoid,
   organizationCreate,
   personCreate,
+  registry,
+  type AssistantCard,
   type AssistantEvent,
   type HumanActor,
 } from '@hfos/core/server';
@@ -35,6 +41,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { consentToAssistant } from './assistant-consent';
+import type { ToolContext } from '../src/assistant/runtime';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { createToolExecutor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
@@ -56,6 +63,7 @@ let member: TestUser;
 let ownerToken: string;
 let memberToken: string;
 let workspaceId: string;
+let organizationId: string;
 let mariaId: string;
 let app: FastifyInstance;
 /** A sent invoice nobody has paid, a paid one, and a draft estimate waiting to go out. */
@@ -118,12 +126,13 @@ beforeAll(async () => {
     createTestUser('money-assistant-member'),
   ]);
   await consentToAssistant(owner, member);
-  const org = await run<{ workspaceId: string }>(
+  const org = await run<{ workspaceId: string; organizationId: string }>(
     organizationCreate,
     { businessName: 'Lone Star Assistant HVAC', timezone: 'America/Chicago' },
     owner,
   );
   workspaceId = org.workspaceId;
+  organizationId = org.organizationId;
   await rows(
     admin(),
     sql`insert into app.workspace_memberships (workspace_id, user_id, role)
@@ -322,5 +331,176 @@ describe('a member', () => {
     expect(textOf(sent)).toMatch(
       /That estimate can’t be sent: That is not something you can do here\./,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('what the cards say before anyone presses, as the screens do', () => {
+  type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
+  const ctxOf = (u: TestUser): ToolContext => ({
+    actor: actor(u),
+    workspaceId,
+    organizationId,
+    correlationId: randomUUID(),
+    timezone: 'America/Chicago',
+  });
+  /** The tool as the runtime runs it, without the stand-in model in between. */
+  const tool = (name: string, args: Record<string, unknown>) => {
+    const t = assistantToolByName.get(name)!;
+    return { t, parsed: t.input.parse(args) as Record<string, unknown> };
+  };
+  async function prepare(name: string, args: Record<string, unknown>) {
+    const { t, parsed } = tool(name, args);
+    const executor = createToolExecutor(api());
+    const ctx = ctxOf(owner);
+    const toolCallId = randomUUID();
+    const out = await executor.prepare(t, parsed, ctx, toolCallId);
+    return {
+      card: out.card as ConfirmCard,
+      result: out.result as Record<string, unknown>,
+      confirm: () => executor.commit(t, parsed, ctx, { toolCallId }),
+    };
+  }
+  async function look(name: string, args: Record<string, unknown> = {}, u: TestUser = owner) {
+    const { t, parsed } = tool(name, args);
+    return (await createToolExecutor(api()).run(t, parsed, ctxOf(u))).result as Record<
+      string,
+      unknown
+    >;
+  }
+  const summary = () =>
+    executeQuery(
+      api(),
+      registry.query('money.summary')!,
+      { workspaceId },
+      actor(owner),
+      meta(),
+    ) as Promise<{ outstandingCount: number; overdueCount: number; quotedCount: number }>;
+  const estimateFor = async (personId: string, lines = [line('Ductwork', 50_000)]) =>
+    (
+      await run<{ estimateId: string }>(
+        estimateCreate,
+        { workspaceId, personId, title: 'Ductwork', lines },
+        owner,
+      )
+    ).estimateId;
+  const invoiceFor = async (cents: number, send = true) => {
+    const { invoiceId } = await run<{ invoiceId: string }>(
+      invoiceCreate,
+      { workspaceId, personId: mariaId, title: 'Repair', lines: [line('Repair', cents)] },
+      owner,
+    );
+    if (send) await run(invoiceSend, { workspaceId, invoiceId, channels: [] }, owner);
+    return invoiceId;
+  };
+  let samId: string;
+
+  beforeAll(async () => {
+    // Sam has neither an email address nor a mobile number on file.
+    samId = (
+      await run<{ personId: string }>(
+        personCreate,
+        { workspaceId, firstName: 'Sam', lastName: 'Quiet' },
+        owner,
+      )
+    ).personId;
+  });
+
+  it('won’t send an estimate that has gone out, or has nothing on it', async () => {
+    const out = await estimateFor(mariaId);
+    await run(estimateSend, { workspaceId, estimateId: out, channels: [] }, owner);
+    await expect(prepare('send_estimate', { estimateId: out })).rejects.toMatchObject({
+      rule: 'estimate_not_open',
+      message: expect.stringContaining('has already gone out'),
+    });
+    const empty = await estimateFor(mariaId, []);
+    await expect(prepare('send_estimate', { estimateId: empty })).rejects.toMatchObject({
+      rule: 'money_document_empty',
+    });
+  });
+
+  it('keeps Send off for someone it can’t reach, and sends only the ways it can', async () => {
+    const sams = await estimateFor(samId);
+    const blocked = await prepare('send_estimate', { estimateId: sams });
+    expect(blocked.card.confirmLabel).toBe('');
+    expect(blocked.card.warnings).toMatchObject([{ kind: 'blocked' }]);
+    expect(blocked.card.warnings[0]!.text).toContain('has no email address on file');
+    expect(blocked.result).toMatchObject({ blocked: true });
+
+    // Maria has an email address and no mobile number: the text is left off, and said so.
+    const hers = await estimateFor(mariaId);
+    const p = await prepare('send_estimate', { estimateId: hers, channels: ['email', 'sms'] });
+    expect(p.card.confirmLabel).toBe('Send it');
+    expect(p.card.fields.find((f) => f.label === 'How')?.value).toMatch(/^Email · maria-/);
+    expect(p.card.warnings.map((w) => w.text)).toContain(
+      'No mobile number on file for Maria, so no text goes.',
+    );
+    await p.confirm();
+    const [sent] = await rows<{ payload: { channels: string[] } }>(
+      admin(),
+      sql`select payload from app.events
+          where event_type = 'estimate.sent' and entity_id = ${hers}::uuid`,
+    );
+    expect(sent?.payload.channels).toEqual(['email']);
+  });
+
+  it('won’t write down a payment on a draft, a voided invoice or one already paid', async () => {
+    const draft = await invoiceFor(10_000, false);
+    await expect(prepare('record_payment', { invoiceId: draft })).rejects.toMatchObject({
+      rule: 'invoice_not_sent',
+    });
+    const voided = await invoiceFor(10_000, false);
+    await run(invoiceVoid, { workspaceId, invoiceId: voided }, owner);
+    await expect(prepare('record_payment', { invoiceId: voided })).rejects.toMatchObject({
+      rule: 'invoice_voided',
+    });
+    const paid = await invoiceFor(10_000);
+    await run(
+      invoiceRecordCashPayment,
+      { workspaceId, invoiceId: paid, amountCents: 10_000, method: 'cash' },
+      owner,
+    );
+    await expect(prepare('record_payment', { invoiceId: paid })).rejects.toMatchObject({
+      rule: 'invoice_settled',
+    });
+  });
+
+  it('keeps Record it off for more than is owed, as the dialog does', async () => {
+    const invoiceId = await invoiceFor(10_000);
+    const p = await prepare('record_payment', { invoiceId, amount: 150 });
+    expect(p.card.confirmLabel).toBe('');
+    expect(p.card.warnings).toMatchObject([
+      { kind: 'blocked', text: 'That’s more than the $100 still owed on it. Record $100 or less.' },
+    ]);
+    expect(p.result).toMatchObject({ blocked: true });
+    const ok = await prepare('record_payment', { invoiceId, amount: 40, method: 'check' });
+    expect(ok.card.confirmLabel).toBe('Record it');
+    expect(ok.card.fields).toContainEqual({ label: 'How', value: 'check' });
+  });
+
+  it('counts what is owed and overdue as the Summary does, and says who paid', async () => {
+    const owed = await look('money_owed');
+    const s = await summary();
+    expect(owed).toMatchObject({
+      invoicesOwed: s.outstandingCount,
+      invoicesOverdue: s.overdueCount,
+    });
+    const came = await look('money_collected');
+    expect(came['newest']).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ customer: 'Maria Lopez', amount: '$180', how: 'cash' }),
+      ]),
+    );
+    // A member is counted only what they can see, and nothing here is theirs.
+    expect(await look('money_owed', {}, member)).toMatchObject({ total: '$0', count: 0 });
+  });
+
+  it('lists every estimate out, the longest waiting first, with the Summary’s count', async () => {
+    const waiting = await look('estimates_waiting');
+    const s = await summary();
+    expect(waiting['waiting']).toBe(s.quotedCount);
+    // The one sent first, further up this file, is the one to chase.
+    expect((waiting['estimates'] as { id: string }[])[0]?.id).toBe(draftEstimateId);
   });
 });

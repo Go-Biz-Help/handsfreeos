@@ -9,9 +9,11 @@
  * starting, pausing or cancelling someone's plan, are `money.bill` (whoever the business lets bill); a refund, the
  * plans on sale, numbering and the balance's top-up are `money.manage`. The two look-ups are `money.read`, and a
  * member only ever sees the documents for the customers they are on — that rule is under the queries, not here.
+ * The customer's own link is `money.bill`, as Copy link is (`POST /v1/money/link`): a link is a way to take money.
  */
 import { z } from 'zod';
 import { isLocalDate } from '../calendar/engine/zoned';
+import { PAYMENT_TERMS } from '../money/settings';
 import { uuid } from '../schemas/common';
 import { define, dollars, text, type AssistantTool } from './tool-kit';
 
@@ -42,6 +44,18 @@ const Line = z.object({
   discountDollars: dollars.optional().describe('Money off this line alone'),
 });
 
+/** One line changed where it is, by its number: only what is given changes, and every other line stays as it is. */
+const LineChange = z.object({
+  n: z.int().min(1).max(200).describe('The line’s number, as get_money_document numbers them'),
+  name: text(200).optional(),
+  description: text(2000).nullable().optional().describe('null takes the description off'),
+  quantity: z.number().gt(0).max(1_000_000).optional(),
+  unitPrice: dollars.optional().describe('The price of one'),
+  unitLabel: text(40).optional(),
+  taxable: z.boolean().optional(),
+  discountDollars: dollars.optional().describe('Money off this line alone; 0 takes it off'),
+});
+
 /** What an estimate and an invoice share: who and what it is for, its lines, a discount and a note. */
 const documentFields = {
   title: text(200)
@@ -64,6 +78,14 @@ const documentFields = {
     .max(50)
     .optional()
     .describe('On a change: line numbers to take off, as get_money_document numbers them'),
+  changeLines: z
+    .array(LineChange)
+    .min(1)
+    .max(50)
+    .optional()
+    .describe(
+      'On a change: lines to change where they are (a price, a quantity, the description), keeping their place and every other line',
+    ),
   discountPercent: z
     .number()
     .min(0)
@@ -73,7 +95,10 @@ const documentFields = {
   discountDollars: dollars
     .optional()
     .describe('Off the whole thing, before tax, instead of a percent. 0 takes a discount off'),
-  note: text(5000).optional().describe('The note printed on it for the customer'),
+  note: text(5000)
+    .nullable()
+    .optional()
+    .describe('The note printed on it for the customer. null takes the note off'),
   leadId: uuid
     .nullable()
     .optional()
@@ -91,7 +116,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'get_money_document',
     description:
-      'One estimate or invoice in full: its lines (numbered), discount, tax, total, deposit, due or good-until date and where it stands; for an invoice, the payments against it (with ids, for refund_payment) and any refunds; for an estimate, the invoices made from it. Pass one id, from customer_money, money_owed or estimates_waiting. Call it before changing a draft or refunding.',
+      'One estimate or invoice in full, as its page shows it: its lines (numbered, with their descriptions), discount, tax, total, deposit, due or good-until date and where it stands; what has happened to it (written, sent, opened, approved, declined, paid, voided, with when) and who started it; for an invoice, whether it is a deposit, the account it is paid into, the estimate or plan it came from, the payments against it (with ids, for refund_payment) and any refunds; for an estimate, the invoices made from it. Pass one id, from customer_money, money_owed, estimates_waiting, read_invoice_list or read_estimate_list. Call it before changing a draft or refunding.',
     input: z.object({
       estimateId: uuid.optional(),
       invoiceId: uuid.optional(),
@@ -102,7 +127,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'list_plans',
     description:
-      'The maintenance plans the business sells (with ids: the price, how often each bills, what it includes and the visits it covers) and the customers on them (with the ids manage_customer_plan takes: where each stands, when it next bills, whether it has a card). Pass a planId or a personId to see only those customers. Someone who only bills sees only their own customers’ plans.',
+      'The maintenance plans the business sells (with ids: the price, how often each bills, its description and what it includes, the visits it covers and its members — the ones billing or with a failed payment, as the Plans table counts them), what the plans bring in a month and a year, and the customers on them (with the ids manage_customer_plan takes: where each stands, in a sentence and as the badge the screen’s status filter uses — Draft, Billing, Payment failed, Paused, Cancelled or Not managed here — since when, when it next bills, its card and when that expires, the account it is paid into and whether that needs reconnecting, who charges it, their own copy of what it includes, why its last charge failed, and when it was paused or ended and why). Pass a planId or a personId to see only those customers; for up to three, what each has billed comes too (read_subscription_get has all of it). Someone who only bills sees only their own customers’ plans.',
     input: z.object({
       planId: uuid.optional().describe('Only the customers on this plan'),
       personId: uuid.optional().describe('Only this customer’s plans'),
@@ -115,11 +140,23 @@ export const billingTools: readonly AssistantTool[] = [
     permission: 'money.read',
   }),
 
+  define({
+    name: 'get_customer_link',
+    description:
+      'The customer’s own link, as Copy link gives it: to a sent invoice (where they pay it, or print or save a PDF), a sent estimate (where they approve it) or their plan (where they put a card on it). It is the whole address, on the business’s own domain when one is serving, the same link their text or email had. Anyone who has it can open that page, so give it only to the person asking, for them to paste where they talk to the customer. A draft has no link until it is sent, and a voided one or a plan that has ended has none. Ids from money_owed, customer_money, list_plans or get_money_document.',
+    input: z.object({
+      kind: z.enum(['invoice', 'estimate', 'plan']),
+      id: uuid.describe('The invoiceId, the estimateId, or for a plan the subscriptionId'),
+    }),
+    autonomy: 'auto',
+    permission: 'money.bill',
+  }),
+
   // ---------- estimates and invoices (confirm) ----------
   define({
     name: 'write_estimate',
     description:
-      'Write a new estimate for a customer (personId from search_customers), or change one that is still a draft (estimateId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price; add a discount, the deposit to ask for when they say yes, a note and the lead it is for. On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with send_estimate. Nothing is saved until the person says yes on the card.',
+      'Write a new estimate for a customer (personId from search_customers), or change one that is still a draft (estimateId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price, and on a change can be taken off, added, or changed where they are; add a discount, the deposit to ask for when they say yes, a note and the lead it is for (a new one opened from a lead is with that lead’s owner, as the screen starts it). On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with send_estimate. Nothing is saved until the person says yes on the card.',
     input: z.object({
       estimateId: uuid.optional().describe('Leave out to write a new one'),
       personId: uuid.optional().describe('Who it is for. Needed for a new one'),
@@ -146,7 +183,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'manage_estimate',
     description:
-      'Act on an estimate (id from customer_money, estimates_waiting or get_money_document). void: withdraw it — it keeps its number, the customer’s link says it was withdrawn, and it can’t be undone. record_yes: the customer said yes on the phone or in person; it is recorded in the person’s name, never as the customer’s own approval. make_invoice: turn a sent or approved estimate into a draft invoice, for the whole job or only its deposit (send it afterwards with manage_invoice). Sending an estimate is send_estimate. Nothing happens until the person says yes on the card.',
+      'Act on an estimate (id from customer_money, estimates_waiting or get_money_document). void: withdraw it — it keeps its number, the customer’s link says it was withdrawn, and it can’t be undone. record_yes: the customer said yes on the phone or in person; it is recorded in the person’s name, never as the customer’s own approval. make_invoice: turn a sent or approved estimate into a draft invoice, for the whole job or only its deposit, paid into the account named or the person’s usual one (send it afterwards with manage_invoice). Sending an estimate is send_estimate. Nothing happens until the person says yes on the card.',
     input: z.object({
       estimateId: uuid,
       action: z.enum(['void', 'record_yes', 'make_invoice']),
@@ -162,6 +199,11 @@ export const billingTools: readonly AssistantTool[] = [
           'make_invoice: every line (its deposit is asked for first), or only the deposit on its own',
         ),
       dueOn: localDay.optional().describe('make_invoice: when it is due. Left out, from the terms'),
+      connectionId: uuid
+        .optional()
+        .describe(
+          'make_invoice: the payment account it is paid into (get_settings with area payments). Left out, the person’s usual one',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'money.bill',
@@ -169,7 +211,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'write_invoice',
     description:
-      'Write a new invoice for a customer (personId from search_customers), or change one that is still a draft (invoiceId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price; add a discount, a note, the lead it is for, when it is due and the payment account it is paid into. On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with manage_invoice. Nothing is saved until the person says yes on the card.',
+      'Write a new invoice for a customer (personId from search_customers), or change one that is still a draft (invoiceId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price, and on a change can be taken off, added, or changed where they are; add a discount, a note, the lead it is for (a new one opened from a lead is with that lead’s owner, as the screen starts it), when it is due (a date, or its own terms) and the payment account it is paid into. On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with manage_invoice. Nothing is saved until the person says yes on the card.',
     input: z.object({
       invoiceId: uuid.optional().describe('Leave out to write a new one'),
       personId: uuid.optional().describe('Who it is for. Needed for a new one'),
@@ -178,6 +220,13 @@ export const billingTools: readonly AssistantTool[] = [
         .nullable()
         .optional()
         .describe('When it is due. Left out, it is worked out from the terms when sent'),
+      terms: z
+        .enum(PAYMENT_TERMS)
+        .nullable()
+        .optional()
+        .describe(
+          'The invoice’s own terms, printed on it, as When it is due offers them, in place of a date. null goes back to the business’s terms',
+        ),
       connectionId: uuid
         .optional()
         .describe(
@@ -190,7 +239,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'manage_invoice',
     description:
-      'send: send a draft invoice to the customer by email, text or both, with a line to go with it. It takes its number and its due date and is frozen — a mistake afterwards means voiding it and writing a new one. void: withdraw an invoice that should not be paid; it keeps its number, its reminders stop and the customer’s link says it was withdrawn; one with money paid on it is refunded first (refund_payment). Invoice ids come from money_owed, customer_money or get_money_document. Nothing happens until the person says yes on the card.',
+      'send: send a draft invoice to the customer by email, text or both, with a line to go with it. It takes its number and its due date and is frozen — a mistake afterwards means voiding it and writing a new one. void: withdraw an invoice that should not be paid; it keeps its number, its reminders stop and the customer’s link says it was withdrawn; one with money paid on it is refunded first (refund_payment). A draft’s id is in customer_money or read_invoice_list with status draft, or came back from write_invoice; sent ones are also in money_owed, and get_money_document shows either. One already out is sent again by giving them its link (get_customer_link) in a text or email. Nothing happens until the person says yes on the card.',
     input: z.object({
       invoiceId: uuid,
       action: z.enum(['send', 'void']),

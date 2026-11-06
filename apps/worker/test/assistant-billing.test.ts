@@ -20,6 +20,7 @@ import {
   invoiceRecordCashPayment,
   invoiceRecordPayment,
   invoiceSend,
+  leadCreate,
   money,
   moneySaveSettings,
   organizationCreate,
@@ -47,7 +48,12 @@ import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { systemActor } from '../src/services';
 
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
-type Line = { name: string; productId: string | null };
+type Line = {
+  name: string;
+  productId: string | null;
+  description?: string | null;
+  unitPriceCents?: number;
+};
 
 const CHI = 'America/Chicago';
 const suffix = randomUUID().slice(0, 8);
@@ -159,6 +165,9 @@ interface InvoiceGet {
     title: string | null;
     connectionId: string | null;
     dueOn: string | null;
+    terms: string | null;
+    leadId: string | null;
+    assignee: { id: string; fullName: string } | null;
     totals: { totalCents: number };
     lines: Line[];
   };
@@ -273,6 +282,8 @@ afterAll(closeTestDbs);
 const TOOLS: Record<string, { autonomy: string; permission: string; commands: string[] }> = {
   get_money_document: { autonomy: 'auto', permission: 'money.read', commands: [] },
   list_plans: { autonomy: 'auto', permission: 'money.read', commands: [] },
+  // A customer's link is a way to take their money: only for whoever bills, as Copy link is.
+  get_customer_link: { autonomy: 'auto', permission: 'money.bill', commands: [] },
   write_estimate: {
     autonomy: 'confirm',
     permission: 'money.bill',
@@ -343,6 +354,7 @@ describe('the billing tools', () => {
     const offered = toolsFor((p) => hasWorkspacePermission('member', p)).map((t) => t.name);
     expect(offered).toContain('get_money_document');
     expect(offered).toContain('list_plans');
+    expect(offered).not.toContain('get_customer_link');
     for (const [name, want] of Object.entries(TOOLS))
       if (want.autonomy === 'confirm') expect(offered, name).not.toContain(name);
   });
@@ -442,6 +454,42 @@ describe('an estimate, written by asking', () => {
       { n: 2, name: 'Duct sealing' },
     ]);
     expect(card?.type).toBe('money');
+    // What the page shows under What has happened, and who it is with.
+    expect(result).toMatchObject({ startedBy: 'Dale Owner', leadId: null, openedAt: null });
+    expect(result['writtenAt']).toEqual(expect.any(String));
+    expect(result['tax']).toMatch(/^\$[\d,.]+ \(.+ · 8\.25% on \$[\d,.]+\)$/);
+  });
+
+  it('changes one line where it is, as the editor does, and takes the note off', async () => {
+    const p = await prepare('write_estimate', {
+      estimateId,
+      changeLines: [{ n: 2, unitPrice: 320, description: 'Supply and return' }],
+      note: null,
+    });
+    expect(field(p.card, 'Note')).toBe('Taken off');
+    await p.confirm();
+    const { estimate: e } = await estimate(estimateId);
+    // Still second, with its new price and words; the first line just as it was.
+    expect(e.lines.map((l) => l.name)).toEqual(['AC tune-up', 'Duct sealing']);
+    expect(e.lines[1]).toMatchObject({ unitPriceCents: 32_000, description: 'Supply and return' });
+    expect(e.lines[0]).toMatchObject({ productId: tuneUpId, unitPriceCents: 18_000 });
+    expect(e.notes).toBeNull();
+    // The description comes back with the line, so a later whole-list change keeps it.
+    const { result } = await look('get_money_document', { estimateId });
+    expect(result['lines']).toMatchObject([
+      { n: 1 },
+      { n: 2, description: 'Supply and return', unitPrice: '$320' },
+    ]);
+    await expect(
+      prepare('write_estimate', { estimateId, changeLines: [{ n: 7, unitPrice: 1 }] }),
+    ).rejects.toThrow(/no line 7/);
+    await expect(
+      prepare('write_estimate', {
+        estimateId,
+        lines: [{ name: 'Filter', unitPrice: 25 }],
+        changeLines: [{ n: 1, unitPrice: 1 }],
+      }),
+    ).rejects.toThrow(/not both/);
   });
 
   describe('once it has gone out', () => {
@@ -473,12 +521,23 @@ describe('an estimate, written by asking', () => {
 
     it('turns into a deposit invoice, a draft until it is sent', async () => {
       const { estimate: e } = await estimate(estimateId);
+      // An account that isn't one to bill into is said before the card, as the picker never offers it.
+      await expect(
+        prepare('manage_estimate', {
+          estimateId,
+          action: 'make_invoice',
+          bill: 'deposit_only',
+          connectionId: randomUUID(),
+        }),
+      ).rejects.toThrow(/isn’t one you can bill into/);
       const p = await prepare('manage_estimate', {
         estimateId,
         action: 'make_invoice',
         bill: 'deposit_only',
+        connectionId: stripeId,
       });
       expect(field(p.card, 'It bills')).toBe(`Only the ${money(e.depositCents)} deposit`);
+      expect(field(p.card, 'Paid into')).toBe('Stripe · Lone Star');
       expect(warningsOf(p.card)).toContain('Nothing goes to Maria until you send it');
       expect((await estimate(estimateId)).invoices).toHaveLength(0);
       const done = await p.confirm();
@@ -487,6 +546,22 @@ describe('an estimate, written by asking', () => {
       expect(invoices).toMatchObject([
         { id: idOf(done.href), purpose: 'deposit', totalCents: e.depositCents, status: 'draft' },
       ]);
+      expect((await invoice(idOf(done.href))).invoice.connectionId).toBe(stripeId);
+    });
+
+    it('reads the deposit invoice back as the Invoices list shows it: its pill, where it came from, where it is paid', async () => {
+      const [made] = (await estimate(estimateId)).invoices;
+      const { result } = await look('get_money_document', { invoiceId: made!.id });
+      expect(result).toMatchObject({
+        purpose: 'Deposit',
+        fromEstimateId: estimateId,
+        paidInto: 'Stripe · Lone Star',
+        startedBy: 'Dale Owner',
+        sentAt: null,
+        openedAt: null,
+      });
+      expect(result['writtenAt']).toEqual(expect.any(String));
+      expect(result).not.toHaveProperty('paidAt');
     });
   });
 
@@ -555,6 +630,53 @@ describe('an invoice, written and sent by asking', () => {
     expect(i).toMatchObject({ dueOn: '2026-12-01', title: 'Duct repair', status: 'draft' });
   });
 
+  it('takes its own terms in place of a date, as When it is due does, and a date takes their place again', async () => {
+    const p = await prepare('write_invoice', {
+      personId: maria.id,
+      lines: [{ name: 'Thermostat', unitPrice: 120 }],
+      terms: 'net_7',
+    });
+    expect(field(p.card, 'Due')).toBe('Net 7');
+    const draftId = idOf((await p.confirm()).href);
+    expect((await invoice(draftId)).invoice).toMatchObject({ terms: 'Net 7', dueOn: null });
+
+    await (await prepare('write_invoice', { invoiceId: draftId, dueOn: '2026-12-20' })).confirm();
+    expect((await invoice(draftId)).invoice.dueOn).toBe('2026-12-20');
+
+    const back = await prepare('write_invoice', { invoiceId: draftId, terms: 'net_30' });
+    expect(field(back.card, 'Due')).toBe('Net 30');
+    await back.confirm();
+    expect((await invoice(draftId)).invoice).toMatchObject({ terms: 'Net 30', dueOn: null });
+
+    await expect(
+      prepare('write_invoice', { invoiceId: draftId, terms: 'net_14', dueOn: '2026-12-20' }),
+    ).rejects.toThrow(/not both/);
+  });
+
+  it('starts one opened from a lead with whoever owns the lead, as New invoice does', async () => {
+    const { leadId } = (await run(leadCreate, {
+      workspaceId,
+      title: 'Furnace swap',
+      personId: maria.id,
+      assigneeUserId: member.id,
+    })) as { leadId: string };
+    const p = await prepare('write_invoice', {
+      personId: maria.id,
+      leadId,
+      lines: [{ name: 'Furnace', unitPrice: 2_400 }],
+    });
+    expect(field(p.card, 'Lead')).toBe('Furnace swap');
+    expect(field(p.card, 'With')).toBe('Marco Tech');
+    const made = idOf((await p.confirm()).href);
+    expect((await invoice(made)).invoice).toMatchObject({ leadId, assignee: { id: member.id } });
+    // Written for no lead, it is with the person asking, and the card says nothing about it.
+    const mine = await prepare('write_invoice', {
+      personId: maria.id,
+      lines: [{ name: 'Filter', unitPrice: 25 }],
+    });
+    expect(field(mine.card, 'With')).toBeUndefined();
+  });
+
   it('sends it by email and text, taking the number the card said', async () => {
     const p = await prepare('manage_invoice', {
       invoiceId,
@@ -576,6 +698,11 @@ describe('an invoice, written and sent by asking', () => {
       channels: ['email', 'sms'],
       message: 'Thanks for having us out.',
     });
+    // Read back: a plain bill wears no pill, and says where it is paid and when it went.
+    const { result } = await look('get_money_document', { invoiceId });
+    expect(result).toMatchObject({ paidInto: 'Stripe · Lone Star', startedBy: 'Dale Owner' });
+    expect(result).not.toHaveProperty('purpose');
+    expect(result['sentAt']).toEqual(expect.any(String));
   });
 
   it('won’t send to someone it can’t reach', async () => {
@@ -758,9 +885,16 @@ describe('the plans a business sells, and a customer on one', () => {
 
   it('lists the plans and who is on them, with the ids the other tools take', async () => {
     const all = await look('list_plans', {});
+    // Waiting on her card, she isn't a member yet: the Plans table counts only plans that bill.
     expect(all.result['plans']).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ planId, name: 'Comfort Club', customersOnIt: 1, onSale: true }),
+        expect.objectContaining({
+          planId,
+          name: 'Comfort Club',
+          members: 0,
+          waitingOnACard: 1,
+          onSale: true,
+        }),
       ]),
     );
     const hers = await look('list_plans', { personId: maria.id });
@@ -769,7 +903,12 @@ describe('the plans a business sells, and a customer on one', () => {
         subscriptionId,
         customer: 'Maria Lopez',
         status: 'Waiting on a card',
+        badge: 'Draft',
         card: 'asked for, not added yet',
+        lastAskedForCard: expect.any(String),
+        paidInto: 'Stripe · Lone Star',
+        chargedBy: 'Stripe',
+        billed: [],
       },
     ]);
   });
@@ -803,6 +942,17 @@ describe('the plans a business sells, and a customer on one', () => {
     expect(warningsOf(resume.card)).toContain('caution: Maria’s card is charged $35 a month again');
     await resume.confirm();
     expect(await status()).toBe('active');
+  });
+
+  it('counts a plan that bills as a member, and says what the plans bring in a month', async () => {
+    const all = await look('list_plans', {});
+    expect(all.result['plans']).toEqual(
+      expect.arrayContaining([expect.objectContaining({ planId, members: 1 })]),
+    );
+    const summary = await ask<{ monthlyRecurringCents: number }>('money.summary');
+    expect(all.result['aMonth']).toBe(money(summary.monthlyRecurringCents));
+    const hers = await look('list_plans', { personId: maria.id });
+    expect(hers.result['customers']).toMatchObject([{ subscriptionId, badge: 'Billing' }]);
   });
 
   it('asks for a card, by email when they have one', async () => {

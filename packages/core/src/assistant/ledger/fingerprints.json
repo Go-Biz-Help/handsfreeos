@@ -1443,11 +1443,11 @@
   "apps/web/src/lib/chat/editor-data.ts": "dcec29fa0028",
   "apps/web/src/lib/texting.ts": "9dea0156d051",
   "packages/core/src/assistant/coverage.ts": "bcd7e0bb1843",
-  "packages/core/src/assistant/screen-reads.ts": "ab9c0ef02734",
+  "packages/core/src/assistant/screen-reads.ts": "2963ec6522d1",
   "packages/core/src/assistant/settings-map.ts": "036cfaa9ca4c",
   "packages/core/src/assistant/tools-content.ts": "0d085b953ed0",
   "packages/core/src/assistant/tools-extra.ts": "e5fe009ee8f3",
-  "packages/core/src/assistant/tools.ts": "756f6d2420f8",
+  "packages/core/src/assistant/tools.ts": "bec1e0f0168e",
   "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
   "packages/core/src/bin-words.ts": "d60313191585"
 }
