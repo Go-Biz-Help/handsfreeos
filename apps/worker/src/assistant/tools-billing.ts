@@ -95,6 +95,9 @@ const todayIn = (timezone: string) =>
     day: '2-digit',
   }).format(new Date());
 
+/** The most lines a confirm card holds (the card's schema). */
+const CARD_FIELDS = 10;
+
 /** The confirm card every tool here draws: at most ten lines and three warnings, blank lines left off. */
 function billCard(
   toolCallId: string,
@@ -115,7 +118,7 @@ function billCard(
     personId: card.personId ?? null,
     conversationId: null,
     title: card.title,
-    fields: card.fields.filter((f) => f.value).slice(0, 10),
+    fields: card.fields.filter((f) => f.value).slice(0, CARD_FIELDS),
     body: card.body ?? null,
     stageFrom: null,
     stageTo: null,
@@ -565,6 +568,22 @@ const lineWords = (l: LineIn) =>
     .filter(Boolean)
     .join(' · ');
 
+/**
+ * Up to three of the lines, then "And: 2 more lines", in the room a card has left. Short of room it shows fewer, and
+ * with room for one row only, how many lines there are.
+ */
+function linePreview(lines: readonly LineIn[], room: number): Field[] {
+  if (room <= 0 || !lines.length) return [];
+  const shown = lines.length <= Math.min(3, room) ? lines.length : Math.min(3, room - 1);
+  if (shown === 0) return [{ label: 'Lines', value: counted(lines.length, 'line') }];
+  return [
+    ...lines.slice(0, shown).map((l) => ({ label: clip(l.name, 48), value: lineWords(l) })),
+    ...(shown < lines.length
+      ? [{ label: 'And', value: counted(lines.length - shown, 'more line') }]
+      : []),
+  ];
+}
+
 // ---------------------------------------------------------------------------
 // Writing a draft: one shape for both documents
 // ---------------------------------------------------------------------------
@@ -830,13 +849,11 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
       const lead =
         args['leadId'] === undefined && d.before ? '' : await leadTitle(db, ctx, d.leadId);
       const dayLabel = kind === 'estimate' ? 'Good until' : 'Due';
-      const fields: Field[] = [
+      const head: Field[] = [
         { label: 'Customer', value: who },
         { label: 'For', value: d.title ?? '' },
-        ...d.lines.slice(0, 3).map((l) => ({ label: clip(l.name, 48), value: lineWords(l) })),
-        ...(d.lines.length > 3
-          ? [{ label: 'And', value: counted(d.lines.length - 3, 'more line') }]
-          : []),
+      ];
+      const tail: Field[] = [
         { label: 'Total', value: totalWords(d) },
         ...(d.before && d.before.totalCents !== d.totals.totalCents
           ? [{ label: 'Was', value: money(d.before.totalCents) }]
@@ -854,6 +871,10 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
           value: d.noteChanged ? (d.notes ? clip(d.notes, 90) : 'Taken off') : '',
         },
       ];
+      // A card holds ten lines. The lines' preview gives way to the rest, so a note, a lead or a date that
+      // changes is always on the card the person says yes to.
+      const room = CARD_FIELDS - [...head, ...tail].filter((f) => f.value).length;
+      const fields: Field[] = [...head, ...linePreview(d.lines, room), ...tail];
       const draftName = d.before?.number ?? `the draft ${kind}`;
       return {
         card: billCard(toolCallId, tool, {

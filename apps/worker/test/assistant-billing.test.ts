@@ -492,6 +492,26 @@ describe('an estimate, written by asking', () => {
     ).rejects.toThrow(/not both/);
   });
 
+  it('keeps the note and the date on a crowded card, showing fewer of the lines', async () => {
+    // Five lines, a date and a note are more than a card's ten rows: the lines give way, never what changes.
+    const p = await prepare('write_estimate', {
+      estimateId,
+      addLines: [
+        { name: 'Coil cleaning', unitPrice: 90 },
+        { name: 'Drain flush', unitPrice: 60 },
+        { name: 'Refrigerant check', unitPrice: 45 },
+      ],
+      goodUntil: '2027-01-15',
+      note: 'Call before you come.',
+    });
+    expect(p.card.fields).toHaveLength(10);
+    expect(field(p.card, 'Note')).toBe('Call before you come.');
+    expect(field(p.card, 'Good until')).toBeTruthy();
+    expect(field(p.card, 'And')).toBe('3 more lines');
+    // Nothing is saved by drawing the card: it still has its two lines.
+    expect((await estimate(estimateId)).estimate.lines).toHaveLength(2);
+  });
+
   describe('once it has gone out', () => {
     beforeAll(async () => {
       await run(estimateSend, { workspaceId, estimateId, channels: [] });
