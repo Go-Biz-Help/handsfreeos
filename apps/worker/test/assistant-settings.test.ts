@@ -339,6 +339,22 @@ describe('setting up a calendar by asking', () => {
     expect(calendar.config.window.minNoticeMinutes).toBe(1440);
   });
 
+  it('makes nothing when what it was asked for can’t be saved, and asks for a name first', async () => {
+    await expect(prepare('manage_calendar', { action: 'create' }, owner)).rejects.toThrow(
+      'Name the calendar.',
+    );
+    const before = (await calendars()).items.length;
+    // No such service: the calendar and the settings on top are one unit, so no half-made calendar is left.
+    const { parsed, tool } = await prepare(
+      'manage_calendar',
+      { action: 'create', name: 'Gutter cleaning', services: [randomUUID()] },
+      owner,
+    );
+    await expect(confirm(tool!, parsed, owner)).rejects.toThrow();
+    expect((await calendars()).items.length).toBe(before);
+    expect((await calendars()).items.some((c) => c.name === 'Gutter cleaning')).toBe(false);
+  });
+
   it('archives one, still finds it, and brings it back as a draft', async () => {
     const id = (await calendars()).items.find((c) => c.name === 'Crew jobs')!.id;
     const archive = await prepare('manage_calendar', { action: 'archive', calendarId: id }, owner);

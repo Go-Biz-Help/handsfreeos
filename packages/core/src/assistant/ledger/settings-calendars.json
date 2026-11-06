@@ -1192,7 +1192,7 @@
       "kind": "do",
       "file": "apps/web/src/components/calendars/builder.tsx:684",
       "covered": "yes",
-      "by": "manage_calendar listedOnBookingSite; get_calendar_settings onTheBookingSite"
+      "by": "manage_calendar listedOnBookingSite; get_calendar_settings customersCanBookOnline"
     },
     {
       "path": "Calendar → Things to check → count badge, each issue's message",
@@ -1213,7 +1213,7 @@
       "kind": "do",
       "file": "apps/web/src/components/calendars/builder.tsx:768",
       "covered": "yes",
-      "by": "get_calendar_settings needsFixing fixes; update_calendar_settings apply_fix"
+      "by": "get_calendar_settings needsFixing fixes; update_calendar_settings apply_fix (the issue, the fixId, and the label when two problems offer the same fix)"
     },
     {
       "path": "Calendar → Things to check → Connect an account (payment unavailable)",
@@ -1316,49 +1316,49 @@
     {
       "path": "Calendar → Before you save → who was taken off",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:421",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:81",
       "covered": "yes",
       "by": "the card’s warning for each impact, from the save rolled back"
     },
     {
       "path": "Calendar → Before you save → each impact's warning",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:442",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:93",
       "covered": "yes",
       "by": "the card’s warning for each impact, from the save rolled back"
     },
     {
       "path": "Calendar → Before you save → seats below booked note",
       "kind": "see",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:445",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:95",
       "covered": "yes",
       "by": "the card says everyone already booked keeps their seat"
     },
     {
       "path": "Calendar → Before you save → Keep them with X / Keep the resource on them",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:460",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:32",
       "covered": "yes",
-      "by": "manage_calendar/update_calendar_settings always keep"
+      "by": "manage_calendar and update_calendar_settings upcomingVisits keep, the default"
     },
     {
       "path": "Calendar → Before you save → Reassign them",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:460",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:36",
       "covered": "yes",
-      "by": "manage_calendar and update_calendar_settings upcomingVisits reassign"
+      "by": "manage_calendar and update_calendar_settings upcomingVisits reassign, with a caution on the card that each customer is told who’s coming"
     },
     {
       "path": "Calendar → Before you save → Cancel them and tell the customers",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:460",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:41",
       "covered": "yes",
       "by": "manage_calendar and update_calendar_settings upcomingVisits cancel_and_notify, with a caution on the card"
     },
     {
       "path": "Calendar → Before you save → Back / Save changes",
       "kind": "do",
-      "file": "apps/web/src/components/calendars/impact-dialog.tsx:478",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:129",
       "covered": "yes",
       "by": "the card's Confirm"
     },

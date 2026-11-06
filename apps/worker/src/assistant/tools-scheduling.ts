@@ -17,6 +17,7 @@ import {
   HfosError,
   isLocalDate,
   JOB_STATUS_WORDS,
+  joinWords,
   LABEL_NAMES,
   localDateOf,
   moduleOfField,
@@ -2222,22 +2223,37 @@ interface SaveOut {
   actions?: { reassigned: string[]; cancelled: string[] };
 }
 
-/** The fix Things to check offers that `args.fix` names, as the calendar is now; refused when it's gone. */
+/**
+ * The fix Things to check offers that `args.fix` names, as the calendar is now; refused when it's gone. Two problems
+ * can offer the same fix (two people no longer on the team each offer remove_member), so the label says which.
+ */
 function fixOf(args: Args, calendar: CalendarFull['calendar']) {
-  const want = args['fix'] as { issue: string; fixId: string } | undefined;
+  const want = args['fix'] as { issue: string; fixId: string; label?: string } | undefined;
   if (!want)
     throw HfosError.validation(
       [{ path: 'fix', message: 'Say which fix.' }],
       'Say which fix to apply: its issue and fixId, as get_calendar_settings lists them under needsFixing.',
     );
-  const fix = calendar.issues
-    .find((i) => i.code === want.issue)
-    ?.fixes.find((f) => f.id === want.fixId);
+  const sameLabel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const offered = calendar.issues
+    .filter((i) => i.code === want.issue)
+    .flatMap((i) => i.fixes.filter((f) => f.id === want.fixId))
+    .filter((f) => !want.label || sameLabel(f.label, want.label));
+  const fix = offered[0];
   if (!fix)
     throw HfosError.rule(
       'fix_not_offered',
       409,
       `That fix isn’t offered any more: what ${calendar.name} needs has changed. Read it again to see what Things to check offers now.`,
+    );
+  // Fixes worded alike (two resources gone, each "Remove it") are taken in order: the next stays on the list.
+  if (offered.some((f) => !sameLabel(f.label, fix.label)))
+    throw HfosError.validation(
+      [{ path: 'fix.label', message: 'Say which one.' }],
+      `More than one problem on ${calendar.name} offers that fix: ${joinWords(
+        offered.map((f) => f.label),
+        'or',
+      )}. Say which, with its label.`,
     );
   return fix;
 }

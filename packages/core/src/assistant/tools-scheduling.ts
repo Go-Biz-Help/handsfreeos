@@ -241,6 +241,15 @@ export const schedulingTools: readonly AssistantTool[] = [
         .object({
           issue: z.string().trim().min(1).max(80).describe('The issue’s code'),
           fixId: z.string().trim().min(1).max(80).describe('The fix’s id'),
+          label: z
+            .string()
+            .trim()
+            .min(1)
+            .max(200)
+            .optional()
+            .describe(
+              'The fix’s label, as listed: needed when two problems offer the same fix, such as Remove Dale and Remove Priya',
+            ),
         })
         .optional()
         .describe('apply_fix: one of the fixes get_calendar_settings lists under needsFixing'),

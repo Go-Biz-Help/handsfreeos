@@ -217,22 +217,25 @@ const VISITS_WORDS: Record<string, (code: string) => string> = {
         ? 'Everyone already booked keeps their seat.'
         : 'Those visits stay as they are.',
   reassign: () =>
-    'Each goes to someone else on this calendar who’s free; any that don’t fit stay as they are.',
+    'Each goes to someone else on this calendar who’s free, and its customer is told who’s coming instead; any that don’t fit stay as they are.',
   cancel_and_notify: () =>
     'They’re cancelled, and each customer is told by text, or by email if they don’t get texts.',
 };
 
-/** What happens to visits already booked, said on the card before anyone presses Confirm: cancellations first. */
+/** How much each answer needs seeing: a cancellation most, then a visit handed on, as both message the customer. */
+const VISITS_ORDER: Record<string, number> = { cancel_and_notify: 0, reassign: 1, keep: 2 };
+
+/**
+ * What happens to visits already booked, said on the card before anyone presses Confirm. Cancelling and reassigning
+ * both message the customers, so they are cautions, and come first.
+ */
 export function impactWarnings(
   impacts: readonly DecidedImpact[],
 ): { kind: string; text: string }[] {
   return [...impacts]
-    .sort(
-      (a, b) =>
-        Number(b.decision === 'cancel_and_notify') - Number(a.decision === 'cancel_and_notify'),
-    )
+    .sort((a, b) => (VISITS_ORDER[a.decision] ?? 2) - (VISITS_ORDER[b.decision] ?? 2))
     .map((i) => ({
-      kind: i.decision === 'cancel_and_notify' ? 'caution' : 'note',
+      kind: i.decision === 'keep' ? 'note' : 'caution',
       text: `${sentence(i.message)} ${(VISITS_WORDS[i.decision] ?? VISITS_WORDS['keep']!)(i.code)}`,
     }));
 }
@@ -242,7 +245,9 @@ export function visitsDone(actions: { reassigned: string[]; cancelled: string[] 
   const moved = actions?.reassigned.length ?? 0;
   const cancelled = actions?.cancelled.length ?? 0;
   return [
-    moved ? `${moved === 1 ? '1 visit' : `${moved} visits`} went to someone else.` : '',
+    moved
+      ? `${moved === 1 ? '1 visit' : `${moved} visits`} went to someone else, and the customers are being told who’s coming.`
+      : '',
     cancelled
       ? `${cancelled === 1 ? '1 visit was' : `${cancelled} visits were`} cancelled, and the customers are being told.`
       : '',
@@ -576,6 +581,7 @@ const manageCalendar: SettingsConfirmTool = {
       };
     }
     const creating = act === 'create';
+    if (creating && !str(args['name'])) throw nameIt('calendar');
     const fields = await calendarFields(db, ctx, args, current, deps?.webUrl);
     if (creating)
       return {
@@ -653,39 +659,45 @@ const manageCalendar: SettingsConfirmTool = {
     }
     if (act === 'create') {
       const resources = resourceList(args['resources']);
-      const out = await command<{ calendarId: string }>(
-        db,
-        ctx,
-        'calendar.create',
-        defined({
-          name: args['name'],
-          preset: str(args['preset']),
-          description: clearable(args['description']) ?? undefined,
-          timezone: clearable(args['timezone']) ?? undefined,
-          color: str(args['color'])?.toLowerCase(),
-          teammates: list(args['teammates']) ?? [],
-          services: list(args['services']) ?? [],
-          resources: resources?.map((r) => r.resourceId) ?? [],
-        }),
-      );
-      // The preset fills in its own people, services and resources; the ones asked for go on as asked, then
-      // anything the create command doesn't take (hours, buffers, the booking window) is a save on top.
-      await saveConfig(
-        db,
-        ctx,
-        out.calendarId,
-        (config) => calendarPatch(args, config),
-        {},
-        'keep',
-      );
-      if (str(args['bookingLink']))
-        await command(db, ctx, 'calendar.set_slug', {
-          calendarId: out.calendarId,
-          slug: args['bookingLink'],
-        });
+      // One unit: when the settings on top can't be saved (a service id that isn't there), no calendar is left
+      // half made, to be made a second time when the person asks again.
+      const calendarId = await db.transaction(async (tx) => {
+        const t = tx as unknown as Db;
+        const out = await command<{ calendarId: string }>(
+          t,
+          ctx,
+          'calendar.create',
+          defined({
+            name: args['name'],
+            preset: str(args['preset']),
+            description: clearable(args['description']) ?? undefined,
+            timezone: clearable(args['timezone']) ?? undefined,
+            color: str(args['color'])?.toLowerCase(),
+            teammates: list(args['teammates']) ?? [],
+            services: list(args['services']) ?? [],
+            resources: resources?.map((r) => r.resourceId) ?? [],
+          }),
+        );
+        // The preset fills in its own people, services and resources; the ones asked for go on as asked, then
+        // anything the create command doesn't take (hours, buffers, the booking window) is a save on top.
+        await saveConfig(
+          t,
+          ctx,
+          out.calendarId,
+          (config) => calendarPatch(args, config),
+          {},
+          'keep',
+        );
+        if (str(args['bookingLink']))
+          await command(t, ctx, 'calendar.set_slug', {
+            calendarId: out.calendarId,
+            slug: args['bookingLink'],
+          });
+        return out.calendarId;
+      });
       return {
         outcome: `${str(args['name']) ?? 'The calendar'} is set up as a draft, so it isn’t taking bookings yet. It can be turned on when it’s ready.`,
-        href: `/app/w/${ctx.workspaceId}/settings/calendars/${out.calendarId}`,
+        href: `/app/w/${ctx.workspaceId}/settings/calendars/${calendarId}`,
         command: 'calendar.create',
       };
     }

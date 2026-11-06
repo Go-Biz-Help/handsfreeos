@@ -961,6 +961,47 @@ describe('a calendar’s other sections', () => {
     ).rejects.toThrow('That fix isn’t offered any more');
   });
 
+  it('asks which, when two problems offer the same fix, and applies the one named', async () => {
+    const resource = async (name: string) =>
+      (
+        (await run(byName('resource.create'), { workspaceId, name }, owner)) as {
+          resourceId: string;
+        }
+      ).resourceId;
+    const truck = await resource('Truck');
+    const ladder = await resource('Ladder');
+    await configure(
+      ducts,
+      {
+        resources: {
+          required: [
+            { resourceId: truck, quantity: 1 },
+            { resourceId: ladder, quantity: 1 },
+          ],
+        },
+      },
+      false,
+    );
+    for (const resourceId of [truck, ladder])
+      await run(byName('resource.archive'), { workspaceId, resourceId }, owner);
+
+    // Each archived resource is its own problem, and each offers remove_resource.
+    const fix = { issue: 'resource_archived', fixId: 'remove_resource' };
+    await expect(
+      prepare('update_calendar_settings', { calendarId: ducts, action: 'apply_fix', fix }),
+    ).rejects.toThrow('Remove Truck or Remove Ladder');
+    const { card, parsed } = await prepare('update_calendar_settings', {
+      calendarId: ducts,
+      action: 'apply_fix',
+      fix: { ...fix, label: 'Remove Ladder' },
+    });
+    expect(card.title).toBe('Fix Duct cleaning: Remove Ladder?');
+    await confirm('update_calendar_settings', parsed);
+    expect((await calendarNow(ducts)).config.resources.required).toEqual([
+      { resourceId: truck, quantity: 1 },
+    ]);
+  });
+
   it('keeps an online place’s video and recording when the places are sent again', async () => {
     const zoom = await prepare('update_calendar_settings', {
       calendarId: ducts,
