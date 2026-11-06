@@ -105,6 +105,7 @@ export const SCREEN_READS = [
   'platform.affiliate_of_business',
   'platform.affiliates',
   'platform.ai_provider.get',
+  'platform.assistant_ledger',
   'platform.business.get',
   'platform.business.glance',
   'platform.business.list',
