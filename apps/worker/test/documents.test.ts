@@ -517,6 +517,8 @@ describe('signing, start to finish', () => {
     ).toBe(true);
     expect(got.for).toContain('Cy');
     expect(got.note).toContain('only send it to them');
+    // Nothing is on the person's clipboard, so the model is never told it's copied.
+    expect(got.note).not.toContain('copied');
     // Without the link key it says where to copy it instead.
     await expect(
       createToolExecutor(testDbs().worker.db).run(tool, { signerId: s.id }, ctx),

@@ -16,7 +16,6 @@ import {
   computeTotals,
   depositInvoiceOf,
   depositProblem,
-  DOCUMENT_SCREEN_WORDS,
   dueAfterCents,
   dueDateFor,
   estimateInvoiceProblem,
@@ -3037,8 +3036,9 @@ export const billingLinkTools: Record<
       result: {
         for: `${got.name} · ${got.document}`,
         link: got.url,
-        // Said with the link, as Copy their link says it.
-        note: DOCUMENT_SCREEN_WORDS.linkCopied(got.name),
+        // Said with the link, as Copy their link says it, but nothing is on the person's clipboard: the model is
+        // told it's their own link, never that it's copied.
+        note: `${got.name}’s own link. It opens the document as them, so only send it to them.`,
       },
     };
   },
