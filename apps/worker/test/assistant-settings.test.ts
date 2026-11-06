@@ -19,7 +19,7 @@ import {
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
-import { sql } from '@hfos/db/client';
+import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -1409,5 +1409,90 @@ describe('your own hours', () => {
     expect(card.warnings[0]!.text).toContain('Visits already booked stay');
     const done = await confirm(tool!, parsed, owner);
     expect(done.command).toBe('time_off.add');
+  });
+
+  it('reads your own week, time zone and time off in words, with the ids that take time off out', async () => {
+    const { result } = await readTool('get_settings', 'my_calendar', owner);
+    const mine = result['schedules'] as {
+      name: string;
+      userId: string;
+      weeklyHours: string;
+      hoursIn: string;
+      timeOff: { exceptionId: string; when: string }[];
+      calendarLink: string;
+      note: string;
+    };
+    expect(mine).toMatchObject({
+      name: 'Dale Owner',
+      userId: owner.id,
+      hoursIn: expect.stringContaining('the business’s time zone'),
+      calendarLink: 'No calendar linked',
+    });
+    expect(typeof mine.weeklyHours).toBe('string');
+    expect(Array.isArray(mine.timeOff)).toBe(true);
+    expect(mine.note).toContain('exceptionId');
+  });
+});
+
+describe('a teammate’s hours', () => {
+  let marco: TestUser;
+  beforeAll(async () => {
+    marco = await createTestUser('aset-marco', { fullName: 'Marco Member' });
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${marco.id}, 'member')`,
+    );
+  });
+
+  it('lets an owner set a teammate’s week, as Members → Edit hours does, naming whose on the card', async () => {
+    const { card, parsed, tool } = await prepare(
+      'update_my_hours',
+      {
+        action: 'set_hours',
+        userId: marco.id,
+        weekly: [1, 2, 3, 4, 5].map((day) => ({ day, start: '07:00', end: '15:00' })),
+      },
+      owner,
+    );
+    expect(card.title).toBe('Change Marco’s working hours');
+    expect(card.fields.find((f) => f.label === 'Whose')!.value).toBe('Marco Member');
+    expect(card.confirmLabel).toBe('Save the hours');
+    const done = await confirm(tool!, parsed, owner);
+    expect(done).toMatchObject({
+      command: 'schedule.set',
+      outcome: 'Marco’s hours are saved',
+      href: expect.stringContaining(`?user=${marco.id}`),
+    });
+    const [saved] = await rows<{ weekly: { day: number; start: string }[] }>(
+      testDbs().admin.db,
+      sql`select weekly from app.schedules
+          where workspace_id = ${workspaceId} and owner_kind = 'user' and owner_id = ${marco.id}`,
+    );
+    expect(saved!.weekly.map((w) => w.start)).toEqual([
+      '07:00',
+      '07:00',
+      '07:00',
+      '07:00',
+      '07:00',
+    ]);
+  });
+
+  it('tells a member, before any card, that only owners and admins set someone else’s hours', async () => {
+    await expect(
+      prepare(
+        'update_my_hours',
+        { action: 'add_time_off', userId: owner.id, startDate: '2027-01-04' },
+        marco,
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('Only owners and admins change someone else’s hours'),
+    });
+  });
+
+  it('won’t set the hours of someone who isn’t on the team', async () => {
+    await expect(
+      prepare('update_my_hours', { action: 'set_hours', userId: randomUUID(), weekly: [] }, owner),
+    ).rejects.toMatchObject({ message: expect.stringContaining('isn’t on this business’s team') });
   });
 });

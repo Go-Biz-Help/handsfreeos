@@ -11,17 +11,29 @@
 import {
   addDays,
   automationSettingsOf,
+  byLead,
   CALENDAR_COLORS,
+  depositInvoiceOf,
+  depositWhen,
+  depositWords,
   diffConfigs,
   formatDuration,
   HfosError,
+  holdOf,
   isLocalDate,
   JOB_STATUS_WORDS,
+  jobInvoiceOf,
   joinWords,
   LABEL_NAMES,
   localDateOf,
   moduleOfField,
+  money,
+  reminderLabel,
+  reminderWhy,
+  reservedText,
+  sourceLabel,
   startOfLocalDay,
+  webinarDoorPath,
   zonedParts,
   type AppointmentOut,
   type AssistantCard,
@@ -29,6 +41,7 @@ import {
   type CalendarLabel,
   type ConfigPatch,
   type JobStatus,
+  type ReminderState,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { jobText } from '../booking/job-texts';
@@ -43,7 +56,7 @@ import {
   zoneLabel,
 } from './calendar-format';
 import type { ToolContext, ToolOutcome } from './runtime';
-import { appointmentCard, calendarPath } from './tools-calendar';
+import { appointmentCard, calendarPath, statusFor } from './tools-calendar';
 import { command, query, quoted } from './tools-read';
 import {
   answeringImpacts,
@@ -93,14 +106,23 @@ interface Seat {
   confirmedAt?: string | null;
   confirmedVia?: 'sms' | 'link' | 'staff' | 'ai' | null;
   confirmedBy?: { id: string; fullName: string } | null;
+  /** When HandsFreeOS asked them to confirm, or null. */
+  confirmAskedAt?: string | null;
   heldUntil?: string | null;
+  /** The confirmation and each reminder, as the worker recorded them. */
+  reminders?: ReminderState;
+  /** When they opened their Join link (or a teammate ticked it). */
+  joinedAt?: string | null;
 }
 interface Job {
   id: string;
   title: string;
   status: JobStatus;
   customerNote: string | null;
-  visits: { appointmentId: string }[];
+  etaAt?: string | null;
+  visits: { appointmentId: string; title: string; startsAt: string; status: string }[];
+  /** The customer's other upcoming visits that could join this job. */
+  otherVisits?: { appointmentId: string; title: string; startsAt: string }[];
 }
 interface Waiting {
   id: string;
@@ -122,7 +144,29 @@ type Appt = Omit<AppointmentOut, 'attendees'> & {
   job?: Job | null;
   series?: { id: string; rule: Record<string, unknown> } | null;
   waitlist?: Waiting[];
+  /** What the visit costs, where the catalogue says. */
+  priceCents?: number | null;
+  /** Services added after it was booked. */
+  extraServices?: {
+    name: string;
+    durationMinutes: number;
+    priceCents: number | null;
+    source: string;
+  }[];
 };
+/** One invoice on a visit, as money.for_record lists it. */
+interface VisitInvoice {
+  id: string;
+  number: string | null;
+  status: string;
+  state: string;
+  origin: string;
+  title: string | null;
+  totals: { totalCents: number };
+  amountPaidCents: number;
+  balanceCents: number;
+  paidAt: string | null;
+}
 interface CalendarFull {
   calendar: {
     id: string;
@@ -209,17 +253,16 @@ function whose(a: Appt): { name: string; first: string | null } {
   return { name: first ? `${first}’s ${whatOf(a)}` : `the ${whatOf(a)}`, first };
 }
 
+/** How a visit went, as update_appointment's card says it. */
+const OUTCOME_WORDS: Record<string, string> = { completed: 'Done', no_show: 'No-show' };
+
+/** A visit's status in a job's list, as its badge says it. */
 const STATUS_WORDS: Record<string, string> = {
-  scheduled: 'Booked',
-  completed: 'Done',
+  scheduled: 'Scheduled',
+  completed: 'Completed',
   no_show: 'No-show',
   cancelled: 'Cancelled',
 };
-/** A booked visit whose time is over is waiting for someone to say how it went. */
-const statusWords = (a: Pick<Appt, 'status' | 'endsAt'>, now = Date.now()) =>
-  a.status === 'scheduled' && Date.parse(a.endsAt) <= now
-    ? 'Not marked done yet'
-    : (STATUS_WORDS[a.status] ?? a.status);
 
 type Place = { kind: string | null; address: string | null; meetingUrl: string | null };
 function whereOf(l: Place | null | undefined): string | null {
@@ -258,8 +301,129 @@ const CONFIRMED_VIA: Record<string, string> = {
   sms: 'by text',
   link: 'online',
   staff: 'by someone on the team',
-  ai: 'with the AI teammate',
+  ai: 'by the AI teammate',
 };
+
+/**
+ * Whether a customer confirmed, as their row on the visit says it: "Confirmed by text Fri, Sep 18 at 4:12 PM",
+ * "Confirmed by Priya …", "Not confirmed · Asked Thu, Sep 17 at 4:00 PM, no answer yet", or "Not asked yet".
+ */
+function confirmWords(s: Seat, tz: string): string {
+  if (s.confirmedAt) {
+    const how =
+      s.confirmedVia === 'staff' && s.confirmedBy
+        ? `by ${s.confirmedBy.fullName}`
+        : (CONFIRMED_VIA[s.confirmedVia ?? 'staff'] ?? 'by the team');
+    return `Confirmed ${how} ${atLabel(Date.parse(s.confirmedAt), tz)}`;
+  }
+  return s.confirmAskedAt
+    ? `Not confirmed · Asked ${atLabel(Date.parse(s.confirmAskedAt), tz)}, no answer yet`
+    : 'Not asked yet';
+}
+
+/**
+ * Their confirmation and each reminder, as the visit's Reminders lists them: sent (when, and by text or email, and why
+ * email), skipped and why, or when it goes. One for an earlier start no longer applies (the visit moved since).
+ */
+type ReminderRow = {
+  what: string;
+  state: string;
+  at?: string;
+  by?: string;
+  goes?: string;
+  why?: string;
+};
+function remindersOf(s: Seat, startsAt: string, tz: string): ReminderRow[] {
+  const state = s.reminders;
+  if (!state) return [];
+  const name = firstName(s.fullName);
+  const start = Date.parse(startsAt);
+  const entries = [
+    ...(state.confirmation ? [['confirmation', state.confirmation] as const] : []),
+    ...Object.keys(state.reminders)
+      .sort(byLead)
+      .map((k) => [k, state.reminders[k]!] as const),
+  ];
+  return entries.flatMap(([key, e]): ReminderRow[] => {
+    if (Date.parse(e.startsAt) !== start) return [];
+    const what = reminderLabel(key);
+    const why = reminderWhy(e.reason, name);
+    if (e.status === 'sent')
+      return [
+        {
+          what,
+          state: 'Sent',
+          at: atLabel(Date.parse(e.at), tz),
+          by: e.channel === 'email' ? 'email' : 'text',
+          ...(e.channel === 'email' && why ? { why } : {}),
+        },
+      ];
+    if (e.status === 'skipped') return [{ what, state: 'Skipped', why: why ?? 'not sent' }];
+    return [
+      {
+        what,
+        state: 'Scheduled',
+        ...(e.dueAt ? { goes: atLabel(Date.parse(e.dueAt), tz) } : {}),
+        ...(e.reason === 'quiet_hours' ? { why: 'after quiet hours' } : {}),
+      },
+    ];
+  });
+}
+
+/**
+ * The money on one visit, as the visit's sheet shows it (money.for_record, with its member rule): the price, the
+ * deposit that booked it and what is left after the visit, and the bill for the job. Null when the person may not
+ * see it.
+ */
+async function visitMoney(db: Db, ctx: ToolContext, a: Appt, tz: string) {
+  const found = await query<{ invoices: VisitInvoice[] }>(db, ctx, 'money.for_record', {
+    recordType: 'appointment',
+    recordId: a.id,
+  }).catch(() => null);
+  if (!found) return null;
+  const deposit = depositInvoiceOf(found.invoices);
+  const job = jobInvoiceOf(found.invoices);
+  const facts = deposit
+    ? {
+        askedCents: deposit.totals.totalCents,
+        paidCents: deposit.amountPaidCents,
+        state: deposit.state,
+        paidAt: deposit.paidAt,
+        priceCents: a.priceCents ?? null,
+      }
+    : null;
+  const words = facts ? depositWords(facts) : null;
+  const people = booked(a);
+  return {
+    price: a.priceCents == null ? null : money(a.priceCents),
+    deposit:
+      deposit && facts && words
+        ? {
+            state: words.badge,
+            amount: words.amount,
+            when: depositWhen(
+              facts,
+              deposit.paidAt ? `Paid ${atLabel(Date.parse(deposit.paidAt), tz)}` : null,
+            ),
+            ...(words.after ? { leftToPayAfterTheVisit: words.after } : {}),
+            invoiceId: deposit.id,
+            number: deposit.number,
+          }
+        : null,
+    invoice: job
+      ? {
+          title: job.title ?? a.title,
+          invoiceId: job.id,
+          number: job.number,
+          invoiced: money(job.totals.totalCents),
+          paid: money(job.amountPaidCents),
+          stillOwed: money(job.balanceCents),
+        }
+      : null,
+    // Invoice this visit: one customer's visit, really booked, not billed yet (write_invoice with appointmentId).
+    canInvoiceThisVisit: !job && !isGroup(a) && people.length === 1 && !holdOf(a, Date.now()),
+  };
+}
 
 /** "every 2 weeks, 6 visits" from a series' stored rule. */
 function repeatWords(rule: Record<string, unknown>): string {
@@ -339,6 +503,8 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
         customRecordId: str(args['customRecordId']),
         calendarIds: str(args['calendarId']) ? [args['calendarId']] : undefined,
         userIds: str(args['userId']) ? [args['userId']] : undefined,
+        // The Resources view's column: the bookings that reserve this room, truck or chair.
+        resourceIds: str(args['resourceId']) ? [args['resourceId']] : undefined,
         status: args['status'],
       }),
     );
@@ -371,7 +537,10 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           when: rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), tz),
           startsAt: isoWithOffset(Date.parse(a.startsAt), tz),
           with: staffOf(a),
-          status: statusWords(a),
+          ...statusFor(a, tz),
+          ...(a.resources.length
+            ? { equipment: a.resources.map((r) => reservedText(r.quantity, r.name)) }
+            : {}),
           ...(isGroup(a) ? { seats: `${a.seatsTaken} of ${a.capacity} taken` } : {}),
           ...(a.seriesId ? { repeatVisit: a.occurrence } : {}),
           ...(a.customRecord ? { forRecord: a.customRecord.name } : {}),
@@ -397,7 +566,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
                     .join(', ');
               return {
                 title: [clockLabel(start, tz), whatOf(a), people].filter(Boolean).join(' · '),
-                detail: `${dayLabel(start, tz)} · ${statusWords(a)}`,
+                detail: `${dayLabel(start, tz)} · ${statusFor(a, tz).status}`,
                 tone: TONE[a.status] ?? 'muted',
                 href: calendarPath(ctx.workspaceId, { date: localDateOf(start, tz), appt: a.id }),
               };
@@ -411,8 +580,47 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
     const a = await appointmentOf(db, ctx, args['appointmentId']);
     const { calendar } = await calendarOf(db, ctx, a.calendar.id);
     const tz = calendar.timezone;
-    const canText = await textingReady(db, ctx);
+    const config = calendar.config;
+    // A webinar's Link anyone can use: its call's door, written out whole by the executor as Copy gives it.
+    const webinar =
+      a.kind === 'session' && a.location.video === 'handsfree'
+        ? await query<{ call: { format: string; doorKey: string | null } | null }>(
+            db,
+            ctx,
+            'video_call.get',
+            { appointmentId: a.id },
+          ).catch(() => null)
+        : null;
+    const door =
+      webinar?.call?.format === 'webinar' && webinar.call.doorKey
+        ? webinarDoorPath(webinar.call.doorKey)
+        : null;
+    const [canText, moneyOn] = await Promise.all([
+      textingReady(db, ctx),
+      visitMoney(db, ctx, a, tz),
+    ]);
     const start = Date.parse(a.startsAt);
+    // Who's on it, as People and equipment labels them.
+    const role = (r: 'host' | 'crew') =>
+      config.team.assignment === 'collective'
+        ? 'Required'
+        : a.staff.length > 1
+          ? r === 'host'
+            ? 'Lead'
+            : 'Crew'
+          : a.kind === 'session'
+            ? 'Host'
+            : 'Assigned';
+    // The line under the time: "30 min travel before and after".
+    const travel = a.location.kind === 'customer_address' ? config.buffers.travelMinutes : 0;
+    const around =
+      a.bufferBefore && a.bufferBefore === a.bufferAfter
+        ? `${formatDuration(a.bufferBefore)} ${travel ? 'travel ' : ''}before and after`
+        : a.bufferBefore || a.bufferAfter
+          ? `${formatDuration(a.bufferBefore)} before, ${formatDuration(a.bufferAfter)} after`
+          : null;
+    const bookedBy = sourceLabel(a.source);
+    const extras = a.extraServices ?? [];
     return {
       result: {
         id: a.id,
@@ -422,26 +630,71 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
         kind: isGroup(a) ? 'group session' : 'one customer',
         when: `${rangeLabel(start, Date.parse(a.endsAt), tz)} ${zoneLabel(tz, start)}`,
         startsAt: isoWithOffset(start, tz),
-        status: statusWords(a),
+        ...(around ? { around } : {}),
+        ...statusFor(a, tz),
+        ...(bookedBy ? { bookedBy } : {}),
         with: staffOf(a),
+        ...(a.staff.length
+          ? { roles: a.staff.map((s) => ({ name: s.fullName, role: role(s.role) })) }
+          : {}),
+        ...(a.resources.length
+          ? { equipment: a.resources.map((r) => reservedText(r.quantity, r.name)) }
+          : {}),
         where: whereOf(a.location),
+        ...(door ? { linkAnyoneCanUse: door } : {}),
+        // Zoom link: why no link could be made yet (do_appointment_make_meeting_link tries again).
+        ...(a.location.meetingError && !a.location.meetingUrl
+          ? { linkProblem: a.location.meetingError }
+          : {}),
+        ...(a.location.record
+          ? { recorded: 'Recorded and transcribed. The customer was told when they booked.' }
+          : {}),
         notes: quoted(a.notes),
+        ...(extras.length
+          ? {
+              alsoOnThisVisit: extras.map((x) => ({
+                name: x.name,
+                ...(x.durationMinutes ? { length: formatDuration(x.durationMinutes) } : {}),
+                ...(x.priceCents !== null ? { price: money(x.priceCents) } : {}),
+                ...(x.source === 'ai_teammate' ? { addedBy: 'the AI teammate' } : {}),
+              })),
+            }
+          : {}),
         ...(isGroup(a) ? { seats: { taken: a.seatsTaken, of: a.capacity } } : {}),
-        customers: a.attendees.map((s) => ({
-          personId: s.personId,
-          name: s.fullName,
-          status: s.status,
-          ...(isGroup(a) ? { seats: s.seats } : {}),
-          confirmed: s.confirmedAt
-            ? `yes, ${CONFIRMED_VIA[s.confirmedVia ?? 'staff'] ?? 'by the team'}`
-            : 'not yet',
-          hearsBy: reachOf(s, canText) ?? 'nothing on file',
-        })),
+        // Each with the attendeeId Attended or No-show takes (do_attendee_set_attendance).
+        customers: a.attendees.map((s) => {
+          const reminders = remindersOf(s, a.startsAt, tz);
+          return {
+            attendeeId: s.id,
+            personId: s.personId,
+            name: s.fullName,
+            status: s.status,
+            ...(isGroup(a) ? { seats: s.seats } : {}),
+            confirmed: confirmWords(s, tz),
+            hearsBy: reachOf(s, canText) ?? 'nothing on file',
+            ...(s.joinedAt ? { joined: atLabel(Date.parse(s.joinedAt), tz) } : {}),
+            ...(reminders.length ? { reminders } : {}),
+          };
+        }),
         job: a.job
           ? {
+              jobId: a.job.id,
+              title: a.job.title,
               status: JOB_STATUS_WORDS[a.job.status] ?? a.job.status,
               noteForCustomer: quoted(a.job.customerNote),
-              visits: a.job.visits.length,
+              ...(a.job.etaAt ? { arrivingAbout: atLabel(Date.parse(a.job.etaAt), tz) } : {}),
+              visits: a.job.visits.map((v) => ({
+                appointmentId: v.appointmentId,
+                when: atLabel(Date.parse(v.startsAt), tz),
+                title: v.title,
+                status: STATUS_WORDS[v.status] ?? v.status,
+              })),
+              // Add another of their visits: do_job_add_visit with this jobId.
+              couldAdd: (a.job.otherVisits ?? []).map((v) => ({
+                appointmentId: v.appointmentId,
+                when: atLabel(Date.parse(v.startsAt), tz),
+                title: v.title,
+              })),
             }
           : null,
         series: a.series
@@ -449,6 +702,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           : null,
         dealId: a.leadId,
         forRecord: a.customRecord,
+        ...(moneyOn ? { money: moneyOn } : {}),
         waitlist: (a.waitlist ?? []).map((w) => ({
           entryId: w.id,
           personId: w.personId,
@@ -823,7 +1077,7 @@ async function planUpdate(db: Db, ctx: ToolContext, args: Args): Promise<UpdateP
       plan.what.push(outcome);
       plan.fields.push({
         label: 'How it went',
-        value: `${statusWords(a, now)} → ${STATUS_WORDS[to]}`,
+        value: `${OUTCOME_WORDS[a.status] ?? statusFor(a, tz, now).status} → ${OUTCOME_WORDS[to]}`,
       });
       if (Date.parse(a.startsAt) > now)
         plan.warnings.push({ kind: 'note', text: 'It hasn’t started yet.' });

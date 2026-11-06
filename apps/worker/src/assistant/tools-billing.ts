@@ -14,7 +14,9 @@
 import {
   cardLine,
   computeTotals,
+  depositInvoiceOf,
   depositProblem,
+  dueAfterCents,
   dueDateFor,
   estimateInvoiceProblem,
   estimateMoveProblem,
@@ -23,6 +25,7 @@ import {
   INVOICE_WORDS,
   invoiceVoidBlock,
   isManualPaymentMethod,
+  jobInvoiceOf,
   lineRateLabel,
   money,
   MONEY_LINK_WHAT_IT_DOES,
@@ -46,6 +49,7 @@ import {
 import type { Db } from '@hfos/db/client';
 import { customerLink } from '../money/link-routes';
 import type { MoneyLinks } from '../money/links';
+import { longDayLabel } from './calendar-format';
 import type { ToolContext, ToolOutcome } from './runtime';
 import {
   moneyPaths,
@@ -840,10 +844,121 @@ async function leadTitle(db: Db, ctx: ToolContext, leadId: string | null): Promi
   return (await leadOf(db, ctx, leadId))?.title ?? '';
 }
 
+interface VisitToBill {
+  id: string;
+  kind: 'booking' | 'session';
+  capacity: number;
+  title: string;
+  startsAt: string;
+  leadId: string | null;
+  priceCents: number | null;
+  service: { name: string } | null;
+  attendees: { id: string; personId: string; fullName: string; status: string }[];
+}
+interface VisitInvoice {
+  number: string | null;
+  status: string;
+  origin: string;
+  totals: { totalCents: number };
+}
+
+/**
+ * Invoice this visit, as the visit sheet's button does: a new draft for the visit's one customer and its deal, tied to
+ * their seat, so the sheet sees the visit is billed and offers the button no more. With a deposit already paid it is
+ * the balance, its line the visit's price less the deposit, and it says so; unless the model gave lines of its own.
+ * Null when no visit is named. A visit already billed is refused, so it is never billed twice.
+ */
+async function visitToBill(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+): Promise<{
+  args: Args;
+  attendeeId: string;
+  purpose: 'balance' | 'standard';
+  visit: string;
+} | null> {
+  const appointmentId = str(args['appointmentId']);
+  if (!appointmentId) return null;
+  if (str(args['invoiceId']))
+    throw HfosError.validation(
+      [{ path: 'appointmentId', message: 'Only for a new invoice.' }],
+      'appointmentId writes a new invoice for a visit. To change a draft, leave appointmentId out.',
+    );
+  const { appointment: a } = await query<{ appointment: VisitToBill }>(db, ctx, 'appointment.get', {
+    appointmentId,
+  });
+  const seats = a.attendees.filter((s) => s.status !== 'cancelled');
+  if (a.kind === 'session' || a.capacity > 1 || seats.length !== 1)
+    throw HfosError.rule(
+      'visit_not_one_customer',
+      409,
+      'Invoice this visit is for a visit with one customer. For a group session, write each person’s invoice with their personId and leave appointmentId out.',
+    );
+  const seat = seats[0]!;
+  if (str(args['personId']) && args['personId'] !== seat.personId)
+    throw HfosError.rule(
+      'visit_other_customer',
+      409,
+      `This visit is ${seat.fullName}’s, so its invoice is theirs. Leave personId out, or leave appointmentId out to bill someone else.`,
+    );
+  const { invoices } = await query<{ invoices: VisitInvoice[] }>(db, ctx, 'money.for_record', {
+    recordType: 'appointment',
+    recordId: a.id,
+  });
+  const billed = jobInvoiceOf(invoices);
+  if (billed)
+    throw HfosError.rule(
+      'visit_already_invoiced',
+      409,
+      `This visit already has an invoice${billed.number ? `, ${billed.number}` : ''}, so it isn’t billed again. Change that one instead: get_appointment lists it under money.`,
+    );
+  const deposit = depositInvoiceOf(invoices);
+  const paid = deposit && deposit.status !== 'draft' ? deposit.totals.totalCents : 0;
+  const what = a.service?.name ?? a.title;
+  const day = longDayLabel(Date.parse(a.startsAt), ctx.timezone);
+  const given = args['lines'] !== undefined || args['addLines'] !== undefined;
+  if (!given && a.priceCents === null)
+    throw HfosError.validation(
+      [{ path: 'lines', message: 'Say what to bill.' }],
+      `${what} has no price in the catalogue, so say what to bill for this visit: pass lines.`,
+    );
+  const after = paid ? dueAfterCents(a.priceCents, paid) : (a.priceCents ?? 0);
+  return {
+    args: {
+      ...args,
+      personId: seat.personId,
+      leadId: args['leadId'] === undefined ? a.leadId : args['leadId'],
+      title: str(args['title']) ?? what,
+      ...(given
+        ? {}
+        : {
+            lines: [
+              {
+                name: what,
+                description: paid
+                  ? `${day}. Less the ${money(paid)} deposit already paid${deposit?.number ? ` on ${deposit.number}` : ''}.`
+                  : day,
+                quantity: 1,
+                unitPrice: after / 100,
+                unitLabel: 'each',
+                taxable: true,
+              },
+            ],
+          }),
+    },
+    attendeeId: seat.id,
+    purpose: paid ? 'balance' : 'standard',
+    visit: `${what} · ${day}`,
+  };
+}
+
 function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
   const tool = kind === 'estimate' ? 'write_estimate' : 'write_invoice';
   return {
-    async prepare(db, ctx, args, toolCallId) {
+    async prepare(db, ctx, asked, toolCallId) {
+      const visit = kind === 'invoice' ? await visitToBill(db, ctx, asked) : null;
+      const args = visit?.args ?? asked;
       const d = await draftOf(db, ctx, kind, args);
       const who = d.person.fullName;
       const lead =
@@ -852,6 +967,7 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
       const head: Field[] = [
         { label: 'Customer', value: who },
         { label: 'For', value: d.title ?? '' },
+        { label: 'Visit', value: visit?.visit ?? '' },
       ];
       const tail: Field[] = [
         { label: 'Total', value: totalWords(d) },
@@ -897,11 +1013,16 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
           total: money(d.totals.totalCents),
           lines: d.lines.length,
           ...(kind === 'estimate' ? { deposit: depositWords(d) } : {}),
+          ...(visit
+            ? { forVisit: visit.visit, balanceAfterDeposit: visit.purpose === 'balance' }
+            : {}),
         },
       };
     },
 
-    async commit(db, ctx, args) {
+    async commit(db, ctx, asked) {
+      const visit = kind === 'invoice' ? await visitToBill(db, ctx, asked) : null;
+      const args = visit?.args ?? asked;
       const d = await draftOf(db, ctx, kind, args);
       const who = d.person.fullName;
       const header = {
@@ -958,6 +1079,9 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
               connectionId: d.connectionId,
               // Where it came from, for reporting and the timeline: the Assistant, on this person's say-so.
               origin: 'assistant',
+              // Invoice this visit: tied to the customer's seat, and the balance when a deposit was paid.
+              attendeeId: visit?.attendeeId,
+              purpose: visit?.purpose,
             }),
           );
       return {

@@ -28,7 +28,7 @@ import { extraTools } from './tools-extra';
 import { inboxCrmTools } from './tools-inbox-crm';
 import { mainOfferTools } from './tools-main-offer';
 import { moreSettingsTools } from './tools-settings-more';
-import { schedulingTools } from './tools-scheduling';
+import { Place, schedulingTools } from './tools-scheduling';
 import { setupTools } from './tools-setup';
 
 /**
@@ -1216,9 +1216,14 @@ export const assistantTools = [
   define({
     name: 'update_my_hours',
     description:
-      'Change the person’s own working hours or the time zone they’re in, or put time off in the calendar (a day, a run of days, or part of a day). Theirs alone. Use a local date like 2026-09-24 for whole days.',
+      'Change the person’s own working hours or the time zone they’re in, put time off in the calendar (a day, a run of days, or part of a day), or take time off out again, as Settings → My calendar does. Owners and admins do the same for a teammate (userId), as Members → ⋯ → Edit hours does. Use a local date like 2026-09-24 for whole days. What is set now is in get_settings (area my_calendar) for the person, and read_schedule_team for a teammate.',
     input: z.object({
       action: z.enum(['set_hours', 'add_time_off', 'remove_time_off']),
+      userId: uuid
+        .optional()
+        .describe(
+          'A teammate (list_team) whose hours these are; owners and admins only. Leave out for the person’s own',
+        ),
       weekly: WeeklyHoursInput.optional().describe(
         'The working week, for set_hours; leave out to change only the time zone',
       ),
@@ -1240,7 +1245,11 @@ export const assistantTools = [
       startsAt: when.optional().describe('For part of a day'),
       endsAt: when.optional(),
       note: text(500).optional().describe('What it is: "Vacation", "Doctor"'),
-      exceptionId: uuid.optional().describe('The time off to take back out'),
+      exceptionId: uuid
+        .optional()
+        .describe(
+          'remove_time_off: the time off to take back out, its exceptionId from get_settings (my_calendar) or read_schedule_team',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'assistant.use',
@@ -1571,11 +1580,21 @@ export const assistantTools = [
   define({
     name: 'book_appointment',
     description:
-      'Book a customer on a calendar at a time, optionally for one of their pets, vehicles or properties (customRecordId, from find_records), as a record’s Book does. Leave out userIds to let the calendar pick who (round robin, first available…). The customer gets a confirmation unless the person says not to. The card shows who, where, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
+      'Book a customer on a calendar at a time, optionally for one of their pets, vehicles or properties (customRecordId, from find_records), as a record’s Book does; or, as New appointment allows, hold the time with no customer. Leave out userIds to let the calendar pick who (round robin, first available…). Leave out location for the calendar’s first place (the customer’s address on a calendar that goes to them). The customer gets a confirmation unless the person says not to. The card shows who, where, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
     input: z.object({
       calendarId: uuid,
-      personId: uuid,
+      personId: uuid
+        .optional()
+        .describe('The customer; leave out only to hold the time with nobody'),
       startsAt: when,
+      timeZone: timezone
+        .optional()
+        .describe(
+          'The zone the time was said in, when it was a customer’s clock (their “2 PM Pacific” is America/Los_Angeles): their confirmation and reminders tell the time in it. The calendar’s when left out',
+        ),
+      location: Place.optional().describe(
+        'Where it happens, one of the calendar’s places (get_calendar_settings): at the customer’s (their address on file unless another is given), at the business, a video call or a phone call',
+      ),
       durationMinutes: minutes.optional(),
       serviceId: uuid.optional(),
       userIds: z.array(uuid).min(1).max(10).optional().describe('Teammates who work it'),
@@ -1590,11 +1609,21 @@ export const assistantTools = [
   define({
     name: 'reschedule_appointment',
     description:
-      'Move an appointment to a new time, optionally to other teammates. The customer is told the new time.',
+      'Move an appointment to a new time or make it longer or shorter, as the Move dialog does, or change who goes, as Who’s going? does; pass only what changes. The customer is told the new time, or who’s coming, unless the person says not to.',
     input: z.object({
       appointmentId: uuid,
-      startsAt: when,
-      userIds: z.array(uuid).min(1).max(10).optional(),
+      startsAt: when.optional().describe('The new start; leave out to keep the time'),
+      durationMinutes: minutes.optional().describe('The new length; leave out to keep it'),
+      userIds: z
+        .array(uuid)
+        .min(1)
+        .max(10)
+        .optional()
+        .describe('Who goes now (list_team), the first leading'),
+      tellCustomer: z
+        .boolean()
+        .default(true)
+        .describe('Tell the customer, as the Tell tick box does'),
     }),
     autonomy: 'confirm',
     permission: 'appointments.write',

@@ -78,6 +78,7 @@ export const SCREEN_READS = [
   'registration.review.get',
   'safety.alert',
   'safety.mine',
+  'schedule.team',
   'search.everything',
   'search.kind',
   'subscription.get',
@@ -159,8 +160,10 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
   'lead.board':
     'Its answer comes summed up as the board shows it: the open leads and their value, each stage’s count and total value (Won and Lost too), then each stage’s first 5 cards in order (shown with a stage’s id and a limit lists more of it). Pipeline ids are in its pipelines.',
+  'schedule.team':
+    'The Calendar’s Team, Week and Day views show it. Its answer comes summed up, each person with their weekly hours (or that none are saved, so weekdays 9 to 5 apply) and the zone they’re in, their time off and extra open time with its note and exceptionId (update_my_hours takes it out), when they’re busy in their own Google or Outlook calendar, on a private deal or in another business, and how their calendar link stands. userIds narrows it to some teammates (list_team).',
   'video_call.get':
-    'Its answer adds join, the address the team joins the call at. The customer’s own link went to them by text or email and is never shown. A call that isn’t for an appointment is found by its callId: start_video_call’s answer has it, and once it has been held it is on the customer’s timeline (read_timeline_list, a call’s meta.videoCallId).',
+    'Its answer adds join, the address the team joins the call at, and for a webinar linkAnyoneCanUse, its Link anyone can use as the screen copies it. The customer’s own link went to them by text or email and is never shown. A call that isn’t for an appointment is found by its callId: start_video_call’s answer has it, and once it has been held it is on the customer’s timeline (read_timeline_list, a call’s meta.videoCallId).',
 };
 
 /** One of a screen's queries, offered to the Assistant as a look-up. */

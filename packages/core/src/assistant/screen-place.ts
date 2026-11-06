@@ -5,6 +5,7 @@
  * here, so "this" can mean the calendar, invoice or form that is open, not only a customer, lead or appointment.
  * Browser-safe and pure: a test reads it against the maps.
  */
+import { isLocalDate } from '../calendar/engine/zoned';
 import { APP_PLACES, placeWay } from './places-map';
 import { settingsAreas, type SettingsArea } from './settings-map';
 
@@ -19,13 +20,25 @@ export interface ScreenPlace {
   readonly path: string;
   /** The ids in the address, each named for what it is: `{ name: 'calendar', id }`. */
   readonly ids: readonly { readonly name: string; readonly id: string }[];
+  /**
+   * What the screen is showing, when its address keeps it: the Calendar's view and day ("the week view of
+   * 2026-11-09"), so "this week" or "that day" means what is open. Left out when the address doesn't say.
+   */
+  readonly shows?: string;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A word of a route ("calendars", "open-houses"): the only kind of segment the Assistant is told as it is. */
 const WORD = /^[a-z0-9][a-z0-9-]{0,31}$/;
 /** A query's key short for something longer (a Map, so no key reads anything else off an object). */
-const KEY_NAMES: ReadonlyMap<string, string> = new Map([['appt', 'appointment']]);
+const KEY_NAMES: ReadonlyMap<string, string> = new Map([
+  ['appt', 'appointment'],
+  // The Calendar's people are teammates (user ids), and its chips the calendars shown.
+  ['people', 'user'],
+  ['calendars', 'calendar'],
+]);
+/** The Calendar's views, as its address keeps them: the only words of a query ever repeated to the model. */
+const VIEWS: ReadonlySet<string> = new Set(['team', 'week', 'day', 'month', 'resources']);
 
 interface Candidate {
   readonly segments: readonly string[];
@@ -147,17 +160,29 @@ export function screenPlace(address: string | null | undefined): ScreenPlace | n
         : 'record';
     ids.push({ name, id: s.toLowerCase() });
   });
+  let view: string | null = null;
+  let date: string | null = null;
   for (const pair of query.split('&')) {
     const [key = '', value = ''] = pair.split('=', 2);
-    let id: string;
+    let decoded: string;
     try {
-      id = decodeURIComponent(value);
+      decoded = decodeURIComponent(value);
     } catch {
       continue;
     }
-    if (UUID.test(id) && /^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(key))
-      ids.push({ name: KEY_NAMES.get(key) ?? nameOfKey(key), id: id.toLowerCase() });
+    if (key === 'view' && VIEWS.has(decoded)) view = decoded;
+    else if (key === 'date' && isLocalDate(decoded)) date = decoded;
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(key)) continue;
+    // One id, or several with commas between (the Calendar's people and chips).
+    for (const id of decoded.split(','))
+      if (UUID.test(id))
+        ids.push({ name: KEY_NAMES.get(key) ?? nameOfKey(key), id: id.toLowerCase() });
   }
+  const shows = view
+    ? `the ${view} view${date ? ` of ${date}` : ''}`
+    : date
+      ? `the day ${date}`
+      : null;
 
   return {
     label: best?.label ?? null,
@@ -165,5 +190,6 @@ export function screenPlace(address: string | null | undefined): ScreenPlace | n
     area: best?.area ?? null,
     path: `/${segments.join('/')}`,
     ids,
+    ...(shows ? { shows } : {}),
   };
 }

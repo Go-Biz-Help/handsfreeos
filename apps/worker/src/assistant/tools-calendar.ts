@@ -3,10 +3,14 @@ import {
   executeCommand,
   formatDuration,
   HfosError,
+  holdOf,
+  holdWords,
   isLocalDate,
   localDateOf,
   registry,
   startOfLocalDay,
+  statusOf,
+  type AgendaAppointment,
   type AppointmentOut,
   type AppointmentWarning,
   type AssistantCard,
@@ -194,6 +198,24 @@ export function appointmentCard(
   };
 }
 
+/**
+ * Where an appointment stands, in the badge's own words (core's `statusOf`): Not booked yet while a deposit holds the
+ * time, Happening now, Scheduled, Completed, No-show or Cancelled; a booked visit that's over is "Not marked done yet".
+ * A held time also says, as every screen does, that it waits on a deposit and when it goes back.
+ */
+export function statusFor(
+  a: Pick<AppointmentOut, 'status' | 'startsAt' | 'endsAt' | 'heldUntil'>,
+  timeZone: string,
+  now = Date.now(),
+): { status: string; held?: string } {
+  const { label } = statusOf(a as unknown as AgendaAppointment, now);
+  const hold = holdOf(a, now);
+  return {
+    status: label === 'Scheduled' && Date.parse(a.endsAt) <= now ? 'Not marked done yet' : label,
+    ...(hold ? { held: holdWords(hold, timeZone) } : {}),
+  };
+}
+
 /** What the model reads about an appointment: its id and plain words. */
 const appointmentResult = (a: Appointment, timeZone: string) => ({
   id: a.id,
@@ -203,7 +225,7 @@ const appointmentResult = (a: Appointment, timeZone: string) => ({
   when: rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), timeZone),
   startsAt: isoWithOffset(Date.parse(a.startsAt), timeZone),
   with: staffOf(a),
-  status: a.status,
+  ...statusFor(a, timeZone),
 });
 
 /** A customer's appointments that haven't ended, soonest first (the next 60 days). */
@@ -237,7 +259,8 @@ export async function todaysAppointments(
   });
   const live = items.filter((a) => a.status === 'scheduled' || a.status === 'completed');
   const left = live.filter((a) => a.status === 'scheduled' && Date.parse(a.endsAt) > now);
-  const happening = (a: Appointment) => Date.parse(a.startsAt) <= now;
+  // A time held for a deposit isn't happening, whatever the clock says.
+  const happening = (a: Appointment) => statusFor(a, tz, now).status === 'Happening now';
   const title = (a: Appointment) => {
     const who = isGroup(a)
       ? `${a.seatsTaken}/${a.capacity}`
@@ -581,16 +604,57 @@ function addressLine(a: PersonGet['person']['address']): string | null {
     .join(', ');
 }
 
+const zipOf = (address: string | null) => address?.match(/\b(\d{5})(?:-\d{4})?\s*$/)?.[1] ?? null;
+
 /**
- * What appointment.create gets: the model's arguments, plus the customer's street when the calendar goes to
- * customers (as the booking dialog fills it in). Prepare and Confirm build it the same way.
+ * Where it happens, as New appointment's Location sets it: the place the model picked, filled in from the calendar's
+ * own place of that kind (its address, or its link) and, at the customer's, from their address on file. Left out,
+ * the customer's street when the calendar goes to customers, else the calendar's first place.
  */
-function bookingInput(args: Args, calendar: CalendarGet['calendar'], person: PersonGet['person']) {
-  const visits = calendar.config.locations.options[0]?.kind === 'customer_address';
-  const address = visits ? addressLine(person.address) : null;
+function placeFor(
+  args: Args,
+  calendar: CalendarGet['calendar'],
+  person: PersonGet['person'] | null,
+): Args | undefined {
+  const options = calendar.config.locations.options;
+  const home = person ? addressLine(person.address) : null;
+  const chosen = args['location'] as Args | undefined;
+  if (!chosen) {
+    const visits = options[0]?.kind === 'customer_address';
+    return visits && home
+      ? { kind: 'customer_address', address: home, postalCode: person!.address.postalCode }
+      : undefined;
+  }
+  const kind = String(chosen['kind']);
+  const option = options.find((o) => o.kind === kind);
+  if (kind === 'customer_address') {
+    const address = str(chosen['address']) ?? home;
+    return {
+      kind,
+      address,
+      postalCode: address && address === home ? person!.address.postalCode : zipOf(address),
+    };
+  }
+  if (kind === 'business')
+    return { kind, address: str(chosen['address']) ?? option?.address ?? null };
+  if (kind === 'virtual')
+    return { kind, meetingUrl: str(chosen['meetingLink']) ?? option?.meetingUrl ?? null };
+  return { kind };
+}
+
+/**
+ * What appointment.create gets: the model's arguments, the place (see `placeFor`) and the zone the time was said in,
+ * as the booking dialog sends them. A booking with no customer is a time held on the calendar, as the dialog allows.
+ * Prepare and Confirm build it the same way.
+ */
+function bookingInput(
+  args: Args,
+  calendar: CalendarGet['calendar'],
+  person: PersonGet['person'] | null,
+) {
   return defined({
     calendarId: calendar.id,
-    personId: person.id,
+    personId: person?.id,
     startsAt: args['startsAt'],
     durationMinutes: args['durationMinutes'],
     serviceId: str(args['serviceId']),
@@ -600,19 +664,23 @@ function bookingInput(args: Args, calendar: CalendarGet['calendar'], person: Per
     // The pet, vehicle or property it's for, as a record's Book fills it in.
     customRecordId: str(args['customRecordId']),
     notes: str(args['notes']),
-    location: address
-      ? { kind: 'customer_address', address, postalCode: person.address.postalCode }
-      : undefined,
+    location: placeFor(args, calendar, person),
     // "Tell Mike": a confirmation by text or email, unless the person said not to.
     notify: args['notify'] !== false,
+    // A customer's "2 PM Pacific": their confirmation and reminders tell the time in their zone.
+    timezone: str(args['timeZone']),
   });
 }
 
+/** The customer, when the booking has one. */
+const customerOf = async (db: Db, ctx: ToolContext, personId: unknown) =>
+  str(personId) ? (await q<PersonGet>(db, ctx, 'person.get', { personId })).person : null;
+
 const bookAppointment: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const [{ calendar }, { person }, canText] = await Promise.all([
+    const [{ calendar }, person, canText] = await Promise.all([
       calendarGet(db, ctx, args['calendarId']),
-      q<PersonGet>(db, ctx, 'person.get', { personId: args['personId'] }),
+      customerOf(db, ctx, args['personId']),
       textingReady(db, ctx),
     ]);
     const input = bookingInput(args, calendar, person);
@@ -626,45 +694,65 @@ const bookAppointment: ConfirmTool = {
     const tz = calendar.timezone;
     const start = Date.parse(created.startsAt);
     const end = Date.parse(created.endsAt);
-    const first = firstName(person.fullName);
+    const first = person ? firstName(person.fullName) : null;
     const staff = staffOf(appt);
     const picked =
       !args['userIds'] && staff.length === 1 ? PICKS[calendar.config.team.assignment] : undefined;
     const warnings = await warningsFor(db, ctx, created.warnings, { start, end, timeZone: tz });
-    const reminders = remindersLine(
-      calendar.config,
-      appt.attendees.find((p) => p.personId === person.id),
-      first,
-      canText,
-    );
+    const reminders = person
+      ? remindersLine(
+          calendar.config,
+          appt.attendees.find((p) => p.personId === person.id),
+          first!,
+          canText,
+        )
+      : null;
     const where = whereOf(appt.location);
     const what = `${whatOf(appt)} · ${formatDuration(Math.round((end - start) / MIN))}`;
     const notify = args['notify'] !== false;
     const tell = tellRow(appt, first, notify, canText, 'with the details');
+    // Said in the customer's own zone too, as their confirmation will say it.
+    const theirZone = str(args['timeZone']);
+    const theirs =
+      theirZone && theirZone !== tz
+        ? [
+            {
+              label: 'Their time',
+              value: `${rangeLabel(start, end, theirZone)} ${zoneLabel(theirZone, start)}`,
+            },
+          ]
+        : [];
     return {
       card: confirmCard(toolCallId, 'book_appointment', {
-        personId: person.id,
+        personId: person?.id ?? null,
         title: 'Book this appointment?',
         fields: [
-          { label: 'Customer', value: [person.fullName, person.phone].filter(Boolean).join(' · ') },
+          {
+            label: 'Customer',
+            value: person
+              ? [person.fullName, person.phone].filter(Boolean).join(' · ')
+              : 'None, just the time',
+          },
           { label: 'What', value: what },
           ...(appt.customRecord
             ? [{ label: appt.customRecord.kind || 'For', value: appt.customRecord.name }]
             : []),
           { label: 'When', value: `${rangeLabel(start, end, tz)} ${zoneLabel(tz, start)}` },
+          ...theirs,
           // Nobody works it on a calendar without staff: no With row.
           ...(staff.length
             ? [{ label: 'With', value: `${joinAnd(staff)}${picked ? `, ${picked}` : ''}` }]
             : []),
           ...(where ? [{ label: 'Where', value: where }] : []),
-          { label: 'Reminders', value: reminders.line },
+          ...(reminders ? [{ label: 'Reminders', value: reminders.line }] : []),
           ...(tell ? [tell] : []),
         ],
-        warnings: [...warnings, ...(reminders.warning ? [reminders.warning] : [])],
+        warnings: [...warnings, ...(reminders?.warning ? [reminders.warning] : [])],
         confirmLabel: warnings.length ? 'Book anyway' : 'Book',
       }),
       result: {
-        customer: person.fullName,
+        customer: person?.fullName ?? null,
+        ...(where ? { where } : {}),
         what,
         ...(appt.customRecord ? { for: appt.customRecord.name } : {}),
         when: atLabel(start, tz),
@@ -675,9 +763,9 @@ const bookAppointment: ConfirmTool = {
     };
   },
   async commit(db, ctx, args, extra) {
-    const [{ calendar }, { person }] = await Promise.all([
+    const [{ calendar }, person] = await Promise.all([
       calendarGet(db, ctx, args['calendarId']),
-      q<PersonGet>(db, ctx, 'person.get', { personId: args['personId'] }),
+      customerOf(db, ctx, args['personId']),
     ]);
     const out = await cmd<CreateOut>(db, ctx, 'appointment.create', {
       ...bookingInput(args, calendar, person),
@@ -746,40 +834,65 @@ function tellRow(
 
 const sameOrder = (a: readonly string[], b: readonly string[]) => a.join() === b.join();
 
+/** Whether the model asked for any change at all: a time, a length or the people. */
+function assertSomethingChanges(args: Args) {
+  if (args['startsAt'] === undefined && args['durationMinutes'] === undefined && !args['userIds'])
+    throw HfosError.validation(
+      [{ path: 'startsAt', message: 'Say what changes.' }],
+      'Say what changes: a new startsAt, a durationMinutes for its length, or userIds for who goes.',
+    );
+}
+
 /**
- * Moves it (and hands it to other people when asked, unless the calendar books without staff); Prepare and
- * Confirm run the same steps.
+ * Moves it, makes it longer or shorter, or hands it to other people, unless the calendar books without staff, as the
+ * Move dialog and Who's going? do; Prepare and Confirm run the same steps. The customer is told once: the new time's
+ * notice says who is coming, so a hand-over that comes with one tells them nothing more.
  */
 async function move(db: Db, ctx: ToolContext, args: Args, appt: Appointment, noStaff: boolean) {
-  const moved = await cmd<MoveOut>(db, ctx, 'appointment.reschedule', {
-    appointmentId: appt.id,
-    startsAt: args['startsAt'],
-    acknowledgeWarnings: true,
-    notify: true,
-  });
+  const tell = args['tellCustomer'] !== false;
+  const was = { start: Date.parse(appt.startsAt), end: Date.parse(appt.endsAt) };
+  const startsAt = str(args['startsAt']) ?? appt.startsAt;
+  const minutes = args['durationMinutes'] as number | undefined;
+  const retimed =
+    Date.parse(startsAt) !== was.start ||
+    (minutes !== undefined && minutes * MIN !== was.end - was.start);
+  const moved: MoveOut = retimed
+    ? await cmd<MoveOut>(
+        db,
+        ctx,
+        'appointment.reschedule',
+        defined({
+          appointmentId: appt.id,
+          startsAt,
+          durationMinutes: minutes,
+          acknowledgeWarnings: true,
+          notify: tell,
+        }),
+      )
+    : { appointmentId: appt.id, startsAt: appt.startsAt, endsAt: appt.endsAt, warnings: [] };
   const userIds = noStaff ? undefined : (args['userIds'] as string[] | undefined);
   const warnings = [...moved.warnings];
-  if (
-    userIds?.length &&
+  const handedOver =
+    !!userIds?.length &&
     !sameOrder(
       userIds,
       appt.staff.map((s) => s.userId),
-    )
-  ) {
+    );
+  if (handedOver) {
     const r = await cmd<{ warnings: AppointmentWarning[] }>(db, ctx, 'appointment.reassign', {
       appointmentId: appt.id,
       userIds,
       acknowledgeWarnings: true,
-      // One notice for the customer: the new time's already tells them who is coming.
-      notify: Date.parse(moved.startsAt) === Date.parse(appt.startsAt),
+      notify: tell && !retimed,
     });
     warnings.push(...r.warnings);
   }
-  return { moved, warnings };
+  return { moved, warnings, retimed, handedOver };
 }
 
 const rescheduleAppointment: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
+    assertSomethingChanges(args);
     const [{ appt, timeZone: tz, noStaff }, canText] = await Promise.all([
       scheduledAppointment(db, ctx, args['appointmentId']),
       textingReady(db, ctx),
@@ -787,6 +900,7 @@ const rescheduleAppointment: ConfirmTool = {
     const {
       moved,
       warnings: raw,
+      retimed,
       after,
     } = await dryRun(db, async (tx) => {
       const m = await move(tx, ctx, args, appt, noStaff);
@@ -794,50 +908,79 @@ const rescheduleAppointment: ConfirmTool = {
     });
     const was = { start: Date.parse(appt.startsAt), end: Date.parse(appt.endsAt) };
     const now = { start: Date.parse(moved.startsAt), end: Date.parse(moved.endsAt) };
-    if (was.start === now.start && sameOrder(staffOf(appt), staffOf(after)))
+    if (!retimed && sameOrder(staffOf(appt), staffOf(after)))
       throw HfosError.rule(
         'same_time',
         409,
-        `It’s already at ${atLabel(was.start, tz)} with the same people, so nothing would change. Give a different startsAt or userIds.`,
+        `It’s already ${rangeLabel(was.start, was.end, tz)} with the same people, so nothing would change. Give a different startsAt, durationMinutes or userIds.`,
       );
     const warnings = await warningsFor(db, ctx, raw, { ...now, timeZone: tz });
     const { name, first } = whose(appt);
-    const tell = tellRow(appt, first, true, canText, 'with the new time');
+    const tell = tellRow(
+      appt,
+      first,
+      args['tellCustomer'] !== false,
+      canText,
+      retimed ? 'with the new time' : 'with who’s coming',
+    );
     return {
       card: confirmCard(toolCallId, 'reschedule_appointment', {
         personId: booked(appt)[0]?.personId ?? null,
-        title: `Move ${name}?`,
+        title: retimed ? `Move ${name}?` : `Change who goes to ${name}?`,
         fields: [
-          { label: 'Was', value: rangeLabel(was.start, was.end, tz) },
-          { label: 'Now', value: rangeLabel(now.start, now.end, tz) },
-          ...(noStaff ? [] : [{ label: 'With', value: joinAnd(staffOf(after)) || 'Nobody yet' }]),
+          ...(retimed
+            ? [
+                { label: 'Was', value: rangeLabel(was.start, was.end, tz) },
+                { label: 'Now', value: rangeLabel(now.start, now.end, tz) },
+              ]
+            : [{ label: 'When', value: rangeLabel(was.start, was.end, tz) }]),
+          ...(noStaff
+            ? []
+            : [
+                ...(retimed
+                  ? []
+                  : [{ label: 'Was with', value: joinAnd(staffOf(appt)) || 'Nobody' }]),
+                { label: 'With', value: joinAnd(staffOf(after)) || 'Nobody yet' },
+              ]),
           ...(tell ? [tell] : []),
         ],
         warnings,
-        confirmLabel: warnings.length ? 'Move anyway' : 'Move',
+        confirmLabel: retimed
+          ? warnings.length
+            ? 'Move anyway'
+            : 'Move'
+          : warnings.length
+            ? 'Change anyway'
+            : 'Change who goes',
       }),
       result: {
         appointment: whatOf(appt),
         customers: booked(appt).map((p) => p.fullName),
-        was: atLabel(was.start, tz),
-        now: atLabel(now.start, tz),
+        was: rangeLabel(was.start, was.end, tz),
+        now: rangeLabel(now.start, now.end, tz),
+        length: formatDuration(Math.round((now.end - now.start) / MIN)),
         with: staffOf(after),
+        tellCustomer: args['tellCustomer'] !== false,
         ...(warnings.length ? { warnings: warnings.map((w) => w.text) } : {}),
       },
     };
   },
   async commit(db, ctx, args) {
+    assertSomethingChanges(args);
     const {
       appt,
       timeZone: tz,
       noStaff,
     } = await scheduledAppointment(db, ctx, args['appointmentId']);
-    const { moved } = await move(db, ctx, args, appt, noStaff);
+    const { moved, retimed } = await move(db, ctx, args, appt, noStaff);
     const start = Date.parse(moved.startsAt);
+    const after = retimed ? null : staffOf(await appointmentGet(db, ctx, appt.id)).map(firstName);
     return {
-      outcome: `Moved to ${atLabel(start, tz)}.`,
+      outcome: retimed
+        ? `Moved to ${atLabel(start, tz)}.`
+        : `${joinAnd(after ?? [])} ${after?.length === 1 ? 'is' : 'are'} going now.`,
       href: calendarPath(ctx.workspaceId, { date: localDateOf(start, tz), appt: appt.id }),
-      command: 'appointment.reschedule',
+      command: retimed ? 'appointment.reschedule' : 'appointment.reassign',
     };
   },
 };

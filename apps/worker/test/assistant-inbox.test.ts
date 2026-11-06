@@ -623,6 +623,21 @@ describe('a HandsFreeOS video call', () => {
     const screen = allScreenReadTools().find((t) => t.name === 'read_video_call_get')!;
     const got = await tools().run(screen, screen.input.parse({ callId: id }), ctx());
     expect((got.result as { data: { join: string } }).data.join).toBe(`${WEB}/call/${id}`);
+    expect(got.result).not.toHaveProperty('data.linkAnyoneCanUse');
+    // A webinar's call also gives its Link anyone can use, whole, as the screen's Copy does.
+    const key = randomUUID().replace(/-/g, '').slice(0, 24);
+    await rows(
+      admin(),
+      sql`update app.video_calls set format = 'webinar', door_key = ${key} where id = ${id}`,
+    );
+    const webinar = await tools().run(screen, screen.input.parse({ callId: id }), ctx());
+    expect(
+      (webinar.result as { data: { linkAnyoneCanUse: string } }).data.linkAnyoneCanUse,
+    ).toMatch(new RegExp(`^https?://[^/]+/live/${key}$`));
+    await rows(
+      admin(),
+      sql`update app.video_calls set format = 'meeting', door_key = null where id = ${id}`,
+    );
 
     // From a conversation the link goes in it, unless the person asked for the other way.
     const here = await prepare('start_video_call', { conversationId: danaText });

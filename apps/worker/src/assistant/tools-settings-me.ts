@@ -3,15 +3,21 @@
  * working hours and their time off.
  *
  * These belong to one person rather than to the business, so they need no permission beyond using the Assistant —
- * and they are always about the person asking. Nothing here takes a teammate's id: changing somebody else's hours
- * is the business's business, and goes through the screens.
+ * and they are about the person asking. The one exception is hours: owners and admins set a teammate's week, time
+ * zone and time off too, as Members → ⋯ → Edit hours does, and the hours commands check that it's theirs to set.
  */
 
-import { plainSpaces, zonePickLabel } from '@hfos/core/server';
+import { HfosError, plainSpaces, zonePickLabel } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { firstName } from './calendar-format';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
-import { hoursLine, settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
+import {
+  dryRun,
+  hoursLine,
+  settingsCard,
+  type SettingsConfirmTool,
+} from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
 type Field = { label: string; value: string };
@@ -27,15 +33,66 @@ interface Me {
 
 const meOf = (db: Db, ctx: ToolContext) => query<Me>(db, ctx, 'account.me');
 
-/** The person's saved week, for a set_hours that changes only the time zone. */
-async function savedWeek(db: Db, ctx: ToolContext): Promise<Hours> {
+/** Whose hours these are: the person asking, or the teammate named (owners and admins). */
+const ownerOf = (ctx: ToolContext, args: Args) => str(args['userId']) ?? ctx.actor.userId;
+
+/** The saved week, for a set_hours that changes only the time zone. */
+async function savedWeek(db: Db, ctx: ToolContext, userId: string): Promise<Hours> {
   const now = Date.now();
   const team = await query<{ people: { weekly: Hours }[] }>(db, ctx, 'schedule.team', {
     from: new Date(now).toISOString(),
     to: new Date(now + 86_400_000).toISOString(),
-    userIds: [ctx.actor.userId],
+    userIds: [userId],
   });
   return team.people[0]?.weekly ?? [];
+}
+
+/** A teammate's name, or null when the hours are the person's own. */
+async function teammateOf(db: Db, ctx: ToolContext, args: Args): Promise<string | null> {
+  const userId = ownerOf(ctx, args);
+  if (userId === ctx.actor.userId) return null;
+  const team = await query<{
+    members: { userId: string; fullName: string; email: string }[];
+    organizationAdmins: { userId: string; fullName: string; email: string }[];
+  }>(db, ctx, 'workspace.members');
+  const m = [...team.members, ...team.organizationAdmins].find((x) => x.userId === userId);
+  if (!m)
+    throw HfosError.notFound(
+      'That person isn’t on this business’s team. Pick a teammate from list_team.',
+    );
+  return m.fullName || m.email;
+}
+
+/** The hours command update_my_hours runs, the same for the card's dry run and for Confirm. */
+async function saveHours(db: Db, ctx: ToolContext, args: Args): Promise<string> {
+  const act = action(args);
+  const userId = ownerOf(ctx, args);
+  // Somebody else's go by their id; the kernel lets only owners and admins (calendars.manage) set those.
+  const owner = { ownerKind: 'user', ...(userId === ctx.actor.userId ? {} : { ownerId: userId }) };
+  if (act === 'set_hours') {
+    // Only the zone: the week stays as it's saved.
+    const weekly =
+      args['weekly'] ??
+      (zoneArg(args).timezone !== undefined ? await savedWeek(db, ctx, userId) : []);
+    await command(db, ctx, 'schedule.set', { ...owner, weekly, ...zoneArg(args) });
+    return 'schedule.set';
+  }
+  if (act === 'remove_time_off') {
+    await command(db, ctx, 'time_off.remove', { exceptionId: args['exceptionId'] });
+    return 'time_off.remove';
+  }
+  await command(db, ctx, 'time_off.add', {
+    ...owner,
+    kind: 'unavailable',
+    ...(str(args['startsAt'])
+      ? { startsAt: args['startsAt'], endsAt: args['endsAt'] }
+      : {
+          startDate: args['startDate'],
+          ...(str(args['endDate']) ? { endDate: args['endDate'] } : {}),
+        }),
+    ...(str(args['note']) ? { note: str(args['note']) } : {}),
+  });
+  return 'time_off.add';
 }
 
 /** set_hours' zone as schedule.set takes it: a zone, null to follow the business's, or left as it is. */
@@ -128,48 +185,64 @@ const dayWords = (date: string) => {
 };
 
 const updateMyHours: SettingsConfirmTool = {
-  async prepare(_db, _ctx, args, toolCallId) {
+  async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
+    const who = await teammateOf(db, ctx, args);
+    // A teammate's: the command runs once and is rolled back, so a refusal (not an owner or admin, a time off
+    // that isn't theirs) is said before the card rather than after Confirm.
+    if (who) await dryRun(db, (tx) => saveHours(tx, ctx, args));
+    const your = who ? `${firstName(who)}’s` : 'your';
+    const Your = who ? your : 'Your';
     if (act === 'set_hours') {
       const zone = zoneArg(args).timezone;
       return {
         card: settingsCard(toolCallId, 'update_my_hours', {
-          title: args['weekly'] ? 'Change your working hours' : 'Change your time zone',
+          title: args['weekly'] ? `Change ${your} working hours` : `Change ${your} time zone`,
           fields: [
+            ...(who ? [{ label: 'Whose', value: who }] : []),
             ...(args['weekly']
-              ? [{ label: 'Your week', value: hoursLine(args['weekly'] as Hours) }]
+              ? [{ label: `${Your} week`, value: hoursLine(args['weekly'] as Hours) }]
               : []),
             ...(zone !== undefined
               ? [
                   {
-                    label: 'Your hours are in',
+                    label: `${Your} hours are in`,
                     value: zone ? zonePickLabel(zone) : 'The business’s time zone',
                   },
                 ]
               : []),
           ],
-          confirmLabel: 'Save my hours',
+          confirmLabel: who ? 'Save the hours' : 'Save my hours',
           warnings: [{ kind: 'note', text: 'Visits already booked stay; this is about new ones.' }],
         }),
-        result: { waiting: true },
+        result: { waiting: true, ...(who ? { whose: who } : {}) },
       };
     }
     if (act === 'remove_time_off')
       return {
         card: settingsCard(toolCallId, 'update_my_hours', {
           title: 'Put that time back',
-          fields: [{ label: 'What changes', value: 'You can be booked then again' }],
+          fields: [
+            ...(who ? [{ label: 'Whose', value: who }] : []),
+            {
+              label: 'What changes',
+              value: who
+                ? `${firstName(who)} can be booked then again`
+                : 'You can be booked then again',
+            },
+          ],
           confirmLabel: 'Put it back',
         }),
-        result: { waiting: true },
+        result: { waiting: true, ...(who ? { whose: who } : {}) },
       };
     const start = str(args['startDate']);
     const end = str(args['endDate']);
     const partial = str(args['startsAt']);
     return {
       card: settingsCard(toolCallId, 'update_my_hours', {
-        title: 'Put time off in your calendar',
+        title: `Put time off in ${your} calendar`,
         fields: [
+          ...(who ? [{ label: 'Whose', value: who }] : []),
           {
             label: 'When',
             value: partial
@@ -181,38 +254,30 @@ const updateMyHours: SettingsConfirmTool = {
           ...(str(args['note']) ? [{ label: 'What it is', value: str(args['note'])! }] : []),
         ],
         confirmLabel: 'Book the time off',
-        warnings: [{ kind: 'note', text: 'Nobody can book you then. Visits already booked stay.' }],
+        warnings: [
+          {
+            kind: 'note',
+            text: `Nobody can book ${who ? firstName(who) : 'you'} then. Visits already booked stay.`,
+          },
+        ],
       }),
-      result: { waiting: true },
+      result: { waiting: true, ...(who ? { whose: who } : {}) },
     };
   },
 
   async commit(db, ctx, args) {
-    const act = action(args);
-    const href = `/app/w/${ctx.workspaceId}/settings/my-calendar`;
-    if (act === 'set_hours') {
-      // Only the zone: the week stays as it's saved.
-      const weekly =
-        args['weekly'] ?? (zoneArg(args).timezone !== undefined ? await savedWeek(db, ctx) : []);
-      await command(db, ctx, 'schedule.set', { ownerKind: 'user', weekly, ...zoneArg(args) });
-      return { outcome: 'Your hours are saved', href, command: 'schedule.set' };
-    }
-    if (act === 'remove_time_off') {
-      await command(db, ctx, 'time_off.remove', { exceptionId: args['exceptionId'] });
-      return { outcome: 'Put back', href, command: 'time_off.remove' };
-    }
-    await command(db, ctx, 'time_off.add', {
-      ownerKind: 'user',
-      kind: 'unavailable',
-      ...(str(args['startsAt'])
-        ? { startsAt: args['startsAt'], endsAt: args['endsAt'] }
-        : {
-            startDate: args['startDate'],
-            ...(str(args['endDate']) ? { endDate: args['endDate'] } : {}),
-          }),
-      ...(str(args['note']) ? { note: str(args['note']) } : {}),
-    });
-    return { outcome: 'Time off is in your calendar', href, command: 'time_off.add' };
+    const who = await teammateOf(db, ctx, args);
+    const userId = ownerOf(ctx, args);
+    const href = `/app/w/${ctx.workspaceId}/settings/my-calendar${who ? `?user=${userId}` : ''}`;
+    const done = await saveHours(db, ctx, args);
+    const your = who ? `${firstName(who)}’s` : 'your';
+    const outcome =
+      done === 'schedule.set'
+        ? `${who ? your : 'Your'} hours are saved`
+        : done === 'time_off.remove'
+          ? 'Put back'
+          : `Time off is in ${your} calendar`;
+    return { outcome, href, command: done };
   },
 };
 

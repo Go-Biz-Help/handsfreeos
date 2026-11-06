@@ -9,13 +9,16 @@ import {
   leadBoard,
   money,
   registry,
+  scheduleTeam,
   screenReadTools,
   videoCallGet,
+  webinarDoorPath,
   type Permission,
   type ScreenReadTool,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
+import { scheduleWords, type TeamSchedule } from './schedule-words';
 
 /** The most of an answer, in characters of JSON, the model reads whole. */
 const MOST = 16_000;
@@ -31,12 +34,23 @@ export const screenReadToolsFor = (can: (permission: Permission) => boolean): Sc
 
 /**
  * A video call's answer, with the address the team joins it at: the screen's Join opens it. The customer's own link
- * is kept only as a hash, so it never can be.
+ * is kept only as a hash, so it never can be. A webinar's Link anyone can use goes as its path, which the executor
+ * writes out whole on the business's own domain, as the screen's Copy gives it.
  */
 function withJoin(data: unknown, webUrl: string): unknown {
-  const call = (data as { call?: { id?: unknown } | null } | null)?.call;
-  if (!webUrl || !call || typeof call.id !== 'string') return data;
-  return { ...(data as object), join: `${webUrl}/call/${call.id}` };
+  const call = (
+    data as { call?: { id?: unknown; format?: unknown; doorKey?: unknown } | null } | null
+  )?.call;
+  if (!call || typeof call.id !== 'string') return data;
+  const door =
+    call.format === 'webinar' && typeof call.doorKey === 'string' && call.doorKey
+      ? { linkAnyoneCanUse: webinarDoorPath(call.doorKey) }
+      : {};
+  return {
+    ...(data as object),
+    ...(webUrl ? { join: `${webUrl}/call/${call.id}` } : {}),
+    ...door,
+  };
 }
 
 /** The cards of each stage the board's summary lists, unless the model asked for more of a stage (`shown`). */
@@ -154,7 +168,9 @@ export async function runScreenRead(
       ? withJoin(got, webUrl)
       : tool.query.name === leadBoard.name
         ? boardSummary(got as Board, args['shown'])
-        : got;
+        : tool.query.name === scheduleTeam.name
+          ? scheduleWords(got as TeamSchedule)
+          : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

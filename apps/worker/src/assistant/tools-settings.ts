@@ -21,6 +21,7 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
+import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { query, type ReadTool } from './tools-read';
 
 type Args = Record<string, unknown>;
@@ -33,6 +34,8 @@ interface AreaQuery {
   /** The part of the answer the model needs, when the query says much more. */
   readonly shape?: (value: unknown) => unknown;
 }
+
+const DAY = 86_400_000;
 
 /** What one area is read with: the same queries the screen behind it runs. */
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
@@ -222,7 +225,26 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     },
   ],
   my_calendar: [
-    { name: 'schedule.team', as: 'schedules' },
+    {
+      // Their own week, time zone and time off from yesterday to two months out, as My calendar lists them.
+      name: 'schedule.team',
+      as: 'schedules',
+      input: (ctx) => ({
+        from: new Date(Date.now() - DAY).toISOString(),
+        to: new Date(Date.now() + 60 * DAY).toISOString(),
+        userIds: [ctx.actor.userId],
+      }),
+      shape: (v) => {
+        const words = scheduleWords(v as TeamSchedule);
+        const mine = words.people[0];
+        return mine
+          ? {
+              ...mine,
+              note: 'update_my_hours changes the week and the time zone, and adds time off or takes it out by its exceptionId.',
+            }
+          : null;
+      },
+    },
     // The calendars and meeting accounts they connected, as Settings → My calendar lists them.
     {
       name: 'calendar_connection.list',
