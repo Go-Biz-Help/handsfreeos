@@ -38,6 +38,19 @@ const PUBLIC_PREFIXES = [
   '/legal/',
 ] as const;
 
+/**
+ * Whether a path is one of a business's public pages, the kind its customers open: a booking page, a form, an
+ * estimate, an invoice. Such a path is only a link once it has the address in front of it, the business's own
+ * domain when one is serving and ours otherwise. `/app/…` is the team's own and never one of these.
+ */
+export function isPublicPagePath(path: string): boolean {
+  return PUBLIC_PREFIXES.some((p) =>
+    p.endsWith('/')
+      ? path.length > p.length && path.startsWith(p)
+      : path === p || path.startsWith(`${p}/`),
+  );
+}
+
 /** A single name with nothing else in it: `/quote`, not `/quote/thanks`. */
 const BARE_NAME = /^\/[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/i;
 

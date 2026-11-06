@@ -6794,6 +6794,8 @@ Everything else in HandsFreeOS works without the key. The Assistant's database t
 
 **Links and copying.** The Assistant writes a link or an email address exactly as it is, never spelled out ("dot com", "slash"), and both the web and the phone app make each one a link to press (`packages/core/src/assistant/answer-text.ts`, by the same rules as a video call's chat). A link it words differently shows the site after the words, so one link can't pass for another. Out loud, the voice skips the address and says it's on the screen. On the web, **Copy** under an answer takes all of it, and any part can be selected as on any page. In the phone app, Android selects any part of an answer by pressing and holding; on iOS, which only copies a whole block of text, pressing and holding opens the answer in **Select text**, where any part can be picked and copied.
 
+**Whole links only.** The setup keeps a business's public pages (booking pages, forms, estimates, invoices) by their path alone, like `/book/acme/main`. Every tool result, card result and confirmed outcome the model reads has each such path written out whole first (`apps/worker/src/assistant/full-links.ts`): on the business's own domain once it is verified and its certificate is ready, else on `WEB_URL` (`https://app.handsfreeos.com`), the same address Settings copies. The prompt tells the model to give only a link a tool gave it whole and never to make one up or finish one, because given only a path it once guessed `handsfreeos.com` in front and the link was wrong. Cards keep their paths, since the screens open them in place.
+
 ### Before you start
 
 You need:

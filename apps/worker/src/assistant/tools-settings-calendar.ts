@@ -19,6 +19,7 @@ import {
 import type { Db } from '@hfos/db/client';
 import type { Geocoder } from '../geo/geocoder';
 import type { CommittedAction, PreparedAction, ToolContext } from './runtime';
+import { publicOriginFor } from './full-links';
 import { command, query } from './tools-read';
 
 type Args = Record<string, unknown>;
@@ -28,6 +29,8 @@ type Field = { label: string; value: string };
 /** What a few settings tools need from the worker: the map, to find an address. */
 export interface SettingsDeps {
   readonly geocoder?: Geocoder | null;
+  /** The web app's address, which a public page's whole link starts with when the business has no domain of its own. */
+  readonly webUrl?: string;
 }
 
 export interface SettingsConfirmTool {
@@ -927,16 +930,23 @@ async function bookingSiteInput(db: Db, ctx: ToolContext, args: Args) {
   };
 }
 
+/** The booking page's whole link, as Settings copies it; just its path when the web app's address isn't known. */
+async function bookingPageLink(db: Db, ctx: ToolContext, slug: string, webUrl = '') {
+  const origin = webUrl ? await publicOriginFor(db, ctx, webUrl) : '';
+  return `${origin}/book/${slug}`;
+}
+
 const updateBookingSite: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, args, toolCallId, deps) {
     const { site, input, derivedSlug } = await bookingSiteInput(db, ctx, args);
     const on = typeof args['enabled'] === 'boolean' ? args['enabled'] : undefined;
+    const link = await bookingPageLink(db, ctx, input.slug, deps?.webUrl);
     return {
       card: settingsCard(toolCallId, 'update_booking_site', {
         title: site ? 'Change your booking page' : 'Set up your booking page',
         fields: [
           { label: 'Name', value: input.name },
-          { label: 'Address', value: `/book/${input.slug}` },
+          { label: 'Address', value: link },
           ...(args['intro'] === undefined
             ? []
             : [{ label: 'Intro', value: input.intro ?? 'None' }]),
@@ -957,15 +967,15 @@ const updateBookingSite: SettingsConfirmTool = {
             : []),
         ],
       }),
-      result: { waiting: true, address: input.slug },
+      result: { waiting: true, address: link },
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, extra) {
     const { input, derivedSlug } = await bookingSiteInput(db, ctx, args);
     const slug = await saveBookingSite(db, ctx, input, derivedSlug);
     return {
-      outcome: `Your booking page is at /book/${slug}`,
+      outcome: `Your booking page is at ${await bookingPageLink(db, ctx, slug, extra.webUrl)}`,
       href: `/app/w/${ctx.workspaceId}/settings/calendars/booking-site`,
       command: 'booking_site.update',
     };

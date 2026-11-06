@@ -6,7 +6,7 @@
  * else's domain, which is a phishing page we built ourselves.
  */
 import { describe, expect, it } from 'vitest';
-import { brandedRoute } from '../src/hosting/branded-paths';
+import { brandedRoute, isPublicPagePath } from '../src/hosting/branded-paths';
 
 const SITE = 'lonestar';
 
@@ -80,5 +80,20 @@ describe('brandedRoute', () => {
     expect(brandedRoute(SITE, '/z/b/c')).toEqual({ kind: 'elsewhere' });
     expect(brandedRoute(SITE, '/-nope')).toEqual({ kind: 'elsewhere' });
     expect(brandedRoute(SITE, '/nope-')).toEqual({ kind: 'elsewhere' });
+  });
+});
+
+describe('isPublicPagePath', () => {
+  it('knows a page a customer opens from one of the team’s own', () => {
+    for (const path of [
+      '/book/lonestar',
+      '/book/lonestar/tune-up',
+      '/book/c/abc',
+      '/f/lonestar/quote',
+      '/i/x',
+    ])
+      expect(isPublicPagePath(path)).toBe(true);
+    for (const path of ['/app/w/x/calendar', '/booking', '/f/', '/', '/login', '/bookkeeping/x'])
+      expect(isPublicPagePath(path)).toBe(false);
   });
 });

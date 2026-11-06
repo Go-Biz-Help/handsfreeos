@@ -396,6 +396,34 @@ describe('the booking page', () => {
     expect(now!.enabled).toBe(false);
     expect(now!.name).toBe(businessName);
   });
+
+  it('gives the model whole links, never a path it would have to finish', async () => {
+    // The setup keeps a calendar's link as a path. Once given only that, the model guessed the address in front.
+    const web = 'https://app.hfos.test';
+    const executor = createToolExecutor(api(), null, null, web);
+    const out = await executor.run(
+      assistantToolByName.get('get_settings')!,
+      { area: 'calendars' },
+      ctxFor(owner),
+    );
+    const said = JSON.stringify(out.result);
+    expect(said).toContain(`"${web}/book/settings-hvac-${suffix}/`);
+    expect(said).toContain(`"${web}/book/c/`);
+    expect(said).not.toContain('"/book/');
+    // The card keeps the address Settings shows, and so does what the model is told about it.
+    const tool = assistantToolByName.get('update_booking_site')!;
+    const prepared = await executor.prepare(
+      tool,
+      tool.input.parse({}) as never,
+      ctxFor(owner),
+      randomUUID(),
+    );
+    const address = (prepared.card as Extract<AssistantCard, { type: 'confirm' }>).fields.find(
+      (f) => f.label === 'Address',
+    )!.value;
+    expect(address).toBe(`${web}/book/settings-hvac-${suffix}`);
+    expect(prepared.result).toMatchObject({ address });
+  });
 });
 
 const q = async <T>(name: string, input: Record<string, unknown> = {}) =>
