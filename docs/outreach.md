@@ -783,6 +783,7 @@ Operations, all through the kernel:
 | `outreach.automation.save`                            | `outreach.use`    | Save someone's settings; anyone's for owners and admins. A choice the business doesn't allow: `not_allowed`                                                                                                                                                                                                                         |
 | `outreach.automation.people`                          | `outreach.manage` | Everyone who uses Social Outreach, with what each lets the extension do on its own                                                                                                                                                                                                                                                  |
 | `outreach.warm_up.missed`                             | `outreach.use`    | The extension found no post of someone's to like: their friend request goes without                                                                                                                                                                                                                                                 |
+| `outreach.request.closed`                             | `outreach.use`    | The extension found no Add friend on someone's Facebook profile: Today never picks them for a friend request, or a like before one, again (decision 156)                                                                                                                                                                            |
 | `outreach.send.queue`                                 | `outreach.use`    | A message the extension drafted: it waits for the person's OK, or goes as it is; a reply as Replies says; on Instagram and Alignable a comment on a good post, with its post (decision 92)                                                                                                                                          |
 | `outreach.send.approve`                               | `outreach.use`    | OK messages, changed or not; with none named, all waiting (Approve all) but those that wait one at a time (`oneByOne`). `partial` passes over any named that no longer wait, and those one at a time (the phone's Approve all). One of those named among others: `outreach_send_one_by_one`. Waits on a phone 30 minutes, then asks |
 | `outreach.send.skip`                                  | `outreach.use`    | Skip a message: not sent, and off the list for today. Waits on a phone as long as it takes; never undoes a later OK: `outreach_send_okd_since`                                                                                                                                                                                      |
@@ -3935,6 +3936,43 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **Catch-ups already drafted** (3a, `dropStaleCatchUps` in `ops/sends.ts`): one for someone Reconnect no longer
         takes goes as the person's next draft is queued: still waiting for an OK, it's deleted (the policy decision 134
         added lets the person delete their own); OK'd, it's skipped. Never-talked-to people then get Say hi.
+156.  **Someone with no Add friend is never picked for a friend request again** (Chris, 4 Nov 2026, "Stop picking
+      them" on the card "What should happen to Facebook people with no Add friend button?"). Some Facebook profiles show
+      only Message, Follow, Search and Facebook's menu: the person takes requests only from friends of friends, or only
+      lets people follow them. Extension 0.126.3 passes a request to one over quietly (`noAddFriend` in
+      `networks/facebook/profile.ts`), with nothing handed over. Now it also tells HandsFreeOS
+      (`outreach.request.closed`, which sets `profiles.request_closed_at`), and Today never picks them for a friend
+      request, or a like before one, again, so they stop taking a spot on the list. Every pick for a request leaves them
+      out (`requestable` in `ops/common.ts`, inside `stillToReach` for those found by topic and followers, and in the
+      warm leads', searched posts', groups' and group checks' picks), so the AI no longer checks them for one either.
+      They can still be messaged, answered and followed up as before. Not told (HandsFreeOS out of reach), the request
+      is still passed over, and the next pass that meets them tells it again.
+157.  **Nothing mentions a group the owner and they are both in** (Chris, 5 Nov 2026: "the social outreach tool is
+      mentioning the group we are both in in the messages, don't let it do that as it could cause getting removed from
+      the groups", then "have the system rewrite all of it's pending messages when done"). A draft for someone found in
+      one of the person's groups was told "Found in the group …", and the check's notes could say it too, with nothing
+      saying to keep quiet about it. He picked 1a, 2a and 3a. One migration (`20261027023400`: a column, and decision
+      134's delete policy widened to the person's own OK'd messages not yet sent), and no new extension.
+      - **The AI isn't told** (`withoutGroupLines` in `no-groups.ts`): a draft's facts and their pages lose every line
+        that names one of their groups, the one they were found in, any they're seen in and the person's own, or that
+        says they're in one ("Found in the group …", decision 116's "In …, one of the owner's groups"). A comment or a
+        reply in a group is told its post is in a group, never which.
+      - **The AI is told not to** (`NO_GROUPS`, in `todayDraftSystem`): never name a group, say "the group" or "our
+        group", say they're both in one, or say the owner found or saw them in one. Every customer message, comment and
+        reply in a group, on every network (1a). A partner's messages (decision 81) still speak of the group someone
+        runs, as that's why the owner writes (2a, `todayDraftSystem(platform, { partner: true })`).
+      - **A draft that does anyway goes** (`namesAGroup`): one naming one of their groups, by its name or a part of it
+        between separators with three words or more (two of 15 characters), so a name as plain as a line of work
+        ("Real Estate") never counts, or saying they share one ("saw you in the … group", "fellow member", "our
+        group"). Group fitness, a group rate and the like aren't groups. When every draft did, the AI writes again
+        once, told what to leave out (`noGroupsAgain`); when that fails too, there's nothing to send this time.
+      - **Every message drafted before is written again** (3a): each message the extension queues keeps the version of
+        the rules it was drafted under (`sends.rules_version`, `RULES_VERSION` in `sends.ts`). One drafted under older
+        rules, waiting for an OK or OK'd and not yet sent, is never listed, OK'd or sent (`draftedNow`; Today's
+        `sendsToday` has it as not drafted), and goes as the person's next draft is queued (`rewriteOlder` in
+        `ops/sends.ts`), so Today lists them again and the extension writes them afresh. A failed one tried again keeps
+        its version, so it's written again too. Raise `RULES_VERSION` when another change to what the AI writes should
+        reach the messages already drafted.
 
 ## Rules worth knowing before changing anything
 
@@ -3965,6 +4003,12 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   `addon_outreach.automation`; the worker reads it with `voiceFor`); a helpful post only their emoji choice. A message
   to a chat quiet `GAP_GREETING_DAYS` (3) or more opens with a greeting that fits the gap (`gapLine`), measured from the
   latest message either way, in the chat or a message noted; a first message and a comment never get one.
+- **Nothing written to a customer mentions a group** (decision 157, `no-groups.ts`): groups remove members who reach
+  out to other members. A new line of facts for a draft that could name a group goes through `withoutGroupLines`, a new
+  prompt that writes to a customer carries `NO_GROUPS` (`todayDraftSystem` does), and what comes back goes through
+  `namesAGroup`. Only a partner's messages to someone who runs a group may speak of it.
+- **A change to what the AI writes can reach messages already drafted** (decision 157): raise `RULES_VERSION` in
+  `sends.ts`, and every message waiting for an OK or OK'd and not yet sent is written again.
 - **A message's texts are its parts between blank lines** (`messageParts`), when the person sends a few
   (`voice.split`, on to start): at most `PARTS_MOST` (3), any more joined to the last. The AI writes them so
   (`checkedDrafts` with `split`, which also joins a message to one when they don't), and a pitch's link goes on as its

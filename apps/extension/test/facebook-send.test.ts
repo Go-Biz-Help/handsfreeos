@@ -25,6 +25,8 @@ const world = vi.hoisted(() => ({
   opened: [] as string[],
   noted: [] as unknown[],
   posted: [] as { path: string; body: Record<string, unknown> }[],
+  /** A command that can't reach HandsFreeOS. */
+  unreachable: null as string | null,
 }));
 
 vi.mock('../src/hfos/session', () => {
@@ -40,6 +42,7 @@ vi.mock('../src/hfos/session', () => {
     answerWith: async (_t: string, fn: () => Promise<unknown>) => ({ ok: true, value: await fn() }),
     api: () => ({
       POST: async (path: string, options: { body: Record<string, unknown> }) => {
+        if (path === world.unreachable) throw new Error('Couldn’t reach HandsFreeOS.');
         world.posted.push({ path, body: options.body });
         return { data: { ok: true }, response: { ok: true, status: 200 } };
       },
@@ -133,6 +136,7 @@ beforeEach(() => {
   world.opened = [];
   world.noted = [];
   world.posted = [];
+  world.unreachable = null;
 });
 
 /** Dana's follow-up, OK'd, to go in her chat. */
@@ -557,5 +561,85 @@ describe('sending a message on Facebook', () => {
       line: 'Dana Reyes: its typing went into the chat box with Riley Quinn too and couldn’t be taken out, so delete it there before you send that chat; nothing was sent',
     });
     expect(sent).toEqual([]);
+  });
+});
+
+describe('a friend request on Facebook', () => {
+  /** Dana's friend request, picked for today. */
+  const request = {
+    ...approved(),
+    kind: 'friend_request',
+    send: null,
+    threadKey: null,
+  } as TodayListItem;
+
+  /** Dana's profile with her friend button gone, and Facebook's menu beside Message, as on the owner's pages. */
+  function noAddFriend(): Document {
+    const doc = load('profile-2026.html', DANA);
+    doc.title = '(2) Facebook';
+    doc.querySelector('[role="button"][aria-label="Friends"]')!.remove();
+    doc
+      .querySelector('[role="button"][aria-label="See options"]')!
+      .setAttribute('aria-label', 'More options');
+    return doc;
+  }
+
+  async function step(item: TodayListItem) {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork({ do: 'step', item }, ME.businessId, false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  const PASSED_OVER = {
+    done: false,
+    line: 'Dana Reyes: Facebook shows no Add friend on their profile (they take requests only from friends of friends, or only let people follow them)',
+    skip: true,
+  };
+  const CLOSED = '/v1/commands/outreach.request.closed';
+
+  it('passes over one with no Add friend on their profile, handing nothing over (the owner’s reports of 4 Nov 2026)', async () => {
+    world.pages = (url) => (url === DANA ? noAddFriend() : null);
+    const outcome = await step(request);
+    expect(outcome).toEqual(PASSED_OVER);
+    expect(world.noted).toEqual([]);
+  });
+
+  it('tells HandsFreeOS, so Today never picks them for a request again (decision 156)', async () => {
+    world.pages = (url) => (url === DANA ? noAddFriend() : null);
+    await step(request);
+    expect(world.posted.filter((p) => p.path === CLOSED)).toEqual([
+      { path: CLOSED, body: { workspaceId: ME.businessId, profileId: request.profileId } },
+    ]);
+  });
+
+  it('still passes them over when HandsFreeOS can’t be told', async () => {
+    world.pages = (url) => (url === DANA ? noAddFriend() : null);
+    world.unreachable = CLOSED;
+    expect(await step(request)).toEqual(PASSED_OVER);
+  });
+
+  it('hands one over as a page it couldn’t read when a button it doesn’t know is beside Message', async () => {
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = noAddFriend();
+      doc
+        .querySelector('[role="button"][aria-label="Message"]')!
+        .insertAdjacentHTML(
+          'beforebegin',
+          '<div role="button" aria-label="Befriend Dana Reyes">Befriend</div>',
+        );
+      return doc;
+    };
+    expect(await step(request)).toEqual({
+      done: false,
+      line: 'Dana Reyes: Facebook says it couldn’t tell where things stand',
+      need: true,
+    });
+    expect(world.posted.filter((p) => p.path === CLOSED)).toEqual([]);
   });
 });

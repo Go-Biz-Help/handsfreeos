@@ -154,6 +154,7 @@ export const outreachAddonServer: AddonServerModule = {
     'outreach.posts.save': EXTENSION,
     'outreach.replies.note': EXTENSION,
     'outreach.warm_up.missed': EXTENSION,
+    'outreach.request.closed': EXTENSION,
     'outreach.send.queue': EXTENSION,
     'outreach.send.done': EXTENSION,
     'outreach.live.beat': EXTENSION,

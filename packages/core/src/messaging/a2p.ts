@@ -24,7 +24,14 @@
 import { normalizePhone } from '../crm/phone';
 import { STOP_KEYWORDS } from './sms';
 import type { OptInPath } from './consent';
-import { tradingName } from './preflight';
+import {
+  FREQUENCY_RE,
+  namesBusiness,
+  RATES_RE,
+  TEXT_KINDS_RE,
+  tradingName,
+  type ConfirmationId,
+} from './preflight';
 
 export type IssueSeverity = 'blocker' | 'warning';
 
@@ -43,7 +50,8 @@ export type A2pField =
   | 'optInProofUrl'
   | 'sensitiveTopics'
   | 'monthlyVolume'
-  | 'policyContact';
+  | 'policyContact'
+  | 'otherWays';
 
 export interface A2pIssue {
   readonly field: A2pField;
@@ -52,6 +60,11 @@ export interface A2pIssue {
   readonly message: string;
   /** Why the carrier cares. Shown under the message, because "because they said so" teaches nobody. */
   readonly why: string;
+  /**
+   * A question only the business can answer ("is this exactly the name on your EIN letter?"): the last step asks it
+   * as a tick (core's `confirmationsFor`), and once ticked it no longer stands between the registration and all green.
+   */
+  readonly confirm?: ConfirmationId;
 }
 
 /** The shape the checks read. A loose mirror of `BusinessProfile`, so a half-typed form can be checked. */
@@ -76,6 +89,18 @@ export interface A2pDraft {
   readonly termsUrl?: string | null;
   /** How customers reach the business, as the privacy policy and terms say. */
   readonly policyContact?: { readonly email?: string; readonly phone?: string };
+  /**
+   * The addresses the reviewer is given, as the description has to name them (Twilio 30924 and 30896): the privacy
+   * policy and terms (the business's own or ours), and the page where customers agree (for the chat, its sign-up
+   * page). Left out, the description isn't checked for them.
+   */
+  readonly privacyPageUrl?: string | null;
+  readonly termsPageUrl?: string | null;
+  readonly optInPageUrl?: string | null;
+  /** Every other way customers agree, each with its page or proof ("list every method along with proofs"). */
+  readonly otherWays?: readonly { readonly path: OptInPath; readonly url: string }[];
+  /** The legal name, also accepted where the description names the business. */
+  readonly displayName?: string;
 }
 
 // ---------- what the business does ----------
@@ -303,6 +328,7 @@ function legalNameIssue(draft: A2pDraft): A2pIssue | null {
     severity: 'warning',
     message: 'Is this exactly the name on your EIN letter, including LLC or Inc?',
     why: 'The carrier compares this against IRS records character by character. "Lone Star Heating" fails where "Lone Star Heating LLC" passes. If customers know you by another name (a DBA), still put the legal name here: we tell the carriers the other name too.',
+    confirm: 'legal_name_exact',
   };
 }
 
@@ -356,6 +382,56 @@ function policyContactIssues(draft: A2pDraft): A2pIssue[] {
       why,
     });
   return issues;
+}
+
+/**
+ * A registration's details as they're sent (`BusinessProfile`, already read by its schema), as the checks read them.
+ * The server runs `checkDraft` on what it's asked to send, not on what a screen said it found, so the wizard, the
+ * Assistant and a direct call are all held to the same list.
+ */
+export function draftFromProfile(b: {
+  readonly legalName: string;
+  readonly businessType: string;
+  readonly ein?: string | null;
+  readonly website: string;
+  readonly useCase: string;
+  readonly messageSamples: readonly string[];
+  readonly optInDescription: string;
+  readonly monthlyVolume: string;
+  readonly optInPath?: OptInPath;
+  readonly optInUrl?: string | null;
+  readonly optInProofUrl?: string | null;
+  readonly policyUrl?: string | null;
+  readonly termsUrl?: string | null;
+  readonly policyContact?: { readonly email?: string; readonly phone?: string };
+  readonly privacyPageUrl?: string | null;
+  readonly termsPageUrl?: string | null;
+  readonly displayName?: string;
+  readonly sensitiveTopics?: readonly string[];
+  readonly otherWays?: readonly { readonly path: OptInPath; readonly url: string }[];
+}): A2pDraft {
+  return {
+    legalName: b.legalName,
+    businessType: b.businessType,
+    ein: b.ein ?? null,
+    website: b.website,
+    useCase: b.useCase,
+    messageSamples: b.messageSamples,
+    optInDescription: b.optInDescription,
+    optInPath: b.optInPath,
+    optInUrl: b.optInUrl ?? null,
+    optInProofUrl: b.optInProofUrl ?? null,
+    sensitiveTopics: b.sensitiveTopics ?? [],
+    monthlyVolume: b.monthlyVolume,
+    policyUrl: b.policyUrl ?? null,
+    termsUrl: b.termsUrl ?? null,
+    policyContact: b.policyContact ?? {},
+    privacyPageUrl: b.privacyPageUrl ?? null,
+    termsPageUrl: b.termsPageUrl ?? null,
+    optInPageUrl: b.optInPath === 'in_person' ? (b.optInProofUrl ?? null) : (b.optInUrl ?? null),
+    otherWays: b.otherWays ?? [],
+    ...(b.displayName ? { displayName: b.displayName } : {}),
+  };
 }
 
 /** Everything the wizard can decide about a draft without leaving the browser. */
@@ -460,6 +536,8 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
 
   issues.push(...policyContactIssues(draft));
 
+  issues.push(...otherWayIssues(draft));
+
   const optIn = (draft.optInDescription ?? '').trim();
   if (optIn.length < 40)
     issues.push({
@@ -468,7 +546,96 @@ export function checkDraft(draft: A2pDraft, business: string): A2pIssue[] {
       message: 'Explain how customers agree to get texts.',
       why: 'A short answer here reads as a business that has not set consent up at all, which is the most common reason these are turned down.',
     });
+  else {
+    const gaps = descriptionGaps(optIn, draft, business);
+    if (gaps.length)
+      issues.push({
+        field: 'optInDescription',
+        severity: 'blocker',
+        message: `What we tell the carriers doesn’t say ${joinList(gaps)}. Press “Use our wording” to put it back, or add ${gaps.length === 1 ? 'it' : 'them'}.`,
+        why: 'The reviewer reads this for every way customers agree with where to see each one, the words customers read before agreeing (the kinds of texts, “Message frequency varies”, rates, STOP and HELP), and links to your privacy policy and terms. Leaving one out is how these get turned down (Twilio’s errors 30896 and 30924).',
+      });
+  }
 
+  return issues;
+}
+
+/** "a, b and c", the way the messages list things. */
+function joinList(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
+/** Whether `text` carries this address, with or without its https:// and a trailing slash. */
+function mentionsUrl(text: string, url: string | null | undefined): boolean {
+  const bare = (url ?? '')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/$/, '')
+    .toLowerCase();
+  return !bare || text.toLowerCase().includes(bare);
+}
+
+/**
+ * What the description sent to the carrier (its `message_flow`) leaves out of what Twilio's reviewers check it for:
+ * who is texting, the kinds of texts, "Message frequency varies", rates, STOP and HELP, every page where customers
+ * agree, and the privacy policy and terms. Ours says all of it; this catches a business's own edit that drops some.
+ */
+export function descriptionGaps(text: string, draft: A2pDraft, business: string): string[] {
+  const lower = text.toLowerCase();
+  const gaps: string[] = [];
+  const names = [business, draft.displayName ?? '', draft.legalName ?? ''].filter((n) => n.trim());
+  if (names.length && !namesBusiness(lower, names)) gaps.push('your business name');
+  if (!TEXT_KINDS_RE.test(lower)) gaps.push('the kinds of texts you send');
+  if (!FREQUENCY_RE.test(lower)) gaps.push('“Message frequency varies”');
+  if (!RATES_RE.test(lower)) gaps.push('“Message and data rates may apply”');
+  if (!/\bstop\b/.test(lower)) gaps.push('“Reply STOP to unsubscribe”');
+  if (!/\bhelp\b/.test(lower)) gaps.push('“Reply HELP for help”');
+  const pages = [draft.optInPageUrl, ...(draft.otherWays ?? []).map((w) => w.url)].filter(
+    (u): u is string => !!u?.trim(),
+  );
+  const unnamed = pages.filter((u) => !mentionsUrl(text, u));
+  if (unnamed.length) gaps.push(`where to see it (${joinList(unnamed)})`);
+  if (draft.privacyPageUrl && !mentionsUrl(text, draft.privacyPageUrl))
+    gaps.push('the link to your privacy policy');
+  if (draft.termsPageUrl && !mentionsUrl(text, draft.termsPageUrl))
+    gaps.push('the link to your terms');
+  return gaps;
+}
+
+/** Each other way customers agree needs its own proof, and can't be the main way again. */
+function otherWayIssues(draft: A2pDraft): A2pIssue[] {
+  const issues: A2pIssue[] = [];
+  for (const way of draft.otherWays ?? []) {
+    const url = way.url.trim();
+    const what =
+      way.path === 'own_site'
+        ? 'the page with your tick box'
+        : way.path === 'in_person'
+          ? 'a link to what customers see or hear'
+          : 'your website chat’s sign-up page';
+    if (way.path === draft.optInPath)
+      issues.push({
+        field: 'otherWays',
+        severity: 'blocker',
+        message: 'That other way is the same as the main one. Take it out of the list.',
+        why: 'Each way customers agree is said once, with its own proof.',
+      });
+    else if (!url)
+      issues.push({
+        field: 'otherWays',
+        severity: 'blocker',
+        message: `Add ${what} for each other way customers agree, or take that way out.`,
+        why: 'Twilio asks for every way customers agree, each with somewhere the reviewer can see it.',
+      });
+    else if (!looksLikeWebAddress(url))
+      issues.push({
+        field: 'otherWays',
+        severity: 'blocker',
+        message: `“${url}” isn’t a web address. Enter the full link, like https://yoursite.com/contact.`,
+        why: 'The reviewer opens it from the registration, so it has to be a link that works.',
+      });
+  }
   return issues;
 }
 
@@ -510,6 +677,7 @@ function sensitiveIssues(topics: readonly string[] | null | undefined): A2pIssue
       severity: 'warning',
       message: `Texts about ${aged.map((t) => t.label.toLowerCase()).join(' or ')} are only allowed to people whose age you have checked. Ask for it before they agree, or leave these out of your texts.`,
       why: 'We tell the carriers these texts are age-gated. They check the page where people agree for an age question, and they look harder at the whole registration.',
+      confirm: 'ages_checked',
     });
   if (topics.includes('lending'))
     issues.push({
@@ -517,6 +685,7 @@ function sensitiveIssues(topics: readonly string[] | null | undefined): A2pIssue
       severity: 'warning',
       message: 'Lending is allowed, but expect extra questions and a slower answer.',
       why: 'We tell the carriers your texts are about loans you make yourself. They check lenders more closely than other businesses.',
+      confirm: 'lending_ok',
     });
   return issues;
 }

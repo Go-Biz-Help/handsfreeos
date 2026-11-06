@@ -365,8 +365,8 @@ const good = (n: number, url: string, name: string, profileUrl: string) => ({
   profileUrl,
   words: 'cleaning crew recommendations',
   strong: n === 1,
-  comments: 12,
-  reactions: 55,
+  comments: 12 as number | null,
+  reactions: 55 as number | null,
 });
 const GONE = `${LI}/feed/update/urn:li:activity:7380000000000000999/`;
 
@@ -716,7 +716,7 @@ describe('noting what a good post’s page didn’t show on LinkedIn (decision 7
   });
 
   it('notes a post with no reactions count only when HandsFreeOS saw reactions on it', async () => {
-    const run = async (reactions: number) => {
+    const run = async (reactions: number | null) => {
       const { tab } = fakeTab({ [NEWER]: { layout: LAYOUTS[1], count: false } });
       const { hfos } = fakeHfos({
         posts: [{ ...good(1, NEWER, 'Priya Dalton', PRIYA.url), reactions }],
@@ -726,6 +726,8 @@ describe('noting what a good post’s page didn’t show on LinkedIn (decision 7
       return notes;
     };
     expect(await run(0)).toEqual([]);
+    // Its search saw no count on it, as on a post minutes old: none to open (the owner's reports of 4 Nov 2026).
+    expect(await run(null)).toEqual([]);
     expect(await run(55)).toEqual([
       {
         job: 'post_people.count',

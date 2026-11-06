@@ -13,7 +13,7 @@ import { clean } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import type { Named } from '../facebook/types';
 import { controlsSaying, waitFor } from '../looking/looks';
-import { businessRef, discussionIdOf, linksIn, postParts, urlOf } from './read';
+import { businessRef, isDiscussionPage, linksIn, postParts, urlOf } from './read';
 
 /** A box over the page. */
 const OVER_THE_PAGE = '[role="dialog"], dialog[open], [aria-modal="true"]';
@@ -28,8 +28,11 @@ const CLOSED_MS = 4_000;
 /** The most read from it. */
 export const ALIGNABLE_LIKERS_MOST = 45;
 
-/** A page of who liked a post, where its count's link may go (/biz/likes?resource=<id>), not a box over it. */
-const LIKES_PAGE = /^\/biz\/likes\/?$/i;
+/**
+ * A page of who liked a post, where its count's link may go (/biz/likes?resource=<id>, or on a group's discussion
+ * /biz/business_likes?resource=<id>, the owner's problem reports of 4 Nov 2026), not a box over it.
+ */
+const LIKES_PAGE = /^\/biz\/(?:business_)?likes\/?$/i;
 
 /**
  * The box of who liked a post, over the page: the last one that says likes and links to a business; or, where the
@@ -111,12 +114,13 @@ function likesCountIn(root: Element): HTMLElement | null {
 }
 
 /**
- * Opens the box of who liked the post, on a discussion's own page only, by the post's own count of likes (never an
- * answer's). Whether it pressed it, or the box is open already.
+ * Opens the box of who liked the post, on a discussion's own page only (/biz/discussions/<id>, or a group's at
+ * /groups/<group>/<discussion>, where good posts are too: the owner's problem reports of 4 Nov 2026), by the post's own
+ * count of likes (never an answer's). Whether it pressed it, or the box is open already.
  */
 export function openLikers(doc: Document, href: string): boolean {
   if (likersBox(doc, href)) return true;
-  if (!discussionIdOf(href)) return false;
+  if (!isDiscussionPage(href)) return false;
   const post = postParts(doc, href)[0];
   const count = post ? likesCountIn(post.root) : null;
   if (!count) return false;

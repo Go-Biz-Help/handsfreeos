@@ -662,7 +662,7 @@ export const assistantTools = [
   define({
     name: 'submit_carrier_registration',
     description:
-      'Send the carrier registration that turns texting on. Ask for every part in plain words, a question or two at a time, and read back what you have before sending. Local numbers need at least two example texts. Approval is the carriers’ and takes a few days.',
+      'Send the carrier registration that turns texting on. Ask for every part in plain words, a question or two at a time, and read back what you have before sending. Local numbers need at least two example texts. Approval is the carriers’ and takes a few days. It goes only when its last step in Settings → Texting & calls has checked these exact details all green (rule registration_not_checked or registration_not_green otherwise): then send the person there to check it, and to press “Ask HandsFreeOS to check it” if something won’t go green.',
     input: z.object({
       kind: z
         .enum(['a2p_10dlc', 'toll_free_verification'])

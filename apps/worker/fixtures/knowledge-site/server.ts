@@ -87,6 +87,17 @@ export async function startFixtureSite(
           ),
         );
     }
+    // A home page for any business, by name (/for/<name>): a texting registration's review looks for the business's
+    // name on its website, and the browser specs register businesses of many names. Nothing links to it.
+    if (path.startsWith('/for/')) {
+      const name = decodeURIComponent(path.slice('/for/'.length))
+        .replace(/[<>&"]/g, '')
+        .slice(0, 120);
+      return html(
+        res,
+        `<!doctype html><html lang="en"><head><title>${name}</title></head><body><main><h1>${name}</h1><p>${`${name} fixes heating and cooling across the city, fast and friendly, with upfront prices and same-day visits. `.repeat(3)}</p></main></body></html>`,
+      );
+    }
     const town = TOWNS.find((t) => townPath(t) === path);
     if (town) return html(res, read('area.html').replaceAll('{{town}}', town));
     const file = path === '/' ? 'index.html' : `${path.slice(1)}.html`;

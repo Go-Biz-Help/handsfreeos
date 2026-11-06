@@ -169,6 +169,10 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'phone_number.set_recording_notice': {},
   'registration.save_draft': {},
+  'registration.request_review': {
+    warning:
+      'This opens a ticket asking HandsFreeOS to check the texting registration by hand, with what isn’t green. Nothing goes to the carriers until HandsFreeOS approves it.',
+  },
   'number_import.start': {},
   'number_import.check_now': {},
   'number_import.cancel': {},
@@ -262,6 +266,14 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'support.ticket.request_draft': {},
   'support.ticket.set_priority': {},
   'support.ticket.set_status': {},
+  'registration.review.approve': {
+    warning:
+      'This sends the business’s texting registration to the carriers exactly as it is, with their fees as usual, and tells the business on the ticket.',
+  },
+  'registration.review.send_back': {
+    warning:
+      'The business gets this note on the ticket by email, and nothing goes to the carriers.',
+  },
   'support.canned_reply.save': {},
   'support.canned_reply.delete': {},
   'support.staff.save_profile': {},

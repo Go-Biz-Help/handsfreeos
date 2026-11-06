@@ -161,6 +161,59 @@ describe('connecting without a note', () => {
     },
   );
 
+  describe('Connect in the menu More opens outside the top card', () => {
+    // The owner's problem reports of 4 Nov 2026 (0.126.2): More's menu shows outside the top card, its Connect a link
+    // to the invitation box, so only the AI helper found it, each time.
+    const url = `${LI}/in/sam-lee-77/`;
+
+    function profileWithMenu(where: 'page' | 'interop', invites = 'sam-lee-77') {
+      const doc = page('linkedin-profile-follow.html', url, false);
+      const pressed: string[] = [];
+      // No menu in the top card: More draws its own.
+      doc.querySelector('main [aria-hidden="true"]')!.remove();
+      const more = doc.querySelector('[aria-label="More actions"]')!;
+      more.addEventListener('click', () => {
+        more.setAttribute('aria-expanded', 'true');
+        const host = doc.createElement('div');
+        doc.body.append(host);
+        const place = where === 'page' ? host : host.attachShadow({ mode: 'open' });
+        if (where === 'interop') host.setAttribute('data-testid', 'interop-shadowdom');
+        const menu = doc.createElement('div');
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML =
+          '<a role="menuitem" href="/feed/"><span>Send profile in a message</span></a>' +
+          `<a role="menuitem" href="/preload/custom-invite/?vanityName=${invites}"><span>Connect</span></a>`;
+        place.append(menu);
+        menu.querySelector('a[href^="/preload"]')!.addEventListener('click', (event) => {
+          event.preventDefault();
+          pressed.push('Connect');
+          menu.remove();
+          // LinkedIn sends it straight away, with no box.
+          more.insertAdjacentHTML(
+            'beforebegin',
+            '<button aria-label="Pending, click to withdraw invitation sent to Sam Lee"><span>Pending</span></button>',
+          );
+        });
+      });
+      return { doc, pressed };
+    }
+
+    it.each(['page', 'interop'] as const)('presses it, drawn on the %s', async (where) => {
+      const { doc, pressed } = profileWithMenu(where);
+      expect(await connect(doc, url)).toBe('done');
+      expect(pressed).toEqual(['Connect']);
+    });
+
+    it('never presses one that invites someone else', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const { doc, pressed } = profileWithMenu('page', 'dana-reyes-1a2b');
+      const connecting = connect(doc, url);
+      await vi.advanceTimersByTimeAsync(4_000);
+      expect(await connecting).toBe('none');
+      expect(pressed).toEqual([]);
+    });
+  });
+
   it('presses Send without a note in the box LinkedIn draws in its interop box, out of the page’s reach', async () => {
     // From November 2026 the invitation box shows inside the interop box's shadow root (the owner's problem reports
     // of 3 Nov 2026, on 0.123.0): never seen there, its Send without a note was never pressed.

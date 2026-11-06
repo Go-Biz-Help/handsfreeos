@@ -252,6 +252,20 @@ export const ASSISTANT_WORDS = {
     composer: 'The Assistant needs signal',
     hint: 'Ask again when you’re back online',
   },
+  /**
+   * Copying an answer. The web's Copy under each one takes all of it (core's `answerCopyText`), and a part is
+   * selected as on any page. On the phone, Android selects any part where it is; on iOS, which only copies a whole
+   * line of text, pressing and holding an answer opens it in Select text, where any part can be picked.
+   */
+  copy: {
+    button: 'Copy',
+    label: 'Copy this answer',
+    done: 'Copied',
+    selectTitle: 'Select text',
+    selectHint:
+      'Press and hold a word, then drag to pick what you want and tap Copy. Select All takes everything.',
+    close: 'Done',
+  },
   /** The first thing the screen says, before anything is asked. */
   emptyTitle: 'Ask HandsFreeOS anything',
   emptyBody: 'Ask about a customer, your day or the money you’re owed, or say what to do next.',

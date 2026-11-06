@@ -59,6 +59,20 @@ export const SEND_STATES = {
 export type SendState = keyof typeof SEND_STATES;
 export const SEND_STATE_KEYS = Object.keys(SEND_STATES) as [SendState, ...SendState[]];
 
+/**
+ * The version of the AI's rules a message waiting in `sends` is drafted under (decision 157). One drafted under older
+ * rules, still waiting for an OK or OK'd and not yet sent, is never sent, OK'd or listed: it goes when the person's
+ * extension next queues a message, so Today lists them again and it's written afresh. Raise it when a change to what
+ * the AI writes should reach the messages already drafted.
+ *
+ * 1. Nothing mentions a group the owner and they are both in (decision 157, ./no-groups.ts).
+ */
+export const RULES_VERSION = 1;
+
+/** Why one drafted under older rules can't be OK'd (`RULES_VERSION`), and what happens to it. */
+export const SEND_REWRITTEN =
+  'That message was drafted before HandsFreeOS changed what the AI writes, so it’s being written again. The new one shows up under Needs you on Today once your computer drafts it.';
+
 /** The most OK'd at once with Approve all, and listed. */
 export const SENDS_MOST = 100;
 export const SEND_WHY_MOST = 300;

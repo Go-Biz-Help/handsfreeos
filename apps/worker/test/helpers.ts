@@ -398,3 +398,42 @@ export async function payTextingFee(
     { correlationId: randomUUID(), channel: 'test' },
   );
 }
+
+/**
+ * What `registration.submit` needs before it lets details through (the owner's rule, 2026-11-05): the review step's
+ * checks found exactly these details all green, written down as the worker's preflight would, and every tick only the
+ * business can give is ticked.
+ */
+export async function allGreen<T>(input: T): Promise<T> {
+  const {
+    BusinessProfile,
+    CONFIRMATION_IDS,
+    executeCommand,
+    registrationFingerprint,
+    registrationRecordCheck,
+  } = await import('@hfos/core/server');
+  const i = input as { workspaceId?: string; kind?: string; business?: unknown };
+  const read = BusinessProfile.safeParse(i?.business);
+  if (!i?.workspaceId || !i.kind || !read.success) return input;
+  const [ws] = await rows<{ organization_id: string }>(
+    testDbs().admin.db,
+    sql`select organization_id from app.workspaces where id = ${i.workspaceId}`,
+  );
+  if (!ws) return input;
+  await executeCommand(
+    testDbs().worker.db,
+    registrationRecordCheck,
+    {
+      workspaceId: i.workspaceId,
+      fingerprint: registrationFingerprint(i.kind, read.data),
+      notGreen: [],
+      checks: [],
+    },
+    { type: 'system', workspaceId: i.workspaceId, organizationId: ws.organization_id },
+    { correlationId: randomUUID(), channel: 'test' },
+  );
+  return {
+    ...i,
+    business: { ...(i.business as object), confirmed: [...CONFIRMATION_IDS] },
+  } as T;
+}

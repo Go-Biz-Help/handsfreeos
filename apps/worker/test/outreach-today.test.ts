@@ -28,6 +28,7 @@ import {
   fileChats,
   followUps,
   friends,
+  groups,
   occasions,
   openerUses,
   playbooks,
@@ -293,6 +294,53 @@ describe('drafts for Today', () => {
     expect(await said('Thanks, sounds great.')).toBe(true);
     // The AI found it simple, but it's about a refund: it comes to the person.
     expect(await said('Thanks. I want my money back.')).toBe(false);
+  });
+
+  it('never mentions a group they’re in, and writes again when every draft did (decision 157)', async () => {
+    const [g] = await testDbs()
+      .admin.db.insert(groups)
+      .values({
+        workspaceId: ws,
+        platform: 'facebook',
+        platformId: '523456789',
+        url: 'https://www.facebook.com/groups/523456789/',
+        name: 'Tulsa Trades Owners',
+      })
+      .returning({ id: groups.id });
+    await testDbs()
+      .admin.db.update(profiles)
+      .set({ groupId: g!.id })
+      .where(eq(profiles.id, profileId));
+    await testDbs()
+      .admin.db.update(fileChats)
+      .set({
+        profileId,
+        recent: [
+          {
+            fromMe: false,
+            text: 'Saw you in the Tulsa Trades Owners group, how much is it?',
+            at: new Date().toISOString(),
+          },
+        ],
+      })
+      .where(eq(fileChats.id, chatId));
+    const res = await draft(owner, { kind: 'reply', chatId });
+    expect(res.statusCode).toBe(200);
+    const drafts: string[] = res.json().drafts;
+    // Every first draft said the group back: they went, and the ones written again don't.
+    expect(drafts.length).toBeGreaterThan(0);
+    for (const d of drafts) expect(d).not.toMatch(/group|Tulsa Trades/i);
+    await testDbs()
+      .admin.db.update(fileChats)
+      .set({
+        profileId: null,
+        recent: [{ fromMe: false, text: 'How much is it?', at: new Date().toISOString() }],
+      })
+      .where(eq(fileChats.id, chatId));
+    await testDbs()
+      .admin.db.update(profiles)
+      .set({ groupId: null })
+      .where(eq(profiles.id, profileId));
   });
 
   it('reads a yes to the first message, keeps it, and drafts the next step instead', async () => {

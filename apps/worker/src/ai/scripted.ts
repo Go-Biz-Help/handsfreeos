@@ -1807,7 +1807,8 @@ function scriptedPlaybookAssist(message: string) {
 }
 
 /**
- * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop. A reply is
+ * Drafts for Today by their first name: one twice and one with “free trial”, for the checks to drop, and to a chat
+ * that names a group, only drafts that say it back, till asked to write again (decision 157). A reply is
  * simple when their last message asks nothing, and says what they answered; the video and the link say which they
  * are, for the checks to find their links on the end. A reply to a question none of whose words the business
  * profile or the knowledge has says it's unanswered, in their words (decision 122); one they have answers from the
@@ -1989,6 +1990,18 @@ function scriptedTodayDraft(message: string) {
       answer,
       unanswered,
       drafts: [`Good question, ${first}. Let me check on that and get back to you.`],
+    };
+  // A chat that names a group gets it said back (decision 157), till the AI is asked to write again without one.
+  const group = /\b(?:in|from) the (.+?) group\b/i.exec(unquote(theirs))?.[1];
+  if (group && !message.includes('Your last drafts mentioned a group'))
+    return {
+      simple: false,
+      answer,
+      unanswered: '',
+      drafts: [
+        `Hi ${first}, yes, we’re both in the ${group} group!`,
+        `Small world, ${first}! See you in the ${group} group.`,
+      ],
     };
   return {
     simple: theirs !== '' && !theirs.includes('?'),

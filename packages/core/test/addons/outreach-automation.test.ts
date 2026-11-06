@@ -227,6 +227,47 @@ describe('the extension on its own', () => {
     expect(like!.group_id).not.toBeNull();
   });
 
+  it('never picks someone whose profile has no Add friend again, for a request or a like before one (decision 156)', async () => {
+    await runAs(owner, ws, 'outreach.group.save', {
+      group,
+      members: 12_400,
+      adminsPage: true,
+      people: [member_('sol.park.3', 'Sol Park', ['Owner at Park Plumbing'])],
+    });
+    expect(await kinds()).toEqual([
+      'warm_up: Sol Park',
+      'friend_request: Jules Ortiz',
+      'friend_request: Noor Haddad',
+    ]);
+    const idOf = async (username: string) =>
+      (
+        await rows<{ id: string }>(
+          admin(),
+          sql`select id from addon_outreach.profiles where workspace_id = ${ws} and username = ${username}`,
+        )
+      )[0]!.id;
+
+    // The extension found no Add friend on Jules's profile, nor on Sol's: neither is picked again.
+    const jules = await idOf('jules.ortiz.7');
+    expect(await runAs(owner, ws, 'outreach.request.closed', { profileId: jules })).toEqual({
+      profileId: jules,
+    });
+    await runAs(owner, ws, 'outreach.request.closed', { profileId: await idOf('sol.park.3') });
+    expect(await kinds()).toEqual(['friend_request: Noor Haddad']);
+    const [kept] = await rows<{ closed: boolean }>(
+      admin(),
+      sql`select request_closed_at is not null as closed from addon_outreach.profiles where id = ${jules}`,
+    );
+    expect(kept!.closed).toBe(true);
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.request.closed', {
+          profileId: '00000000-0000-4000-8000-000000000000',
+        }),
+      ),
+    ).toBe('not_found');
+  });
+
   it('lists requests from people who fit a playbook well, to confirm', async () => {
     await runAs(owner, ws, 'outreach.friends.save', {
       list: 'requests',

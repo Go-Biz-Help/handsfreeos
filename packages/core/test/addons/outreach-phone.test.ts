@@ -13,6 +13,7 @@ import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/t
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { manifestIssues, type AddonOfflineTable } from '../../src/addons/manifest';
 import { outreachAddon } from '../../src/addons/outreach/manifest';
+import { RULES_VERSION } from '../../src/addons/outreach/sends';
 import {
   approveAllFromPhone,
   waitingOfCopy,
@@ -57,7 +58,10 @@ beforeAll(async () => {
 }, 60_000);
 afterAll(closeTestDbs);
 
-/** A message the extension drafted for `u`, waiting for their OK, made `ago` ms before now. */
+/**
+ * A message the extension drafted for `u` under the AI's rules as they are (decision 157), waiting for their OK, made
+ * `ago` ms before now.
+ */
 async function drafted(
   u: TestUser,
   profileId: string,
@@ -74,11 +78,11 @@ async function drafted(
   const [row] = await rows<{ id: string }>(
     admin(),
     sql`insert into addon_outreach.sends
-          (workspace_id, user_id, profile_id, kind, post_id, text, drafted, handed_over, needs_you, created_at,
-           updated_at)
+          (workspace_id, user_id, profile_id, kind, post_id, text, drafted, handed_over, needs_you, rules_version,
+           created_at, updated_at)
         values (${ws}, ${u.id}, ${profileId}, ${over.kind ?? 'opener'}, ${over.postId ?? null}, ${text}, ${text},
-                ${over.handedOver ?? false}, ${over.needsYou ?? null}, ${at.toISOString()}::timestamptz,
-                ${at.toISOString()}::timestamptz)
+                ${over.handedOver ?? false}, ${over.needsYou ?? null}, ${RULES_VERSION},
+                ${at.toISOString()}::timestamptz, ${at.toISOString()}::timestamptz)
         returning id`,
   );
   return row!.id;

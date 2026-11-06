@@ -25,6 +25,7 @@
  */
 import { z } from 'zod';
 import { PHONE_VOICES, type PhoneVoice } from '../ai-team/voices';
+import { chatLinkParts } from '../meetings/chat-links';
 
 /** The longest recording the worker takes: about a minute of talking at the phone's quality. */
 export const SPEECH_CLIP_MAX_BYTES = 4 * 1024 * 1024;
@@ -79,6 +80,20 @@ const EMOJI = /[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu;
 const ENDS_A_THOUGHT = /[.!?…:;]$/;
 
 /**
+ * A line without the web addresses written in it (`https://…`), which are left for the screen: the punctuation and
+ * brackets around one stay, and brackets left empty go.
+ */
+function withoutAddresses(line: string): string {
+  if (!/https?:\/\//i.test(line)) return line;
+  return chatLinkParts(line)
+    .filter((p) => !(p.href && /^https?:\/\//i.test(p.text)))
+    .map((p) => p.text)
+    .join('')
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\(\s*\)/g, '');
+}
+
+/**
  * Plain words to say out loud: markdown's marks, links' addresses, tables' pipes and emoji left out, and each
  * line or list item ended so the voice pauses between them.
  */
@@ -95,13 +110,11 @@ export function speakable(text: string): string {
         .map((c) => c.trim())
         .filter(Boolean)
         .join(', ');
-    line = line
+    line = withoutAddresses(line.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1'))
       .replace(/^#{1,6}\s+/, '')
       .replace(/^>\s*/, '')
       .replace(/^[-•*]\s+/, '')
       .replace(/^(\d+)[.)]\s+/, '$1. ')
-      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/https?:\/\/\S+/g, '')
       .replace(/(\*\*|__)(.+?)\1/g, '$2')
       .replace(/(^|[\s(])[*_]([^*_\s][^*_]*?)[*_](?=[\s).,!?;:]|$)/g, '$1$2')
       .replace(/`([^`]*)`/g, '$1')

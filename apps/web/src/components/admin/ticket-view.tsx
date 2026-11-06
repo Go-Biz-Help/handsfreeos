@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { CHANNEL_WORD, PRIORITY_WORD, STATUS_WORD, whenWords, type TicketRow } from './ticket-bits';
+import { RegistrationReviewPanel, type RegistrationReviewView } from './registration-review-panel';
 import { ViewAsButton } from './view-as';
 
 export interface TicketMessageView {
@@ -47,6 +48,8 @@ export interface TicketViewProps {
   /** `founder`: opening their business goes straight in as its owner (20261013002100). */
   readonly can: { assign: boolean; viewAs: boolean; founder: boolean };
   readonly meUserId: string;
+  /** The texting registration this ticket asks HandsFreeOS to check, when it's one. */
+  readonly registrationReview?: RegistrationReviewView | null;
 }
 
 export function TicketView(props: TicketViewProps) {
@@ -110,6 +113,10 @@ export function TicketView(props: TicketViewProps) {
             {ticket.requester.name ? `${ticket.requester.name}, ` : ''}
             {ticket.requester.email}
           </p>
+
+          {props.registrationReview ? (
+            <RegistrationReviewPanel review={props.registrationReview} />
+          ) : null}
 
           <ol className="mt-5 flex flex-col gap-3">
             {props.messages.map((m) => (

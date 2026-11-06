@@ -103,6 +103,7 @@ import {
   openToMe,
   pitchable,
   recentOf,
+  requestable,
   requestAnswerColumns,
   type Ctx,
 } from './common';
@@ -500,6 +501,7 @@ export async function todayFor(
     playbook_name: string | null;
     liked_at: Date | string | null;
     warm_up_missed_at: Date | string | null;
+    request_closed: boolean;
     reached: boolean;
     answered: boolean;
     free: boolean;
@@ -507,6 +509,7 @@ export async function todayFor(
     ctx.tx,
     sql`select distinct on (e.profile_id, e.kind) p.id, p.name, p.url, p.friendship, e.kind, e.comment,
             h.post_url, g.name as group_name, pb.name as playbook_name, p.warm_up_missed_at,
+            not ${requestable('p')} as request_closed,
             (select max(t.at) from addon_outreach.touches t
               where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
                 and t.at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz) as liked_at,
@@ -567,11 +570,13 @@ export async function todayFor(
   for (const w of warm) if (!once.has(w.id)) once.set(w.id, w);
   // Who followed the person, on a follow network: being among their followers isn't being followed back.
   const followedYou = new Set(warm.filter((w) => w.kind === 'follow').map((w) => w.id));
-  // Another teammate's person (decision 107) is answered, and followed back, but never friended from here.
+  // Another teammate's person (decision 107) is answered, and followed back, but never friended from here; nor is
+  // someone whose page offers no friend request (decision 156).
   const toFriend = [...once.values()].filter(
     (w) =>
       (w.free || followedYou.has(w.id)) &&
       !w.reached &&
+      !w.request_closed &&
       !(follows ? ['request_sent'] : ['friends', 'request_sent', 'request_received']).includes(
         w.friendship,
       ),
@@ -695,7 +700,7 @@ export async function todayFor(
               and po.seen_at >= ${ago(WARM_UP_WINDOW_DAYS)}::timestamptz
             and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
-              and not ${myOwnProfile(me)}
+              and ${requestable('p')} and not ${myOwnProfile(me)}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.friends f
@@ -1056,7 +1061,7 @@ export async function todayFor(
               and ${notOthers(me, 'g')}
             and p.person_id is null and ${pitchable('p')} and ${inPlay(me, 'p')} and ${reach}
               and p.friendship not in ('self', 'friends', 'request_sent', 'request_received')
-              and not ${myOwnProfile(me)}
+              and ${requestable('p')} and not ${myOwnProfile(me)}
               and not exists (select 1 from addon_outreach.group_people x
                 where x.profile_id = p.id and x.runs_group)
               and not exists (select 1 from addon_outreach.friends f

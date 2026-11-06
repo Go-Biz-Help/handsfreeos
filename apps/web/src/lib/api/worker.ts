@@ -223,7 +223,18 @@ export function registrationPreflight(input: {
     offers?: boolean;
     address?: { line1?: string; city?: string; state?: string; postalCode?: string };
   };
-}): Promise<{ checks: PreflightCheck[] }> {
+  /** Every other way customers agree, each opened and checked like the main one. */
+  otherWays?: { path: 'hosted' | 'own_site' | 'in_person'; url: string }[];
+  /**
+   * The registration exactly as Send would send it. The worker checks the pages it names and writes down what it
+   * found against it: the send goes through only for details found all green.
+   */
+  submission?: { kind: 'a2p_10dlc' | 'toll_free_verification'; business: unknown };
+}): Promise<{
+  checks: PreflightCheck[];
+  /** With a submission: everything standing between it and all green (empty when it may go). */
+  notGreen: string[] | null;
+}> {
   return workerPost('/v1/telephony/registration-preflight', input);
 }
 

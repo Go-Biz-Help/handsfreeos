@@ -131,7 +131,19 @@ export const supportTicketReply = defineCommand({
   permission: 'support.reply',
   scope: onPlatform,
   emits: ['support_ticket.replied'],
-  async handler(ctx, input) {
+  handler: (ctx, input) => replyOnTicket(ctx, input),
+});
+
+/**
+ * A support person's answer on a ticket, or their internal note: what `support.ticket.reply` does, and what deciding a
+ * texting registration's review says to the business (commands/registration.ts). The command calling it emits
+ * `support_ticket.replied`, which is what emails the answer.
+ */
+export async function replyOnTicket(
+  ctx: CommandContext,
+  input: { ticketId: string; body: string; internal: boolean; status?: TicketStatusValue },
+): Promise<{ messageId: string; status: TicketStatusValue }> {
+  {
     const ticket = await ticketOr404(ctx, input.ticketId);
     if (ticket.status === 'closed' && input.internal === false)
       throw HfosError.conflict(
@@ -182,8 +194,8 @@ export const supportTicketReply = defineCommand({
       after: { status },
     });
     return { messageId: message!.id, status };
-  },
-});
+  }
+}
 
 export const supportTicketSetStatus = defineCommand({
   name: 'support.ticket.set_status',

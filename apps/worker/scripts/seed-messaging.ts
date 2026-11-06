@@ -22,7 +22,10 @@ import {
   messageSend,
   messageUpdateStatus,
   phoneNumberBuy,
+  registrationFingerprint,
+  registrationRecordCheck,
   registrationSubmit,
+  BusinessProfile,
   type HumanActor,
   type RequestMeta,
 } from '@hfos/core/server';
@@ -165,7 +168,7 @@ export async function seedMessaging(
       )
     )[0]?.status;
   await settle(d, async () => (await numberStatus()) === 'active');
-  await human(ws.dale, registrationSubmit, {
+  const registration = {
     workspaceId,
     kind: 'toll_free_verification' as const,
     business: {
@@ -188,7 +191,19 @@ export async function seedMessaging(
         'Customers give us their cell number when they book a visit and agree to texts about it.',
       monthlyVolume: 'under_1000' as const,
     },
+  };
+  // Sent only once its details were checked all green (the owner's rule, 2026-11-05), as the review step's checks
+  // would write down.
+  await system(registrationRecordCheck, {
+    workspaceId,
+    fingerprint: registrationFingerprint(
+      registration.kind,
+      BusinessProfile.parse(registration.business),
+    ),
+    notGreen: [],
+    checks: [],
   });
+  await human(ws.dale, registrationSubmit, registration);
   await settle(d, async () => {
     const [r] = await rows<{ status: string }>(
       d.admin,

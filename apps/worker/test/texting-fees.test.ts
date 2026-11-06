@@ -28,7 +28,7 @@ import { FAKE_CARDS } from '../src/payments/fake';
 import { processors } from '../src/processors/index';
 import { jobs } from '../src/scheduled';
 import { planTextingMonths } from '../src/telephony/texting-fees';
-import { testServices, type TestServices } from './helpers';
+import { allGreen, testServices, type TestServices } from './helpers';
 
 const WORKER_ID = `vitest-texting-fees-${process.pid}`;
 const actor = (u: TestUser): HumanActor => ({
@@ -150,11 +150,11 @@ async function businessWithNumber(name: string) {
   return { workspaceId: output.workspaceId, organizationId: output.organizationId };
 }
 
-const submit = (workspaceId: string, monthlyVolume = 'under_1000') =>
+const submit = async (workspaceId: string, monthlyVolume = 'under_1000') =>
   executeCommand(
     api(),
     registrationSubmit,
-    { workspaceId, kind: 'a2p_10dlc', business: { ...business, monthlyVolume } },
+    await allGreen({ workspaceId, kind: 'a2p_10dlc', business: { ...business, monthlyVolume } }),
     actor(owner),
     meta(),
   );

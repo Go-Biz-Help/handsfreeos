@@ -8,12 +8,14 @@
  * gets told, in its own audit log, in its own workspace. That is the whole point of writing it down there.
  */
 import { createHash, randomBytes } from 'node:crypto';
+import { executeCommand, registrationSendReviewed } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { staffInvitations } from '@hfos/db/schema';
 import { queueSupportDraft as queueDraft } from '../support/inbound';
 import { acknowledgeTicket, sendTicketReply, staffInvitationEmail } from '../support/mail';
 import { queueNewTicketPush } from '../support/push';
+import { systemActor, workerMeta } from '../services';
 import { recordSystemEvent } from '../system-event';
 import type { EventHandler } from './types';
 
@@ -183,6 +185,28 @@ export const onTeammateViewStarted: EventHandler = async (ctx) => {
   );
 };
 
+/**
+ * HandsFreeOS approved a business's texting registration after checking it by hand ("Ask HandsFreeOS to check it"):
+ * it goes to the carriers now, exactly as the business left it, as though they had pressed Send. Sent back, there's
+ * nothing to do here: the ticket's reply already told them what to change.
+ */
+export const onRegistrationReviewDecided: EventHandler = async (ctx) => {
+  const p = ctx.event.payload as {
+    reviewId?: string;
+    workspaceId?: string;
+    organizationId?: string;
+    status?: string;
+  };
+  if (p.status !== 'approved' || !p.reviewId || !p.workspaceId || !p.organizationId) return;
+  await executeCommand(
+    ctx.db,
+    registrationSendReviewed,
+    { workspaceId: p.workspaceId, reviewId: p.reviewId },
+    systemActor({ workspaceId: p.workspaceId, organizationId: p.organizationId }),
+    workerMeta(ctx.event.correlationId, ctx.event.id),
+  );
+};
+
 export const supportHandlers = {
   'support_ticket.opened': [onSupportTicketOpened],
   'support_ticket.replied': [onSupportTicketReplied],
@@ -191,4 +215,5 @@ export const supportHandlers = {
   'support_staff.invitation_resent': [onSupportStaffInvitationResent],
   'platform.view_as_started': [onViewAsStarted],
   'platform.teammate_view_started': [onTeammateViewStarted],
+  'platform.registration_review_decided': [onRegistrationReviewDecided],
 };

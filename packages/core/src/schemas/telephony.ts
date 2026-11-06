@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { normalizePhone } from '../crm/phone';
 import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
+import { CONFIRMATION_IDS } from '../messaging/preflight';
 import { isoDateTime, uuid } from './common';
 import { RcsSenderOut } from './rcs-sender';
 import { RcsRequestOut } from './rcs-request';
@@ -237,7 +238,7 @@ export const BusinessProfile = z
       .string()
       .trim()
       .min(40, 'Explain how customers agree to get texts.')
-      .max(1500, 'Keep how customers agree under 1,500 characters.'),
+      .max(2000, 'Keep how customers agree under 2,000 characters.'),
     monthlyVolume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']),
     /**
      * How the business collects consent, as the wizard settled it. Optional because registrations
@@ -287,6 +288,21 @@ export const BusinessProfile = z
     displayName: z.string().trim().max(120).optional(),
     /** Topics the carriers treat differently (core's SENSITIVE_TOPICS); `[]` when none apply. */
     sensitiveTopics: z.array(z.enum(SENSITIVE_TOPIC_IDS)).max(20).optional(),
+    /**
+     * Every other way customers agree, beside `optInPath`, each with where a reviewer sees it (Twilio 30896: "list
+     * every method along with proofs"). The description names each one, and the checks open each link.
+     */
+    otherWays: z
+      .array(
+        z.object({
+          path: optInPathValue,
+          url: z.url({ error: 'Enter the full link, starting with https://.' }).max(500),
+        }),
+      )
+      .max(3)
+      .optional(),
+    /** What the business said is true that no machine can test (core's confirmationsFor), kept with what was sent. */
+    confirmed: z.array(z.enum(CONFIRMATION_IDS)).max(10).optional(),
   })
   .refine((b) => b.businessType === 'sole_proprietor' || !!b.ein, {
     path: ['ein'],
@@ -351,6 +367,94 @@ export const RegistrationGetDraftOutput = z.object({
   answers: z.record(z.string(), z.unknown()).nullable(),
   savedAt: isoDateTime.nullable(),
 });
+
+// ---------- all green, or checked by HandsFreeOS (2026-11-05) ----------
+
+/** One line of what stood between a registration and all green, as the business saw it. */
+const notGreenList = z.array(z.string().trim().min(1).max(2000)).max(60);
+
+/** Worker: what the review step's checks found for exactly these details (core's notGreen), kept for the send. */
+export const RegistrationRecordCheckInput = z.object({
+  workspaceId: uuid,
+  /** registrationFingerprint of the details checked: a send of anything else needs checking again. */
+  fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+  notGreen: notGreenList,
+  /** The rows as shown (core's PreflightCheck), for the ticket when HandsFreeOS checks it. */
+  checks: z.array(z.record(z.string(), z.unknown())).max(20),
+});
+export const RegistrationRecordCheckOutput = z.object({ allGreen: z.boolean() });
+
+export const registrationReviewStatus = z.enum(['waiting', 'approved', 'sent_back', 'withdrawn']);
+
+export const RegistrationRequestReviewInput = z.object({
+  workspaceId: uuid,
+  kind: registrationFamily,
+  business: BusinessProfile,
+  /** What wasn't green when they asked, from the review step (core's notGreen). */
+  notGreen: notGreenList,
+  /** Anything the business wants HandsFreeOS to know: why a row is wrong, say. */
+  note: z.string().trim().max(2000).optional(),
+});
+export const RegistrationRequestReviewOutput = z.object({
+  reviewId: uuid,
+  ticketNumber: z.int(),
+});
+
+/** A business's latest ask for HandsFreeOS to check its registration, as the wizard and Texting page show it. */
+export const RegistrationReviewOut = z.object({
+  reviewId: uuid,
+  status: registrationReviewStatus,
+  kind: registrationFamily,
+  requestedAt: isoDateTime,
+  decidedAt: isoDateTime.nullable(),
+  /** What HandsFreeOS wrote back, when it sent it back or approved it with a note. */
+  decisionNote: z.string().nullable(),
+  ticketNumber: z.int().nullable(),
+  /** Sent to the carriers after approval (the registrations it made), or not yet. */
+  sentAt: isoDateTime.nullable(),
+});
+export const RegistrationReviewGetInput = z.object({ workspaceId: uuid });
+export const RegistrationReviewGetOutput = z.object({ review: RegistrationReviewOut.nullable() });
+
+/** Staff: the review a ticket is about, with everything the business would have sent. */
+/** The check a ticket is about: by its id, or by the support ticket it opened (null when the ticket isn't one). */
+export const RegistrationReviewForStaffInput = z
+  .object({ reviewId: uuid.optional(), ticketId: uuid.optional() })
+  .refine((v) => !!v.reviewId !== !!v.ticketId, {
+    path: ['reviewId'],
+    error: 'Give the check or its ticket, not both.',
+  });
+export const RegistrationReviewForStaffOutput = z.object({
+  review: RegistrationReviewOut.extend({
+    workspaceId: uuid,
+    businessName: z.string(),
+    note: z.string().nullable(),
+    notGreen: z.array(z.string()),
+    submission: z.record(z.string(), z.unknown()),
+  }).nullable(),
+});
+
+export const RegistrationReviewDecideInput = z.object({
+  reviewId: uuid,
+  /** Said to the business on the ticket. Required to send it back: they need to know what to change. */
+  note: z.string().trim().max(4000).optional(),
+});
+export const RegistrationReviewSendBackInput = RegistrationReviewDecideInput.extend({
+  note: z.string().trim().min(1, 'Say what they need to change.').max(4000),
+});
+export const RegistrationReviewDecideOutput = z.object({
+  reviewId: uuid,
+  status: registrationReviewStatus,
+});
+
+/** Worker: send what HandsFreeOS approved, exactly as the business left it. */
+export const RegistrationSendReviewedInput = z.object({ workspaceId: uuid, reviewId: uuid });
+export const RegistrationSendReviewedOutput = z.object({
+  registrationIds: z.array(uuid),
+  /** False when there was nothing to send: already sent, or the carriers already have it. */
+  sent: z.boolean(),
+});
+
 export const RegistrationUpdateStatusInput = z.object({
   workspaceId: uuid,
   registrationId: uuid,
