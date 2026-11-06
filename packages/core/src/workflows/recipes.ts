@@ -86,6 +86,12 @@ function candidates(kind: RefKind, c: WorkflowCatalogs): Candidate[] {
   }
 }
 
+/** What a placeholder of this kind can stand for here, as Fill in for the business offers it. */
+export const placeholderChoices = (
+  kind: RefKind,
+  catalogs: WorkflowCatalogs,
+): readonly { readonly id: string; readonly name: string }[] => candidates(kind, catalogs);
+
 const norm = (s: string) =>
   s
     .toLowerCase()
@@ -612,6 +618,57 @@ export const WORKFLOW_RECIPES: readonly WorkflowRecipe[] = [
     },
   },
 ];
+
+export type RecipeCategory = 'Leads' | 'Appointments' | 'Sales';
+
+/**
+ * Each recipe's card on New workflow: its category (the All, Leads, Appointments and Sales filter), the line under
+ * its name, and the note under its preview. In core so the Assistant describes them as the page does.
+ */
+export const RECIPE_CARDS: Readonly<
+  Record<RecipeKey, { category: RecipeCategory; short: string; note: string }>
+> = {
+  speed_to_lead: {
+    category: 'Leads',
+    short: 'Text new leads within a minute.',
+    note: 'Stops as soon as they reply or book.',
+  },
+  missed_call_text_back: {
+    category: 'Leads',
+    short: 'Text back, then AI sorts the reply.',
+    note: 'The AI sorts each reply into a path: emergency, book, question or other.',
+  },
+  appointment_follow_up_review: {
+    category: 'Appointments',
+    short: 'Say thanks, then ask for a review.',
+    note: 'Happy customers get the review link. An AI reply to an unhappy one waits for an approval.',
+  },
+  no_show_rebook: {
+    category: 'Appointments',
+    short: 'Text the booking link after a no-show.',
+    note: 'Workflows can’t book for customers yet, so it sends the link.',
+  },
+  estimate_follow_up: {
+    category: 'Sales',
+    short: 'A text, an email, then a task.',
+    note: 'Stops when the lead is won or lost, or they reply.',
+  },
+  speed_to_lead_ai: {
+    category: 'Leads',
+    short: 'Your AI teammate messages new leads right away.',
+    note: 'It asks your qualifying questions; a task goes out if the lead isn’t qualified in a day.',
+  },
+  missed_call_text_back_ai: {
+    category: 'Leads',
+    short: 'Your AI teammate texts back and offers to book.',
+    note: 'If they don’t reply within a day, their owner gets a task to call.',
+  },
+  speed_to_lead_phone: {
+    category: 'Leads',
+    short: 'Your AI teammate calls new leads right away.',
+    note: 'Only leads who agreed to calls. A task goes out if they haven’t booked in a day.',
+  },
+};
 
 export function recipeByKey(key: string): WorkflowRecipe | undefined {
   return WORKFLOW_RECIPES.find((r) => r.key === key);

@@ -439,6 +439,7 @@ export async function questionContext(
       knowledgeFor(db, scope).catch(() => null),
       ask<AttentionList>('attention.list').catch((): null => null),
     ]);
+  const liveFlows = flows.items.filter((w) => w.status !== 'archived');
   return {
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
@@ -480,10 +481,10 @@ export async function questionContext(
         page && shown
           ? { type: page.type, id: page.id, label: shown.label, next, related: shown.related }
           : null,
-      workflows: flows.items
-        .filter((w) => w.status !== 'archived')
+      workflows: liveFlows
         .slice(0, 25)
         .map((w) => ({ id: w.id, name: w.name, status: w.status, trigger: w.trigger.summary })),
+      ...(liveFlows.length > 25 ? { workflowsTotal: liveFlows.length } : {}),
       approvals: approvals.items
         .filter((a) => a.canDecide && stillOpen(a, now))
         .map((a) => {

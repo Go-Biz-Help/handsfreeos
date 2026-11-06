@@ -35,6 +35,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
+import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import {
   contentAutoTools,
   contentConfirmTools,
@@ -781,6 +782,80 @@ describe('workflows and their runs', () => {
     expect(card?.type).toBe('list');
   });
 
+  it('reads one run in full: its version, where it’s stuck, and each step it reached', async () => {
+    const failed = await newRun('failed', true);
+    const { result, card } = await read('get_workflow_run', { runId: failed });
+    expect(result).toMatchObject({
+      id: failed,
+      customer: 'Wes Flow',
+      personId,
+      workflow: 'Follow-up call',
+      workflowId,
+      status: 'Failed',
+      version: 1,
+      stuckAt: {
+        step: expect.stringContaining('Call them back'),
+        whatWentWrong: 'Nobody to give the task to',
+        tries: 2,
+      },
+      steps: [
+        {
+          stepId: 's_fuptask1',
+          step: expect.stringContaining('Call them back'),
+          visits: [{ status: 'Failed', tries: 2, error: 'Nobody to give the task to' }],
+        },
+      ],
+    });
+    expect(card?.type).toBe('list');
+  });
+
+  it('filters runs as Runs does, keeps test runs apart, and reads a page at a time', async () => {
+    const ended = async (isTest: boolean) =>
+      (
+        await one<{ id: string }>(
+          sql`insert into app.workflow_runs (workspace_id, workflow_id, version_id, person_id, dedupe_key, status,
+                end_reason, ended_at, is_test, test_mode, test_revision)
+              values (${workspaceId}, ${workflowId}, ${versionId}, ${personId}, ${randomUUID()}, 'completed',
+                'finished', now(), ${isTest}, ${isTest ? 'simulate' : null}::app.workflow_test_mode,
+                ${isTest ? 2 : null}::int)
+              returning id`,
+        )
+      ).id;
+    const first = await ended(false);
+    const second = await ended(false);
+    const test = await ended(true);
+
+    const completed = (await read('list_workflow_runs', { show: 'completed' })).result;
+    const ids = (completed['runs'] as { id: string }[]).map((r) => r.id);
+    expect(ids).toEqual(expect.arrayContaining([first, second]));
+    expect(ids).not.toContain(test);
+    expect((completed['runs'] as { id: string }[]).find((r) => r.id === first)).toMatchObject({
+      status: 'Completed',
+      version: 1,
+      whyItEnded: 'It finished every step',
+    });
+
+    // Runs → Tests: the test runs alone, with how each was run.
+    const tests = (await read('list_workflow_runs', { show: 'all', tests: true })).result;
+    expect(tests['runs']).toEqual([
+      expect.objectContaining({ id: test, test: 'Test (Simulate) of draft revision 2' }),
+    ]);
+
+    // A page at a time: the next page starts where the last one ended.
+    const page = (await read('list_workflow_runs', { show: 'completed', limit: 1 })).result;
+    expect(page).toMatchObject({ shown: 1, more: true, nextCursor: expect.any(String) });
+    const next = (
+      await read('list_workflow_runs', {
+        show: 'completed',
+        limit: 1,
+        cursor: page['nextCursor'],
+      })
+    ).result;
+    expect((next['runs'] as { id: string }[])[0]!.id).not.toBe(
+      (page['runs'] as { id: string }[])[0]!.id,
+    );
+  });
+
   it('retries or skips a stuck step on Confirm, and stops a run that is going', async () => {
     const failed = await newRun('failed', true);
     const retry = await prepare('manage_workflow_run', { runId: failed, action: 'retry_step' });
@@ -819,6 +894,15 @@ describe('workflows and their runs', () => {
       { id: 's_fuptask1', depth: 0, says: expect.stringContaining('Call them back') },
     ]);
     expect(result['liveVersion']).toBe(1);
+    // The header's gate, the versions and what the draft changes, as the editor shows them.
+    expect(result).toMatchObject({
+      tested: true,
+      publishGate: 'Tested, ready to publish',
+      versions: [expect.objectContaining({ version: 1, live: true })],
+      changesSinceLive: 'Nothing changed since version 1, so there’s nothing to publish.',
+      source: { from: 'Blank' },
+      lastRun: expect.objectContaining({ runId: expect.any(String) }),
+    });
     const draftRevision = result['draftRevision'] as number;
     const args = {
       workflowId,
@@ -852,6 +936,114 @@ describe('workflows and their runs', () => {
     await expect(
       prepare('edit_workflow_steps', { ...args, baseRevision: draftRevision + 1 }),
     ).rejects.toThrow('Nothing would change');
+
+    // Now the draft differs from what runs, and it needs a new test.
+    const changed = (await read('get_workflow', { workflowId })).result;
+    expect(changed).toMatchObject({ tested: false, publishGate: 'Run a test first' });
+    expect((changed['changesSinceLive'] as string[]).join(' ')).toContain('Call them today');
+    // A published version reads as History → View shows it, with what restoring it would change.
+    const v1 = (await read('get_workflow', { workflowId, version: 1 })).result;
+    expect(v1).toMatchObject({
+      version: 1,
+      live: true,
+      steps: [{ id: 's_fuptask1', depth: 0, says: expect.stringContaining('Call them back') }],
+    });
+    expect((v1['whatRestoringChangesInTheDraft'] as string[]).join(' ')).toContain(
+      'Call them back',
+    );
+  });
+
+  it('publishes and restores on cards that say it as the editor’s dialogs do', async () => {
+    const screen = (name: string) => screenActionToolByName(name)!;
+    const prepareScreen = async (name: string, args: Record<string, unknown>) => {
+      const out = await tools().prepare(
+        screen(name),
+        screen(name).input.parse(args) as Record<string, unknown>,
+        ctx(),
+        randomUUID(),
+      );
+      expect(AssistantCard.safeParse(out.card).success, `${name} card`).toBe(true);
+      return out as { card: Confirm; result: Record<string, unknown> };
+    };
+    const commitScreen = (name: string, args: Record<string, unknown>) =>
+      tools().commit(
+        screen(name),
+        screen(name).input.parse(args) as Record<string, unknown>,
+        ctx(),
+        { toolCallId: randomUUID() },
+      );
+    const draft = () =>
+      one<{ title: string; revision: number }>(
+        sql`select definition #>> '{steps,0,config,title}' as title, revision
+            from app.workflows where id = ${workflowId}`,
+      );
+    const { revision } = await draft();
+
+    // Untested, it's refused before any card is drawn.
+    await expect(
+      prepareScreen('do_workflow_publish', { workflowId, baseRevision: revision }),
+    ).rejects.toMatchObject({ rule: 'not_tested' });
+    await rows(
+      admin(),
+      sql`update app.workflows set tested_revision = revision where id = ${workflowId}`,
+    );
+    const pub = await prepareScreen('do_workflow_publish', { workflowId, baseRevision: revision });
+    expect(pub.card).toMatchObject({
+      title: 'Publish version 2 of “Follow-up call”?',
+      confirmLabel: 'Publish version 2',
+      warnings: [
+        {
+          kind: 'caution',
+          text: 'New runs start on it as soon as it’s published, and reach customers.',
+        },
+        { kind: 'note', text: 'Runs already in progress finish on version 1.' },
+      ],
+    });
+    expect(pub.card.fields[0]).toMatchObject({
+      label: 'Change',
+      value: expect.stringContaining('Call them today'),
+    });
+    expect(pub.result).toMatchObject({ workflow: 'Follow-up call', version: 2 });
+    const published = await commitScreen('do_workflow_publish', {
+      workflowId,
+      baseRevision: revision,
+    });
+    expect(published).toMatchObject({
+      outcome: 'Version 2 of “Follow-up call” is live.',
+      command: 'workflow.publish',
+    });
+
+    const restore = await prepareScreen('do_workflow_restore_version', {
+      workflowId,
+      version: 1,
+      baseRevision: revision,
+    });
+    expect(restore.card).toMatchObject({
+      title: 'Bring version 1 of “Follow-up call” back into the draft?',
+      confirmLabel: 'Restore',
+      warnings: [
+        {
+          kind: 'note',
+          text: 'Only the draft changes. It needs a new test before it can be published.',
+        },
+      ],
+    });
+    expect(restore.card.fields[0]).toMatchObject({
+      label: 'Change',
+      value: expect.stringContaining('Call them back'),
+    });
+    expect(await draft()).toEqual({ title: 'Call them today', revision });
+    const restored = await commitScreen('do_workflow_restore_version', {
+      workflowId,
+      version: 1,
+      baseRevision: revision,
+    });
+    expect(restored).toMatchObject({
+      outcome:
+        'Version 1 of “Follow-up call” is back in the draft. Test it again before you publish.',
+      command: 'workflow.restore_version',
+    });
+    expect(await draft()).toEqual({ title: 'Call them back', revision: revision + 1 });
   });
 
   it('renames a workflow, and archives it with its runs going stopped', async () => {

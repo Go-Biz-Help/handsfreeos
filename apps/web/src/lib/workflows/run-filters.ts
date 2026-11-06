@@ -1,3 +1,4 @@
+import { RUN_STATUS_FILTERS } from '@hfos/core';
 import type { WorkflowRunListBody, WorkflowRunStatus } from '@/lib/api/types';
 
 /** The Runs page's filters, kept in the address so a link (a tile, a reload) opens the same view. */
@@ -20,14 +21,8 @@ export const DEFAULT_RUN_FILTERS: RunFilters = {
   range: '30d',
 };
 
-const STATUS_OF: Record<RunStatusFilter, WorkflowRunStatus[] | null> = {
-  all: null,
-  waiting: ['running', 'waiting', 'held'],
-  awaiting_approval: ['awaiting_approval'],
-  failed: ['failed'],
-  completed: ['completed'],
-  stopped: ['stopped'],
-};
+// In core, so the Assistant's list_workflow_runs filters the way this page does.
+const STATUS_OF: Record<RunStatusFilter, readonly WorkflowRunStatus[] | null> = RUN_STATUS_FILTERS;
 const RANGE_MS: Record<RunRange, number | null> = {
   '1d': 86_400_000,
   '7d': 7 * 86_400_000,
@@ -77,7 +72,7 @@ export function runListBody(
     workspaceId,
     limit: 25,
     ...(f.workflowId ? { workflowId: f.workflowId } : {}),
-    ...(statuses ? { status: statuses } : {}),
+    ...(statuses ? { status: [...statuses] } : {}),
     ...(f.tests ? { onlyTests: true } : {}),
     ...(ms ? { startedAfter: new Date(now - ms).toISOString() } : {}),
     ...(cursor ? { cursor } : {}),

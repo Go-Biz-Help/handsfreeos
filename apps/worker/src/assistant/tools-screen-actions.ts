@@ -26,6 +26,7 @@ import { keptAnswer } from './committed';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { cardFields } from './tools-addons';
 import { settingsCard } from './tools-settings-calendar';
+import { workflowScreenCards } from './tools-workflow';
 
 type Args = Record<string, unknown>;
 
@@ -124,6 +125,9 @@ export async function prepareScreenAction(
     );
   }
   await rehearseCommand(db, tool.command, input, ctx.actor, meta(ctx));
+  // A command whose screen says it in a dialog of its own (Publish, Restore, Run test) is drawn the way it says it.
+  const own = workflowScreenCards[tool.command.name];
+  if (own) return own.prepare(db, ctx, args, { name: tool.name, toolCallId });
   const shown = tool.input.safeParse(args);
   return {
     card: settingsCard(toolCallId, tool.name, {
@@ -208,6 +212,16 @@ export async function commitScreenAction(
     ctx.actor,
     meta(ctx),
   );
+  const own = workflowScreenCards[tool.command.name];
+  if (own) {
+    const said = await own.done(db, ctx, args, done.output as Args);
+    return {
+      outcome: said.outcome,
+      href: said.href,
+      command: tool.command.name,
+      answer: keptAnswer(said.answer ?? done.output, tool.command.shownOnce),
+    };
+  }
   const once = passedOn(tool.command, done.output, webUrl);
   return {
     outcome: once?.kept ?? 'Done',

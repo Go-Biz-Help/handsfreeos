@@ -2,10 +2,12 @@
  * The agency's pushes, end to end through the outbox and the jobs: a template pushed to two businesses
  * becomes a draft in each (an unmapped placeholder shows as an issue there, and a redelivered push adds
  * nothing); a newer version shows as an update, and applying it through the worker's route keeps the
- * business's own changes, flagged; a knowledge pack becomes suggestions once, however often the job runs.
+ * business's own changes, flagged, and the Assistant reads and applies one the same way, only after Confirm; a
+ * knowledge pack becomes suggestions once, however often the job runs.
  */
 import { randomUUID } from 'node:crypto';
 import {
+  assistantToolByName,
   createTokenVerifier,
   executeQuery,
   knowledgeItemCreate,
@@ -23,6 +25,7 @@ import {
   workflowTemplatePush,
   workflowTemplateSaveDraft,
   workspaceCreate,
+  type AssistantCard,
   type HumanActor,
   type QueryDef,
 } from '@hfos/core/server';
@@ -31,6 +34,8 @@ import { createTestUser, signInTestUser, testDbs, testEnv, type TestUser } from 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import type { ToolContext } from '../src/assistant/runtime';
+import { createToolExecutor } from '../src/assistant/tools-write';
 import { handlers } from '../src/handlers/index';
 import { buildHttpServer } from '../src/http/server';
 import { processJobs } from '../src/jobs';
@@ -373,6 +378,83 @@ describe('an update to the template', () => {
       baseRevision: edited.revision + 1,
     });
     expect(again.json()).toMatchObject({ error: { rule: 'template_current' } });
+  });
+});
+
+describe('an update in the Assistant', () => {
+  const ctx = (): ToolContext => ({
+    actor: human(w.owner),
+    workspaceId: bayou,
+    organizationId: w.organizationId,
+    correlationId: randomUUID(),
+    timezone: CHI,
+  });
+  const tool = (name: string) => assistantToolByName.get(name)!;
+  // As the worker's HTTP server runs them: the template is read as the system bound to the business.
+  const tools = () => createToolExecutor(testDbs().worker.db);
+
+  it('reads Bayou’s update as Review update does, and applies it as a draft only after Confirm', async () => {
+    const ref = { workspaceId: bayou, workflowId: copyB };
+    const before = (await ask(workflowGet, ref)).workflow;
+    const review = (await tools().run(tool('review_template_update'), { workflowId: copyB }, ctx()))
+      .result as Record<string, unknown>;
+    expect(review).toMatchObject({
+      template: 'Estimate follow-up (home services)',
+      installedVersion: 1,
+      latestVersion: 2,
+      updateAvailable: true,
+      says: 'Go Biz Help updated “Estimate follow-up (home services)” to version 2. You’re on version 1.',
+      baseRevision: before.revision,
+    });
+    expect((review['whatChangesInVersion2'] as string[]).join(' ')).toMatch(/4 days/);
+
+    const args = { workflowId: copyB, baseRevision: before.revision };
+    const { card } = (await tools().prepare(
+      tool('apply_template_update'),
+      args,
+      ctx(),
+      randomUUID(),
+    )) as { card: Extract<AssistantCard, { type: 'confirm' }> };
+    expect(card).toMatchObject({
+      tool: 'apply_template_update',
+      title: `Update “${before.name}” to version 2 of “Estimate follow-up (home services)”?`,
+      confirmLabel: 'Apply the update',
+    });
+    expect(card.fields.map((f) => f.value).join(' ')).toMatch(/4 days/);
+    expect(card.warnings).toContainEqual({
+      kind: 'note',
+      text: 'Applying makes a draft of your copy. You test it and publish it, like any change. What runs now keeps running until then.',
+    });
+    // Nothing changes before Confirm.
+    expect((await ask(workflowGet, ref)).workflow.revision).toBe(before.revision);
+
+    const done = await tools().commit(tool('apply_template_update'), args, ctx(), {
+      toolCallId: randomUUID(),
+    });
+    expect(done).toMatchObject({
+      outcome: `Updated “${before.name}” to version 2. Test it, then publish it.`,
+      command: 'workflow_template.apply_update',
+    });
+    const after = (await ask(workflowGet, ref)).workflow;
+    expect(after).toMatchObject({
+      status: 'draft',
+      activeVersion: null,
+      source: { template: { installedVersion: 2, updateAvailable: false } },
+    });
+    // The audit says the system did it for the person who asked, through the Assistant.
+    const [ev] = await rows<{ actor_type: string; payload: Record<string, unknown> }>(
+      admin(),
+      sql`select actor_type::text as actor_type, payload from app.events
+          where entity_id = ${copyB} and event_type = 'workflow_template.updated'`,
+    );
+    expect(ev).toMatchObject({ actor_type: 'system', payload: { onBehalfOf: w.owner.id, to: 2 } });
+
+    const again = (await tools().run(tool('review_template_update'), { workflowId: copyB }, ctx()))
+      .result;
+    expect(again).toMatchObject({
+      updateAvailable: false,
+      says: 'This copy already has the newest version.',
+    });
   });
 });
 

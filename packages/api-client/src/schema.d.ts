@@ -16547,7 +16547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Publish the draft as a new, unchangeable version that new runs start on. Needs no blocking issues (422) and a passing test of this exact draft revision (409 not_tested).
+         * Publish the draft as a new version that never changes, which new runs start on. Runs already going finish on the version they started on, and a paused workflow stays paused. It needs nothing red in Checks and a passing test of the draft as it is now.
          * @description Risk level 2. Requires workflows.manage. Emits workflow.published.
          */
         post: operations["command_workflow_publish"];
@@ -62980,6 +62980,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description What the test takes as given, as the Test tab’s Take as given: "wait.timed_out": false when a reply or booking comes while it waits (leave it out for the wait timing out); "branch.<step id>": a path’s id, to take that path at that If / else or Split into paths; "ai.<key>": one of an AI sort step’s categories, by the key it saves its answer as (category unless the step names another). Step and path ids are in get_workflow’s draft. */
                     assume?: {
                         [key: string]: unknown;
                     };

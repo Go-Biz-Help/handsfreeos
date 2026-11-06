@@ -324,11 +324,14 @@ export const WorkflowTestInput = z.object({
   mode: WorkflowTestModeValue.default('simulate'),
   /** The sample customer whose details fill the variables. */
   personId: uuid.nullable().optional(),
-  /** Values to assume, by variable or field path (a trigger value, an AI category). */
+  /** Values to assume, by variable or field path (a trigger value, an AI category): the Test tab's Take as given. */
   assume: z
     .record(z.string().min(1).max(100), z.unknown())
     .refine((a) => Object.keys(a).length <= 50, { error: 'At most 50 values.' })
-    .optional(),
+    .optional()
+    .describe(
+      'What the test takes as given, as the Test tab’s Take as given: "wait.timed_out": false when a reply or booking comes while it waits (leave it out for the wait timing out); "branch.<step id>": a path’s id, to take that path at that If / else or Split into paths; "ai.<key>": one of an AI sort step’s categories, by the key it saves its answer as (category unless the step names another). Step and path ids are in get_workflow’s draft.',
+    ),
 });
 export const WorkflowTestOutput = z.object({
   workflowId: uuid,
