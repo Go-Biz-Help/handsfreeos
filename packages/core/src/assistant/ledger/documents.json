@@ -1001,15 +1001,15 @@
       "path": "Document → Who signs → Copy their link (X’s link is copied. It opens the document as them…)",
       "kind": "do",
       "file": "apps/web/src/components/documents/document-page.tsx:364",
-      "covered": "no",
-      "by": "no tool gives a signer’s link (worker /v1/documents/link)"
+      "covered": "yes",
+      "by": "get_signing_link (the same checks as /v1/documents/link)"
     },
     {
       "path": "Document (phone) → Who signs → Send their link (share sheet)",
       "kind": "do",
       "file": "apps/mobile/src/documents/screens.tsx:563",
-      "covered": "no",
-      "by": "no tool gives a signer’s link"
+      "covered": "yes",
+      "by": "get_signing_link gives the whole link, for the person to pass on"
     },
     {
       "path": "Document → What happened → each step in words (sent by email/text, reminded, handed over by X, opened from portal, code, agreed, signed…): signer",
@@ -1160,7 +1160,7 @@
       "where": "A sent document → Who signs, each signer's Copy their link (web) / Send their link (phone)",
       "gap": "Real part: no Assistant tool returns a signer's private link. Nothing in packages/core/src/assistant or apps/worker/src/assistant mentions signers, signerUrlFor or moneyLinks, and the assistant executor gets only webUrl, not the link-signing keys. So \"what's Dana's signing link?\" can't be answered without guessing. Not a gap: \"text her the link again\". do_document_remind (document.remind, risk 2) sends the link again by email and text to whoever's turn it is, so re-sending is covered.",
       "fix": "Add a look-up `document_signer_link {signerId}` (autonomy auto, permission documents.send). Put its spec in packages/core/src/assistant/tools-extra.ts and its worker in apps/worker/src/assistant/tools-extra.ts. Pass the worker's MoneyLinks (deps.moneyLinks) into the assistant executor the way webUrl is passed (tools-write.ts:255/917). Repeat the checks from POST /v1/documents/link (routes.ts:337-357): documents.send, a signer row seen as the person, and the document out or completed. Then return signerUrlFor(tx, links, signerId) run inside asWorker, as a full https URL. Its description should repeat DOCUMENT_SCREEN_WORDS.linkCopied ('It opens the document as them, so only send it to them') and say that do_document_remind sends it to them again.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
