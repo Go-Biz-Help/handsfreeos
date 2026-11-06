@@ -1,0 +1,2391 @@
+{
+  "area": "pipeline-tasks",
+  "title": "Pipeline, Tasks and Approvals",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx": "2c9c246bd2a4",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/tasks.tsx": "f094f03c9b02",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/pipeline.tsx": "d592aa864eea",
+    "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx": "43593e8ad1b3",
+    "apps/mobile/src/components/bin/delete-sheet.tsx": "4d51e37958fe",
+    "apps/mobile/src/components/customers/bits.tsx": "4d10da9c3dc9",
+    "apps/mobile/src/components/customers/sheets.tsx": "b1d62d48d9bb",
+    "apps/mobile/src/components/customers/timeline.tsx": "e46a52d6940a",
+    "apps/mobile/src/components/drafts/draft-card.tsx": "7e609c8f0189",
+    "apps/mobile/src/components/drafts/use-draft-decision.ts": "9ef96e08c74a",
+    "apps/mobile/src/components/home/approval-card.tsx": "1075cdc89260",
+    "apps/mobile/src/components/pipeline/bits.tsx": "a87c31659b1e",
+    "apps/mobile/src/components/tasks/task-row.tsx": "26ae75123dc2",
+    "apps/mobile/src/pipeline/actions.ts": "233688d2efdd",
+    "apps/mobile/src/pipeline/queries.ts": "76cd9d38e695",
+    "apps/mobile/src/pipeline/use-pipeline.ts": "15390a5c2022",
+    "apps/mobile/src/tasks/actions.ts": "aba6d7742578",
+    "apps/mobile/src/tasks/use-tasks.ts": "8cf6acbc3f7f",
+    "apps/web/src/addons/realestate/lead-panel.tsx": "5e3f4490f404",
+    "apps/web/src/app/app/w/[workspaceId]/leads/[leadId]/page.tsx": "3335a06916ae",
+    "apps/web/src/app/app/w/[workspaceId]/pipeline/page.tsx": "e616747193af",
+    "apps/web/src/app/app/w/[workspaceId]/tasks/page.tsx": "be86e882b7f0",
+    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
+    "apps/web/src/components/calendar/appointment-sheet.tsx": "9e0c61e626f9",
+    "apps/web/src/components/calendar/upcoming-card.tsx": "300a62a1d8c8",
+    "apps/web/src/components/calendar/zone-field.tsx": "bb70cbad3575",
+    "apps/web/src/components/calls/call-notes.tsx": "a707b593aa5c",
+    "apps/web/src/components/calls/voicemail-player.tsx": "c3c5c9735f2a",
+    "apps/web/src/components/crm/chips.tsx": "49b81877acb0",
+    "apps/web/src/components/crm/lead-dialog.tsx": "228bdf162fa0",
+    "apps/web/src/components/crm/next-action-dialog.tsx": "da25b96eb9d0",
+    "apps/web/src/components/crm/record-money.tsx": "a55e39f309ec",
+    "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
+    "apps/web/src/components/files/file-grid.tsx": "0b455a816429",
+    "apps/web/src/components/files/upload-zone.tsx": "22135ce708f3",
+    "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
+    "apps/web/src/components/inbox/attachment-chip.tsx": "ebcdf73e5026",
+    "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
+    "apps/web/src/components/pipeline/attention-banner.tsx": "c47471f7ab30",
+    "apps/web/src/components/pipeline/board.tsx": "a1803ced81b5",
+    "apps/web/src/components/pipeline/lead-card.tsx": "4b9d6fb9f37c",
+    "apps/web/src/components/pipeline/lead-detail.tsx": "008861551277",
+    "apps/web/src/components/pipeline/lead-edit-dialog.tsx": "a243336d9301",
+    "apps/web/src/components/pipeline/lost-reason-dialog.tsx": "cc53e1b2c72f",
+    "apps/web/src/components/pipeline/qualification-card.tsx": "bae443297eb8",
+    "apps/web/src/components/pipeline/stage-column.tsx": "1707b168042f",
+    "apps/web/src/components/tasks/task-dialog.tsx": "1714eecb5a55",
+    "apps/web/src/components/tasks/task-list.tsx": "3037204f8554",
+    "apps/web/src/components/tasks/tasks-page.tsx": "45cd27a4de8c",
+    "apps/web/src/components/timeline/log-activity-sheet.tsx": "7f502a2a0c95",
+    "apps/web/src/components/timeline/timeline.tsx": "f3bb029639b3",
+    "apps/web/src/components/video-call/call-notes.tsx": "571d64d4cdef",
+    "apps/web/src/components/workflows/contact-workflows.tsx": "2a656efb1da1"
+  },
+  "items": [
+    {
+      "path": "Pipeline → summary line (open leads · open value)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:280",
+      "covered": "yes",
+      "by": "read_lead_board → stages[].count, valueCents of open stages"
+    },
+    {
+      "path": "Pipeline → Pipeline picker (more than one pipeline)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:286",
+      "covered": "yes",
+      "by": "read_lead_board input pipelineId"
+    },
+    {
+      "path": "Pipeline → Pipeline picker → each pipeline's name",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:293",
+      "covered": "yes",
+      "by": "read_lead_board → pipelines[].name; context pipelines"
+    },
+    {
+      "path": "Pipeline → Funnel: {name} button (opens the funnel's map)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:301",
+      "covered": "yes",
+      "by": "read_lead_board → funnel id, name; read_funnel_get for the map"
+    },
+    {
+      "path": "Pipeline → Board / List switch",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:312",
+      "covered": "partly",
+      "by": "read_lead_board reads what both views show; can’t switch the screen"
+    },
+    {
+      "path": "Pipeline → New lead button",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:320",
+      "covered": "yes",
+      "by": "create_lead"
+    },
+    {
+      "path": "Pipeline → No leads yet (explanation, New lead)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:329",
+      "covered": "yes",
+      "by": "read_lead_board → every stage count 0"
+    },
+    {
+      "path": "Pipeline → Board → each stage column: name, lead count, total value",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/stage-column.tsx:182",
+      "covered": "yes",
+      "by": "read_lead_board → stages[].name, kind, count, valueCents"
+    },
+    {
+      "path": "Pipeline → Board → column → Show more · N not shown",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/stage-column.tsx:203",
+      "covered": "yes",
+      "by": "read_lead_board input shown[].limit"
+    },
+    {
+      "path": "Pipeline → Board → empty column: Drop a lead here",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/stage-column.tsx:215",
+      "covered": "yes",
+      "by": "read_lead_board → stages[].leads empty"
+    },
+    {
+      "path": "Pipeline → Board → drag a lead card to another stage",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:218",
+      "covered": "yes",
+      "by": "move_lead stageId"
+    },
+    {
+      "path": "Pipeline → Board → drag a card up or down within its stage",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:229",
+      "covered": "no",
+      "by": "move_lead has no afterLeadId; no tool orders leads"
+    },
+    {
+      "path": "Pipeline → Board → moved toast ({lead} moved to {stage})",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:185",
+      "covered": "yes",
+      "by": "move_lead outcome"
+    },
+    {
+      "path": "Pipeline → Board → lead card → title",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:54",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].title; list_leads"
+    },
+    {
+      "path": "Pipeline → Board → lead card → company · person",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:61",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].person, company"
+    },
+    {
+      "path": "Pipeline → Board → lead card → funnel badge (In {funnel} / Paused · {funnel})",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:62",
+      "covered": "yes",
+      "by": "read_lead_board → funnel.leads[].paused"
+    },
+    {
+      "path": "Pipeline → Board → lead card → value",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:85",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].valueCents; get_lead value"
+    },
+    {
+      "path": "Pipeline → Board → lead card → days in stage",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:87",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].stageEnteredAt"
+    },
+    {
+      "path": "Pipeline → Board → lead card → assignee avatar",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:88",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].assignee"
+    },
+    {
+      "path": "Pipeline → Board → lead card → overdue dot (Next action is overdue)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:95",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].nextActionOverdue"
+    },
+    {
+      "path": "Pipeline → Board → lead card → next action chip, or None",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/chips.tsx:54",
+      "covered": "yes",
+      "by": "get_lead nextAction, needsNextAction"
+    },
+    {
+      "path": "Pipeline → Board → lead card → click opens the lead sheet",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-card.tsx:39",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Pipeline → List → columns Lead, Stage, Value, Assignee, Next action",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:465",
+      "covered": "yes",
+      "by": "read_lead_board → leads[] fields"
+    },
+    {
+      "path": "Pipeline → List → each row: title and customer",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:484",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].title, person, company"
+    },
+    {
+      "path": "Pipeline → List → each row: Stage picker",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:587",
+      "covered": "yes",
+      "by": "move_lead stageId"
+    },
+    {
+      "path": "Pipeline → List → each row: value and assignee (or Unassigned)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:493",
+      "covered": "yes",
+      "by": "read_lead_board → valueCents, assignee"
+    },
+    {
+      "path": "Pipeline → List → each row: next action, or stage badge when won or lost",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/board.tsx:504",
+      "covered": "yes",
+      "by": "get_lead nextAction, stage, status"
+    },
+    {
+      "path": "Pipeline → List → each row: ⋯ Open lead",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:512",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Pipeline → List → {stage} · Show more · N not shown",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/board.tsx:450",
+      "covered": "yes",
+      "by": "read_lead_board input shown[].limit"
+    },
+    {
+      "path": "Why was it lost? (web dialog, phone sheet) → title and Recorded on {lead} and in the audit log",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:261",
+      "covered": "yes",
+      "by": "move_lead card asks Why was it lost?"
+    },
+    {
+      "path": "Why was it lost? → reasons: Went with another bidder, Decided not to do the work, No response (each with its detail)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:265",
+      "covered": "yes",
+      "by": "move_lead lostReason; card offers the reasons"
+    },
+    {
+      "path": "Why was it lost? → Anything else? (optional, web)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:277",
+      "covered": "yes",
+      "by": "move_lead lostReason free text"
+    },
+    {
+      "path": "Why was it lost? → Mark as lost / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:288",
+      "covered": "yes",
+      "by": "move_lead (Confirm: Mark as lost)"
+    },
+    {
+      "path": "New lead → description (starts in the first stage; set a next action)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:135",
+      "covered": "yes",
+      "by": "create_lead card shows the stage it starts in"
+    },
+    {
+      "path": "New lead → Who is it for? (person or company)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:149",
+      "covered": "partly",
+      "by": "create_lead personId only; no companyId"
+    },
+    {
+      "path": "New lead → Title",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:163",
+      "covered": "yes",
+      "by": "create_lead title"
+    },
+    {
+      "path": "New lead → Value",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:174",
+      "covered": "yes",
+      "by": "create_lead value"
+    },
+    {
+      "path": "New lead → Assigned to (Unassigned, teammates, you)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:184",
+      "covered": "yes",
+      "by": "create_lead assigneeUserId; list_team"
+    },
+    {
+      "path": "New lead → Pipeline",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:200",
+      "covered": "yes",
+      "by": "create_lead stageId of any pipeline"
+    },
+    {
+      "path": "New lead → Stage (open stages)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:216",
+      "covered": "yes",
+      "by": "create_lead stageId"
+    },
+    {
+      "path": "New lead → Next action",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:227",
+      "covered": "yes",
+      "by": "create_lead nextAction"
+    },
+    {
+      "path": "New lead → When (next action's time)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:239",
+      "covered": "partly",
+      "by": "not on create_lead; update_lead nextActionAt after"
+    },
+    {
+      "path": "New lead → Time zone pick under When",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:249",
+      "covered": "partly",
+      "by": "update_lead nextActionAt takes an exact moment; not on create"
+    },
+    {
+      "path": "New lead → Expected close",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:259",
+      "covered": "no",
+      "by": "create_lead and update_lead have no expectedCloseOn"
+    },
+    {
+      "path": "New lead → Source",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:267",
+      "covered": "no",
+      "by": "create_lead and update_lead have no source"
+    },
+    {
+      "path": "New lead → Create lead / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:280",
+      "covered": "yes",
+      "by": "create_lead (Confirm: Open lead)"
+    },
+    {
+      "path": "New lead → errors (Give the lead a title; Pick who; Enter an amount)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:94",
+      "covered": "yes",
+      "by": "create_lead input checks"
+    },
+    {
+      "path": "Lead (sheet and page) → stage badge",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:304",
+      "covered": "yes",
+      "by": "get_lead stage, status"
+    },
+    {
+      "path": "Lead → Archived label",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:305",
+      "covered": "yes",
+      "by": "get_record_details lead → archived; find_archived"
+    },
+    {
+      "path": "Lead sheet → Open full page",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:309",
+      "covered": "yes",
+      "by": "get_lead (its card links the lead)"
+    },
+    {
+      "path": "Lead → ⋯ Lead actions → Edit details",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:331",
+      "covered": "partly",
+      "by": "update_lead covers value and assignee only"
+    },
+    {
+      "path": "Lead → ⋯ Lead actions → Archive lead (confirm: leaves the pipeline, keeps history)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:338",
+      "covered": "yes",
+      "by": "archive_or_restore action archive, what lead"
+    },
+    {
+      "path": "Lead → ⋯ Lead actions → Restore lead",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:348",
+      "covered": "yes",
+      "by": "archive_or_restore action restore, what lead"
+    },
+    {
+      "path": "Lead → ⋯ Lead actions → Delete for good… (web and phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:351",
+      "covered": "yes",
+      "by": "move_to_bin kind lead"
+    },
+    {
+      "path": "Lead → title",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:366",
+      "covered": "yes",
+      "by": "get_lead title"
+    },
+    {
+      "path": "Lead → customer link (person or company, (archived))",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:373",
+      "covered": "yes",
+      "by": "get_lead customer, personId; get_customer"
+    },
+    {
+      "path": "Lead → value · N days in stage",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:380",
+      "covered": "yes",
+      "by": "get_lead value; read_lead_board stageEnteredAt"
+    },
+    {
+      "path": "Lead → stage stepper: each stage button",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:408",
+      "covered": "yes",
+      "by": "move_lead; get_lead stages"
+    },
+    {
+      "path": "Lead → Next: {action} · {when}",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:436",
+      "covered": "yes",
+      "by": "get_lead nextAction; read_lead_board nextActionAt"
+    },
+    {
+      "path": "Lead → Next → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:444",
+      "covered": "yes",
+      "by": "update_lead nextAction, nextActionAt"
+    },
+    {
+      "path": "Lead → No follow-up scheduled. Leads without a next action go cold.",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:460",
+      "covered": "yes",
+      "by": "get_lead needsNextAction"
+    },
+    {
+      "path": "Lead (web and phone) → no next action → What is next? input",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:464",
+      "covered": "yes",
+      "by": "update_lead nextAction"
+    },
+    {
+      "path": "Lead → no next action → When (business's clock)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:472",
+      "covered": "yes",
+      "by": "update_lead nextActionAt"
+    },
+    {
+      "path": "Lead (web and phone) → no next action → Set",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:481",
+      "covered": "yes",
+      "by": "update_lead (Confirm)"
+    },
+    {
+      "path": "Lead → no next action → time zone words under When",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:486",
+      "covered": "yes",
+      "by": "context timezone"
+    },
+    {
+      "path": "Lead (web and phone) → Lost: {reason} · {date}",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:494",
+      "covered": "yes",
+      "by": "read_lead_board → lostReason, lostAt"
+    },
+    {
+      "path": "Lead (web and phone) → Won · {date}, and the later-milestone note",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:503",
+      "covered": "yes",
+      "by": "read_lead_board → wonAt; get_lead status"
+    },
+    {
+      "path": "Lead (web and phone) → Value",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:518",
+      "covered": "yes",
+      "by": "get_lead value"
+    },
+    {
+      "path": "Lead (web and phone) → Assigned to (or Unassigned)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:520",
+      "covered": "yes",
+      "by": "get_lead assignee"
+    },
+    {
+      "path": "Lead (web and phone) → Last contact",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:522",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].lastContactAt"
+    },
+    {
+      "path": "Lead (web and phone) → Expected close",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:526",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].expectedCloseOn"
+    },
+    {
+      "path": "Lead (web and phone) → Source",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:530",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].source"
+    },
+    {
+      "path": "Lead (phone) → In stage (Since …)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:102",
+      "covered": "yes",
+      "by": "read_lead_board → stageEnteredAt"
+    },
+    {
+      "path": "Lead (web and phone) → Tags (chips)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:83",
+      "covered": "yes",
+      "by": "read_lead_board → leads[].tags"
+    },
+    {
+      "path": "Lead → Tags → Add tag / Edit tags → tick a tag on or off",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:119",
+      "covered": "yes",
+      "by": "do_record_add_tag / do_record_remove_tag; tag_customers leadIds"
+    },
+    {
+      "path": "Lead → Tags → the business's tags; No tags yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:111",
+      "covered": "yes",
+      "by": "get_settings tags"
+    },
+    {
+      "path": "Lead → Tags → New tag → Tag name",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:136",
+      "covered": "yes",
+      "by": "manage_tag create name; tag_customers newTagNames"
+    },
+    {
+      "path": "Lead → Tags → New tag → colour",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:153",
+      "covered": "yes",
+      "by": "manage_tag color"
+    },
+    {
+      "path": "Lead → Tags → New tag → Create (puts it on the lead)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:164",
+      "covered": "yes",
+      "by": "tag_customers newTagNames + leadIds"
+    },
+    {
+      "path": "Lead → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:548",
+      "covered": "yes",
+      "by": "add_note leadId, body"
+    },
+    {
+      "path": "Lead → Log call",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:557",
+      "covered": "partly",
+      "by": "add_note logs a note, never a call"
+    },
+    {
+      "path": "Lead (page) → Book",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:562",
+      "covered": "yes",
+      "by": "book_appointment leadId"
+    },
+    {
+      "path": "Lead (page) → File (to the Files upload)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:574",
+      "covered": "person",
+      "by": "a file from their device (file.begin_upload never)"
+    },
+    {
+      "path": "Lead (page) → Add to workflow…",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:77",
+      "covered": "yes",
+      "by": "start_workflow"
+    },
+    {
+      "path": "Lead → Won",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:600",
+      "covered": "yes",
+      "by": "move_lead to the won stage"
+    },
+    {
+      "path": "Lead → Lost (asks why)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:616",
+      "covered": "yes",
+      "by": "move_lead to the lost stage, lostReason"
+    },
+    {
+      "path": "Lead → Reopen (won or lost lead)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:630",
+      "covered": "yes",
+      "by": "move_lead to the first open stage"
+    },
+    {
+      "path": "Lead → toast Moved to {stage}",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:220",
+      "covered": "yes",
+      "by": "move_lead outcome"
+    },
+    {
+      "path": "Lead page → breadcrumb Pipeline / {lead}",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/leads/[leadId]/page.tsx:333",
+      "covered": "yes",
+      "by": "read_lead_board pipelineId"
+    },
+    {
+      "path": "Edit lead → Title",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:108",
+      "covered": "no",
+      "by": "update_lead has no title"
+    },
+    {
+      "path": "Edit lead → Value",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:118",
+      "covered": "yes",
+      "by": "update_lead value"
+    },
+    {
+      "path": "Edit lead → Assigned to",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:127",
+      "covered": "yes",
+      "by": "update_lead assigneeUserId"
+    },
+    {
+      "path": "Edit lead → Expected close",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:143",
+      "covered": "no",
+      "by": "update_lead has no expectedCloseOn"
+    },
+    {
+      "path": "Edit lead → Source",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:151",
+      "covered": "no",
+      "by": "update_lead has no source"
+    },
+    {
+      "path": "Edit lead → Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:159",
+      "covered": "partly",
+      "by": "update_lead saves value and assignee only"
+    },
+    {
+      "path": "Edit lead → errors (Give the lead a title; Enter an amount in dollars)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:58",
+      "covered": "partly",
+      "by": "update_lead checks value; no title to check"
+    },
+    {
+      "path": "Next action dialog → What is the next step on {lead}? → Next action",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:102",
+      "covered": "yes",
+      "by": "update_lead nextAction"
+    },
+    {
+      "path": "Next action dialog → When (hint: shows on the card and in Tasks)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:112",
+      "covered": "yes",
+      "by": "update_lead nextActionAt"
+    },
+    {
+      "path": "Next action dialog → Time zone pick",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:124",
+      "covered": "yes",
+      "by": "update_lead nextActionAt is an exact moment"
+    },
+    {
+      "path": "Next action dialog → Clear",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:134",
+      "covered": "yes",
+      "by": "update_lead nextAction null"
+    },
+    {
+      "path": "Next action dialog → Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:142",
+      "covered": "yes",
+      "by": "update_lead (Confirm)"
+    },
+    {
+      "path": "Lead → Action Center banner → kind and time chip (Hot lead · waiting 11 min)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:316",
+      "covered": "yes",
+      "by": "read_attention_for_record; what_needs_attention → what, chips"
+    },
+    {
+      "path": "Lead → banner → assignee",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:325",
+      "covered": "yes",
+      "by": "what_needs_attention → assignee"
+    },
+    {
+      "path": "Lead → banner → detail line",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:331",
+      "covered": "yes",
+      "by": "what_needs_attention → detail"
+    },
+    {
+      "path": "Lead → banner → reason chips",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:337",
+      "covered": "yes",
+      "by": "what_needs_attention → chips"
+    },
+    {
+      "path": "Lead → banner → Call {name} (hot lead)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:199",
+      "covered": "person",
+      "by": "call_customer offers the button; the call is their own (call.start never)"
+    },
+    {
+      "path": "Lead → banner → Reply / Follow up (opens the conversation)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:185",
+      "covered": "yes",
+      "by": "handle_attention_item reply; send_text conversationId"
+    },
+    {
+      "path": "Lead → banner → Text {name} / Email {name}",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:168",
+      "covered": "yes",
+      "by": "send_text / send_email"
+    },
+    {
+      "path": "Lead → banner → Set next action",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:216",
+      "covered": "yes",
+      "by": "handle_attention_item set_next_action; update_lead"
+    },
+    {
+      "path": "Lead → banner → Open the visit (not confirmed)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:224",
+      "covered": "yes",
+      "by": "get_appointment; update_appointment confirmed"
+    },
+    {
+      "path": "Lead → banner → Open task (overdue task)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:238",
+      "covered": "yes",
+      "by": "list_tasks due overdue; complete_task"
+    },
+    {
+      "path": "Lead → banner → Review (AI approval)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:253",
+      "covered": "yes",
+      "by": "answer_workflow_approval; decide_teammate_draft"
+    },
+    {
+      "path": "Lead → banner → Open the estimate / Open the invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:268",
+      "covered": "yes",
+      "by": "get_money_document"
+    },
+    {
+      "path": "Lead → banner → {handle} on Home (other kinds)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:290",
+      "covered": "yes",
+      "by": "handle_attention_item"
+    },
+    {
+      "path": "Lead → banner → More → Snooze 1 hour",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:362",
+      "covered": "yes",
+      "by": "update_attention_item snooze, until"
+    },
+    {
+      "path": "Lead → banner → More → Snooze until tomorrow (8:00 AM)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:369",
+      "covered": "yes",
+      "by": "update_attention_item snooze, until"
+    },
+    {
+      "path": "Lead → banner → More → Dismiss",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:381",
+      "covered": "yes",
+      "by": "update_attention_item dismiss"
+    },
+    {
+      "path": "Lead → banner → More → Open on Home",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:388",
+      "covered": "yes",
+      "by": "what_needs_attention"
+    },
+    {
+      "path": "Lead → banner → toast Undo after Snooze or Dismiss",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:136",
+      "covered": "yes",
+      "by": "do_attention_restore"
+    },
+    {
+      "path": "Lead → banner → message sheet: thread and composer",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/message-sheet.tsx:175",
+      "covered": "partly",
+      "by": "send_text/send_email body, subject; get_conversation; composer extras are the Inbox ledger's"
+    },
+    {
+      "path": "Lead → funnel line → funnel, stage, Next: “{message}” at {time}",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:91",
+      "covered": "yes",
+      "by": "read_funnel_of_person → current, next"
+    },
+    {
+      "path": "Lead → funnel line → Paused badge (why)",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:95",
+      "covered": "yes",
+      "by": "read_funnel_of_person → current.status, pausedReason"
+    },
+    {
+      "path": "Lead → funnel line → menu → Pause / Resume",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:125",
+      "covered": "yes",
+      "by": "do_funnel_pause_person"
+    },
+    {
+      "path": "Lead → funnel line → menu → Move to… {stage}",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:132",
+      "covered": "yes",
+      "by": "move_lead"
+    },
+    {
+      "path": "Lead → funnel line → menu → Remove from {funnel}",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:157",
+      "covered": "yes",
+      "by": "do_funnel_remove_person"
+    },
+    {
+      "path": "Lead → funnel line → teammate's suggestion (funnel, why)",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:179",
+      "covered": "yes",
+      "by": "read_funnel_of_person → suggestion"
+    },
+    {
+      "path": "Lead → funnel line → suggestion → No / Yes",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:195",
+      "covered": "yes",
+      "by": "do_funnel_decide_suggestion"
+    },
+    {
+      "path": "Lead → funnel line → Add to a funnel → pick one",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:229",
+      "covered": "yes",
+      "by": "do_funnel_add_person; read_funnel_of_person canJoin"
+    },
+    {
+      "path": "Lead (page) → Qualification → status (Qualified, Not a fit, Incomplete)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:245",
+      "covered": "partly",
+      "by": "read_timeline_list has the marked-qualified line; get_lead drops qualification"
+    },
+    {
+      "path": "Lead (page) → Qualification → Asked by {teammate} (AI) · time",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:250",
+      "covered": "no",
+      "by": "lead.get qualification read by no tool"
+    },
+    {
+      "path": "Lead (page) → Qualification → each answer: question, answer, by AI or a person, in Files",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:260",
+      "covered": "no",
+      "by": "get_lead leaves out qualification"
+    },
+    {
+      "path": "Lead (page) → Qualification → No answers yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:279",
+      "covered": "no",
+      "by": "get_lead leaves out qualification"
+    },
+    {
+      "path": "Lead (page) → Qualification → summary (All N answered / Not a fit: … / Still to ask: …)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:281",
+      "covered": "partly",
+      "by": "questions in get_settings ai_teammate; what's missing not read"
+    },
+    {
+      "path": "Lead (page) → Qualification → note: each answer keeps the question as asked",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:303",
+      "covered": "no",
+      "by": "nothing reads a lead's qualification"
+    },
+    {
+      "path": "Lead (page) → Money → each estimate and invoice on this job: title, date, total, status, still owed",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:363",
+      "covered": "partly",
+      "by": "customer_money lists the customer's documents, not by lead"
+    },
+    {
+      "path": "Lead (page) → Money → Nothing quoted for this job yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:355",
+      "covered": "partly",
+      "by": "customer_money, not by lead"
+    },
+    {
+      "path": "Lead (page) → Money → New estimate (customer and lead on it)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-money.tsx:349",
+      "covered": "yes",
+      "by": "write_estimate personId, leadId"
+    },
+    {
+      "path": "Lead (page) → Money → open an estimate or invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-money.tsx:363",
+      "covered": "yes",
+      "by": "get_money_document"
+    },
+    {
+      "path": "Lead (page) → Upcoming appointments → each: date, calendar, source badge, Not booked yet / Completed / No-show, detail",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:37",
+      "covered": "yes",
+      "by": "list_appointments personId; get_appointment"
+    },
+    {
+      "path": "Lead (page) → Upcoming appointments → none text",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:107",
+      "covered": "yes",
+      "by": "list_appointments empty"
+    },
+    {
+      "path": "Lead (page) → Upcoming appointments → Book",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:102",
+      "covered": "yes",
+      "by": "book_appointment leadId"
+    },
+    {
+      "path": "Lead (page) → Upcoming appointments → open one (visit sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:37",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Lead → Book → Customer (the lead's, locked)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:553",
+      "covered": "yes",
+      "by": "book_appointment personId"
+    },
+    {
+      "path": "Lead → Book → Calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:566",
+      "covered": "yes",
+      "by": "book_appointment calendarId"
+    },
+    {
+      "path": "Lead → Book → Service",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:587",
+      "covered": "yes",
+      "by": "book_appointment serviceId"
+    },
+    {
+      "path": "Lead → Book → With (teammates)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:615",
+      "covered": "yes",
+      "by": "book_appointment userIds"
+    },
+    {
+      "path": "Lead → Book → Date, Start, Length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:640",
+      "covered": "yes",
+      "by": "book_appointment startsAt, durationMinutes"
+    },
+    {
+      "path": "Lead → Book → Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/zone-field.tsx:98",
+      "covered": "yes",
+      "by": "book_appointment startsAt is an exact moment"
+    },
+    {
+      "path": "Lead → Book → Open times nearby",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:84",
+      "covered": "yes",
+      "by": "find_availability"
+    },
+    {
+      "path": "Lead → Book → Seats (group session)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:685",
+      "covered": "partly",
+      "by": "do_session_publish; not on book_appointment"
+    },
+    {
+      "path": "Lead → Book → Repeats, How many visits",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:709",
+      "covered": "yes",
+      "by": "manage_repeat_visits book repeats, visits, leadId"
+    },
+    {
+      "path": "Lead → Book → Location, Customer’s address",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:743",
+      "covered": "partly",
+      "by": "not on book_appointment; update_appointment location after"
+    },
+    {
+      "path": "Lead → Book → warnings (outside hours, busy, time off)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:785",
+      "covered": "yes",
+      "by": "book_appointment card warnings"
+    },
+    {
+      "path": "Lead → Book → Tell {name}",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:830",
+      "covered": "yes",
+      "by": "book_appointment notify"
+    },
+    {
+      "path": "Lead → Book → Book / Book anyway / Book N visits / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:845",
+      "covered": "yes",
+      "by": "book_appointment (Confirm)"
+    },
+    {
+      "path": "Lead → visit sheet → status, title, when",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:572",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Lead → visit sheet → confirmed or not; Mark confirmed; take it back",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:671",
+      "covered": "yes",
+      "by": "update_appointment confirmed"
+    },
+    {
+      "path": "Lead → visit sheet → attendees, seats, Add attendee",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:799",
+      "covered": "yes",
+      "by": "manage_attendees; get_appointment"
+    },
+    {
+      "path": "Lead → visit sheet → waitlist and removing someone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:888",
+      "covered": "yes",
+      "by": "get_appointment waitlist; manage_waitlist"
+    },
+    {
+      "path": "Lead → visit sheet → video meeting link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:943",
+      "covered": "yes",
+      "by": "do_appointment_make_meeting_link"
+    },
+    {
+      "path": "Lead → visit sheet → transcripts",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:971",
+      "covered": "yes",
+      "by": "read_appointment_transcripts"
+    },
+    {
+      "path": "Lead → visit sheet → who works it, resources, reminders, extra services",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1026",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Lead → visit sheet → Reassign / Reschedule",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1147",
+      "covered": "yes",
+      "by": "reschedule_appointment startsAt, userIds"
+    },
+    {
+      "path": "Lead → visit sheet → Mark complete / No-show",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1158",
+      "covered": "yes",
+      "by": "update_appointment outcome"
+    },
+    {
+      "path": "Lead → visit sheet → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1181",
+      "covered": "yes",
+      "by": "cancel_appointment"
+    },
+    {
+      "path": "Lead → visit sheet → Delete for good…",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1228",
+      "covered": "yes",
+      "by": "move_to_bin kind appointment"
+    },
+    {
+      "path": "Lead → visit sheet → Invoice this visit",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:438",
+      "covered": "yes",
+      "by": "write_invoice"
+    },
+    {
+      "path": "Lead (page) → add-on panels (Real Estate: the deal this lead became, Start a deal)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/lead-panel.tsx:7",
+      "covered": "partly",
+      "by": "realestate `ai` ops via tools-addons; depth in the Real Estate ledger"
+    },
+    {
+      "path": "Lead (page) → Workflows → run count",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:337",
+      "covered": "yes",
+      "by": "list_workflow_runs personId, show all"
+    },
+    {
+      "path": "Lead (page) → Workflows → each run: workflow name and status line",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:359",
+      "covered": "yes",
+      "by": "list_workflow_runs → workflow, status, started, ended"
+    },
+    {
+      "path": "Lead (page) → Workflows → open a run",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:357",
+      "covered": "yes",
+      "by": "list_workflow_runs; get_workflow"
+    },
+    {
+      "path": "Lead (page) → Workflows → Remove → Take {first} out of “{workflow}”?",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:368",
+      "covered": "yes",
+      "by": "remove_contact_from_workflow"
+    },
+    {
+      "path": "Add {first} to a workflow → workflows that start by hand, each with whether they can join",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:200",
+      "covered": "partly",
+      "by": "list_workflows trigger; re-entry only checked on the start_workflow card"
+    },
+    {
+      "path": "Add {first} to a workflow → No workflow starts by hand yet / Open Workflows",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:178",
+      "covered": "yes",
+      "by": "list_workflows"
+    },
+    {
+      "path": "Add {first} to a workflow → Add {first} / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:238",
+      "covered": "yes",
+      "by": "start_workflow (Confirm)"
+    },
+    {
+      "path": "Lead → Tasks → each task on this lead",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:692",
+      "covered": "partly",
+      "by": "list_tasks has no lead filter or lead field"
+    },
+    {
+      "path": "Lead → Tasks → empty: No tasks · Reminders about this lead.",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:275",
+      "covered": "partly",
+      "by": "list_tasks can't filter by lead"
+    },
+    {
+      "path": "Lead → Tasks → New task (on this lead)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:279",
+      "covered": "yes",
+      "by": "create_task leadId, personId"
+    },
+    {
+      "path": "Lead (page) → Files → upload box",
+      "kind": "do",
+      "file": "apps/web/src/components/files/upload-zone.tsx:60",
+      "covered": "person",
+      "by": "a file from their device (file.begin_upload never)"
+    },
+    {
+      "path": "Lead (page) → Files → each file: name and thumbnail",
+      "kind": "see",
+      "file": "apps/web/src/components/files/file-grid.tsx:145",
+      "covered": "partly",
+      "by": "get_record_details lead → files name, type, size, added; no preview"
+    },
+    {
+      "path": "Lead (page) → Files → locked badge (kept under a hold)",
+      "kind": "see",
+      "file": "apps/web/src/components/files/file-grid.tsx:155",
+      "covered": "no",
+      "by": "get_record_details files has no locked flag"
+    },
+    {
+      "path": "Lead (page) → Files → open a file",
+      "kind": "do",
+      "file": "apps/web/src/components/files/file-grid.tsx:138",
+      "covered": "no",
+      "by": "no tool opens or links a file"
+    },
+    {
+      "path": "Lead (page) → Files → ⋯ Download",
+      "kind": "do",
+      "file": "apps/web/src/components/files/file-grid.tsx:172",
+      "covered": "no",
+      "by": "no tool gives a download link"
+    },
+    {
+      "path": "Lead (page) → Files → ⋯ Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/files/file-grid.tsx:177",
+      "covered": "yes",
+      "by": "delete_file recordType lead"
+    },
+    {
+      "path": "Lead (page) → Files → empty state",
+      "kind": "see",
+      "file": "apps/web/src/components/files/file-grid.tsx:122",
+      "covered": "yes",
+      "by": "get_record_details files []"
+    },
+    {
+      "path": "Lead (web and phone) → Timeline → each entry: who, what happened, when",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:144",
+      "covered": "yes",
+      "by": "read_timeline_list recordType lead"
+    },
+    {
+      "path": "Lead → Timeline → approved by {teammate}",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:145",
+      "covered": "yes",
+      "by": "read_timeline_list → entry meta"
+    },
+    {
+      "path": "Lead → Timeline → See the run",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:154",
+      "covered": "yes",
+      "by": "read_timeline_list run id; list_workflow_runs"
+    },
+    {
+      "path": "Lead → Timeline → entry body (note, message, call summary)",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:208",
+      "covered": "yes",
+      "by": "read_timeline_list → body"
+    },
+    {
+      "path": "Lead → Timeline → voicemail player",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/voicemail-player.tsx:25",
+      "covered": "partly",
+      "by": "recent_calls voicemail words; no audio"
+    },
+    {
+      "path": "Lead → Timeline → Notes from the call (AI summary, tasks it added, follow-up, what was said)",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/call-notes.tsx:15",
+      "covered": "yes",
+      "by": "read_call_suggestion_list; do_call_suggestion_decide; recent_calls"
+    },
+    {
+      "path": "Lead → Timeline → video call notes",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-notes.tsx:18",
+      "covered": "yes",
+      "by": "read_call_suggestion_list; read_appointment_transcripts"
+    },
+    {
+      "path": "Lead → Timeline → email attachments",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/attachment-chip.tsx:7",
+      "covered": "partly",
+      "by": "read_timeline_list names them; no file link"
+    },
+    {
+      "path": "Lead → Timeline → ⋯ Delete entry",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:183",
+      "covered": "partly",
+      "by": "only Undo of a note add_note made (activity.delete)"
+    },
+    {
+      "path": "Lead → Timeline → Older",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:249",
+      "covered": "yes",
+      "by": "read_timeline_list cursor"
+    },
+    {
+      "path": "Lead → Timeline → empty state",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:113",
+      "covered": "yes",
+      "by": "read_timeline_list empty"
+    },
+    {
+      "path": "Lead → Timeline → entry a search result opens (dialog)",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:263",
+      "covered": "yes",
+      "by": "read_activity_get"
+    },
+    {
+      "path": "Log activity → Note / Call / Visit",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:145",
+      "covered": "partly",
+      "by": "add_note writes notes only; no call or visit"
+    },
+    {
+      "path": "Log activity → Note / What was said",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:152",
+      "covered": "yes",
+      "by": "add_note body"
+    },
+    {
+      "path": "Log activity → When",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:164",
+      "covered": "no",
+      "by": "add_note has no occurredAt"
+    },
+    {
+      "path": "Log activity → Set a next action from this → Next action, When",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:186",
+      "covered": "yes",
+      "by": "update_lead nextAction, nextActionAt"
+    },
+    {
+      "path": "Log activity → Save note / Save call / Save visit",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:212",
+      "covered": "partly",
+      "by": "add_note (notes only)"
+    },
+    {
+      "path": "Delete for good (web dialog, phone sheet) → what goes with it, Checking…, which can't go and why",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/delete-dialog.tsx:176",
+      "covered": "yes",
+      "by": "move_to_bin card says what goes and stays"
+    },
+    {
+      "path": "Delete for good → Keep it / Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/bin/delete-dialog.tsx:225",
+      "covered": "yes",
+      "by": "move_to_bin (Confirm)"
+    },
+    {
+      "path": "Tasks → summary: N open · due dates in {zone}",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:79",
+      "covered": "yes",
+      "by": "list_tasks count; context timezone"
+    },
+    {
+      "path": "Tasks → Mine / Everyone (phone: with counts)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:82",
+      "covered": "yes",
+      "by": "list_tasks scope"
+    },
+    {
+      "path": "Tasks → New task (web and phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:90",
+      "covered": "yes",
+      "by": "create_task"
+    },
+    {
+      "path": "Tasks → empty: Nothing on your list / No open tasks, with body (web and phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:98",
+      "covered": "yes",
+      "by": "list_tasks empty"
+    },
+    {
+      "path": "Tasks → groups Overdue, Today, This week, Later, No due date, each · N (web and phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:114",
+      "covered": "yes",
+      "by": "list_tasks → dueBucket"
+    },
+    {
+      "path": "Tasks → Recently done · N (phone: Done lately)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:134",
+      "covered": "partly",
+      "by": "list_tasks open only; read_search_kind finds done tasks by words"
+    },
+    {
+      "path": "Tasks → a task a search result opens (?task=)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:158",
+      "covered": "yes",
+      "by": "read_search_kind tasks → dueAt, doneAt, owner, on"
+    },
+    {
+      "path": "Tasks → That task isn’t there anymore. It may have been deleted.",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/tasks-page.tsx:64",
+      "covered": "yes",
+      "by": "update_task / complete_task refuse it"
+    },
+    {
+      "path": "Tasks → task row → circle: Complete task (web and phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:300",
+      "covered": "yes",
+      "by": "complete_task"
+    },
+    {
+      "path": "Tasks → task row → circle on a done task: Reopen task (web and phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:300",
+      "covered": "partly",
+      "by": "only Undo of its own complete_task (task.reopen)"
+    },
+    {
+      "path": "Tasks → task row → title (struck through when done)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:317",
+      "covered": "yes",
+      "by": "list_tasks → title"
+    },
+    {
+      "path": "Tasks → task row → assignee or Unassigned",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:321",
+      "covered": "yes",
+      "by": "list_tasks → assignee"
+    },
+    {
+      "path": "Tasks → task row → related lead, customer or company (web and phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:322",
+      "covered": "partly",
+      "by": "list_tasks → customer only; no lead or company"
+    },
+    {
+      "path": "Tasks → task row → notes",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:323",
+      "covered": "partly",
+      "by": "list_tasks has no notes; read_search_kind matches them"
+    },
+    {
+      "path": "Tasks → task row → due words (Overdue badge, Today, a day and time) (web and phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:326",
+      "covered": "yes",
+      "by": "list_tasks → due, dueBucket"
+    },
+    {
+      "path": "Tasks → task row → ⋯ Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:350",
+      "covered": "yes",
+      "by": "update_task"
+    },
+    {
+      "path": "Tasks → task row → ⋯ Open lead",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:354",
+      "covered": "partly",
+      "by": "list_tasks gives no lead; get_lead needs its id"
+    },
+    {
+      "path": "Tasks → task row → ⋯ Delete (confirm)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:361",
+      "covered": "partly",
+      "by": "only Undo of its own create_task (task.delete)"
+    },
+    {
+      "path": "Task dialog → Task (title)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:164",
+      "covered": "yes",
+      "by": "create_task / update_task title"
+    },
+    {
+      "path": "Task dialog → Due",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:175",
+      "covered": "yes",
+      "by": "create_task / update_task dueAt"
+    },
+    {
+      "path": "Task dialog → At a specific time",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:182",
+      "covered": "partly",
+      "by": "create_task allDay; update_task has no allDay"
+    },
+    {
+      "path": "Task dialog → Time zone (timed)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:194",
+      "covered": "yes",
+      "by": "dueAt is an exact moment"
+    },
+    {
+      "path": "Task dialog → Assigned to",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:204",
+      "covered": "yes",
+      "by": "create_task / update_task assigneeUserId"
+    },
+    {
+      "path": "Task dialog → Notes",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:231",
+      "covered": "partly",
+      "by": "create_task notes; update_task has no notes"
+    },
+    {
+      "path": "Task dialog → Add task / Save task / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:243",
+      "covered": "yes",
+      "by": "create_task / update_task"
+    },
+    {
+      "path": "Task dialog → errors (Enter a task; Pick a date from the calendar)",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:90",
+      "covered": "yes",
+      "by": "tool input checks"
+    },
+    {
+      "path": "Pipeline tab (phone) → summary line",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/pipeline.tsx:53",
+      "covered": "yes",
+      "by": "read_lead_board"
+    },
+    {
+      "path": "Pipeline tab (phone) → pipeline name → Pipeline sheet → pick one",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/pipeline.tsx:57",
+      "covered": "yes",
+      "by": "read_lead_board pipelineId"
+    },
+    {
+      "path": "Pipeline tab (phone) → stage chips: name and count (tabs)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:47",
+      "covered": "yes",
+      "by": "read_lead_board → stages[].name, count"
+    },
+    {
+      "path": "Pipeline tab (phone) → N leads · $X under the chips",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:75",
+      "covered": "yes",
+      "by": "read_lead_board → count, valueCents"
+    },
+    {
+      "path": "Pipeline tab (phone) → lead card: title, value, customer, assignee",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:104",
+      "covered": "yes",
+      "by": "read_lead_board → leads[]"
+    },
+    {
+      "path": "Pipeline tab (phone) → lead card: source · time in stage",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:120",
+      "covered": "yes",
+      "by": "read_lead_board → source, stageEnteredAt"
+    },
+    {
+      "path": "Pipeline tab (phone) → lead card: next action, overdue dot, or No next action",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:124",
+      "covered": "yes",
+      "by": "read_lead_board → nextAction, nextActionOverdue"
+    },
+    {
+      "path": "Pipeline tab (phone) → tap a card → the lead's page",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/pipeline.tsx:39",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Pipeline tab (phone) → No leads in {stage}. / No leads yet",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:347",
+      "covered": "yes",
+      "by": "read_lead_board empty"
+    },
+    {
+      "path": "Lead (phone) → This lead isn’t on this phone.",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:61",
+      "covered": "no",
+      "by": "the phone's own copy; n/a to the Assistant"
+    },
+    {
+      "path": "Lead (phone) → N changes waiting to send / refused, why, OK",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/bits.tsx:313",
+      "covered": "no",
+      "by": "the phone's own queue; no tool reads it"
+    },
+    {
+      "path": "Lead (phone) → title and customer in the header",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:81",
+      "covered": "yes",
+      "by": "get_lead title, customer"
+    },
+    {
+      "path": "Lead (phone) → Move to…",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:115",
+      "covered": "yes",
+      "by": "move_lead"
+    },
+    {
+      "path": "Lead (phone) → Move to… sheet → title, customer · value · pipeline",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:177",
+      "covered": "yes",
+      "by": "get_lead; context pipelines"
+    },
+    {
+      "path": "Lead (phone) → Move to… sheet → each stage (current one, notes on won and lost)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:186",
+      "covered": "yes",
+      "by": "move_lead; get_lead stages"
+    },
+    {
+      "path": "Lead (phone) → Move to… sheet → works with no signal note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:202",
+      "covered": "no",
+      "by": "the phone's offline promise; n/a to the Assistant"
+    },
+    {
+      "path": "Lead (phone) → Move to… sheet → Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:203",
+      "covered": "yes",
+      "by": "not confirming the move_lead card"
+    },
+    {
+      "path": "Lead (phone) → Call {first}",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:124",
+      "covered": "person",
+      "by": "call_customer offers it; the call is on their own phone"
+    },
+    {
+      "path": "Lead (phone) → customer's name (opens their page)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:133",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Lead (phone) → Next: {action} / No next action, Say what happens next, and when",
+      "kind": "see",
+      "file": "apps/mobile/src/components/pipeline/bits.tsx:269",
+      "covered": "yes",
+      "by": "get_lead nextAction, needsNextAction"
+    },
+    {
+      "path": "Lead (phone) → Latest (last 12 timeline entries)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/timeline.tsx:52",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Lead (phone) → Back to the pipeline",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:209",
+      "covered": "yes",
+      "by": "read_lead_board"
+    },
+    {
+      "path": "Lead (phone) → Delete for good… with no signal (offline words)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:222",
+      "covered": "no",
+      "by": "the phone's signal state; n/a to the Assistant"
+    },
+    {
+      "path": "Tasks (phone) → task row: Waiting to send",
+      "kind": "see",
+      "file": "apps/mobile/src/components/tasks/task-row.tsx:500",
+      "covered": "no",
+      "by": "the phone's own queue; no tool reads it"
+    },
+    {
+      "path": "Tasks (phone) → tap a task → its lead, customer or company",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/tasks.tsx:67",
+      "covered": "partly",
+      "by": "list_tasks gives the customer's name only, no ids"
+    },
+    {
+      "path": "New task (phone sheet) → title",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:329",
+      "covered": "yes",
+      "by": "create_task title"
+    },
+    {
+      "path": "New task (phone sheet) → Due: Today, Tomorrow, Next week, No due date",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:350",
+      "covered": "yes",
+      "by": "create_task dueAt, allDay"
+    },
+    {
+      "path": "New task (phone sheet) → For: me or a teammate",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:377",
+      "covered": "yes",
+      "by": "create_task assigneeUserId"
+    },
+    {
+      "path": "New task (phone sheet) → Save",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:404",
+      "covered": "yes",
+      "by": "create_task"
+    },
+    {
+      "path": "Approvals (phone) → Waiting · N / Decided · N",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:113",
+      "covered": "partly",
+      "by": "waiting: context approvals + list_teammate_drafts; decided only partly"
+    },
+    {
+      "path": "Approvals (phone) → filter All · N / Workflows · N / {teammate} · N",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:134",
+      "covered": "yes",
+      "by": "context approvals; list_teammate_drafts"
+    },
+    {
+      "path": "Approvals (phone) → Waiting for you",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:164",
+      "covered": "yes",
+      "by": "context approvals (the ones they can decide)"
+    },
+    {
+      "path": "Approvals (phone) → training wheels line ({teammate}’s drafts … : progress)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:167",
+      "covered": "yes",
+      "by": "get_settings ai_teammate → aiTeammate.progress"
+    },
+    {
+      "path": "Approvals (phone) → Nothing waiting here, with body",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:187",
+      "covered": "yes",
+      "by": "context approvals empty; list_teammate_drafts note"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → title (what it does, for whom)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:111",
+      "covered": "yes",
+      "by": "context approvals → workflow, customer, what"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → byline: workflow · who was asked · waiting for",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:114",
+      "covered": "partly",
+      "by": "context has the workflow; no approvers or wait"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Expires in … / Expired",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:117",
+      "covered": "no",
+      "by": "no tool reads an approval's expiresAt"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:140",
+      "covered": "partly",
+      "by": "answer_workflow_approval card shows it (Asks); not read before"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → {first}’s latest message",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:147",
+      "covered": "partly",
+      "by": "get_conversation reads their messages; not tied to the approval"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Knowledge used",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:157",
+      "covered": "no",
+      "by": "no tool reads it"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → AI-written text · you can edit it",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:180",
+      "covered": "partly",
+      "by": "answer_workflow_approval card shows the first field; model can't read it first"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → edit the text (each field)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:183",
+      "covered": "partly",
+      "by": "answer_workflow_approval message edits the first field only"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Edited / Written by the AI; text segments",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:198",
+      "covered": "partly",
+      "by": "card says Edited when message given; no segments"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Write the text, or reject it.",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:206",
+      "covered": "yes",
+      "by": "answer_workflow_approval message min 1"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Approving lets {workflow} carry on for {who}.",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:215",
+      "covered": "yes",
+      "by": "context approvals what: the next step"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → if nobody decides in time / This expired",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:221",
+      "covered": "no",
+      "by": "expiry not read"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Approve / Approve and send",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:225",
+      "covered": "yes",
+      "by": "answer_workflow_approval decision approve"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Reject… → Reject it? → Why (optional), Reject, Keep it",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:254",
+      "covered": "yes",
+      "by": "answer_workflow_approval reject, reason"
+    },
+    {
+      "path": "Approvals (phone) → workflow approval → Open the run",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/approval-card.tsx:244",
+      "covered": "yes",
+      "by": "list_workflow_runs; outcome links the run"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → customer, Waiting N min",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:263",
+      "covered": "yes",
+      "by": "list_teammate_drafts → for, waitingSince"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → title ({teammate}’s draft / held reply / add-on asks)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:256",
+      "covered": "partly",
+      "by": "list_teammate_drafts what; no held or ask titles"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → expires",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:263",
+      "covered": "yes",
+      "by": "list_teammate_drafts → expires"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → add-on ask: summary, then what goes to the customer",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:270",
+      "covered": "partly",
+      "by": "list_teammate_drafts kind ask; no ask summary"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → message: subject and words",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:319",
+      "covered": "yes",
+      "by": "list_teammate_drafts → drafted.ai_teammate_wrote"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → what approving also does (Will book…, Calls…, Offers N% off)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:331",
+      "covered": "yes",
+      "by": "list_teammate_drafts → approvingAlso, call, discount"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → held: why an add-on's check held it",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:346",
+      "covered": "no",
+      "by": "list_teammate_drafts leaves out flags"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → Safety passed / Owners decide / ask who; segments",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:358",
+      "covered": "partly",
+      "by": "canDecide, onlyOwnersAndAdminsDecide; no safety or segments"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → Approve and send / Approve / Send as it is",
+      "kind": "do",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:168",
+      "covered": "yes",
+      "by": "decide_teammate_draft approve"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → Edit → subject, words, Send my version, Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:124",
+      "covered": "yes",
+      "by": "decide_teammate_draft message, subject"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → Reject… → why, Reject, Keep it, Nothing is sent",
+      "kind": "do",
+      "file": "apps/mobile/src/components/drafts/draft-card.tsx:141",
+      "covered": "yes",
+      "by": "decide_teammate_draft reject, reason"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → approved or rejected with no signal (queued words)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/drafts/use-draft-decision.ts:114",
+      "covered": "no",
+      "by": "the phone's own queue; n/a to the Assistant"
+    },
+    {
+      "path": "Approvals (phone) → AI draft → footer training progress",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:276",
+      "covered": "yes",
+      "by": "get_settings ai_teammate → aiTeammate.progress"
+    },
+    {
+      "path": "Approvals (phone) → Decided → Decided lately, needs signal note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:203",
+      "covered": "no",
+      "by": "the phone's signal note; n/a to the Assistant"
+    },
+    {
+      "path": "Approvals (phone) → Decided → workflow row: customer, workflow, approved/rejected/expired line, when",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:337",
+      "covered": "partly",
+      "by": "list_workflow_runs show all: runs and status; no decision line"
+    },
+    {
+      "path": "Approvals (phone) → Decided → workflow row → Run",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:352",
+      "covered": "yes",
+      "by": "list_workflow_runs"
+    },
+    {
+      "path": "Approvals (phone) → Decided → AI draft row: customer, teammate, decided line, when",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:304",
+      "covered": "no",
+      "by": "list_teammate_drafts reads waiting drafts only"
+    },
+    {
+      "path": "Approvals (phone) → Decided → AI draft row → Conversation",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:320",
+      "covered": "partly",
+      "by": "get_conversation by customer; no draft to find it from"
+    },
+    {
+      "path": "Approvals (phone) → Decided → Nothing decided lately",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:223",
+      "covered": "partly",
+      "by": "decided drafts and approvals not read"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "pipe-1",
+      "severity": "high",
+      "kind": "words",
+      "where": "A lead (side sheet, full page and phone lead page): the ⋯ menu item “Delete for good…” (BIN_WORDS.menu); phone: the “Delete for good…” button",
+      "gap": "The places map tells the Assistant a lead can't be deleted, though the screens and its own tool can. The lead place's ⋯ line lists only Edit details and Archive lead. Its notHere says 'deleting a lead (archive it)', and NOT_ANYWHERE says 'deleting a company or lead for good (they are archived…)'. The lead's ⋯ has Delete for good… for people with records.archive + records.delete, and the phone lead page has the button. move_to_bin's own description says it deletes leads and companies. 'How do I delete this lead?' gets 'HandsFreeOS doesn't do that', which contradicts move_to_bin.",
+      "fix": "packages/core/src/assistant/places-map.ts: line 224 → 'Note, Log call, Won and Lost (Reopen once closed); ⋯ has Edit details, Archive lead and Delete for good… (owners)'. Line 235: drop notHere 'deleting a lead (archive it)'. Add howTo 'Delete it for good: ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin'. Line 616: rewrite to drop 'company or lead' (e.g. remove the entry, or make it 'deleting anything at once with no way back: what is deleted for good waits 30 days in Settings → Deleted bin').",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "A lead (side sheet and full page): Next: … · due time, Lost: reason · date, Won · date, Value, Assigned to, Last contact, Expected close, Source, Tags, “N days in stage”, Archived, Qualification card",
+      "gap": "get_lead, list_leads and get_customer's openLeads all go through leadResult. It keeps only id, title, customer, personId, stage, status, value, assignee, nextAction, needsNextAction and createdAt. It drops nextActionAt, nextActionOverdue, lostReason, lostAt, wonAt, expectedCloseOn, source, tags, lastContactAt, stageEnteredAt, archivedAt and company (when there is also a person). get_lead also drops lead.qualification, which lead.get returns. The only partial fallback is read_lead_board, which returns raw LeadCards. It is unreliable: cut at 16,000 chars, no archived leads, no qualification.",
+      "fix": "apps/worker/src/assistant/tools-read.ts: extend the LeadItem interface (:136) and leadResult (:210) with nextActionAt (when()), nextActionOverdue, lostReason, lostAt/wonAt (when()), expectedCloseOn, source, tags (names), lastContactAt (when()), daysInStage (from stageEnteredAt), company name, and archived (bool). In get_lead (:376) also return qualification {status, answers: question → quoted(answer), missing}. Update the get_lead description in packages/core/src/assistant/tools.ts:105 to name these fields.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-3",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Pipeline header “N open leads · $X” and the board/list of leads",
+      "gap": "Totals are reachable: read_crm_summary (crm.summary) gives open-lead count and value for the business, and read_lead_board gives per-stage counts. So 'how many open leads' is answerable. What is real: list_leads reports `count: items.length` (max 20), which reads like a total. It drops lead.list's nextCursor, so nobody knows more exist. It can't filter by pipelineId, companyId or q, though lead.list takes them. Its description says 'newest first', while lead.list sorts by last change (updatedAt desc).",
+      "fix": "packages/core/src/assistant/tools.ts:88-99 list_leads: add pipelineId, companyId, query (→ q) and cursor. Change the description to 'Leads, most recently changed first… for totals use read_crm_summary or read_lead_board'. apps/worker/src/assistant/tools-read.ts:349-360: pass them through, return {shown: items.length, nextCursor, more: !!nextCursor} instead of count.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "Pipeline board/list: pressing a lead opens it in the side sheet (“Lead”); Tasks page: a task opened from search (?task=)",
+      "gap": "The board keeps the open lead in component state, not the URL. assistantPageRecord maps only /leads/<id> and /calendar?appt=. So with a lead open in the board's side sheet, the context says 'No customer, lead or appointment is on screen.', and 'mark this one won' or 'who is this for?' don't resolve. /tasks?task= isn't mapped either, and PageRecord has no 'task' type.",
+      "fix": "apps/web/src/components/pipeline/board.tsx:82,377,385: keep the open lead in ?lead=<id> (router.replace when it opens and closes, as :257 already does for view). packages/core/src/assistant/words.ts:429: take the param, e.g. assistantPageRecord(pathname, ws, {appt, lead}), and map /pipeline?lead=<uuid> to {type:'lead'}. apps/web/src/lib/assistant/page-record.ts: read useSearchParams().get('lead') and pass it. Do the same in the phone's Pipeline if it opens leads in a sheet.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-5",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A lead → ⋯ → Edit details (Edit lead dialog): Title, Value, Assigned to, Expected close, Source",
+      "gap": "update_lead takes only assigneeUserId, value, nextAction and nextActionAt, so the Assistant can't rename a lead, set or clear Expected close, or change Source. lead.update takes all three. The places map even tells it 'Change its value, owner or close date: ⋯, then Edit details'.",
+      "fix": "packages/core/src/assistant/tools.ts:1296-1306 update_lead: add title text(160).optional(), expectedCloseOn (local date, isLocalDate).nullable().optional(), source z.string().trim().max(80).nullable().optional(). Description: 'Change a lead's title, value, assignee, expected close, source or next action.' apps/worker/src/assistant/tools-write.ts:738-790 updateLead: add 'Title', 'Expected close' and 'Source' old → new fields in prepare, and pass title/expectedCloseOn/source to lead.update in commit. Fix the 'Nothing would change' message at :762.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "appr-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Approvals (phone More → Approvals; web Workflows → Approvals): a workflow approval’s card — the AI-written text (“The text that will go · You can edit”), “Latest message from …”, Knowledge used, who was asked and how long it waited, Expires in …",
+      "gap": "No tool returns what the AI wrote in a waiting workflow approval. The context lists at most 10 pending approvals (no 'of N') with only workflow, customer and 'a text/an email/the next step'. answer_workflow_approval puts the text on the person's card, but its result gives the model none of it. A 'say Wednesday instead' edit rewrites a text the model never saw. what_needs_attention doesn't help: attention's previewText reads the top-level 'message' key (the approval step's note) and never 'fields', so its detail.draft is the note, not the AI text. The worker's approval-words copy also drops asked, items, expiresAt and approvers. Prepare offers Approve on an approval past expiresAt, which the command then refuses (approval_expired).",
+      "fix": "Add an auto read tool list_workflow_approvals {status: pending|approved|rejected|expired, workflowId?, cursor?} in packages/core/src/assistant/tools-content.ts, run in the worker over workflow.approval_list with core approvalPreviewOf (packages/core/src/workflows/approval-words.ts:54). Return id, workflow, customer, note, fields as {key: {ai_wrote: text}}, asked as quoted(), knowledge titles, approvers, waitingSince, expiresAt, canDecide and nextCursor. Delete apps/worker/src/assistant/approval-words.ts in favour of core's. In tools-workflow.ts answerApproval.prepare, add `text` to result and block with 'This approval expired.' when expiresAt has passed. context.ts:368: say 'the newest 10 of N'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "appr-2",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Approvals: Waiting list with filter chips All · N, Workflows · N, <Teammate> · N — the AI teammate’s drafts wait in the same list",
+      "gap": "The teammate's drafts do reach the Assistant through the Action Center. Attention's ai_approval kind covers teammate drafts, so the context's top-8 attention lines and what_needs_attention(kind: ai_approval) include them. What's real: the prompt says 'Approvals are decided with answer_workflow_approval', and the context's 'approvals waiting on this person' are workflow approvals only. Neither list_teammate_drafts nor decide_teammate_draft is named in SYSTEM, so with tool search they aren't always loaded (alwaysLoaded takes names from SYSTEM). 'What's waiting for my approval?' tends to get workflows only.",
+      "fix": "apps/worker/src/assistant/prompt.ts:28 → '…Approvals: a workflow's are decided with answer_workflow_approval; the AI teammate's drafts waiting for an OK are list_teammate_drafts and decide_teammate_draft (both wait in Workflows → Approvals).' apps/worker/src/assistant/context.ts:361-424: add the pending canDecide drafts (ai_teammate.draft_list status pending) to the approvals lines, or a count of them.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "appr-3",
+      "severity": "low",
+      "kind": "read",
+      "where": "Approvals → Decided tab: approved, rejected and expired workflow approvals and decided teammate drafts, each with “Approved by Priya with an edit” / “Rejected by Dale: …” / “Expired: nobody decided in time” and when",
+      "gap": "Owners and admins (audit.read) can see decisions through read_audit_list (action 'workflow.decide_approval' or the teammate's decide, with actor and before/after). That is raw, without customer names, and isn't offered to members. Otherwise every approval read is pending only. list_teammate_drafts hard-codes status 'pending', though ai_teammate.draft_list takes 'decided'/'all' and returns decidedBy, decidedAt, edits and reason. The workflow side reads only pending. The Decided tab ('Approved by Priya with an edit', 'Expired: nobody decided in time') has no equal.",
+      "fix": "packages/core/src/assistant/tools-content.ts:345-354 list_teammate_drafts: add status z.enum(['pending','decided']).default('pending'). In apps/worker/src/assistant/tools-content.ts:2648-2690, pass it and return decidedBy, decidedAt, edited (bool), reason, via, using core's decided-line words. Give list_workflow_approvals (appr-1) status approved|rejected|expired with decidedBy, decidedAt, edits and reason.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "appr-4",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Approvals: the teammate’s “ask” drafts (“Ava asks Real Estate: …”, “Only people on <record> can decide it.”) and held replies (“… answers on its own, but this reply waits for you” with each add-on’s reason, Send as it is)",
+      "gap": "The worker's Draft type has no 'ask' kind and no preview.ask, preview.flags, preview.funnel, record or knowledge. list_teammate_drafts' kind enum is reply|approval|call, though TEAMMATE_DRAFT_KINDS includes 'ask'. An ask draft falls through draftTitle to '<Ava>'s reply to …', its summary and add-on aren't returned, and a held reply's reasons (flags) aren't either. A non-decider is told 'Only owners and admins decide what Ava asks approval for.', while the screen says only people on that record decide.",
+      "fix": "apps/worker/src/assistant/tools-content.ts:2590-2606: add kind 'ask', preview.ask, preview.flags, preview.funnel, record and knowledge to Draft. draftTitle: use core DRAFT_WORDS.askFrom(name, addonName). listTeammateDrafts: return ask {summary, addon}, heldBecause (flags[].message), funnel and record. :2755 blocked line: use DRAFT_WORDS.askWho(record?.name) for kind 'ask'. packages/core/src/assistant/tools-content.ts:349: kind z.enum(TEAMMATE_DRAFT_KINDS).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-1",
+      "severity": "medium",
+      "kind": "do",
+      "where": "New task / Edit task dialog: Due, with “At a specific time” unticked by default (all-day)",
+      "gap": "create_task does have allDay, so an all-day task can be made. But it defaults allDay to false, against the command (default true) and the dialog (all-day unless 'At a specific time'). The field has no description, and dueAt must be a full date-time. 'Due Friday' typically becomes a timed task at 00:00 or 09:00, overdue from that moment. All-day tasks aren't kept at noon in the business zone the way the dialog's instantOfInput does.",
+      "fix": "packages/core/src/assistant/tools.ts:1129-1139 create_task: replace dueAt/allDay with due: dayOrWhen.optional() (a local date = all-day, a time = timed). apps/worker/src/assistant/tools-write.ts:113-123: for a local date send dueAt = instantOfInput(date, ctx.timezone) (noon) with allDay true, and for a time allDay false.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-2",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Edit task dialog: Notes, and the “At a specific time” box (and Time zone pick)",
+      "gap": "update_task sends only title, dueAt and assigneeUserId. It can't change or clear a task's notes, and can't switch between all-day and timed: task.update's allDay is never sent. A new time on an all-day task stays all-day, so the time isn't shown.",
+      "fix": "packages/core/src/assistant/tools.ts:1144-1152 update_task: add notes z.string().trim().max(2000).nullable().optional() and due: dayOrWhen.nullable().optional() (as in task-1). Description: 'Change a task's title, notes, due date or time, or assignee.' apps/worker/src/assistant/tools-write.ts:146-156: pass notes plus dueAt/allDay worked out from due. Add FIELD_WORDS notes: 'notes' at :104.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-3",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Tasks: the circle on a done task (Recently done / Done lately) reopens it",
+      "gap": "task.reopen is reachable only as the Undo of the Assistant's own complete_task. The coverage test counts it because the worker writes the name. A task a person ticked off can't be reopened, and done tasks can't even be listed (task-4).",
+      "fix": "packages/core/src/assistant/tools.ts after :1161: add define({name:'reopen_task', description:'Reopen a task that was marked done.', input:{taskId: uuid}, autonomy:'auto', permission:'records.write'}). apps/worker/src/assistant/tools-write.ts autoWrites: reopen_task runs task.reopen. In undo, reopen_task → task.complete.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-4",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Tasks page: groups Overdue, Today, This week, Later, No due date (up to 100 open), then Recently done; each row’s related lead/customer/company and notes; a lead’s Tasks section",
+      "gap": "list_tasks reads only open tasks (status hard-coded), takes 60 and filters after, without saying more exist. It can't filter by leadId, personId or companyId, and its due enum lacks later/none. Its 'week' folds in overdue and today. It returns no notes, lead, company, custom record, allDay or doneAt. No other tool lists a lead's tasks (get_lead returns none, get_customer only a person's open ones). 'Tasks on the Smith lead', 'what did Dale finish', 'what's in Later' go unanswered.",
+      "fix": "packages/core/src/assistant/tools.ts:131-140 list_tasks: add status open|done|all, leadId, personId, companyId, due values later and none, cursor. apps/worker/src/assistant/tools-read.ts:440-478: pass these to task.list (limit 100 + cursor) and filter 'week' as the This week bucket only. Return notes, lead {id,title}, related (core taskRelatedLine), allDay, doneAt and doneBy, nextCursor and more. Widen TaskItem (:151) to match TaskOut.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Task rows’ due words (“Tomorrow”, “Fri”, “Today”, “Overdue · Mon”) — all-day tasks show no time",
+      "gap": "Every task due date goes through the worker's when(), which always adds the hour and minute. All-day tasks are stored at noon, so list_tasks, get_customer openTasks, todays_schedule tasksDueToday and create_task's card say e.g. 'Fri, Nov 13, 12:00 PM'. The model reports a noon deadline where the screen says 'Fri' or 'Today'.",
+      "fix": "apps/worker/src/assistant/tools-read.ts:151 add allDay and doneAt to TaskItem. Replace when(t.dueAt, tz) for tasks at :331, :467, :476, :496 and :510 with core dueLabel(t, new Date(), ctx.timezone).text (packages/core/src/crm/task-words.ts:62). In apps/worker/src/assistant/tools-write.ts:126, format create_task's due the same way (allDay-aware).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-6",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A lead: Log call (Log activity sheet with Note / Call / Visit, When, and “Set a next action from this”)",
+      "gap": "add_note always logs kind 'note' at the current time. No Assistant tool logs a call or a visit, or one that happened earlier, though activity.log takes kind and occurredAt. The sheet's 'Set a next action from this' has no equal in one step (update_lead can do it separately).",
+      "fix": "packages/core/src/assistant/tools.ts:1162-1172 add_note: add kind z.enum(['note','call','visit']).default('note') and occurredAt: when.optional(). Description: 'Log a note, call or visit on a customer, company or lead, now or earlier.' apps/worker/src/assistant/tools-write.ts:195-236: pass kind and occurredAt to activity.log, and title the card 'Call logged on …' / 'Visit logged on …'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-7",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Pipeline → New lead: Who is it for? (a person or a company), Title, Value, Assigned to, Pipeline, Stage, Next action, When, Expected close, Source",
+      "gap": "create_lead requires personId, so it can't open a lead for a company, which the New lead dialog allows. It also has no nextActionAt, expectedCloseOn or source, though lead.create takes all of them.",
+      "fix": "packages/core/src/assistant/tools.ts:1281-1293 create_lead: personId optional, add companyId (refine: one of them), nextActionAt: when.optional(), expectedCloseOn (local date).optional(), source.optional(). apps/worker/src/assistant/tools-write.ts:672-735: load company.get when there is no personId ('Open a lead for <company>?'), add 'When', 'Expected close' and 'Source' card fields, and pass them all to lead.create.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-8",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Pipeline board: each column’s count badge and total value, and the Won/Lost columns",
+      "gap": "read_lead_board returns lead.board as raw JSON, cut at 16,000 chars. With BOARD_LEADS_PER_STAGE = 100 full LeadCards per stage (each several hundred chars), the cut lands inside the first columns, so later stages' count and valueCents (Won, Lost, later open stages) are lost. Asking for less needs `shown` with every stage id at limit 1. Nothing tells the model that, and pipeline ids aren't in the context (pipeline names are).",
+      "fix": "apps/worker/src/assistant/tools-screen-reads.ts: special-case lead.board (or add an own pipeline_board tool in tools-read.ts). Return pipeline {id,name}, pipelines, and per stage {id, name, kind, count, value: money(valueCents)} first, then the first 5 cards trimmed to title, customer, value, nextAction, daysInStage, with 'N more'. apps/worker/src/assistant/context.ts:400-405: include pipeline ids.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-9",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A lead: Next action “Change” dialog (keeps the current When unless changed) and the Set box (text + When)",
+      "gap": "updateLead.commit sends dueAt: nextActionAt ?? null whenever nextAction is given, so rewording a next action silently wipes its due time, while the screen's Change keeps the current When. Changing only the time is refused ('a nextActionAt only counts with a nextAction'). The card shows 'Next: old → new' but never the time it sets or clears.",
+      "fix": "apps/worker/src/assistant/tools-write.ts:738-799: in commit, send dueAt as args.nextActionAt when it is given (null clears it), otherwise lead.nextActionAt. Allow nextActionAt alone, reusing lead.nextAction as the text (refuse only if there is none). In prepare, add {label:'When', value: `${when(lead.nextActionAt)} → ${when(new)}`} whenever the time changes.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "phone-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Phone app: Pipeline tab (one stage at a time with stage chips, tap a lead, then Move to…; Lost asks why) and More → Tasks (circle ticks off, tapping opens its customer or lead, New task at the bottom)",
+      "gap": "PHONE_APP says nothing about the phone's Pipeline or Tasks, and the context doesn't say which app the question came from. The Pipeline how-to is web-only ('drag it on the board, change Stage in the list…'). The phone has Ask (ask.tsx) and moves a lead through the Move to… sheet, so a phone user is told to drag.",
+      "fix": "packages/core/src/assistant/places-map.ts PHONE_APP (:624-631): add 'Pipeline: one stage at a time, the chips along the top switch stage and show counts; tap a lead, then Move to… (works with no signal); Lost asks why' and 'Tasks (More → Tasks): Mine or Everyone; the circle ticks one off; tapping opens its customer or lead; New task at the bottom'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-6",
+      "severity": "low",
+      "kind": "words",
+      "where": "A lead’s Tasks section: “New task” button (no “Task” button on a lead)",
+      "gap": "The Tasks place says 'Add a task about a customer or lead: from their page, Task'. A customer's page has Task along the top (it opens the Tasks tab, then New task). A lead has no Task button, only New task in its Tasks section.",
+      "fix": "packages/core/src/assistant/places-map.ts:536 → 'Add a task about a customer or lead: on a customer's page press Task, then New task; on a lead, New task in its Tasks section (New task on the Tasks page can't attach one)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "appr-5",
+      "severity": "low",
+      "kind": "do",
+      "where": "Workflow approval card: every AI-written field is editable (“The AI’s words (<key>) · You can edit”)",
+      "gap": "answer_workflow_approval takes one `message`. Both prepare (body) and commit (edits) use p.fields[0], so an approval with several AI-written fields can only have its first one edited, and the card body shows only that one.",
+      "fix": "packages/core/src/assistant/tools-content.ts / tools.ts answer_workflow_approval input: add edits z.record(z.string(), z.string().trim().min(1).max(5000)).optional() (keys from list_workflow_approvals, appr-1), keeping message as shorthand for a single-field approval. apps/worker/src/assistant/tools-workflow.ts:565-616: show every field on the card and send only keys that exist in p.fields as edits.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-10",
+      "severity": "low",
+      "kind": "read",
+      "where": "Lead values on the card, list and lead (“$4,312.50”)",
+      "gap": "The worker's own money() rounds to whole dollars (maximumFractionDigits: 0). The screens use core money(), which keeps cents when the amount isn't whole, so a $4,312.50 lead is '$4,313' in list_leads, get_lead, move_lead and update_lead cards.",
+      "fix": "apps/worker/src/assistant/tools-read.ts:30-35: replace the local formatter with `export { money } from '@hfos/core'` (packages/core/src/money/format.ts:29), or moneyRounded only where a summary tile is meant.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-11",
+      "severity": "low",
+      "kind": "do",
+      "where": "Pipeline board: dragging a card up or down within its column (lead.move_stage with afterLeadId)",
+      "gap": "move_lead has no position input and refuses the lead's current stage with same_stage, so a lead can't be reordered within its column. lead.move_stage takes afterLeadId.",
+      "fix": "packages/core/src/assistant/tools.ts:1309-1319 move_lead: add afterLeadId uuid.nullable().optional() ('null puts it at the top'). apps/worker/src/assistant/tools-write.ts:530-600: skip the same_stage refusal when afterLeadId is given, and pass afterLeadId to lead.move_stage.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "task-7",
+      "severity": "low",
+      "kind": "do",
+      "where": "A lead’s New task (attaches the lead and its company), and tasks on a pet, vehicle or property",
+      "gap": "create_task takes only personId and leadId. A lead's New task ties the task to the lead, person and company, and task.create doesn't derive the company from the lead. So an Assistant-made task on a company-only lead isn't on the company, and tasks on the business's own kinds of records (customRecordId) can't be made.",
+      "fix": "packages/core/src/assistant/tools.ts:1129-1139 create_task: add companyId and customRecordId (uuid.optional()). apps/worker/src/assistant/tools-write.ts:113-123: pass both to task.create, and when only leadId is given fill personId/companyId from lead.get, as the lead page's relation does.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

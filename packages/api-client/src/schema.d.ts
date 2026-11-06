@@ -21037,6 +21037,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/platform.assistant_ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Support: every item on every HandsFreeOS screen and how Ask HandsFreeOS covers it, the audit’s gaps, and the screens not checked yet, filtered by area and state, a page at a time.
+         * @description Requires platform.health.read.
+         */
+        post: operations["query_platform_assistant_ledger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/platform.business.get": {
         parameters: {
             query?: never;
@@ -82617,6 +82637,115 @@ export interface operations {
                         modeSetBy: string | null;
                         reason: ("status" | "errors") | null;
                         switchedAt: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_platform_assistant_ledger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default null */
+                    area?: string | null;
+                    /**
+                     * @default open
+                     * @enum {string}
+                     */
+                    gapState?: "open" | "fixed" | "never" | "all";
+                    /**
+                     * @default unmarked
+                     * @enum {string}
+                     */
+                    itemState?: "unmarked" | "changed" | "yes" | "partly" | "no" | "never" | "person" | "all";
+                    /** @default 50 */
+                    limit?: number;
+                    /** @default 0 */
+                    offset?: number;
+                    /** @default  */
+                    q?: string;
+                    /**
+                     * @default items
+                     * @enum {string}
+                     */
+                    view?: "items" | "gaps" | "screens";
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        areas: {
+                            changed: number;
+                            checkedOn: string | null;
+                            gapsFixed: number;
+                            gapsOpen: number;
+                            items: number;
+                            key: string;
+                            never: number;
+                            no: number;
+                            partly: number;
+                            person: number;
+                            title: string;
+                            unmarked: number;
+                            yes: number;
+                        }[];
+                        gaps: {
+                            area: string;
+                            fix: string;
+                            gap: string;
+                            id: string;
+                            kind: string;
+                            pr: number | null;
+                            /** @enum {string} */
+                            severity: "high" | "medium" | "low";
+                            /** @enum {string} */
+                            status: "open" | "fixed" | "never";
+                            where: string;
+                        }[];
+                        items: {
+                            area: string;
+                            by: string;
+                            changed: boolean;
+                            /** @enum {string} */
+                            covered: "yes" | "partly" | "no" | "never" | "person";
+                            file: string;
+                            /** @enum {string} */
+                            kind: "see" | "do";
+                            path: string;
+                        }[];
+                        screens: {
+                            area: string | null;
+                            file: string;
+                            /** @enum {string} */
+                            state: "new" | "gone";
+                        }[];
+                        total: number;
+                        totals: {
+                            changed: number;
+                            gapsFixed: number;
+                            gapsOpen: number;
+                            goneFiles: number;
+                            items: number;
+                            never: number;
+                            newScreens: number;
+                            no: number;
+                            partly: number;
+                            person: number;
+                            unmarked: number;
+                            yes: number;
+                        };
                     };
                 };
             };

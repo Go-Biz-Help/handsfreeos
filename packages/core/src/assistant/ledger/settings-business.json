@@ -1,0 +1,2392 @@
+{
+  "area": "settings-business",
+  "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx": "013e227c7287",
+    "apps/mobile/src/bin/calls.ts": "e1814b870b95",
+    "apps/mobile/src/settings/settings-search.tsx": "34bff2d13179",
+    "apps/mobile/src/settings/use-setting-flash.ts": "0f25e4c68164",
+    "apps/web/src/app/app/w/[workspaceId]/settings/action-center/page.tsx": "91724f234d7e",
+    "apps/web/src/app/app/w/[workspaceId]/settings/automations/page.tsx": "038fe6087347",
+    "apps/web/src/app/app/w/[workspaceId]/settings/deleted-bin/page.tsx": "3954f8a08025",
+    "apps/web/src/app/app/w/[workspaceId]/settings/fields/page.tsx": "4996c7668d90",
+    "apps/web/src/app/app/w/[workspaceId]/settings/layout.tsx": "5c8afb82b7fc",
+    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "ff3a2a8a2e90",
+    "apps/web/src/app/app/w/[workspaceId]/settings/pipelines/page.tsx": "5dc2d6298fdc",
+    "apps/web/src/app/app/w/[workspaceId]/settings/relationships/page.tsx": "39b0ec6d7b9c",
+    "apps/web/src/app/app/w/[workspaceId]/settings/tags/page.tsx": "cb53a156c454",
+    "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "1a7b1b92ba4d",
+    "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx": "d9d4ba2f5c51",
+    "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
+    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
+    "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/relationships/add-relationship-dialog.tsx": "66332ce8327a",
+    "apps/web/src/components/relationships/custom-record-dialog.tsx": "472c7c8142a5",
+    "apps/web/src/components/relationships/custom-record-page.tsx": "46e053be4882",
+    "apps/web/src/components/relationships/record-icon.tsx": "d5ecf2478d67",
+    "apps/web/src/components/relationships/relationships-card.tsx": "6b37d4d192cc",
+    "apps/web/src/components/settings/ai-tagging.tsx": "423e67b021f7",
+    "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
+    "apps/web/src/components/settings/automations/automations-page.tsx": "57d10fa29ef1",
+    "apps/web/src/components/settings/automations/panels.tsx": "83c2cb9123cf",
+    "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
+    "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",
+    "apps/web/src/components/settings/fields-settings.tsx": "60503c06ceb7",
+    "apps/web/src/components/settings/founding-plan-card.tsx": "0b8f2f5baa92",
+    "apps/web/src/components/settings/getting-started-switch.tsx": "77bfcc286007",
+    "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
+    "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
+    "apps/web/src/components/settings/look-card.tsx": "71738833c9e4",
+    "apps/web/src/components/settings/menu-section.tsx": "2e927c40840b",
+    "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
+    "apps/web/src/components/settings/notifications-section.tsx": "b997d390c048",
+    "apps/web/src/components/settings/page-card.tsx": "795a41ed93d0",
+    "apps/web/src/components/settings/passkeys-section.tsx": "8e0e9b4c0f72",
+    "apps/web/src/components/settings/password-section.tsx": "d07810a8afd8",
+    "apps/web/src/components/settings/pipelines-editor.tsx": "332254d6099e",
+    "apps/web/src/components/settings/profile-form.tsx": "f5a3211463b6",
+    "apps/web/src/components/settings/relationships-settings.tsx": "b69c03f6ad96",
+    "apps/web/src/components/settings/settings-nav.tsx": "3aaea6a1f0d6",
+    "apps/web/src/components/settings/settings-search.tsx": "31c3fc65ff90",
+    "apps/web/src/components/settings/usage-page.tsx": "c358a2a0393b",
+    "apps/web/src/components/settings/workspace-form.tsx": "0a3aedbc116c",
+    "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
+    "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
+    "packages/core/src/bin-words.ts": "d60313191585"
+  },
+  "items": [
+    {
+      "path": "Settings → side menu → list of settings pages",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/settings-nav.tsx:188",
+      "covered": "yes",
+      "by": "prompt settings map (Where things are)"
+    },
+    {
+      "path": "Settings → side menu → open a page",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/settings-nav.tsx:188",
+      "covered": "partly",
+      "by": "settings_help hands a link; no navigation"
+    },
+    {
+      "path": "Settings → narrow screen → page picker",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/settings-nav.tsx:228",
+      "covered": "partly",
+      "by": "settings_help link"
+    },
+    {
+      "path": "Settings → search → type to find a setting (keys, clear)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/settings-search.tsx:154",
+      "covered": "partly",
+      "by": "settings map in prompt + get_settings; no catalogue search tool"
+    },
+    {
+      "path": "Settings → search → result count / no match",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/settings-search.tsx:209",
+      "covered": "partly",
+      "by": "AI answers from settings map"
+    },
+    {
+      "path": "Settings → search → page result row",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/settings-search.tsx:241",
+      "covered": "partly",
+      "by": "settings_help link"
+    },
+    {
+      "path": "Settings → search → setting row with current value, add-on note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/settings-search.tsx:269",
+      "covered": "yes",
+      "by": "get_settings areas; read_addon_settings"
+    },
+    {
+      "path": "Settings → search → Show every setting",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/settings-search.tsx:300",
+      "covered": "partly",
+      "by": "settings map in prompt"
+    },
+    {
+      "path": "Account → Profile → Full name + Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/profile-form.tsx:48",
+      "covered": "yes",
+      "by": "update_my_account fullName"
+    },
+    {
+      "path": "Account → Profile → initials note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/profile-form.tsx:45",
+      "covered": "yes",
+      "by": "get_settings my_account fullName"
+    },
+    {
+      "path": "Account → Profile → Email (read-only) + Verified",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/profile-form.tsx:57",
+      "covered": "yes",
+      "by": "get_settings my_account email"
+    },
+    {
+      "path": "Account → Appearance → Light / Dark / System",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/appearance-section.tsx:39",
+      "covered": "yes",
+      "by": "update_my_account appearance"
+    },
+    {
+      "path": "Account → Side menu → summary (hidden, groups)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/menu-section.tsx:18",
+      "covered": "yes",
+      "by": "get_settings my_account settings"
+    },
+    {
+      "path": "Account → Side menu → Edit menu → hide / show an item",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:114",
+      "covered": "yes",
+      "by": "arrange_my_menu hide/show"
+    },
+    {
+      "path": "Menu editor → Move up / Move down",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:52",
+      "covered": "no",
+      "by": "arrange_my_menu has no reorder"
+    },
+    {
+      "path": "Menu editor → Move to (menu / a group / Add a group / Hidden)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:128",
+      "covered": "partly",
+      "by": "Hidden only via arrange_my_menu; no groups"
+    },
+    {
+      "path": "Menu editor → Add a group",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:220",
+      "covered": "no",
+      "by": "arrange_my_menu has no groups"
+    },
+    {
+      "path": "Menu editor → Use suggested groups",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:229",
+      "covered": "yes",
+      "by": "arrange_my_menu use_suggested"
+    },
+    {
+      "path": "Menu editor → Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:238",
+      "covered": "yes",
+      "by": "arrange_my_menu start_over"
+    },
+    {
+      "path": "Menu editor → rename a group",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:271",
+      "covered": "no",
+      "by": "no group naming"
+    },
+    {
+      "path": "Menu editor → Ungroup",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:288",
+      "covered": "no",
+      "by": "no group tool"
+    },
+    {
+      "path": "Menu editor → empty group note",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:297",
+      "covered": "partly",
+      "by": "groups readable in get_settings my_account; no tool"
+    },
+    {
+      "path": "Menu editor → Hidden list + hint",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:325",
+      "covered": "yes",
+      "by": "get_settings my_account settings"
+    },
+    {
+      "path": "Menu editor → Save menu",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:350",
+      "covered": "partly",
+      "by": "arrange_my_menu card saves hide/show only"
+    },
+    {
+      "path": "Account → Password → Change / current / new / Update",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/password-section.tsx:50",
+      "covered": "person",
+      "by": "sign-in secret (SETTINGS_NEVER account.password)"
+    },
+    {
+      "path": "Account → Google sign-in → Connected as",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/google-section.tsx:89",
+      "covered": "never",
+      "by": "SETTINGS_NEVER account.google_sign_in"
+    },
+    {
+      "path": "Account → Google sign-in → Connect / Disconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/google-section.tsx:95",
+      "covered": "person",
+      "by": "signing in with Google"
+    },
+    {
+      "path": "Account → Passkeys → list (name, Added, Last used), empty",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:142",
+      "covered": "never",
+      "by": "SETTINGS_NEVER account.passkeys"
+    },
+    {
+      "path": "Account → Passkeys → Add a passkey",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:99",
+      "covered": "person",
+      "by": "device sign-in"
+    },
+    {
+      "path": "Account → Passkeys → Rename",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:152",
+      "covered": "never",
+      "by": "SETTINGS_NEVER account.passkeys"
+    },
+    {
+      "path": "Account → Passkeys → Remove + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:161",
+      "covered": "person",
+      "by": "sign-in method; SETTINGS_NEVER account.passkeys"
+    },
+    {
+      "path": "Account → Notifications → phones that get alerts",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:114",
+      "covered": "yes",
+      "by": "get_settings my_account phonesForAlerts"
+    },
+    {
+      "path": "Account → Notifications → each row (title, what it is, Always)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:144",
+      "covered": "yes",
+      "by": "get_settings my_account alerts"
+    },
+    {
+      "path": "Account → Notifications → Push switch per row",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:151",
+      "covered": "yes",
+      "by": "update_my_alerts"
+    },
+    {
+      "path": "Account → Notifications → Email switch per row",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:166",
+      "covered": "yes",
+      "by": "update_my_account email fields; update_my_alerts agencyDigestEmail"
+    },
+    {
+      "path": "Account → My cell → number + verified on",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:174",
+      "covered": "yes",
+      "by": "read_user_phone_get"
+    },
+    {
+      "path": "Account → My cell → intro, calling and save-contact notes",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:128",
+      "covered": "partly",
+      "by": "read_user_phone_get gives number; notes not given"
+    },
+    {
+      "path": "Account → My cell → no business number note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:147",
+      "covered": "partly",
+      "by": "numbers readable elsewhere (texting area); note not given"
+    },
+    {
+      "path": "Account → My cell → type number + Verify my cell",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:151",
+      "covered": "person",
+      "by": "confirming own cell (user_phone.start_verification NEVER)"
+    },
+    {
+      "path": "Account → My cell → Verify again / Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:195",
+      "covered": "person",
+      "by": "confirming own cell"
+    },
+    {
+      "path": "Account → Delete account → intro, blocked line",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:60",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Account → Delete account → only-owner callout + Open Members",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:72",
+      "covered": "yes",
+      "by": "read_account_deletion_check; settings_help for Members"
+    },
+    {
+      "path": "Account → Delete account → agency: Hand to + Make owner",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:201",
+      "covered": "yes",
+      "by": "do_organization_add_owner"
+    },
+    {
+      "path": "Account → Delete account → type email + Delete my account",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:114",
+      "covered": "never",
+      "by": "NEVER account.delete (own account)"
+    },
+    {
+      "path": "Business → page note: changes recorded, audit log",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx:42",
+      "covered": "yes",
+      "by": "read_audit_list"
+    },
+    {
+      "path": "Business → current name, zone, industry, website, review link, hours",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:96",
+      "covered": "yes",
+      "by": "get_settings business"
+    },
+    {
+      "path": "Business → Business name",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:96",
+      "covered": "yes",
+      "by": "update_business name"
+    },
+    {
+      "path": "Business → Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:107",
+      "covered": "yes",
+      "by": "update_business timeZone"
+    },
+    {
+      "path": "Business → Industry picker (search, no match)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/industry-picker.tsx:76",
+      "covered": "yes",
+      "by": "update_business industry"
+    },
+    {
+      "path": "Business → Website",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:135",
+      "covered": "partly",
+      "by": "update_business sets it; empty dropped, cannot clear"
+    },
+    {
+      "path": "Business → Review link",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:154",
+      "covered": "partly",
+      "by": "update_business sets it; cannot clear"
+    },
+    {
+      "path": "Business → Business hours (each day open/close/closed)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:178",
+      "covered": "yes",
+      "by": "update_business openHours"
+    },
+    {
+      "path": "Business → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/workspace-form.tsx:193",
+      "covered": "yes",
+      "by": "update_business card"
+    },
+    {
+      "path": "Business → Look → logo shown",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/look-card.tsx:30",
+      "covered": "partly",
+      "by": "get_settings business look (path, not the image)"
+    },
+    {
+      "path": "Business → Look → making / found on your site / not found",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:180",
+      "covered": "partly",
+      "by": "get_settings business look; progress words not given"
+    },
+    {
+      "path": "Business → Look → cannot change note",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:200",
+      "covered": "yes",
+      "by": "permission refusal words"
+    },
+    {
+      "path": "Business → Look → Upload / change logo",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:253",
+      "covered": "person",
+      "by": "file from device (look.begin_upload NEVER)"
+    },
+    {
+      "path": "Business → Look → Remove logo",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:265",
+      "covered": "yes",
+      "by": "do_look_set removeLogo"
+    },
+    {
+      "path": "Business → Look → Find it again (from website)",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:277",
+      "covered": "yes",
+      "by": "do_look_find"
+    },
+    {
+      "path": "Business → Look → colour swatches",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:308",
+      "covered": "yes",
+      "by": "do_look_set color"
+    },
+    {
+      "path": "Business → Look → Any colour (picker, hex)",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:329",
+      "covered": "yes",
+      "by": "do_look_set color"
+    },
+    {
+      "path": "Business → Look → colour from logo / website label",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:347",
+      "covered": "yes",
+      "by": "get_settings business look"
+    },
+    {
+      "path": "Business → Your page → on/off switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/page-card.tsx:67",
+      "covered": "yes",
+      "by": "do_booking_site_set_page on"
+    },
+    {
+      "path": "Business → Your page → link + Copy + Open",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/page-card.tsx:80",
+      "covered": "partly",
+      "by": "get_settings booking_site gives /book/<slug>, not full address"
+    },
+    {
+      "path": "Business → Your page → fill note / cannot change",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/page-card.tsx:96",
+      "covered": "partly",
+      "by": "booking_site readable; note not given"
+    },
+    {
+      "path": "Business → Getting started → show/hide switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/getting-started-switch.tsx:57",
+      "covered": "yes",
+      "by": "do_onboarding_set_enabled"
+    },
+    {
+      "path": "Business → Branded domain → intro",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:113",
+      "covered": "yes",
+      "by": "manage_web_address description"
+    },
+    {
+      "path": "Business → Branded domain → type domain + Use this domain",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:164",
+      "covered": "yes",
+      "by": "manage_web_address add"
+    },
+    {
+      "path": "Business → Branded domain → domain + status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:171",
+      "covered": "yes",
+      "by": "get_settings branded_domain status"
+    },
+    {
+      "path": "Business → Branded domain → serving / awaiting text",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:181",
+      "covered": "yes",
+      "by": "get_settings branded_domain certificateReady"
+    },
+    {
+      "path": "Business → Branded domain → last error",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:187",
+      "covered": "yes",
+      "by": "get_settings branded_domain lastError"
+    },
+    {
+      "path": "Business → Branded domain → DNS records (kind, host, value, why)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:220",
+      "covered": "yes",
+      "by": "get_settings branded_domain records"
+    },
+    {
+      "path": "Business → Branded domain → Copy a value",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:235",
+      "covered": "yes",
+      "by": "values given as text"
+    },
+    {
+      "path": "Business → Branded domain → Check now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:264",
+      "covered": "yes",
+      "by": "manage_web_address check"
+    },
+    {
+      "path": "Business → Branded domain → Remove + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/branded-domain-card.tsx:287",
+      "covered": "yes",
+      "by": "manage_web_address remove"
+    },
+    {
+      "path": "Business → Delete business → type name + Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/delete-workspace.tsx:55",
+      "covered": "never",
+      "by": "NEVER workspace.delete"
+    },
+    {
+      "path": "Pipelines → page intro",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/pipelines/page.tsx:1",
+      "covered": "yes",
+      "by": "manage_pipeline description"
+    },
+    {
+      "path": "Pipelines → each pipeline: name, Default, lead count",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:103",
+      "covered": "yes",
+      "by": "get_settings pipelines"
+    },
+    {
+      "path": "Pipelines → Rename pipeline",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:116",
+      "covered": "yes",
+      "by": "manage_pipeline rename_pipeline"
+    },
+    {
+      "path": "Pipelines → Add stage",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:125",
+      "covered": "yes",
+      "by": "manage_pipeline add_stage"
+    },
+    {
+      "path": "Pipelines → Archive pipeline + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:135",
+      "covered": "yes",
+      "by": "manage_pipeline archive_pipeline"
+    },
+    {
+      "path": "Pipelines → stage row: number, name, kind, lead count",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:165",
+      "covered": "yes",
+      "by": "get_settings pipelines stages"
+    },
+    {
+      "path": "Pipelines → stage Move up / Move down",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:151",
+      "covered": "yes",
+      "by": "manage_pipeline reorder_stages"
+    },
+    {
+      "path": "Pipelines → Edit stage",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:177",
+      "covered": "yes",
+      "by": "manage_pipeline rename_stage"
+    },
+    {
+      "path": "Pipelines → Delete stage",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:185",
+      "covered": "yes",
+      "by": "manage_pipeline delete_stage"
+    },
+    {
+      "path": "Pipelines → New pipeline → default stages note, Name, Create",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:262",
+      "covered": "yes",
+      "by": "manage_pipeline create_pipeline"
+    },
+    {
+      "path": "Pipelines → stage dialog → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:356",
+      "covered": "yes",
+      "by": "manage_pipeline name"
+    },
+    {
+      "path": "Pipelines → stage dialog → Kind (locked while it has leads)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:360",
+      "covered": "yes",
+      "by": "manage_pipeline stageKind; refusal words"
+    },
+    {
+      "path": "Pipelines → stage dialog → Place after (At the start)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:380",
+      "covered": "yes",
+      "by": "manage_pipeline afterStageId (null)"
+    },
+    {
+      "path": "Pipelines → delete stage dialog → Move the leads to",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:458",
+      "covered": "yes",
+      "by": "manage_pipeline moveLeadsToStageId"
+    },
+    {
+      "path": "Pipelines → delete stage dialog → blocked message",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/pipelines-editor.tsx:440",
+      "covered": "yes",
+      "by": "command refusal words"
+    },
+    {
+      "path": "Tags → list: name, colour, how many use it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:127",
+      "covered": "yes",
+      "by": "get_settings tags"
+    },
+    {
+      "path": "Tags → note: add one from a customer page / empty",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:129",
+      "covered": "yes",
+      "by": "manage_tag / tag tools"
+    },
+    {
+      "path": "Tags → AI tagging → intro + audit link",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:154",
+      "covered": "yes",
+      "by": "ai_tagging_status; read_audit_list"
+    },
+    {
+      "path": "Tags → AI tagging → on its own, Automations link, last 7 days",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:170",
+      "covered": "yes",
+      "by": "ai_tagging_status onItsOwn, lastSevenDays"
+    },
+    {
+      "path": "Tags → AI tagging → running badge, progress, note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:200",
+      "covered": "yes",
+      "by": "ai_tagging_status running"
+    },
+    {
+      "path": "Tags → AI tagging → Stop",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:226",
+      "covered": "yes",
+      "by": "ai_tag_customers stop"
+    },
+    {
+      "path": "Tags → AI tagging → What to look for",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:239",
+      "covered": "yes",
+      "by": "ai_tag_customers instructions"
+    },
+    {
+      "path": "Tags → AI tagging → Tags it may use (pick, new names)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:250",
+      "covered": "yes",
+      "by": "ai_tag_customers tagIds, newTagNames"
+    },
+    {
+      "path": "Tags → AI tagging → Which customers",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:274",
+      "covered": "yes",
+      "by": "ai_tag_customers onlyTagId"
+    },
+    {
+      "path": "Tags → AI tagging → also fix details",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:289",
+      "covered": "yes",
+      "by": "ai_tag_customers fixDetails"
+    },
+    {
+      "path": "Tags → AI tagging → Go through my customers",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:295",
+      "covered": "yes",
+      "by": "ai_tag_customers start"
+    },
+    {
+      "path": "Tags → AI tagging → Last time line",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:299",
+      "covered": "yes",
+      "by": "ai_tagging_status recentPasses"
+    },
+    {
+      "path": "Tags → What the AI changed lately → customer, when, trigger, change, reason",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:311",
+      "covered": "partly",
+      "by": "ai_tagging_status latestLooks: 10 of the 15 shown"
+    },
+    {
+      "path": "Tags → What the AI changed lately → open the customer",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/ai-tagging.tsx:320",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Fields → Fields for (customers, companies, leads, each kind)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:125",
+      "covered": "yes",
+      "by": "get_settings fields (all, with entity / recordTypeId)"
+    },
+    {
+      "path": "Fields → row: label, type, choices, always shown; empty",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:160",
+      "covered": "yes",
+      "by": "get_settings fields"
+    },
+    {
+      "path": "Fields → Add field",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:101",
+      "covered": "yes",
+      "by": "manage_custom_field create"
+    },
+    {
+      "path": "Fields → Move up / Move down",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:180",
+      "covered": "no",
+      "by": "manage_custom_field has no position"
+    },
+    {
+      "path": "Fields → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:197",
+      "covered": "yes",
+      "by": "manage_custom_field change"
+    },
+    {
+      "path": "Fields → Retire + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:206",
+      "covered": "yes",
+      "by": "manage_custom_field retire"
+    },
+    {
+      "path": "Fields → field dialog → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:319",
+      "covered": "yes",
+      "by": "manage_custom_field name"
+    },
+    {
+      "path": "Fields → field dialog → What it holds (locked on edit)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:331",
+      "covered": "yes",
+      "by": "manage_custom_field holds"
+    },
+    {
+      "path": "Fields → field dialog → Choices, remove, Add choice",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:357",
+      "covered": "yes",
+      "by": "manage_custom_field choices"
+    },
+    {
+      "path": "Fields → field dialog → Help",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:388",
+      "covered": "yes",
+      "by": "manage_custom_field help"
+    },
+    {
+      "path": "Fields → field dialog → Show on every one, even when empty",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/fields-settings.tsx:398",
+      "covered": "yes",
+      "by": "manage_custom_field showWhenEmpty"
+    },
+    {
+      "path": "Relationships → Kinds → intro",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:155",
+      "covered": "yes",
+      "by": "manage_record_kind description"
+    },
+    {
+      "path": "Relationships → Kinds → New kind",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:160",
+      "covered": "yes",
+      "by": "manage_record_kind create"
+    },
+    {
+      "path": "Relationships → Kinds → row: icon, plural, records, fields, named by; empty",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:181",
+      "covered": "yes",
+      "by": "get_settings relationships"
+    },
+    {
+      "path": "Relationships → Kinds → Fields link",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:189",
+      "covered": "yes",
+      "by": "manage_custom_field recordTypeId"
+    },
+    {
+      "path": "Relationships → Kinds → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:195",
+      "covered": "yes",
+      "by": "manage_record_kind change"
+    },
+    {
+      "path": "Relationships → Kinds → Archive + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:204",
+      "covered": "yes",
+      "by": "manage_record_kind archive"
+    },
+    {
+      "path": "Relationships → archived kinds and types → Restore",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:349",
+      "covered": "yes",
+      "by": "list_archived_setup + manage_* restore"
+    },
+    {
+      "path": "Relationships → Types → New type",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:240",
+      "covered": "yes",
+      "by": "manage_relationship_type create"
+    },
+    {
+      "path": "Relationships → Types → row: name, ends, pairs, sentences; empty",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:260",
+      "covered": "yes",
+      "by": "get_settings relationships"
+    },
+    {
+      "path": "Relationships → Types → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:272",
+      "covered": "yes",
+      "by": "manage_relationship_type change"
+    },
+    {
+      "path": "Relationships → Types → Archive + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:281",
+      "covered": "yes",
+      "by": "manage_relationship_type archive"
+    },
+    {
+      "path": "New kind → starters",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:495",
+      "covered": "yes",
+      "by": "manage_record_kind starter"
+    },
+    {
+      "path": "New kind → Something else / Starters",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:520",
+      "covered": "yes",
+      "by": "manage_record_kind own names"
+    },
+    {
+      "path": "New kind → One is called / More than one",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:540",
+      "covered": "yes",
+      "by": "manage_record_kind name, plural"
+    },
+    {
+      "path": "New kind → what its name is called",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:568",
+      "covered": "yes",
+      "by": "manage_record_kind nameLabel"
+    },
+    {
+      "path": "New kind → Picture (icon picker)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:580",
+      "covered": "yes",
+      "by": "manage_record_kind icon"
+    },
+    {
+      "path": "New kind → Connect to customers, A customer is their…",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:591",
+      "covered": "yes",
+      "by": "manage_record_kind linkTo, linkLabel, linkCardinality"
+    },
+    {
+      "path": "New kind → Add",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:610",
+      "covered": "yes",
+      "by": "manage_record_kind card"
+    },
+    {
+      "path": "Edit kind → names, name label, picture",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:671",
+      "covered": "yes",
+      "by": "manage_record_kind change"
+    },
+    {
+      "path": "Type dialog → starters / Something else",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:897",
+      "covered": "yes",
+      "by": "manage_relationship_type starter"
+    },
+    {
+      "path": "Type dialog → same on both sides",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:920",
+      "covered": "yes",
+      "by": "manage_relationship_type sameBothWays"
+    },
+    {
+      "path": "Type dialog → One side / Called / Other side / Called",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:928",
+      "covered": "yes",
+      "by": "manage_relationship_type a, b, aLabel, bLabel"
+    },
+    {
+      "path": "Type dialog → Each can have one / many",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:973",
+      "covered": "yes",
+      "by": "manage_relationship_type cardinality"
+    },
+    {
+      "path": "Type dialog → sentences of what it means",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:766",
+      "covered": "yes",
+      "by": "card uses cardinalitySentences"
+    },
+    {
+      "path": "Type dialog → Save / Add",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/relationships-settings.tsx:1010",
+      "covered": "yes",
+      "by": "manage_relationship_type card"
+    },
+    {
+      "path": "Record page → breadcrumb (records, kind)",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:152",
+      "covered": "yes",
+      "by": "get_record_details kind"
+    },
+    {
+      "path": "Record page → name, kind, Archived badge, summary, Added",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:168",
+      "covered": "yes",
+      "by": "get_record_details"
+    },
+    {
+      "path": "Record page → Edit details (name, fields, notes)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-dialog.tsx:115",
+      "covered": "yes",
+      "by": "manage_record change"
+    },
+    {
+      "path": "Record page → add a record dialog (name, fields, Notes, Add)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-dialog.tsx:136",
+      "covered": "yes",
+      "by": "manage_record create"
+    },
+    {
+      "path": "Record page → Archive / Restore + dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:206",
+      "covered": "yes",
+      "by": "archive_or_restore record"
+    },
+    {
+      "path": "Record page → archived notice",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:234",
+      "covered": "yes",
+      "by": "get_record_details / find_archived"
+    },
+    {
+      "path": "Record page → Delete for good… (into the bin)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:215",
+      "covered": "yes",
+      "by": "move_to_bin custom_record"
+    },
+    {
+      "path": "Delete dialog → what goes and what stays, tell customers",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/delete-dialog.tsx:207",
+      "covered": "yes",
+      "by": "move_to_bin card; tellCustomers"
+    },
+    {
+      "path": "Record page → quick Book",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:246",
+      "covered": "partly",
+      "by": "book_appointment books the customer; no customRecordId"
+    },
+    {
+      "path": "Record page → quick Note",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:255",
+      "covered": "no",
+      "by": "add_note takes person/company/lead only"
+    },
+    {
+      "path": "Record page → quick Task",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:264",
+      "covered": "partly",
+      "by": "create_task ties to customer/lead, not record"
+    },
+    {
+      "path": "Record page → quick File upload",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:272",
+      "covered": "person",
+      "by": "file from device"
+    },
+    {
+      "path": "Record page → Timeline tab",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:298",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Record page → Appointments tab",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:312",
+      "covered": "partly",
+      "by": "list_appointments by personId, not record"
+    },
+    {
+      "path": "Record page → Tasks tab",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:352",
+      "covered": "partly",
+      "by": "list_tasks has no record filter"
+    },
+    {
+      "path": "Record page → Files tab: files list",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:374",
+      "covered": "yes",
+      "by": "get_record_details files"
+    },
+    {
+      "path": "Record page → Files tab: upload",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:368",
+      "covered": "person",
+      "by": "file from device"
+    },
+    {
+      "path": "Record page → Files tab: delete a file",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:374",
+      "covered": "yes",
+      "by": "delete_file"
+    },
+    {
+      "path": "Record page → Details: added, by",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:381",
+      "covered": "yes",
+      "by": "get_record_details"
+    },
+    {
+      "path": "Record page → Details: field values, edit",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:406",
+      "covered": "yes",
+      "by": "manage_record change fields"
+    },
+    {
+      "path": "Record page → Assigned card (assign / unassign)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:427",
+      "covered": "yes",
+      "by": "do_custom_record_assign / unassign"
+    },
+    {
+      "path": "Record page → Upcoming appointments",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:454",
+      "covered": "partly",
+      "by": "list_appointments by person, not record"
+    },
+    {
+      "path": "Record page → related customers' conversations",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:461",
+      "covered": "yes",
+      "by": "find_conversations / list_inbox"
+    },
+    {
+      "path": "Relationships card → groups and pair rows (name link, note, detail)",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:74",
+      "covered": "yes",
+      "by": "get_record_details relationships; get_customer"
+    },
+    {
+      "path": "Relationships card → Add",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:59",
+      "covered": "yes",
+      "by": "manage_record relate"
+    },
+    {
+      "path": "Relationships card → Add person",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:119",
+      "covered": "yes",
+      "by": "manage_record relate"
+    },
+    {
+      "path": "Relationships card → Edit note + dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:334",
+      "covered": "yes",
+      "by": "manage_record change_note"
+    },
+    {
+      "path": "Relationships card → Remove + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:325",
+      "covered": "yes",
+      "by": "manage_record unrelate"
+    },
+    {
+      "path": "Relationships card → empty + Set up link",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:160",
+      "covered": "yes",
+      "by": "get_record_details; settings_help"
+    },
+    {
+      "path": "Add relationship → pick a type (already has one)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:223",
+      "covered": "yes",
+      "by": "manage_record relate; refusal words"
+    },
+    {
+      "path": "Add relationship → Something else (new type)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:244",
+      "covered": "yes",
+      "by": "manage_relationship_type create"
+    },
+    {
+      "path": "Add relationship → search, results, no match",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:254",
+      "covered": "yes",
+      "by": "find_records / search_customers"
+    },
+    {
+      "path": "Add relationship → Create new",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:270",
+      "covered": "yes",
+      "by": "manage_record create / customer create"
+    },
+    {
+      "path": "Add relationship → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:319",
+      "covered": "yes",
+      "by": "manage_record relate note"
+    },
+    {
+      "path": "Deleted bin → title + about (30 days)",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:165",
+      "covered": "yes",
+      "by": "move_to_bin / restore_from_bin descriptions"
+    },
+    {
+      "path": "Deleted bin → empty state",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:181",
+      "covered": "yes",
+      "by": "get_settings deleted_bin"
+    },
+    {
+      "path": "Deleted bin → item name + kind",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:201",
+      "covered": "yes",
+      "by": "get_settings deleted_bin name, kind"
+    },
+    {
+      "path": "Deleted bin → item detail (what went with it)",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:205",
+      "covered": "no",
+      "by": "get_settings deleted_bin drops contents"
+    },
+    {
+      "path": "Deleted bin → Deleted by whom, on date",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:207",
+      "covered": "partly",
+      "by": "deletedAt given; deletedBy dropped"
+    },
+    {
+      "path": "Deleted bin → Gone for good on / Being deleted now",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:207",
+      "covered": "partly",
+      "by": "goneForGoodAt given; emptying dropped"
+    },
+    {
+      "path": "Deleted bin → Bring back",
+      "kind": "do",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:213",
+      "covered": "yes",
+      "by": "restore_from_bin"
+    },
+    {
+      "path": "Deleted bin → Delete now + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:229",
+      "covered": "never",
+      "by": "AI never deletes from the bin"
+    },
+    {
+      "path": "Deleted bin → Empty the bin + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:178",
+      "covered": "never",
+      "by": "NEVER bin.empty"
+    },
+    {
+      "path": "Deleted bin → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/bin/deleted-bin.tsx:246",
+      "covered": "partly",
+      "by": "get_settings deleted_bin first page only"
+    },
+    {
+      "path": "Usage → Balance amount + headline",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:278",
+      "covered": "yes",
+      "by": "get_settings usage (wallet.get)"
+    },
+    {
+      "path": "Usage → spent this month / last 30 days",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:290",
+      "covered": "yes",
+      "by": "get_settings usage"
+    },
+    {
+      "path": "Usage → top-up on its way",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:297",
+      "covered": "yes",
+      "by": "get_settings usage pendingTopUpCents"
+    },
+    {
+      "path": "Usage → suspended / escalation warnings",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:300",
+      "covered": "yes",
+      "by": "get_settings usage suspended, escalation"
+    },
+    {
+      "path": "Usage → Top up now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:280",
+      "covered": "yes",
+      "by": "do_wallet_top_up"
+    },
+    {
+      "path": "Usage → Auto top-up switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:323",
+      "covered": "yes",
+      "by": "update_auto_topup on"
+    },
+    {
+      "path": "Usage → Auto top-up: when below",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:337",
+      "covered": "yes",
+      "by": "update_auto_topup belowDollars"
+    },
+    {
+      "path": "Usage → Auto top-up: add",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:351",
+      "covered": "yes",
+      "by": "update_auto_topup addDollars"
+    },
+    {
+      "path": "Usage → Auto top-up: cap line, needs a card",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:365",
+      "covered": "yes",
+      "by": "get_settings usage"
+    },
+    {
+      "path": "Usage → AI limit a day",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:383",
+      "covered": "yes",
+      "by": "do_wallet_set_ai_limit"
+    },
+    {
+      "path": "Usage → AI spent today",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:396",
+      "covered": "yes",
+      "by": "get_settings usage aiSpentTodayCents"
+    },
+    {
+      "path": "Usage → Card on file line / waiting / none / provider note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:420",
+      "covered": "yes",
+      "by": "get_settings usage card"
+    },
+    {
+      "path": "Usage → Add a card / Use a different card",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:407",
+      "covered": "person",
+      "by": "typing a card on the provider page"
+    },
+    {
+      "path": "Usage → Remove card",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:413",
+      "covered": "yes",
+      "by": "do_wallet_forget_card"
+    },
+    {
+      "path": "Usage → Prices",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:445",
+      "covered": "yes",
+      "by": "get_settings usage / read_usage_prices"
+    },
+    {
+      "path": "Usage → Statement rows; empty",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/usage-page.tsx:468",
+      "covered": "yes",
+      "by": "read_usage_statement"
+    },
+    {
+      "path": "Usage → Statement CSV",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/usage-page.tsx:471",
+      "covered": "partly",
+      "by": "rows readable; no file given"
+    },
+    {
+      "path": "Usage → Founding plan: price, renews / trial / stopped / refused",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/founding-plan-card.tsx:67",
+      "covered": "yes",
+      "by": "read_founding_mine"
+    },
+    {
+      "path": "Usage → Founding plan: Pay with another card",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/founding-plan-card.tsx:93",
+      "covered": "person",
+      "by": "card payment (founding.pay_renewal NEVER)"
+    },
+    {
+      "path": "Usage → Founding plan: Stop renewing + dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/founding-plan-card.tsx:100",
+      "covered": "yes",
+      "by": "do_founding_set_renewing false"
+    },
+    {
+      "path": "Usage → Founding plan: Keep renewing",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/founding-plan-card.tsx:112",
+      "covered": "yes",
+      "by": "do_founding_set_renewing true"
+    },
+    {
+      "path": "Action center → old link",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/action-center/page.tsx:1",
+      "covered": "yes",
+      "by": "redirect to Automations; update_action_center_settings"
+    },
+    {
+      "path": "Automations → intro, N of M working, needs setup count",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:269",
+      "covered": "yes",
+      "by": "list_automations on, notWorkingYet"
+    },
+    {
+      "path": "Automations → still training note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:276",
+      "covered": "yes",
+      "by": "list_automations waitsForApprovalWhileTraining"
+    },
+    {
+      "path": "Automations → sections and groups",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:290",
+      "covered": "yes",
+      "by": "list_automations group"
+    },
+    {
+      "path": "Automations → row: name + one-liner",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:377",
+      "covered": "yes",
+      "by": "list_automations name, does"
+    },
+    {
+      "path": "Automations → row: needs setup + Go to Services / Pick a form / AI teammate",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:378",
+      "covered": "yes",
+      "by": "list_automations notWorkingYet; settings_help"
+    },
+    {
+      "path": "Automations → row: fallback line (no teammate)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:405",
+      "covered": "yes",
+      "by": "list_automations withoutAiTeammate"
+    },
+    {
+      "path": "Automations → row: effect label (texts, emails, shows)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:418",
+      "covered": "partly",
+      "by": "not returned; one-liner says it"
+    },
+    {
+      "path": "Automations → row: waits for approval while training",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:420",
+      "covered": "yes",
+      "by": "list_automations waitsForApprovalWhileTraining"
+    },
+    {
+      "path": "Automations → row: wording read first",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:198",
+      "covered": "yes",
+      "by": "list_automations messageReadFirst"
+    },
+    {
+      "path": "Automations → row: Adjust (opens sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:427",
+      "covered": "yes",
+      "by": "update_automations / update_action_center_settings"
+    },
+    {
+      "path": "Automations → row: Always on",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:442",
+      "covered": "yes",
+      "by": "list_automations alwaysOn"
+    },
+    {
+      "path": "Automations → row: on/off switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:445",
+      "covered": "yes",
+      "by": "update_automations turnOn / turnOff"
+    },
+    {
+      "path": "Automations → locked rows (drafts awaiting review, connection error, texting rejected)",
+      "kind": "do",
+      "file": "packages/core/src/automations/catalog.ts:1",
+      "covered": "never",
+      "by": "SETTINGS_NEVER: locked for everyone"
+    },
+    {
+      "path": "Automations → Outreach campaigns link",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:322",
+      "covered": "yes",
+      "by": "list_campaigns"
+    },
+    {
+      "path": "Automations → Adjust sheet title + one-liner",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/automations-page.tsx:344",
+      "covered": "yes",
+      "by": "list_automations"
+    },
+    {
+      "path": "Adjust → explanation notes (new lead, never replied, chase times, waitlist, thank you, balance, morning, safety)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:661",
+      "covered": "partly",
+      "by": "only the one-liner is returned"
+    },
+    {
+      "path": "Adjust → Unanswered: new lead shows after N minutes",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:350",
+      "covered": "yes",
+      "by": "update_action_center_settings newLeadWaitingAfterMinutes"
+    },
+    {
+      "path": "Adjust → Unanswered: what it looks for switches",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:337",
+      "covered": "yes",
+      "by": "update_action_center_settings kindsOn / kindsOff"
+    },
+    {
+      "path": "Adjust → Hot lead: Urgent after",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:265",
+      "covered": "yes",
+      "by": "update_action_center_settings hotLeadUrgentAfterMinutes"
+    },
+    {
+      "path": "Adjust → Hot lead: A big job starts at",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:284",
+      "covered": "yes",
+      "by": "update_action_center_settings bigJobDollars"
+    },
+    {
+      "path": "Adjust → Hot lead: Typical job value",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:319",
+      "covered": "yes",
+      "by": "update_action_center_settings typicalJobValueDollars"
+    },
+    {
+      "path": "Adjust → Follow-ups: ladder in words",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:453",
+      "covered": "yes",
+      "by": "list_automations followUps"
+    },
+    {
+      "path": "Adjust → Follow-ups: each step's wait + unit + remove",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:518",
+      "covered": "yes",
+      "by": "update_automations followUpTimes"
+    },
+    {
+      "path": "Adjust → Follow-ups: Add a follow-up",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:569",
+      "covered": "yes",
+      "by": "update_automations followUpTimes"
+    },
+    {
+      "path": "Adjust → Follow-ups: step problems",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:385",
+      "covered": "yes",
+      "by": "command refusal words"
+    },
+    {
+      "path": "Adjust → Follow-ups: then once a month for",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:596",
+      "covered": "yes",
+      "by": "update_automations followUpMonthlyForMonths"
+    },
+    {
+      "path": "Adjust → Follow-ups: quiet hours note + Edit quiet hours",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:612",
+      "covered": "partly",
+      "by": "note not given; quiet hours in texting area"
+    },
+    {
+      "path": "Adjust → Follow-ups: Reset",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:642",
+      "covered": "partly",
+      "by": "can set times; standard ladder not known"
+    },
+    {
+      "path": "Adjust → Day before: Reply C to confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:713",
+      "covered": "yes",
+      "by": "update_action_center_settings replyCToConfirm"
+    },
+    {
+      "path": "Adjust → Day before: text preview",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:705",
+      "covered": "no",
+      "by": "no preview returned"
+    },
+    {
+      "path": "Adjust → Unconfirmed: visits within N hours",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:759",
+      "covered": "yes",
+      "by": "update_action_center_settings unconfirmedVisitWindowHours"
+    },
+    {
+      "path": "Adjust → Unconfirmed: Ask customers to confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:779",
+      "covered": "yes",
+      "by": "update_action_center_settings askCustomersToConfirmVisits"
+    },
+    {
+      "path": "Adjust → Intake: form picker; no live form / not live",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:844",
+      "covered": "yes",
+      "by": "update_automations intakeFormId (must be live)"
+    },
+    {
+      "path": "Adjust → Intake: message, placeholders, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:887",
+      "covered": "no",
+      "by": "update_automations has no intake message"
+    },
+    {
+      "path": "Adjust → Intake: Use the standard wording",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:928",
+      "covered": "no",
+      "by": "no intake message field"
+    },
+    {
+      "path": "Adjust → Intake: preview",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:900",
+      "covered": "no",
+      "by": "no preview returned"
+    },
+    {
+      "path": "Adjust → Maintenance: message (+ standard wording)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:958",
+      "covered": "yes",
+      "by": "update_automations maintenanceMessage"
+    },
+    {
+      "path": "Adjust → Maintenance: plan members' message",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1073",
+      "covered": "yes",
+      "by": "update_automations maintenancePlanMessage"
+    },
+    {
+      "path": "Adjust → Maintenance: first text days before",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1034",
+      "covered": "no",
+      "by": "update_automations has no leadDays"
+    },
+    {
+      "path": "Adjust → Maintenance: days between texts and card",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1049",
+      "covered": "no",
+      "by": "no secondAfterDays"
+    },
+    {
+      "path": "Adjust → Maintenance: at most a day",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1064",
+      "covered": "no",
+      "by": "no maxPerDay"
+    },
+    {
+      "path": "Adjust → Invoices: days after due",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1133",
+      "covered": "yes",
+      "by": "update_action_center_settings invoiceOverdueDays"
+    },
+    {
+      "path": "Adjust → Invoices: ignore balances under",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1153",
+      "covered": "yes",
+      "by": "update_action_center_settings ignoreBalancesUnderDollars"
+    },
+    {
+      "path": "Adjust → Estimates: days after it went out",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1185",
+      "covered": "yes",
+      "by": "update_action_center_settings estimateWaitingDays"
+    },
+    {
+      "path": "Adjust → Stages: what each stage means (incl. Nothing)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1289",
+      "covered": "yes",
+      "by": "update_automations stageMeanings"
+    },
+    {
+      "path": "Adjust → Evening email: Sends at",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1347",
+      "covered": "yes",
+      "by": "update_automations endOfDayEmailAt"
+    },
+    {
+      "path": "Wording editor → text box",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1499",
+      "covered": "yes",
+      "by": "update_automations followUpMessage / reengageMessage"
+    },
+    {
+      "path": "Wording editor → Insert chips",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1512",
+      "covered": "yes",
+      "by": "placeholders written into the message"
+    },
+    {
+      "path": "Wording editor → Reset",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1493",
+      "covered": "partly",
+      "by": "can rewrite; standard wording not known"
+    },
+    {
+      "path": "Wording editor → Preview",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1528",
+      "covered": "no",
+      "by": "no preview returned"
+    },
+    {
+      "path": "Wording editor → checks (no prices, no links, texts count)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1546",
+      "covered": "partly",
+      "by": "command refuses bad wording; count not given"
+    },
+    {
+      "path": "Wording editor → Looks good, turn on (owner only)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1588",
+      "covered": "partly",
+      "by": "yes for re-engage (update_automations turnOn card); not for quiet-lead follow-ups"
+    },
+    {
+      "path": "Adjust → Gone quiet: per-stage days",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1668",
+      "covered": "partly",
+      "by": "goneQuietAfterDays sets one number, not per stage"
+    },
+    {
+      "path": "Adjust → Gone quiet: Every stage",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1685",
+      "covered": "yes",
+      "by": "update_action_center_settings goneQuietAfterDays"
+    },
+    {
+      "path": "Adjust → Gone quiet: Follow up on leads that went quiet",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1717",
+      "covered": "partly",
+      "by": "followUpOnQuietLeads refused until wording read on screen"
+    },
+    {
+      "path": "Adjust → Gone quiet: follow-up wording",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1729",
+      "covered": "yes",
+      "by": "update_action_center_settings followUpMessage"
+    },
+    {
+      "path": "Adjust → Re-engage: gone cold after",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1793",
+      "covered": "yes",
+      "by": "update_automations reengageAfterDays"
+    },
+    {
+      "path": "Adjust → Re-engage: at most a day",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1804",
+      "covered": "yes",
+      "by": "update_automations reengageMostPerDay"
+    },
+    {
+      "path": "Adjust → Re-engage: not again for",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1819",
+      "covered": "yes",
+      "by": "update_automations reengageNotAgainForDays"
+    },
+    {
+      "path": "Adjust → Re-engage: wording",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1829",
+      "covered": "yes",
+      "by": "update_automations reengageMessage"
+    },
+    {
+      "path": "Adjust → AI calls: when a voicemail box answers",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1908",
+      "covered": "yes",
+      "by": "update_automations whenVoicemailAnswers"
+    },
+    {
+      "path": "Adjust → AI calls: calling hours start / end / weekends",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:1942",
+      "covered": "yes",
+      "by": "update_automations callLeadsFrom / Until / AtWeekends"
+    },
+    {
+      "path": "Adjust → AI calls: tries",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:2002",
+      "covered": "yes",
+      "by": "update_automations callTries"
+    },
+    {
+      "path": "Adjust → AI calls: Ask for an OK to call",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:2031",
+      "covered": "yes",
+      "by": "update_automations askForOkToCall"
+    },
+    {
+      "path": "Adjust → AI calls: OK-to-call box preview",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:2040",
+      "covered": "no",
+      "by": "no preview returned"
+    },
+    {
+      "path": "Adjust → AI calls: business landlines + price + lawyer note",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:2063",
+      "covered": "yes",
+      "by": "update_automations callBusinessLandlines; prices in get_settings usage"
+    },
+    {
+      "path": "Adjust → AI tags: notes",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:2092",
+      "covered": "partly",
+      "by": "one-liner only"
+    },
+    {
+      "path": "Adjust → AI tags: How you tag customers + Save, too long",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/automations/panels.tsx:2124",
+      "covered": "yes",
+      "by": "update_automations howYouTag"
+    },
+    {
+      "path": "Phone Settings → search box",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:139",
+      "covered": "partly",
+      "by": "settings map + get_settings; no search tool"
+    },
+    {
+      "path": "Phone Settings → search result: page or Opens on the web + value; no match",
+      "kind": "see",
+      "file": "apps/mobile/src/settings/settings-search.tsx:96",
+      "covered": "partly",
+      "by": "values via get_settings"
+    },
+    {
+      "path": "Phone Settings → search result tap opens + flashes",
+      "kind": "do",
+      "file": "apps/mobile/src/settings/settings-search.tsx:105",
+      "covered": "partly",
+      "by": "settings_help link"
+    },
+    {
+      "path": "Phone Settings → This phone → My cell row",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:156",
+      "covered": "yes",
+      "by": "read_user_phone_get"
+    },
+    {
+      "path": "Phone Settings → This phone → Face ID / passcode lock",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:170",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.lock"
+    },
+    {
+      "path": "Phone Settings → This phone → Businesses on this phone",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:189",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.businesses"
+    },
+    {
+      "path": "Businesses on this phone → Keep on this phone per business + note",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx:26",
+      "covered": "never",
+      "by": "device setting (phone.businesses)"
+    },
+    {
+      "path": "Phone Settings → This phone → Documents on mobile data",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:198",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.documents_mobile_data"
+    },
+    {
+      "path": "Phone Settings → This phone → Changes waiting to send",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:213",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Phone Settings → This business → Balance row",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:228",
+      "covered": "yes",
+      "by": "get_settings usage"
+    },
+    {
+      "path": "Phone Settings → This business → Main offer row",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:237",
+      "covered": "yes",
+      "by": "manage_main_offer / edit_main_offer (own area)"
+    },
+    {
+      "path": "Phone Settings → This business → Partners row",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:246",
+      "covered": "yes",
+      "by": "get_settings partners; manage_partner (own area)"
+    },
+    {
+      "path": "Phone Settings → You → My safety",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:260",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety"
+    },
+    {
+      "path": "Phone Settings → You → Notifications",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:268",
+      "covered": "yes",
+      "by": "update_my_alerts"
+    },
+    {
+      "path": "Phone Settings → You → Profile (opens web)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:275",
+      "covered": "yes",
+      "by": "update_my_account fullName"
+    },
+    {
+      "path": "Phone Settings → You → Appearance sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:316",
+      "covered": "partly",
+      "by": "phone keeps its own; update_my_account sets the account's"
+    },
+    {
+      "path": "Phone Settings → You → Sign out",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:295",
+      "covered": "person",
+      "by": "signing in and out is the person's"
+    },
+    {
+      "path": "Phone Settings → You → Delete account",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:301",
+      "covered": "never",
+      "by": "NEVER account.delete"
+    },
+    {
+      "path": "Phone Settings → footnote (rest is on the web)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:309",
+      "covered": "yes",
+      "by": "prompt: phone Settings holds only own things"
+    },
+    {
+      "path": "Phone Usage → Top up confirm sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx:247",
+      "covered": "yes",
+      "by": "do_wallet_top_up card"
+    },
+    {
+      "path": "Phone Usage → only owners can change note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx:125",
+      "covered": "yes",
+      "by": "permission refusal words"
+    },
+    {
+      "path": "Phone Usage → amount sheets (below, add, AI limit)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx:393",
+      "covered": "yes",
+      "by": "update_auto_topup; do_wallet_set_ai_limit"
+    },
+    {
+      "path": "Phone Usage → Remove card confirm sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx:521",
+      "covered": "yes",
+      "by": "do_wallet_forget_card"
+    },
+    {
+      "path": "Phone Usage → Statement Show more",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx:594",
+      "covered": "yes",
+      "by": "read_usage_statement"
+    },
+    {
+      "path": "Phone Usage → CSV is on the web note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx:604",
+      "covered": "partly",
+      "by": "rows readable; no file"
+    },
+    {
+      "path": "Phone → Delete for good (preview, into the bin, tell customers)",
+      "kind": "do",
+      "file": "apps/mobile/src/bin/calls.ts:1",
+      "covered": "yes",
+      "by": "move_to_bin"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "ws-1",
+      "severity": "high",
+      "kind": "words",
+      "where": "Settings → Workspace, \"Your page\" card: the full link with \"Copy the link\" and Open (and every booking or calendar link the person asks for)",
+      "gap": "No read gives a whole public link. Read tools get only (db, ctx, args), and ToolContext has no webUrl (runtime.ts:91-98), so get_settings cannot build an origin. business returns workspace.get, and booking_site returns booking_site.get, whose only address is path \"/book/<slug>\" (calendar.ts:1068). manage_booking_site's card and outcome also give only \"/book/<slug>\" (tools-settings-calendar.ts:939, 968). The only sample link the model sees is https://handsfreeos.com/book/acme (prompt.ts:49), but the real origin is https://app.handsfreeos.com (worker fly.toml:45 WEB_URL), or https://<domain> once a branded domain is verified with its certificate. When a branded domain is serving, Your page's link is the domain root with no /book path (page-card.tsx:59). The \"handsfreeos.com\" wording in manage_web_address (tools-setup.ts:1747, 1797, 1842) and settings-map.ts:141 names the site loosely, not as a URL. It is a lesser fix than the missing link.",
+      "fix": "Add webUrl to ToolContext (or pass extra.webUrl to read tools). In tools-settings.ts QUERIES.booking_site, and in the business area through a booking_site.get + branded_domain.get pair, return `link` built the same way as tools-forms.ts:385-389: branded origin when status==='verified' && certificateReady, else webUrl, plus site.path. For Your page, return `pageLink`: the branded origin alone when serving, else webUrl + path, and null when site.page is false. Return the same full link in manage_booking_site's outcome (tools-settings-calendar.ts:968). Change prompt.ts:49's example to a neutral https://acme.com/book.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "use-1",
+      "severity": "high",
+      "kind": "words",
+      "where": "Settings → Usage & balance, the Top up button (and the phone's Usage & balance)",
+      "gap": "The SYSTEM prompt's list of things only the person can do includes \"topping up their balance\" and tells the model to call settings_help (prompt.ts:34). settings_help's own description says the same (tools.ts:360). The Assistant can in fact top up: wallet.top_up is a SCREEN_ACTION (coverage.ts:161), SETTING_TOOLS maps usage.balance to do_wallet_top_up (coverage.ts:561), and usage.canChange includes \"top up the balance now, from the card on file\" (settings-map.ts:808). Only the auto top-up tool's description says top-ups go through do_wallet_top_up (tools-billing.ts:318), and the model doesn't see it unless that tool is loaded.",
+      "fix": "In prompt.ts:34 and tools.ts:360, replace \"topping up their balance\" with \"adding or changing the card on file\". Add to prompt.ts:34: \"a top-up from the card on file is do_wallet_top_up, on a card\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "bin-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Settings → Deleted bin: each row's name, kind, \"Deleted by X on <date>\", what went with it, \"Being deleted now\", and Show more",
+      "gap": "bin.list returns deletedBy, emptying, contents and nextCursor (bin.ts:97-112). The deleted_bin shape keeps only id, kind, name, deletedAt and purgeAfter (tools-settings.ts:104-128). It drops who deleted each item, though settings-map onScreen promises \"who deleted it\" (settings-map.ts:304). It also drops \"Being deleted now\" and what went with each item, returns the raw kind (custom_record, appointment), and gives no sign that more items exist past the first page of 50 (crm.ts:16). restore_from_bin pages through every item (tools-settings-more.ts:413-429), but its binItemId has to come from that capped list. Severity is lowered: most businesses' 30-day bin holds under 50 items, and nothing can be lost.",
+      "fix": "In the tools-settings.ts deleted_bin shape, add per item: deletedBy: i.deletedBy?.name ?? null, beingDeletedNow: i.emptying, kind: binKindLabel(i), and detail: binItemDetail(i, timezone) from packages/core/src/bin-words.ts:278-290. Return { items, more: nextCursor !== null }. Either add `name`/`cursor` inputs to get_settings for deleted_bin, or let restore_from_bin take a name and search all pages, as binItemOf already does.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "ws-2",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Workspace: the \"Logo and colour\", \"Your page\" (link and Show your page switch) and \"Getting started guide\" cards",
+      "gap": "Two cards are real gaps. \"Logo and colour\" and \"Your page\" are not in business.onScreen or business.canChange (settings-map.ts:125-133), and \"Your page\" appears nowhere in the settings map. The tools exist: do_look_set, do_look_find and do_booking_site_set_page (coverage.ts:143-144,212,502-506). Uploading a logo is NEVER (coverage.ts:397), and no handover says where to do it. The Getting started guide part is already covered: places-map.ts:48 names \"Settings → Workspace, Getting started guide\", and do_onboarding_set_enabled is mapped (coverage.ts:507).",
+      "fix": "Add to business.onScreen: \"Logo and colour: Upload a logo, Find it from my website, Remove, and the colour\", \"Your page: Show your page switch, the link with Copy the link and Open\" and \"Getting started guide\". Add to business.canChange: \"the business colour, finding the logo from its website, or taking the logo off\" and \"show or hide the one-page site (Your page)\". Add a handover { what: 'upload a logo', why: 'it is a picture from your own computer or phone', steps: ['Open Settings → Workspace.', 'In Logo and colour, press Upload a logo and pick the picture.'] }.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "auto-1",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Automations, intake panel: the \"Intake message\" box with Save and \"Use the standard wording\"",
+      "gap": "update_automations has intakeFormId but no input for the message (tools-extra.ts core:285-410). list_automations returns only the intake form's name (worker tools-extra.ts:754-756). The screen edits intake.message, with Save and the standard wording (panels.tsx:884-900; automations/settings.ts:107-118). The only way to read it is the raw workspace.settings.automations.intake.message inside get_settings(business), which exists only after the Automations page has been saved once. Nothing points the model there.",
+      "fix": "In listAutomations (worker tools-extra.ts:754), return intake: { form, message: a.intake.message, standard: a.intake.message === DEFAULT_INTAKE_MESSAGE }. Add intakeMessage: text(480).nullable().optional() to update_automations, with null meaning DEFAULT_INTAKE_MESSAGE, validated with intakeMessageProblem. Plan it in planAutomations as intake: { ...now.intake, message }, and show it on the card as \"Intake message\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "auto-2",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Automations, maintenance panel: days before it is due, days between each step, at most a day",
+      "gap": "The maintenance panel sets leadDays, secondAfterDays and maxPerDay (panels.tsx:1027-1060; settings.ts:133-137). list_automations returns only template and planTemplate (worker tools-extra.ts:766), and update_automations has no input for any of the three. They are reachable only as raw settings.automations.maintenance through get_settings(business), after a save. These rows have no setting= key, which is why the coverage test never flagged them.",
+      "fix": "In listAutomations, return maintenanceDue: { message, planMessage, daysBefore: leadDays, daysBetween: secondAfterDays, mostPerDay: maxPerDay }. Add to update_automations maintenanceDaysBefore: z.int().min(0).max(60), maintenanceDaysBetween: z.int().min(1).max(30) and maintenanceMostPerDay: z.int().min(1).max(200), merged into maintenance at tools-extra.ts:1002-1030. Add setting keys to the three panel rows so coverage checks them.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "auto-3",
+      "severity": "medium",
+      "kind": "never",
+      "where": "Settings → Automations, \"Text leads that went quiet\": the owner-only \"Looks good, turn on\"",
+      "gap": "update_action_center_settings blocks followUpOnQuietLeads=true until nudgeReviewedAt is set (tools-settings-money.ts:699-725). Re-engage dead leads, which has the same review-first shape, shows its message on the card, and Confirm counts as Looks good, turn on (worker tools-extra.ts:870-882, 1114-1117). docs/operations.md:6970 records the owner's decision that every Automations row can be done this way. The screen keeps this to owners (\"Chris's rule\": an owner reads the words; panels.tsx:1384, 1423, 1579-1590). Any fix must keep that gate. The re-engage path doesn't check for an owner either.",
+      "fix": "In tools-settings-money.ts prepare: when followUpOnQuietLeads===true and nudgeReviewedAt is null, and the person is an owner, put next.nudge.template on the card as a \"Follow-up wording\" field with the caution \"Read the wording above: saving is your Looks good, turn on.\" In commit, set auto.nudgeReviewedAt = now. For a non-owner, keep the block, reworded as \"An owner turns follow-ups on after reading the wording.\" Add the same owner check to the reengage readFirst branch (tools-extra.ts:870).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "auto-4",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Automations, \"Text leads that went quiet\": one gone-quiet box per open stage",
+      "gap": "Changing it is a real gap. update_action_center_settings sets only stale.days (goneQuietAfterDays, tools-settings-money.ts:610). The screen keeps a number per open stage in stale.stageDays (panels.tsx:1612-1623), and SETTING_TOOLS maps adjust.gone_quiet to the overall number only (coverage.ts:542). The card says \"Gone quiet after N days\" without saying that stages with their own number keep it. Reading it is not a gap: get_settings(action_center) returns attention.settings unshaped, stale.stageDays included, keyed by stage id, and the context lists stage ids and names.",
+      "fix": "Add goneQuietByStage: z.array(z.object({ stageId: uuid, days: z.int().min(1).max(365).nullable() })).max(50) to update_action_center_settings. null, or days equal to stale.days, deletes the override, as setStale does. On the card, list each stage's change by name. When goneQuietAfterDays changes while overrides exist, add a note: \"<stage> keeps its own N days.\"",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "phone-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Phone app → More → Settings: the \"This business\" section (Usage & balance, Main offer, Partners), Face ID, Businesses on this phone, My safety",
+      "gap": "The SYSTEM sentence is wrong. It says the phone's Settings holds only notifications, appearance and their cell (prompt.ts:38). But the prompt's own PHONE_APP list already says the phone's Settings has My cell phone, Face ID, Businesses on this phone and Usage & balance (places-map.ts:626), so the model gets two contradicting lines. Neither mentions Main offer or Partners, which show under This business (mobile settings/index.tsx:228-246). My safety is named in settings-map.ts:1021.",
+      "fix": "In prompt.ts:38, replace \"the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web\" with \"the phone app's own Settings is listed under The phone app below; the rest of the business is set up on the web\". In places-map.ts:626, add \"My safety, and under This business: Usage & balance, Main offer and Partners (while an add-on that uses them is on)\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "fld-1",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Fields: Move up / Move down on each field",
+      "gap": "The screen reorders fields with custom_field.update { position } (fields-settings.tsx:71-88). manage_custom_field has no position input (core tools-setup.ts:82-104), and the worker's commit never sends position (worker tools-setup.ts:674-683).",
+      "fix": "Add 'move' to manage_custom_field's action enum, with `order: uuid[]` (every field of that record type, in order). At commit, renumber from 0 and call custom_field.update { customFieldId, position } only for the fields whose position changes, as fields-settings.tsx move() does. The card shows Order: A → B → C.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "fld-2",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Fields, a choice field's choices: editing a choice's label",
+      "gap": "optionsFor matches choices by label (worker tools-setup.ts:469-474), so a renamed choice gets a new value. The card shows the old label under \"Taken off\" with \"stays on the records that already have it\" (tools-setup.ts:613-626), and records with the old value no longer match any choice. The screen keeps ChoiceDraft.value when a label is edited, so records keep their answer (fields-settings.tsx:227-231, 247-249).",
+      "fix": "Add renameChoices: z.array(z.object({ from: text(60), to: text(60) })).max(50).optional() to manage_custom_field. In optionsFor, keep the value of the option labelled `from` under the new `to` label. On the card, show \"Renamed: Old → New\" and leave renamed choices out of \"Taken off\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-1",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Pipelines, a stage's Edit dialog: the Kind select (open, won, lost)",
+      "gap": "rename_stage commits stageKind (tools-settings-business.ts:282-287), but its card shows only Pipeline, Now and Was (215-226), so a kind change goes through unseen. The description doesn't say rename_stage can change a stage's kind (tools.ts:536), and neither does pipelines.canChange (settings-map.ts:244). archive_pipeline's card says \"nothing new can be added to it\", where the screen says \"It disappears from the board; its won and lost leads keep their history\" (pipelines-editor.tsx:80). The delete card falls back to \"the first stage\" (tools-settings-business.ts:236). The screen defaults to the first stage of the same kind (pipelines-editor.tsx:417-418), and stage.delete refuses when leads exist and no target is given (stage.delete.ts:36-40).",
+      "fix": "In the rename_stage card, add { label: 'Counts as', value } and a Was row whenever stageKind differs from found.stage.kind. Retitle it \"Change <stage>\", and refuse when leadCount>0, saying \"A stage with leads keeps its kind. Move the leads out first.\" Add \"rename_stage can also change what it counts as (open, won, lost)\" to the manage_pipeline description, and \"change what a stage counts as\" to pipelines.canChange. Reword the archive note to the screen's words. In delete_stage, default to the first other stage of the same kind, or block when leads exist and there is no target.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "bin-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Deleted bin, who can see it",
+      "gap": "readArea adds the same note to every hidden part: \"Not this person's to see… An owner or admin can.\" (tools-settings.ts:290-292). deleted_bin needs records.delete, which only owners have by default (permissions.ts:35-37; admin's list has no records.delete). Owner-only permissions.manage (the permissions area) is wrong the same way. An admin is told that an admin can.",
+      "fix": "Add `whoCan` to SettingsAreaInfo, or work it out from info.permission and ROLE_PERMISSIONS: \"an owner\" when only owners hold it, otherwise \"an owner or admin\". For deleted_bin, override it to \"an owner, or someone an owner gave Delete for good to\". Use it in the note at tools-settings.ts:291.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "ws-3",
+      "severity": "low",
+      "kind": "do",
+      "where": "Settings → Workspace, the business form: Website and Review link (clearing them, and the other saved links)",
+      "gap": "website and reviewLink are z.url().optional() (tools.ts:524-525), so neither can be cleared. The screen saves an empty box as null (workspace-form.tsx:62-67). The commit writes settings.links = { review } (tools-settings-business.ts:134), and workspace.update merges settings only one level deep (workspace.update.ts:33), so links is replaced whole. Today review is the only key anyone writes under links (workspace-form.tsx:66, onboarding-setup.ts:328), so nothing is lost yet. Severity is lowered for that reason.",
+      "fix": "Change both to z.url().max(500).nullable().optional() (null clears). In the commit, read workspace.settings.links and write links: { ...now.links, review: args.reviewLink }, and website: args.website as given, null included, rather than through str(). On the card, show \"None\" for a cleared value.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "menu-1",
+      "severity": "low",
+      "kind": "do",
+      "where": "Settings → Account, Side menu → Edit menu: Move up/down, Add group, naming a group, moving a place into a group, Ungroup",
+      "gap": "arrange_my_menu's actions are hide, show, use_suggested and start_over (tools-extra.ts:421-434). The sheet also moves entries up and down, moves a place into a group, adds, renames and ungroups groups (menu-editor.tsx:12-17, 187-192, 215-289). Yet the prompt tells people they may have \"moved or grouped\" a place (prompt.ts:38).",
+      "fix": "Add actions to arrange_my_menu: move (place, before/after a place or group), group (name, places; at most MENU_GROUPS_MAX), rename_group (group, name) and ungroup (group). Apply them with core's moveKey, renameGroup and ungroup from packages/core/src/account/menu.ts, and save through the same menu setting.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "phone-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Phone app → Settings → Appearance (this phone only)",
+      "gap": "The phone keeps its appearance in deviceStore and ignores the account's (mobile lib/appearance.ts:9-10, 26-31). Its row carries settingKey account.appearance (mobile settings/index.tsx:285), which SETTING_TOOLS maps to update_my_account, and that writes the account theme (tools-settings-me.ts:105). The model can't tell a phone asker from a web one (context.ts has no surface field).",
+      "fix": "Change the update_my_account description to \"whether the web app is light or dark (the phone app keeps its own, in More → Settings → Appearance)\". Give the phone row its own key, phone.appearance, in SETTINGS_NEVER, with the reason \"kept on the phone itself: More → Settings → Appearance\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "auto-5",
+      "severity": "low",
+      "kind": "read",
+      "where": "Settings → Automations, AI calls panel: \"Call business landlines without a yes\"",
+      "gap": "list_automations' calls section returns voicemail, hours, tries and askConsent but not businessLandlines (worker tools-extra.ts:758-765), which update_automations does change (998-1001). It is reachable only as raw settings.automations.calls.businessLandlines through get_settings(business), which returns workspace.settings unshaped, and only after the Automations page has been saved once. Nothing tells the model to look there.",
+      "fix": "Add callsBusinessLandlines: a.calls.businessLandlines to listAutomations' result, next to asksForOkToCall (tools-extra.ts:765).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tag-1",
+      "severity": "low",
+      "kind": "read",
+      "where": "Settings → Tags, \"What the AI changed lately\"",
+      "gap": "ai_tagging_status asks contact_ai.reviews for limit 10 (tools-contacts.ts:131-138). The page asks for 15 (tags/page.tsx:27-28) and has no Show more of its own, so the two lists differ by 5 rows. \"This week\" questions aren't stuck: every tag change goes to the audit log with its reason (prompt.ts:26), and audit.list is a screen read (screen-reads.ts SCREEN_READS includes audit.list), so read_audit_list can answer.",
+      "fix": "Change limit: 10 to 15 in tools-contacts.ts:137 to match the screen. Return `more: true` when contact_ai.reviews gives a next cursor, and say in the description that older changes are in the audit log.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "bin-3",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Deleted bin, the page's own description and the kind on each row",
+      "gap": "deleted_bin.what says \"customers, conversations and bookings\" (settings-map.ts:301). The screen's BIN_WORDS.about and move_to_bin also cover leads, companies and records (bin-words.ts:83; tools-settings-more.ts:58). restore_from_bin's card labels the kind with its own KIND_WORDS, which says \"Appointment\" where the screen says \"Booking\" and \"Record\" where the screen gives the custom record's own kind (tools-settings-more.ts:402-409, 444).",
+      "fix": "Set deleted_bin.what to 'customers, conversations, bookings, leads, companies and records deleted for good, kept 30 days so they can be brought back, then gone' (BIN_WORDS.about's list). In restore_from_bin, delete KIND_WORDS and label the card field binKindLabel(item) from bin-words.ts:278. That needs contents added to the local BinItem type.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "use-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Usage & balance: the founding plan card above the balance (renewing on or off, Pay with another card after a refused renewal)",
+      "gap": "Renewing is already covered: usage.canChange has \"whether the founding plan renews\" (settings-map.ts:811), and SETTING_TOOLS maps usage.founding to do_founding_set_renewing (coverage.ts:569). founding.mine is read in the usage area (tools-settings.ts:202). Two parts are real. The card is not in usage.onScreen (settings-map.ts:796-803). founding.pay_renewal is NEVER (coverage.ts:386) with no handover, so the model can't say where to pay a refused renewal.",
+      "fix": "Add 'The founding plan, above the balance: when it renews and for how much, Stop renewing or Keep renewing, and Pay with another card after a refused renewal' to usage.onScreen. Add a usage handover { what: 'pay a refused founding plan renewal with another card', why: 'it is paid on Stripe’s page, which only you can do', steps: ['Open Settings → Usage & balance.', 'On the founding plan card, press Pay with another card, then pay on Stripe’s page.'] }.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pipe-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Pipelines: stage rows with Move up/down, Edit and Delete, the Default badge, lead counts",
+      "gap": "\"Which pipeline is the default\" and the lead counts can already be answered: get_settings(pipelines) returns pipeline.list unshaped, with isDefault and each stage's leadCount (pipeline.list.ts:38,47). There is no way to set the default on the screen, only a Default badge on the first active pipeline (pipelines-editor.tsx:103). The suggested how-to for setting it would invent a button. The real gap is that onScreen leaves out each stage row's Move up, Move down, Edit (name and kind) and Delete, and the counts (pipelines-editor.tsx:151-172).",
+      "fix": "Change pipelines.onScreen's first line to 'Pipelines and stages: a card for each pipeline (the first one is the Default, with its badge), its lead count, Rename, Add stage and Archive; each stage with its leads, Move up and Move down, Edit (name and Kind) and Delete'. Add no set-default how-to.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "dom-1",
+      "severity": "low",
+      "kind": "do",
+      "where": "Settings → Workspace, Branded domain: Check now and the DNS records table",
+      "gap": "Check waiting for Confirm is real: manage_web_address is autonomy 'confirm' (tools-setup.ts:249), but branded_domain.verify is risk 1 (branded-domain.ts:128), which the settled rules let run on its own. The 4-record limit only affects the card: prepare's result already gives the model every record (tools-setup.ts:1777-1782), and the handover says the domain needs \"usually one, sometimes two\".",
+      "fix": "Split check out of manage_web_address into an auto tool (check_web_address) that runs branded_domain.verify and returns status and all records. Or have the worker run action==='check' straight away without a card. If the card stays, drop .slice(0, 4) at tools-setup.ts:1771.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

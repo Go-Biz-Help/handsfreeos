@@ -1,0 +1,1759 @@
+{
+  "area": "settings-money-partners",
+  "title": "Settings: payments, products, partners, imports and migrations",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/[partnerId].tsx": "f392529733e2",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/index.tsx": "fe824ca6769b",
+    "apps/mobile/src/components/customers/partner-card.tsx": "1436d5ed4d05",
+    "apps/mobile/src/partners/calls.ts": "5ac1e2d02cb1",
+    "apps/mobile/src/partners/screens.tsx": "bdfaee242467",
+    "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx": "dbc58fe685bf",
+    "apps/web/src/app/app/w/[workspaceId]/settings/migrations/[migrationId]/page.tsx": "648fa28d778c",
+    "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx": "aa90c8b49db7",
+    "apps/web/src/app/app/w/[workspaceId]/settings/partners/[partnerId]/page.tsx": "68de793a5f5d",
+    "apps/web/src/app/app/w/[workspaceId]/settings/partners/page.tsx": "3b681fa6fef9",
+    "apps/web/src/app/app/w/[workspaceId]/settings/payments/page.tsx": "2139dd184e27",
+    "apps/web/src/app/app/w/[workspaceId]/settings/payments/products/page.tsx": "d04f5eac8abc",
+    "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
+    "apps/web/src/components/migrations/wizard.tsx": "65ae1c100765",
+    "apps/web/src/components/money/products-page.tsx": "bec9b813582c",
+    "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
+    "apps/web/src/components/partners/partner-detail.tsx": "485bf34fe90f",
+    "apps/web/src/components/partners/payouts-section.tsx": "6e34f7fdae98",
+    "apps/web/src/components/partners/settings-page.tsx": "0ff4c1bbbd6e",
+    "apps/web/src/components/settings/payment-access-dialog.tsx": "aca450d764a2",
+    "apps/web/src/components/settings/payment-connection-card.tsx": "e4e25823ce36",
+    "apps/web/src/components/settings/payments-page.tsx": "97963511aa7c"
+  },
+  "items": [
+    {
+      "path": "Settings → Payments → problems banner → each issue: message, and Nothing is saved until this is fixed / Doesn’t stop it saving",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:344",
+      "covered": "partly",
+      "by": "get_settings payments returns raw settings, not the issues; update_money_settings card lists only new warnings it causes"
+    },
+    {
+      "path": "Settings → Payments → problems banner → Fix: buttons (Ask for 25%, No deposit, New items are taxable, Set the rate to 0%, Use EST- for estimates, Remind on the due date…)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:381",
+      "covered": "yes",
+      "by": "update_money_settings depositKind/depositPercent/newItemsTaxable/taxRatePercent/remindOnDueDay; update_numbering_and_ways_to_pay estimatePrefix"
+    },
+    {
+      "path": "Settings → Payments → problems banner → no address → Write it in",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:394",
+      "covered": "yes",
+      "by": "update_money_settings businessAddress"
+    },
+    {
+      "path": "Settings → Payments → footer: Fix the red item above — nothing is saved until it’s sorted / Everything here saves as you change it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:1053",
+      "covered": "partly",
+      "by": "update_money_settings refuses a $0/0% deposit before Confirm; no read of the blocking state"
+    },
+    {
+      "path": "Settings → Payments → back from Stripe or Square: Connected… / Nothing was connected / A permission was left unticked… / That account didn’t connect",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:32",
+      "covered": "person",
+      "by": "the person’s own sign-in at the provider (payment_connection.connect NEVER)"
+    },
+    {
+      "path": "Settings → Payments → Accounts you get paid into → Money goes straight to your own account. HandsFreeOS never holds it.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:419",
+      "covered": "no",
+      "by": "not told in any tool description or the settings map"
+    },
+    {
+      "path": "Settings → Payments → Accounts you get paid into → each account: provider · its name",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:263",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].provider, label, displayName"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: Default badge",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:267",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].isDefault"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: Connected / Needs reconnecting / Not working / Connecting badge",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:272",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].status"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: Test badge",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:273",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].environment"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: account id · location (or No account id yet)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:275",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].externalAccountId, locationId"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: Card · bank transfer · plans · refunds (or Nothing yet — the provider is still checking it)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:279",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].capabilities"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: Stripe needs more details from you by date… with your Stripe dashboard link",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:280",
+      "covered": "partly",
+      "by": "get_settings payments → capabilities.needsInfo, needsInfoBy; the dashboard link isn’t given"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: why it needs reconnecting or isn’t working (last error)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:294",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].lastError, status"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Square account: Square signs you out every 30 days. HandsFreeOS renews it each week.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:299",
+      "covered": "no",
+      "by": "not told anywhere; tokenExpiresAt only"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: n plans bill through it",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:304",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].liveSubscriptions"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account: Used by: Everyone who bills / Only Maria and Chris / …and only this account for them",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:310",
+      "covered": "yes",
+      "by": "get_settings payments → accounts[].usedBy, userIds; names from get_settings team"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account → Make default",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:328",
+      "covered": "yes",
+      "by": "manage_payment_account action make_default"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account → Reconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:339",
+      "covered": "person",
+      "by": "signing in at Stripe or Square (payment_connection.connect NEVER); settings_help payments"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account → ⋯ → Rename (What do you call this account?)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:360",
+      "covered": "yes",
+      "by": "manage_payment_account action rename, label"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account → Change / ⋯ → Who can use it",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:362",
+      "covered": "yes",
+      "by": "do_payment_connection_set_access"
+    },
+    {
+      "path": "Settings → Payments → Accounts → each account → ⋯ → Disconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:364",
+      "covered": "yes",
+      "by": "manage_payment_account action disconnect"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Disconnect → Plans still bill through this account → explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:374",
+      "covered": "yes",
+      "by": "manage_payment_account refusal payment_connection_has_plans and keepPlansBilling description say the same"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Disconnect → Plans still bill… → each plan’s name",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:380",
+      "covered": "partly",
+      "by": "accounts[].liveSubscriptions is a count; list_plans doesn’t say which account each plan bills through"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Disconnect → Plans still bill… → Keep it connected",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:389",
+      "covered": "yes",
+      "by": "declining the manage_payment_account card"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Disconnect → Plans still bill… → Cancel them first",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:392",
+      "covered": "yes",
+      "by": "manage_customer_plan action cancel, then manage_payment_account disconnect"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Disconnect → Plans still bill… → Disconnect anyway",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-connection-card.tsx:401",
+      "covered": "yes",
+      "by": "manage_payment_account disconnect, keepPlansBilling true"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Who can use {account} → Everyone who bills / Only the people you pick / Only the people you pick, and only this account for them",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-access-dialog.tsx:117",
+      "covered": "yes",
+      "by": "do_payment_connection_set_access input usedBy"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Who can use {account} → Who: a box for each person who bills, (can’t bill) / (has left)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-access-dialog.tsx:140",
+      "covered": "yes",
+      "by": "do_payment_connection_set_access input userIds; who bills from get_settings team → members[].permissions"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Who can use {account} → Only people who may send invoices are listed… Settings → Permissions",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-access-dialog.tsx:156",
+      "covered": "yes",
+      "by": "settings map permissions; manage_permissions turns money.bill on"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Who can use {account} → Pick who uses this account. (error)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payment-access-dialog.tsx:160",
+      "covered": "yes",
+      "by": "do_payment_connection_set_access refusal from the command"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Who can use {account} → Cancel / Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payment-access-dialog.tsx:167",
+      "covered": "yes",
+      "by": "do_payment_connection_set_access card Confirm or decline"
+    },
+    {
+      "path": "Settings → Payments → Accounts → No account connected yet (empty)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:436",
+      "covered": "yes",
+      "by": "get_settings payments → accounts empty"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Connect Stripe / Connect Square",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:442",
+      "covered": "person",
+      "by": "signing in at the provider (payment_connection.connect NEVER); settings_help payments gives the steps"
+    },
+    {
+      "path": "Settings → Payments → Accounts → You can connect several, including two of the same kind, and keep each one to the people who use it.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:463",
+      "covered": "partly",
+      "by": "settings map: who may bill into each payout account; several accounts not said"
+    },
+    {
+      "path": "Settings → Payments → Accounts → Disconnecting asks about the plans… Refunds keep working if you reconnect",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:467",
+      "covered": "yes",
+      "by": "manage_payment_account card warnings say both"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → What the customer sees on their page, in this order.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:476",
+      "covered": "yes",
+      "by": "update_numbering_and_ways_to_pay description"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Bank transfer: Cheapest, about 1% capped at $5, 1 to 3 business days",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:484",
+      "covered": "no",
+      "by": "its cost and timing aren’t told to the Assistant"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Bank transfer switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:492",
+      "covered": "yes",
+      "by": "update_money_settings offerBankTransfer (also update_numbering_and_ways_to_pay)"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Card: Visa, Mastercard, Amex, Apple Pay and Google Pay… Always on",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:506",
+      "covered": "partly",
+      "by": "tool descriptions: card always offered; brands and instant payout not told (SETTINGS_NEVER payments.card)"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Cash and cheque: Not offered to customers. By hand",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:517",
+      "covered": "yes",
+      "by": "update_numbering_and_ways_to_pay description; record_payment"
+    },
+    {
+      "path": "Settings → Payments → Ways to pay → Nothing is ever added for paying by card. Surcharging is banned in four states…",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:529",
+      "covered": "no",
+      "by": "the no-surcharge rule isn’t told to the Assistant"
+    },
+    {
+      "path": "Settings → Payments → Sales tax → One rate for the business. Each line on a document is marked taxable or not.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:539",
+      "covered": "yes",
+      "by": "update_money_settings fields; get_settings payments → settings.tax"
+    },
+    {
+      "path": "Settings → Payments → Sales tax → Rate (%; up to 20%, two decimals; Use a rate like 8.25.)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:544",
+      "covered": "yes",
+      "by": "update_money_settings taxRatePercent (0–20)"
+    },
+    {
+      "path": "Settings → Payments → Sales tax → What to call it on a document (Name the tax.)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:571",
+      "covered": "yes",
+      "by": "update_money_settings taxName"
+    },
+    {
+      "path": "Settings → Payments → Sales tax → New items start taxable switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:592",
+      "covered": "yes",
+      "by": "update_money_settings newItemsTaxable"
+    },
+    {
+      "path": "Settings → Payments → Sales tax → A document keeps the rate it was sent with, for life.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:614",
+      "covered": "yes",
+      "by": "update_money_settings card note when the rate changes"
+    },
+    {
+      "path": "Settings → Payments → Numbering → Numbers run in order, per business. A voided number is kept and never used again.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:623",
+      "covered": "partly",
+      "by": "update_numbering_and_ways_to_pay: next number only goes up; voided numbers not told"
+    },
+    {
+      "path": "Settings → Payments → Numbering → Invoices start with / Estimates start with (prefix; letters, numbers and hyphens)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:639",
+      "covered": "yes",
+      "by": "update_numbering_and_ways_to_pay invoicePrefix, estimatePrefix"
+    },
+    {
+      "path": "Settings → Payments → Numbering → Next number, invoice and estimate (whole number; only moves forward)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:659",
+      "covered": "yes",
+      "by": "update_numbering_and_ways_to_pay invoiceNextNumber, estimateNextNumber"
+    },
+    {
+      "path": "Settings → Payments → Numbering → The next one will be (preview), invoice and estimate",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:684",
+      "covered": "yes",
+      "by": "get_settings payments → nextInvoiceNumber, nextEstimateNumber"
+    },
+    {
+      "path": "Settings → Payments → Numbering → A document gets its number the moment you press Send",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:696",
+      "covered": "no",
+      "by": "not told to the Assistant"
+    },
+    {
+      "path": "Settings → Payments → Your address → It shows at the top of every estimate and invoice…",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:706",
+      "covered": "yes",
+      "by": "update_money_settings businessAddress description"
+    },
+    {
+      "path": "Settings → Payments → Your address → address box",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:711",
+      "covered": "yes",
+      "by": "update_money_settings businessAddress (null takes it off)"
+    },
+    {
+      "path": "Settings → Payments → Your address → Until you write one here, documents show the address from your setup: …",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:727",
+      "covered": "partly",
+      "by": "update_money_settings card shows the setup address only when taking it off; get_settings payments lacks it"
+    },
+    {
+      "path": "Settings → Payments → Your address → Five lines at most. Without it a customer only sees your business name.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:733",
+      "covered": "yes",
+      "by": "update_money_settings: five lines refusal, only-your-name caution"
+    },
+    {
+      "path": "Settings → Payments → Terms and notes → Invoices are due (When they get it, Net 7, 14, 30) with its days line",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:747",
+      "covered": "yes",
+      "by": "update_money_settings terms"
+    },
+    {
+      "path": "Settings → Payments → Terms and notes → Estimates stay good for (days, 1–365)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:779",
+      "covered": "yes",
+      "by": "update_money_settings estimateGoodForDays"
+    },
+    {
+      "path": "Settings → Payments → Terms and notes → After this it expires, and the customer’s page says so.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:783",
+      "covered": "partly",
+      "by": "estimateGoodForDays; the customer page wording isn’t told"
+    },
+    {
+      "path": "Settings → Payments → Terms and notes → Note at the bottom of an invoice / Note on an estimate",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:810",
+      "covered": "yes",
+      "by": "update_money_settings invoiceNote, estimateNote"
+    },
+    {
+      "path": "Settings → Payments → Terms and notes → You can change the note on a single document while you are writing it.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:837",
+      "covered": "yes",
+      "by": "write_estimate / write_invoice notes"
+    },
+    {
+      "path": "Settings → Payments → Deposits → Ask for a deposit switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:849",
+      "covered": "yes",
+      "by": "update_money_settings depositKind none/percent"
+    },
+    {
+      "path": "Settings → Payments → Deposits → off: Estimates ask for nothing up front. You can still add a deposit to a single one…",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:867",
+      "covered": "yes",
+      "by": "get_settings payments → settings.deposit; write_estimate depositPercent"
+    },
+    {
+      "path": "Settings → Payments → Deposits → A share of the total / A set amount",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:874",
+      "covered": "yes",
+      "by": "update_money_settings depositKind percent/amount"
+    },
+    {
+      "path": "Settings → Payments → Deposits → % of the total (Use a share like 25.)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:892",
+      "covered": "yes",
+      "by": "update_money_settings depositPercent"
+    },
+    {
+      "path": "Settings → Payments → Deposits → set amount (Use an amount like $500.)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:914",
+      "covered": "yes",
+      "by": "update_money_settings depositDollars"
+    },
+    {
+      "path": "Settings → Payments → Deposits → A deposit to book a visit is set on the calendar itself. Settings → Calendars",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:933",
+      "covered": "yes",
+      "by": "places map: Deposits line; the calendar’s own tools"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → by text if agreed, else email, following quiet hours",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:947",
+      "covered": "partly",
+      "by": "update_money_settings says reminders chase; channel and quiet hours not told"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → n days before it’s due switches (3, and any saved)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:952",
+      "covered": "yes",
+      "by": "update_money_settings remindBeforeDueDays"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → On the day it’s due switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:962",
+      "covered": "yes",
+      "by": "update_money_settings remindOnDueDay"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → n days after switches (3, 7, 14, and any saved)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:974",
+      "covered": "yes",
+      "by": "update_money_settings remindAfterDueDays"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → each row’s what: heads-up, First/Second nudge, Last one… Home raises a card",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:978",
+      "covered": "partly",
+      "by": "days readable; what each says and Home’s card after the last not told"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → Nudge an estimate nobody answered switch",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:992",
+      "covered": "yes",
+      "by": "update_money_settings nudgeEstimateAfterDays (null off)"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → Nudge an estimate after this many days (1–90)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/payments-page.tsx:1014",
+      "covered": "yes",
+      "by": "update_money_settings nudgeEstimateAfterDays"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → n reminders per invoice / Nobody is reminded about an unpaid invoice",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:1040",
+      "covered": "yes",
+      "by": "get_settings payments → settings.reminders"
+    },
+    {
+      "path": "Settings → Payments → Invoice reminders → These are the only money messages that go on their own… Home never chases money by itself",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/payments-page.tsx:1045",
+      "covered": "partly",
+      "by": "prompt: nothing moving money happens on its own; reminders exception not said"
+    },
+    {
+      "path": "Settings → Products → Products and services: What you put on an estimate or an invoice…",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:104",
+      "covered": "yes",
+      "by": "settings map products; manage_product description"
+    },
+    {
+      "path": "Settings → Products → New product",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:110",
+      "covered": "partly",
+      "by": "manage_product action create; its prepare reads product.list as items (it returns products), so it throws"
+    },
+    {
+      "path": "Settings → Products → Nothing to sell yet (empty)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:121",
+      "covered": "yes",
+      "by": "get_settings products → products empty"
+    },
+    {
+      "path": "Settings → Products → each item (table or phone card): name, code, kind, price, per unit, Taxable / No tax",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:149",
+      "covered": "yes",
+      "by": "get_settings products → product.list name, sku, kind, unitPriceCents, unitLabel, taxable"
+    },
+    {
+      "path": "Settings → Products → each item: Customers can book it as {service}",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:184",
+      "covered": "yes",
+      "by": "get_settings products → serviceId; names from get_settings services"
+    },
+    {
+      "path": "Settings → Products → each archived item: Archived badge, struck through",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:170",
+      "covered": "no",
+      "by": "get_settings products calls product.list without includeArchived, so archived items never come back"
+    },
+    {
+      "path": "Settings → Products → press an item to open its editor",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:161",
+      "covered": "partly",
+      "by": "get_settings products reads live items only; manage_product change throws (items bug)"
+    },
+    {
+      "path": "Settings → Products → n archived items, still on the documents they’re already on",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:257",
+      "covered": "no",
+      "by": "archived items aren’t read (no includeArchived)"
+    },
+    {
+      "path": "Settings → Products → Show archived items switch",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:263",
+      "covered": "no",
+      "by": "no tool lists archived products"
+    },
+    {
+      "path": "Settings → Products → Maintenance plans: Plans that bill themselves live under Money → Plans → Open Plans",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:273",
+      "covered": "yes",
+      "by": "list_plans, manage_plan; places map Money → Plans"
+    },
+    {
+      "path": "Settings → Products → editor → title (item name / New product) and Archived badge",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:406",
+      "covered": "partly",
+      "by": "live items via get_settings products; archived never read"
+    },
+    {
+      "path": "Settings → Products → editor → Close (X) / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:415",
+      "covered": "yes",
+      "by": "declining the manage_product card"
+    },
+    {
+      "path": "Settings → Products → editor → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:421",
+      "covered": "partly",
+      "by": "manage_product name (max 120, screen 160); prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Code (Yours to choose. It shows on the document and in exports.)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:431",
+      "covered": "no",
+      "by": "manage_product has no sku input"
+    },
+    {
+      "path": "Settings → Products → editor → Kind: Product / Service / Fee, with what each is",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:448",
+      "covered": "no",
+      "by": "manage_product has no kind input; every new item is a Product"
+    },
+    {
+      "path": "Settings → Products → editor → Price",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:466",
+      "covered": "partly",
+      "by": "manage_product priceDollars; prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Per (each, hour, day, foot, sq ft… or typed)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:479",
+      "covered": "partly",
+      "by": "manage_product unitLabel; prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Charge sales tax on it (At n%, the rate in Settings → Payments)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:497",
+      "covered": "partly",
+      "by": "manage_product taxable; prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Customers can book it: Not bookable or a service not already taken",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:513",
+      "covered": "partly",
+      "by": "manage_product serviceId; prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Archive (Archive {name}? It stays on every document…)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:536",
+      "covered": "partly",
+      "by": "manage_product action archive; prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Put it back (archived item)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:544",
+      "covered": "no",
+      "by": "manage_product only archives (product.archive archived:false never sent)"
+    },
+    {
+      "path": "Settings → Products → editor → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:550",
+      "covered": "partly",
+      "by": "manage_product create/change; prepare throws (product.list read as items)"
+    },
+    {
+      "path": "Settings → Products → editor → Archiving keeps it on every document it is already on.",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:560",
+      "covered": "yes",
+      "by": "manage_product card note: documents that already have it keep it"
+    },
+    {
+      "path": "Settings → Partners → People who send you customers for a share of what each one pays in their first 12 months…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:139",
+      "covered": "yes",
+      "by": "settings map partners what"
+    },
+    {
+      "path": "Settings → Partners → How partners are paid → Their share (%), with its hint",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/settings-page.tsx:143",
+      "covered": "yes",
+      "by": "update_partner_settings sharePercent; get_settings partners → settings.rateBp"
+    },
+    {
+      "path": "Settings → Partners → How partners are paid → Smallest payout ($1–$25)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/settings-page.tsx:158",
+      "covered": "yes",
+      "by": "update_partner_settings smallestPayout; get_settings partners → smallestPayoutCents"
+    },
+    {
+      "path": "Settings → Partners → How partners are paid → Smallest payout hint: less is carried to the next month",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:161",
+      "covered": "partly",
+      "by": "limits in the tool; the carry-over shows only as payouts.next.waiting below_smallest"
+    },
+    {
+      "path": "Settings → Partners → How partners are paid → The calendar their links book: The first that takes bookings ({name}) or a public calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/settings-page.tsx:178",
+      "covered": "yes",
+      "by": "update_partner_settings calendarId; get_settings partners → calendarId, linkCalendar"
+    },
+    {
+      "path": "Settings → Partners → How partners are paid → No calendar takes bookings on your booking page yet… Settings → Calendars (warning)",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:185",
+      "covered": "yes",
+      "by": "get_settings partners → linkCalendar null; get_settings calendars"
+    },
+    {
+      "path": "Settings → Partners → Partner terms → hint: partners accept them again when changed",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:214",
+      "covered": "yes",
+      "by": "update_partner_settings description and card note"
+    },
+    {
+      "path": "Settings → Partners → Partner terms → terms box",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/settings-page.tsx:219",
+      "covered": "yes",
+      "by": "update_partner_settings terms (empty takes them off)"
+    },
+    {
+      "path": "Settings → Partners → Partner terms → Not saved yet. / Version n / No terms yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:230",
+      "covered": "yes",
+      "by": "get_settings partners → settings.terms, termsVersion"
+    },
+    {
+      "path": "Settings → Partners → Partner terms → Save the terms",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/settings-page.tsx:237",
+      "covered": "yes",
+      "by": "update_partner_settings terms"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → closed: HandsFreeOS doesn’t pay your partners for you yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:147",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.open"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Once a month, HandsFreeOS adds up what your partners are owed…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:157",
+      "covered": "partly",
+      "by": "settings map says paying them; the monthly charge and Stripe payout aren’t told"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Card for partner payouts: {brand} ending {last4} · Expires mm/yyyy",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:169",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.card brand, last4, expiryMonth, expiryYear"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → No card yet, so your partners aren’t paid… (warning)",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:176",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.card null"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Add a card / Change the card",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:184",
+      "covered": "person",
+      "by": "typed on Stripe’s page (SETTINGS_NEVER partners.payouts); settings_help partners"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → back from Stripe: Card ending n saved… / No card was added.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:122",
+      "covered": "person",
+      "by": "the person’s own card on Stripe’s page"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Take the card off → Take the card off? body, Keep the card / Take the card off",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:193",
+      "covered": "yes",
+      "by": "do_partner_payout_forget_card (warning on its card)"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Only someone who manages money… Ask an owner of this business.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:206",
+      "covered": "yes",
+      "by": "do_partner_payout_forget_card offered only with money.manage"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout: Within the hour / On {date}",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:237",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.next.soon, month"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout → each partner it pays: name, amount",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:244",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.next.lines"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout → totals: Your partners, Stripe’s account fee, payout fee, tax form fee, Card fee, Charged to your card",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:48",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.next.totals"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout → Includes Stripe’s fee for n partners’ 1099s for {years}",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:257",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.next.taxForms"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout → Nobody’s owed enough to be paid yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:267",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.next.lines empty"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout → each partner waiting: name, amount, below smallest payout / kept until they set up payouts",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:269",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.next.waiting (owedCents, why)"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Next payout → As it stands now… it can change before then.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:281",
+      "covered": "partly",
+      "by": "next is readable; that it’s worked out at payout time isn’t told"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → each month: month payout, status badge, Test, n partners, card ending, charged total",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:341",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.payouts"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → each month’s status line: try again {date} / not charged, paid next month / being paid",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:367",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.payouts status, nextTryAt, failureMessage"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → open a month (statement)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:341",
+      "covered": "yes",
+      "by": "read_partner_payout_get"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → statement → each partner line: name, paid date / on its way / held / in next month / given back, amount",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:382",
+      "covered": "yes",
+      "by": "read_partner_payout_get → lines"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → statement → Tax forms for {years}: about, each partner, paid in year, fee",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:399",
+      "covered": "yes",
+      "by": "read_partner_payout_get → taxForms"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → statement → totals",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:423",
+      "covered": "yes",
+      "by": "read_partner_payout_get → payout.totals"
+    },
+    {
+      "path": "Settings → Partners → Paying your partners → Payouts → No payouts yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/payouts-section.tsx:303",
+      "covered": "yes",
+      "by": "get_settings partners → payouts.payouts empty"
+    },
+    {
+      "path": "Settings → Partners → Your partners → totals across partners: Earned, Waiting 30 days, Free to pay out, Held, On its way, Paid",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:275",
+      "covered": "partly",
+      "by": "get_settings partners drops earnings from partnerList; only summed one by one with read_partner_get"
+    },
+    {
+      "path": "Settings → Partners → Your partners → each partner: name, Paused/Ended badge, share (their own)",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:293",
+      "covered": "yes",
+      "by": "get_settings partners → partnerList name, status, sharePercent, ownShare"
+    },
+    {
+      "path": "Settings → Partners → Your partners → each partner: n clients, Hasn’t accepted your terms yet",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:301",
+      "covered": "partly",
+      "by": "partnerList drops clients and termsAccepted; read_partner_get per partner has them"
+    },
+    {
+      "path": "Settings → Partners → Your partners → each partner: earned, Free to pay out amount",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:309",
+      "covered": "partly",
+      "by": "partnerList drops earnings; read_partner_get per partner has them"
+    },
+    {
+      "path": "Settings → Partners → Your partners → each partner → opens their page",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/settings-page.tsx:286",
+      "covered": "yes",
+      "by": "read_partner_get"
+    },
+    {
+      "path": "Settings → Partners → Your partners → Each share is free to pay out 30 days after the client pays…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:321",
+      "covered": "partly",
+      "by": "read_partner_get commissions carry payableAt and test; the 30-day rule isn’t told"
+    },
+    {
+      "path": "Settings → Partners → Your partners → No partners yet. Make someone a partner from…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/settings-page.tsx:324",
+      "covered": "yes",
+      "by": "get_settings partners → partnerList empty; manage_partner add"
+    },
+    {
+      "path": "Settings → Partners → a partner → All partners (back)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:112",
+      "covered": "yes",
+      "by": "get_settings partners lists them all"
+    },
+    {
+      "path": "Settings → Partners → a partner → name and Active / Paused / Ended badge",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:119",
+      "covered": "yes",
+      "by": "read_partner_get → partner.name, status"
+    },
+    {
+      "path": "Settings → Partners → a partner → Partner since {date}",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:129",
+      "covered": "yes",
+      "by": "read_partner_get → partner.addedAt"
+    },
+    {
+      "path": "Settings → Partners → a partner → Open their customer page",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:130",
+      "covered": "yes",
+      "by": "read_partner_get → partner.personId, then the customer tools"
+    },
+    {
+      "path": "Settings → Partners → a partner → status line: {name} is paused… / partnership has ended…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:137",
+      "covered": "yes",
+      "by": "read_partner_get → partner.status; manage_partner card notes"
+    },
+    {
+      "path": "Settings → Partners → a partner → Pause",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:146",
+      "covered": "yes",
+      "by": "manage_partner action pause"
+    },
+    {
+      "path": "Settings → Partners → a partner → Bring them back",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:159",
+      "covered": "yes",
+      "by": "manage_partner action bring_back"
+    },
+    {
+      "path": "Settings → Partners → a partner → End the partnership → End {name}’s partnership? body, Keep them / End the partnership",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:171",
+      "covered": "yes",
+      "by": "manage_partner action end"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their share (%) with Your share for partners is n%",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:184",
+      "covered": "yes",
+      "by": "manage_partner set_share sharePercent; read_partner_get → rateBp, ownRate"
+    },
+    {
+      "path": "Settings → Partners → a partner → Use your share for partners (n%)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:203",
+      "covered": "yes",
+      "by": "manage_partner set_share sharePercent null"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their link → the link, Copy their link",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:225",
+      "covered": "partly",
+      "by": "read_partner_get → partner.linkPath only, not the full link on the business’s domain"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their link → ended / no calendar takes bookings yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:227",
+      "covered": "yes",
+      "by": "read_partner_get → status, linkPath null; get_settings partners → linkCalendar"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their link → Accepted your latest terms / Hasn’t accepted your latest terms yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:231",
+      "covered": "yes",
+      "by": "read_partner_get → partner.termsAccepted"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their page → hint: their own page in your portal…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:247",
+      "covered": "partly",
+      "by": "manage_partner card: they get their own link and page; sign-in by email code not told"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their page → Send their page / Send it again",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:252",
+      "covered": "yes",
+      "by": "do_portal_access_give; read_portal_access_get says if sent"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their page → {name} has no email address… (warning)",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:274",
+      "covered": "yes",
+      "by": "read_partner_get → partner.email null"
+    },
+    {
+      "path": "Settings → Partners → a partner → What they’ve earned → totals: Earned, Waiting 30 days, Free to pay out, Held, On its way, Paid",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:285",
+      "covered": "yes",
+      "by": "read_partner_get → partner.earnings"
+    },
+    {
+      "path": "Settings → Partners → a partner → What they’ve earned → each: client · Invoice n, date · rate of amount paid/refunded/back, Free to pay out {date} / Test / Held, amount",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:418",
+      "covered": "yes",
+      "by": "read_partner_get → commissions"
+    },
+    {
+      "path": "Settings → Partners → a partner → What they’ve earned → Nothing yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:303",
+      "covered": "yes",
+      "by": "read_partner_get → commissions empty"
+    },
+    {
+      "path": "Settings → Partners → a partner → Payouts → Payouts go to their bank / Stripe needs more details / Hasn’t set up payouts yet; Their bank is in {country}",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:309",
+      "covered": "yes",
+      "by": "read_partner_get → payouts.account ready, needsMore, country"
+    },
+    {
+      "path": "Settings → Partners → a partner → Payouts → each month: month payout · Test, line status, amount",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:319",
+      "covered": "yes",
+      "by": "read_partner_get → payouts.lines"
+    },
+    {
+      "path": "Settings → Partners → a partner → Payouts → Nothing paid to them yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:353",
+      "covered": "yes",
+      "by": "read_partner_get → payouts.lines empty"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their clients → each: name (opens customer), Booked through their link / Marked by hand · date, Earning them a share until {date} / once they first pay, earned",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:360",
+      "covered": "yes",
+      "by": "read_partner_get → clients"
+    },
+    {
+      "path": "Settings → Partners → a partner → Their clients → Nobody has booked through their link yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-detail.tsx:390",
+      "covered": "yes",
+      "by": "read_partner_get → clients empty"
+    },
+    {
+      "path": "Customer page → Partner card → They’re one of your partners / paused / has ended → Open their partner page",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-card.tsx:105",
+      "covered": "yes",
+      "by": "read_partner_of_person → partner status, partnerId"
+    },
+    {
+      "path": "Customer page → Partner card → Make them a partner (with its hint)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-card.tsx:116",
+      "covered": "yes",
+      "by": "manage_partner action add"
+    },
+    {
+      "path": "Customer page → Partner card → Sent by: partner (opens their page), how and when, Earned them $n so far / Nobody",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-card.tsx:142",
+      "covered": "yes",
+      "by": "read_partner_of_person → referredBy"
+    },
+    {
+      "path": "Customer page → Partner card → Change → Pick the partner who sent them (Nobody or a partner; phone: a sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-card.tsx:156",
+      "covered": "yes",
+      "by": "manage_partner action set_referral; partners from get_settings partners"
+    },
+    {
+      "path": "Customer page → Partner card → You have no other partners yet.",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-card.tsx:205",
+      "covered": "yes",
+      "by": "get_settings partners → partnerList"
+    },
+    {
+      "path": "Phone → Settings → Partners row: Who sends you customers, and what they’ve earned",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:247",
+      "covered": "yes",
+      "by": "get_settings partners"
+    },
+    {
+      "path": "Phone → Settings → Partners → Partners need signal. Try again when you’re back online.",
+      "kind": "see",
+      "file": "apps/mobile/src/partners/screens.tsx:121",
+      "covered": "no",
+      "by": "the phone’s own no-signal notice; nothing for the Assistant to read"
+    },
+    {
+      "path": "Phone → Settings → Partners → How partners are paid → share, smallest payout, calendar (or None takes bookings yet), Partner terms Version n / None yet (read only)",
+      "kind": "see",
+      "file": "apps/mobile/src/partners/screens.tsx:142",
+      "covered": "yes",
+      "by": "get_settings partners → settings, linkCalendar"
+    },
+    {
+      "path": "Phone → Settings → Partners → Change these on the web (how paid, and payouts)",
+      "kind": "do",
+      "file": "apps/mobile/src/partners/screens.tsx:156",
+      "covered": "yes",
+      "by": "update_partner_settings makes the changes"
+    },
+    {
+      "path": "Phone → Settings → Partners → Paying your partners → card, Next payout (Pays n partners · Charged $x, date), last 6 payouts",
+      "kind": "see",
+      "file": "apps/mobile/src/partners/screens.tsx:209",
+      "covered": "yes",
+      "by": "get_settings partners → payouts"
+    },
+    {
+      "path": "Phone → Settings → Partners → Your partners → each: share, n clients, Earned $x, status, terms waiting",
+      "kind": "see",
+      "file": "apps/mobile/src/partners/screens.tsx:170",
+      "covered": "partly",
+      "by": "partnerList drops clients, earnings and terms; read_partner_get per partner"
+    },
+    {
+      "path": "Phone → a partner → their link shown in full → Share their link",
+      "kind": "do",
+      "file": "apps/mobile/src/partners/screens.tsx:418",
+      "covered": "partly",
+      "by": "read_partner_get → linkPath only; the full link on the business’s domain isn’t given"
+    },
+    {
+      "path": "Phone → a partner → Their share row → sheet: share box, Type a share between 0.01% and 100%., Save their share, Use your share for partners",
+      "kind": "do",
+      "file": "apps/mobile/src/partners/screens.tsx:529",
+      "covered": "yes",
+      "by": "manage_partner set_share sharePercent (null for the business’s)"
+    },
+    {
+      "path": "Settings → Imports → Imports: Customer lists brought in from a spreadsheet, each with how it went.",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx:39",
+      "covered": "yes",
+      "by": "settings map imports"
+    },
+    {
+      "path": "Settings → Imports → Import a spreadsheet",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx:41",
+      "covered": "person",
+      "by": "a file from the person’s computer (import.create, import.start NEVER); settings_help imports"
+    },
+    {
+      "path": "Settings → Imports → No imports yet (empty)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx:49",
+      "covered": "yes",
+      "by": "get_settings imports → imports empty"
+    },
+    {
+      "path": "Settings → Imports → each import: file, by who, People/Companies, Waiting/Running/Done/Failed/Cancelled, n added · updated · skipped · errors, started",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx:66",
+      "covered": "yes",
+      "by": "get_settings imports → import.list rows"
+    },
+    {
+      "path": "Settings → Imports → each import → file name opens the import",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx:67",
+      "covered": "yes",
+      "by": "read_import_get"
+    },
+    {
+      "path": "Settings → Migrations → Bring {business} here from the CRM it uses today…",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx:53",
+      "covered": "yes",
+      "by": "settings map migrations; do_migration_start warning"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:74",
+      "covered": "person",
+      "by": "signing in at the old CRM (migration.connect NEVER); settings_help migrations"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → Connect the CRM you’re leaving: what it does",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/connect.tsx:161",
+      "covered": "yes",
+      "by": "settings_help migrations"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → Which system",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:170",
+      "covered": "person",
+      "by": "part of connecting (migration.connect NEVER)"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → How to connect: Sign in to X / Paste a private token",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:184",
+      "covered": "person",
+      "by": "part of connecting (migration.connect NEVER)"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → Private integration token (with where to make it)",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:206",
+      "covered": "person",
+      "by": "a credential posted straight to the worker, never through the API or the AI"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → Location ID (with where to find it)",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:229",
+      "covered": "person",
+      "by": "part of pasting a token (migration.connect NEVER)"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → We only ever read with it… delete the private integration whenever you like",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/connect.tsx:251",
+      "covered": "person",
+      "by": "part of the person’s own connecting"
+    },
+    {
+      "path": "Settings → Migrations → Connect a CRM → Cancel / Sign in to X / Connect, error, Connected to X. Nothing there has been changed.",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:283",
+      "covered": "person",
+      "by": "the person’s own sign-in or token (migration.connect NEVER)"
+    },
+    {
+      "path": "Settings → Migrations → Connected → each: name, Connected with a private token / n things this sign-in cannot read / Ready to look at",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx:63",
+      "covered": "yes",
+      "by": "get_settings migrations → connections displayName, authKind, missingScopes"
+    },
+    {
+      "path": "Settings → Migrations → Connected → Start a migration → Call it (Off X), Cancel / Look at X",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/connect.tsx:364",
+      "covered": "yes",
+      "by": "do_migration_create name, connectionId, then do_migration_scan"
+    },
+    {
+      "path": "Settings → Migrations → Nothing moving yet (empty)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx:94",
+      "covered": "yes",
+      "by": "get_settings migrations → migrations empty"
+    },
+    {
+      "path": "Settings → Migrations → each migration: name, From {source}, status",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx:100",
+      "covered": "yes",
+      "by": "get_settings migrations → migrations name, sourceLabel, status"
+    },
+    {
+      "path": "Settings → Migrations → each migration → opens it",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx:101",
+      "covered": "yes",
+      "by": "read_migration_get"
+    },
+    {
+      "path": "Settings → Migrations → a migration → name, Moving {business} here from {source}, All migrations",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/[migrationId]/page.tsx:166",
+      "covered": "yes",
+      "by": "read_migration_get → migration.name, sourceLabel"
+    },
+    {
+      "path": "Settings → Migrations → a migration → status, from {source} · n things this sign-in cannot read",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:118",
+      "covered": "yes",
+      "by": "read_migration_get → migration.status, connection.missingScopes"
+    },
+    {
+      "path": "Settings → Migrations → a migration → steps: Where it lands, What to bring, Bringing it across, Done",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:130",
+      "covered": "yes",
+      "by": "read_migration_get → status and scopes the step comes from"
+    },
+    {
+      "path": "Settings → Migrations → a migration → last error",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:148",
+      "covered": "yes",
+      "by": "read_migration_get → migration.lastError"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Nothing found in the old system yet → Look at the old system",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:291",
+      "covered": "yes",
+      "by": "do_migration_scan"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Where each one lands → each sub-account: name, time zone or No time zone, its id",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:324",
+      "covered": "yes",
+      "by": "read_migration_get → scopes name, timezone, externalScopeId"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Where each one lands → Sharing this business with another sub-account… (warning)",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:328",
+      "covered": "yes",
+      "by": "read_migration_get → scopes sharesWorkspaceWith"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Where each one lands → each: Make a new business / this business / Don’t bring this one",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:335",
+      "covered": "yes",
+      "by": "do_migration_map_scopes scopes[] createWorkspace / workspaceId / skip"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Where each one lands → Save and choose what to bring",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:248",
+      "covered": "yes",
+      "by": "do_migration_map_scopes"
+    },
+    {
+      "path": "Settings → Migrations → a migration → What’s in the old system / What to bring → each category: name, count words, capability badge, Added because X need it / blurb, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:463",
+      "covered": "yes",
+      "by": "read_migration_get → inventory"
+    },
+    {
+      "path": "Settings → Migrations → a migration → What to bring → Bring {category} box (padlock when locked)",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:453",
+      "covered": "yes",
+      "by": "do_migration_select choices; locked in inventory"
+    },
+    {
+      "path": "Settings → Migrations → a migration → What to bring → Save what to bring (and the added-because notes)",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:420",
+      "covered": "yes",
+      "by": "do_migration_select (returns what it added and why)"
+    },
+    {
+      "path": "Settings → Migrations → a migration → The plan: Businesses, Bringing",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:529",
+      "covered": "yes",
+      "by": "read_migration_get → scopes, inventory selected"
+    },
+    {
+      "path": "Settings → Migrations → a migration → The plan: Staying behind (automations, websites, funnels), While it runs (nothing goes out)",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:540",
+      "covered": "partly",
+      "by": "do_migration_start warning says nothing goes out; what stays behind isn’t told"
+    },
+    {
+      "path": "Settings → Migrations → a migration → The plan → Bring it across",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:556",
+      "covered": "yes",
+      "by": "do_migration_start acknowledgedFindingIds"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Bringing it across → each category: n of n, n need another go / Starting…",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:604",
+      "covered": "yes",
+      "by": "read_migration_get → progress"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Bringing it across → Pause / Carry on",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:624",
+      "covered": "yes",
+      "by": "do_migration_pause, do_migration_resume"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Bringing it across → Try n again",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:637",
+      "covered": "yes",
+      "by": "do_migration_retry; read_migration_get → retryable"
+    },
+    {
+      "path": "Settings → Migrations → a migration → n customers need you to say whether they’re somebody you already have (with Looking them up… / All decided)",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:743",
+      "covered": "yes",
+      "by": "read_migration_review_queue → remaining, candidates"
+    },
+    {
+      "path": "Settings → Migrations → a migration → each customer waiting: name · email · phone, From {sub-account}. {reason}",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:765",
+      "covered": "yes",
+      "by": "read_migration_review_queue → candidates incoming, scopeName, reason"
+    },
+    {
+      "path": "Settings → Migrations → a migration → each customer waiting → Same as {person here}",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:772",
+      "covered": "yes",
+      "by": "do_migration_resolve_merge decision remap, targetId"
+    },
+    {
+      "path": "Settings → Migrations → a migration → each customer waiting → Somebody new",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:784",
+      "covered": "yes",
+      "by": "do_migration_resolve_merge decision separate"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Brought across / Taken back: n records now here",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:839",
+      "covered": "yes",
+      "by": "read_migration_get → status, progress imported+merged"
+    },
+    {
+      "path": "Settings → Migrations → a migration → n things left for you → each: label, instructions",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:857",
+      "covered": "yes",
+      "by": "read_migration_get → tasks label, instructions, state"
+    },
+    {
+      "path": "Settings → Migrations → a migration → n things left for you → label links to where it’s done",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:865",
+      "covered": "partly",
+      "by": "read_migration_get → tasks settingsPath, a path only"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Still keeping up with {source} until {date}…",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:881",
+      "covered": "yes",
+      "by": "read_migration_get → status transition, transitionEndsAt"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Take it back (finished; Take back everything…? confirm)",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:891",
+      "covered": "never",
+      "by": "migration.rollback NEVER: takes back everything, for good"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Delete this move → what it asks for (being taken back / pause first / put nothing here / take it back first)",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:1045",
+      "covered": "yes",
+      "by": "read_migration_get → status, putRecordsHere"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Delete this move (confirm, or type the move’s name)",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:1046",
+      "covered": "never",
+      "by": "migration.delete NEVER: finishes off archived records for good"
+    },
+    {
+      "path": "Settings → Migrations → a migration → Delete this move → Take it back",
+      "kind": "do",
+      "file": "apps/web/src/components/migrations/wizard.tsx:1058",
+      "covered": "never",
+      "by": "migration.rollback NEVER"
+    },
+    {
+      "path": "Settings → Migrations → a migration → What we found → each group, each finding: summary · in n of them, what changes, what to do",
+      "kind": "see",
+      "file": "apps/web/src/components/migrations/wizard.tsx:1089",
+      "covered": "yes",
+      "by": "read_migration_get → findings groupTitle, summary, whatChanges, recommendedAction, severity"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "prod-1",
+      "severity": "high",
+      "kind": "do",
+      "where": "Settings → Products → New product / pick an item → Save / Archive",
+      "gap": "manage_product.prepare destructures `items` from product.list, which answers `{ products }`. So `items` is undefined, and `items.find(...)` throws a TypeError on every action (create, change, archive) before the card is drawn. The `.catch` only covers a rejected query, not a wrong shape. Nothing else can reach product.create, product.update or product.archive: none of them is in SCREEN_ACTIONS. So the Assistant cannot add, reprice or archive any item, and no test calls manage_product.",
+      "fix": "In apps/worker/src/assistant/tools-settings-money.ts:343-346, use `const { products } = await query<{ products: Product[] }>(db, ctx, 'product.list', { includeArchived: true })` and then `products.find((p) => p.id === args['productId'])`. includeArchived matters because archive and change name items that may already be archived. Add apps/worker/test coverage that prepares and commits create, change and archive through manage_product.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "part-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Settings → Partners → a partner → Their link (Copy their link); phone: Share their link",
+      "gap": "The screen and the phone both build the full link: the business's own domain when it is verified and its certificate is ready, otherwise the web app's address, plus linkPath. The Assistant's only source is read_partner_get, which hands over partner.get's bare `linkPath` (`/book/c/<calendarId>?ref=<code>`), while the tool's description (taken from the query's) calls it a 'link'. get_settings partners drops linkPath altogether. Nothing in prompt.ts or context.ts gives the business's public origin, and the prompt's own link example is https://handsfreeos.com/book/acme, so the model will guess the domain. runScreenRead never gets webUrl: createToolExecutor has it (tools-write.ts:861) but calls runScreenRead(db, tool, args, ctx) without it.",
+      "fix": "Pass `webUrl` from createToolExecutor into runScreenRead (tools-write.ts:878). For partner.get, replace `partner.linkPath` with `partner.link = origin + linkPath` (null when linkPath is null). Work out the origin the way tools-forms.ts:380-388 does (branded_domain.get: verified and certificateReady gives https://<domain>, else webUrl), or reuse the worker's existing publicOrigin(tx, workspaceId, webUrl) in apps/worker/src/hosting/origin.ts:75 rather than writing a new helper. Make readArea take webUrl too, and add `link` to each partner in the partners `partnerList` shape (tools-settings.ts:174-195). Add a settings-map partners howTo: 'Copy a partner’s link: Settings → Partners → the partner → Their link → Copy their link'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "part-2",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Settings → Partners → Your partners: the totals (Earned, Waiting 30 days, Free to pay out, Held by a dispute, On its way, Paid), and on each row its earned amount, 'Free to pay out $…', 'N clients' and 'Hasn’t accepted your terms yet'",
+      "gap": "Real: get_settings partners cuts partner.list down to partnerId, personId, name, status, sharePercent and ownShare. The six earnings buckets and their totals (Earned, Waiting 30 days, Free to pay out, Held by a dispute, On its way, Paid), each partner's clients count, termsAccepted and email are all dropped. partner.list is not a screen read, so 'who hasn’t accepted the terms?', 'what has each partner earned in all?' and 'how many clients has X sent?' each take one read_partner_get per partner, and nothing gives the page's totals. Refuted: 'how much do I owe my partners?' is answerable. get_settings partners also returns partner.payouts as `payouts`, and its `next` lists each partner's amount owed now: `lines[].amountCents` and `waiting[].owedCents` with why, plus `totals.owedCents`. That covers payable, not in a payout and not disputed, which is the screen's 'Free to pay out', and it is worked out whether or not payouts are open. coverage.ts:904 is therefore right about 'what each partner is owed' and 'the next payout'. Only 'each month’s statement' is wrong: get_settings has each payout's totals, and the per-partner statement is read_partner_payout_get. That text appears only in code and the staff desk's row count, never to the model.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts:174-195, keep `clients`, `termsAccepted` and `earnings` (earnedCents, waitingCents, payableCents, heldCents, payingCents, paidCents) on each partnerList row. Add a `totals` part that sums them and labels them with earningsTotals from @hfos/core, as PartnersList does at settings-page.tsx:263-271. Reword coverage.ts:904's last clause to: 'what each partner is owed and the next payout are read with get_settings (area partners), a month’s statement with read_partner_payout_get, and one partner’s commissions and payouts with read_partner_get'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mig-1",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Migrations → Connect a CRM → the 'Connect the CRM you’re leaving' dialog (GoHighLevel, Private integration token, Location ID, Connect)",
+      "gap": "GoHighLevel is the only source, and there is no sign-in: SIGN_IN_SOURCES is []. The person makes a read-only private integration in GoHighLevel (Settings → Private Integrations), pastes its token with the sub-account's Location ID (Settings → Business Profile, or the code after /location/ in the address bar) and presses Connect. The settings-map handover says the opposite: its why is 'you sign in to the old system yourself' and step 2 is 'Pick the system you are coming from and sign in there'. Its onScreen says 'each system signed in to'. That is what settings_help, get_settings and the per-turn settings map give the model. The 'Start a migration' dialog asks 'Call it' and its button is 'Look at GoHighLevel'. It is still a person-only step (a secret pasted on the screen), so only the words are wrong. Lowered to medium because the dialog's own hints say where the token and Location ID are.",
+      "fix": "In packages/core/src/assistant/settings-map.ts:1052-1072, set why to 'the token is a secret from your GoHighLevel account, and it’s pasted on the screen, never in a chat'. Set the steps to: 'Open Settings → Migrations and press Connect a CRM.' / 'In GoHighLevel, go to Settings → Private Integrations, create one with read access, and copy its token; the Location ID is under Settings → Business Profile.' / 'Paste both and press Connect.' / 'Then tell me, and I’ll start looking at it.' Change onScreen to 'Connected: each CRM connected, with Start a migration'. Reword NEVER_FOR_THE_ASSISTANT['migration.connect'] (coverage.ts:366) to 'pasting a private token from the CRM the business is leaving, which only the person does'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mig-2",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Migrations and a migration's page: Start a migration, Look at the old system, Save and choose what to bring, Save what to bring, Bring it across, Pause / Carry on / Try N again, Same as… / Somebody new",
+      "gap": "The Assistant is offered do_migration_create, scan, select, map_scopes, start, pause, resume, retry and resolve_merge, plus read_migration_get and read_migration_review_queue. get_settings migrations returns the connections and ids those tools need. Yet settings-map migrations has canChange: [] and one handover covering the whole move ('move a business over from another system', ending 'Press Start a migration … it runs from there'). So settingsMapText tells the model every turn 'They do themselves: move a business over from another system'. get_settings and settings_help return canChange [] for it. prompt.ts:34 and settings_help's description list 'moving in from another system' as the person's own. Everything after Connect is pushed onto the person.",
+      "fix": "Set settings-map migrations.canChange to ['start a migration from a CRM already connected, or look at it again', 'say where each sub-account lands and what to bring', 'start bringing it across, pause it, carry on, or try the failed ones again', 'answer whether an arriving customer is somebody you already have']. Narrow the handover to 'connect GoHighLevel' (see mig-1). In apps/worker/src/assistant/prompt.ts:34 and the settings_help description (packages/core/src/assistant/tools.ts:360), replace 'moving in from another system' with 'connecting the system they are moving from'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "trunc-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A partner's page (What they’ve earned, up to 200 lines; Their clients; Payouts last); an import's page (Rows that did not import, up to 100 with their data); a migration's page",
+      "gap": "Real: runScreenRead slices any answer over 16,000 characters of JSON mid-string and tells the model to 'ask it for less (a smaller page, a narrower search)'. partner.get, import.get and migration.get take no limit or page, so it can't. partner.get returns up to 200 commissions (about 270 characters of JSON each) ahead of `payouts`. A partner with more than about 50 commissions loses their payout account ('Hasn’t set up payouts yet' / 'Their bank is in …') and their payout lines. import.get returns up to 100 failed rows, each with the whole raw CSV row, so a wide sheet shows only its first few failures, as a broken JSON fragment. The import's errorCount comes first and survives. Wrong: 'part of the clients list' is lost only when the clients list alone passes 16,000 characters, since `clients` comes before `commissions` in PartnerGetOutput. The migration page was not shown to overflow.",
+      "fix": "In apps/worker/src/assistant/tools-screen-reads.ts:44-54, shorten long arrays before serialising rather than slicing text. Walk the result, cut each array to the first N items with a sibling `{ shown, total }`, and shrink N until JSON.stringify fits MOST. Then the model always gets valid JSON, and the later keys (`payouts`) survive. Alternatively, cap commissions for the Assistant (for example 30), and drop `raw` from import.get errors for the Assistant, keeping rowNumber and message.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pay-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Settings → Payments → Your address: 'Until you write one here, documents show the address from your setup: …'; the issue banners at the top ('Nothing is saved until this is fixed' / 'Doesn’t stop it saving')",
+      "gap": "Real: get_settings payments returns only money.settings and payment_connection.list. When businessAddress is empty, nothing in that area, nor the payments canChange or onScreen words, says that documents fall back to the setup address. The screen shows 'Until you write one here, documents show the address from your setup: …'. The page's issue banners (checkMoneySettings with hasSentDocuments and setupAddress, marked 'Nothing is saved until this is fixed' or 'Doesn’t stop it saving') are not returned either. Overstated: the setup address itself is readable, since get_settings (area business) returns workspace.get whole, settings.address included. It is just never tied to documents outside update_money_settings' warning.",
+      "fix": "Add a shaped workspace.get part to the payments area in apps/worker/src/assistant/tools-settings.ts:162-165: `{ name: 'workspace.get', as: 'addressOnDocuments', shape: v => { const s = v.workspace.settings; const setup = businessAddressOf(s); return setup ? { address: addressLines(setup), from: 'setup' } : null } }`, read only when payments.settings.businessAddress is empty, else `from: 'payments'`. Also add `issues: checkMoneySettings(settings, { hasSentDocuments, setupAddress }).map(i => ({ message: i.message, blocks: i.severity === 'error' }))`. Add to the payments onScreen 'Your address (until one is written, documents show the address from your setup)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mig-3",
+      "severity": "low",
+      "kind": "words",
+      "where": "A migration's page under Settings → Migrations, the 'Take it back' button",
+      "gap": "The migration.start card warning tells the person 'Taking it all back is Roll back, on the Migrations page'. The button is 'Take it back', on the move's own page (Settings → Migrations → the move), both in the finished card and in 'Delete this move'. 'Roll back' appears nowhere on the screens. The warning is shown to the person on the confirm card.",
+      "fix": "In packages/core/src/assistant/coverage.ts:255, change the warning's last sentence to 'Taking it all back is Take it back, on this move’s page under Settings → Migrations, which only a person presses.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mig-4",
+      "severity": "low",
+      "kind": "never",
+      "where": "A migration's page → Take it back",
+      "gap": "The reason is wrong. The screen and the command both say taking a move back puts what it made away ('put away, not gone'), and only Delete this move finishes them off. The reason given, '… for good', describes migration.delete. But migration.rollback is risk 4, so never offering it is the settled rule, and the alternative fix (offer it with a warning card) is barred. The reason text reaches only the staff desk's coverage list, never the model.",
+      "fix": "Reword NEVER_FOR_THE_ASSISTANT['migration.rollback'] (packages/core/src/assistant/coverage.ts:357) to 'undoing a whole move from another CRM at once (risk 4), which only a person presses: what it made is put away, and Delete this move finishes it off'. Keep it never offered.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mig-5",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Migrations list badges and the status line on a migration's page ('Ready to set up', 'Ready to bring across', 'Needs a look', 'Stopped', 'Keeping up with the old system')",
+      "gap": "The list badges and the move's page show STATUS_WORDS, which live only in the web app. The Assistant gets raw codes from get_settings migrations and read_migration_get (scanned, ready, needs_attention, transition, failed, cancelled). It can't match what the person reads: 'Ready to set up' is scanned, and 'Stopped' is both failed and cancelled. Nothing in core or the worker holds those words. This also breaks the one-copy rule for what the web and the phone both show.",
+      "fix": "Move STATUS_WORDS from apps/web/src/lib/agency/migration-words.ts:65-84 into @hfos/core (packages/core/src/migrations), import it in the web from there, and add `statusLabel` to the migration rows of migration.list and migration.get (or map it in the get_settings migrations shape in tools-settings.ts:241-247).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "pay-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Payments → an account marked 'Needs reconnecting' or 'Not working' → Reconnect",
+      "gap": "An account with status reauth_required ('Needs reconnecting') or error ('Not working') shows a Reconnect button that runs the Stripe or Square sign-in again, which is person-only. The payments area's only handover is 'connect Stripe or Square' (press Connect Stripe or Connect Square). Nothing in the Assistant mentions reconnecting or reauth_required, so settings_help gives the wrong steps for fixing a broken account.",
+      "fix": "Add a handover to settings-map payments (packages/core/src/assistant/settings-map.ts:733-742): what 'reconnect a payout account that needs it', why 'Stripe or Square asks you to sign in again yourself', steps 'Open Settings → Payments.' / 'On the account marked Needs reconnecting or Not working, press Reconnect.' / 'Sign in to Stripe or Square again; you land back here.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "part-3",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Partners → Paying your partners: Add a card / Change the card",
+      "gap": "The handover tells anyone with Manage partners to press Add a card or Change the card under Paying your partners. Those buttons appear only once HandsFreeOS has opened payouts for the business; until then the section shows only 'HandsFreeOS doesn’t pay your partners for you yet…'. They also appear only to someone who manages money; others read 'Only someone who manages money … Ask an owner of this business.' get_settings partners does carry payouts.open, but the handover steps ignore it.",
+      "fix": "In settings-map partners' handover (packages/core/src/assistant/settings-map.ts:778-786), append to why: 'and only once HandsFreeOS has opened partner payouts for you (get_settings, area partners: payouts.open), by someone who manages money'. Add a first step: 'If Paying your partners says HandsFreeOS doesn’t pay them yet, there’s no card to add: pay them yourself from what each is owed.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "part-4",
+      "severity": "low",
+      "kind": "words",
+      "where": "A partner's page → Their page → Send their page / Send it again; an import's page → Cancel; an import's page with Rows that did not import",
+      "gap": "The tools exist, but the words don't tie them to these screens. partners.canChange leaves out sending a partner their portal page, which is do_portal_access_give (the partner page calls portal_access.give), and portal_access.give's description never mentions partners. imports.canChange is [] although do_import_cancel stops a pending or running import (rows already in stay). imports.onScreen leaves out each import's own page with its progress and the rows that failed (read_import_get). get_settings and settings_help thus tell the model it can change nothing under Imports.",
+      "fix": "Add 'send a partner their page in the portal, or send it again' to settings-map partners.canChange (settings-map.ts:775). Add 'cancel an import that’s still going (rows already in stay)' to imports.canChange (settings-map.ts:1039), and 'Each import’s own page: its progress, result and the rows that did not import' to imports.onScreen.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "part-5",
+      "severity": "low",
+      "kind": "do",
+      "where": "A customer's page → Partner card → Sent by → Change (the partner picker)",
+      "gap": "The customer's Partner card picker offers only partners whose partnership hasn't ended, unless that partner is the current one. manage_partner set_referral resolves any partner through partner.list with no status check, and partner.referral_set doesn't check status either. So the Assistant (and the API) can mark a customer as sent by an ended partner, which the screen never allows.",
+      "fix": "Put the check in the command so every door refuses it. In packages/core/src/commands/partners.ts, after the same-partner early return at line 370, add: if (partner && partner.status === 'ended') throw HfosError.rule('partner_ended', 409, `${partner.name}’s partnership has ended, so they can’t be marked as sending anyone. Bring them back first under Settings → Partners.`). Optionally refuse the same way early in managePartner.prepare's set_referral case (apps/worker/src/assistant/tools-settings-more.ts:732-746), so no card is drawn.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "part-6",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Partners (the area as a whole)",
+      "gap": "get_settings' description lists the areas it reads and leaves out partners. It also leaves out branded_domain, main_offer, add_ons, relationships, deleted_bin, resources, booking_site, facebook_instagram, action_center and safety. The model is not blind to partners, though: `partners` is in the tool's area enum, settingsMapText lists 'Partners (partners) is at Settings → Partners' every turn, and update_partner_settings says 'Read what is set now with get_settings (area partners)'. So the risk is small.",
+      "fix": "In packages/core/src/assistant/tools.ts:344, add 'partners (their share, terms, what each is owed and the payouts)' to get_settings' description, and add the other missing areas. Better, build the list from SETTINGS_AREAS labels so it can't drift again.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "area": "realestate-deals",
+  "title": "The Real Estate Agent add-on: a deal and every tab of it",
+  "checkedOn": "2026-11-06",
+  "files": {},
+  "items": [],
+  "gaps": [
+    {
+      "id": "re-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Marketing → Public page card (the page link and Copy link); the deal page's listing card link; Showings → Copy the request link; Open houses → Print the sign-in sheet (QR to the sign-in page); Flyer → QR code",
+      "gap": "Every public link of a listing reaches the Assistant only as a path or slug: realestate_listing_marketing, realestate_publish_listing_page and realestate_listing_flyer return page.path (listingPageOf), realestate_get_listing only page.slug, realestate_showings requestPath, realestate_open_houses signInPath. The worker's add-on executor passes the output through unchanged (answerFrom, no URL handling). Nothing in prompt.ts or context.ts gives the model the business's verified branded domain or the app's own origin (https://app.handsfreeos.com). The prompt's example link is https://handsfreeos.com/book/acme, which points it at the wrong host. The screens build https://<branded or own origin> + path.",
+      "fix": "In apps/worker/src/assistant/tools-addons.ts, give runAddonTool and runAddonActionTool the worker's webUrl (as tools-write.ts and tools-forms.ts already get it). Before answerFrom, rewrite every `path`, `requestPath` and `signInPath` that starts with \"/a/\" into a full `url` (keep the path too). Build the origin the way tools-forms.ts:382-388 does: branded_domain.get verified and certificateReady ? https://<domain> : webUrl. Add `url` to the get_listing page object as well (it has only slug and site). Change prompt.ts:49's example from https://handsfreeos.com/book/acme to one that can't be mistaken for the business's host.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-2",
+      "severity": "high",
+      "kind": "do",
+      "where": "Marketing → \"Email or text to your contacts\" card: tags/stages picks, who it would reach, Start a campaign",
+      "gap": "The link problem is real, but it isn't that every call is refused. The handler checks only that pageUrl is http(s) and that its pathname equals page.path; the host is never checked. Given page.path and the prompt's handsfreeos.com example, the model can send https://handsfreeos.com/a/<site>/realestate/<slug>. That passes the check and builds a campaign to the picked contacts whose email or text links to the wrong host (the real one is app.handsfreeos.com or the branded domain). The Confirm card is generic: cardFields shows the audience as raw JSON ids ({\"tagIds\":[…],\"stageIds\":[…]}), with no tag or stage names and no recipient or skipped count. After Confirm the result is only \"Done in Real Estate Agent\", so the counts and campaignId never come back either. The finding's ask for refusals on 0 recipients or no postal address is already covered: the rehearsal runs campaign.create inside the handler, and campaign.create refuses both before any card is drawn.",
+      "fix": "Fill pageUrl on the server, or in the worker before prepare and commit, from the business origin (branded or webUrl) plus page.path. Make it optional in ListingCampaignInput for the AI, or drop it. In marketing.ts:460, also check url.host against the business's own origins, so a guessed host is refused. Give realestate_listing_campaign a prepare step like start_campaign's (tools-content.ts:425-470): name the tags and stages (audienceWords), and title the card \"Email/text to N people\" from campaign.preview_audience, with the skipped line. Return recipients and skipped in commitAddonTool's outcome.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-3",
+      "severity": "high",
+      "kind": "words",
+      "where": "Real Estate Agent → Deals → a deal: header buttons (Key dates, Documents, Marketing, Plan a tour, Move to…, Close the deal), the More menu (Record what happened…, Add a duty…, Terminate the contract…, Report changed wiring…, Withdraw the listing…, Export…, Place a legal hold…, History, Archive) and every tab's buttons",
+      "gap": "The Assistant is told only core places (APP_PLACES) and the settings map. AddonManifest's ai has only `directory`, so an add-on can't add places, and no AppPlace covers any Real Estate Agent page. Its only Real Estate words are the directory line \"buyer and listing deals: their people, property, key dates, duties, deadlines, documents and alerts\", one Search sentence and the settings-map line naming \"Real Estate Agent’s Deal settings\". It has nothing on the side-menu items (Deals, My duties, Coordinate, Vendors, Deal settings), a deal page's header buttons, its More menu or its tabs. So it can't give the clicks for what only the person does: uploading photos, a lockbox code, a signed form.",
+      "fix": "Add `readonly places?: readonly AppPlace[]` to AddonManifest's `ai` (packages/core/src/addons/manifest.ts:511). Render them for running add-ons in context.ts beside addonDirectory, or in the worker's places text, filtered by the add-on's nav permission. Extend packages/core/test/settings-map.test.ts to check each add-on place's arrows against its ui.nav labels (Real Estate Agent → Deals / My duties / Coordinate / Vendors / Deal settings). Then fill it for Deals, a deal page (header: Key dates, Documents, Marketing, Plan a tour, Move to…, Close the deal; More: Record what happened…, Add a duty…, Terminate the contract…, Withdraw the listing…, Export…, History, Archive…) and each tab.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-4",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A deal → Duties card (Open · N / Done · N / All, grouped by what started them, each with its owner, Still needs…, Waiting on…, Blocked…, due words)",
+      "gap": "realestate_get_deal returns every duty, open and done, in the full Duty shape, last in the answer, after terms, parties, links and commission. On a deal with roughly 20 or more duties (buyer deals alone draw from 31 responsibilities) the JSON passes MOST (16,000) and is cut mid-duties, and get_deal has no filter. The finding understates the fallbacks. realestate_list_duties takes mine:false, status:'all' and dealId, so it can list every duty on one deal, but its rows lack proof, proofMissing, waitingOn, blocked and startedBy. realestate_get_duty returns those for one duty. So the answer is reachable, but only through one call per duty.",
+      "fix": "Add `duties: z.enum(['open','done','all','none']).default('open')` to DealGetInput (schemas.ts:344) and filter in the realestate.deal.get handler (queries.ts ~431, before dutyRows.map at ~577). Or add proof, proofMissing, waitingOn, blocked and startedBy to DutyListOutput rows (schemas.ts:776-792) and the dutyList handler. Then mention it in get_deal's ai.description (queries.ts:369-370): \"for a long deal, list its duties with realestate_list_duties (mine false, dealId)\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Homes tab list; Matches tab (New / Sent / Skipped); a listing's Facts, Photos and Description pages and the deal page's listing card (price, page state, signed-off description)",
+      "gap": "Real for homes and matches. Each HomeOut (realestate_list_homes) and each match (realestate_matches) carries a full MlsOut: up to 12 photo URLs, the MLS description and the display notice and logo. Neither input has a limit or offset (homes takes only includeRemoved, matches only state), so a few MLS-found homes pass 16,000 characters and the rest are cut. The get_listing part is weaker than stated. page and listPriceCents come after choices, photos and feed and can be cut on a listing with many photos, but realestate_listing_marketing (page), realestate_listing_prices (price) and realestate_listing_flyer (signed-off description, once live on the MLS) give them separately. Only the signed-off description before the MLS goes live has no other route.",
+      "fix": "Add `limit` (default 10) and `offset` to HomesInput (schemas.ts:1298) and MatchesInput (schemas.ts:3599). For the AI, return MlsOut without photos, description and display, for example with a `brief: z.boolean().default(false)` input the AI tools set, or a lighter MlsBriefOut. In ListingOut (schemas.ts:2502), move page, listPriceCents and description ahead of choices, photos and feed, and have the listing.get handler return keys in that order.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-6",
+      "severity": "low",
+      "kind": "read",
+      "where": "A deal → History (every change in words, newest first); the duty drawer's history",
+      "gap": "realestate_deal_history lines and realestate_get_duty's log return only the code (`what`), the actor and raw before/after. The web shows dealHistoryWords and dutyLogWords sentences, and history-words.ts says it exists so that the web, the phone and the Assistant say the same thing. No server op or Assistant code calls either function. The model has the same facts, so it can usually phrase them itself, hence low.",
+      "fix": "In packages/core/src/addons/realestate/ops/queries.ts:640-649, add `words: dealHistoryWords(l.what, l.before, l.after)` to each line, and `words: z.string()` to DealHistoryOutput. In ops/duty-queries.ts:169-177, add `words: dutyLogWords(l.what, l.before, l.after)` to each log line, plus the schema field.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-7",
+      "severity": "medium",
+      "kind": "never",
+      "where": "Plan a tour / Move the tour → \"Let this tour through as an exception\"; Price → \"Signed on paper? Use it with a reason\"; Description → let it through without the portal",
+      "gap": "realestate_plan_tour and realestate_tour_reschedule with `exception`, realestate_listing_price_let_through and realestate_listing_description_let_through are offered, but their handlers refuse any assistant-channel call, which actorKind maps to 'ai'. The rehearsal returns that refusal before any card is drawn, so even an owner with Approve exceptions can never do these through the Assistant. docs/realestate.md:190-194 (Chris, 2026-10-26) says exceptions are tools that wait for a person's OK and still need that person's permission. server.ts says the same, and notForTheAssistant does not list these ops.",
+      "fix": "Delete the `actorKind(ctx) !== 'person'` block in agreementGate (packages/core/src/addons/realestate/ops/tours.ts:125-129) and in requireLetThrough (ops/description.ts:255-258), and keep the scopeCan(ctx.scope, 'realestate.except') checks. mayLetThrough already requires a human actor, and an Assistant call runs as the human. Change packages/core/test/addons/realestate-tours.test.ts:274-284 to expect the owner's assistant-channel plan to succeed, recording the exception.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-8",
+      "severity": "medium",
+      "kind": "never",
+      "where": "Financing → mark a step done; Client's/Seller's to-do → Mark done for them; Facts → Confirm the facts; What they want → remembered items Confirm/Reject; Description and CMA → Keep the flagged words",
+      "gap": "Six ops declare `ai` with autonomy 'confirm', yet their handlers refuse the assistant channel first, so the rehearsal refuses every call: realestate.financing.mark_done, client_task.mark_done, listing.confirm_facts, memory.decide, listing.description.acknowledge_flags and cma.acknowledge_flags. They are not on notForTheAssistant. Close equivalents run with a Confirm (home.confirm_facts, status_email.acknowledge_flags, term.confirm, contract.confirm), so the rules are applied unevenly. The refusals name the page in words (\"from the deal’s financing page\"), so the Assistant can at least relay where to go.",
+      "fix": "Decide per op against the owner's notes. Where 2026-10-26 applies (financing and client-task mark done, the two acknowledge_flags), remove the actorKind check at financing.ts:256, client-tasks.ts:313, description.ts:497 and cma.ts:847. Where a person-only rule stands (\"Buyer memory: the AI suggests, a person confirms\", docs/realestate.md:214; \"a person confirms a fact\", :236), drop `ai` from realestate.memory.decide (memory.ts) and realestate.listing.confirm_facts (listing.ts), and add each to notForTheAssistant in server.ts with that reason. Update the expected keys in packages/core/test/addons/realestate.test.ts:71-74. Ask the owner first which way each goes.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-9",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Refusals the Assistant repeats about Deal settings, the booking site and ending or closing a deal",
+      "gap": "The refusals name places that don't exist. \"Settings → Real Estate\" (tours.ts:217-218): core Settings has no Real Estate area; tours' calendar is Real Estate Agent → Deal settings → Alerts & dates → Tours go on. \"Settings → Real Estate → Duties\" (editor.ts:467): the place is Deal settings → Duty list. \"Real Estate → Settings → Connections\" (feed.ts:62, esign.ts:96 and 247): the side-menu item is Deal settings, under Real Estate Agent. \"Settings → Booking site\" (marketing.ts:319): it's Settings → Calendars → Booking site. \"End listing\" (deals.ts:404): the More menu has Withdraw the listing…, The listing expired… and Cancel the listing…. \"Close deal\" (deals.ts:421): the button is Close the deal.",
+      "fix": "Reword the refusals. tours.ts:217 → \"…Pick the one tours go on in Real Estate Agent → Deal settings → Alerts & dates.\" tours.ts:218 → \"…Add them to one in Settings → Calendars, then pick it under Tours go on in Real Estate Agent → Deal settings → Alerts & dates.\" editor.ts:467 → \"Publish it in Real Estate Agent → Deal settings → Duty list first.\" feed.ts:62, esign.ts:96 and 247 → \"Real Estate Agent → Deal settings → Connections\". marketing.ts:319 → \"Settings → Calendars → Booking site\". deals.ts:404 → \"use More → Withdraw the listing…, The listing expired… or Cancel the listing… on X’s page\", naming the one matching `to`. deals.ts:421 → \"(Close the deal on its page)\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-10",
+      "severity": "low",
+      "kind": "words",
+      "where": "A listing's Seller’s to-do, its Offers page and its Inspections page",
+      "gap": "The ai descriptions of realestate_add_client_task, realestate_offers and realestate_inspections say buyer-only. The op descriptions say \"a deal’s client\", and the listing screens call the same ops: the listing Offers page calls realestate.offers, and Inspections doesn't branch by side. realestate_compare_offers covers part of a listing's offers, but tool search on a listing question may still pass over these three.",
+      "fix": "client-tasks.ts:183-184 → \"Give a deal’s client (a buyer or a seller) something to do in their portal: upload a document, sign off, or do something.\" offers.ts:724 → \"A deal’s offers and counters, their terms and deadlines: sent for a buyer, or received on a listing.\" inspections.ts:763 → \"A deal’s inspections, their findings and the repair request (on a listing, the buyer’s inspection and what they asked to fix).\"",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-11",
+      "severity": "low",
+      "kind": "read",
+      "where": "Net sheet (Seller’s estimate) → the \"At the list price\" column before any offer",
+      "gap": "Before any offer, the Net sheet page works out an \"At the list price\" column in the browser from listPriceCents and the typed figures. realestate_compare_offers returns rows from compareRowsOf only (empty without offers), plus figures. Server-side, netEstimate is used only in offer-words.ts, so the Assistant has no net figure at the list price.",
+      "fix": "In packages/core/src/addons/realestate/ops/offer-compare.ts (offersCompare handler, ~172-200), when rows is empty and the deal has a list price, add `atListPrice: netEstimate(figures, { priceCents: listPrice, sellerCreditCents: 0, buyerAgentFeeBp: null, buyerAgentFeeCents: 0 })` to OffersCompareOutput, as nullable, and mention it in the tool's ai.description.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-12",
+      "severity": "low",
+      "kind": "do",
+      "where": "Key dates → \"Confirm N values\" button",
+      "gap": "Key dates → Confirm N values confirms every unconfirmed entry in one press (the web loops realestate.term.confirm). The Assistant's realestate_confirm_date takes one entryId and waits for a Confirm each time, so 8 values mean 8 cards. Nothing in the runtime batches cards.",
+      "fix": "Change TermConfirmInput (schemas.ts:290) to take `entryIds: z.array(uuid).min(1).max(50)`, or add `entryIds` beside `entryId`, and loop in termConfirm (ops/terms.ts:229-) in one transaction, so the Assistant shows one card. Update the web's confirm() (dates-page.tsx:79-90) to send one call.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-13",
+      "severity": "low",
+      "kind": "do",
+      "where": "Photos → each tile's caption, the On the public page switch, Move earlier / Move later",
+      "gap": "realestate_listing_photos_arrange (risk 1, autonomy confirm) needs the whole photos list. The generic card shows the array of objects as \"Photos: N items\", so the person can't see which caption, switch or position changes before pressing Confirm. The screen changes one tile at a time, through the same command.",
+      "fix": "Give realestate_listing_photos_arrange a prepare step in the worker that diffs the args against realestate.listing.get's photos and lists only the changes (\"Photo 3: caption ‘Kitchen’ → ‘Updated kitchen’; Photo 5 off the page; Photo 7 moved to 2\"). Or add a one-photo op realestate.listing.photo_update {photoId, caption?, public?, position?} with ai.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-14",
+      "severity": "low",
+      "kind": "never",
+      "where": "Showings → Lockboxes → add or change a lockbox (kind, where it is, serial; the code is optional)",
+      "gap": "realestate.lockbox.save is excluded whole, because \"A lockbox’s code never goes through the AI\". But its code is optional (left out keeps the code, null clears it), and kind, place and serial carry no code. So the Assistant can list and remove lockboxes but can't add or change one without a code, which the settled rule doesn't forbid.",
+      "fix": "Add a code-less op, e.g. realestate.lockbox.describe {dealId, id, kind, place?, serial?}, with ai { tool: 'realestate_lockbox_save', autonomy: 'confirm' }. It never touches the code column, so leaving it out keeps the code. Keep realestate.lockbox.save on notForTheAssistant, and add the new op to the expected tools in packages/core/test/addons/realestate.test.ts.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-15",
+      "severity": "low",
+      "kind": "words",
+      "where": "What the Assistant is told the add-on covers",
+      "gap": "Add-on tools are always deferred behind tool search, and the directory line names only deals, people, property, key dates, duties, deadlines, documents and alerts. That part is real. But TOOL_SEARCH_NOTE tells the model to search before saying it can't do something, and the tool names and descriptions already say showings, open_houses, listing_flyer, compare_offers, matches, cma, inspections, financing and client_update. So search finds those areas. What is missing is matching on the words people use for the links (\"listing link\", \"showing request link\", \"sign-in sheet\", \"QR code\"): only 7 keyword lists exist across the realestate ops, and the showings and open-house descriptions don't mention their links.",
+      "fix": "Extend realestate/manifest.ts:1618-1619 ai.directory: \"buyer and listing deals: people, property, key dates, duties, documents and alerts; a listing’s marketing and public page, flyer, showings and lockboxes, open houses, offers and net sheet, CMAs; a buyer’s homes, matches, tours, inspections and financing; client updates\" (≤200 chars). Add keywords: realestate_showings ['showing request link','ShowingTime'], realestate_open_houses ['sign-in sheet','open house QR'], realestate_listing_marketing ['listing link','public page','MLS live'], realestate_listing_flyer ['flyer','QR code'], realestate_compare_offers ['net sheet','seller’s estimate'].",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

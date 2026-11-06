@@ -1,0 +1,1242 @@
+{
+  "area": "safety-team",
+  "title": "Safety check-ins, the team (members and invites), permissions and support access",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/safety.tsx": "89edd1308007",
+    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "7a7a367c0039",
+    "apps/mobile/src/components/safety/check-in-banner.tsx": "c88184b11b8c",
+    "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
+    "apps/mobile/src/components/safety/help-sheet.tsx": "414a9416ca2d",
+    "apps/mobile/src/components/safety/my-safety.tsx": "d5c8ce4d6f4b",
+    "apps/mobile/src/safety/check-in.ts": "a74f2b9d02e8",
+    "apps/mobile/src/safety/follow.ts": "71a73dcc123e",
+    "apps/web/src/app/app/w/[workspaceId]/members/page.tsx": "2762c6231abb",
+    "apps/web/src/app/app/w/[workspaceId]/settings/permissions/page.tsx": "2463927b8cfc",
+    "apps/web/src/app/invite/[token]/page.tsx": "a1abb7862fdb",
+    "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
+    "apps/web/src/components/members/invite-dialog.tsx": "bf6dfb35adce",
+    "apps/web/src/components/members/members-table.tsx": "669be392ed1e",
+    "apps/web/src/components/members/org-admins.tsx": "6e748c374fe9",
+    "apps/web/src/components/members/pending-invitations.tsx": "1195e3b775d1",
+    "apps/web/src/components/members/person-permissions-dialog.tsx": "b37bcd82f9f6",
+    "apps/web/src/components/safety/contact-page.tsx": "94142f097968",
+    "apps/web/src/components/safety/my-safety.tsx": "75cd5114d269",
+    "apps/web/src/components/safety/safety-alert.tsx": "eb293d074218",
+    "apps/web/src/components/settings/permission-bits.tsx": "575b896fc82e",
+    "apps/web/src/components/settings/permissions-page.tsx": "8fcb6b3e083c",
+    "apps/web/src/components/settings/safety-settings.tsx": "b92ac9fcea80",
+    "apps/web/src/components/settings/support-access-card.tsx": "136227a6f294",
+    "apps/web/src/components/support/get-help.tsx": "a753e0577cbd"
+  },
+  "items": [
+    {
+      "path": "My safety → header: Check in from the phone app when you’re alone at a customer’s place",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:82",
+      "covered": "yes",
+      "by": "prompt settings map, safety How to (check in on the phone)"
+    },
+    {
+      "path": "My safety → open check-in → Checked in · place",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:94",
+      "covered": "yes",
+      "by": "read_safety_mine → open.place"
+    },
+    {
+      "path": "My safety → open check-in → Until time · who’s told if you don’t check out (or the safety person)",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:96",
+      "covered": "yes",
+      "by": "read_safety_mine → open.plannedEndAt, contacts[].status"
+    },
+    {
+      "path": "My safety → open check-in → warning: contacts were told / you asked for help / Still there? answer within N minutes",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:103",
+      "covered": "yes",
+      "by": "read_safety_mine → open.state; get_settings safety → alertAfterMinutes"
+    },
+    {
+      "path": "My safety → open check-in → I’m OK, check me out",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/my-safety.tsx:116",
+      "covered": "yes",
+      "by": "do_safety_check_out input checkInId"
+    },
+    {
+      "path": "My safety → open check-in → +15 min",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/my-safety.tsx:124",
+      "covered": "yes",
+      "by": "do_safety_extend input checkInId, minutes (5–240)"
+    },
+    {
+      "path": "My safety → not checked in: You’re not checked in… check in from the appointment",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:136",
+      "covered": "yes",
+      "by": "read_safety_mine → open null"
+    },
+    {
+      "path": "My safety → Who’s told if you don’t check out → each contact: name, status (Teammate / Asked by text / agreed / Said STOP)",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:149",
+      "covered": "yes",
+      "by": "read_safety_mine → contacts[].name, status"
+    },
+    {
+      "path": "My safety → Who’s told → empty: Nobody yet, so the safety person is told",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:157",
+      "covered": "yes",
+      "by": "read_safety_mine → contacts empty"
+    },
+    {
+      "path": "My safety → Who’s told → note: add or change them on the phone; outside asked by text; only you see them",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:161",
+      "covered": "yes",
+      "by": "prompt settings map, safety How to / Not in HandsFreeOS"
+    },
+    {
+      "path": "My safety → When → Ask me after N minutes; Then tell them after N more minutes",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:170",
+      "covered": "yes",
+      "by": "get_settings safety → askAfterMinutes, alertAfterMinutes"
+    },
+    {
+      "path": "My safety → When → Tell them again every 10 minutes, for an hour",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:170",
+      "covered": "no",
+      "by": "repeat interval is in no tool, prompt or settings map"
+    },
+    {
+      "path": "My safety → When → note: nobody set, safety person told; owners set times; The safety person is X",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/my-safety.tsx:184",
+      "covered": "yes",
+      "by": "get_settings safety → safetyPersonName; settings map safety"
+    },
+    {
+      "path": "Safety alert → title: X hasn’t checked out / X asked for help",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:100",
+      "covered": "yes",
+      "by": "read_safety_alert → alert.personName, state"
+    },
+    {
+      "path": "Safety alert → place",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:102",
+      "covered": "yes",
+      "by": "read_safety_alert → alert.place"
+    },
+    {
+      "path": "Safety alert → Planned end; Checked in",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:106",
+      "covered": "yes",
+      "by": "read_safety_alert → plannedEndAt, startedAt"
+    },
+    {
+      "path": "Safety alert → Where their phone was: On the map, time (link)",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:109",
+      "covered": "partly",
+      "by": "read_safety_alert → latitude, longitude, locatedAt; no map link"
+    },
+    {
+      "path": "Safety alert → Their phone (or Not on file)",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:121",
+      "covered": "yes",
+      "by": "read_safety_alert → personPhone"
+    },
+    {
+      "path": "Safety alert → Call first name",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:124",
+      "covered": "person",
+      "by": "a call on the person’s own phone; number from read_safety_alert"
+    },
+    {
+      "path": "Safety alert → I reached them",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:134",
+      "covered": "yes",
+      "by": "do_safety_resolve input checkInId"
+    },
+    {
+      "path": "Safety alert → note: to you alone; if in danger call 911; HandsFreeOS never calls",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:144",
+      "covered": "yes",
+      "by": "prompt settings map, safety Not in HandsFreeOS"
+    },
+    {
+      "path": "Safety alert → Nothing to answer here (already OK or checked out)",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:51",
+      "covered": "yes",
+      "by": "read_safety_alert → alert null"
+    },
+    {
+      "path": "Safety alert → after I reached them: Thanks. X is OK; alerts stop for everyone",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/safety-alert.tsx:52",
+      "covered": "yes",
+      "by": "do_safety_resolve result"
+    },
+    {
+      "path": "Contact’s link page (/s/…) → This link doesn’t work, and why",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:75",
+      "covered": "person",
+      "by": "outside contact’s signed-out link; no account, no Assistant"
+    },
+    {
+      "path": "Contact’s link page → over: X checked out / X is OK, alerts stopped",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:88",
+      "covered": "person",
+      "by": "outside contact’s signed-out link"
+    },
+    {
+      "path": "Contact’s link page → X hasn’t checked out / asked for help; At place",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:137",
+      "covered": "person",
+      "by": "outside contact’s signed-out link"
+    },
+    {
+      "path": "Contact’s link page → Planned end, Checked in, Where their phone was (map), Their phone",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:145",
+      "covered": "person",
+      "by": "outside contact’s signed-out link"
+    },
+    {
+      "path": "Contact’s link page → You’re a safety contact for X at business; 911 note",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:163",
+      "covered": "person",
+      "by": "outside contact’s signed-out link"
+    },
+    {
+      "path": "Contact’s link page → Call first name",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/contact-page.tsx:167",
+      "covered": "person",
+      "by": "the contact’s own phone"
+    },
+    {
+      "path": "Contact’s link page → I reached X, they’re OK",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/contact-page.tsx:177",
+      "covered": "person",
+      "by": "the outside contact’s answer, by its token"
+    },
+    {
+      "path": "Contact’s link page → I couldn’t reach them; then Thanks for trying; error line",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/contact-page.tsx:197",
+      "covered": "person",
+      "by": "the outside contact’s answer, by its token"
+    },
+    {
+      "path": "Settings → Safety → Check-ins: what they do; only they and their people see the place; never calls 911",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:90",
+      "covered": "yes",
+      "by": "prompt settings map safety (what, Not in HandsFreeOS)"
+    },
+    {
+      "path": "Settings → Safety → Check-ins → Ask them after (minutes) and hint",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:103",
+      "covered": "yes",
+      "by": "update_safety_settings input askAfterMinutes (0–60)"
+    },
+    {
+      "path": "Settings → Safety → Check-ins → Then tell their contacts after (minutes) and hint",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:117",
+      "covered": "yes",
+      "by": "update_safety_settings input alertAfterMinutes (1–60)"
+    },
+    {
+      "path": "Settings → Safety → minutes fields → Enter whole minutes / field errors",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:107",
+      "covered": "yes",
+      "by": "tool input is whole minutes; command’s own refusals"
+    },
+    {
+      "path": "Settings → Safety → Who’s told when someone has nobody to tell: The owners and admins, or a teammate (name · role)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:131",
+      "covered": "yes",
+      "by": "update_safety_settings input safetyUserId (null: owners and admins); list_team ids"
+    },
+    {
+      "path": "Settings → Safety → Who’s told → the one named now, (no longer here)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:146",
+      "covered": "yes",
+      "by": "get_settings safety → safetyUserId, safetyPersonName; list_team"
+    },
+    {
+      "path": "Settings → Safety → told again every 10 minutes, for an hour (Check-ins note and What each person sees)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:155",
+      "covered": "no",
+      "by": "repeat interval is in no tool, prompt or settings map"
+    },
+    {
+      "path": "Settings → Safety → Save; Saved. Check-ins use these times from now on.",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:159",
+      "covered": "yes",
+      "by": "update_safety_settings (Confirm card, outcome Saved Safety)"
+    },
+    {
+      "path": "Settings → Safety → read-only note: Only someone who can change the business’s settings… Ask an owner",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:170",
+      "covered": "yes",
+      "by": "tool offered only with workspace.update; prompt says who can"
+    },
+    {
+      "path": "Settings → Safety → What each person sees → Ask me after; Then tell them after",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:184",
+      "covered": "yes",
+      "by": "get_settings safety → askAfterMinutes, alertAfterMinutes"
+    },
+    {
+      "path": "Settings → Safety → What each person sees → note: each picks their own contacts; link to your Safety page",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/safety-settings.tsx:198",
+      "covered": "yes",
+      "by": "read_safety_mine; settings map safety How to"
+    },
+    {
+      "path": "Members → header: People who can work in Business; org owners and admins also have access",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/members/page.tsx:41",
+      "covered": "yes",
+      "by": "context business name; get_settings team → organizationAdmins"
+    },
+    {
+      "path": "Members → Invite teammate (opens Invite a teammate)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:70",
+      "covered": "yes",
+      "by": "manage_team action invite"
+    },
+    {
+      "path": "Members → Invite a teammate → email with a link that works once and expires in 7 days",
+      "kind": "see",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:104",
+      "covered": "yes",
+      "by": "manage_team card note; get_settings team → invitations[].expiresAt"
+    },
+    {
+      "path": "Members → Invite a teammate → Email address; Enter a valid email address.",
+      "kind": "do",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:107",
+      "covered": "yes",
+      "by": "manage_team input email"
+    },
+    {
+      "path": "Members → Invite a teammate → Role: Owner, Admin or Member (up to your own)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:124",
+      "covered": "yes",
+      "by": "manage_team input role"
+    },
+    {
+      "path": "Members → Invite a teammate → Role → each role’s description",
+      "kind": "see",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:151",
+      "covered": "partly",
+      "by": "manage_team description sums roles; not each role’s line"
+    },
+    {
+      "path": "Members → Invite a teammate → Send invite (or Cancel)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:161",
+      "covered": "yes",
+      "by": "manage_team invite, on Confirm"
+    },
+    {
+      "path": "Members → Invitation sent → X joins as Role once they accept; works once, 7 days; resend or revoke below",
+      "kind": "see",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:75",
+      "covered": "yes",
+      "by": "manage_team outcome; get_settings team → invitations"
+    },
+    {
+      "path": "Members → Invitation sent → Invite another / Done",
+      "kind": "do",
+      "file": "apps/web/src/components/members/invite-dialog.tsx:88",
+      "covered": "yes",
+      "by": "manage_team invite again; Done closes"
+    },
+    {
+      "path": "Members → table → each person: name, email, You",
+      "kind": "see",
+      "file": "apps/web/src/components/members/members-table.tsx:148",
+      "covered": "yes",
+      "by": "get_settings team → members[].fullName, email; context names the person"
+    },
+    {
+      "path": "Members → table → each person → Own permissions badge",
+      "kind": "see",
+      "file": "apps/web/src/components/members/members-table.tsx:150",
+      "covered": "yes",
+      "by": "get_settings permissions → people[].settings"
+    },
+    {
+      "path": "Members → table → each person → Joined date",
+      "kind": "see",
+      "file": "apps/web/src/components/members/members-table.tsx:190",
+      "covered": "yes",
+      "by": "get_settings team → members[].joinedAt"
+    },
+    {
+      "path": "Members → table → each person → Role picker (Owner, Admin, Member)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:164",
+      "covered": "partly",
+      "by": "manage_team change_role; offered on members.invite, screen on members.change_role"
+    },
+    {
+      "path": "Members → table → Role picker: You cannot change your own role / You can’t change this role",
+      "kind": "see",
+      "file": "apps/web/src/components/members/members-table.tsx:169",
+      "covered": "yes",
+      "by": "membership.change_role refusal, through manage_team"
+    },
+    {
+      "path": "Members → table → ⋯ → Edit my hours",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:210",
+      "covered": "yes",
+      "by": "update_my_hours"
+    },
+    {
+      "path": "Members → table → ⋯ → Edit hours (a teammate’s)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:210",
+      "covered": "no",
+      "by": "update_my_hours is own hours only; no tool sets a teammate’s"
+    },
+    {
+      "path": "Members → table → ⋯ → View as name",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:221",
+      "covered": "never",
+      "by": "teammate_view.start on NEVER_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Members → table → ⋯ → Permissions (opens What X can do)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:231",
+      "covered": "yes",
+      "by": "manage_permissions set_person / reset_person"
+    },
+    {
+      "path": "Members → table → ⋯ → Leave workspace → Leave this workspace? → Leave",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:240",
+      "covered": "partly",
+      "by": "manage_team remove with own userId; offered only with members.invite"
+    },
+    {
+      "path": "Members → table → ⋯ → Remove from workspace → Remove X? → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/members/members-table.tsx:245",
+      "covered": "partly",
+      "by": "manage_team remove; offered on members.invite, screen on members.remove"
+    },
+    {
+      "path": "Members → Remove / Leave dialog: they lose access at once; activity stays in audit log; an Owner can invite you back",
+      "kind": "see",
+      "file": "apps/web/src/components/members/members-table.tsx:287",
+      "covered": "yes",
+      "by": "manage_team card note: They lose their way in"
+    },
+    {
+      "path": "Members → toast: X is now Role. Recorded in the audit log.",
+      "kind": "see",
+      "file": "apps/web/src/components/members/members-table.tsx:76",
+      "covered": "yes",
+      "by": "manage_team outcome; read_audit_list"
+    },
+    {
+      "path": "Members → What X can do → X is an Admin/Member; choices here win over the role",
+      "kind": "see",
+      "file": "apps/web/src/components/members/person-permissions-dialog.tsx:101",
+      "covered": "yes",
+      "by": "get_settings permissions → people[].role, settings"
+    },
+    {
+      "path": "Members → What X can do → each group and permission: label, description",
+      "kind": "see",
+      "file": "apps/web/src/components/members/person-permissions-dialog.tsx:120",
+      "covered": "partly",
+      "by": "manage_permissions lists key = label; no descriptions"
+    },
+    {
+      "path": "Members → What X can do → each permission: Same as Role (on/off), On, Off",
+      "kind": "do",
+      "file": "apps/web/src/components/members/person-permissions-dialog.tsx:124",
+      "covered": "yes",
+      "by": "manage_permissions set_person input permission, allowed true/false/null"
+    },
+    {
+      "path": "Members → What X can do → each permission → Off until “Y” is on",
+      "kind": "see",
+      "file": "apps/web/src/components/members/person-permissions-dialog.tsx:133",
+      "covered": "partly",
+      "by": "get_settings permissions → people[].effective; not what it needs"
+    },
+    {
+      "path": "Members → What X can do → Same as their role for everything (then Done)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/person-permissions-dialog.tsx:144",
+      "covered": "yes",
+      "by": "manage_permissions reset_person input userId"
+    },
+    {
+      "path": "Members → What X can do → toasts Saved for X / X does what their role says again",
+      "kind": "see",
+      "file": "apps/web/src/components/members/person-permissions-dialog.tsx:69",
+      "covered": "yes",
+      "by": "manage_permissions outcome"
+    },
+    {
+      "path": "Members → Also has access via Org → Managed in the organization, not here",
+      "kind": "see",
+      "file": "apps/web/src/components/members/org-admins.tsx:53",
+      "covered": "yes",
+      "by": "get_settings team → organizationAdmins"
+    },
+    {
+      "path": "Members → Also has access via Org → each: name, email, Organization Owner/Admin",
+      "kind": "see",
+      "file": "apps/web/src/components/members/org-admins.tsx:63",
+      "covered": "yes",
+      "by": "get_settings team → organizationAdmins[].fullName, email, orgRole"
+    },
+    {
+      "path": "Members → Also has access via Org → your row → Put me on this business",
+      "kind": "do",
+      "file": "apps/web/src/components/members/org-admins.tsx:66",
+      "covered": "yes",
+      "by": "do_workspace_join (offered on workspace.update)"
+    },
+    {
+      "path": "Members → Pending invitations → Links expire 7 days after they are sent",
+      "kind": "see",
+      "file": "apps/web/src/components/members/pending-invitations.tsx:57",
+      "covered": "yes",
+      "by": "get_settings team → invitations[].expiresAt"
+    },
+    {
+      "path": "Members → Pending invitations → empty: No pending invitations.",
+      "kind": "see",
+      "file": "apps/web/src/components/members/pending-invitations.tsx:61",
+      "covered": "yes",
+      "by": "get_settings team → invitations empty"
+    },
+    {
+      "path": "Members → Pending invitations → each: Pending, email, role, invited by, sent ago · expires date, or Sending…",
+      "kind": "see",
+      "file": "apps/web/src/components/members/pending-invitations.tsx:80",
+      "covered": "yes",
+      "by": "get_settings team → invitations[].email, role, invitedBy, sentAt, expiresAt"
+    },
+    {
+      "path": "Members → Pending invitations → each → Resend (old link stops working)",
+      "kind": "do",
+      "file": "apps/web/src/components/members/pending-invitations.tsx:99",
+      "covered": "yes",
+      "by": "manage_team resend_invitation input invitationId"
+    },
+    {
+      "path": "Members → Pending invitations → each → Revoke",
+      "kind": "do",
+      "file": "apps/web/src/components/members/pending-invitations.tsx:109",
+      "covered": "partly",
+      "by": "manage_team cancel_invitation; offered on members.invite, screen on invitations.revoke"
+    },
+    {
+      "path": "Invitation page → Invitation not found; Go to your workspaces",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:33",
+      "covered": "never",
+      "by": "invitation.preview: signed-out page, NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Invitation page → X invited you to join Business; role and its description",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:52",
+      "covered": "never",
+      "by": "invitation.preview, NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Invitation page → Joining as email; link works once and expires date",
+      "kind": "see",
+      "file": "apps/web/src/components/members/accept-invite.tsx:24",
+      "covered": "never",
+      "by": "invitation.preview, NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Invitation page → Accept invitation",
+      "kind": "do",
+      "file": "apps/web/src/components/members/accept-invite.tsx:29",
+      "covered": "never",
+      "by": "invitation.accept on NEVER_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Invitation page → wrong account: sent to masked email, you’re signed in as email",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:73",
+      "covered": "never",
+      "by": "invitation.preview, NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Invitation page → Sign out and switch account",
+      "kind": "do",
+      "file": "apps/web/src/components/members/accept-invite.tsx:65",
+      "covered": "person",
+      "by": "signing in is the person’s own"
+    },
+    {
+      "path": "Invitation page → already accepted / expired on date / revoked; Ask X for a new one; Open your workspaces",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:88",
+      "covered": "never",
+      "by": "invitation.preview, NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Invitation page → Wrong workspace? Just close this page.",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:116",
+      "covered": "never",
+      "by": "invitation.preview, NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Settings → Permissions → only owners open it",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/permissions/page.tsx:18",
+      "covered": "yes",
+      "by": "manage_permissions offered only with permissions.manage"
+    },
+    {
+      "path": "Settings → Permissions → Who can do what: owners do everything; one person’s own in Members",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:107",
+      "covered": "yes",
+      "by": "prompt settings map permissions; manage_permissions description"
+    },
+    {
+      "path": "Settings → Permissions → each group card and permission row: label, description",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:141",
+      "covered": "partly",
+      "by": "settings map names groups; manage_permissions key = label; no descriptions"
+    },
+    {
+      "path": "Settings → Permissions → each row → Admins / Members: Default (on/off), On, Off",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/permission-bits.tsx:75",
+      "covered": "yes",
+      "by": "manage_permissions set_role input role, permission, allowed true/false/null"
+    },
+    {
+      "path": "Settings → Permissions → each row → what’s set and the default it shows",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:154",
+      "covered": "partly",
+      "by": "get_settings permissions → roles[].settings, effective; default hidden when overridden"
+    },
+    {
+      "path": "Settings → Permissions → each row → Off until “Y” is on",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:165",
+      "covered": "partly",
+      "by": "get_settings permissions → roles[].effective; not what it needs"
+    },
+    {
+      "path": "Settings → Permissions → Back to the defaults → Reset admins / Reset members → Reset?",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:184",
+      "covered": "yes",
+      "by": "manage_permissions reset_role input role"
+    },
+    {
+      "path": "Settings → Permissions → People with their own settings → each: name, role, N settings of their own",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:209",
+      "covered": "yes",
+      "by": "get_settings permissions → people[].fullName, role, settings"
+    },
+    {
+      "path": "Settings → Permissions → People with their own settings → each → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:219",
+      "covered": "yes",
+      "by": "manage_permissions set_person / reset_person"
+    },
+    {
+      "path": "Settings → Permissions → People with their own settings → Nobody yet",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:200",
+      "covered": "yes",
+      "by": "get_settings permissions → people"
+    },
+    {
+      "path": "Settings → Permissions → toasts Saved for admins / members are back to the defaults",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/permissions-page.tsx:78",
+      "covered": "yes",
+      "by": "manage_permissions outcome"
+    },
+    {
+      "path": "Settings → Support access → Support access to private records: only if let in; 24 hours, read-only; audit log",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:76",
+      "covered": "yes",
+      "by": "do_support_access_grant warning; read_audit_list"
+    },
+    {
+      "path": "Settings → Support access → each request: who asks (or HandsFreeOS support), note, when",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:88",
+      "covered": "yes",
+      "by": "read_support_access_list → items[].requestedBy, requestNote, createdAt"
+    },
+    {
+      "path": "Settings → Support access → each request → Allow for 24 hours",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:93",
+      "covered": "yes",
+      "by": "do_support_access_grant input requestId"
+    },
+    {
+      "path": "Settings → Support access → each request → Decline",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:106",
+      "covered": "yes",
+      "by": "do_support_access_decline input requestId"
+    },
+    {
+      "path": "Settings → Support access → each request → An owner or admin, or a deal’s main agent, can answer",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:122",
+      "covered": "yes",
+      "by": "read_support_access_list → canLetIn"
+    },
+    {
+      "path": "Settings → Support access → each open grant: Open · Support sees what you / X see until time",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:133",
+      "covered": "yes",
+      "by": "read_support_access_list → items[].status, expired, grantedBy, expiresAt"
+    },
+    {
+      "path": "Settings → Support access → each open grant → End now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:139",
+      "covered": "yes",
+      "by": "do_support_access_end input grantId"
+    },
+    {
+      "path": "Settings → Support access → Give support access for 24 hours",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:159",
+      "covered": "yes",
+      "by": "do_support_access_grant with no requestId"
+    },
+    {
+      "path": "Side menu → Get help (opens Ask us for help)",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:157",
+      "covered": "yes",
+      "by": "contact_support"
+    },
+    {
+      "path": "Side menu → Get help → dot: Getting started isn’t finished",
+      "kind": "see",
+      "file": "apps/web/src/components/support/get-help.tsx:122",
+      "covered": "yes",
+      "by": "read_onboarding_status → view.hidden, finishedAt"
+    },
+    {
+      "path": "Side menu → Get help → Getting started (Show it on Home again / On Home)",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:133",
+      "covered": "yes",
+      "by": "do_onboarding_set_view input hidden false"
+    },
+    {
+      "path": "Side menu → Get help → Take the tour",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:146",
+      "covered": "no",
+      "by": "no tool starts the menu tour"
+    },
+    {
+      "path": "Side menu → Get help → Ask us for help",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:150",
+      "covered": "yes",
+      "by": "contact_support"
+    },
+    {
+      "path": "Get help → Ask us for help: a person reads these Mon–Fri, answers by email; we know business and screen",
+      "kind": "see",
+      "file": "apps/web/src/components/support/get-help.tsx:166",
+      "covered": "yes",
+      "by": "contact_support description and card note"
+    },
+    {
+      "path": "Get help → In a few words",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:187",
+      "covered": "yes",
+      "by": "contact_support input subject"
+    },
+    {
+      "path": "Get help → What happened? (no passwords or card numbers); Tell us what is going on.",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:196",
+      "covered": "yes",
+      "by": "contact_support input details (required; secrets blocked)"
+    },
+    {
+      "path": "Get help → Send it (or Cancel)",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:211",
+      "covered": "yes",
+      "by": "contact_support, on Confirm"
+    },
+    {
+      "path": "Get help → Got it — ticket #N. We will answer by email. (Close)",
+      "kind": "see",
+      "file": "apps/web/src/components/support/get-help.tsx:170",
+      "covered": "yes",
+      "by": "contact_support outcome with ticket number"
+    },
+    {
+      "path": "Phone More → Settings → My safety (Who’s told if you don’t check out)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:260",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety"
+    },
+    {
+      "path": "Phone My safety → Who’s told → each contact: name, status line",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:58",
+      "covered": "yes",
+      "by": "read_safety_mine → contacts[].name, status"
+    },
+    {
+      "path": "Phone My safety → Who’s told → empty: Nobody yet. Add a teammate or someone you trust.",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:53",
+      "covered": "yes",
+      "by": "read_safety_mine → contacts empty"
+    },
+    {
+      "path": "Phone My safety → Add someone → A teammate / Someone outside",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:169",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety: own contacts, only they choose"
+    },
+    {
+      "path": "Phone My safety → Add someone → A teammate → pick one (everyone but you, not already a contact)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/safety.tsx:15",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety"
+    },
+    {
+      "path": "Phone My safety → Add someone → Someone outside → Name, Phone, Email; note: one text to agree, STOP",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:202",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety"
+    },
+    {
+      "path": "Phone My safety → Add someone → Save (or Changing who’s told needs signal)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:228",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety"
+    },
+    {
+      "path": "Phone My safety → a contact → Remove X? They won’t be told → Remove",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:265",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.my_safety"
+    },
+    {
+      "path": "Phone My safety → When → Ask me after; Then tell them after",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:79",
+      "covered": "yes",
+      "by": "get_settings safety → askAfterMinutes, alertAfterMinutes"
+    },
+    {
+      "path": "Phone My safety → note: nobody set, safety person told; only you see your contacts",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/my-safety.tsx:90",
+      "covered": "yes",
+      "by": "get_settings safety → safetyPersonName; settings map safety"
+    },
+    {
+      "path": "Phone appointment (and Real Estate showings, tours, open houses) → Check in",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:360",
+      "covered": "no",
+      "by": "safety.check_in is in no tool and on no list"
+    },
+    {
+      "path": "Phone Check in → what and when (Showing at place · time–time)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:114",
+      "covered": "yes",
+      "by": "the appointment’s own reads (todays_schedule)"
+    },
+    {
+      "path": "Phone Check in → Where (no appointment place)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:121",
+      "covered": "no",
+      "by": "safety.check_in not covered"
+    },
+    {
+      "path": "Phone Check in → Check out by: three times, or Other (1h, 1½h, 2h, 3h)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:131",
+      "covered": "no",
+      "by": "safety.check_in not covered"
+    },
+    {
+      "path": "Phone Check in → If you don’t, HandsFreeOS tells: each contact, or Nobody set yet…",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:176",
+      "covered": "yes",
+      "by": "read_safety_mine → contacts"
+    },
+    {
+      "path": "Phone Check in → Share where I am until I check out",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:158",
+      "covered": "no",
+      "by": "no tool; needs the phone’s location"
+    },
+    {
+      "path": "Phone Check in → Check in; Say where you are / Checked in until time",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:167",
+      "covered": "no",
+      "by": "safety.check_in is in no tool and on no list"
+    },
+    {
+      "path": "Phone banner (every screen) → Checked in · place",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/check-in-banner.tsx:116",
+      "covered": "yes",
+      "by": "read_safety_mine → open.place"
+    },
+    {
+      "path": "Phone banner → Until time · who’s told / It’s past time. Are you OK?",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/check-in-banner.tsx:122",
+      "covered": "yes",
+      "by": "read_safety_mine → open.plannedEndAt, contacts"
+    },
+    {
+      "path": "Phone banner → Sharing where you are",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/check-in-banner.tsx:126",
+      "covered": "no",
+      "by": "read_safety_mine has no sharing flag"
+    },
+    {
+      "path": "Phone banner → Check out / I’m OK; Checked out. Glad you’re OK.",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-banner.tsx:140",
+      "covered": "partly",
+      "by": "do_safety_check_out; the phone’s own reminder isn’t cleared"
+    },
+    {
+      "path": "Phone banner → +15 min; You’re checked in until time",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-banner.tsx:151",
+      "covered": "partly",
+      "by": "do_safety_extend minutes 15; the phone’s own reminder isn’t moved"
+    },
+    {
+      "path": "Phone banner → Help (opens Help, which tells contacts at once with where you are)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-banner.tsx:162",
+      "covered": "no",
+      "by": "safety.help is in no tool and on no list"
+    },
+    {
+      "path": "Phone Help → X are being told now, with where you are / No signal for HandsFreeOS",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/help-sheet.tsx:87",
+      "covered": "no",
+      "by": "safety.help not covered"
+    },
+    {
+      "path": "Phone Help → Call 911",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/help-sheet.tsx:91",
+      "covered": "person",
+      "by": "the phone’s own calling; HandsFreeOS never calls 911"
+    },
+    {
+      "path": "Phone Help → Text X from your phone / Call X (up to 3 contacts with a number)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/help-sheet.tsx:99",
+      "covered": "person",
+      "by": "the phone’s own texting and calling"
+    },
+    {
+      "path": "Phone Help → note: with signal Help also alerts X; never calls 911",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/help-sheet.tsx:118",
+      "covered": "partly",
+      "by": "settings map: never calls 911; Help’s alert not covered"
+    },
+    {
+      "path": "Phone reminder push → Still at place? You planned to check out at time… in N minutes X is told",
+      "kind": "see",
+      "file": "apps/mobile/src/safety/check-in.ts:131",
+      "covered": "yes",
+      "by": "read_safety_mine → open; get_settings safety → alertAfterMinutes"
+    },
+    {
+      "path": "Phone reminder push → I’m OK / +15 min buttons",
+      "kind": "do",
+      "file": "apps/mobile/src/safety/check-in.ts:146",
+      "covered": "yes",
+      "by": "do_safety_check_out; do_safety_extend minutes 15"
+    },
+    {
+      "path": "Phone sharing notification (Android) → Sharing where you are · Until you check out of place",
+      "kind": "see",
+      "file": "apps/mobile/src/safety/follow.ts:75",
+      "covered": "no",
+      "by": "read_safety_mine has no sharing flag"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "safety-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Safety alert page (/safety/<checkInId>, opened from the teammate push/email): the alert card (who, place, Planned end, Checked in, Where their phone was, Their phone) and the I reached them button",
+      "gap": "Part of this is wrong. The alert is not \"only a push and an email\". Every push a person's phone is handed is kept under the bell. The worker keeps it after sending (send.ts:277 → private.keep_push_notification), and the teammate's safety_alert push carries path /app/w/<ws>/safety/<checkInId> (ladder.ts:422). read_notification_list (screen-reads.ts:62) returns that path (queries/notification.ts:64-70), so the Assistant can find the checkInId there and call read_safety_alert / do_safety_resolve. Safety pushes are always on (push.ts:55, 225). What is real: (1) A teammate contact with no phone in the app gets only the email (pushAudience needs a registered push device, queue.ts:108), so they have no bell row and no id. (2) The /safety/<checkInId> page is not a page record (schemas/assistant.ts:319-330; RECORD_ROUTES in words.ts:413-420 has no safety). So asking from the alert page carries no id. (3) Nothing tells the model that a Safety notification's path holds the checkInId, so it has to work that out from a raw path.",
+      "fix": "Add 'safety_alert' to the AssistantPageRecord type enum (packages/core/src/schemas/assistant.ts:320). Add ['safety_alert', 'safety'] to RECORD_ROUTES in packages/core/src/assistant/words.ts:413, so /app/w/<ws>/safety/<id> sends its checkInId, and have context.ts name it as \"a safety alert: read it with read_safety_alert\". For email-only contacts, add a query safety.alerts_for_me to SCREEN_READS. It lists the open check-ins where private.safety_checkin_for_contact holds for the caller (checkInId, personName, place, plannedEndAt, state). Say in safety.alert's description that a Safety notification's path ends in the checkInId.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "team-1",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Members → ⋯ beside a teammate → Edit hours (opens Settings → My calendar for them: Weekly hours, Add time off)",
+      "gap": "Members → ⋯ → Edit hours opens My calendar for the teammate (?user=), which saves schedule.set and time_off.add with ownerId (my-calendar.tsx:141-148) for anyone with calendars.manage. update_my_hours never passes ownerId (tools-settings-me.ts:197, 204-214), and no other Assistant tool or SCREEN_ACTION runs schedule.set or time_off.add for someone else. The Assistant knows the way to the screen (settings-map.ts:1001, 'Set someone else’s hours … Members, ⋯ beside them, then Edit hours') but can't do it. Severity is lowered from high: the card says 'Your week' / 'Put time off in your calendar' (tools-settings-me.ts:136-138, 168), so the person would see it was their own calendar before confirming, and the screen way is already given.",
+      "fix": "Add userId: uuid.optional().describe('A teammate, from list_team; leave out for yourself') to update_my_hours (packages/core/src/assistant/tools.ts:1099). In tools-settings-me.ts, pass ownerId: userId to schedule.set and time_off.add, and have savedWeek read that person's week from schedule.team. Name them on the card ('Change Jake’s working hours', 'Put time off in Jake’s calendar') and in the outcome. The kernel's assertMayEditHours (calendar-hours.ts:39-48) already refuses without calendars.manage. Change 'Theirs alone.' to 'Theirs, or a teammate’s for someone who sets up calendars (owners and admins).' Add 'a teammate’s hours and time off (owners and admins)' to settings-map my_calendar canChange.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "team-2",
+      "severity": "low",
+      "kind": "do",
+      "where": "Members: Role picker (members.change_role), ⋯ → Remove from workspace (members.remove), ⋯ → Leave workspace on your own row (anyone), Pending invitations → Revoke (invitations.revoke)",
+      "gap": "manage_team is offered only with members.invite (tools.ts:577). A Member, who lacks it by default (permissions.ts:116-126), has no way to leave through the Assistant, though membership.remove needs only workspace.read and lets anyone leave (membership.remove.ts:17, 36-50). Someone given members.change_role, members.remove or invitations.revoke but not members.invite is also left out. When an owner or admin passes their own userId, the card reads 'Take <you> off <business>' / 'They lose their way in' (tools-settings-business.ts:362-372) instead of the screen's 'Leave this workspace?' / 'You lose access immediately. An Owner can invite you back later.' (members-table.tsx:283-288). Severity is lowered: by default all four permissions come together for owners and admins, and leaving is rare.",
+      "fix": "Set manage_team's permission to 'workspace.read' (packages/core/src/assistant/tools.ts:577). Add action 'leave', and in manageTeam.prepare (tools-settings-business.ts:322) refuse each action without its command's permission: invite and resend_invitation need members.invite, change_role needs members.change_role, remove of someone else needs members.remove, cancel_invitation needs invitations.revoke. 'leave' (or remove with userId = ctx.actor.userId) is open to all and gets the card 'Leave <business>' with the note 'You lose access immediately. An Owner can invite you back later.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "team-3",
+      "severity": "low",
+      "kind": "words",
+      "where": "Members → Pending invitations: each row’s Email, Role, Invited by, Sent · expires, with Resend and Revoke",
+      "gap": "For resend_invitation and cancel_invitation the card shows only {Business: workspace.name} (tools-settings-business.ts:373-381). It doesn't show whose invitation it is (email, role) or when it was sent or expires, and the resend card leaves out the screen toast's 'The old link no longer works.' (pending-invitations.tsx:36). The screenRef line is wrong: the file has 130 lines, with the columns at 72-94 and the toasts at 36/43. Severity is lowered: both actions can be undone (re-invite, resend), and the model picks the invitationId from get_settings team, which lists the email.",
+      "fix": "In manageTeam.prepare's default branch, read workspace.invitations, find args.invitationId (refuse with 'That invitation isn’t pending anymore. Refresh Members.' if it's gone), and show fields Email, Role (ROLE_LABELS), Sent and Expires. For resend_invitation, add the note 'The old link stops working.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-2",
+      "severity": "low",
+      "kind": "never",
+      "where": "Phone: More → Settings → My safety, with Add someone (A teammate / Someone outside: Name, Phone, Email, Save) and tapping a contact → Remove",
+      "gap": "It's true that the Assistant can't add or remove safety contacts. safety_contact.save and safety_contact.remove (risk 1, workspace.read, commands/safety.ts:371-377,453-458) have no tool, and 'phone.my_safety' is in SETTINGS_NEVER (coverage.ts:889). But the refusal is deliberate, and it's not a dead end: the Assistant can read the contacts (read_safety_mine, screen-reads.ts:77) and gives the exact way there ('in the phone app, open More, then Settings, then My safety', settings-map.ts:1021). The reason given ('only they choose') is weak, since the Assistant acts as the person behind a Confirm. But no recorded owner decision backs it, and the settled rules don't cover it either. Reversing it changes a NEVER entry, so the owner should say yes first. Severity is lowered for that reason.",
+      "fix": "If the owner agrees: add a manage_my_safety_contacts tool (actions add_teammate {contactUserId}, add_outside {name, phone?, email?}, remove {contactId}) running safety_contact.save / safety_contact.remove behind confirm. The add_outside card notes: 'They get one text asking them to reply OK, and are told nothing until they do.' Map 'phone.my_safety' in SETTING_TOOLS and remove it from SETTINGS_NEVER. Change update_safety_settings' 'Never anyone’s own contacts' to 'never anyone else’s contacts'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-3",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Phone: an appointment → Check in (Where, Check out by, Share where I am, Check in); the check-in banner → Help (alerts contacts at once)",
+      "gap": "safety.check_in (risk 1), safety.help (risk 2) and safety.where are not in SCREEN_ACTIONS (coverage.ts:150-152 has only check_out, extend and resolve), not in NEVER_FOR_THE_ASSISTANT, and run by no Assistant tool. The coverage test only collects /\\/v1\\/commands\\/…/ strings from apps/web and apps/mobile (assistant-coverage.test.ts:47-54). The phone runs these through change('…') and the typed command map (apps/mobile/src/changes/commands.ts:848-857), so all of them (and safety_contact.save/remove) slip past it. 'Check me in at 12 Oak St till 3' or 'I need help' gets nothing, and no reason is given.",
+      "fix": "Decide each one: either add safety.check_in to SCREEN_ACTIONS with the executor minting `id` (it's in the input, schemas/safety.ts:51) and safety.help with warning 'Your safety contacts are told at once where you are. HandsFreeOS never calls 911.', or put them in NEVER_FOR_THE_ASSISTANT with a reason (for example 'the phone sets its own offline reminder and shares where it is'), plus safety.where ('the phone sharing where it is'). Widen screenCommands in packages/core/test/assistant-coverage.test.ts:49-52 to also match /change(?:FromPress)?\\(\\s*'([a-z_]+\\.[a-z_.]+)'/ and the keys of apps/mobile/src/changes/commands.ts.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "support-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Support access to private records: the page the support email links to (/settings/support-access), and Real Estate’s settings → Support access tab; buttons Allow for 24 hours, Decline, End now, Give support access for 24 hours",
+      "gap": "The Assistant can act (do_support_access_grant/decline/end, coverage.ts:153-157) and read (read_support_access_list, screen-reads.ts:80). But nothing in settings-map, places-map or the prompt names where this lives. The page /settings/support-access is not in the settings catalog or the Settings menu. It is reached only from the email link (handlers/support-access.ts:51) and Real Estate deal settings → Support access tab (deal-settings.tsx:95). Severity is lowered: the prompt says to say it isn't sure rather than guess (prompt.ts:38), so the person gets 'not sure', not a made-up path.",
+      "fix": "Add an APP_PLACES entry to packages/core/src/assistant/places-map.ts: label 'Support access', where [], then 'the link in HandsFreeOS support’s email, or Real Estate’s settings → Support access tab', onScreen ['Each request from support, with Allow for 24 hours and Decline', 'Access given, with End now', 'Give support access for 24 hours'], and a line saying owners, admins and a private record's main person answer. Path /settings/support-access.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "team-4",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Members → ⋯ beside a teammate → View as <name> (and the phone’s More → View as a teammate)",
+      "gap": "Starting View as is rightly kept out (coverage.ts:406-407 teammate_view.start/end). But no Assistant words mention it: grep -i 'view as' finds nothing in packages/core/src/assistant or apps/worker/src/assistant beyond the NEVER/NOT_FOR entries. The team onScreen reads as a full list ('⋯ beside a person has Edit hours, Permissions (owners only), and Remove from workspace', settings-map.ts:443), and PHONE_APP's More line (places-map.ts:625) leaves out View as a teammate, which the phone shows to holders of members.view_as (more.tsx:69,173-177). So the Assistant may say there is no such thing.",
+      "fix": "In settings-map.ts:443, change the ⋯ list to 'Edit hours, View as <name> (owners and admins, for someone below them), Permissions (owners only), and Remove from workspace'. Add the howTo 'See what a teammate sees, read-only: Members, ⋯ beside them, then View as <name>; End viewing on the banner'. Add 'View as a teammate (owners and admins)' to PHONE_APP's More line (places-map.ts:625).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-4",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Safety, Check-ins card: Ask them after, Then tell their contacts after, Who’s told when someone has nobody to tell (hint: The safety person. Nobody picked: the business’s owners and admins.)",
+      "gap": "The screen's labels are 'Ask them after', 'Then tell their contacts after' and 'Who’s told when someone has nobody to tell' (hint 'The safety person. Nobody picked: the business’s owners and admins.'). settings-map onScreen uses 'Ask after', 'Tell their contacts after' and 'Safety person'. settings-map what/onScreen, update_safety_settings and the safety.settings query description all say the safety person is told when someone 'has no contacts'. The ladder tells them only when there's no teammate contact still in the business and no outside contact who agreed and hasn't said STOP. So someone whose only contact hasn't replied OK gets the wrong answer.",
+      "fix": "settings-map.ts:1006-1011: use the labels 'Ask them after', 'Then tell their contacts after', 'Who’s told when someone has nobody to tell (nobody picked: the owners and admins)', then Save. Replace 'has no contacts' with 'has nobody to tell: no teammate contact still in the business, and nobody outside who has replied OK and not STOP' in settings-map what, in update_safety_settings' description (tools-settings-more.ts:127) and in the safety.settings query description (queries/safety.ts:134).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-5",
+      "severity": "low",
+      "kind": "words",
+      "where": "The web’s own My safety page (/safety: Checked in, I’m OK, check me out, +15 min, Who’s told, When), and the phone’s Settings → My safety row",
+      "gap": "Real: the web's own My safety page (/app/w/<ws>/safety, title 'My safety': Checked in · place, I’m OK, check me out, +15 min, Who’s told if you don’t check out, When) is named nowhere in the Assistant's words. PHONE_APP's 'Its Settings' line (places-map.ts:625) leaves out the phone's My safety row (settings/index.tsx:260). Overstated: the prompt sentence says the phone's Settings 'holds only the person’s own things (notifications, appearance, their cell)', and My safety is the person's own, so it doesn't contradict the settings-map howTo (settings-map.ts:1021), which already gives the phone way.",
+      "fix": "Add 'My safety (who’s told if you don’t check out)' to PHONE_APP's 'Its Settings' line in packages/core/src/assistant/places-map.ts:625. Add to settings-map safety.howTo: 'See or end your own check-in on a computer: your Safety page, from the Still there? alert or Settings → Safety’s “your Safety page” link (I’m OK, check me out; +15 min)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "perm-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Permissions: a card for each permission group, including Documents (Send documents to sign, Make document templates)",
+      "gap": "The Permissions page draws a card for each PERMISSION_GROUPS title: Contacts, Inbox and calls, Calendar, Money, Documents, Automations and AI, Business and team. The settings-map line leaves out Documents (Send documents to sign, Make document templates).",
+      "fix": "In packages/core/src/assistant/settings-map.ts:221, build the line from PERMISSION_GROUPS: `A card for each of ${PERMISSION_GROUPS.map(g => g.title).join(', ')}, with an Admins and a Members column`, so it can't drift again.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "team-5",
+      "severity": "low",
+      "kind": "words",
+      "where": "Invite a teammate → Role: Owner “Full control, including deleting the workspace and managing other Owners.”, Admin “Manages people and settings. Cannot change or remove Owners.”, Member “Works in the workspace. Cannot invite or manage people.”",
+      "gap": "ROLE_WORDS on the manage_team card ('Owner — can do everything, including billing', 'Admin — can change how the business is set up', 'Member — works customers, leads and the inbox') and the tool description differ from ROLE_DESCRIPTIONS, which the invite dialog and invite page show. They also suggest admins can't handle billing, but admins hold money.manage, which wallet.top_up needs.",
+      "fix": "In apps/worker/src/assistant/tools-settings-business.ts:52-56, build ROLE_WORDS as `${ROLE_LABELS[r]} — ${ROLE_DESCRIPTIONS[r]}` from @hfos/core. In manage_team's description (tools.ts:568), replace the role sentence with the same words, or with 'Roles: Owner, Admin, Member (as on Members’ Invite teammate).'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-6",
+      "severity": "low",
+      "kind": "read",
+      "where": "My safety (web) → When: Tell them again every 10 minutes, for an hour; Settings → Safety: “Then they’re told again every 10 minutes, for an hour”",
+      "gap": "get_settings area safety returns only safety.settings (askAfterMinutes, alertAfterMinutes, safetyUserId, safetyPersonName). Neither it nor the settings-map text says that contacts are told again every SAFETY_DEFAULTS.repeatMinutes (10) minutes for an hour, which Settings → Safety and My safety → When both show.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts:239, give the safety entry a shape that adds repeatMinutes: SAFETY_DEFAULTS.repeatMinutes and repeatsFor: 'an hour, until someone says they’re OK'. Or append 'then their contacts are told again every 10 minutes, for an hour, until someone says they’re OK' to settings-map safety.what.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-7",
+      "severity": "low",
+      "kind": "read",
+      "where": "Safety alert → Where their phone was: On the map, <time> (a https://maps.google.com/?q=lat,lng link)",
+      "gap": "It's true that read_safety_alert returns latitude, longitude and locatedAt with no ready-made map link, while the screen shows 'On the map, <time>' linking to https://maps.google.com/?q=lat,lng. But the prompt never forbids building a link: its rule is about names, numbers, dates, amounts and ids (prompt.ts:13). The coordinates and time are all there, so the only thing missing is a ready link.",
+      "fix": "Add mapUrl: string|null to SafetyAlertOutput.alert, filled in packages/core/src/queries/safety.ts:113-124 with the same https://maps.google.com/?q=<lat>,<lng> that ladder.ts placeLink builds. Better, move placeLink into @hfos/core and use it in both places and in safety-alert.tsx mapLink.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "perm-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Permissions (owners only; the page is not found for anyone else)",
+      "gap": "readArea always adds 'Not this person's to see: … An owner or admin can.' when a query is refused. For area permissions, permission.settings needs permissions.manage, which only owners hold by default (the page is notFound for anyone else, and set_permissions says 'Owners only'). So an admin is told an admin can see it.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts:290-292, build the note from the area's settings-map permission: for 'permissions.manage' (and any owner-only permission) say 'Only an owner can.', otherwise 'An owner or admin can.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "team-6",
+      "severity": "low",
+      "kind": "words",
+      "where": "The invitation email’s button and the invite page’s button: Accept invitation",
+      "gap": "The handover step 'They press Accept and pick how they sign in' is wrong twice over. The email's button is 'Accept invitation' (invitation-email.ts:58; 'Check it and finish' for a handover). /invite is a protected route, so someone signed out signs in or makes an account first (proxy.ts:10-13), then presses Accept invitation on the invite page (accept-invite.tsx:55). The screenRef line is wrong: accept-invite.tsx has 81 lines.",
+      "fix": "Change the steps in packages/core/src/assistant/settings-map.ts:458-461 to: 'They open the email from HandsFreeOS and press Accept invitation.', 'If they aren’t signed in, they sign in or make an account with that email address.', 'They press Accept invitation.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "support-2",
+      "severity": "low",
+      "kind": "do",
+      "where": "Get help → Ask us for help (In a few words, What happened?, Send it); the ticket carries the page they were on",
+      "gap": "It's true that contact_support always sends context {page: 'Ask HandsFreeOS'} (tools-extra.ts:1783), while Get help sends the pathname and platform. ToolContext carries no page (runtime.ts:91-98), so the tool can't add it. But the model sees the page record and writes `details` itself, so it can describe the record in the message. Only the structured page field is missing.",
+      "fix": "Add page?: {type, id} to ToolContext, filled from the ask's page record in runtime.ts, and in contactSupport.commit send context: { page: ctx.page ? `Ask HandsFreeOS on ${ctx.page.type} ${ctx.page.id}` : 'Ask HandsFreeOS', platform: 'assistant' }.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "support-3",
+      "severity": "low",
+      "kind": "words",
+      "where": "Get help menu, while Getting started isn’t finished: Getting started, Take the tour, Ask us for help",
+      "gap": "Part of this is wrong. The Get help menu's Getting started item is already in the Assistant's words ('Bring Getting started back after hiding it: Get help at the foot of the menu, then Getting started', places-map.ts:47). What is real: Take the tour, in the Get help menu while Getting started isn't finished and on the Getting started card, is named nowhere (grep -i 'tour' finds nothing in packages/core/src/assistant or the prompt). EVERY_PAGE (places-map.ts:607) also describes Get help only as the form.",
+      "fix": "In packages/core/src/assistant/places-map.ts:607, change the Get help part to 'Get help (until Getting started is finished, a menu: Getting started, Take the tour, Ask us for help; after that the form: In a few words, What happened?, then Send it)'. Add a Home howTo: 'Take the tour of the menu again: Get help at the foot of the menu, then Take the tour (or Take the tour on Getting started)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "safety-8",
+      "severity": "low",
+      "kind": "read",
+      "where": "Phone check-in banner: Sharing where you are (until check-out)",
+      "gap": "safety.mine's open check-in returns id, appointmentId, place, startedAt, plannedEndAt, state and extendedCount, but not app.safety_checkins.follows or located_at. So 'Am I sharing where I am?' can't be answered. The phone banner itself reads the phone's own followed id (useFollowedCheckIn, use-check-in.ts:34), while the database's follows column is what a query can give.",
+      "fix": "Select follows and located_at in packages/core/src/queries/safety.ts:51-53. Add follows: boolean and locatedAt: isoDateTime|null to SafetyMineOutput.open (schemas/safety.ts), returned as open.follows / open.locatedAt.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

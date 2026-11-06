@@ -1,0 +1,169 @@
+{
+  "area": "outreach",
+  "title": "The Social Outreach add-on: every page",
+  "checkedOn": "2026-11-06",
+  "files": {},
+  "items": [],
+  "gaps": [
+    {
+      "id": "or-1",
+      "severity": "high",
+      "kind": "words",
+      "where": "Side menu → Social Outreach pop-out: Set up, Needs you, Today, People (In play, Good fits, Talking, Friends, Requests, Sent, Chats, Partners, Clients, Left alone), Find people, Results, Playbooks, Settings (You, Facebook, LinkedIn, Instagram, Alignable, This computer, Videos, Team, Start fresh); on the phone More → Social Outreach, whose Settings → General has For your team",
+      "gap": "The Assistant has no words for any Social Outreach place. APP_PLACES lists only core pages (Home, Inbox, Contacts and the rest, through Ideas and Agency area). An add-on can give the model only one line, `ai.directory`, and Social Outreach's line names no page. The prompt then says never to name a place that isn't listed and to say \"not sure\" instead. So it can't say where Needs you, Today, People → Partners, Find people → Groups, Playbooks or Social Outreach → Settings → Team / Facebook / This computer / Videos are, and what it says to do on each screen isn't there either. PHONE_APP's More line leaves out add-ons, which sit at the top of More. The prompt also says the phone's Settings holds only the person's own things, but Social Outreach's phone General has For your team (GeneralTeam), which changes the business's settings. LOOK_ALIKES has nothing telling Social Outreach → Settings → Team from core Members/Permissions, or People from Contacts.",
+      "fix": "Add places for running add-ons to the per-business context, not to SYSTEM, because which add-ons run varies. Add a manifest field such as `ai.places: AppPlace[]`, or derive the places in core from `ui.nav` + OUTREACH_PAGES/OUTREACH_PAGE_ABOUT + PEOPLE_VIEWS + SETTINGS_PART_KEYS/SETTINGS_WORDS. Have lastingText (apps/worker/src/assistant/prompt.ts) print them under \"Places in Social Outreach\" in the same `label is at A → B: … On it: … How to: …` form. Include the How to lines: Approve all / Retry all on Needs you; Start my day / Stop for today on Today; press a person's name for the person menu; Settings → Team for what the team may pick. Extend test/settings-map.test.ts to check those arrows against `ui.nav`. In places-map.ts:625 add \"and the add-ons running here, at the top of More (Social Outreach, with its own Settings → General → For your team for owners and admins)\", and fix the phone sentence at prompt.ts:38. Add a LOOK_ALIKES line: \"Team: Social Outreach → Settings → Team is what the business allows its people in Social Outreach; teammates themselves are Members, and who may use Social Outreach is Settings → Permissions.\"",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-2",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Today (the network's list, with Heads up: requests held, goal, warning, training wheels, ready), Needs you, and every People list (Friends 100 a page, Chats, In play, Partners), Find people → Groups, a group's page",
+      "gap": "Real: outreach_today takes only `platform` (today.ts:226-229). Its output puts `items`, up to TODAY_MOST=20 per kind with about 25 fields each (posts, postWhole, drafts, recent messages), and `partners` ahead of hasPlaybook, warning, wheels, ready, week, fresh, newMessagesWait, requestsHeld, goal and retryAt. answerFrom slices the JSON string at 16,000 characters, so on a busy day those fields are lost. requestsHeld (why no new friend requests) and goal exist only in this output. The People lists have fixed page sizes (Friends 100, Chats 50) and nothing to make them smaller. Rows past the cut on a page are unreachable, because page 2 starts after row 100. page/pages/total/more sit after the rows and are cut too. Refuted parts: outreach_waiting takes `items: false` for counts alone and puts count and kinds first. Friends' and Chats' `counts` come before their rows, so totals survive, and `search` narrows to a name. ready is in outreach_get_ready, warning and today's limits are in outreach_live, and training wheels are in outreach_training_wheels.",
+      "fix": "In packages/core/src/addons/outreach/today.ts, move limits, hasPlaybook, ready, warning, wheels, sending, requestsHeld, goal, week, fresh, fullSpeed, newMessagesWait and retryAt above `items` and `partners` in TodayOutput (zod key order is JSON order). Add `kind: z.enum(TODAY_KIND_KEYS).optional()` to TodayInput. Add `pageSize: z.number().int().min(5).max(FRIENDS_PAGE).optional()` to FriendsInput and ChatsInput (the same for StagesInput, PartnersInput and GroupPeopleInput), and move page/pages/total/more above the row arrays. In apps/worker/src/assistant/tools-addons.ts answerFrom, when over MOST, keep every top-level non-array field whole, trim each long array to what fits, and add `dropped: { items: N }` with a note to ask by kind, page or pageSize, rather than slicing the string.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-3",
+      "severity": "high",
+      "kind": "do",
+      "where": "Playbooks → a playbook (builder) → Where they book or buy, with the Your booking pages picks",
+      "gap": "The builder's Your booking pages pick sets details.link to the public origin plus the calendar's bookingPath (or permanentPath). The origin is the business's own domain once it is verified and its certificate is ready, else the app's address. The Assistant never sees a whole booking URL. get_settings (area calendars) returns calendar.list, whose bookingPath is a path (/book/<site>/<calendar>). The booking-site card and outcome say only /book/<slug>. The worker's web address appears only inside the send-a-form tool. Branded domain status is readable, but nothing tells the model the verified && certificateReady rule or the fallback origin. The prompt's example link https://handsfreeos.com/book/acme invites a guess. outreach_save_playbook's description says nothing about where details.link should come from, and demoLink then carries whatever was saved into every draft.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts, give the `calendars` area a shape that adds `bookingUrl` to each row: origin + (bookingPath ?? permanentPath). Build the origin as tools-forms.ts:381-389 does: https://<branded domain> when status is verified and certificateReady, else the worker's webUrl. Move that origin logic into one shared helper (publicOrigin(db, ctx, webUrl)) used by both. Then add to outreach.playbook.save's description (packages/core/src/addons/outreach/ops/playbooks.ts:162-163): \"For a booking page as details.link, copy its bookingUrl from get_settings (area calendars) exactly; never build or shorten one.\"",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "Set up → the extension step, and Settings → This computer: Download (hfos-social.zip, with its version and size), How to install it (download and unzip, Developer mode with the copyable chrome://extensions, Load unpacked, pin it, sign in), and how to update",
+      "gap": "outreach_setup's description promises \"where to download the extension\", but it returns only the business's extensionLink, which is null until an owner or admin sets one. The screen then falls back to HandsFreeOS's own build at /downloads/hfos-social.zip?v=<HFOS_EXTENSION_VERSION> on the web app's address, with its version and size. That address is nowhere in the Assistant's sources. The install steps (SETUP_WORDS.install: download and unzip, Developer mode with chrome://extensions, Load unpacked, pin it, sign in) and the update line aren't there either. Installing it stays the person's own step, but telling them how isn't excluded by any settled rule; settings_help exists for exactly that.",
+      "fix": "Have outreach.setup (packages/core/src/addons/outreach/ops/setup.ts:196) return `download: { url, version, steps, update }`. url is extensionLink ?? `${webUrl}/downloads/hfos-social.zip?v=${version}`. The version is only a web build env today (HFOS_EXTENSION_VERSION in next.config), so it needs a copy the worker or core can read too, such as a constant generated from apps/extension's version. steps is SETUP_WORDS.install with CHROME_EXTENSIONS_URL, plus SETUP_WORDS.update. Webl URL must be whole. Alternatively add a settings_help handover \"install the Social Outreach extension\" with those steps. Change the description to: \"…and the whole https link to download the extension, with how to install and update it\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-5",
+      "severity": "high",
+      "kind": "do",
+      "where": "Settings → You and each network's page (Autopilot, Sending, Replies, Posting, warm up, confirm requests, once-a-day jobs, groups, watching posts, noting, reading chats, alerts, working hours), and Team → Your people → Their settings",
+      "gap": "AutomationSaveInput.settings is the whole AutomationSettings object. Only voice, dayReport, acceptedPush, networks and autopilot are kept when left out. sending, warmUp, confirmRequests and hours are required. The rest default: replies 'draft', posting 'after_ok', pushes 'bundled', and collect, joinGroups, watchPosts, noting, readChats and markPosts all true. The handler writes them as given. So a call with the required fields plus one change quietly resets the person's other choices. Passing `networks` with one network fills the others with their defaults too, which can turn a network back off. outreach_save_automation's description never says to send everything. Unlike outreach_save_playbook, it gives no \"read it first\" instruction. The card shows Settings as JSON cut at 300 characters, so the person can't see what changes.",
+      "fix": "In packages/core/src/addons/outreach/ops/automation.ts (handler ~:500), merge input.settings onto settingsOf(before, rules) key by key, and networks per network, as is already done for voice/networks/autopilot. Make every AutomationSaveInput.settings field optional (automation.ts:913-920). Until then, add to the ai description: \"A save sends every setting: read them with outreach_automation and send them back with only the asked change.\" For the card, give add-on ops an optional `ai.card(input, now)`, or have cardFields diff a nested object against the current read. Show only changed leaves, labelled with the screen's words (ticksShownOn / SETTINGS_WORDS), e.g. \"Replies: Draft for my OK → Send on its own\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-6",
+      "severity": "high",
+      "kind": "do",
+      "where": "Playbooks → a playbook: change any part (tone, signs, steps, openers, video link…)",
+      "gap": "outreach_playbooks takes only the business's id and returns every playbook with all its details, archived ones too. outreach_save_playbook says to send the whole playbook and to read it first from that list. Details can be large: up to 10 samples of 1,000 characters, 3 own openers of 600, 20 signs, a video script and more. Two or three real playbooks can pass the 16,000-character cut, and only the first one survives whole. There is no read of one playbook. Only the v3 to v9 parts are kept when left out. Core parts (offer, audience, signs, tone, steps, samples) must be resent. The card shows Details as JSON cut at 300 characters, so the person confirms without seeing the change.",
+      "fix": "Add `playbookId: z.uuid().optional()` and `archived: z.boolean().default(false)` to PlaybookListInput (packages/core/src/addons/outreach/playbooks.ts:1188), and filter in the handler (ops/playbooks.ts:146-157). Better: let outreach.playbook.save with a playbookId take a partial `details` merged onto the stored one, as keptParts already does for PLAYBOOK_KEPT_KEYS. Draw the card from the changed parts, using the builder's field labels (\"Tone\", \"Signs they fit\", \"Where they book or buy\").",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-7",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Open in Messenger / Open in LinkedIn messaging / the Instagram and Alignable chat link on Today's items, Needs you's steps, People → Chats rows, In play rows and the person menu's second item",
+      "gap": "Real: outreach_chats rows, outreach_today items, the reply and message `send` rows in outreach_waiting and outreach_today, outreach_stages rows and the person marks carry only threadKey. The screens build the chat link with chatUrlOn: facebook.com/messages/t/…, linkedin.com/messaging/thread/…, instagram.com/direct/t/…, and alignable.com/biz/conversations?with_business_id=…, whose pattern the model can't know. Refuted part: a Needs you step (waiting `need`) already carries a whole `url`. For a message that didn't go, that url is the chat link (sends.ts:802 stores chatUrlOn, waiting.ts:345 returns needUrlOf). profileUrl and postUrl are also whole.",
+      "fix": "Add `chatUrl: z.string().nullable()` filled by chatUrlOn(platform, threadKey) next to threadKey in ChatsOutput rows (chat-read.ts:372-401), TodayItem (today.ts:246), the Send row shape in sends.ts (:141-143), StagesOutput rows and ProfileMarksOutput. Mention it in outreach_chats' description (\"each chat's link to open it on its network\").",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-8",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Any Social Outreach page: Playbooks → a playbook, Find people → Groups → a group's page (?group=), Today's network (?net=), Settings → Team → someone's settings (?for=)",
+      "gap": "The page the Assistant is told about is only person, company, lead, conversation, appointment, workflow or workflow_run. On every Social Outreach page the context says \"No customer, lead or appointment is on screen.\" But the address names the page (/a/outreach/<page>), the playbook (/playbooks/<id>), the group (?group=), the network (?net=), the person whose settings are open (?for=), and the People view and search (?show=, ?q=). So \"this playbook\", \"this group\" or \"their settings\" mean nothing to it.",
+      "fix": "Add `{ type: 'addon_page', addonId, page, ids: { playbookId?, groupId?, net?, for?, show?, q? } }` to AssistantPageRecord (packages/core/src/schemas/assistant.ts:319-329) and PageRecord (apps/worker/src/assistant/context.ts:38-42), parsed in assistantPageRecord from /a/<id>/<path> with the add-on's query keys. Label it in pageDetails by reading the playbook or group name through outreach.playbook.list / outreach.groups, and the person by workspace.members. In pageLines say: \"On screen now: Social Outreach → Playbooks → Roofers (playbook id …). 'This playbook' means it.\"",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-9",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Person menu → Add to Contacts and Mark as client, and a chat's Save to their card: the \"Is this one of these?\" dialog (It’s them, or a new customer)",
+      "gap": "Before Add to Contacts, Mark as client or Save to their card adds anyone, the screens look for customers with the same name who have no network profile yet (outreach.lookup + sameNamePeople), and ask \"Is this one of these?\". The commands do no such check. With personId left out, saveProfile always creates a new customer, and the three AI descriptions don't tell the model to look first. So the Assistant makes a second customer where the screen would have tied the existing one. outreach.lookup's never-reason calls it the extension's read, which doesn't fit this screen use, but the Assistant doesn't need it: search_customers finds by name.",
+      "fix": "Add to the ai descriptions of outreach.profile.contact (ops/asks.ts:989-991), outreach.client.set (ops/person-menu.ts:80-81) and outreach.chat.keep (ops/saves.ts:54-55): \"First look in Contacts for a customer with this name (search_customers). If one could be them, ask whether it's them and pass their personId; add a new customer only when the person says so.\" Stronger: in prepare, refuse with rule `outreach_same_name` when sameNamePeople finds a match without a profile, personId is null and no `asNew: true` is given, naming the matches. Reword server.ts:141's reason or note the screens' same-name use.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-10",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Settings → Team (For your team: who goes in Contacts, cancel after, people found a day, morning push, weekly report, countries; what your team may pick; Each network, for everyone: may use and daily limits; Autopilot allowed; where a new person starts; the extension's link), and General → For your team on the phone",
+      "gap": "Real: addonSettingsPlan merges only top-level keys. `rules` (allowed choices, dailyLimits, networksAllowed, networkLimits, autopilotAllowed, defaults) is one key, so changing one network's limit or Autopilot allowed means sending the whole rules object. Nested parts left out go back to the BusinessRules defaults. The card shows rules as one flattened line cut at 300 characters, so the changed part is often not visible. Its note \"Only what is listed changes. The rest… stay as they are\" is wrong for nested parts. read_addon_settings returns the stored object as is. Refuted or softened: the plan itself parses the stored settings with defaults before merging, so a save never drops a setting that was never saved. addon.save_settings stores the schema-parsed object, so after the first save the defaults are stored. The rules with defaults are readable through outreach_automation's `rules` (except rules.defaults). The tool says a group of switches is passed whole.",
+      "fix": "In apps/worker/src/assistant/tools-settings-more.ts addonSettingsPlan (:297), deep-merge plain-object values (rules, countries) onto current rather than replacing them. Draw one card line per changed leaf path, labelled from the outreach words: \"Rules → Daily limits on LinkedIn → Friend requests: 15\", \"Rules → Autopilot allowed: Off\". Make the card note true for nested parts. Have addon.settings (packages/core/src/queries/addon.ts:257) return `m.settings.workspace.safeParse(stored).data` when the add-on has a schema, so read_addon_settings shows the defaults the page shows.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-11",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Settings → Videos: the video library, which until first saved shows the playbooks' short videos with the note that they come from the playbooks; Add a video, edit, remove",
+      "gap": "Until the library is first saved, Settings → Videos shows libraryOf(saved, playbooks), the playbooks' short videos, with the note that they come from the playbooks. Adding one saves [...shown, new]. read_addon_settings returns `videos: null`. outreach_setup gives only a count (`videos: library.length`), not the list. So asked what's in the library, the Assistant can say it's empty or give a bare count. Asked to add one, update_addon_settings, whose description says lists are passed whole, saves `videos: [new]` and drops the playbooks' videos the screen showed.",
+      "fix": "Add an `outreach.videos` query with `ai: { tool: 'outreach_video_library' }` returning `{ videos: libraryOf(saved, playbooksInUse), fromPlaybooks: fromPlaybooks(saved) }`. Alternatively, have outreach.setup return the list rather than its length. Add to the outreach directory line (manifest.ts:373), or to update_addon_settings' description for videos: \"start from outreach_video_library's list and send it back with the change; never replace it with only the new video\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-12",
+      "severity": "medium",
+      "kind": "read",
+      "where": "The toasts after a confirmed change: Mark as client / Not a client after all (\"Contacts still counts them a client because…\", messages skipped), Add to Contacts (added or already there), Later (back on Today on…), Cancel all (how many marked, then the first batch asked of the computer at once), Retry all (how many passed over)",
+      "gap": "Real: commitAddonTool throws the command's output away and returns \"Done in Social Outreach\" with href null. So after Confirm, outreach_mark_client can't say why Contacts still counts someone a client or how many waiting messages were skipped. outreach_add_to_contacts can't say whether the customer was added or already there, or link to them. outreach_retry_steps can't say how many were passed over, and outreach_cancel_all_requests can't say how many it marked. Cancel all also never asks the computer for `out.first` at once, as the web does; the once-a-day jobs take them later, so nothing is lost, only delayed. Refuted: Later. outreach_later is risk 0 with no ai.autonomy, so it runs on its own, and runAddonTool returns its output (back on Today on…) to the model.",
+      "fix": "Add an optional `ai.outcome?: (output) => { words: string; href?: string }` to add-on ops. Have commitAddonTool (apps/worker/src/assistant/tools-addons.ts:203-216) run executeCommand's output through it, falling back to \"Done in …\", and store a short answerFrom(output) in the tool call's result for the model's next turn. Use OUTREACH_WORDS.person's toast words for client/contact, and href `/people/<personId>` for Add to Contacts. For outreach.friends.cancel_all, queue the outreach.ask.make for `first` inside the command when cantAskWhy(asks,'cancel',platform) is null, so the Assistant's path matches the web.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-13",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Playbooks → New playbook: start from a template (CRM demos and the others, each with a summary) or blank",
+      "gap": "New playbook offers the templates (CRM demos, real estate, home services, coaching), each with its summary, and the builder fills the new playbook from the chosen template's details. The Assistant sees only the template keys, as the save input's enum. No AI op returns PLAYBOOK_TEMPLATES, and the save stores `template` as a label without filling from it. So \"start one from the CRM demos template\" has to be written from scratch.",
+      "fix": "Add `outreach.playbook.templates` with `ai: { tool: 'outreach_playbook_templates' }` returning PLAYBOOK_TEMPLATE_KEYS.map(k => ({ key: k, name, summary, details })). Or, in outreach.playbook.save, when `template` is given and no playbookId, start from PLAYBOOK_TEMPLATES[template].details and lay the given parts over it (make details partial for that case). Say so in its description.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-14",
+      "severity": "low",
+      "kind": "words",
+      "where": "Needs you (named Waiting for you in four tool descriptions); Today's pitch item, whose button is Send the link; the extension's choices on every network, not only Facebook",
+      "gap": "Several AI descriptions use \"Waiting for you\", the old name of the page now called Needs you: outreach.need.clear, outreach.request.set_aside, outreach.request.answer, outreach.live, and outreach_waiting's keywords. outreach_mark_stage says \"Today offers Pitch\", but Today's pitch item is \"Send the link\". outreach.automation, outreach.automation.save and outreach.ask.make say \"on Facebook\", though they take `networks` or `platform` for LinkedIn, Instagram and Alignable; ask.make mentions only LinkedIn's Check LinkedIn. The directory line names Facebook, LinkedIn and Instagram, not Alignable.",
+      "fix": "Replace \"Waiting for you\" with \"Needs you\" in packages/core/src/addons/outreach/ops/waiting.ts:480,592,640 and ops/live.ts:571, and add 'needs you' to outreach_waiting's keywords. In ops/stages.ts:286 write \"(Today offers Send the link)\". In ops/automation.ts:460,481 and ops/asks.ts:366 write \"on each network they work (Facebook, LinkedIn, Instagram, Alignable)\". Add Alignable to manifest.ts:373's directory line.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-15",
+      "severity": "low",
+      "kind": "words",
+      "where": "Refusals the Assistant passes on, which name places that don't exist",
+      "gap": "Refusals that reach both the screens and the Assistant name places that don't exist. \"Give them Use Social Outreach in Settings → Team\": add-on permissions are set like core's, in Settings → Permissions or Members → ⋯ → Permissions, and Social Outreach → Settings → Team gives none. \"Social Outreach → Partners\" is People → Partners. \"Social Outreach → Groups\" is Find people → Groups. \"Social Outreach → Friends\" is People → Friends. \"Refresh Settings → Instagram\" is Social Outreach → Settings → Instagram. \"the Groups tab\" and \"Tidy up on the Friends tab\" are Find people → Groups and People → Friends.",
+      "fix": "Rewrite: ops/owners.ts:125 → \"Give them Use Social Outreach in Settings → Permissions (or Members, ⋯ beside them, then Permissions).\" ops/asks.ts:305 → \"Social Outreach → People → Partners\". ops/helpful.ts:306 → \"Social Outreach → Find people → Groups\". ops/activity.ts:289 → \"Social Outreach → People → Friends\". ops/like-yours.ts:180 → \"Social Outreach → Settings → Instagram\". ops/helpful.ts:272,307 and ops/asks.ts:205,253 → \"Find people → Groups\". ops/tidy.ts:648 → \"Tidy up on People → Friends\". Build each from OUTREACH_PAGES/PEOPLE_VIEWS so they can't drift.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "or-16",
+      "severity": "low",
+      "kind": "words",
+      "where": "Social Outreach → Settings (nav key 'gear'), as the link on a saved update_addon_settings card",
+      "gap": "After update_addon_settings saves Social Outreach's settings, the card's link looks for a nav entry keyed 'settings'. Social Outreach's Settings is keyed 'gear' (path 'settings') so it stays out of Settings search. The lookup fails and the link opens the Add-ons page instead of Social Outreach → Settings → Team, where those business settings are.",
+      "fix": "In apps/worker/src/assistant/tools-settings-more.ts:347, find the page by `n.path === 'settings' || n.key === 'settings'`, or better by a manifest field `ui.settingsPath` (outreach: 'settings/team', since its business settings live on Team). Fall back to 'add-ons' only when neither exists.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

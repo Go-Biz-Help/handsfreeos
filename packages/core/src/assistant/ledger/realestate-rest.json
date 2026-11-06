@@ -1,0 +1,159 @@
+{
+  "area": "realestate-rest",
+  "title": "The Real Estate Agent add-on: the deals list, coordinate, duties, vendors and Deal settings",
+  "checkedOn": "2026-11-06",
+  "files": {},
+  "items": [],
+  "gaps": [
+    {
+      "id": "re-1",
+      "severity": "high",
+      "kind": "words",
+      "where": "Every Real Estate Agent page: side menu Real Estate Agent → Deals, My duties, Coordinate, Vendors, Deal settings; Deal settings tabs Duty list, Alerts & dates, Connections, Keeping records, Safety, Versions, Support access; buttons such as Start a buyer deal, Write a duty, Publish version N, Approve, Chased, More → Apply the newest duty list…",
+      "gap": "The Assistant has no place for any Real Estate page. APP_PLACES, EVERY_PAGE and LOOK_ALIKES never mention Deals, My duties, Coordinate, Vendors or Deal settings and its tabs (Duty list, Alerts & dates, Connections, Keeping records, Safety, Versions, Support access). The only real-estate line in places-map is Search everything's. The add-on's context line (manifest ai.directory, rendered by addonDirectory) says only what its tools cover. The prompt tells it never to name a place that isn't listed, so 'where do I publish the duty list / approve a vendor / set closed days' gets 'not sure'. The one way in is settings-map add_ons, where:['Add-ons'] plus 'Real Estate Agent’s Deal settings', which reaches the page through the Add-ons list but no tab on it. The side menu has a single 'Real Estate Agent' row that opens its pages (nav-links.tsx addonNavItem), and nothing tells the Assistant that.",
+      "fix": "Add an optional `ai.places: AppPlace[]` to AddonManifest (packages/core/src/addons/manifest.ts:511), with `where` starting at the add-on's name, e.g. ['Real Estate Agent','Deal settings','Duty list']. Have addonDirectory (or a new addonPlaces) render them with placesText's format into the per-business context, after 'Add-ons on here…' in prompt.ts:274. They can't go in the cached SYSTEM, because add-ons differ per business. Only include pages whose nav permission the person holds. Give Real Estate: Deals (tabs My deals, All deals, Needs attention, Closed, Archived; filters Agent, Side, Stage, Closing within, Waiting on, Health; Start a buyer deal, Start a listing); My duties (Mine / Everyone’s); Coordinate (Today, Exceptions, Waiting room, Workload); Vendors (Add a vendor, Approve, Change, Archive); and Deal settings with its seven tabs. Add how-tos: 'Publish: Real Estate Agent → Deal settings → Duty list, press Publish version N' and 'Move an open deal to the newest list: open the deal, More, then Apply the newest duty list…'. Extend test/settings-map.test.ts so it checks add-on arrows against ui.nav.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "Deal settings → Duty list: the table (Id, Duty, Due, Proof, Accountable), the chips All · N, Listing · N, Buyer · N, Both · N, Your own · N, Changed · N and Turned off · N, Find a duty, the 'Changes not published' badge, and the header 'version N, published … by …'",
+      "gap": "Real: realestate_template_list returns every catalog duty (31 buyer, then 70 listing, then 47 cross) and the business's own C-xx duties. Each comes with its full resolved `definition`: behavior, spec, trigger, due, proof, reminders and so on, roughly 800-1,000 characters apiece and over 100K in all. answerFrom cuts anything past 16,000 characters, so only about the first 15-20 buyer duties are seen. Listing (S-), cross (X-) and Your own (C-) duties never are. `published` and `unpublished` come after `items` in the output schema, so whether there are unpublished changes is lost too. The note says 'ask it for less', but the input is only {workspaceId}. Due and proof come back as rule JSON, not the words the table shows. Refuted part: which version is live can be read from realestate_template_versions (newest first, with version, publishedAt and note, though not who published it).",
+      "fix": "In packages/core/src/addons/realestate/ops/editor.ts templateList, put `published`, `unpublished` and `counts` {all, listing, buyer, both, own, changed, off} before `items` in both the output schema and the handler's object. Zod's parse keeps the schema's key order. Add optional inputs side ('buyer'|'listing'|'both'), own, changed, off, search (title or key) and dutyKey. For each row, drop `definition` and return dueWords and proofWords (from rule-words.ts dueRuleWords/proofRuleWords), the accountable label (ACCOUNTABLE_LABELS), materiality, reminders and `changed`. Return the full definition only when one dutyKey is asked for. Then set ai.description to say it can filter.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-3",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Deal settings → Alerts & dates (Alert people, Days this office is closed, Tours go on, Client updates switches), Connections (ShowingTime’s emails On/Off, lockbox emails On/Off), Keeping records (years closed deals are kept)",
+      "gap": "Real: read_addon_settings (screen read of addon.settings) returns the stored document as it is. It doesn't parse it with RealestateSettingsSchema and carries no labels. Install never writes defaults, so it is {} until someone saves Deal settings. The screen parses with the schema and shows 7 years, lockbox emails On, all four client-update drafts On, owners hear alerts, and tours on the agent's own calendar. The Assistant can't say any of these. update_addon_settings tells it to pass settings 'by the names it shows', but nothing is shown. Writes are safe: addonSettingsPlan merges onto the schema-parsed current value, and refuses a partial milestoneDrafts. The model still has to guess the other three switches, and an unknown-key refusal lists the keys. Refuted part: whether ShowingTime emails are read (default On) is in realestate_connections_uses (showingTime.on).",
+      "fix": "In packages/core/src/queries/addon.ts:257, return `settings` as m.settings.workspace.safeParse(mine.settings).data (defaults filled, falling back to raw when it fails). Add `fields`: [{key, label: shape[key].description}] from the schema's .describe() words, for example 'Years a closed deal is kept'. Or have the worker's read_addon_settings (tools-screen-reads.ts) do the same parse, as addonSettingsPlan already does at tools-settings-more.ts:294-298. Mention in update_addon_settings' description (packages/core/src/assistant/tools-settings-more.ts:40) that defaults show as set.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-4",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Deals: the tiles Healthy / Needs attention / At risk / Dates to confirm, the tab counts 'Needs attention · N', and the Health filter (At risk, Needs attention, On track)",
+      "gap": "DealListInput has no health or needs-attention filter. The web filters health and 'Needs attention' (health not green, or datesToConfirm > 0) in the browser. realestate_overview returns only openDeals, myOpenDeals, overdueDuties and dueThisWeek. Each DealRow is about 700 characters (five ids, nextDue, headline and so on), so realestate_find_deals is cut at 16,000 characters after about 20 deals. 'How many deals are at risk / need attention' can't be answered in a bigger brokerage. realestate_today's atRisk lists risk reasons and escalated duties, not deal health, so it doesn't stand in. Nothing tells the model what 'Needs attention' means.",
+      "fix": "Add `health: z.enum(['green','yellow','red']).optional()` and `needsAttention: z.boolean().optional()` (health <> 'green' or unconfirmed term entries) to DealListInput (schemas.ts:303), with .describe() on each, and handle them in dealList (queries.ts:248). Add healthy, needsAttention, atRisk and datesToConfirm counts over open, unarchived deals to realestate.overview's output and its ai.description: 'Needs attention: deals that aren’t healthy or have dates to confirm; At risk: red'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-5",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Deal settings → Duty list → Edit on one of the list's duties: the On switch, When it’s due, What finishes it, Accountable, How much it matters, Remind days before; Save / Back to how the list has it",
+      "gap": "realestate.template.set_override upserts with `enabled: z.boolean().default(true)` and `patch: OverridePatchSchema.default({})`, and replaces the stored row's enabled and patch outright. The web editor always sends the whole difference from the catalog and the current On switch. The Assistant, asked only to change reminders, drops any earlier due, proof, accountable or materiality change. On a duty that is turned off, it turns it back on. The description doesn't say so, and the card shows only 'Enabled: Yes' and the new patch JSON, never what is lost. It also can't read the current override for most duties, because template_list is cut off (re-2).",
+      "fix": "In packages/core/src/addons/realestate/ops/editor.ts:144-200, make `enabled` optional with no default and keep the stored value when it is absent (true for a new row). Merge `patch` onto the stored patch: `{...stored.patch, ...input.patch}`, with `clear: z.array(z.enum(['due','reminders','accountable','proof','materiality'])).optional()` to drop one field. At the least, give it ai.description: 'patch replaces every earlier change to this duty, so read it first with realestate_template_list (dutyKey) and pass them all; leaving out enabled turns the duty on'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-6",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Vendors → Change (dialog: Email, Phone, What they do, Where they work, Disclosure, Note for the team)",
+      "gap": "VendorSaveInput defaults `areas` to [], and on an existing vendor vendorSave writes `services` and `areas` whole. If the model leaves areas out (for example to add only a disclosure), the vendor's areas are wiped. The card can't show it, because valueOf([]) is '' and cardFields drops empty lines. `services` is required (min 1), so it must be resent whole, and nothing says so. For an existing vendor, name, email and phone are ignored. Only services, areas, disclosure and note are written, so 'change their phone' is confirmed and reported done with nothing changed. The web Change dialog does the same: it sends email and phone and they are dropped.",
+      "fix": "In packages/core/src/addons/realestate/schemas.ts:4052, make `areas` `.optional()` with no default. In ops/vendors.ts:175-200, build `facts` from only the fields given when vendorId is set, keeping stored areas and services when absent. Then services can't be min(1)-required on a change: use a refine that needs services only for a new vendor. Give realestate_vendor_save an ai.description saying services and areas are the whole list. For an existing vendor, either update companies.email and phone through company.update, or refuse a given email or phone with rule 'realestate_vendor_contact' and 'Change their email or phone on the company in Contacts.', which the Assistant does with manage_company.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-7",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Refusals the Assistant relays: applying the newest duty list before one is published, planning a tour when the agent's calendar is unclear, no listing feed or e-sign connected",
+      "gap": "The kernel's refusal words reach the model unchanged; saidPlainly rewrites only addon_inactive. Several name places that don't exist: 'Publish it in Settings → Real Estate → Duties first' (editor.ts:467); 'Pick the one tours go on in Settings → Real Estate' (tours.ts:217-218); 'under Real Estate → Settings → Connections' (feed.ts:62, esign.ts:96,247, worker esign/index.ts:106,116,228, http.ts:29, docusign.ts:51,129, dotloop.ts:43,121). The real way is the side menu's Real Estate Agent → Deal settings, then the Duty list tab (Publish version N), Alerts & dates (Tours go on) or Connections (Connect…). Also, saidPlainly's own words for a turned-off add-on name 'Settings → Add-ons', and so does addon.settings' not-found. Settings → Add-ons is now only a redirect: Add-ons is its own place at the bottom of the side menu.",
+      "fix": "Add a RE_PLACES constant in packages/core/src/addons/realestate/words.ts: dutyList 'Real Estate Agent → Deal settings → Duty list', alerts '… → Deal settings → Alerts & dates', connections '… → Deal settings → Connections'. Reword: editor.ts:467 'The duty list hasn’t been published yet. Publish it first: Real Estate Agent → Deal settings → Duty list, then Publish version 1.'; tours.ts:217 '…Pick the calendar tours go on in Real Estate Agent → Deal settings → Alerts & dates, under Tours go on.'; every 'Real Estate → Settings → Connections' becomes 'Real Estate Agent → Deal settings → Connections' (press Connect… beside DocuSign or Dotloop). In apps/worker/src/assistant/tools-addons.ts:85 and packages/core/src/queries/addon.ts:238, change 'Settings → Add-ons' to 'Add-ons, at the bottom of the side menu'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-8",
+      "severity": "medium",
+      "kind": "read",
+      "where": "My duties and Coordinate with a duty open in the drawer (`?duty=`), and a deal's page",
+      "gap": "The page record can only be person, company, lead, conversation, appointment, workflow or workflow_run. assistantPageRecord matches only customers/people, customers/companies, leads, inbox, workflows and calendar?appt. So on /a/realestate/deals/:dealId, or with ?duty= open on My duties, Coordinate or a deal, the Assistant gets no record. 'This deal', 'mark this done' and 'who has this?' can't be resolved without searching by name.",
+      "fix": "Add 'realestate_deal' (or a generic {type:'addon_record', addonId, kind, id}) and 'realestate_duty' to AssistantPageRecord (packages/core/src/schemas/assistant.ts:319) and PageRecord (apps/worker/src/assistant/context.ts:38-41). In assistantPageRecord (packages/core/src/assistant/words.ts:413-446), map a/realestate/deals/<uuid> to the deal and a ?duty=<uuid> query to the duty; usePageRecord must pass the `duty` search param as it does `appt`. Label them in context.ts pageLabel through realestate.deal.get and realestate.duty.get, and tell the prompt that 'this deal' or 'this duty' means the page's.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-9",
+      "severity": "medium",
+      "kind": "read",
+      "where": "My duties header '{N} open · {M} overdue' and its Overdue / This week groups",
+      "gap": "realestate.overview counts overdueDuties and dueThisWeek over every open duty on deals where the person is main agent or on the team (onDealSql on r.owner_user_id/team_user_ids), whoever answers for each. My duties lists realestate.duty.list with mine=true, which is t.accountable_user_id = me, and its header says '{N} open · {M} overdue'. The overview's ai.description promises 'how many of their duties are overdue or due this week', so the Assistant's number differs from the screen's. realestate_list_duties (mine default true, status 'overdue') gives the right list, but nothing points the model to it for counts.",
+      "fix": "In packages/core/src/addons/realestate/ops/queries.ts:226-235, replace `and ${mine}` with `and t.accountable_user_id = ${me(ctx)}` for the overdue and week subqueries (keep onDealSql for myOpenDeals). Or keep the counts and change the ai.description to 'duties on their deals'. Also make 'this week' match the screen's grouping (rest of this week in the business's time zone, not the next 7×24h) if the numbers must agree.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-10",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Deal settings → Alerts & dates → Who hears when it’s serious: '+ Add someone' (owners or people who see every deal, up to 10)",
+      "gap": "The screen offers only owners and holders of realestate.all_deals, up to 10. update_addon_settings checks only that a newly added id is someone on the team or a calendar, and addon.save_settings only parses the schema. alertPeopleOf keeps only picked people who hold realestate.all_deals. Someone else is saved but never alerted. When the list is non-empty but nobody in it qualifies, it returns [] and the owners' fallback is skipped, so nobody outside the deal team hears critical alerts.",
+      "fix": "In apps/worker/src/assistant/tools-settings-more.ts addonSettingsPlan (after line 337), for addonId 'realestate' and key alertPersonUserIds, read workspace.members and refuse ids whose role isn't owner and who lack 'realestate.all_deals'. Better, put the check in core with an optional manifest `settings.check(ctx, next)` run by addon.save_settings, so the screen and the Assistant share it. Words: '<name> doesn’t see every deal, so they wouldn’t hear its alerts. Pick an owner, or give them See every deal in Settings → Permissions.' Separately, make alertPeopleOf fall back to owners when no picked person qualifies.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-11",
+      "severity": "low",
+      "kind": "words",
+      "where": "Deal settings → Connections: listing data (Repliers, AnyProp, your MLS feed's address and token), E-signature (DocuSign, Dotloop Connect), and what a sign-in comes back with",
+      "gap": "Real: settings_help covers only SETTINGS_AREAS, and the add_ons area's one handover is deleting an add-on's data. Nothing gives the steps to connect DocuSign or Dotloop (signing in, which is the person's own) or a listing feed (Repliers, AnyProp, your MLS's RESO feed), and the refusals point to a wrong place (re-7). Refuted part: what can be connected and what to paste is readable. read_addon_connection_list (addon_connection.list, a screen read) returns each connector, its providers with auth kind, field labels and hints, canManage, and the current connections' status. What's missing is the way there and the 'Connect…' step, which mostly falls under re-1.",
+      "fix": "Add `ai.handovers` to the add-on manifest (shape {what, why, steps}), surfaced through settings_help for area add_ons, or through the add-on places from re-1. For Real Estate: 'Connect DocuSign or Dotloop: Real Estate Agent → Deal settings → Connections; under E-signature press Connect… beside it and sign in there.' and 'Listing data: same tab, under Listing data press Connect an account…, pick Repliers, AnyProp or your MLS’s own feed and paste its key.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-12",
+      "severity": "low",
+      "kind": "do",
+      "where": "Deals filters Stage, Waiting on (someone outside / blocked / either), Closing within; Start a deal → Starting stage; Coordinate → Deals (All you see / Mine) and Agent",
+      "gap": "`stage` is a free z.string() in DealListInput, DealOpenInput and DealMoveStageInput, and no tool lists the stage keys. A label like 'Under contract' makes realestate_find_deals quietly return nothing (d.stage = 'Under contract'). realestate_open_deal refuses with '“Under contract” isn’t a stage of a buyer deal. Pick one of its stages.' without naming any. waitingOn, closingWithinDays, agentUserId and mine (and CoordinateInput's mine and agentUserId) have JSDoc only, which the model's JSON schema doesn't carry. find_deals' ai.description mentions neither archived nor the round-four filters.",
+      "fix": "In packages/core/src/addons/realestate/schemas.ts, make stage z.enum([...BUYER_STAGES, ...LISTING_STAGES, ...LISTING_EXITS]) (lines 92, 111, 313) with .describe() giving the key→label pairs from STAGE_LABELS. Add .describe() to waitingOn ('outside: waiting on someone outside; blocked: blocked; either'), closingWithinDays ('closing date within this many days from today'), agentUserId ('only deals whose main agent is this person (get_settings area team)') and mine, at lines 303-317 and 3444-3450. Make badStage (ops/deals.ts:84-89) list the side's stage labels. Change find_deals' ai.description (queries.ts:257-259) to name archived, agent, stage, closing within and waiting on.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-13",
+      "severity": "low",
+      "kind": "read",
+      "where": "My duties / Everyone’s duties (up to 500 open, 200 waiting for a date) and their group counts",
+      "gap": "Real: realestate_list_duties rows are about 350 characters each with no totals and no offset, so past about 45 duties the answer is cut. 'How many open duties do I have' and the This week, Later and No deadline counts can't be read for a busy agent or for Everyone's. Refuted part: overdue can be asked for on its own (status 'overdue'), and Waiting on someone and Blocked are in realestate_waiting_room. Drafts (Waiting for a date to be confirmed) is status 'drafts'.",
+      "fix": "In packages/core/src/addons/realestate/ops/duty-queries.ts dutyList (184-250), return `totals` {open, overdue, today, thisWeek, later, noDeadline, waiting, blocked, drafts} computed in SQL over the same filter, before `duties`. Add `offset` (or `dueBefore`) to DutyListInput (schemas.ts:768-775), and mention both in the ai.description.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-14",
+      "severity": "low",
+      "kind": "words",
+      "where": "Vendors → Archive (the vendor leaves the list; the screen has no way to bring one back)",
+      "gap": "realestate.vendor.approve on an archived vendor refuses with 'That vendor is archived. Bring it back before approving it.' Nothing clears vendors.archivedAt: vendor.save's update never touches it, there is no restore command, and adding the company again is refused as 'in the directory already'. The Vendors page offers no way to see or restore archived vendors (it never passes includeArchived). So the Assistant relays a step that doesn't exist. vendors.ts:530 likewise tells people to approve an archived vendor 'under Vendors'.",
+      "fix": "Add realestate.vendor.restore (permission realestate.manage, risk 1, ai { tool: 'realestate_vendor_restore' }) that clears archivedAt and archivedBy, plus an Archived filter and a Bring back button on the Vendors page. Or reword vendors.ts:287-292 to 'That vendor is archived, so duties can’t offer them. Add them again under Vendors.' and let vendor.save un-archive when the same company is added again, instead of refusing at line 236-241.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "re-15",
+      "severity": "low",
+      "kind": "words",
+      "where": "Add-ons page row for Real Estate Agent (its id, needed by update_addon_settings for Deal settings)",
+      "gap": "manage_add_on's description says 'The add-on’s id is in get_settings (area add_ons)', and update_addon_settings' unknown-id refusal says the same. But the add_ons area's inThisBusiness rows carry only name, state and running, and availableToAdd only name and summary. The model has to infer 'realestate' from the context line 'Real Estate Agent (realestate_…)', which appears only while the add-on is running, or from a capability id. For an add-on not yet installed, it has no id at all.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts:59-66, add `addonId: i.addonId` to each inThisBusiness row and `addonId: c.addonId` to each availableToAdd row.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

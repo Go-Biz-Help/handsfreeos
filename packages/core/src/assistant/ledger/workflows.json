@@ -1,0 +1,1961 @@
+{
+  "area": "workflows",
+  "title": "Workflows, their runs and approvals",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/web/src/app/app/w/[workspaceId]/workflows/[workflowId]/page.tsx": "d9d745c2843e",
+    "apps/web/src/app/app/w/[workspaceId]/workflows/approvals/page.tsx": "c1a799f92ccc",
+    "apps/web/src/app/app/w/[workspaceId]/workflows/new/page.tsx": "96d1f2f75fa6",
+    "apps/web/src/app/app/w/[workspaceId]/workflows/page.tsx": "2db190ea55c1",
+    "apps/web/src/app/app/w/[workspaceId]/workflows/runs/[runId]/page.tsx": "069940dabf2b",
+    "apps/web/src/app/app/w/[workspaceId]/workflows/runs/page.tsx": "4dff0a8754c9",
+    "apps/web/src/components/agency/save-as-template.tsx": "c56c5c183a3b",
+    "apps/web/src/components/agency/template-update.tsx": "9ec0941a3b39",
+    "apps/web/src/components/workflows/add-step-menu.tsx": "8b4a3810e05f",
+    "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
+    "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
+    "apps/web/src/components/workflows/approvals/types.ts": "49cab49face6",
+    "apps/web/src/components/workflows/approvals/use-waiting-approvals.ts": "0dc38d9168fe",
+    "apps/web/src/components/workflows/approvals/words.ts": "23866323ade8",
+    "apps/web/src/components/workflows/calendar-automations.tsx": "a7fbdece9780",
+    "apps/web/src/components/workflows/canvas/canvas.css": "1d9bdedd06db",
+    "apps/web/src/components/workflows/canvas/canvas.tsx": "9b21ab67252f",
+    "apps/web/src/components/workflows/canvas/context.ts": "ef073aaea04e",
+    "apps/web/src/components/workflows/canvas/edges.tsx": "3fc2a4551892",
+    "apps/web/src/components/workflows/canvas/geometry.ts": "7e434ac0a04e",
+    "apps/web/src/components/workflows/canvas/graph.ts": "e00fbfd1269b",
+    "apps/web/src/components/workflows/canvas/layout.ts": "d40460dc22d7",
+    "apps/web/src/components/workflows/canvas/nodes.tsx": "ad7629265323",
+    "apps/web/src/components/workflows/checks.tsx": "312c8bfcc33f",
+    "apps/web/src/components/workflows/chips.tsx": "2cc3eb523a28",
+    "apps/web/src/components/workflows/contact-workflows.tsx": "2a656efb1da1",
+    "apps/web/src/components/workflows/describe-new.tsx": "5371897b9a84",
+    "apps/web/src/components/workflows/describe.tsx": "8e00c1bc3304",
+    "apps/web/src/components/workflows/editor-context.tsx": "fb4d0a83d9a0",
+    "apps/web/src/components/workflows/editor.tsx": "19830cd2b8bb",
+    "apps/web/src/components/workflows/history.tsx": "f92cb48f611f",
+    "apps/web/src/components/workflows/move-dialog.tsx": "3ff10b61ad4c",
+    "apps/web/src/components/workflows/new-workflow.tsx": "4bef2604792e",
+    "apps/web/src/components/workflows/panels/actions.tsx": "c2f28fd41270",
+    "apps/web/src/components/workflows/panels/ai.tsx": "5abc728e42c4",
+    "apps/web/src/components/workflows/panels/conditions.tsx": "1059d9d36920",
+    "apps/web/src/components/workflows/panels/fields.tsx": "f6606afa9a46",
+    "apps/web/src/components/workflows/panels/flow.tsx": "a704fbf2ba67",
+    "apps/web/src/components/workflows/panels/index.tsx": "fcdac2e6b43b",
+    "apps/web/src/components/workflows/panels/settings.tsx": "2e13854a6b97",
+    "apps/web/src/components/workflows/panels/trigger.tsx": "1fd8396e338d",
+    "apps/web/src/components/workflows/publish.tsx": "a8f1ae2114f8",
+    "apps/web/src/components/workflows/runs/run-detail.tsx": "ea70da01c3db",
+    "apps/web/src/components/workflows/runs/run-status.tsx": "8bc4ad2f5d4b",
+    "apps/web/src/components/workflows/runs/runs-list.tsx": "9e9c64d16cdb",
+    "apps/web/src/components/workflows/step-list.tsx": "b5f0ecc82a57",
+    "apps/web/src/components/workflows/subnav.tsx": "15fe747c7b7d",
+    "apps/web/src/components/workflows/test-panel.tsx": "8b3e038dc5f4",
+    "apps/web/src/components/workflows/variable-field.tsx": "4d2fed286abd",
+    "apps/web/src/components/workflows/workflow-list.tsx": "1cce90428c6e",
+    "apps/web/src/components/workflows/workflow-stats.tsx": "7daa04ad7355"
+  },
+  "items": [
+    {
+      "path": "Workflows → Header → New workflow (managers)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/workflows/page.tsx:40",
+      "covered": "yes",
+      "by": "do_workflow_create (also on Runs header)"
+    },
+    {
+      "path": "Workflows → Subnav → Approvals waiting count",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/subnav.tsx:15",
+      "covered": "partly",
+      "by": "context lists up to 10 decidable approvals; list_teammate_drafts; no total count"
+    },
+    {
+      "path": "Workflows → Stats → Runs started today, N going now",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-stats.tsx:67",
+      "covered": "yes",
+      "by": "read_workflow_stats"
+    },
+    {
+      "path": "Workflows → Stats → Texts and emails sent today, quiet-hours held",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-stats.tsx:74",
+      "covered": "yes",
+      "by": "read_workflow_stats"
+    },
+    {
+      "path": "Workflows → Stats → Waiting on you, approval customers",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-stats.tsx:84",
+      "covered": "yes",
+      "by": "read_workflow_stats"
+    },
+    {
+      "path": "Workflows → Stats → Needs a look, failed step's workflow",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-stats.tsx:96",
+      "covered": "yes",
+      "by": "read_workflow_stats"
+    },
+    {
+      "path": "Workflows → Stats → Tile opens Runs filtered (going, approval, failed)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/workflow-stats.tsx:70",
+      "covered": "partly",
+      "by": "list_workflow_runs show going or needs_attention; no approval-only filter"
+    },
+    {
+      "path": "Workflows → List → Search workflows",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:93",
+      "covered": "yes",
+      "by": "list_workflows (names), context names 25"
+    },
+    {
+      "path": "Workflows → List → Filter All, Active, Paused, Drafts with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:106",
+      "covered": "yes",
+      "by": "list_workflows status"
+    },
+    {
+      "path": "Workflows → Row → Name and status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/chips.tsx:192",
+      "covered": "yes",
+      "by": "list_workflows name, status"
+    },
+    {
+      "path": "Workflows → Row → Starts when",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:121",
+      "covered": "yes",
+      "by": "list_workflows startsWhen"
+    },
+    {
+      "path": "Workflows → Row → Runs last 30 days, N going now",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:179",
+      "covered": "yes",
+      "by": "list_workflows runsLast30Days, runsGoingNow"
+    },
+    {
+      "path": "Workflows and editor → Version N live, or Not published yet",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:180",
+      "covered": "yes",
+      "by": "list_workflows / get_workflow liveVersion"
+    },
+    {
+      "path": "Workflows and editor → Source chips (Go Biz Help vN, Recipe, Blank)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/chips.tsx:240",
+      "covered": "no",
+      "by": "list_workflows and get_workflow leave out source"
+    },
+    {
+      "path": "Workflows and editor → Update available chip",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/chips.tsx:250",
+      "covered": "no",
+      "by": "no tool reads template updates"
+    },
+    {
+      "path": "Workflows → Row → Last run: customer and how",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:209",
+      "covered": "partly",
+      "by": "list_workflow_runs workflowId (customer, status, started); no last run on list"
+    },
+    {
+      "path": "Workflows → Row → Last run failed message, See the run",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:201",
+      "covered": "partly",
+      "by": "list_workflow_runs needs_attention whatWentWrong (5 failed max)"
+    },
+    {
+      "path": "Workflows, editor, calendar → Pause or Resume (switch, buttons)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:215",
+      "covered": "yes",
+      "by": "pause_workflow, resume_workflow"
+    },
+    {
+      "path": "Pause/Resume dialog → What happens to triggers and runs",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/publish.tsx:40",
+      "covered": "yes",
+      "by": "pause_workflow/resume_workflow card: new starts, runs holding, held runs"
+    },
+    {
+      "path": "Editor → More → Archive… dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/publish.tsx:71",
+      "covered": "yes",
+      "by": "manage_workflow archive (card: runs going stop)"
+    },
+    {
+      "path": "Workflows → List → No workflows match",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:240",
+      "covered": "yes",
+      "by": "list_workflows empty result"
+    },
+    {
+      "path": "Workflows → Empty state → Browse recipes, three recipe rows, Use it",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:316",
+      "covered": "partly",
+      "by": "do_workflow_create recipeKey enum; no recipe names or descriptions"
+    },
+    {
+      "path": "Workflows → Empty state → Describe it (Soon)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:293",
+      "covered": "yes",
+      "by": "draft_workflow already drafts new workflows"
+    },
+    {
+      "path": "Workflows → Row → Review update (template)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/workflow-list.tsx:153",
+      "covered": "no",
+      "by": "worker route /v1/workflows/template-update has no Assistant tool"
+    },
+    {
+      "path": "Review update dialog → What changes, Your changes stay, These go, already newest",
+      "kind": "see",
+      "file": "apps/web/src/components/agency/template-update.tsx:162",
+      "covered": "no",
+      "by": "template-update preview route not offered"
+    },
+    {
+      "path": "Review update dialog → Afterwards pick … in Checks warning",
+      "kind": "see",
+      "file": "apps/web/src/components/agency/template-update.tsx:189",
+      "covered": "no",
+      "by": "template-update preview route not offered"
+    },
+    {
+      "path": "Review update dialog → Apply the update",
+      "kind": "do",
+      "file": "apps/web/src/components/agency/template-update.tsx:210",
+      "covered": "no",
+      "by": "/v1/workflows/template-update/apply has no tool"
+    },
+    {
+      "path": "New workflow → Access → managers only",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/workflows/new/page.tsx:24",
+      "covered": "yes",
+      "by": "do_workflow_create checks workflows.manage"
+    },
+    {
+      "path": "New workflow → ?recipe= opens a recipe",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/workflows/new/page.tsx:29",
+      "covered": "yes",
+      "by": "do_workflow_create recipeKey"
+    },
+    {
+      "path": "New workflow → ?calendar= fills in the calendar",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/workflows/new/page.tsx:34",
+      "covered": "partly",
+      "by": "do_workflow_create mapping; no list of what to map"
+    },
+    {
+      "path": "New workflow → ?proposal= opens the Assistant's draft",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/workflows/new/page.tsx:37",
+      "covered": "yes",
+      "by": "draft_workflow card links here; do_workflow_create from proposal"
+    },
+    {
+      "path": "New workflow → Proposal for an existing workflow opens Describe",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/workflows/new/page.tsx:50",
+      "covered": "yes",
+      "by": "draft_workflow workflowId"
+    },
+    {
+      "path": "New workflow → Start from → Category filter (All, Leads, Appointments, Sales)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:272",
+      "covered": "partly",
+      "by": "recipeKey enum only; no categories"
+    },
+    {
+      "path": "New workflow → Start from → Recipe cards (name, short, category, trigger)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:279",
+      "covered": "partly",
+      "by": "do_workflow_create recipeKey enum; no names or descriptions"
+    },
+    {
+      "path": "New workflow → Start from → From Go Biz Help templates (drafts, vN)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:304",
+      "covered": "partly",
+      "by": "list_workflows status draft; no source or version"
+    },
+    {
+      "path": "New workflow → Start from → Describe it",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:339",
+      "covered": "yes",
+      "by": "draft_workflow (no workflowId)"
+    },
+    {
+      "path": "New workflow → Start from → Start blank",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:349",
+      "covered": "yes",
+      "by": "do_workflow_create from blank"
+    },
+    {
+      "path": "New workflow → Preview → Recipe category, trigger, steps",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:361",
+      "covered": "partly",
+      "by": "get_workflow after creating; no preview before"
+    },
+    {
+      "path": "New workflow → Preview → Fill in for {business} placeholders, Pick later",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:386",
+      "covered": "partly",
+      "by": "do_workflow_create mapping; placeholders per recipe not listed"
+    },
+    {
+      "path": "New workflow → Preview → Template version, trigger, note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:434",
+      "covered": "partly",
+      "by": "list_workflows startsWhen; no template version"
+    },
+    {
+      "path": "New workflow → Blank → What starts it (event, schedule, date, webhook, by hand)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:455",
+      "covered": "yes",
+      "by": "do_workflow_create trigger"
+    },
+    {
+      "path": "New workflow → Footer → Name, with recipe note",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:512",
+      "covered": "yes",
+      "by": "do_workflow_create name"
+    },
+    {
+      "path": "New workflow → Footer → Open the draft / Create draft / Create blank draft",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/new-workflow.tsx:518",
+      "covered": "yes",
+      "by": "do_workflow_create"
+    },
+    {
+      "path": "New workflow → Describe it → Proposal: reply, trigger, numbered steps",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/describe-new.tsx:160",
+      "covered": "yes",
+      "by": "draft_workflow said, changes; card trigger and steps"
+    },
+    {
+      "path": "New workflow → Describe it → Unsupported and checks lines",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/describe-new.tsx:190",
+      "covered": "yes",
+      "by": "draft_workflow unsupported, checksToFix"
+    },
+    {
+      "path": "New workflow → Describe it → Draft it / Refine",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe-new.tsx:222",
+      "covered": "partly",
+      "by": "draft_workflow again; no proposalId to refine"
+    },
+    {
+      "path": "New workflow → Describe it → Draft expired or already used",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/describe-new.tsx:71",
+      "covered": "yes",
+      "by": "do_workflow_proposal_apply refusal; read_workflow_proposal_get"
+    },
+    {
+      "path": "New workflow → Describe it → Name, Create workflow",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe-new.tsx:120",
+      "covered": "yes",
+      "by": "do_workflow_proposal_apply name"
+    },
+    {
+      "path": "Editor → Access → Members see it read-only",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/editor.tsx:469",
+      "covered": "yes",
+      "by": "edit tools refuse without workflows.manage"
+    },
+    {
+      "path": "Editor → Header → Name, rename inline",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/editor.tsx:381",
+      "covered": "yes",
+      "by": "manage_workflow rename"
+    },
+    {
+      "path": "Editor → Header → Status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/editor.tsx:371",
+      "covered": "yes",
+      "by": "get_workflow status"
+    },
+    {
+      "path": "Editor → Header → Save as template (agency)",
+      "kind": "do",
+      "file": "apps/web/src/components/agency/save-as-template.tsx:54",
+      "covered": "yes",
+      "by": "do_workflow_template_create_from_workflow (workspace.update)"
+    },
+    {
+      "path": "Editor → Save as template dialog → Template name, What it's for",
+      "kind": "do",
+      "file": "apps/web/src/components/agency/save-as-template.tsx:227",
+      "covered": "yes",
+      "by": "do_workflow_template_create_from_workflow name, description"
+    },
+    {
+      "path": "Editor → History → Draft · revision N",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/history.tsx:114",
+      "covered": "yes",
+      "by": "get_workflow draftRevision"
+    },
+    {
+      "path": "Editor → History → Version rows: number, Live, change lines, date, publisher",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/history.tsx:141",
+      "covered": "partly",
+      "by": "read_audit_list workflow.publish (who, when); get_workflow liveVersion; no change lines"
+    },
+    {
+      "path": "Editor → History → Nothing is published yet",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/history.tsx:185",
+      "covered": "yes",
+      "by": "get_workflow liveVersion null"
+    },
+    {
+      "path": "Editor → History → View a version (read-only steps)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/history.tsx:157",
+      "covered": "no",
+      "by": "no tool reads a published version"
+    },
+    {
+      "path": "Editor → History → Restore dialog: What changes in the draft",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/history.tsx:214",
+      "covered": "no",
+      "by": "no tool diffs a version against the draft"
+    },
+    {
+      "path": "Editor → History → Restore version N",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/history.tsx:245",
+      "covered": "yes",
+      "by": "do_workflow_restore_version"
+    },
+    {
+      "path": "Editor → Publish controls → Gate: Fix N red items / Run a test first / Tested",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/publish.tsx:181",
+      "covered": "partly",
+      "by": "get_workflow checksToFix; tested state not returned"
+    },
+    {
+      "path": "Editor → Publish dialog → What changes from version N",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/publish.tsx:384",
+      "covered": "no",
+      "by": "no tool diffs the draft against the live version"
+    },
+    {
+      "path": "Editor → Publish dialog → First version, runs finish on version N",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/publish.tsx:378",
+      "covered": "yes",
+      "by": "get_workflow liveVersion"
+    },
+    {
+      "path": "Editor → Publish dialog → Publish version N",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/publish.tsx:423",
+      "covered": "yes",
+      "by": "do_workflow_publish"
+    },
+    {
+      "path": "Editor → Toolbar → Undo and Redo with labels",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/editor.tsx:479",
+      "covered": "partly",
+      "by": "edit_workflow_steps reverses by hand; no undo history"
+    },
+    {
+      "path": "Editor → Toolbar → Save state (Saved, Saving…, Couldn’t save, Not saved)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/editor.tsx:758",
+      "covered": "partly",
+      "by": "get_workflow shows the saved draft; the screen's unsaved edits aren't visible"
+    },
+    {
+      "path": "Editor → Save-failed banner → Try again, Load the saved version",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/editor.tsx:539",
+      "covered": "partly",
+      "by": "edit_workflow_steps saves in one command; get_workflow re-reads"
+    },
+    {
+      "path": "Editor → Conflict banner → Load their version",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/editor.tsx:512",
+      "covered": "yes",
+      "by": "edit_workflow_steps baseRevision; revision_conflict refusal; get_workflow"
+    },
+    {
+      "path": "Editor → Steps → Trigger card (When) with flag",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:527",
+      "covered": "yes",
+      "by": "get_workflow startsWhen, checksToFix"
+    },
+    {
+      "path": "Editor → Steps and Canvas → Step cards: title, detail",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:588",
+      "covered": "yes",
+      "by": "get_workflow steps (id, depth, says), draft"
+    },
+    {
+      "path": "Editor → Steps and Canvas → Flags Needs a fix / Check this",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:662",
+      "covered": "partly",
+      "by": "get_workflow checksToFix errors only; no warnings"
+    },
+    {
+      "path": "Steps, Canvas, run → Overlay tags New, Changed, Removed, Failed, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:558",
+      "covered": "partly",
+      "by": "draft_workflow changes; list_workflow_runs failedStep; no per-step marks"
+    },
+    {
+      "path": "Editor → Steps and Canvas → + Add a step menu (24 kinds in 9 groups)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/add-step-menu.tsx:143",
+      "covered": "yes",
+      "by": "edit_workflow_steps add_step"
+    },
+    {
+      "path": "Editor → Add a step → Go to only at a path's end, End only last",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/add-step-menu.tsx:154",
+      "covered": "yes",
+      "by": "edit_workflow_steps refuses a go-to or End elsewhere"
+    },
+    {
+      "path": "Editor → Steps → Drag handle to move",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/step-list.tsx:699",
+      "covered": "yes",
+      "by": "edit_workflow_steps move_step"
+    },
+    {
+      "path": "Editor → Steps → Alt + ↑/↓ moves within a path",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/step-list.tsx:279",
+      "covered": "yes",
+      "by": "edit_workflow_steps move_step"
+    },
+    {
+      "path": "Editor → Steps and Canvas → Can't go there toasts",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:340",
+      "covered": "yes",
+      "by": "move_step refusal"
+    },
+    {
+      "path": "Editor → Steps → Branch paths: names, step counts, empty path, join",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:894",
+      "covered": "yes",
+      "by": "get_workflow steps by depth, draft"
+    },
+    {
+      "path": "Editor → Steps and Canvas → If it’s rejected lane, then the run ends",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/step-list.tsx:933",
+      "covered": "yes",
+      "by": "get_workflow steps, draft"
+    },
+    {
+      "path": "Editor → Move to… → Destinations (After X, At the start)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/move-dialog.tsx:47",
+      "covered": "yes",
+      "by": "edit_workflow_steps move_step"
+    },
+    {
+      "path": "Editor → Move to… → Nowhere else this step can go",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/move-dialog.tsx:114",
+      "covered": "yes",
+      "by": "move_step refusal"
+    },
+    {
+      "path": "Editor → Panel → Header: step type and where it sits",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/panels/index.tsx:45",
+      "covered": "yes",
+      "by": "get_workflow steps says, depth"
+    },
+    {
+      "path": "Editor → Step menu → Duplicate",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/index.tsx:116",
+      "covered": "partly",
+      "by": "add_step with the same settings; no copy op"
+    },
+    {
+      "path": "Editor → Step menu and Canvas → Delete (confirm when paths inside)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/index.tsx:133",
+      "covered": "yes",
+      "by": "edit_workflow_steps delete_step"
+    },
+    {
+      "path": "Editor → Settings → Going through again (once, after last run, with a gap)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/settings.tsx:36",
+      "covered": "yes",
+      "by": "edit_workflow_steps set_settings reentry"
+    },
+    {
+      "path": "Editor → Settings → Stop the run when they reply, book, won, lost, estimate",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/settings.tsx:69",
+      "covered": "yes",
+      "by": "set_settings"
+    },
+    {
+      "path": "Editor → Settings → Texts due in quiet hours (with the hours)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/settings.tsx:90",
+      "covered": "yes",
+      "by": "set_settings quietHours; get_settings texting for hours"
+    },
+    {
+      "path": "Editor → Settings → Without text consent",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/settings.tsx:121",
+      "covered": "yes",
+      "by": "set_settings"
+    },
+    {
+      "path": "Editor → Settings → End a run after N days (1–365)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/settings.tsx:141",
+      "covered": "yes",
+      "by": "set_settings"
+    },
+    {
+      "path": "Editor → Trigger → Kind: Event, Schedule, Date, Webhook, By hand",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/trigger.tsx:24",
+      "covered": "yes",
+      "by": "edit_workflow_steps set_trigger"
+    },
+    {
+      "path": "Editor → Trigger → Event and its filters",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/trigger.tsx:313",
+      "covered": "yes",
+      "by": "set_trigger event, filters"
+    },
+    {
+      "path": "Editor → Trigger → Schedule weekly or monthly, days, time",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/trigger.tsx:103",
+      "covered": "yes",
+      "by": "set_trigger"
+    },
+    {
+      "path": "Editor → Trigger → Schedule: Who’s included",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/trigger.tsx:165",
+      "covered": "yes",
+      "by": "set_trigger audience"
+    },
+    {
+      "path": "Editor → Trigger → Date: offset, before/after, anchor, time of day, filters",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/trigger.tsx:228",
+      "covered": "yes",
+      "by": "set_trigger"
+    },
+    {
+      "path": "Editor → Trigger → Webhook: find by phone/email, add as new customer",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/trigger.tsx:261",
+      "covered": "yes",
+      "by": "set_trigger personBy, createPerson"
+    },
+    {
+      "path": "Editor → Wait → For a set time",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:85",
+      "covered": "yes",
+      "by": "edit_workflow_steps add_step/update_step"
+    },
+    {
+      "path": "Editor → Wait → Until a time or weekday",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:100",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Wait → Until a date (offset, direction, anchor)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:129",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Wait → Until something happens (8 events), Give up after",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:183",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Wait → Only count it when",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:221",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → If / else → Condition",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:300",
+      "covered": "yes",
+      "by": "add_step/update_step"
+    },
+    {
+      "path": "Editor → Split / AI picks → Path name, AI description, conditions, Otherwise",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:254",
+      "covered": "yes",
+      "by": "add_branch, update_step"
+    },
+    {
+      "path": "Editor → Paths → Add a path",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:428",
+      "covered": "yes",
+      "by": "edit_workflow_steps add_branch"
+    },
+    {
+      "path": "Editor → Paths → Remove a path and its steps",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:311",
+      "covered": "yes",
+      "by": "edit_workflow_steps delete_branch"
+    },
+    {
+      "path": "Editor → Go to → Go back to",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:460",
+      "covered": "yes",
+      "by": "edit_workflow_steps set_goto"
+    },
+    {
+      "path": "Editor → Go to → At most N times (1–10)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:481",
+      "covered": "yes",
+      "by": "set_goto maxVisits"
+    },
+    {
+      "path": "Editor → Approval → Who can approve (admins or named)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:537",
+      "covered": "yes",
+      "by": "update_step approvers"
+    },
+    {
+      "path": "Editor → Approval → What to tell them",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:566",
+      "covered": "yes",
+      "by": "update_step message"
+    },
+    {
+      "path": "Editor → Approval → What they see",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:578",
+      "covered": "yes",
+      "by": "update_step previewStepId"
+    },
+    {
+      "path": "Editor → Approval → If nobody answers in, Then",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/flow.tsx:599",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Conditions → All or Any",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/conditions.tsx:164",
+      "covered": "yes",
+      "by": "update_step / set_trigger conditions"
+    },
+    {
+      "path": "Editor → Conditions → Add a rule, Add a group (3 deep), Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/conditions.tsx:51",
+      "covered": "yes",
+      "by": "update_step / set_trigger"
+    },
+    {
+      "path": "Editor → Conditions → Field, Check, Value",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/conditions.tsx:116",
+      "covered": "yes",
+      "by": "update_step patch; checksToFix flags bad ones"
+    },
+    {
+      "path": "Editor → Conditions → Errors and hints",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/panels/conditions.tsx:82",
+      "covered": "partly",
+      "by": "save refusal and checksToFix errors; no hints"
+    },
+    {
+      "path": "Editor → Pickers → Pipeline, stage, people, calendar, task choices",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/panels/fields.tsx:233",
+      "covered": "partly",
+      "by": "get_workflow names what steps point at; no catalog of choices"
+    },
+    {
+      "path": "Editor → Any action → If this step fails (Stop or Carry on)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:44",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI teammate steps → Teammate status note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:105",
+      "covered": "yes",
+      "by": "get_settings ai_teammate"
+    },
+    {
+      "path": "Editor → Hand to AI teammate → Goal, first message, conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:144",
+      "covered": "yes",
+      "by": "add_step/update_step"
+    },
+    {
+      "path": "Editor → Call with AI → Why, find out, may offer, booking",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:247",
+      "covered": "yes",
+      "by": "add_step/update_step"
+    },
+    {
+      "path": "Editor → Send text → Message",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:407",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Send text → Reply buttons",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:478",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Send text/email → Booking link opens",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:386",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Send text → If they haven’t agreed to texts",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:434",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Send text → Quiet hours note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:365",
+      "covered": "yes",
+      "by": "get_settings texting"
+    },
+    {
+      "path": "Editor → Send email → Subject, body",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:563",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Update details → Detail rows, add, remove",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:616",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Add/remove tag → Tag, to customer or lead",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:733",
+      "covered": "yes",
+      "by": "update_step; get_settings tags"
+    },
+    {
+      "path": "Editor → Create lead → Title, pipeline, stage, value, assign",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:837",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Move lead stage → Pipeline, stage, lost reason, note",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:896",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Assign lead",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:933",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Set next action → Text, due",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:947",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Create task → Task, for, due, notes",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:978",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Complete task → Which task",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:1034",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Add note → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:1062",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Assign or close conversation → Assign to, which conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:1086",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Notify team → Who, message, Email them too",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:1125",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Send to another app → URL, include parts",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:1216",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → Add to / remove from workflow → Workflow",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/actions.tsx:1274",
+      "covered": "yes",
+      "by": "update_step; list_workflows ids"
+    },
+    {
+      "path": "Editor → AI step → Write, Sort, Summarize",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:30",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI step → Instructions, length",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:297",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI step → Categories: rename, remove, add (10 max)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:325",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI step → If it isn’t sure / can’t answer fallbacks",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:367",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI step → Make a path for each category",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:397",
+      "covered": "yes",
+      "by": "add_step if_else plus add_branch"
+    },
+    {
+      "path": "Editor → AI step → Save the result as",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:420",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI step → Write from the knowledge base",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:440",
+      "covered": "yes",
+      "by": "update_step"
+    },
+    {
+      "path": "Editor → AI step → Knowledge line: published count, prices, thin profile",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:88",
+      "covered": "partly",
+      "by": "get_settings knowledge (completeness, allowPrices); no published count"
+    },
+    {
+      "path": "Editor → AI step → Add an approval step hint",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/panels/ai.tsx:197",
+      "covered": "yes",
+      "by": "add_step approval"
+    },
+    {
+      "path": "Editor → Message fields → Insert a detail ({{ picker)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/variable-field.tsx:273",
+      "covered": "partly",
+      "by": "update_step writes {{…}}; no list of available details"
+    },
+    {
+      "path": "Editor → Message fields → {{x}} isn’t available / isn’t a detail",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/variable-field.tsx:293",
+      "covered": "yes",
+      "by": "get_workflow checksToFix unknown_variable"
+    },
+    {
+      "path": "Editor and approvals → Text segment counter",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/variable-field.tsx:184",
+      "covered": "no",
+      "by": "no tool counts text segments"
+    },
+    {
+      "path": "Editor → Message fields → Live preview and blank-detail flag for the test contact",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/variable-field.tsx:314",
+      "covered": "no",
+      "by": "no tool renders a step for a customer"
+    },
+    {
+      "path": "Editor → Message preview → Change preview customer",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/variable-field.tsx:374",
+      "covered": "no",
+      "by": "preview not offered"
+    },
+    {
+      "path": "Editor → Checks → Count (All clear / N items)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/checks.tsx:121",
+      "covered": "partly",
+      "by": "get_workflow checksToFix errors only"
+    },
+    {
+      "path": "Editor → Checks → Each issue: message, step or trigger, blocks or not",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/checks.tsx:185",
+      "covered": "partly",
+      "by": "checksToFix errors; no warnings"
+    },
+    {
+      "path": "Editor → Checks → Fix buttons, Done: fix, Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/checks.tsx:134",
+      "covered": "partly",
+      "by": "fix by hand with edit_workflow_steps; no one-click fixes"
+    },
+    {
+      "path": "Editor → Checks → Double-text warning, Open teammate settings",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/checks.tsx:58",
+      "covered": "partly",
+      "by": "get_settings ai_teammate; no warning raised"
+    },
+    {
+      "path": "Editor → Checks → Before it can publish (red items, passing test)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/checks.tsx:223",
+      "covered": "partly",
+      "by": "checksToFix; tested state not read"
+    },
+    {
+      "path": "Editor → Test → Simulate or Send to me",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:166",
+      "covered": "yes",
+      "by": "do_workflow_test mode"
+    },
+    {
+      "path": "Editor → Test → Test contact, Change",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:192",
+      "covered": "yes",
+      "by": "do_workflow_test personId"
+    },
+    {
+      "path": "Editor → Test → What to take as given (waits, path and AI picks)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:222",
+      "covered": "yes",
+      "by": "do_workflow_test assume"
+    },
+    {
+      "path": "Editor → Test → Run test (off while red items)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:273",
+      "covered": "yes",
+      "by": "do_workflow_test (confirmed)"
+    },
+    {
+      "path": "Editor → Test → Live log: step rows, messages, Knowledge used",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:317",
+      "covered": "no",
+      "by": "no tool reads test runs"
+    },
+    {
+      "path": "Editor → Test → Result: passed, failed, outdated, stopped",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:426",
+      "covered": "no",
+      "by": "test outcome not readable"
+    },
+    {
+      "path": "Editor → Test → Stop the test",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:422",
+      "covered": "partly",
+      "by": "manage_workflow_run stop with the test run's page open; tests not listed"
+    },
+    {
+      "path": "Editor → Test → Open this test run",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/test-panel.tsx:461",
+      "covered": "no",
+      "by": "list_workflow_runs leaves out tests"
+    },
+    {
+      "path": "Editor → Describe → Proposal: reply, change rows, unsupported, checks",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/describe.tsx:441",
+      "covered": "yes",
+      "by": "draft_workflow workflowId; read_workflow_proposal_get"
+    },
+    {
+      "path": "Editor → Describe → Draft it / Refine, with the selected step",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe.tsx:568",
+      "covered": "partly",
+      "by": "draft_workflow; no proposalId or selected step"
+    },
+    {
+      "path": "Editor → Describe → Apply changes",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe.tsx:726",
+      "covered": "yes",
+      "by": "do_workflow_proposal_apply"
+    },
+    {
+      "path": "Editor → Describe → Discard",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe.tsx:729",
+      "covered": "yes",
+      "by": "nothing changes until applied"
+    },
+    {
+      "path": "Editor → Describe → Applied, Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe.tsx:656",
+      "covered": "partly",
+      "by": "edit_workflow_steps reverses by hand"
+    },
+    {
+      "path": "Editor → Describe → Show it again / Ask again when stale",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe.tsx:682",
+      "covered": "yes",
+      "by": "read_workflow_proposal_get; draft_workflow again"
+    },
+    {
+      "path": "Editor → Describe → That change was already applied",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/describe.tsx:228",
+      "covered": "yes",
+      "by": "do_workflow_proposal_apply refusal"
+    },
+    {
+      "path": "Editor → Describe → Preview with changes marked, Show in Canvas/Steps",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/describe.tsx:599",
+      "covered": "partly",
+      "by": "draft_workflow changes lines; no marked step list"
+    },
+    {
+      "path": "Editor → Describe → Mark the proposal applied",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/describe.tsx:337",
+      "covered": "never",
+      "by": "workflow_proposal.mark_applied is on the Never list"
+    },
+    {
+      "path": "Editor → Canvas → Drop a step on a + to move it",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/canvas/canvas.tsx:470",
+      "covered": "yes",
+      "by": "edit_workflow_steps move_step"
+    },
+    {
+      "path": "Editor → Canvas → Drag a go-to's handle to its target",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/canvas/canvas.tsx:391",
+      "covered": "yes",
+      "by": "edit_workflow_steps set_goto"
+    },
+    {
+      "path": "Editor → Canvas → Node menu Move to…, Delete; Delete key",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/canvas/nodes.tsx:175",
+      "covered": "yes",
+      "by": "move_step, delete_step"
+    },
+    {
+      "path": "Editor → Canvas → Edge labels, Back · N times max",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/canvas/edges.tsx:140",
+      "covered": "yes",
+      "by": "get_workflow steps, draft"
+    },
+    {
+      "path": "Runs → Filter → Workflow",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:114",
+      "covered": "yes",
+      "by": "list_workflow_runs workflowId"
+    },
+    {
+      "path": "Runs → Filter → All, Going, Needs approval, Failed with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:127",
+      "covered": "partly",
+      "by": "list_workflow_runs show going/needs_attention/all; counts from read_workflow_stats"
+    },
+    {
+      "path": "Runs → Filter → Completed, Stopped",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:143",
+      "covered": "partly",
+      "by": "show all gives status words; no filter"
+    },
+    {
+      "path": "Runs → Filter → Real runs or Tests",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:152",
+      "covered": "no",
+      "by": "list_workflow_runs leaves out tests"
+    },
+    {
+      "path": "Runs → Filter → Started (24 hours, 7 days, 30 days, any)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:164",
+      "covered": "partly",
+      "by": "started returned; no date filter"
+    },
+    {
+      "path": "Runs → Rows → Customer, workflow, status, started",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:181",
+      "covered": "yes",
+      "by": "list_workflow_runs"
+    },
+    {
+      "path": "Runs → Rows → Version or end reason, test mode",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:191",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Runs → Status badges (Running … Failed)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-status.tsx:5",
+      "covered": "yes",
+      "by": "list_workflow_runs status word"
+    },
+    {
+      "path": "Runs → N runs shown, Load more",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:253",
+      "covered": "partly",
+      "by": "limit 20; no cursor"
+    },
+    {
+      "path": "Runs → No runs match",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/runs-list.tsx:232",
+      "covered": "yes",
+      "by": "list_workflow_runs empty"
+    },
+    {
+      "path": "Run → Header → Customer (or Test run, No customer), status, workflow",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:155",
+      "covered": "yes",
+      "by": "list_workflow_runs; page context gives run's workflow and person"
+    },
+    {
+      "path": "Run → Header → Version or draft revision",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:263",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Run → Header → Started, ended, end reason",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:267",
+      "covered": "partly",
+      "by": "list_workflow_runs started, ended; no end reason"
+    },
+    {
+      "path": "Run → Open customer",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:290",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Run → Stop run, Stop this run? dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:301",
+      "covered": "yes",
+      "by": "manage_workflow_run stop"
+    },
+    {
+      "path": "Run → Failed banner: stopped at step, error, tries",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:315",
+      "covered": "yes",
+      "by": "list_workflow_runs failedStep, whatWentWrong, tries"
+    },
+    {
+      "path": "Run → Retry, Skip",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:334",
+      "covered": "yes",
+      "by": "manage_workflow_run retry_step, skip_step"
+    },
+    {
+      "path": "Run → An owner or admin can retry or skip it",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:349",
+      "covered": "yes",
+      "by": "list_workflow_runs canRetryOrSkip"
+    },
+    {
+      "path": "Run → Steps it followed, with marks",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:363",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Run → Paths it didn't take",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:359",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Run → Step detail → Visits, status, time, tries, note, message",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:609",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Run → Step detail → Checks before the text",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:681",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Run → Step detail → Knowledge used",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:690",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Run → Step detail → What it was set to do, What came back",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:695",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Run → Step detail → Error with rule",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:705",
+      "covered": "partly",
+      "by": "list_workflow_runs whatWentWrong for the failed step only"
+    },
+    {
+      "path": "Run → Step detail → Approval decided by, in the Assistant, with an edit",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:725",
+      "covered": "partly",
+      "by": "read_audit_list workflow.decide_approval"
+    },
+    {
+      "path": "Run → Step detail → Hasn’t reached / didn’t reach",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/runs/run-detail.tsx:647",
+      "covered": "no",
+      "by": "workflow.run_get not offered"
+    },
+    {
+      "path": "Approvals → Waiting and Decided tabs with counts",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:124",
+      "covered": "partly",
+      "by": "context (10 max), list_teammate_drafts; decided via read_audit_list"
+    },
+    {
+      "path": "Approvals → Filter All, Workflows, teammate",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:130",
+      "covered": "yes",
+      "by": "context approvals vs list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → Teammate training note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:193",
+      "covered": "yes",
+      "by": "get_settings ai_teammate progress"
+    },
+    {
+      "path": "Approvals → Nothing waiting",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:225",
+      "covered": "yes",
+      "by": "context and list_teammate_drafts empty"
+    },
+    {
+      "path": "Approvals → Card → Title, workflow, who was asked, waiting",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:269",
+      "covered": "partly",
+      "by": "context id, workflow, customer, what; 10 max; no asked or waiting"
+    },
+    {
+      "path": "Approvals → Card → Expires",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:338",
+      "covered": "no",
+      "by": "context leaves out expiry"
+    },
+    {
+      "path": "Approvals → Card → Note to approvers",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:360",
+      "covered": "partly",
+      "by": "context what; answer_workflow_approval card"
+    },
+    {
+      "path": "Approvals → Card → Customer's latest message",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:367",
+      "covered": "partly",
+      "by": "get_conversation"
+    },
+    {
+      "path": "Approvals → Card → Knowledge used",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:377",
+      "covered": "no",
+      "by": "not in context or card"
+    },
+    {
+      "path": "Approvals → Card → Prices allowed or off",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:392",
+      "covered": "yes",
+      "by": "get_settings knowledge allowPrices"
+    },
+    {
+      "path": "Approvals → Card → Edit the AI's text (edited, written by AI)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:427",
+      "covered": "partly",
+      "by": "answer_workflow_approval message edits the first field only"
+    },
+    {
+      "path": "Approvals → Card → What carries on after",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:442",
+      "covered": "partly",
+      "by": "answer_workflow_approval card"
+    },
+    {
+      "path": "Approvals → Card → Approve (and send)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:455",
+      "covered": "yes",
+      "by": "answer_workflow_approval approve"
+    },
+    {
+      "path": "Approvals → Card → Reject with reason",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:498",
+      "covered": "yes",
+      "by": "answer_workflow_approval reject, reason"
+    },
+    {
+      "path": "Approvals → Card → Open run",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:476",
+      "covered": "partly",
+      "by": "list_workflow_runs personId; no approval-to-run link"
+    },
+    {
+      "path": "Approvals → Decided → Rows: customer, decided line, time, Run",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:529",
+      "covered": "partly",
+      "by": "read_audit_list workflow.decide_approval"
+    },
+    {
+      "path": "Approvals → Teammate draft → Title, AI name, channel, waiting, in the inbox too",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:110",
+      "covered": "yes",
+      "by": "list_teammate_drafts what, kind, teammate, waitingSince"
+    },
+    {
+      "path": "Approvals → Teammate draft → Funnel and stage",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:109",
+      "covered": "no",
+      "by": "list_teammate_drafts leaves out funnel"
+    },
+    {
+      "path": "Approvals → Teammate draft → Expires",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:241",
+      "covered": "yes",
+      "by": "list_teammate_drafts expires"
+    },
+    {
+      "path": "Approvals → Teammate draft → The conversation",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:256",
+      "covered": "yes",
+      "by": "get_conversation conversationId"
+    },
+    {
+      "path": "Approvals → Teammate draft → Edit subject and message",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:322",
+      "covered": "yes",
+      "by": "decide_teammate_draft message, subject"
+    },
+    {
+      "path": "Approvals → Teammate draft → The call",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:350",
+      "covered": "yes",
+      "by": "list_teammate_drafts call"
+    },
+    {
+      "path": "Approvals → Teammate draft → Add-on ask",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:362",
+      "covered": "no",
+      "by": "list_teammate_drafts leaves out ask"
+    },
+    {
+      "path": "Approvals → Teammate draft → Flags",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:373",
+      "covered": "no",
+      "by": "list_teammate_drafts leaves out flags"
+    },
+    {
+      "path": "Approvals → Teammate draft → Approving also (discount, booking hold)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:384",
+      "covered": "yes",
+      "by": "list_teammate_drafts approvingAlso, discount"
+    },
+    {
+      "path": "Approvals → Teammate draft → Who decides, what happens if nobody does",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:389",
+      "covered": "yes",
+      "by": "list_teammate_drafts canDecide, expires"
+    },
+    {
+      "path": "Approvals → Teammate draft → Approve (call, send)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:419",
+      "covered": "yes",
+      "by": "decide_teammate_draft approve"
+    },
+    {
+      "path": "Approvals → Teammate draft → Reject… with reason",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:435",
+      "covered": "yes",
+      "by": "decide_teammate_draft reject, reason"
+    },
+    {
+      "path": "Approvals → Teammate draft → After reject: I’ll reply",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:188",
+      "covered": "yes",
+      "by": "manage_conversation take_over"
+    },
+    {
+      "path": "Approvals → Teammate draft → After reject: Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:197",
+      "covered": "yes",
+      "by": "do_ai_teammate_retry"
+    },
+    {
+      "path": "Approvals → Teammate draft → Open the conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:452",
+      "covered": "yes",
+      "by": "get_conversation"
+    },
+    {
+      "path": "Approvals → Decided → Teammate draft rows",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:507",
+      "covered": "partly",
+      "by": "read_audit_list draft decisions; list_teammate_drafts pending only"
+    },
+    {
+      "path": "Customer page → Add to workflow… → Workflows that start by hand",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:92",
+      "covered": "yes",
+      "by": "list_workflows canStartForSomeone"
+    },
+    {
+      "path": "Customer page → Add to workflow… → Why one can't (paused, ran once, already in)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:42",
+      "covered": "yes",
+      "by": "start_workflow card blocks with the reason"
+    },
+    {
+      "path": "Customer page → Add to workflow… → None yet, Open Workflows",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:187",
+      "covered": "yes",
+      "by": "list_workflows"
+    },
+    {
+      "path": "Customer page → Add to workflow… → Add X",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:147",
+      "covered": "yes",
+      "by": "start_workflow"
+    },
+    {
+      "path": "Customer page → Workflows card → Runs with workflow and run line",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:261",
+      "covered": "yes",
+      "by": "list_workflow_runs personId"
+    },
+    {
+      "path": "Customer page → Workflows card → Remove, Take X out",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:313",
+      "covered": "yes",
+      "by": "remove_contact_from_workflow"
+    },
+    {
+      "path": "Customer page → Workflows card → Not in any workflow yet",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:344",
+      "covered": "yes",
+      "by": "list_workflow_runs personId empty"
+    },
+    {
+      "path": "Calendar → Automations → This calendar's workflows (or every calendar)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:165",
+      "covered": "partly",
+      "by": "list_workflows startsWhen; no calendar filter"
+    },
+    {
+      "path": "Calendar → Automations → Could text twice warning",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:190",
+      "covered": "partly",
+      "by": "get_calendar_settings reminders; workflow side not flagged"
+    },
+    {
+      "path": "Calendar → Automations → Add automation (follow-up and review, no-show rebook)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:206",
+      "covered": "partly",
+      "by": "do_workflow_create recipeKey and mapping"
+    },
+    {
+      "path": "Calendar → Automations → Reminders already go out note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:228",
+      "covered": "yes",
+      "by": "get_calendar_settings"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "wf-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Workflows → Runs, press a run: the header (version N / draft revision N, started, ended, “Finished: They replied”), The path it took (“X and Y weren’t used”), and each step’s panel (Done/Failed/Skipped, tries, the note, the text or email it sent, Checks before the text, Knowledge used, What it was set to do, What came back, Error, Approval: Approved by Priya with an edit…)",
+      "gap": "No tool returns a run's details. workflow.run_get is read only in runState (to find the stuck step and its error for list_workflow_runs and manage_workflow_run) and in context.ts pageDetails (only the workflow name and customer). Even on a run's own page, the Assistant can't say: version or test revision, started and ended times, why it ended (endReason in words), which path it took, what each step sent, decided or got back, the knowledge it used, or who approved or rejected it and with what edit. The screen-reads test misses this because ownReads() only matches the query name.",
+      "fix": "Add an auto look-up get_workflow_run {runId} (permission workspace.read) in packages/core/src/assistant/tools-content.ts, implemented in apps/worker/src/assistant/tools-content.ts on workflow.run_get. Return: status label, version or 'test of draft revision N' with Simulate or Send to me, started and ended, endReason via endReasonText, the steps not used, and for each visited step its title (describeStep), status (Done/Failed/Skipped), when, attempt, stepNote, messageOf, decisionLines, knowledgeUsed and error.message. Return approvals with approvalDecidedLine. First move endReasonText, stepNote, messageOf, decisionLines and knowledgeUsed from apps/web/src/lib/workflows/run-words.ts into @hfos/core so both use one copy. Have list_workflow_runs' description name it, and have pageLines tell the model to call it when a run is on screen.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "Workflow editor → Test tab: the test’s outcome (“Test passed, ready to publish.” / “The test didn’t pass. ‘X’ failed: …” / outdated / stopped), its step log, Stop the test; and the header gate “Run a test first” / “Tested, ready to publish”",
+      "gap": "After the person confirms do_workflow_test, the model gets back only 'Done'. commitScreenAction returns no command output, so even the eventId never reaches it. list_workflow_runs never passes includeTests or onlyTests, so test runs can't be listed. get_workflow's WorkflowGet type and result leave out tested and testedRevision. So the Assistant can't tell whether the test passed or why it failed, can't tell whether Publish would be allowed, and can't find the test run to stop it with manage_workflow_run.",
+      "fix": "In getWorkflow (apps/worker/src/assistant/tools-content.ts:2390), return tested, testedRevision and a publishGate in the screen's words ('Run a test first' / 'Tested, ready to publish'). Also return latestTest, read from workflow.run_list {workflowId, onlyTests:true, limit:1}: runId, mode (Simulate or Send to me), status label, and for a failure the failed step's title and error message. Give list_workflow_runs a tests:boolean input that maps to onlyTests. Give do_workflow_test its own commit that returns the test's runId (workflow.run_list {triggerEventId}) and says 'The test is running; ask me how it went.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-3",
+      "severity": "high",
+      "kind": "words",
+      "where": "The Assistant’s own description of A workflow and of the AI builder",
+      "gap": "The places map tells the model, under 'You can:', that testing, publishing and bringing back an older version 'stay yours'. But do_workflow_test, do_workflow_publish, do_workflow_restore_version and do_workflow_proposal_apply are offered to it, and manage_workflow's own description names them. The prompt (line 24), draft_workflow's description and its result note all say the person opens and applies a proposal, never that the Assistant can apply it. The Workflows place's canChange leaves out pause and resume, deciding approvals, and starting a customer on a workflow, all of which it has tools for.",
+      "fix": "In packages/core/src/assistant/places-map.ts:446-448, change 'A workflow' canChange to: 'change its steps, what starts it and its settings', 'test it (Simulate or Send to me)', 'publish it once a test passed', 'bring back an older version into the draft', 'apply a proposal I drafted', 'pause or resume it', 'rename it or archive it'. In :415-419, add 'pause or resume a workflow', 'approve or reject what a workflow wrote', 'start someone on a workflow that starts by hand, or take them out'. Reword prompt.ts:24 and the draft_workflow description (packages/core/src/assistant/tools.ts:314) to: 'it makes a proposal; once the person agrees, apply it with do_workflow_proposal_apply'. Reword the note at apps/worker/src/assistant/tools-workflow.ts:231 and the header comment at :2-3 to match.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "Workflows → Approvals: each approval card (the AI-written text, “X’s latest message”, Knowledge used chips, Prices allowed/Prices are off, who was asked, how long it has waited, Expires in…), and the Decided · N tab (Approved by Priya with an edit, Rejected: “reason”, Expired)",
+      "gap": "No tool lists workflow approvals. The context reads 10 pending ones (workflow.approval_list limit 10), keeps only those with canDecide, and gives each an id, the workflow, the customer and the kind of message. It leaves out the text that would go out, the customer's latest message, the note, the knowledge used, the approvers, the expiry and how long it has waited, and it never says more are waiting. what_needs_attention with kind ai_approval shows up to 8 attention items with the draft text, but their ids are attention-item ids. answer_workflow_approval takes an approval id and handle_attention_item refuses approvals, so an approval past the 10th can't be answered. The Decided tab (approved, rejected, expired) can't be read at all. The same is true of the teammate's decided drafts, because list_teammate_drafts hard-codes status 'pending'.",
+      "fix": "Add an auto look-up list_workflow_approvals {view:'waiting'|'decided', workflowId?, limit, cursor} on workflow.approval_list. For decided, read approved, rejected and expired as the page does, and keep the ones the person may decide (workflows.manage, or named as an approver). Each row gets: id, runId, workflow, customer, what (approvalWhat), the text, note, asked and knowledge titles (approvalPreviewOf), approvers (approvalAsked), expiresIn (approvalExpiresIn), waitingSince, canDecide, and for decided ones approvalDecidedLine. In context.ts:368, read limit 100, list the first 10 and add 'N more waiting: list_workflow_approvals has them'. Give list_teammate_drafts status:'pending'|'decided' and pass it through at apps/worker/src/assistant/tools-content.ts:2651.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Workflows → Runs: All workflows select; All/Going/Needs approval/Failed/Completed/Stopped; Real runs or Tests; Last 24 hours/7 days/30 days/Any time; 25 per page with Load more; each row’s Version N or end reason (“They replied”), Send to me/Simulate",
+      "gap": "list_workflow_runs offers only show: needs_attention, going or all, with a limit of 20 at most, no cursor and no sign that more exist. It can't filter to Completed, Stopped, Failed or Needs approval alone, to test runs, or to a date range, though workflow.run_list supports all of these. Its rows have no endReason, version or test mode, so the Stopped · They replied line and 'why did Mike’s run end?' can't be answered. Failed-step details come only for the first 5 failed runs. read_workflow_stats gives the counts but no rows.",
+      "fix": "In packages/core/src/assistant/tools-content.ts:322-333, extend show to 'needs_attention'|'going'|'needs_approval'|'failed'|'completed'|'stopped'|'all', mapped as STATUS_OF in apps/web/src/lib/workflows/run-filters.ts. Add tests:boolean (onlyTests), startedWithin:'1d'|'7d'|'30d'|'all' (startedAfter) and cursor. Return nextCursor and more:true. Give each row endReason (via a shared endReasonText in core), version, and isTest with testMode.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-6",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Customer page → Add to workflow… dialog: a workflow is disabled with “Mike went through it on Aug 30. It runs once for each customer.” or “Already in it. It can start again after Mike finishes.”",
+      "gap": "start_workflow's prepare checks only notLive and notByHand. It never reads the person's runs of that workflow or its reentry setting, which the Add to workflow… dialog checks. workflow.enrol only emits workflow.enrol_requested, and the engine then skips the run quietly (on conflict do nothing, the once key, or the cooldown). The card offers Start, and after Confirm the Assistant says 'Started X for Y.' even when nothing started.",
+      "fix": "Move availability() from apps/web/src/components/workflows/contact-workflows.tsx:35-52 into @hfos/core and use it in startWorkflow.prepare (apps/worker/src/assistant/tools-workflow.ts:338). Read workflow.run_list {workflowId, personId} and the workflow's reentry (from workflow.get, which carries it), and block with the screen's words: '<First> went through it on <date>. It runs once for each customer.' / 'Already in it. It can start again after <First> finishes.' Change the commit outcome to '“X” starts for Y in a moment.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-7",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Workflow editor → History: Draft · revision N, each Version N (Live badge, what changed, when, who published), View, Restore with “What changes in the draft”; the Publish dialog’s “What changes from version N”",
+      "gap": "get_workflow returns only liveVersion. It drops workflow.get's versions list (diff, publishedBy, createdAt), and workflow.version_get is used only by start_workflow, for the live version's first steps. The Assistant can't list versions, say what one changed or who published it, or say what the draft changes from the live version. Before do_workflow_restore_version, it can't say what the restore would bring back.",
+      "fix": "In getWorkflow (apps/worker/src/assistant/tools-content.ts:2390), add versions: [{version, live, changes: diff, publishedBy: publishedBy.fullName, publishedAt: when(createdAt)}] and changesSinceLive: describeOps(diffWorkflows(liveDef, draft)) (or the publish dialog's diff helper moved to core). Add an optional version input to get_workflow that reads workflow.version_get and returns that version's steps via describeStep.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-8",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Workflow editor → Publish dialog “Publish version N?” (changes since version N, “Runs already in progress finish on version N”, “It stays paused until you resume it”, disabled when nothing changed); History → Restore dialog",
+      "gap": "do_workflow_publish (risk 2) and do_workflow_restore_version (risk 1) use the generic 'Do this?' card. Its 'What' line is the raw command description, which shows codes to the person: 'Needs no blocking issues (422) and a passing test of this exact draft revision (409 not_tested)'. Its other rows are Workflow id (a UUID) and Base revision. It doesn't name the workflow or the new version number, and it leaves out the changes since the live version, 'Runs already in progress finish on version N' and 'It stays paused until you resume it'. The outcome after Confirm is only 'Done', with no link.",
+      "fix": "Give workflow.publish and workflow.restore_version their own SettingsConfirmTool, as manage_workflow has, in apps/worker/src/assistant/tools-content.ts. The publish card: title 'Publish version N+1 of “X”?', change lines as fields, 'Runs already going finish on version N', and when paused, 'It stays paused until you resume it'. Its outcome: 'Published version N of “X”.' with href to the workflow. The restore card: 'Bring version N of “X” back into the draft?' with its 'What changes in the draft' lines and 'It needs a new test before it can be published'. Reword the workflow.publish description at packages/core/src/commands/workflow.ts:391 without '(422)' and '(409 not_tested)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-9",
+      "severity": "low",
+      "kind": "read",
+      "where": "Workflow editor → Checks: each item with its step, “Blocks publishing” / “Doesn’t block publishing”, the Fix: buttons, the “Ava (AI) also texts new leads” warning, and “Before it can publish”",
+      "gap": "get_workflow returns only error messages (checksToFix). It leaves out warnings, the step each check is about (stepId and its title), and each check's one-click fixes ({label, ops}). The double-texting part is mostly covered already: get_settings {area:'ai_teammate'} returns ai_teammate.get whole, issues included, and those carry the 'double_texting' warning ('“X” also texts new leads'). The teammate side counts only active workflows, so a draft workflow that texts new leads isn't flagged there.",
+      "fix": "In getWorkflow (apps/worker/src/assistant/tools-content.ts:2390-2400), replace checksToFix with checks: [{severity, blocksPublishing: severity==='error', message, step: describeStep title for stepId, fixes: issue.fixes.map(f => ({label: f.label, ops: f.ops}))}], and say in get_workflow's description that a fix's ops can be passed to edit_workflow_steps. Optionally add the editor's double-texting line when workflowTextsNewLeads(def) holds and ai_teammate.get says the teammate texts new leads.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-10",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Workflows list: the “Go Biz Help vN” and “Update available” chips, and Review update (what the agency changed, your changes kept or dropped, details to pick, Apply)",
+      "gap": "A template update runs through worker routes (/v1/workflows/template-update and /apply) that execute workflowTemplateApplyUpdate as a system actor. No screen command is involved, so the coverage test never sees it. No Assistant tool previews or applies one. list_workflows and get_workflow don't return source (Recipe, the agency template's name and installed version, Blank) or source.template.updateAvailable, so the Assistant can't even say an update is waiting.",
+      "fix": "Add source to list_workflows (apps/worker/src/assistant/tools-workflow.ts:144-161) and get_workflow: {kind, recipeName, template: {name, installedVersion, latestVersion, updateAvailable}}. Add review_template_update {workflowId} (auto, workflows.manage) on planTemplateUpdate plus previewOf, and apply_template_update {workflowId, baseRevision} (confirm), which executes workflowTemplateApplyUpdate as templates-routes.ts:100-111 does. On the card, say which of the business's own changes are kept or dropped.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-12",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Workflows → New workflow: Recipes (All/Leads/Appointments/Sales cards with what each does and what starts it), the preview of its steps, “Fill in for <business>” selects pre-filled with suggestions, From Go Biz Help; a calendar’s Add automation fills its calendar",
+      "gap": "do_workflow_create shows the model recipeKey only as an enum of 8 bare keys, and mapping as an open record. Nothing says what each recipe does, what starts it, or which placeholder keys it has. The screen pre-fills suggestMapping(placeholders, catalogs), but workflow.create defaults mapping to {}. So a recipe workflow the Assistant creates starts with every detail unmapped, and Checks blocks it. 'Which recipes are there?' has no answer beyond the key names.",
+      "fix": "Add an auto look-up list_workflow_recipes that returns, for each of WORKFLOW_RECIPES: key, name, description, category, short and note (move RECIPE_META from apps/web/src/components/workflows/new-workflow.tsx:36 to core), startsWhen via describeTrigger, steps via describeStep, and placeholders [{key, label, kind, suggested: suggestMapping(...)}]. Or have workflow.create apply suggestMapping(recipe.placeholders, catalogs) for any key missing from mapping, so the Assistant and the screen create the same draft.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-13",
+      "severity": "low",
+      "kind": "do",
+      "where": "Workflow editor step panels: Message, Reply buttons, Booking link opens, Wait (For a set time / Until a time or weekday / Until a date / Until something happens), Who can approve, What they see, If nobody answers in, AI step tasks, Call with AI fields, conditions",
+      "gap": "Real: in edit_workflow_steps, add_step.step, update_step.patch, set_trigger.trigger, set_settings.patch and add_branch.branch are z.record(unknown). Neither the tool nor get_workflow says what fields each step kind takes, so a kind not already in the draft (approval, call_with_ai, a wait until an event) has to be guessed and fixed from the rehearsal's validation errors. Not real: being unable to do it at all. draft_workflow drafts it through the builder, which has aiBuilderReference(), and do_workflow_proposal_apply applies it, so the 'do' is reachable.",
+      "fix": "Put aiBuilderReference() (packages/core/src/workflows/ai-tools.ts:523), or a trimmed per-kind field list, in get_workflow's result as stepReference, used only by edit_workflow_steps. Or add to edit_workflow_steps' description: 'For a step kind not in the draft, use draft_workflow and then do_workflow_proposal_apply.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-14",
+      "severity": "low",
+      "kind": "do",
+      "where": "Workflow editor → Test tab → Take as given: “When it waits for a reply: It times out / A reply comes”, “Path at ‘X’”, “The AI sorts it as”",
+      "gap": "The finding understates it: assume has no description at all. 'Values to assume, by variable or field path' is a /** */ comment on WorkflowTestInput, not a .describe(), so the model sees only an open record. The keys the Test tab uses (wait.timed_out true/false, branch.<stepId>=<branchId>, ai.<key>=<category>) are written down nowhere it reads. So it can't run 'test the Emergency path' or 'test when they don’t reply' the way the person asks.",
+      "fix": "Add .describe() to assume at packages/core/src/schemas/workflow.ts:326: 'wait.timed_out: true (the wait times out) or false (the reply or booking comes); branch.<stepId>: a branch id from get_workflow’s draft, to take that path; ai.<key>: one of an AI sort step’s categories.' Or move assumptionsOf (apps/web/src/components/workflows/test-panel.tsx:51-92) to core and have get_workflow return testChoices [{key, label, options:[{value,label}]}].",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-15",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Workflows list rows: Last run (when, “Mike Johnson · They replied”), a failed run’s message and See the run, the source chips, Version N live / N going now; the Runs filter that lists archived workflows; a calendar’s Automations list",
+      "gap": "list_workflows returns id, name, status, startsWhen, canStartForSomeone, liveVersion, runsLast30Days and runsGoingNow. It leaves out lastRun (when, customer, how it ended), lastError (message and runId, behind 'See the run'), description and source, and get_workflow lacks them too. Its status input can't ask for archived workflows (no includeArchived), and it has no calendarId filter, though workflow.list supports both. The context lists at most 25 non-archived workflows and doesn't say when there are more.",
+      "fix": "In apps/worker/src/assistant/tools-workflow.ts:144-162, add description, lastRun: {when, customer, ended: endReasonText(lastRun.endReason) or the status label}, lastError: {message, runId} and source, and add the same to get_workflow. In packages/core/src/assistant/tools.ts:307, accept status 'archived' (sent as includeArchived:true) and calendarId. In context.ts:408-411, when there are more than 25, add 'first 25 of N; list_workflows has the rest' to the prompt's Workflows line.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-16",
+      "severity": "low",
+      "kind": "words",
+      "where": "Workflows → Approvals: an expired approval shows “Expired”, with Approve and Reject disabled and “This expired. The workflow goes on as its approval step says.”",
+      "gap": "workflow.approval_list sets canDecide to false for a pending approval whose expiresAt has passed. answer_workflow_approval then blocks with the permission line ('Only the people this approval names, or owners and admins, can decide it.') even when the person is an owner. The context filters such approvals out, but an id from earlier in the chat still reaches this.",
+      "fix": "In answerApproval.prepare (apps/worker/src/assistant/tools-workflow.ts:568-571), first check a.expiresAt <= now: 'This approval expired <when>. The workflow went on as its approval step says.' Keep the permission line for the other case.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-17",
+      "severity": "low",
+      "kind": "words",
+      "where": "Run status words on Runs and the run page: Needs approval, Failed, Completed, Held, and the filter Going",
+      "gap": "The Assistant's run status words ('Waiting on an approval', 'Held while the workflow is paused', 'Finished', 'A step failed') don't match the badges and filters the person sees (Needs approval, Held, Completed, Failed, and the filter Going). Directions like 'press Needs approval' don't line up with what the Assistant says.",
+      "fix": "Move RUN_STATUS labels from apps/web/src/lib/workflows/run-words.ts:73-84 into @hfos/core and use them at apps/worker/src/assistant/tools-content.ts:2128-2136. Keep the longer phrase only as an extra 'note' field, for example for held: 'held while the workflow is paused'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "wf-18",
+      "severity": "low",
+      "kind": "words",
+      "where": "Workflows → Runs and Workflows → Approvals tabs; the editor’s + menu and step ⋯ menu; New workflow’s From Go Biz Help",
+      "gap": "The Workflows place lists only the tab names. It doesn't describe the Runs tab's controls (All workflows; All, Going, Needs approval, Failed, Completed, Stopped; Real runs or Tests; Last 24 hours, 7 days, 30 days, Any time; Load more) or the Approvals tab's (Waiting · N and Decided · N; All, Workflows, <teammate>; Approve and send, Reject…). The + menu line leaves out Call with AI, AI picks a path, Go to another step and End. 'Delete, copy or move a step: … its ⋯' should say Move to…, Duplicate, Delete. Review update and From Go Biz Help aren't mentioned.",
+      "fix": "In packages/core/src/assistant/places-map.ts, add 'Workflows → Runs' and 'Workflows → Approvals' entries (or onScreen lines under Workflows) with those exact labels. Change line 432 to list the groups as add-step-menu.tsx has them: Message the customer (Send a text, Send an email, Call with AI) … Timing and paths (Wait, If / else, Split into paths, AI picks a path), AI and approvals (AI step, Approval), Finish a path (Go to another step, End). Change the howTo at :438 to 'Move, duplicate or delete a step: press the step, then ⋯ → Move to…, Duplicate or Delete'. Add 'Update available: Review update' to the Workflows place.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

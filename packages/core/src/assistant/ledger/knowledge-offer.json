@@ -1,0 +1,1875 @@
+{
+  "area": "knowledge-offer",
+  "title": "Knowledge and the main offer",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/main-offer-part.tsx": "cfbf7ceaba83",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/main-offer.tsx": "3dfbcbbe2aaf",
+    "apps/mobile/src/main-offer/anyway-sheet.tsx": "3215b7e1f61d",
+    "apps/mobile/src/main-offer/edit.tsx": "c49b9b7e6c29",
+    "apps/mobile/src/main-offer/live.tsx": "bb297395b473",
+    "apps/mobile/src/main-offer/review.tsx": "abeb2f08542d",
+    "apps/mobile/src/main-offer/row.ts": "43335ea807b5",
+    "apps/mobile/src/main-offer/screen.tsx": "799a7aef0ea1",
+    "apps/mobile/src/main-offer/try-ready.tsx": "ea358f849ceb",
+    "apps/web/src/addons/outreach/offer-panel.tsx": "9a4c91de27e6",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/documents/page.tsx": "8baedd218f57",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/items/[itemId]/page.tsx": "2b643ca00992",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/items/new/page.tsx": "4844f23e6ab0",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/items/page.tsx": "86e3dd2ec9c3",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/layout.tsx": "b1d9214e6b3e",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/offers/page.tsx": "375bd11262dc",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/page.tsx": "f96a29d97cf4",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/profile/page.tsx": "5571651a8393",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/suggestions/page.tsx": "90935afa3177",
+    "apps/web/src/app/app/w/[workspaceId]/knowledge/website/page.tsx": "e24928492b66",
+    "apps/web/src/app/app/w/[workspaceId]/main-offer/build/page.tsx": "1bce718159c6",
+    "apps/web/src/app/app/w/[workspaceId]/settings/main-offer/page.tsx": "0b07915894d1",
+    "apps/web/src/components/knowledge/chip-input.tsx": "6077abf94786",
+    "apps/web/src/components/knowledge/chips.tsx": "3a01bd3f5fae",
+    "apps/web/src/components/knowledge/documents.tsx": "587d5b1dbb66",
+    "apps/web/src/components/knowledge/header-actions.tsx": "c61c1455f0f5",
+    "apps/web/src/components/knowledge/import-faqs.tsx": "5fb517ea136d",
+    "apps/web/src/components/knowledge/item-editor.tsx": "1abda9ef4c33",
+    "apps/web/src/components/knowledge/item-list.tsx": "f6296d9d5e0c",
+    "apps/web/src/components/knowledge/offers.tsx": "063478f702d7",
+    "apps/web/src/components/knowledge/overview.tsx": "be7feb346aae",
+    "apps/web/src/components/knowledge/profile-form.tsx": "cb2a674df094",
+    "apps/web/src/components/knowledge/subnav.tsx": "e5b543a759cd",
+    "apps/web/src/components/knowledge/suggestion-card.tsx": "398ccf1d122e",
+    "apps/web/src/components/knowledge/suggestions-board.tsx": "bebd8d78b1c3",
+    "apps/web/src/components/knowledge/try-it.tsx": "b8256c5cf17a",
+    "apps/web/src/components/knowledge/website-scan.tsx": "779002bbbe34",
+    "apps/web/src/components/main-offer/box.tsx": "955b91d0cb14",
+    "apps/web/src/components/main-offer/builder.tsx": "3af6cc1d6b2e",
+    "apps/web/src/components/main-offer/names.tsx": "65fe41d75352",
+    "apps/web/src/components/main-offer/page.tsx": "05e3ec301da3",
+    "apps/web/src/components/main-offer/review.tsx": "c8a283b94f30",
+    "apps/web/src/components/main-offer/score.tsx": "6fb1802044e6",
+    "apps/web/src/components/main-offer/tries.tsx": "a045809c2970"
+  },
+  "items": [
+    {
+      "path": "Knowledge → header → description (what AI steps and the Assistant know; only owners and admins change it)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/knowledge/layout.tsx:34",
+      "covered": "yes",
+      "by": "settings-map knowledge what/canChange via get_settings knowledge; prompt grounding rules"
+    },
+    {
+      "path": "Knowledge → header → Scan website",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/header-actions.tsx:15",
+      "covered": "yes",
+      "by": "scan_website"
+    },
+    {
+      "path": "Knowledge → header → Add an FAQ",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/header-actions.tsx:21",
+      "covered": "yes",
+      "by": "add_knowledge_item kind faq"
+    },
+    {
+      "path": "Knowledge → tabs: Overview, Items, Documents, Website, Promotions, Suggestions",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/subnav.tsx:63",
+      "covered": "yes",
+      "by": "each tab's read: get_settings knowledge, list_knowledge_items, list_knowledge_suggestions, list_offers"
+    },
+    {
+      "path": "Knowledge → tabs → Suggestions count (99+)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/subnav.tsx:93",
+      "covered": "partly",
+      "by": "list_knowledge_suggestions lists up to 25 with more flag; no total count"
+    },
+    {
+      "path": "Knowledge → Overview → Business profile → completeness N of M",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:161",
+      "covered": "yes",
+      "by": "get_settings knowledge → knowledge.completeness"
+    },
+    {
+      "path": "Knowledge → Overview → Business profile → Still to add chips (or Everything the AI needs is filled in)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:167",
+      "covered": "yes",
+      "by": "get_settings knowledge → profile fields (empty ones)"
+    },
+    {
+      "path": "Knowledge → Overview → Business profile → Still to add chip opens that section",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:170",
+      "covered": "partly",
+      "by": "update_knowledge_profile sets description, area, hours, policies, tone, signature; not services or words"
+    },
+    {
+      "path": "Knowledge → Overview → Business profile → rows: What you do, Services, Service area, Hours (or Nothing yet)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:188",
+      "covered": "yes",
+      "by": "get_settings knowledge → profile; also business_profile in the prompt"
+    },
+    {
+      "path": "Knowledge → Overview → Business profile → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:146",
+      "covered": "partly",
+      "by": "update_knowledge_profile; services and words to use/avoid not settable"
+    },
+    {
+      "path": "Knowledge → Overview → Business profile → AI may quote prices switch and its On/Off note",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:212",
+      "covered": "yes",
+      "by": "update_knowledge_profile input allowPrices; get_settings knowledge → profile.allowPrices"
+    },
+    {
+      "path": "Knowledge → Overview → Tone of voice → tone (or Not set yet)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:246",
+      "covered": "yes",
+      "by": "get_settings knowledge → profile.tone"
+    },
+    {
+      "path": "Knowledge → Overview → Tone of voice → Words to use, Words to avoid",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:259",
+      "covered": "yes",
+      "by": "get_settings knowledge → profile.wordsToUse, wordsToAvoid"
+    },
+    {
+      "path": "Knowledge → Overview → Tone of voice → Signed …",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:281",
+      "covered": "yes",
+      "by": "get_settings knowledge → profile.signature"
+    },
+    {
+      "path": "Knowledge → Overview → Tone of voice → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:238",
+      "covered": "partly",
+      "by": "update_knowledge_profile tone, signature; not words to use/avoid"
+    },
+    {
+      "path": "Knowledge → Overview → kind tiles: FAQs, Articles, Facts, Documents with total, published · drafts, None yet, newest document",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:61",
+      "covered": "partly",
+      "by": "list_knowledge_items counts are whole-base by status, not by kind; per kind only by listing up to 25"
+    },
+    {
+      "path": "Knowledge → Overview → kind tile opens Items for that kind (or Documents)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:63",
+      "covered": "yes",
+      "by": "list_knowledge_items input kind"
+    },
+    {
+      "path": "Knowledge → Overview → Suggestions → N waiting badge (100+)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:334",
+      "covered": "partly",
+      "by": "list_knowledge_suggestions up to 25 with more; no total"
+    },
+    {
+      "path": "Knowledge → Overview → Suggestions → each of first 3: kind or Gap, title (Customers asked: …), where from",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:345",
+      "covered": "partly",
+      "by": "list_knowledge_suggestions kind, proposed, from, page; gap's via (Try it, Assistant, workflow) not given"
+    },
+    {
+      "path": "Knowledge → Overview → Suggestions → Accept",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:364",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion decision accept"
+    },
+    {
+      "path": "Knowledge → Overview → Suggestions → Reject",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:373",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion decision reject"
+    },
+    {
+      "path": "Knowledge → Overview → Suggestions → gap → Write the answer",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/overview.tsx:359",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion input answer"
+    },
+    {
+      "path": "Knowledge → Overview → Suggestions → See all; empty: Nothing waiting …",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/overview.tsx:337",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions (empty list)"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → A customer’s question box and Ask",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:84",
+      "covered": "partly",
+      "by": "search_knowledge finds the published items; no tool runs the AI step’s own answer (worker /v1/knowledge/try)"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → sample question chips (published FAQs, fallbacks)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:99",
+      "covered": "partly",
+      "by": "search_knowledge with the question; no samples list"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → the AI’s answer",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:140",
+      "covered": "partly",
+      "by": "Assistant answers from search_knowledge and the profile itself, not the AI step’s answer"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → Items it used: kind, title, snippet, Open (or None: from profile / nothing published)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:150",
+      "covered": "yes",
+      "by": "search_knowledge → items id, kind, title, text, source"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → gap note: added to Suggestions (or to a similar one), Write the answer",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:181",
+      "covered": "partly",
+      "by": "search_knowledge → addedToSuggestions; no grouped flag"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → error (AI limit, AI not set up) and members’ note",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:123",
+      "covered": "partly",
+      "by": "no Try it tool, so no such refusal; search_knowledge is open to all"
+    },
+    {
+      "path": "Knowledge → Overview → Try it → footer: only published items, counts toward daily AI limit",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/try-it.tsx:204",
+      "covered": "yes",
+      "by": "search_knowledge description: published only"
+    },
+    {
+      "path": "Knowledge → Business profile → Updated date by name",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:85",
+      "covered": "yes",
+      "by": "get_settings knowledge → knowledge.updatedAt, updatedBy"
+    },
+    {
+      "path": "Knowledge → Business profile → members’ note: only owners and admins can change it",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:92",
+      "covered": "yes",
+      "by": "update_knowledge_profile offered only with knowledge.manage"
+    },
+    {
+      "path": "Knowledge → Business profile → What you do → Describe the business",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:105",
+      "covered": "yes",
+      "by": "update_knowledge_profile input description"
+    },
+    {
+      "path": "Knowledge → Business profile → Services → each row: Service, About it, Price (read)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:123",
+      "covered": "yes",
+      "by": "get_settings knowledge → profile.services"
+    },
+    {
+      "path": "Knowledge → Business profile → Services → change a row’s Service, About it, Price",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:130",
+      "covered": "no",
+      "by": "update_knowledge_profile has no services input"
+    },
+    {
+      "path": "Knowledge → Business profile → Services → Add a service (up to 50)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:185",
+      "covered": "no",
+      "by": "update_knowledge_profile has no services input"
+    },
+    {
+      "path": "Knowledge → Business profile → Services → Remove a service",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:163",
+      "covered": "no",
+      "by": "update_knowledge_profile has no services input"
+    },
+    {
+      "path": "Knowledge → Business profile → Services → error Name each service",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:57",
+      "covered": "no",
+      "by": "services not settable by any tool"
+    },
+    {
+      "path": "Knowledge → Business profile → Where and when → Service area",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:204",
+      "covered": "yes",
+      "by": "update_knowledge_profile input serviceArea"
+    },
+    {
+      "path": "Knowledge → Business profile → Where and when → Hours",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:216",
+      "covered": "yes",
+      "by": "update_knowledge_profile input hours"
+    },
+    {
+      "path": "Knowledge → Business profile → Policies customers ask about",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:237",
+      "covered": "yes",
+      "by": "update_knowledge_profile input policies"
+    },
+    {
+      "path": "Knowledge → Business profile → Tone of voice → How messages should sound",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:255",
+      "covered": "yes",
+      "by": "update_knowledge_profile input tone"
+    },
+    {
+      "path": "Knowledge → Business profile → Tone of voice → Words to use (add, × remove)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:266",
+      "covered": "no",
+      "by": "update_knowledge_profile has no wordsToUse input"
+    },
+    {
+      "path": "Knowledge → Business profile → Tone of voice → Words to avoid (add, × remove)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:277",
+      "covered": "no",
+      "by": "update_knowledge_profile has no wordsToAvoid input"
+    },
+    {
+      "path": "Knowledge → Business profile → Tone of voice → Sign messages as",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:296",
+      "covered": "yes",
+      "by": "update_knowledge_profile input signature"
+    },
+    {
+      "path": "Knowledge → Business profile → Prices → AI may quote prices switch and explanation",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:319",
+      "covered": "yes",
+      "by": "update_knowledge_profile input allowPrices"
+    },
+    {
+      "path": "Knowledge → Business profile → Save profile (Profile saved / Nothing changed) and Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:334",
+      "covered": "yes",
+      "by": "update_knowledge_profile confirm card Save the change"
+    },
+    {
+      "path": "Knowledge → Business profile → hint: facts that change often fit better as knowledge items",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/profile-form.tsx:339",
+      "covered": "yes",
+      "by": "add_knowledge_item"
+    },
+    {
+      "path": "Knowledge → Items → Search FAQs, articles and facts",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:117",
+      "covered": "yes",
+      "by": "list_knowledge_items input query"
+    },
+    {
+      "path": "Knowledge → Items → search → matching passage under each row",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:198",
+      "covered": "partly",
+      "by": "list_knowledge_items text is the first 400 chars, not the matched passage"
+    },
+    {
+      "path": "Knowledge → Items → status: All · N, Published · N, Drafts · N, Archived · N",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:130",
+      "covered": "yes",
+      "by": "list_knowledge_items input status; result counts"
+    },
+    {
+      "path": "Knowledge → Items → kind chips: All kinds, FAQs, Articles, Facts, Documents",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:161",
+      "covered": "yes",
+      "by": "list_knowledge_items input kind"
+    },
+    {
+      "path": "Knowledge → Items → tag chips (12 most used) filter",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:172",
+      "covered": "partly",
+      "by": "list_knowledge_items returns each item’s tags; no tag filter input"
+    },
+    {
+      "path": "Knowledge → Items → each row: kind, title, preview (or No text yet), tags, Used N× / Not used yet, status, updated time",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:188",
+      "covered": "partly",
+      "by": "list_knowledge_items id, kind, title, text, tags, usedTimes, status; no updated time"
+    },
+    {
+      "path": "Knowledge → Items → row opens the item",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:189",
+      "covered": "partly",
+      "by": "list_knowledge_items card links the item; no tool reads one item whole"
+    },
+    {
+      "path": "Knowledge → Items → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:230",
+      "covered": "partly",
+      "by": "list_knowledge_items up to 25 and more flag; no cursor"
+    },
+    {
+      "path": "Knowledge → Items → empty: Nothing matches / Nothing in the knowledge base yet with Add an FAQ, Scan your website",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:284",
+      "covered": "yes",
+      "by": "list_knowledge_items empty; add_knowledge_item, scan_website"
+    },
+    {
+      "path": "Knowledge → Items → footer: drafts and archived items are never used by the AI",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-list.tsx:237",
+      "covered": "yes",
+      "by": "add_knowledge_item and list_knowledge_items descriptions"
+    },
+    {
+      "path": "Knowledge → Items → Import CSV → dialog: sample, Choose a CSV file, Choose another file",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/import-faqs.tsx:113",
+      "covered": "person",
+      "by": "knowledge_item.import_faqs: a spreadsheet from the person’s own computer"
+    },
+    {
+      "path": "Knowledge → Items → Import CSV → file error, N FAQs ready / rows with problems, preview table Row, Question, Answer, Tags",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/import-faqs.tsx:140",
+      "covered": "person",
+      "by": "reads the person’s own file in the browser"
+    },
+    {
+      "path": "Knowledge → Items → Import CSV → Import them as Drafts to review / Published",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/import-faqs.tsx:197",
+      "covered": "person",
+      "by": "part of the person-only import"
+    },
+    {
+      "path": "Knowledge → Items → Import CSV → Import N FAQs, Cancel, server error by row, already-in skipped",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/import-faqs.tsx:224",
+      "covered": "person",
+      "by": "knowledge_item.import_faqs on the person list"
+    },
+    {
+      "path": "Knowledge → Item → All items",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:192",
+      "covered": "yes",
+      "by": "list_knowledge_items"
+    },
+    {
+      "path": "Knowledge → Item → Updated date by name",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:216",
+      "covered": "no",
+      "by": "no tool returns an item’s updatedAt or updatedBy"
+    },
+    {
+      "path": "Knowledge → Item → status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:223",
+      "covered": "yes",
+      "by": "list_knowledge_items → status"
+    },
+    {
+      "path": "Knowledge → Item → members’ note: only owners and admins can change it",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:226",
+      "covered": "yes",
+      "by": "manage_knowledge_item needs knowledge.manage"
+    },
+    {
+      "path": "Knowledge → Item → kind: FAQ, Article, Fact",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:205",
+      "covered": "yes",
+      "by": "manage_knowledge_item input kind; add_knowledge_item input kind"
+    },
+    {
+      "path": "Knowledge → Item → Question / Title",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:249",
+      "covered": "yes",
+      "by": "manage_knowledge_item input title"
+    },
+    {
+      "path": "Knowledge → Item → Answer / Article / The fact / Text from the file",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:261",
+      "covered": "partly",
+      "by": "manage_knowledge_item body up to 20,000; a document holds up to 200,000; reads clip it"
+    },
+    {
+      "path": "Knowledge → Item → Tags (add, × remove)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:285",
+      "covered": "yes",
+      "by": "manage_knowledge_item input tags (replaces)"
+    },
+    {
+      "path": "Knowledge → Item → document has no text warning / first 100,000 characters kept",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:231",
+      "covered": "partly",
+      "by": "list_knowledge_items text shows it’s empty; no truncated flag"
+    },
+    {
+      "path": "Knowledge → Item → source: Added by hand / From your website / From a question / From a pack, added by, date",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:380",
+      "covered": "no",
+      "by": "no tool returns source kind, createdBy or createdAt"
+    },
+    {
+      "path": "Knowledge → Item → source page link",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:385",
+      "covered": "partly",
+      "by": "search_knowledge → source, published items only"
+    },
+    {
+      "path": "Knowledge → Item → file name",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:397",
+      "covered": "no",
+      "by": "no tool returns the document’s file"
+    },
+    {
+      "path": "Knowledge → Item → Used N times, last used / Not used yet",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:412",
+      "covered": "partly",
+      "by": "list_knowledge_items → usedTimes; no last used"
+    },
+    {
+      "path": "Knowledge → Item → Try this question",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:419",
+      "covered": "partly",
+      "by": "search_knowledge; not the AI step’s answer"
+    },
+    {
+      "path": "Knowledge → Item → Save (published)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:301",
+      "covered": "yes",
+      "by": "manage_knowledge_item action change"
+    },
+    {
+      "path": "Knowledge → Item → Publish / Publish again",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:311",
+      "covered": "yes",
+      "by": "manage_knowledge_item action publish / bring_back"
+    },
+    {
+      "path": "Knowledge → Item → Save draft / Save",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:319",
+      "covered": "yes",
+      "by": "manage_knowledge_item action change"
+    },
+    {
+      "path": "Knowledge → Item → Archive",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:332",
+      "covered": "yes",
+      "by": "manage_knowledge_item action archive"
+    },
+    {
+      "path": "Knowledge → New item → kind, question/title, answer/text, tags, Publish / Save as draft",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:345",
+      "covered": "partly",
+      "by": "add_knowledge_item kind, title, body, publish; no tags; body up to 5,000 (article allows 20,000)"
+    },
+    {
+      "path": "Knowledge → New item → hint: drafts aren’t used until published",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/item-editor.tsx:362",
+      "covered": "yes",
+      "by": "add_knowledge_item description"
+    },
+    {
+      "path": "Knowledge → Documents → drop zone / Choose a file (PDF or text, up to 5 MB)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/documents.tsx:82",
+      "covered": "person",
+      "by": "knowledge_document.begin_upload/add: a file from the person’s device; settings_help gives the steps"
+    },
+    {
+      "path": "Knowledge → Documents → being added: name, Uploading…, Reading the text…, failure words",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/documents.tsx:131",
+      "covered": "person",
+      "by": "the person’s own upload in progress"
+    },
+    {
+      "path": "Knowledge → Documents → each document: title, N characters · added date · check it, then publish, status",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/documents.tsx:166",
+      "covered": "partly",
+      "by": "list_knowledge_items kind document: title, status, text; no added date or length"
+    },
+    {
+      "path": "Knowledge → Documents → No text found warning on a document",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/documents.tsx:178",
+      "covered": "yes",
+      "by": "list_knowledge_items → text empty"
+    },
+    {
+      "path": "Knowledge → Documents → open a document (check, publish, archive)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/documents.tsx:169",
+      "covered": "yes",
+      "by": "manage_knowledge_item change/publish/archive"
+    },
+    {
+      "path": "Knowledge → Documents → empty: No documents yet; members’ note",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/documents.tsx:197",
+      "covered": "yes",
+      "by": "list_knowledge_items kind document"
+    },
+    {
+      "path": "Knowledge → Website → Your website address",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:116",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → website"
+    },
+    {
+      "path": "Knowledge → Website → change the address → Save (without scanning)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:132",
+      "covered": "partly",
+      "by": "scan_website input website sets it, but always scans too"
+    },
+    {
+      "path": "Knowledge → Website → Scan website / Scan again / Scanning…",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:142",
+      "covered": "yes",
+      "by": "scan_website"
+    },
+    {
+      "path": "Knowledge → Website → address error (https only, invalid)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:156",
+      "covered": "yes",
+      "by": "scan_website returns knowledge_source.set’s refusal"
+    },
+    {
+      "path": "Knowledge → Website → note: your own site only, robots.txt, up to 40 pages, nothing used until accepted",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:164",
+      "covered": "partly",
+      "by": "scan_website card: nothing added until accepted; no page cap or robots.txt"
+    },
+    {
+      "path": "Knowledge → Website → progress: Read N pages, robots.txt, N suggestions, N couldn’t be read",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:225",
+      "covered": "partly",
+      "by": "list_knowledge_suggestions → lastScan status, found, pagesWithProblems; no pages read"
+    },
+    {
+      "path": "Knowledge → Website → Reading your pages: latest 10 paths with each page’s note",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:262",
+      "covered": "no",
+      "by": "no tool returns the scan’s pages"
+    },
+    {
+      "path": "Knowledge → Website → empty: Start from your website / Not scanned yet",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:172",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → website null, lastScan null"
+    },
+    {
+      "path": "Knowledge → Website → scan stopped alert with the site’s problem words",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:368",
+      "covered": "partly",
+      "by": "lastScan status stopped with a problem; not the words"
+    },
+    {
+      "path": "Knowledge → Website → site-wide problem warning",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:381",
+      "covered": "partly",
+      "by": "pagesWithProblems count only"
+    },
+    {
+      "path": "Knowledge → Website → tally: Read N pages, finished when, N suggestions, started by",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:410",
+      "covered": "partly",
+      "by": "lastScan started, found, stillWaiting; no pages read, finish time or who"
+    },
+    {
+      "path": "Knowledge → Website → N suggestions to review / Suggestions · N",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:403",
+      "covered": "yes",
+      "by": "lastScan stillWaiting"
+    },
+    {
+      "path": "Knowledge → Website → Suggestions / What changed switch",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:390",
+      "covered": "partly",
+      "by": "suggestions yes (list_knowledge_suggestions from scan); What changed has no tool"
+    },
+    {
+      "path": "Knowledge → Website → pages list: each page path with its suggestion count",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:428",
+      "covered": "partly",
+      "by": "each suggestion carries page; counts only from up to 25 listed"
+    },
+    {
+      "path": "Knowledge → Website → picked page: title and address",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:452",
+      "covered": "partly",
+      "by": "page address yes; page title no"
+    },
+    {
+      "path": "Knowledge → Website → Accept all on this page / Accept all N (Accepting N…)",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:461",
+      "covered": "partly",
+      "by": "decide_knowledge_suggestion one at a time, each with its own OK"
+    },
+    {
+      "path": "Knowledge → Website → empty: All decided / Nothing to suggest / pages the same",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:498",
+      "covered": "yes",
+      "by": "lastScan found and stillWaiting"
+    },
+    {
+      "path": "Knowledge → Website → What changed: Rescanned when, N changed, N new, N the same",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:576",
+      "covered": "no",
+      "by": "no tool returns page statuses"
+    },
+    {
+      "path": "Knowledge → Website → What changed: each Changed page with its suggestions; New page with count; Gone since last time; didn’t change",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:586",
+      "covered": "no",
+      "by": "no tool returns page statuses"
+    },
+    {
+      "path": "Knowledge → Website → N pages couldn’t be read: each path and reason",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/website-scan.tsx:525",
+      "covered": "partly",
+      "by": "pagesWithProblems count only"
+    },
+    {
+      "path": "Knowledge → Suggestions → filter chips: All, Website scan, Gaps, Go Biz Help with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:133",
+      "covered": "partly",
+      "by": "list_knowledge_suggestions input from; no counts"
+    },
+    {
+      "path": "Knowledge → Suggestions → Showing the newest 100",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:151",
+      "covered": "partly",
+      "by": "up to 25 with more flag"
+    },
+    {
+      "path": "Knowledge → Suggestions → sections: From the website scan, Gaps, From Go Biz Help",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:154",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → from"
+    },
+    {
+      "path": "Knowledge → Suggestions → Review page by page",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:160",
+      "covered": "partly",
+      "by": "each suggestion’s page; see Website rows"
+    },
+    {
+      "path": "Knowledge → Suggestions → Accept all N → dialog (each is published; changes update items) → Accept all, Accepting N of M…",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:166",
+      "covered": "partly",
+      "by": "decide_knowledge_suggestion one at a time, each with its own OK"
+    },
+    {
+      "path": "Knowledge → Suggestions → Show N more",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:118",
+      "covered": "partly",
+      "by": "list limit 25, no cursor"
+    },
+    {
+      "path": "Knowledge → Suggestions → empty: Nothing waiting, Scan your website",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestions-board.tsx:76",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions; scan_website"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: kind or Gap, headline (Customers asked: …)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:129",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → kind, proposed"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: N similar (gap)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:132",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → askedTimes"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: Changes an FAQ/fact badge",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:135",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → changesItemId"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: proposed text",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:171",
+      "covered": "partly",
+      "by": "proposed text clipped to 800 chars"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: what would change: Now titled, − now, + from the website",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:147",
+      "covered": "partly",
+      "by": "proposed text yes; the item’s current text has no read by id"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: gap explanation (AI said someone would follow up)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:142",
+      "covered": "yes",
+      "by": "list_knowledge_suggestions → needs the answer the AI should give"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: where from: From page link, pack, Asked in Try it / the Assistant / a workflow · asked N times",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:105",
+      "covered": "partly",
+      "by": "page full address and from; not where a gap was asked"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: Accept / Update the FAQ",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:286",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion accept"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: Edit and accept → kind, Question/Title, Answer/Text → Save and accept / Save and update, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:181",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion accept with kind, title, body"
+    },
+    {
+      "path": "Knowledge → Suggestions → card: Reject",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:302",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion reject, reason"
+    },
+    {
+      "path": "Knowledge → Suggestions → gap card: Your answer, as an FAQ",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:214",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion input answer"
+    },
+    {
+      "path": "Knowledge → Suggestions → gap card: Save as an FAQ / Save as a draft / Reject, and reject hint",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:238",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion saveAs published/draft; reject"
+    },
+    {
+      "path": "Knowledge → Suggestions → card error (Write the answer first, both need something)",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/suggestion-card.tsx:228",
+      "covered": "yes",
+      "by": "decide_knowledge_suggestion refuses a gap with no answer"
+    },
+    {
+      "path": "Knowledge → Promotions → intro: AI teammate shares ones running today, never makes one up",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/offers.tsx:162",
+      "covered": "yes",
+      "by": "list_offers / manage_offer descriptions"
+    },
+    {
+      "path": "Knowledge → Promotions → each: name, Running now / Starts later / Ended, details, dates",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/offers.tsx:184",
+      "covered": "yes",
+      "by": "list_offers → name, now, details, runs, startsOn, endsOn"
+    },
+    {
+      "path": "Knowledge → Promotions → empty: No promotions yet",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/offers.tsx:176",
+      "covered": "yes",
+      "by": "list_offers (empty)"
+    },
+    {
+      "path": "Knowledge → Promotions → Add a promotion → Name, Details, Starts, Ends → Add promotion, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/offers.tsx:98",
+      "covered": "yes",
+      "by": "manage_offer create name, details, startsOn, endsOn"
+    },
+    {
+      "path": "Knowledge → Promotions → Edit → Name, Details, Starts, Ends → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/offers.tsx:197",
+      "covered": "yes",
+      "by": "manage_offer change"
+    },
+    {
+      "path": "Knowledge → Promotions → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/knowledge/offers.tsx:206",
+      "covered": "yes",
+      "by": "manage_offer archive"
+    },
+    {
+      "path": "Knowledge → Promotions → form errors: Name the promotion, end before start",
+      "kind": "see",
+      "file": "apps/web/src/components/knowledge/offers.tsx:66",
+      "covered": "yes",
+      "by": "manage_offer refuses: needs name, ends before it starts"
+    },
+    {
+      "path": "Settings → Main offer → title and hint (who you help, result, how fast…)",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:70",
+      "covered": "yes",
+      "by": "settings-map main_offer what, via get_settings main_offer"
+    },
+    {
+      "path": "Settings → Main offer → only while an add-on that uses it is on (not in use notice on phone)",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:98",
+      "covered": "yes",
+      "by": "get_settings main_offer → inUse, comesWith; tools refuse main_offer_not_in_use"
+    },
+    {
+      "path": "Settings → Main offer → nothing built: Build your main offer, the 4 steps, Start building, You can stop any time",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/page.tsx:82",
+      "covered": "yes",
+      "by": "edit_main_offer starts a draft from nothing"
+    },
+    {
+      "path": "Settings → Main offer → nothing built, members: Ask an owner or admin…",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:85",
+      "covered": "yes",
+      "by": "tools offered only with main_offer.manage; get_settings live null"
+    },
+    {
+      "path": "Settings → Main offer → Change your offer",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/page.tsx:74",
+      "covered": "yes",
+      "by": "edit_main_offer"
+    },
+    {
+      "path": "Settings → Main offer → draft banner: who is changing it, saved time, scored or not, version N keeps running",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:112",
+      "covered": "yes",
+      "by": "get_settings main_offer → draft.by, draft.at, draft.score, live.version"
+    },
+    {
+      "path": "Settings → Main offer → draft banner → Open the draft",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/page.tsx:129",
+      "covered": "yes",
+      "by": "get_settings main_offer → draft"
+    },
+    {
+      "path": "Settings → Main offer → draft banner → Throw it away (confirm)",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/page.tsx:132",
+      "covered": "yes",
+      "by": "manage_main_offer discard_draft"
+    },
+    {
+      "path": "Settings → Main offer → Names you go by: hint, each name (or using the business’s name), up to N",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/names.tsx:62",
+      "covered": "yes",
+      "by": "get_settings main_offer → names, businessName"
+    },
+    {
+      "path": "Settings → Main offer → Names you go by → Add a name, Add",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/names.tsx:101",
+      "covered": "yes",
+      "by": "manage_main_offer set_names (whole list)"
+    },
+    {
+      "path": "Settings → Main offer → Names you go by → Remove a name",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/names.tsx:76",
+      "covered": "yes",
+      "by": "manage_main_offer set_names"
+    },
+    {
+      "path": "Settings → Main offer → tabs: Live version, Versions",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/page.tsx:149",
+      "covered": "yes",
+      "by": "get_settings main_offer → mainOffer.live, versions"
+    },
+    {
+      "path": "Settings → Main offer → Live → Live · version N · published date by who; Every part 7 or more / Under the bar",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:223",
+      "covered": "yes",
+      "by": "get_settings main_offer → live.version, publishedAt, publishedBy, score"
+    },
+    {
+      "path": "Settings → Main offer → Live → the one line; In messages: outcome and guarantee in a few words",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:230",
+      "covered": "yes",
+      "by": "get_settings main_offer → live.line, parts.inAFewWords"
+    },
+    {
+      "path": "Settings → Main offer → Live → part by part: each part’s words, working, holding back, scored with your direction, score",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:243",
+      "covered": "yes",
+      "by": "get_settings main_offer → live.parts, live.score.parts good/holding/followedDirection"
+    },
+    {
+      "path": "Settings → Main offer → Live → Proof (real results)",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:287",
+      "covered": "yes",
+      "by": "get_settings main_offer → live.parts.proof"
+    },
+    {
+      "path": "Settings → Main offer → Live → How it scored: 4 quick checks Yes / Not yet; Weakest: part and fix",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:296",
+      "covered": "yes",
+      "by": "get_settings main_offer → live.score flags, threeSeconds, weakest, fix"
+    },
+    {
+      "path": "Settings → Main offer → Live → direction card (kept, or where do you want it to go) and hint",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:307",
+      "covered": "yes",
+      "by": "get_settings main_offer → direction"
+    },
+    {
+      "path": "Settings → Main offer → Live → Edit your direction",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/page.tsx:317",
+      "covered": "yes",
+      "by": "manage_main_offer set_direction"
+    },
+    {
+      "path": "Settings → Main offer → Live → Who uses it (add-ons) and who changes it",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:324",
+      "covered": "yes",
+      "by": "get_settings main_offer → comesWith"
+    },
+    {
+      "path": "Settings → Main offer → Live → Social Outreach panel: version N, everyone / just you, messages, yeses, calls booked",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/offer-panel.tsx:44",
+      "covered": "yes",
+      "by": "outreach_offer_versions (add-on ai)"
+    },
+    {
+      "path": "Settings → Main offer → Live → Social Outreach panel: too new to judge, N more, progress, each version’s counts",
+      "kind": "see",
+      "file": "apps/web/src/addons/outreach/offer-panel.tsx:54",
+      "covered": "yes",
+      "by": "outreach_offer_versions → judgeAfter, versions"
+    },
+    {
+      "path": "Settings → Main offer → Versions → each: Version N, line, lowest part, date, who, went live anyway reason, Live / Under the bar",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/page.tsx:166",
+      "covered": "yes",
+      "by": "get_settings main_offer → versions"
+    },
+    {
+      "path": "Main offer builder → only for main_offer.manage while in use (else not found)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/main-offer/build/page.tsx:35",
+      "covered": "yes",
+      "by": "tools offered with main_offer.manage, refuse when not in use"
+    },
+    {
+      "path": "Main offer builder → Finish later",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:489",
+      "covered": "yes",
+      "by": "edit_main_offer saves to the draft"
+    },
+    {
+      "path": "Main offer builder → step list: each step’s name, its answer so far, done tick; tap to go",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:505",
+      "covered": "yes",
+      "by": "get_settings main_offer → draft.parts, draft.missing"
+    },
+    {
+      "path": "Main offer builder → step N of 10, title and hint",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:561",
+      "covered": "partly",
+      "by": "edit_main_offer box labels say each question; step hints not given"
+    },
+    {
+      "path": "Main offer builder → someone changed this draft, Reload",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:548",
+      "covered": "partly",
+      "by": "tools read the latest draft each time; a try made meanwhile refuses main_offer_draft_moved"
+    },
+    {
+      "path": "Main offer builder → Back / Continue (each saves the draft), Draft saved time",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:743",
+      "covered": "yes",
+      "by": "edit_main_offer saves; get_settings → draft.at"
+    },
+    {
+      "path": "Main offer builder → Your niche → boxes: best customer, their line of work, how big, how long, result, lookalikes",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:908",
+      "covered": "yes",
+      "by": "edit_main_offer boxes niche.*"
+    },
+    {
+      "path": "Main offer builder → Your niche → Find my niche (AI)",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:876",
+      "covered": "partly",
+      "by": "no tool runs the niche finder (/v1/main-offer/niche); Assistant can propose and set who.* boxes"
+    },
+    {
+      "path": "Main offer builder → Your niche → I don’t have customers yet / I do have a best customer → Suggest niches for me",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:919",
+      "covered": "partly",
+      "by": "no niche finder tool; edit_main_offer sets who.*"
+    },
+    {
+      "path": "Main offer builder → Your niche → three niches: work and slice, problem, why → Use this niche and continue",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:931",
+      "covered": "partly",
+      "by": "edit_main_offer who.work, who.slice, who.problem; no AI niche options"
+    },
+    {
+      "path": "Main offer builder → Who → line of work, slice, how big, most painful problem",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:687",
+      "covered": "yes",
+      "by": "edit_main_offer boxes who.*"
+    },
+    {
+      "path": "Main offer builder → Outcome → result, how measured, why it matters",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:687",
+      "covered": "yes",
+      "by": "edit_main_offer boxes outcome.*"
+    },
+    {
+      "path": "Main offer builder → Timeframe → how long usually, why realistic",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:687",
+      "covered": "yes",
+      "by": "edit_main_offer boxes timeframe.*"
+    },
+    {
+      "path": "Main offer builder → Guarantee → promise, when it applies, who qualifies",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:687",
+      "covered": "yes",
+      "by": "edit_main_offer boxes guarantee.*"
+    },
+    {
+      "path": "Main offer builder → Price → price, how it’s built, why worth it",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:687",
+      "covered": "yes",
+      "by": "edit_main_offer boxes price.*"
+    },
+    {
+      "path": "Main offer builder → any box → Improve / Write it for me → pick one of three → Use this, put away",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/box.tsx:157",
+      "covered": "partly",
+      "by": "no tool calls the builder’s AI (/v1/main-offer/assist); Assistant writes words itself via edit_main_offer"
+    },
+    {
+      "path": "Main offer builder → any box → Examples to model chips (fill the box)",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/box.tsx:165",
+      "covered": "no",
+      "by": "no tool returns offerExamples for the business’s line of work"
+    },
+    {
+      "path": "Main offer builder → Method → steps in order: each step, Move up, Take out, Add a step (3 to 5)",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1001",
+      "covered": "yes",
+      "by": "edit_main_offer input steps (whole list in order)"
+    },
+    {
+      "path": "Main offer builder → Method → AI step sets → Use these steps",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1059",
+      "covered": "partly",
+      "by": "no AI step-set tool; edit_main_offer steps"
+    },
+    {
+      "path": "Main offer builder → Method → what’s different about how you do it",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1081",
+      "covered": "yes",
+      "by": "edit_main_offer box method.different"
+    },
+    {
+      "path": "Main offer builder → Proof → each result line, Take out, Add a result",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1118",
+      "covered": "yes",
+      "by": "edit_main_offer input proof (whole list)"
+    },
+    {
+      "path": "Main offer builder → Proof → Improve (AI tidy) → Use these lines",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1154",
+      "covered": "partly",
+      "by": "no AI tidy tool; edit_main_offer proof"
+    },
+    {
+      "path": "Main offer builder → Put it together → Your offer in one line",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1196",
+      "covered": "yes",
+      "by": "edit_main_offer box line"
+    },
+    {
+      "path": "Main offer builder → Put it together → Start again from my answers",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1198",
+      "covered": "partly",
+      "by": "no line-from-answers tool; Assistant can write the line"
+    },
+    {
+      "path": "Main offer builder → Put it together → formula: We help [who] get [outcome]…",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1206",
+      "covered": "no",
+      "by": "formula not in any tool or prompt"
+    },
+    {
+      "path": "Main offer builder → Put it together → For your messages: outcome and guarantee in a few words",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1213",
+      "covered": "yes",
+      "by": "edit_main_offer boxes inAFewWords.outcome, inAFewWords.guarantee"
+    },
+    {
+      "path": "Main offer builder → Put it together → How a first message will read (preview)",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1216",
+      "covered": "no",
+      "by": "no tool returns firstMessagePreview"
+    },
+    {
+      "path": "Main offer builder → Review → Your offer line",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1237",
+      "covered": "yes",
+      "by": "get_settings main_offer → draft.parts.line"
+    },
+    {
+      "path": "Main offer builder → Review → Before it can be scored and go live, fill in: each missing box (tap goes there)",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/builder.tsx:1241",
+      "covered": "yes",
+      "by": "get_settings main_offer → draft.missing; edit_main_offer"
+    },
+    {
+      "path": "Main offer builder → Review → Score my offer / Score again",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:753",
+      "covered": "yes",
+      "by": "score_main_offer"
+    },
+    {
+      "path": "Main offer builder → Review → score at a glance: Under 7: parts / every part clears, fix, scored at, each part’s number",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/review.tsx:310",
+      "covered": "yes",
+      "by": "score_main_offer → parts, weakest, fixFirst; get_settings → draft.score"
+    },
+    {
+      "path": "Main offer builder → Review → score at a glance: quick checks (3 seconds, specific, stands out, easy to believe)",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/review.tsx:362",
+      "covered": "yes",
+      "by": "get_settings main_offer → draft.score flags, threeSeconds (not in score_main_offer result)"
+    },
+    {
+      "path": "Main offer builder → Review → each part card: score bar, why, Kept as is / Your note / Scored with your direction tags",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/review.tsx:144",
+      "covered": "yes",
+      "by": "get_settings → draft.score.parts why, followedDirection; notes/keep are what it passes to try_main_offer"
+    },
+    {
+      "path": "Main offer builder → Review → part opened: What it says now, Working, Holding it back, The AI’s fix",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/review.tsx:181",
+      "covered": "yes",
+      "by": "get_settings → draft.parts, draft.score.parts good, holding, fix"
+    },
+    {
+      "path": "Main offer builder → Review → part → Your note for the AI, with quick picks",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/review.tsx:270",
+      "covered": "yes",
+      "by": "try_main_offer input notes"
+    },
+    {
+      "path": "Main offer builder → Review → part → Keep this part as is in the next try",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/review.tsx:289",
+      "covered": "yes",
+      "by": "try_main_offer input keep"
+    },
+    {
+      "path": "Main offer builder → Review → part → Edit it myself",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/review.tsx:295",
+      "covered": "yes",
+      "by": "edit_main_offer boxes"
+    },
+    {
+      "path": "Main offer builder → Review → Where do you want this offer to go? direction box with quick picks",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/review.tsx:414",
+      "covered": "yes",
+      "by": "manage_main_offer set_direction"
+    },
+    {
+      "path": "Main offer builder → Review → Going into Try N: direction, notes, kept parts",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/review.tsx:428",
+      "covered": "yes",
+      "by": "what it passes to try_main_offer notes, keep; direction in get_settings"
+    },
+    {
+      "path": "Main offer builder → Review → Make Try N (Writing Try N…), draft stays as it is",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/review.tsx:441",
+      "covered": "yes",
+      "by": "try_main_offer"
+    },
+    {
+      "path": "Main offer builder → Review → Versions strip: Your draft (lowest), Before Try N, each Try N (lowest); No tries yet",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/review.tsx:467",
+      "covered": "partly",
+      "by": "draft score via get_settings; only the try it just made; no tool lists tries (main_offer.tries)"
+    },
+    {
+      "path": "Main offer builder → Review → open an earlier try from the strip",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:443",
+      "covered": "no",
+      "by": "no tool reads earlier tries"
+    },
+    {
+      "path": "Main offer builder → Compare → What Try N followed: direction, notes, kept parts",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/tries.tsx:135",
+      "covered": "partly",
+      "by": "only for a try it made itself; try_main_offer result omits them"
+    },
+    {
+      "path": "Main offer builder → Compare → draft changed after this try note",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/tries.tsx:163",
+      "covered": "no",
+      "by": "no try read has its base"
+    },
+    {
+      "path": "Main offer builder → Compare → Keep all mine / Use all of Try N",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/tries.tsx:176",
+      "covered": "yes",
+      "by": "manage_main_offer take_from_try take (all parts or none)"
+    },
+    {
+      "path": "Main offer builder → Compare → each part: mine vs try score (Higher score), words, why it changed, scored with direction, kept as is",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/tries.tsx:209",
+      "covered": "yes",
+      "by": "try_main_offer → changed part, says, why, score; draft via get_settings"
+    },
+    {
+      "path": "Main offer builder → Compare → pick Yours or Try N for each part",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/tries.tsx:235",
+      "covered": "yes",
+      "by": "manage_main_offer take_from_try take"
+    },
+    {
+      "path": "Main offer builder → Compare → How it reads with your picks, Using Try N for N parts",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/tries.tsx:261",
+      "covered": "partly",
+      "by": "no preview; take_from_try card lists the parts taken"
+    },
+    {
+      "path": "Main offer builder → Compare → blank in [brackets] warning",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/tries.tsx:290",
+      "covered": "partly",
+      "by": "try_main_offer words show the [blank]; no flag"
+    },
+    {
+      "path": "Main offer builder → Compare → Apply N parts to my draft / Keep my draft as is",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:731",
+      "covered": "yes",
+      "by": "manage_main_offer take_from_try"
+    },
+    {
+      "path": "Main offer builder → Applied → Your draft now uses Try N’s …, kept as Before Try N",
+      "kind": "see",
+      "file": "apps/web/src/components/main-offer/tries.tsx:352",
+      "covered": "yes",
+      "by": "take_from_try outcome"
+    },
+    {
+      "path": "Main offer builder → Applied → Restore my draft from before",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/tries.tsx:355",
+      "covered": "partly",
+      "by": "no restore; edit_main_offer can write the old words back if known"
+    },
+    {
+      "path": "Main offer builder → Applied → Your picks need their own line: one line, outcome, guarantee options or Keep mine → Use these and score",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/tries.tsx:366",
+      "covered": "partly",
+      "by": "no AI line options; edit_main_offer line/inAFewWords then scores"
+    },
+    {
+      "path": "Main offer builder → Applied → Change my picks / Back to review",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:699",
+      "covered": "yes",
+      "by": "manage_main_offer take_from_try again"
+    },
+    {
+      "path": "Main offer builder → footer → Go to step / Change the weakest part",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:836",
+      "covered": "yes",
+      "by": "edit_main_offer"
+    },
+    {
+      "path": "Main offer builder → footer → Go live (toast: Version N is live)",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/builder.tsx:764",
+      "covered": "yes",
+      "by": "main_offer_go_live; edit_main_offer goLive"
+    },
+    {
+      "path": "Main offer builder → footer → Use it anyway… → dialog: part scored N of 10, warning, Why is it going live now?, Go live anyway, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/main-offer/score.tsx:32",
+      "covered": "yes",
+      "by": "main_offer_go_live input anyway; card names parts under 7"
+    },
+    {
+      "path": "Phone → Settings → Main offer row and its line",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/row.ts:29",
+      "covered": "yes",
+      "by": "get_settings main_offer"
+    },
+    {
+      "path": "Phone → Main offer → needs signal, Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:134",
+      "covered": "yes",
+      "by": "get_settings main_offer reads it on the server"
+    },
+    {
+      "path": "Phone → Main offer → nothing built: Build your main offer on a computer, Open on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/screen.tsx:163",
+      "covered": "yes",
+      "by": "edit_main_offer builds it by asking"
+    },
+    {
+      "path": "Phone → Main offer → nothing built, members: ask an owner; Nothing is live yet",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:103",
+      "covered": "yes",
+      "by": "get_settings main_offer → live null"
+    },
+    {
+      "path": "Phone → Main offer → members: live version, parts, direction, names, who uses it",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/live.tsx:49",
+      "covered": "yes",
+      "by": "get_settings main_offer"
+    },
+    {
+      "path": "Phone → Main offer → Review → live only: version N is live, a change starts a draft",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:357",
+      "covered": "yes",
+      "by": "get_settings → draft null, live.version; edit_main_offer card says so"
+    },
+    {
+      "path": "Phone → Main offer → Review → Your draft line, still needs (each opens Edit or the web)",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:362",
+      "covered": "yes",
+      "by": "get_settings → draft.parts.line, draft.missing"
+    },
+    {
+      "path": "Phone → Main offer → Review → Not scored yet card",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/screen.tsx:405",
+      "covered": "yes",
+      "by": "get_settings → draft.score null"
+    },
+    {
+      "path": "Phone → Main offer → Review → score glance, part cards, notes, keep, direction box (as web)",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/review.tsx:125",
+      "covered": "yes",
+      "by": "get_settings; try_main_offer notes, keep; manage_main_offer set_direction"
+    },
+    {
+      "path": "Phone → Main offer → Review → footer: Go to step, Score my offer, Go live, Use it anyway, Make Try N",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/screen.tsx:482",
+      "covered": "yes",
+      "by": "edit_main_offer, score_main_offer, main_offer_go_live, try_main_offer"
+    },
+    {
+      "path": "Phone → Main offer → Use it anyway sheet: why, Go live anyway, Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/anyway-sheet.tsx:57",
+      "covered": "yes",
+      "by": "main_offer_go_live input anyway"
+    },
+    {
+      "path": "Phone → Main offer → Try N is ready: draft and try lowest, each part from→to, kept as is, blank for you, what it followed",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/try-ready.tsx:39",
+      "covered": "yes",
+      "by": "try_main_offer → number, changed, score; draft score via get_settings"
+    },
+    {
+      "path": "Phone → Main offer → Try N is ready → Compare on the web / Back to review",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/try-ready.tsx:146",
+      "covered": "yes",
+      "by": "manage_main_offer take_from_try"
+    },
+    {
+      "path": "Phone → Main offer → Edit it myself → step hint, The AI’s fix",
+      "kind": "see",
+      "file": "apps/mobile/src/main-offer/edit.tsx:151",
+      "covered": "yes",
+      "by": "get_settings → draft.score.parts fix"
+    },
+    {
+      "path": "Phone → Main offer → Edit it myself → each box, method steps (edit only), Save",
+      "kind": "do",
+      "file": "apps/mobile/src/main-offer/edit.tsx:179",
+      "covered": "yes",
+      "by": "edit_main_offer boxes, steps"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "kn-1",
+      "severity": "high",
+      "kind": "do",
+      "where": "Knowledge → Overview → Business profile, Edit: Services (Service, About it, Price, Add a service, remove), Tone of voice → Words to use and Words to avoid; and emptying any field",
+      "gap": "update_knowledge_profile takes only description, serviceArea, hours, policies, tone, signature and allowPrices. It can't add, change or remove a service or its price, and it can't change Words to use or Words to avoid, though the profile has services[] (max 50, {name, description, price|null}) and wordsToUse/wordsToAvoid (up to 30, 60 characters each) and the form edits all of them. Every text field is text(n), which is min(1), and the worker's str() drops empty strings, so no field can be cleared. Nothing else in coverage.ts or screen-actions offers knowledge.profile_update. The settings map still promises 'what you offer' and the How to 'Add a service and its price'.",
+      "fix": "packages/core/src/assistant/tools.ts:600-608: add services: z.array({name: text(120), description: z.string().trim().max(500).default(''), price: z.string().trim().max(120).nullable()}).max(50) ('the whole list, as Business profile → Services shows it'), plus wordsToUse and wordsToAvoid as z.array(z.string().trim().min(1).max(60)).max(30). Change the six text fields to z.string().trim().max(n), where '' clears the field. apps/worker/src/assistant/tools-settings-business.ts:577 and 612-620: read the text fields with a helper that keeps '' (typeof v === 'string' ? v.trim() : undefined), not str(), and pass services, wordsToUse and wordsToAvoid into `changed`. Add 'Services', 'Words to use' and 'Words to avoid' fields to the card. When a price is given and allowPrices is off, add a note that prices aren't quoted until AI may quote prices is on.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-2",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Knowledge → Overview / Business profile: the prices written under Services, the full Policies text",
+      "gap": "The data is reachable. get_settings knowledge runs knowledge.profile and returns the whole profile, unclipped, with every service's price (tools-settings.ts:206; queries/knowledge.ts:53-80). get_settings' description also says to use it for 'what are my…' questions about the setup, the knowledge base included. The real gap is the instructions. prompt.ts:30 sends every question about prices or policies to 'the business profile in the context and what search_knowledge finds, following the knowledge rules'. Those rules (prompt.ts:288; profile.ts:131) say 'Don’t quote prices… even if they appear in the knowledge' when AI may quote prices is off. The in-context brief leaves prices out and clips policies and the description to 80 words (profile.ts:91-103). So an owner asking what price they set is likely to hear 'the team will follow up', or a clipped policy text.",
+      "fix": "prompt.ts:30: limit the rule to customers, e.g. 'Questions a customer would ask, and words you write for customers (what it offers, prices, policies, hours): answer only from…'. Add: 'When the person asks what they have set up in Knowledge (a service’s price, their policies as written), read get_settings knowledge and quote the profile exactly as written, prices included. The knowledge rules cover only what customers are told.' prompt.ts:288: rename the header to 'Rules for what you say to customers, or write for them, about the business:'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-3",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Knowledge → Website: the scan tally (Read N pages · when · N suggestions · started by), the pages list, Reading your pages, What changed (Changed / New page / Gone since last time / didn’t change), 'N pages couldn’t be read' with the reason for each, and the scan-failed message",
+      "gap": "listKnowledgeSuggestions reads knowledge_scan.get but returns only status, started, found, stillWaiting and a bare pagesWithProblems count, which is errors.length and so also counts site-level errors. The query returns pages[] ({url, title, status new|changed|unchanged|error|removed, suggestions, truncated, error}), errors[] ({url?, code, message}), startedBy and finishedAt, and no tool passes them on. knowledge_scan.get isn't in SCREEN_READS. The Website tab shows 'Read N pages', 'started by', Reading your pages, What changed, 'Gone since last time' and 'N pages couldn’t be read' with each reason. So the Assistant can't answer which pages were read, what changed, or why a page or the scan failed. The auditor's high is lowered: the status, counts and progress do come through.",
+      "fix": "apps/worker/src/assistant/tools-content.ts:1452-1461: widen ScanGet to the query's output. At :1712-1720, add pagesRead (pages that aren't error or removed), finishedAt (when()), startedBy (fullName), pages[{path, title, status, suggestions, cut: truncated, couldNotRead: error}] (cap at 50, with a 'more' count), and problems[{page, why}] from errors[].message, with site-level errors (no url) apart as siteProblem. Rename pagesWithProblems to pagesCouldNotRead and count only per-page errors. Or add 'knowledge_scan.get' to SCREEN_READS in packages/core/src/assistant/screen-reads.ts.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-4",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Knowledge → Items → one item (and each Documents row): the full Answer / Article / Text from the file, 'From your website' + link / file name / added by · date, 'Updated … by …', 'Used N times. Last used …', the 'No text could be read' and 'Only the first 100,000 characters' warnings, and 'N characters · added …' on Documents",
+      "gap": "No tool returns one knowledge item. list_knowledge_items cuts the text at 400 characters and returns only id, kind, title, status, tags and usedTimes. It leaves out source, sourceUrl, file name, createdBy/At, updatedBy/At and lastUsedAt, all of which the editor and the Documents list show. search_knowledge returns only published matches, with text cut at 1,500 characters. knowledge_item.get is called only inside manage_knowledge_item (itemOf), and only for its card. One correction to the auditor: a publish card does show the person the first 1,500 characters (clip(item.body, 1500)), so it isn't blind. But the Assistant can't read a long article or document whole, or say where an item came from, who added it, or when it was last used. Lowered to medium.",
+      "fix": "Add 'knowledge_item.get' to SCREEN_READS (packages/core/src/assistant/screen-reads.ts), or add a get_knowledge_item {itemId} tool (auto, workspace.read). It should return title, kind, status, tags, the body (cut at 20,000 characters, with cut: true and the full length), source, sourceUrl, file.name, createdBy/At, updatedBy/At, useCount and lastUsedAt. Add createdAt and updatedAt to list_knowledge_items rows (tools-content.ts:1525-1533).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-5",
+      "severity": "low",
+      "kind": "read",
+      "where": "Knowledge → Overview tiles (FAQs / Articles / Facts / Documents: 'N published · N drafts') and the Items status counts",
+      "gap": "The status counts are real but not wrong for the screen. knowledge_item.list's counts ignore kind, tag and search, and the Items tab's status chips show those same whole-base counts (item-list.tsx:106-149). So the Assistant sees what the Items screen shows, only unlabeled, which can mislead when it filtered by kind. The real gap is the Overview tiles' per-kind 'N published · N drafts'. No tool gives them, and counting by kind through list_knowledge_items stops at 25 rows with only `more: true`.",
+      "fix": "apps/worker/src/assistant/tools-content.ts:1535: return the counts as wholeKnowledgeBase: {draft, published, archived}, with a note that they ignore the kind and words asked for. Add byKind: {faq|article|fact|document: {published, drafts}}, either with a grouped count (kind, status) in knowledge_item.list (packages/core/src/queries/knowledge.ts:155-162) or in a separate small query.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-6",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Knowledge → Items (50 rows and Show more; tag filter chips; status counts) and Knowledge → Suggestions (up to 100 waiting, the count on the Suggestions tab, Show N more)",
+      "gap": "list_knowledge_items and list_knowledge_suggestions take limit(25, 10), have no cursor, and return only `more: true`, so nothing past the first 25 can be read. list_knowledge_items has no tag filter, though the screen filters by tag chips and knowledge_item.list takes tags. list_knowledge_suggestions returns no total waiting (the Suggestions tab count) and can't narrow to one scan, though knowledge_suggestion.list takes scanId.",
+      "fix": "packages/core/src/assistant/tools-content.ts:193-198: add cursor and tags (array of text(40), max 20) to list_knowledge_items. In the worker, pass tags and cursor through and return nextCursor (tools-content.ts:1515-1534). At :219-228, add cursor and latestScanOnly to list_knowledge_suggestions. When latestScanOnly is set, pass scanId from the knowledge_scan.get it already runs. Return nextCursor and a waiting total (a count query on pending suggestions, by reason).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-7",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Knowledge → Suggestions 'Accept all N' (From the website scan) and Knowledge → Website 'Accept all on this page' / 'Accept all N'",
+      "gap": "decide_knowledge_suggestion takes one suggestionId, and nothing in the runtime confirms several cards together. The screen's 'Accept all N' (Suggestions) and 'Accept all on this page' / 'Accept all N' (Website) accept the whole scan's suggestions in one press and one dialog, through acceptMany, a loop over knowledge_suggestion.accept. The Assistant needs one tool call and one Confirm card per suggestion.",
+      "fix": "packages/core/src/assistant/tools-content.ts:231-246: let decide_knowledge_suggestion take suggestionIds (up to 100), or all: 'scan' with an optional page URL, for accepting as they are. One card shows the count and the first titles. In the worker's commit, loop as acceptMany does (apps/web/src/components/knowledge/suggestion-card.tsx:320), skip any no longer pending, and report accepted and failed counts.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-8",
+      "severity": "low",
+      "kind": "never",
+      "where": "Knowledge → Items → Import CSV (Import FAQs from a spreadsheet; Import them as Drafts to review / Published)",
+      "gap": "Picking the CSV file stays with the person (the upload rule). knowledge_item.import_faqs itself takes parsed rows {question, answer, tags} (up to 500, risk 1, skips duplicates), not a file, and NEVER_FOR_THE_ASSISTANT keeps it out for the spreadsheet's sake. What's left is batching: FAQs the person pastes into the chat can still be added, but one add_knowledge_item card at a time.",
+      "fix": "Take 'knowledge_item.import_faqs' off NEVER_FOR_THE_ASSISTANT (coverage.ts:394) and add it to SCREEN_ACTIONS under a Knowledge heading, so do_knowledge_item_import_faqs exists. Or add items[] (up to 100 {question, answer, tags}) to add_knowledge_item for FAQs typed or pasted in the chat, with status draft by default. The card lists the rows and says questions already there are skipped. Keep the 'Import FAQs from a spreadsheet' How to for files.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-9",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Knowledge subnav: Overview · Items · Documents · Website · Promotions · Suggestions",
+      "gap": "The settings map, which the prompt says to quote exactly and never go beyond, lists the Knowledge tabs as '…Website, Offers, Suggestions'. The tab is Promotions, and the same entry's How to and list_offers say Knowledge → Promotions. list_offers' card is titled 'N offers'. The Overview line also leaves out the FAQs, Articles, Facts and Documents tiles that page.tsx builds.",
+      "fix": "packages/core/src/assistant/settings-map.ts:906: 'Tabs: Overview, Items, Documents, Website, Promotions, Suggestions'. At :907, add 'FAQs, Articles, Facts and Documents (each with how many are published and drafts)' to the Overview line. apps/worker/src/assistant/tools-content.ts:1956: title: plural(offers.length, 'promotion').",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mo-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Build your main offer → Review and go live: the Versions list (Your draft, Try 1, Try 2… with each one’s lowest score), Compare a try part by part, and the phone’s Review (tries made there)",
+      "gap": "No tool lists the AI's tries. get_settings main_offer reads only main_offer.get and main_offer.versions. main_offer.tries (up to 20 this round, each with number, parts, why, score, lowest, notes, keep, madeBy, madeAt) is read only in tryOf, to check a tryId, and it isn't in SCREEN_READS. manage_main_offer's tryId says 'from try_main_offer', so tries made on the screen, on the phone or in an earlier chat can't be listed, compared or taken from.",
+      "fix": "apps/worker/src/assistant/tools-settings.ts:40-43: add { name: 'main_offer.tries', as: 'tries', shape } to QUERIES.main_offer, shaped to [{tryId: id, number, lowest, score per part, why per part, notes, keep, madeBy.name, madeAt}] (parts only where they differ from base). packages/core/src/assistant/tools-main-offer.ts:112: say the id comes 'from get_settings main_offer (tries) or try_main_offer'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mo-2",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Main offer (Change your offer / Start building, the draft banner with Open the draft and Throw it away, Names you go by, the Live version and Versions tabs, Edit your direction) and the builder Build your main offer (steps from Start with your best customer to Review and go live; Find my niche, Improve / Write it for me, Score my offer, Go live, Use it anyway…, Make Try N)",
+      "gap": "settings-map main_offer onScreen says the page shows 'The draft: each part, its score and what it still needs'. Settings → Main offer actually shows: Change your offer (or, before any version, the start card with Start building); a draft banner with Open the draft and Throw it away; Names you go by; and the Live version and Versions tabs. The parts and scores of a draft are in the builder (/main-offer/build), which nothing the Assistant reads describes. The entry has no howTo, so under the prompt's rule against naming unlisted buttons, the Assistant can't name Change your offer, Score my offer, Go live, Use it anyway or Make Try N.",
+      "fix": "packages/core/src/assistant/settings-map.ts:170-173: rewrite onScreen as 'Change your offer (Start building before there is one)', 'A draft someone is working on: Open the draft, Throw it away', 'Names you go by', 'Live version: each part with its score, and your direction (Edit your direction)', and 'Versions'. Add howTo lines built from MAIN_OFFER_WORDS: 'Change one part: Settings → Main offer, Change your offer (or Open the draft), pick its step, then Review and go live, Score my offer, Go live', 'Have the AI write a try: Settings → Main offer, Change your offer, Review and go live, Make Try N', and 'Put it live under the bar: Go live, then Use it anyway and give a reason'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mo-3",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Phone: More → Settings → This business → Main offer (Review: Score my offer, Make a try, Go live, Use it anyway, Edit it myself); also Partners",
+      "gap": "PHONE_APP lists the phone's Settings without its This business section, and then says the business's settings are web-only. prompt.ts:38 says the phone's Settings 'holds only the person's own things… and the business is set up on the web'. But the phone's Settings has This business with Usage & balance, Main offer (when it's in use) and Partners. Its Main offer screen scores, makes a try, goes live, takes Use it anyway and lets the owner edit a part (Edit it myself).",
+      "fix": "packages/core/src/assistant/places-map.ts:626: add 'This business: Usage & balance, Main offer (its Review: Score my offer, Make a try, Go live, Use it anyway, Edit it myself; the method’s steps and the rest on the web) and Partners' to the Settings line. At :627, say 'the rest of the business’s settings'. prompt.ts:38: change to 'the phone app's Settings holds the person's own things and, for the business, its balance, Main offer and Partners; the rest is set up on the web.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mo-4",
+      "severity": "low",
+      "kind": "do",
+      "where": "Build your main offer: Find my niche / Suggest niches for me (three niches with Use this niche and continue), Improve / Write it for me on every box (three to pick from), the method’s three sets of steps, tidy the real results, and three new lines for a mix after taking parts from a try",
+      "gap": "No Assistant tool calls the builder's niche finder or Improve / Write it for me (worker offerNiche and offerAssist behind /v1/main-offer/niche and /assist). Those use the line-of-work examples, each box's rules and the direction, and give three options. Much of the outcome is reachable another way: try_main_offer writes a whole try under the direction, with a note on any part and the other parts kept, and edit_main_offer saves wording the person picks. So 'three options for one box' and the niche finder are what's missing.",
+      "fix": "Add an auto tool suggest_main_offer (main_offer.manage) in packages/core/src/assistant/tools-main-offer.ts, with input {what: 'niche' | one of MAIN_OFFER_BOX_PATHS | 'method.steps' | 'proof', mode: 'improve' | 'write'}. In apps/worker/src/assistant/tools-main-offer.ts, call offerNiche / offerAssist (exported from apps/worker/src/main-offer/routes.ts:168, 191) on the draft's parts and return the three options, unsaved. The description says to save the person's pick with edit_main_offer.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-10",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Knowledge → Items → one item (or a document) open on screen",
+      "gap": "A knowledge item's page isn't a record the Assistant knows about. AssistantPageRecord's type enum and RECORD_ROUTES cover only person, company, lead, conversation, appointment, workflow and workflow_run. On /knowledge/items/<id>, 'publish this' or 'what does this say?' has no 'this', so the Assistant has to search by words.",
+      "fix": "packages/core/src/schemas/assistant.ts:320-328: add 'knowledge_item' to the enum. packages/core/src/assistant/words.ts:413-420: add ['knowledge_item', 'knowledge/items'] to RECORD_ROUTES. apps/worker/src/assistant/context.ts:175: add a pageLabel case that reads knowledge_item.get (kind, title, status). apps/worker/src/assistant/prompt.ts:190: add a pageLines case: 'On screen now: the FAQ “…” (knowledge item id …). \"It\" or \"this\" means this item.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-11",
+      "severity": "low",
+      "kind": "do",
+      "where": "Knowledge → Overview → Try it (Ask, the sample chips; the answer, 'Items it used' with Open, and 'We added this to Suggestions')",
+      "gap": "No tool runs Try it (worker /v1/knowledge/try), which answers the way AI steps do and names the items it used. search_knowledge returns only matches (up to 5, text cut at 1,500 characters), and the Assistant writes its own answer under its own rules. The settings map's How to just sends the person to Try it.",
+      "fix": "Add an auto tool try_knowledge_question {question: text(500)} (knowledge.manage) to packages/core/src/assistant/tools.ts, implemented in the worker with the same function apps/worker/src/knowledge/routes.ts:39 runs. Return answer, unanswered, items[{id, kind, title, snippet}] and whether it was added to Suggestions. It counts against the daily AI limit, like the screen.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-12",
+      "severity": "low",
+      "kind": "do",
+      "where": "Knowledge → Add an FAQ / new item editor: Tags; Article text up to 20,000 characters; a document’s text up to 200,000",
+      "gap": "add_knowledge_item has no tags (the worker always saves tags: []) and caps the body at 5,000 characters. Both have a two-step way round: manage_knowledge_item (change) sets tags and takes an article body up to 20,000. The hard gap is documents: manage_knowledge_item's body is text(20000), while a document's text may be up to 200,000 (the editor's maxLength and KnowledgeDocument), so a long document's text can't be fixed.",
+      "fix": "packages/core/src/assistant/tools.ts:1442-1447: add tags: z.array(text(40)).max(20).optional() to add_knowledge_item. Raise body to 20000, with the per-kind limit (faq 5000, fact 2000, article 20000) checked by KnowledgeEditableContent in prepare. apps/worker/src/assistant/tools-workflow.ts:663-665: pass the tags. packages/core/src/assistant/tools-content.ts:208: let manage_knowledge_item's body go to 200000 for a document, still checked by checkedContent.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-13",
+      "severity": "low",
+      "kind": "do",
+      "where": "Knowledge → Website: Your website box with Save (change the address without scanning)",
+      "gap": "scan_website always runs knowledge_scan.start after knowledge_source.set, and nothing else offers knowledge_source.set. The Website tab's Save changes the address without scanning, which costs nothing from the usage balance.",
+      "fix": "packages/core/src/assistant/tools-content.ts:248-254: add scanNow: z.boolean().default(true) to scan_website. apps/worker/src/assistant/tools-content.ts:1880-1929: when scanNow is false (and website is given), title the card 'Change the website address?', drop the usage note, and in commit run only knowledge_source.set.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-14",
+      "severity": "low",
+      "kind": "read",
+      "where": "Knowledge → Suggestions cards: 'Changes an FAQ' with Now titled / − current text / + website text; a gap’s 'Asked in Try it / the Assistant / a workflow · asked N times'; a scan page’s title",
+      "gap": "Real: for a rescan's change, list_knowledge_suggestions gives only changesItemId, without how the item reads now (the card shows Now titled and the −/+ text). For a gap, it gives askedTimes but not where it was asked (Try it, the Assistant or a workflow). Not real: the suggestion card shows 'From <short url>', not a page title. The auditor's screenRef suggestion-card.tsx:367 doesn't exist (the file has 338 lines).",
+      "fix": "apps/worker/src/assistant/tools-content.ts:1721-1731: for suggestions with itemId, add now: {title, text: clip(body, 800)} (from knowledge_item.get, or from one knowledge_item.list keyed by id). For gaps, add askedIn: 'Try it' | 'the Assistant' | 'a workflow', from source.via === 'try_it' / threadId / runId, as apps/web/src/lib/knowledge/labels.ts:63-70 decides.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "kn-15",
+      "severity": "low",
+      "kind": "words",
+      "where": "Knowledge → Suggestions filter 'Go Biz Help', section 'From Go Biz Help', and 'From a Go Biz Help starter pack' on cards and items",
+      "gap": "The screen calls pack suggestions Go Biz Help (the filter chip, the 'From Go Biz Help' section, 'From a Go Biz Help starter pack'). The Assistant calls them agency packs: the list_knowledge_suggestions description, the from enum note 'pack: the agency', FROM_WORDS.pack 'your agency' (so its cards say 'From your agency'), and proposedOf's from_the_agency.",
+      "fix": "packages/core/src/assistant/tools-content.ts:221 and :226: say '…and Go Biz Help starter packs', and 'pack: Go Biz Help'. apps/worker/src/assistant/tools-content.ts:1477: FROM_WORDS.pack = 'a Go Biz Help starter pack'. Better: read the words from one label in core that both the web's labels.ts and the worker use.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mo-5",
+      "severity": "low",
+      "kind": "words",
+      "where": "Build your main offer → Put it together: 'For your messages… A first message carries the outcome, and a reply gives the guarantee when someone asks about one. Messages never say the price.'",
+      "gap": "edit_main_offer's description says Social Outreach's messages carry the outcome 'never the guarantee or the price'. The builder says a reply gives the guarantee when someone asks about one. The add-on also uses the guarantee in a few words in its openers ('Open to {outcome} on {guarantee}?') and its playbook. So the description plays down the inAFewWords.guarantee box.",
+      "fix": "packages/core/src/assistant/tools-main-offer.ts:48: replace the last sentence with MAIN_OFFER_WORDS.forMessagesHint's meaning: 'Social Outreach’s messages use the outcome and the guarantee in a few words each: a first message carries the outcome, and a reply gives the guarantee when someone asks about one. Messages never say the price.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "mo-6",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Main offer: promotions belong in Knowledge → Promotions",
+      "gap": "The line is rendered as 'Not in HandsFreeOS: promotions such as $50 off this month: those are Knowledge → Promotions, not the main offer'. The pointer is in the same line, so the Assistant is told where promotions live and that list_offers and manage_offer handle them. But prompt.ts:38 says that for anything under 'Not in HandsFreeOS' it should 'say plainly that HandsFreeOS doesn't do that', which is wrong for a feature HandsFreeOS has. The defect is the label, not a missing pointer.",
+      "fix": "packages/core/src/assistant/settings-map.ts:183-185: move the line from notHere to a new howTo on main_offer: 'A promotion like $50 off this month: Knowledge → Promotions, Add a promotion (not the main offer)'. Leave notHere empty.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

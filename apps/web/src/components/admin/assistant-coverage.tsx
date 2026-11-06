@@ -7,6 +7,7 @@ import {
   deskSectionLabel,
 } from '@hfos/core';
 import { toast } from 'sonner';
+import { AssistantLedger } from '@/components/admin/assistant-ledger';
 import { Button } from '@/components/ui/button';
 import { errorMessage } from '@/lib/api/client';
 
@@ -58,6 +59,8 @@ export function AssistantCoverage() {
           </div>
         ))}
       </dl>
+
+      <AssistantLedger />
 
       <section className="mt-6 rounded-card border border-border bg-card p-4">
         <h2 className="text-sm font-semibold">{DESK_COVERAGE_WORDS.notYetTitle}</h2>

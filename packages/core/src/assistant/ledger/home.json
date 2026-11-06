@@ -1,0 +1,2744 @@
+{
+  "area": "home",
+  "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4bb840d5dff6",
+    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "6ebd438f8256",
+    "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx": "b0639b60a073",
+    "apps/mobile/src/app/app/w/[workspaceId]/search.tsx": "1a959c92bf8a",
+    "apps/mobile/src/components/add-ons/news-card.tsx": "6d1402bba2e5",
+    "apps/mobile/src/components/add-ons/suggestion-card.tsx": "e9bf6f1d07af",
+    "apps/mobile/src/components/assistant/answer-text.tsx": "029a63c8835f",
+    "apps/mobile/src/components/assistant/cards.tsx": "e277a7d3b743",
+    "apps/mobile/src/components/assistant/composer.tsx": "9e38a01573a9",
+    "apps/mobile/src/components/assistant/confirm-card.tsx": "3302f63c38d4",
+    "apps/mobile/src/components/assistant/consent-step.tsx": "5fe7d1579e5a",
+    "apps/mobile/src/components/assistant/message-list.tsx": "0beacd86b162",
+    "apps/mobile/src/components/assistant/notices.tsx": "60b673a99e0c",
+    "apps/mobile/src/components/assistant/thread-list.tsx": "c9e0202cd082",
+    "apps/mobile/src/components/changes/ask-from-notification.tsx": "4a2c7a1bb357",
+    "apps/mobile/src/components/changes/change-parts.tsx": "9bfb021aaa34",
+    "apps/mobile/src/components/changes/change-row.tsx": "dfdf472e2b5d",
+    "apps/mobile/src/components/changes/decide-sheets.tsx": "3c823b5d4f90",
+    "apps/mobile/src/components/home/attention-card.tsx": "239bce447d99",
+    "apps/mobile/src/components/home/attention-group.tsx": "88d3150e9000",
+    "apps/mobile/src/components/home/bits.tsx": "4052994a191e",
+    "apps/mobile/src/components/home/handled.tsx": "79284e3cff99",
+    "apps/mobile/src/components/home/home-header.tsx": "919ae0a3a30b",
+    "apps/mobile/src/components/home/item-sheets.tsx": "1e0fc20a6146",
+    "apps/mobile/src/components/home/let-handle-sheet.tsx": "aec9005368fb",
+    "apps/mobile/src/components/home/waiting-changes.tsx": "5969f5a3aff5",
+    "apps/mobile/src/components/onboarding/getting-started-card.tsx": "ba71b62fa458",
+    "apps/mobile/src/home/actions.ts": "80e1442f9475",
+    "apps/mobile/src/search/recent.ts": "6d3884953cf1",
+    "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
+    "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx": "260b09810a61",
+    "apps/web/src/app/app/w/[workspaceId]/page.tsx": "c74d1676ff20",
+    "apps/web/src/app/app/w/[workspaceId]/search/page.tsx": "f23d0369d4f7",
+    "apps/web/src/components/assistant/ask-button.tsx": "1189fdcab4d4",
+    "apps/web/src/components/assistant/assistant-panel.tsx": "1f1bf3886050",
+    "apps/web/src/components/assistant/calendar-cards.tsx": "29df0d91f23f",
+    "apps/web/src/components/assistant/card-parts.tsx": "abbf993272e5",
+    "apps/web/src/components/assistant/cards.tsx": "696fa43a3910",
+    "apps/web/src/components/assistant/composer.tsx": "867a1b9b5de7",
+    "apps/web/src/components/assistant/confirm-card.tsx": "eadc98450bf0",
+    "apps/web/src/components/assistant/consent-step.tsx": "e7b855fa9663",
+    "apps/web/src/components/assistant/message-list.tsx": "465b0df6e65f",
+    "apps/web/src/components/assistant/money-cards.tsx": "bb4ce0a038e4",
+    "apps/web/src/components/assistant/notices.tsx": "0664f6471ff0",
+    "apps/web/src/components/assistant/rich-text.tsx": "6868ba3eafaf",
+    "apps/web/src/components/assistant/thread-list.tsx": "a4a0aa133cca",
+    "apps/web/src/components/assistant/workflow-cards.tsx": "ad4e36c848b2",
+    "apps/web/src/components/attention/bits.tsx": "782802130a33",
+    "apps/web/src/components/audit/audit-log.tsx": "90553c2b4303",
+    "apps/web/src/components/home/action-center-intro.tsx": "f716f8ecfadb",
+    "apps/web/src/components/home/action-center.tsx": "d8536f35f77a",
+    "apps/web/src/components/home/addon-news.tsx": "e8d15b4ae24d",
+    "apps/web/src/components/home/addon-suggestion.tsx": "f54b8b06323d",
+    "apps/web/src/components/home/assign-menu.tsx": "066270b61d97",
+    "apps/web/src/components/home/attention-actions.tsx": "62be3412a3f7",
+    "apps/web/src/components/home/attention-card.tsx": "8428d9868753",
+    "apps/web/src/components/home/attention-group.tsx": "6751706c67c3",
+    "apps/web/src/components/home/attention-header.tsx": "9f8029ee68da",
+    "apps/web/src/components/home/coming-up.tsx": "7b55e17c731a",
+    "apps/web/src/components/home/dismiss-dialog.tsx": "18a3559ad253",
+    "apps/web/src/components/home/getting-started.tsx": "1dc783e5cb67",
+    "apps/web/src/components/home/handled-today.tsx": "30e0ef08c643",
+    "apps/web/src/components/home/let-handle-sheet.tsx": "fce319584f82",
+    "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
+    "apps/web/src/components/home/snooze-menu.tsx": "d3aa97a03c37",
+    "apps/web/src/components/home/today-card.tsx": "547113b533df",
+    "apps/web/src/components/search/kind-page.tsx": "4067f9b59a61",
+    "apps/web/src/components/search/panel.tsx": "4da4fcd91831",
+    "apps/web/src/components/search/rows/addon.tsx": "0570e226a893",
+    "apps/web/src/components/search/rows/archived.tsx": "a34d19986761",
+    "apps/web/src/components/search/rows/bin.tsx": "9cf4b090df4a",
+    "apps/web/src/components/search/rows/calendar.tsx": "d2f3a00c3d47",
+    "apps/web/src/components/search/rows/company.tsx": "896ce6d1e711",
+    "apps/web/src/components/search/rows/contact.tsx": "46586792cd61",
+    "apps/web/src/components/search/rows/file.tsx": "6a89ad6d4311",
+    "apps/web/src/components/search/rows/form.tsx": "17949dbd4e31",
+    "apps/web/src/components/search/rows/index.tsx": "6c28b1c61141",
+    "apps/web/src/components/search/rows/knowledge.tsx": "ee20003d0060",
+    "apps/web/src/components/search/rows/lead.tsx": "15a6d3554cfd",
+    "apps/web/src/components/search/rows/message.tsx": "cae6de8a69c1",
+    "apps/web/src/components/search/rows/money.tsx": "bfc55b680c3f",
+    "apps/web/src/components/search/rows/note.tsx": "4862b0e1a506",
+    "apps/web/src/components/search/rows/parts.tsx": "679b714aa2a0",
+    "apps/web/src/components/search/rows/record.tsx": "66b5b5498a70",
+    "apps/web/src/components/search/rows/setting.tsx": "cca941f3e0b3",
+    "apps/web/src/components/search/rows/task.tsx": "7f074fedfc12",
+    "apps/web/src/components/search/search-box.tsx": "60db7cdb5806",
+    "apps/web/src/components/search/search-page.tsx": "13954f4eb1b8",
+    "apps/web/src/components/search/search-provider.tsx": "dd35231df622",
+    "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
+    "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
+    "apps/web/src/components/shell/mobile-shell.tsx": "be5559feb770",
+    "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
+    "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
+    "apps/web/src/components/shell/sidebar.tsx": "91a4d15e744e",
+    "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
+    "apps/web/src/components/shell/workspace-switcher.tsx": "84241c6efbdb",
+    "apps/web/src/components/support/get-help.tsx": "a753e0577cbd"
+  },
+  "items": [
+    {
+      "path": "Home (new business) → Welcome line with the business name",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/page.tsx:120",
+      "covered": "yes",
+      "by": "context: business and person name"
+    },
+    {
+      "path": "Home (new business) → Add a person",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/page.tsx:124",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Home (new business) → Business card: name, time zone, your role",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/page.tsx:138",
+      "covered": "yes",
+      "by": "context: business, timezone, role"
+    },
+    {
+      "path": "Home (new business) → Manage members",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/page.tsx:175",
+      "covered": "yes",
+      "by": "list_team, manage_team"
+    },
+    {
+      "path": "Home (new business) → Invite",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/page.tsx:184",
+      "covered": "yes",
+      "by": "manage_team action invite"
+    },
+    {
+      "path": "Home → Intro (nothing yet) → what Home will list",
+      "kind": "see",
+      "file": "apps/web/src/components/home/action-center-intro.tsx:20",
+      "covered": "yes",
+      "by": "what_needs_attention description and kinds"
+    },
+    {
+      "path": "Home → Intro → Add a person",
+      "kind": "do",
+      "file": "apps/web/src/components/home/action-center-intro.tsx:55",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Home → Intro → Import a spreadsheet",
+      "kind": "do",
+      "file": "apps/web/src/components/home/action-center-intro.tsx:60",
+      "covered": "never",
+      "by": "import.create NEVER: a file from their computer"
+    },
+    {
+      "path": "Home → Header → greeting with first name",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-header.tsx:45",
+      "covered": "yes",
+      "by": "context: person name, now"
+    },
+    {
+      "path": "Home → Header → headline: $ waiting, N need you, or caught up",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-header.tsx:48",
+      "covered": "yes",
+      "by": "what_needs_attention affected, counts"
+    },
+    {
+      "path": "Home → Header → counts: urgent, waiting, handled today",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-header.tsx:64",
+      "covered": "yes",
+      "by": "what_needs_attention counts, handledToday"
+    },
+    {
+      "path": "Home → Header → Mine / Everyone (web and phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-header.tsx:80",
+      "covered": "yes",
+      "by": "what_needs_attention scope"
+    },
+    {
+      "path": "Home → Header → New lead (web only)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-header.tsx:92",
+      "covered": "yes",
+      "by": "create_lead"
+    },
+    {
+      "path": "Home → list → couldn’t load, with the reason",
+      "kind": "see",
+      "file": "apps/web/src/components/home/action-center.tsx:273",
+      "covered": "partly",
+      "by": "a failed read comes back to it as a refusal"
+    },
+    {
+      "path": "Home → list → order, most pressing first",
+      "kind": "see",
+      "file": "apps/web/src/components/home/action-center.tsx:280",
+      "covered": "yes",
+      "by": "what_needs_attention rank"
+    },
+    {
+      "path": "Home → list → every item past the first 8",
+      "kind": "see",
+      "file": "apps/web/src/components/home/action-center.tsx:280",
+      "covered": "partly",
+      "by": "top 8 plus a more count; kind filter narrows"
+    },
+    {
+      "path": "Home → card → kind tile and label",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "yes",
+      "by": "what_needs_attention item kind"
+    },
+    {
+      "path": "Home → card → title (who, what)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "yes",
+      "by": "item title, what"
+    },
+    {
+      "path": "Home → card → detail line",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "yes",
+      "by": "item detail"
+    },
+    {
+      "path": "Home → card → reason chips (waiting since, hot, AI drafted)",
+      "kind": "see",
+      "file": "apps/web/src/components/attention/bits.tsx:192",
+      "covered": "yes",
+      "by": "item chips"
+    },
+    {
+      "path": "Home → card → value ($)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "yes",
+      "by": "item value"
+    },
+    {
+      "path": "Home → card → urgent mark",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "yes",
+      "by": "item urgent"
+    },
+    {
+      "path": "Home → card → who it’s assigned to",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "yes",
+      "by": "item assignee"
+    },
+    {
+      "path": "Home → card → HandsFreeOS sends at X strip",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-card.tsx:127",
+      "covered": "yes",
+      "by": "item handsFreeOsSendsAt"
+    },
+    {
+      "path": "Home → card → sends-at strip → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-card.tsx:127",
+      "covered": "yes",
+      "by": "do_attention_cancel_auto"
+    },
+    {
+      "path": "Home → card → open the record from the title",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-card.tsx:159",
+      "covered": "partly",
+      "by": "item id given; the way there in words, no link"
+    },
+    {
+      "path": "Home → folded group → kind, count, total $",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-group.tsx:58",
+      "covered": "yes",
+      "by": "what_needs_attention kind filter, counts"
+    },
+    {
+      "path": "Home → folded group → open it",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-group.tsx:58",
+      "covered": "yes",
+      "by": "what_needs_attention kind"
+    },
+    {
+      "path": "Home → folded group → rows (name, chip, Handle)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-group.tsx:24",
+      "covered": "partly",
+      "by": "first 8 of the kind"
+    },
+    {
+      "path": "Home → card → Call (hot lead, missed call)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "person",
+      "by": "call_customer offers a Call button; call.start NEVER"
+    },
+    {
+      "path": "Home → card → Reply",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "handle_attention_item reply; send_text, send_email"
+    },
+    {
+      "path": "Home → card → Confirm by text (unconfirmed visit)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "handle_attention_item auto"
+    },
+    {
+      "path": "Home → card → Follow up a quote or invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "handle_attention_item auto or reply"
+    },
+    {
+      "path": "Home → card → Approve the AI teammate’s draft",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "decide_teammate_draft"
+    },
+    {
+      "path": "Home → card → Answer a workflow approval",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "answer_workflow_approval"
+    },
+    {
+      "path": "Home → card → Open task, tick done",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "update_task, complete_task"
+    },
+    {
+      "path": "Home → card → Set next action (stale lead)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "handle_attention_item set_next_action; update_lead"
+    },
+    {
+      "path": "Home → card → Add the referral as a lead",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "do_referral_create_lead"
+    },
+    {
+      "path": "Home → card → Catch up a lead",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "do_lead_catch_up"
+    },
+    {
+      "path": "Home → card → Apply the AI teammate lesson",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "do_teammate_lesson_apply"
+    },
+    {
+      "path": "Home → card → Mark done / Didn’t happen (job)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "update_appointment outcome; update_job_status"
+    },
+    {
+      "path": "Home → card → Add an address",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "yes",
+      "by": "update_customer"
+    },
+    {
+      "path": "Home → card → kinds that open a page (stage mismatch, wallet, add-on)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:364",
+      "covered": "partly",
+      "by": "no link; that page’s own tools"
+    },
+    {
+      "path": "Home → card → Acknowledge / Got it (add-on alert)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:598",
+      "covered": "yes",
+      "by": "do_addon_alert_acknowledge"
+    },
+    {
+      "path": "Home → card → Let HandsFreeOS handle",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:623",
+      "covered": "yes",
+      "by": "handle_attention_item"
+    },
+    {
+      "path": "Home → ⋯ menu → Snooze: later today, tomorrow, next week",
+      "kind": "do",
+      "file": "apps/web/src/components/home/snooze-menu.tsx:31",
+      "covered": "yes",
+      "by": "update_attention_item snooze until"
+    },
+    {
+      "path": "Home → ⋯ → Snooze → Pick a time → day",
+      "kind": "do",
+      "file": "apps/web/src/components/home/snooze-menu.tsx:95",
+      "covered": "yes",
+      "by": "update_attention_item until"
+    },
+    {
+      "path": "Home → ⋯ → Snooze → Pick a time → time",
+      "kind": "do",
+      "file": "apps/web/src/components/home/snooze-menu.tsx:95",
+      "covered": "yes",
+      "by": "update_attention_item until"
+    },
+    {
+      "path": "Home → ⋯ → Snooze → Pick a time → time zone note",
+      "kind": "see",
+      "file": "apps/web/src/components/home/snooze-menu.tsx:95",
+      "covered": "yes",
+      "by": "context timezone"
+    },
+    {
+      "path": "Home → ⋯ → Snooze → Pick a time → Snooze",
+      "kind": "do",
+      "file": "apps/web/src/components/home/snooze-menu.tsx:95",
+      "covered": "yes",
+      "by": "update_attention_item snooze (30 days at most)"
+    },
+    {
+      "path": "Home → ⋯ → Assign → a teammate or Me",
+      "kind": "do",
+      "file": "apps/web/src/components/home/assign-menu.tsx:18",
+      "covered": "yes",
+      "by": "update_attention_item assign assigneeUserId"
+    },
+    {
+      "path": "Home → ⋯ → Assign → Unassigned",
+      "kind": "do",
+      "file": "apps/web/src/components/home/assign-menu.tsx:68",
+      "covered": "yes",
+      "by": "update_attention_item assigneeUserId null"
+    },
+    {
+      "path": "Home → ⋯ → Dismiss → reason choices",
+      "kind": "do",
+      "file": "apps/web/src/components/home/dismiss-dialog.tsx:24",
+      "covered": "yes",
+      "by": "update_attention_item dismiss reason"
+    },
+    {
+      "path": "Home → ⋯ → Dismiss → note",
+      "kind": "do",
+      "file": "apps/web/src/components/home/dismiss-dialog.tsx:24",
+      "covered": "yes",
+      "by": "reason text, 500 at most"
+    },
+    {
+      "path": "Home → ⋯ → Dismiss → comes back if something changes",
+      "kind": "see",
+      "file": "apps/web/src/components/home/dismiss-dialog.tsx:24",
+      "covered": "yes",
+      "by": "update_attention_item description says so"
+    },
+    {
+      "path": "Home → ⋯ → Dismiss → Keep it / Dismiss",
+      "kind": "do",
+      "file": "apps/web/src/components/home/dismiss-dialog.tsx:24",
+      "covered": "yes",
+      "by": "update_attention_item dismiss"
+    },
+    {
+      "path": "Home → ⋯ → open the record or conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:664",
+      "covered": "partly",
+      "by": "the way there in words, no link"
+    },
+    {
+      "path": "Home → ⋯ sheet (narrow, phone) → item summary at the top",
+      "kind": "see",
+      "file": "apps/web/src/components/home/attention-actions.tsx:715",
+      "covered": "yes",
+      "by": "what_needs_attention item"
+    },
+    {
+      "path": "Home → toast → Undo snooze, dismiss or assign",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:450",
+      "covered": "yes",
+      "by": "do_attention_restore"
+    },
+    {
+      "path": "Home → toast → Undo a send in its 60 minutes",
+      "kind": "do",
+      "file": "apps/web/src/components/home/attention-actions.tsx:450",
+      "covered": "yes",
+      "by": "do_attention_cancel_auto"
+    },
+    {
+      "path": "Let HandsFreeOS handle → header: kind, title, what it will do",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:534",
+      "covered": "yes",
+      "by": "handle_attention_item preview"
+    },
+    {
+      "path": "Let HandsFreeOS handle → working it out",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:290",
+      "covered": "yes",
+      "by": "handle_attention_item waits on attention.preview_handle"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → What it sends: To",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:99",
+      "covered": "yes",
+      "by": "confirm card To"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → By (text or email)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:301",
+      "covered": "yes",
+      "by": "confirm card By"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → Subject",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:103",
+      "covered": "yes",
+      "by": "confirm card Subject"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → when it goes",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:301",
+      "covered": "yes",
+      "by": "confirm card Goes"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → the message",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:301",
+      "covered": "yes",
+      "by": "confirm card body"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → notes (warnings)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:295",
+      "covered": "yes",
+      "by": "confirm card warnings, 3 at most"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → footnote (stops if they reply)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:318",
+      "covered": "partly",
+      "by": "not on the confirm card"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → Checked just now (checks)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:321",
+      "covered": "no",
+      "by": "preview checks not passed to the card"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → Send it",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:355",
+      "covered": "yes",
+      "by": "handle_attention_item, person confirms"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → Call instead",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:349",
+      "covered": "person",
+      "by": "call.start NEVER; call_customer offers a button"
+    },
+    {
+      "path": "Let HandsFreeOS handle → auto → Do it myself",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:361",
+      "covered": "yes",
+      "by": "the kind’s own tool (send_text, update_lead…)"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Reply / Set next action / Hand to AI",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:375",
+      "covered": "yes",
+      "by": "handle_attention_item mode"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → why a choice is off",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:481",
+      "covered": "partly",
+      "by": "refused with the reason only when picked"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Hand to AI → what the teammate will do",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:393",
+      "covered": "partly",
+      "by": "card shows the mode, not the bullets"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Reply → Subject",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:429",
+      "covered": "yes",
+      "by": "handle_attention_item subject"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Reply → Message",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:437",
+      "covered": "yes",
+      "by": "handle_attention_item body"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Next action",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:451",
+      "covered": "yes",
+      "by": "handle_attention_item nextAction"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → When (optional)",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:459",
+      "covered": "yes",
+      "by": "handle_attention_item dueAt"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → the option’s note",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:480",
+      "covered": "no",
+      "by": "option note not passed to the card"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Send / Set it / Hand it over",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:503",
+      "covered": "yes",
+      "by": "handle_attention_item, person confirms"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Call myself",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:514",
+      "covered": "person",
+      "by": "call.start NEVER"
+    },
+    {
+      "path": "Let HandsFreeOS handle → ask → Reply myself",
+      "kind": "do",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:514",
+      "covered": "yes",
+      "by": "send_text, send_email"
+    },
+    {
+      "path": "Let HandsFreeOS handle → none → why it can’t",
+      "kind": "see",
+      "file": "apps/web/src/components/home/let-handle-sheet.tsx:523",
+      "covered": "yes",
+      "by": "handle_attention_item blocked with why"
+    },
+    {
+      "path": "Home → Handled by HandsFreeOS → rows: what it did, when",
+      "kind": "see",
+      "file": "apps/web/src/components/home/handled-today.tsx:78",
+      "covered": "partly",
+      "by": "handledToday count; read_audit_list action attention (owners)"
+    },
+    {
+      "path": "Home → Handled by HandsFreeOS → Open",
+      "kind": "do",
+      "file": "apps/web/src/components/home/handled-today.tsx:78",
+      "covered": "partly",
+      "by": "the way there in words, no link"
+    },
+    {
+      "path": "Home → caught up → all caught up, done today count",
+      "kind": "see",
+      "file": "apps/web/src/components/home/handled-today.tsx:158",
+      "covered": "yes",
+      "by": "what_needs_attention counts, handledToday"
+    },
+    {
+      "path": "Home → caught up → list of what was done today",
+      "kind": "see",
+      "file": "apps/web/src/components/home/handled-today.tsx:158",
+      "covered": "partly",
+      "by": "count only; handled list not returned"
+    },
+    {
+      "path": "Home → caught up → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/home/handled-today.tsx:180",
+      "covered": "partly",
+      "by": "count only"
+    },
+    {
+      "path": "Home → Coming up from HandsFreeOS → rows: what, to whom, when",
+      "kind": "see",
+      "file": "apps/web/src/components/home/coming-up.tsx:19",
+      "covered": "partly",
+      "by": "handsFreeOsSendsAt on the top 8; scheduled list not returned"
+    },
+    {
+      "path": "Home → Coming up → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/home/coming-up.tsx:19",
+      "covered": "yes",
+      "by": "do_attention_cancel_auto"
+    },
+    {
+      "path": "Home → Coming up → Nothing planned right now",
+      "kind": "see",
+      "file": "apps/web/src/components/home/coming-up.tsx:73",
+      "covered": "partly",
+      "by": "only from the top 8"
+    },
+    {
+      "path": "Home → Coming up → each one waits 60 minutes so you can cancel",
+      "kind": "see",
+      "file": "apps/web/src/components/home/coming-up.tsx:14",
+      "covered": "partly",
+      "by": "sends-at time given; the wait not explained"
+    },
+    {
+      "path": "Home → Today → visits still to come: time, who, service",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "todays_schedule"
+    },
+    {
+      "path": "Home → Today → status: Now, Not confirmed, Confirmed",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:72",
+      "covered": "yes",
+      "by": "todays_schedule happeningNow, confirmed"
+    },
+    {
+      "path": "Home → Today → done earlier today",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "todays_schedule doneEarlierToday"
+    },
+    {
+      "path": "Home → Today → open a visit",
+      "kind": "do",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "partly",
+      "by": "appointment tools; no link"
+    },
+    {
+      "path": "Home → Today → New appointment",
+      "kind": "do",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Home → Today → time zone chip",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "context timezone"
+    },
+    {
+      "path": "Home → Today → nothing booked today",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "todays_schedule"
+    },
+    {
+      "path": "Home → Today → tasks due today",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "todays_schedule; list_tasks due"
+    },
+    {
+      "path": "Home → Today → tick a task done",
+      "kind": "do",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "yes",
+      "by": "complete_task"
+    },
+    {
+      "path": "Home → Today → Undo the tick",
+      "kind": "do",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "partly",
+      "by": "reopens only a task it completed itself"
+    },
+    {
+      "path": "Home → Today → footer: tomorrow N, N confirmed",
+      "kind": "see",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "partly",
+      "by": "list_appointments; no ready count"
+    },
+    {
+      "path": "Home → Today → Open calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/home/today-card.tsx:89",
+      "covered": "partly",
+      "by": "the way there in words"
+    },
+    {
+      "path": "Home → Getting started → title and N of M done",
+      "kind": "see",
+      "file": "apps/web/src/components/home/getting-started.tsx:167",
+      "covered": "yes",
+      "by": "read_onboarding_status"
+    },
+    {
+      "path": "Home → Getting started → Hide",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:198",
+      "covered": "yes",
+      "by": "do_onboarding_set_view hidden"
+    },
+    {
+      "path": "Home → Getting started → teammate’s intro",
+      "kind": "see",
+      "file": "apps/web/src/components/home/getting-started.tsx:208",
+      "covered": "yes",
+      "by": "read_onboarding_status"
+    },
+    {
+      "path": "Home → Getting started → guided setup: title, detail",
+      "kind": "see",
+      "file": "apps/web/src/components/home/getting-started.tsx:211",
+      "covered": "yes",
+      "by": "read_onboarding_setup_get"
+    },
+    {
+      "path": "Home → Getting started → guided setup button",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:220",
+      "covered": "partly",
+      "by": "setup pages are their own area"
+    },
+    {
+      "path": "Home → Getting started → Basics and Later groups",
+      "kind": "see",
+      "file": "apps/web/src/components/home/getting-started.tsx:167",
+      "covered": "yes",
+      "by": "read_onboarding_status"
+    },
+    {
+      "path": "Home → Getting started → step: state, title, badge",
+      "kind": "see",
+      "file": "apps/web/src/components/home/getting-started.tsx:335",
+      "covered": "yes",
+      "by": "read_onboarding_status"
+    },
+    {
+      "path": "Home → Getting started → step → its action",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:360",
+      "covered": "partly",
+      "by": "that step’s own tools; no link"
+    },
+    {
+      "path": "Home → Getting started → step → Skip",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:426",
+      "covered": "yes",
+      "by": "do_onboarding_skip skipped true"
+    },
+    {
+      "path": "Home → Getting started → step → Undo skip",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:415",
+      "covered": "yes",
+      "by": "do_onboarding_skip skipped false"
+    },
+    {
+      "path": "Home → Getting started → Take the tour",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:255",
+      "covered": "no",
+      "by": "no tool starts the tour"
+    },
+    {
+      "path": "Home → Getting started → Show all N / Show fewer",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:273",
+      "covered": "yes",
+      "by": "read_onboarding_status gives every step"
+    },
+    {
+      "path": "Home → Getting started → phone app dialog: QR codes, store links",
+      "kind": "see",
+      "file": "apps/web/src/components/home/phone-app-dialog.tsx:42",
+      "covered": "no",
+      "by": "store links not known to the Assistant"
+    },
+    {
+      "path": "Home → Getting started → phone app dialog → alerts note",
+      "kind": "see",
+      "file": "apps/web/src/components/home/phone-app-dialog.tsx:43",
+      "covered": "partly",
+      "by": "get_settings my_account lists phones for alerts"
+    },
+    {
+      "path": "Home → Getting started → finished: title, N skipped",
+      "kind": "see",
+      "file": "apps/web/src/components/home/getting-started.tsx:443",
+      "covered": "yes",
+      "by": "read_onboarding_status"
+    },
+    {
+      "path": "Home → Getting started → finished → Done",
+      "kind": "do",
+      "file": "apps/web/src/components/home/getting-started.tsx:475",
+      "covered": "yes",
+      "by": "do_onboarding_finish"
+    },
+    {
+      "path": "Home → add-on news: name, shipped or picked, detail",
+      "kind": "see",
+      "file": "apps/web/src/components/home/addon-news.tsx:58",
+      "covered": "yes",
+      "by": "read_addon_news"
+    },
+    {
+      "path": "Home → add-on news → See it",
+      "kind": "do",
+      "file": "apps/web/src/components/home/addon-news.tsx:67",
+      "covered": "partly",
+      "by": "Add-ons page in words; no link"
+    },
+    {
+      "path": "Home → add-on news → Got it",
+      "kind": "do",
+      "file": "apps/web/src/components/home/addon-news.tsx:79",
+      "covered": "yes",
+      "by": "do_addon_mark_news_seen"
+    },
+    {
+      "path": "Home → add-on suggestion: Suggested, name, summary, what it does",
+      "kind": "see",
+      "file": "apps/web/src/components/home/addon-suggestion.tsx:66",
+      "covered": "yes",
+      "by": "read_addon_suggestion"
+    },
+    {
+      "path": "Home → add-on suggestion → See it",
+      "kind": "do",
+      "file": "apps/web/src/components/home/addon-suggestion.tsx:83",
+      "covered": "partly",
+      "by": "Add-ons page in words; no link"
+    },
+    {
+      "path": "Home → add-on suggestion → Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/home/addon-suggestion.tsx:95",
+      "covered": "yes",
+      "by": "do_addon_dismiss_suggestion not_now"
+    },
+    {
+      "path": "Home → add-on suggestion → Not interested",
+      "kind": "do",
+      "file": "apps/web/src/components/home/addon-suggestion.tsx:105",
+      "covered": "yes",
+      "by": "do_addon_dismiss_suggestion not_interested"
+    },
+    {
+      "path": "Record pages → Waiting on you chip (kind)",
+      "kind": "see",
+      "file": "apps/web/src/components/attention/bits.tsx:243",
+      "covered": "partly",
+      "by": "what_needs_attention lists it; no per-record read"
+    },
+    {
+      "path": "Bell → unread count",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:57",
+      "covered": "yes",
+      "by": "read_notification_list"
+    },
+    {
+      "path": "Bell → opening it marks them seen",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:57",
+      "covered": "never",
+      "by": "notification.seen NEVER"
+    },
+    {
+      "path": "Bell → Needs you: add-on alerts",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:94",
+      "covered": "yes",
+      "by": "what_needs_attention kind addon_alert"
+    },
+    {
+      "path": "Bell → Needs you → press an alert",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:142",
+      "covered": "partly",
+      "by": "item given; its page is a path"
+    },
+    {
+      "path": "Bell → rows: title, body, time, unread dot",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:163",
+      "covered": "yes",
+      "by": "read_notification_list"
+    },
+    {
+      "path": "Bell → press a notification: read and open",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:163",
+      "covered": "partly",
+      "by": "do_notification_read; page is a path"
+    },
+    {
+      "path": "Bell → Older",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:124",
+      "covered": "yes",
+      "by": "read_notification_list"
+    },
+    {
+      "path": "Bell → nothing yet",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:94",
+      "covered": "yes",
+      "by": "read_notification_list"
+    },
+    {
+      "path": "Bell → couldn’t load",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:94",
+      "covered": "partly",
+      "by": "a failed read comes back as a refusal"
+    },
+    {
+      "path": "Side menu → places in the person’s order",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:777",
+      "covered": "yes",
+      "by": "get_settings my_account (menu); places map"
+    },
+    {
+      "path": "Side menu → open a place",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:406",
+      "covered": "partly",
+      "by": "the way there in words, no link"
+    },
+    {
+      "path": "Side menu → Home urgent count",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:302",
+      "covered": "yes",
+      "by": "what_needs_attention counts"
+    },
+    {
+      "path": "Side menu → Inbox unread count",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:260",
+      "covered": "yes",
+      "by": "read_inbox_summary"
+    },
+    {
+      "path": "Side menu → press unread count: unread only",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:260",
+      "covered": "partly",
+      "by": "read_inbox_summary counts; no unread filter link"
+    },
+    {
+      "path": "Side menu → add-on pages and their counts",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:346",
+      "covered": "partly",
+      "by": "add-on directory in context; counts not read"
+    },
+    {
+      "path": "Side menu → locked rows (needs a permission or plan)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:375",
+      "covered": "partly",
+      "by": "role in context; lock reason not given"
+    },
+    {
+      "path": "Side menu → Settings",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:873",
+      "covered": "partly",
+      "by": "get_settings, settings_help; no link"
+    },
+    {
+      "path": "Side menu → Ideas with its new dot",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:873",
+      "covered": "yes",
+      "by": "read_whats_new_unseen"
+    },
+    {
+      "path": "Side menu → opening What’s new marks it seen",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:873",
+      "covered": "never",
+      "by": "whats_new.mark_seen NEVER"
+    },
+    {
+      "path": "Edit menu → open the editor",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:148",
+      "covered": "yes",
+      "by": "arrange_my_menu"
+    },
+    {
+      "path": "Edit menu → hide a place",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:34",
+      "covered": "yes",
+      "by": "arrange_my_menu hide"
+    },
+    {
+      "path": "Edit menu → show a hidden place",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:34",
+      "covered": "yes",
+      "by": "arrange_my_menu show"
+    },
+    {
+      "path": "Edit menu → Hidden list",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:148",
+      "covered": "yes",
+      "by": "get_settings my_account"
+    },
+    {
+      "path": "Edit menu → Use suggested",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:148",
+      "covered": "yes",
+      "by": "arrange_my_menu use_suggested"
+    },
+    {
+      "path": "Edit menu → Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:148",
+      "covered": "yes",
+      "by": "arrange_my_menu start_over"
+    },
+    {
+      "path": "Edit menu → Add group",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:148",
+      "covered": "no",
+      "by": "arrange_my_menu has no add group"
+    },
+    {
+      "path": "Edit menu → group name",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:73",
+      "covered": "no",
+      "by": "no rename"
+    },
+    {
+      "path": "Edit menu → Ungroup",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:73",
+      "covered": "no",
+      "by": "no ungroup"
+    },
+    {
+      "path": "Edit menu → Move up / down",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:34",
+      "covered": "no",
+      "by": "no reorder"
+    },
+    {
+      "path": "Edit menu → Move to a group",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:73",
+      "covered": "no",
+      "by": "no move into a group"
+    },
+    {
+      "path": "Edit menu → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:148",
+      "covered": "yes",
+      "by": "arrange_my_menu applies at once"
+    },
+    {
+      "path": "Account menu → name and email",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/user-menu.tsx:23",
+      "covered": "yes",
+      "by": "context name; get_settings my_account"
+    },
+    {
+      "path": "Account menu → affiliate item",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/user-menu.tsx:23",
+      "covered": "partly",
+      "by": "read_affiliate_mine; affiliate pages in words"
+    },
+    {
+      "path": "Account menu → Sign out",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/user-menu.tsx:23",
+      "covered": "person",
+      "by": "sign-in stays with the person"
+    },
+    {
+      "path": "Business switcher → businesses by organization, with role",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "covered": "yes",
+      "by": "get_settings my_account (account.me)"
+    },
+    {
+      "path": "Business switcher → find a business",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "covered": "partly",
+      "by": "it reads the list; no search"
+    },
+    {
+      "path": "Business switcher → switch to another business",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "covered": "no",
+      "by": "it works inside this business only"
+    },
+    {
+      "path": "Business switcher → Agency area",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "covered": "partly",
+      "by": "the way there in words"
+    },
+    {
+      "path": "Business switcher → Admin area (staff)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:22",
+      "covered": "never",
+      "by": "staff tools are only for staff"
+    },
+    {
+      "path": "Business switcher → Create workspace → Organization",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "covered": "partly",
+      "by": "add_business uses this one’s organization"
+    },
+    {
+      "path": "Business switcher → Create workspace → Business name",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "covered": "yes",
+      "by": "add_business name"
+    },
+    {
+      "path": "Business switcher → Create workspace → Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "covered": "yes",
+      "by": "add_business timezone"
+    },
+    {
+      "path": "Business switcher → Create workspace → Who runs this business",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "covered": "yes",
+      "by": "add_business whoRunsIt"
+    },
+    {
+      "path": "Business switcher → Create workspace → Create",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:216",
+      "covered": "yes",
+      "by": "add_business, person confirms"
+    },
+    {
+      "path": "Narrow web → header → New message",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:47",
+      "covered": "yes",
+      "by": "send_text, send_email"
+    },
+    {
+      "path": "Narrow web → Search conversations sheet",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:47",
+      "covered": "yes",
+      "by": "read_search_kind messages"
+    },
+    {
+      "path": "Narrow web → Search everything for X",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:47",
+      "covered": "yes",
+      "by": "read_search_everything"
+    },
+    {
+      "path": "Narrow web → bottom bar badges",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:47",
+      "covered": "yes",
+      "by": "what_needs_attention counts, read_inbox_summary"
+    },
+    {
+      "path": "Narrow web → menu drawer and More",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:47",
+      "covered": "partly",
+      "by": "places in words, no link"
+    },
+    {
+      "path": "Missing page → We could not find that, Go to Home",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/missing-page.tsx:1",
+      "covered": "partly",
+      "by": "the way to Home in words"
+    },
+    {
+      "path": "Get help → Getting started (show it again)",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "yes",
+      "by": "do_onboarding_set_view hidden false"
+    },
+    {
+      "path": "Get help → Take the tour",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "no",
+      "by": "no tool starts the tour"
+    },
+    {
+      "path": "Get help → Ask us → In a few words",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "yes",
+      "by": "contact_support subject"
+    },
+    {
+      "path": "Get help → Ask us → What happened?",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "yes",
+      "by": "contact_support details"
+    },
+    {
+      "path": "Get help → Ask us → hint: no passwords or card numbers",
+      "kind": "see",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "yes",
+      "by": "contact_support refuses a password, card or key"
+    },
+    {
+      "path": "Get help → Ask us → Send it",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "yes",
+      "by": "contact_support, person confirms"
+    },
+    {
+      "path": "Get help → sent: ticket number",
+      "kind": "see",
+      "file": "apps/web/src/components/support/get-help.tsx:33",
+      "covered": "yes",
+      "by": "contact_support returns the ticket number"
+    },
+    {
+      "path": "Get help (phone) → no signal refusal",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx:34",
+      "covered": "no",
+      "by": "the phone’s own signal state"
+    },
+    {
+      "path": "Search box → type to search, ⌘K",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-box.tsx:170",
+      "covered": "yes",
+      "by": "read_search_everything q"
+    },
+    {
+      "path": "Search box → kind chips with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:364",
+      "covered": "yes",
+      "by": "read_search_everything kinds"
+    },
+    {
+      "path": "Search box → Recent searches (web and phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/search/search-box.tsx:214",
+      "covered": "never",
+      "by": "search plan decision 17: kept on the device"
+    },
+    {
+      "path": "Search box → Recent → Clear",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-box.tsx:224",
+      "covered": "never",
+      "by": "search plan decision 17: kept on the device"
+    },
+    {
+      "path": "Search dropdown → Best match: title, why it matched",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:182",
+      "covered": "yes",
+      "by": "read_search_everything best hit, why"
+    },
+    {
+      "path": "Search dropdown → Best match → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:204",
+      "covered": "person",
+      "by": "call.start NEVER; phone uses own cell"
+    },
+    {
+      "path": "Search dropdown → Best match → Text",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:232",
+      "covered": "yes",
+      "by": "send_text"
+    },
+    {
+      "path": "Search dropdown → Exact matches",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:419",
+      "covered": "yes",
+      "by": "hit exact"
+    },
+    {
+      "path": "Search dropdown → Also has groups",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:421",
+      "covered": "yes",
+      "by": "groups"
+    },
+    {
+      "path": "Search dropdown → Also found in",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:459",
+      "covered": "yes",
+      "by": "groups"
+    },
+    {
+      "path": "Search dropdown → Archived and the Deleted bin",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:47",
+      "covered": "yes",
+      "by": "read_search_everything includeArchived, bin group"
+    },
+    {
+      "path": "Search dropdown → open a result",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:47",
+      "covered": "partly",
+      "by": "hit href is a web path"
+    },
+    {
+      "path": "Search dropdown → See all results (N)",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:498",
+      "covered": "yes",
+      "by": "read_search_everything total, perKind"
+    },
+    {
+      "path": "Search dropdown → close matches / none active line",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:84",
+      "covered": "yes",
+      "by": "read_search_everything output"
+    },
+    {
+      "path": "Search dropdown → group that didn’t answer, Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:89",
+      "covered": "partly",
+      "by": "output says which; it asks again"
+    },
+    {
+      "path": "Search dropdown → Nothing found: what to try",
+      "kind": "see",
+      "file": "apps/web/src/components/search/panel.tsx:132",
+      "covered": "yes",
+      "by": "read_search_everything empty"
+    },
+    {
+      "path": "Search dropdown → Nothing found → Ask HandsFreeOS",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:132",
+      "covered": "person",
+      "by": "writes the person’s own question into the panel"
+    },
+    {
+      "path": "Search dropdown → Nothing found → Add a contact",
+      "kind": "do",
+      "file": "apps/web/src/components/search/panel.tsx:174",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Search dropdown → Settings group (found on the device)",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/setting.tsx:1",
+      "covered": "partly",
+      "by": "settings_help, get_settings by area; no row search"
+    },
+    {
+      "path": "Search page → title, everything in X",
+      "kind": "see",
+      "file": "apps/web/src/components/search/search-page.tsx:269",
+      "covered": "yes",
+      "by": "context business name"
+    },
+    {
+      "path": "Search page → box",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:290",
+      "covered": "yes",
+      "by": "read_search_everything q"
+    },
+    {
+      "path": "Search page → Results for N",
+      "kind": "see",
+      "file": "apps/web/src/components/search/search-page.tsx:331",
+      "covered": "yes",
+      "by": "total, capped"
+    },
+    {
+      "path": "Search page → Include archived",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:335",
+      "covered": "yes",
+      "by": "includeArchived"
+    },
+    {
+      "path": "Search page → Only mine",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:342",
+      "covered": "yes",
+      "by": "onlyMine"
+    },
+    {
+      "path": "Search page → kinds list with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:230",
+      "covered": "yes",
+      "by": "kinds"
+    },
+    {
+      "path": "Search page → Nothing in …",
+      "kind": "see",
+      "file": "apps/web/src/components/search/search-page.tsx:257",
+      "covered": "yes",
+      "by": "groups with none"
+    },
+    {
+      "path": "Search page → kind cards: heading, count, rows",
+      "kind": "see",
+      "file": "apps/web/src/components/search/search-page.tsx:461",
+      "covered": "yes",
+      "by": "groups"
+    },
+    {
+      "path": "Search page → Only contacts (one kind)",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:588",
+      "covered": "yes",
+      "by": "read_search_kind"
+    },
+    {
+      "path": "Search page → Show N more",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:604",
+      "covered": "yes",
+      "by": "read_search_kind cursor"
+    },
+    {
+      "path": "Search page → kinds that didn’t answer, Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/search/search-page.tsx:149",
+      "covered": "partly",
+      "by": "output says which; it asks again"
+    },
+    {
+      "path": "One kind → title: N contacts named q",
+      "kind": "see",
+      "file": "apps/web/src/components/search/kind-page.tsx:242",
+      "covered": "yes",
+      "by": "read_search_kind group"
+    },
+    {
+      "path": "One kind → type more to narrow",
+      "kind": "see",
+      "file": "apps/web/src/components/search/kind-page.tsx:247",
+      "covered": "yes",
+      "by": "read_search_kind"
+    },
+    {
+      "path": "One kind → Include archived / Only mine",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:250",
+      "covered": "yes",
+      "by": "includeArchived, onlyMine"
+    },
+    {
+      "path": "One kind → All / Leads / Clients with counts (web and phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:272",
+      "covered": "yes",
+      "by": "standing, standingCounts"
+    },
+    {
+      "path": "One kind → Sort: best, recent, name",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:302",
+      "covered": "yes",
+      "by": "sort"
+    },
+    {
+      "path": "One kind → two share a phone or email banner",
+      "kind": "see",
+      "file": "apps/web/src/components/search/kind-page.tsx:332",
+      "covered": "yes",
+      "by": "duplicates"
+    },
+    {
+      "path": "One kind → Compare and merge",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:345",
+      "covered": "yes",
+      "by": "merge_customers"
+    },
+    {
+      "path": "One kind → table: Name, Phone, Email, Where, Last contact",
+      "kind": "see",
+      "file": "apps/web/src/components/search/kind-page.tsx:467",
+      "covered": "yes",
+      "by": "hit facts"
+    },
+    {
+      "path": "One kind → showing x of y",
+      "kind": "see",
+      "file": "apps/web/src/components/search/kind-page.tsx:394",
+      "covered": "yes",
+      "by": "nextCursor, total"
+    },
+    {
+      "path": "One kind → Show 50 more",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:404",
+      "covered": "yes",
+      "by": "cursor"
+    },
+    {
+      "path": "One kind → Searched back to a date",
+      "kind": "see",
+      "file": "apps/web/src/components/search/kind-page.tsx:415",
+      "covered": "yes",
+      "by": "group searchedBack"
+    },
+    {
+      "path": "One kind → Look further back",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:426",
+      "covered": "yes",
+      "by": "before"
+    },
+    {
+      "path": "One kind → Look in Spam",
+      "kind": "do",
+      "file": "apps/web/src/components/search/kind-page.tsx:437",
+      "covered": "yes",
+      "by": "read_search_kind kind spam"
+    },
+    {
+      "path": "Result rows → contacts and companies: name, phone, email, where",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/contact.tsx:1",
+      "covered": "yes",
+      "by": "facts phone, email, where"
+    },
+    {
+      "path": "Result rows → leads: stage, value, open lead",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/lead.tsx:1",
+      "covered": "yes",
+      "by": "facts stage, openLead, amount"
+    },
+    {
+      "path": "Result rows → messages: who, snippet, when",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/message.tsx:1",
+      "covered": "yes",
+      "by": "why snippet, at"
+    },
+    {
+      "path": "Result rows → money: number, amount, status, due or paid",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/money.tsx:1",
+      "covered": "yes",
+      "by": "facts number, status, dueOn, paidAt"
+    },
+    {
+      "path": "Result rows → calendar: when, who",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/calendar.tsx:1",
+      "covered": "yes",
+      "by": "facts startsAt"
+    },
+    {
+      "path": "Result rows → tasks: due, done",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/task.tsx:1",
+      "covered": "yes",
+      "by": "facts dueOn, status"
+    },
+    {
+      "path": "Result rows → notes, files, forms, knowledge: snippet",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/note.tsx:1",
+      "covered": "yes",
+      "by": "why snippet"
+    },
+    {
+      "path": "Result rows → own kinds of records and add-on rows",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/record.tsx:1",
+      "covered": "yes",
+      "by": "hit title, subtitle, badges"
+    },
+    {
+      "path": "Result rows → archived and Deleted bin rows",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/bin.tsx:1",
+      "covered": "yes",
+      "by": "Archived and bin groups"
+    },
+    {
+      "path": "Result rows → badges and why matched (field, label)",
+      "kind": "see",
+      "file": "apps/web/src/components/search/rows/parts.tsx:1",
+      "covered": "yes",
+      "by": "badges, why"
+    },
+    {
+      "path": "Audit log → who sees it: owners",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx:26",
+      "covered": "yes",
+      "by": "read_audit_list needs audit.read"
+    },
+    {
+      "path": "Audit log → Today / 7 days / 30 days",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:191",
+      "covered": "yes",
+      "by": "read_audit_list since"
+    },
+    {
+      "path": "Audit log → person: Everyone or one person",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:200",
+      "covered": "yes",
+      "by": "read_audit_list actorId"
+    },
+    {
+      "path": "Audit log → person: All workflows",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:200",
+      "covered": "yes",
+      "by": "read_audit_list channel"
+    },
+    {
+      "path": "Audit log → person: AI teammate",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:200",
+      "covered": "partly",
+      "by": "filtered on the web; tool reads actor and picks"
+    },
+    {
+      "path": "Audit log → person: HandsFreeOS (system)",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:200",
+      "covered": "partly",
+      "by": "filtered on the web; actor type in output"
+    },
+    {
+      "path": "Audit log → activity: Members, Invitations, Files, Action Center",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:219",
+      "covered": "yes",
+      "by": "read_audit_list action prefix"
+    },
+    {
+      "path": "Audit log → activity: the other categories",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:219",
+      "covered": "partly",
+      "by": "several prefixes, filtered on the web"
+    },
+    {
+      "path": "Audit log → Show what HandsFreeOS noticed",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:241",
+      "covered": "partly",
+      "by": "filtered on the web"
+    },
+    {
+      "path": "Audit log → search box",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:250",
+      "covered": "partly",
+      "by": "no text filter; reads and looks"
+    },
+    {
+      "path": "Audit log → entry count",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:264",
+      "covered": "yes",
+      "by": "read_audit_list entries"
+    },
+    {
+      "path": "Audit log → Nothing matches these filters",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:269",
+      "covered": "yes",
+      "by": "read_audit_list empty"
+    },
+    {
+      "path": "Audit log → day groups",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:274",
+      "covered": "yes",
+      "by": "createdAt"
+    },
+    {
+      "path": "Audit log → row: time and who",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:274",
+      "covered": "yes",
+      "by": "createdAt, actor"
+    },
+    {
+      "path": "Audit log → row: plain sentence of what happened",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:274",
+      "covered": "partly",
+      "by": "raw action, entityName, before and after"
+    },
+    {
+      "path": "Audit log → row: category badge",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:274",
+      "covered": "partly",
+      "by": "worked out on the web from action"
+    },
+    {
+      "path": "Audit log → row: channel badge",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:274",
+      "covered": "yes",
+      "by": "channel"
+    },
+    {
+      "path": "Audit log → expanded: Action, Entity, Channel",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:329",
+      "covered": "yes",
+      "by": "action, entityType, entityName, channel"
+    },
+    {
+      "path": "Audit log → expanded: Workflow link, See the run",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:354",
+      "covered": "partly",
+      "by": "workflow and correlation ids; no link"
+    },
+    {
+      "path": "Audit log → expanded: Correlation id",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:365",
+      "covered": "yes",
+      "by": "correlationId"
+    },
+    {
+      "path": "Audit log → expanded: Correlation → Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:370",
+      "covered": "no",
+      "by": "the clipboard; it can quote the id"
+    },
+    {
+      "path": "Audit log → expanded: Caused by",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:329",
+      "covered": "yes",
+      "by": "causationId"
+    },
+    {
+      "path": "Audit log → expanded: Reason",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:329",
+      "covered": "yes",
+      "by": "reason"
+    },
+    {
+      "path": "Audit log → expanded: Before / After",
+      "kind": "see",
+      "file": "apps/web/src/components/audit/audit-log.tsx:329",
+      "covered": "yes",
+      "by": "before, after (answer cut at 16k)"
+    },
+    {
+      "path": "Audit log → Load older entries",
+      "kind": "do",
+      "file": "apps/web/src/components/audit/audit-log.tsx:414",
+      "covered": "yes",
+      "by": "read_audit_list cursor, before"
+    },
+    {
+      "path": "Ask HandsFreeOS button, ⌘J (web), mark (phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/ask-button.tsx:7",
+      "covered": "person",
+      "by": "opens the panel itself"
+    },
+    {
+      "path": "Assistant panel → consent: title, what it does, points",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/consent-step.tsx:23",
+      "covered": "person",
+      "by": "the person’s own OK to use it"
+    },
+    {
+      "path": "Assistant panel → consent → OK",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/consent-step.tsx:23",
+      "covered": "person",
+      "by": "the person’s own OK"
+    },
+    {
+      "path": "Assistant panel → consent → Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/consent-step.tsx:23",
+      "covered": "person",
+      "by": "the person’s own choice"
+    },
+    {
+      "path": "Assistant panel → Your chats (phone: history)",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/thread-list.tsx:82",
+      "covered": "never",
+      "by": "assistant_thread.list not for the Assistant"
+    },
+    {
+      "path": "Assistant panel → Your chats → open a chat",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/thread-list.tsx:82",
+      "covered": "never",
+      "by": "assistant_thread.get not for the Assistant"
+    },
+    {
+      "path": "Assistant panel → Your chats → Rename: Name, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/thread-list.tsx:22",
+      "covered": "never",
+      "by": "assistant_thread.rename NEVER"
+    },
+    {
+      "path": "Assistant panel → Your chats → Archive",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/thread-list.tsx:82",
+      "covered": "never",
+      "by": "assistant_thread.archive NEVER"
+    },
+    {
+      "path": "Assistant panel → Your chats → who can see them note",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/thread-list.tsx:82",
+      "covered": "never",
+      "by": "the panel’s own list of chats"
+    },
+    {
+      "path": "Assistant panel → New chat",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/assistant-panel.tsx:38",
+      "covered": "person",
+      "by": "the person starts a chat"
+    },
+    {
+      "path": "Assistant panel → On this page: X",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/message-list.tsx:101",
+      "covered": "yes",
+      "by": "context: the record on the page"
+    },
+    {
+      "path": "Assistant panel → welcome suggestions",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/message-list.tsx:153",
+      "covered": "person",
+      "by": "the person’s own question"
+    },
+    {
+      "path": "Assistant panel → composer: type and Send",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/composer.tsx:57",
+      "covered": "person",
+      "by": "the person’s own question"
+    },
+    {
+      "path": "Assistant panel → composer → Stop",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/composer.tsx:57",
+      "covered": "person",
+      "by": "the person stops it"
+    },
+    {
+      "path": "Assistant panel → composer → talk / stop talking",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/composer.tsx:57",
+      "covered": "person",
+      "by": "the person’s own voice"
+    },
+    {
+      "path": "Assistant panel → composer paused or not available",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/composer.tsx:13",
+      "covered": "never",
+      "by": "shown when the Assistant can’t run"
+    },
+    {
+      "path": "Assistant panel → steps it took",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/message-list.tsx:197",
+      "covered": "yes",
+      "by": "its own tool calls"
+    },
+    {
+      "path": "Assistant panel → answer text and links",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/rich-text.tsx:46",
+      "covered": "yes",
+      "by": "its own answer"
+    },
+    {
+      "path": "Assistant panel → Copy answer (phone: select text)",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/message-list.tsx:224",
+      "covered": "no",
+      "by": "the clipboard"
+    },
+    {
+      "path": "Assistant panel → Stopped. Nothing was changed.",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/message-list.tsx:300",
+      "covered": "yes",
+      "by": "its own state"
+    },
+    {
+      "path": "Assistant panel → Retry a failed answer",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/message-list.tsx:353",
+      "covered": "person",
+      "by": "the person asks again"
+    },
+    {
+      "path": "Assistant panel → Customer card",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/cards.tsx:47",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Lead card",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/cards.tsx:86",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Choices card → pick one",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/cards.tsx:112",
+      "covered": "person",
+      "by": "the person’s pick"
+    },
+    {
+      "path": "Assistant panel → Attention card: Waiting on you, Open Home",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/cards.tsx:168",
+      "covered": "yes",
+      "by": "what_needs_attention card, links to ?item="
+    },
+    {
+      "path": "Assistant panel → Numbers card",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/cards.tsx:243",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → List card",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/cards.tsx:280",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Done card → Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/cards.tsx:319",
+      "covered": "partly",
+      "by": "undo only for a task or note it added, or a task it completed"
+    },
+    {
+      "path": "Assistant panel → Call card → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/cards.tsx:377",
+      "covered": "person",
+      "by": "call.start NEVER"
+    },
+    {
+      "path": "Assistant panel → Money card",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/money-cards.tsx:24",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Slots card → tap a time",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/calendar-cards.tsx:35",
+      "covered": "person",
+      "by": "the person’s pick asks for that time"
+    },
+    {
+      "path": "Assistant panel → Appointment card",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/calendar-cards.tsx:103",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Workflow card (can’t do yet)",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/workflow-cards.tsx:27",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Knowledge card → Open Knowledge",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/workflow-cards.tsx:107",
+      "covered": "yes",
+      "by": "its own card link"
+    },
+    {
+      "path": "Assistant panel → Confirm card: Needs your OK, its fields",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/confirm-card.tsx:122",
+      "covered": "yes",
+      "by": "its own card"
+    },
+    {
+      "path": "Assistant panel → Confirm card → Why lost",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/confirm-card.tsx:122",
+      "covered": "yes",
+      "by": "move_lead lostReason"
+    },
+    {
+      "path": "Assistant panel → Confirm card → Confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/confirm-card.tsx:122",
+      "covered": "person",
+      "by": "the person’s OK"
+    },
+    {
+      "path": "Assistant panel → Confirm card → Edit (message sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/confirm-card.tsx:122",
+      "covered": "person",
+      "by": "the person edits before OK"
+    },
+    {
+      "path": "Assistant panel → Confirm card → Cancel / Keep it",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/confirm-card.tsx:122",
+      "covered": "person",
+      "by": "the person’s choice"
+    },
+    {
+      "path": "Assistant panel → Confirm card: Done, Cancelled, Failed, Expired",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/confirm-card.tsx:122",
+      "covered": "yes",
+      "by": "its own state"
+    },
+    {
+      "path": "Assistant panel → notices: limit, offline, waiting, locked, alert",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/notices.tsx:34",
+      "covered": "never",
+      "by": "shown when the Assistant can’t run"
+    },
+    {
+      "path": "Assistant panel → notices → Try again / Reload the chat",
+      "kind": "do",
+      "file": "apps/web/src/components/assistant/notices.tsx:34",
+      "covered": "person",
+      "by": "the person asks again"
+    },
+    {
+      "path": "Assistant panel → not set up",
+      "kind": "see",
+      "file": "apps/web/src/components/assistant/notices.tsx:76",
+      "covered": "never",
+      "by": "shown when the Assistant can’t run"
+    },
+    {
+      "path": "Ask (phone) → no signal card, Ask again",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx:25",
+      "covered": "never",
+      "by": "shown when the Assistant can’t be reached"
+    },
+    {
+      "path": "Phone Home → card → Approve with no signal (queued)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/attention-card.tsx:113",
+      "covered": "never",
+      "by": "the phone’s own queue (SETTINGS_NEVER phone.changes)"
+    },
+    {
+      "path": "Phone Home → card → refused change note, OK",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/attention-card.tsx:249",
+      "covered": "never",
+      "by": "the phone’s own queue (phone.changes)"
+    },
+    {
+      "path": "Phone Home → card → Calls need signal",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/attention-card.tsx:336",
+      "covered": "no",
+      "by": "the phone’s own signal state"
+    },
+    {
+      "path": "Phone Home → card → handing over, goes when online",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/attention-card.tsx:229",
+      "covered": "never",
+      "by": "the phone’s own queue (phone.changes)"
+    },
+    {
+      "path": "Phone Home → card → Call through own cell",
+      "kind": "do",
+      "file": "apps/mobile/src/home/actions.ts:98",
+      "covered": "person",
+      "by": "call from the person’s phone"
+    },
+    {
+      "path": "Phone Home → card → wallet kinds open Balance",
+      "kind": "do",
+      "file": "apps/mobile/src/home/actions.ts:98",
+      "covered": "partly",
+      "by": "that page’s own tools; no link"
+    },
+    {
+      "path": "Phone Home → Handled → Open (on the web)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/handled.tsx:49",
+      "covered": "partly",
+      "by": "the way there in words"
+    },
+    {
+      "path": "Phone Home → changes waiting: N waiting, goes when online",
+      "kind": "see",
+      "file": "apps/mobile/src/components/home/waiting-changes.tsx:17",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Phone Home → changes waiting → Undo",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/waiting-changes.tsx:65",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Phone Home → Getting started → Email me the link",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:50",
+      "covered": "yes",
+      "by": "do_onboarding_send_link"
+    },
+    {
+      "path": "Phone Home → Getting started → Turn on notifications",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:50",
+      "covered": "person",
+      "by": "the phone’s own permission"
+    },
+    {
+      "path": "Phone Home → Getting started → AI teammate quick setup",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:89",
+      "covered": "partly",
+      "by": "read_onboarding_setup_get; setup pages are their own area"
+    },
+    {
+      "path": "Phone Home → Getting started → phone tour",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding/getting-started-card.tsx:84",
+      "covered": "no",
+      "by": "no tool starts the tour"
+    },
+    {
+      "path": "Changes → head: Up to date, N waiting, no signal, can’t be reached",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:55",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → too old to send warning",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:128",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Needs you · N",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:137",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Waiting · N",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:159",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Sent just now · N",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:179",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → row: title, state, quote, why, photo progress, when made",
+      "kind": "see",
+      "file": "apps/mobile/src/components/changes/change-row.tsx:49",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → row → Try again (photo)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/change-row.tsx:49",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → row → Fix and try again",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/change-row.tsx:49",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → row → Dismiss",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/change-row.tsx:49",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → row → Decide",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/change-row.tsx:49",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Still send? → Send, Edit, Discard",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/decide-sheets.tsx:55",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Quiet hours → Send at X, Send now, Edit",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/decide-sheets.tsx:146",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Do it anyway → Add, Book or Archive anyway, Edit, Discard",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/decide-sheets.tsx:236",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → Discard → what depends on it, Discard them all, Keep it",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/decide-sheets.tsx:298",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → nothing waiting hint",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:51",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "Changes → a notification’s button that asks first",
+      "kind": "do",
+      "file": "apps/mobile/src/components/changes/ask-from-notification.tsx:20",
+      "covered": "never",
+      "by": "SETTINGS_NEVER phone.changes"
+    },
+    {
+      "path": "View as a teammate (phone) → teammates below you: name, role",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx:120",
+      "covered": "partly",
+      "by": "list_team; who’s below worked out on the phone"
+    },
+    {
+      "path": "View as a teammate → Start",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx:34",
+      "covered": "never",
+      "by": "teammate_view.start NEVER"
+    },
+    {
+      "path": "View as a teammate → stop first note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx:93",
+      "covered": "never",
+      "by": "teammate_view.end NEVER"
+    },
+    {
+      "path": "View as a teammate → nobody to look as",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx:109",
+      "covered": "partly",
+      "by": "list_team and roles"
+    },
+    {
+      "path": "View as a teammate → couldn’t load",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx:100",
+      "covered": "partly",
+      "by": "a failed read comes back as a refusal"
+    },
+    {
+      "path": "Phone search → chips greyed with no signal",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/search.tsx:195",
+      "covered": "no",
+      "by": "the phone’s own signal state"
+    },
+    {
+      "path": "Phone search → no signal: searched this phone’s copy, as of",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/search.tsx:306",
+      "covered": "no",
+      "by": "the phone’s own copy"
+    },
+    {
+      "path": "Phone search → viewing as someone with no signal",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/search.tsx:300",
+      "covered": "no",
+      "by": "the phone’s own copy"
+    },
+    {
+      "path": "Phone search → a kind that waits for signal",
+      "kind": "see",
+      "file": "apps/mobile/src/search/rows.tsx:316",
+      "covered": "no",
+      "by": "the phone’s own signal state"
+    },
+    {
+      "path": "Phone search → open a result here or on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/search/rows.tsx:81",
+      "covered": "partly",
+      "by": "hit href is a web path"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "home-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Home (Action Center): each card's main button (Create lead, Add to its instructions, Got it, Move, Mark done, Approve/Send on a teammate draft) and the record it opens",
+      "gap": "what_needs_attention's itemResult (tools-attention.ts:153-176) and the per-turn context (context.ts:161-172, prompt.ts:166-177) pass only id, kind, title, chips, value, urgent, detail, assignee, canHandle and handsFreeOsSendsAt. attention.list already returns subject {type,id}, personId, leadId, conversationId, appointmentId, addonAlert {alertId, addonName, needsAck, href} and handleLabel (schemas/attention.ts:63-94, 126), and the tools drop all of them. Home's buttons run on those ids: referralId, leadId, lessonId, appointmentId and draftId all come from item.subject.id, and the add-on alert uses addonAlert.alertId (attention-actions.tsx:252, 279, 300, 324, 350, 515). Three of these ids can be found no other way. Nothing lists referrals or teammate lessons. The bell's add-on alerts are read from attention.list too (notifications-provider.tsx:151), so do_referral_create_lead, do_teammate_lesson_apply/dismiss and do_addon_alert_acknowledge can't be used from a Home card at all. read_attention_for_record takes only lead/person/conversation/appointment/task (schemas/attention.ts:190). Three ids can be reached with a second lookup: draftId through list_teammate_drafts (core tools-content.ts:345-361), and leadId or appointmentId through search_customers, list_leads or list_appointments.",
+      "fix": "In apps/worker/src/assistant/tools-attention.ts itemResult, add subject (the {type,id} object), personId, leadId, appointmentId, conversationId, addonAlert as {alertId, addonName, severity, needsAck, href}, and button: i.handleLabel. That is the field attention.list already returns, so there's no need to call handleButtonOf. In context.ts attentionFor (and its type in prompt.ts:151-163 and attentionLines), add subject type and id so the context line reads like '(attention item id X; referral id Y)'. Finally, have the what_needs_attention description in tools.ts:119-122 say that subject.id is the referralId, lessonId, draftId, appointmentId or leadId those tools take.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "home-2",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Home: the full Needs you list, and its folded groups (\"N more like this\")",
+      "gap": "The auditor is wrong that there's no kind filter. what_needs_attention takes kind: z.enum(ATTENTION_KINDS) (tools.ts:128), and the worker passes it as kinds (tools-attention.ts:191), so 'show me the overdue invoices' works up to 8 of that kind. What's real: the output is always cut to TOP=8 plus `more: N` (tools-attention.ts:30, 193, 202), and there's no offset or limit. Past item 8, overall or within one kind, nothing can be read. Home renders every item (action-center.tsx:279-298), and attention.list is not a screen read, so no read_ tool fills the gap.",
+      "fix": "Add `offset` (int ≥0) and `limit` (1–50, default 8) to what_needs_attention's input in packages/core/src/assistant/tools.ts:123-129. In tools-attention.ts:193, slice list.items.slice(offset, offset+limit) and keep the card at 8. Return `more` as the count after offset+limit, and number `rank` from offset+1. Say in the description: 'ask for the next ones with offset'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "ctx-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Every screen other than a person, company, lead, conversation, appointment or workflow page: Home, Search, Audit log, Settings → Calendars (booking link), invoices, forms, documents and others",
+      "gap": "The ask carries only `page: AssistantPageRecord` (schemas/assistant.ts:318-339). That covers 7 types: person, company, lead, conversation, appointment, workflow and workflow_run, matched from the URL by RECORD_ROUTES/assistantPageRecord (words.ts:413-447). Web and phone both send only that (assistant-provider.tsx:624, mobile chat.ts:521). On every other screen turnText adds the fixed 'No customer, lead or appointment is on screen.' (prompt.ts:322). That includes Home, Search, Audit log, Settings → Calendars, invoices, forms and documents. The Assistant has no idea which page or setting is open. Nothing else in context.ts adds it.",
+      "fix": "Add `path: z.string().max(300).optional()` to AssistantAskInput (packages/core/src/schemas/assistant.ts:333). Send usePathname() and its search from the web panel (assistant-provider.tsx:624) and the phone (chat.ts:521, through askHref). In context.ts questionContext, match it against APP_PLACES[].path and SETTINGS_MAP[].path, and take any uuid in the path (the calendar on /settings/calendars/<id>, an invoice, a form). Put it in PromptContext as `place: {label, way, id?}`. In prompt.ts turnText, replace the fixed sentence with 'On screen now: <label> (<way>)' plus the id.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "home-3",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Home: \"Handled by HandsFreeOS\" / \"Handled today\" list (who, what, when) and \"Coming up from HandsFreeOS\" (with Cancel)",
+      "gap": "The handled list really is missing. what_needs_attention never passes includeHandled (tools-attention.ts:189-192), so attention.list's `handled` is always [] for it. Only the handledToday count reaches the model (line 200), and HandledByHandsFree's who, what and when list (handled-today.tsx:78-90) can't be read item by item. Scheduled messages are a partial gap. They are open items (view.ts:341-356), and itemResult already gives an id and handsFreeOsSendsAt for any that sits in the top 8 (tools-attention.ts:173-175), so do_attention_cancel_auto works for those. Scheduled items below the top 8 can't be seen, and the `scheduled` array that 'Coming up from HandsFreeOS' shows is dropped.",
+      "fix": "In tools-attention.ts what_needs_attention, call listFor with includeHandled: true. Add handled: list.handled.map(i => ({title: i.title, kind: KIND_WORD[i.kind], via: i.handled?.via, by: i.handled?.by?.fullName ?? 'HandsFreeOS', at: atLabel(...)})) and scheduled: list.scheduled.map(s => ({itemId: s.itemId, title: s.title, action: s.action, goesAt: atLabel(Date.parse(s.scheduledFor), tz)})). Mention both in the tool description at tools.ts:121.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "home-4",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Home: the main button on each kind of card (Top up, Move, Create lead, Mark done, Add to its instructions, Got it, Add address, Approve/Send a teammate draft)",
+      "gap": "The what_needs_attention description names only 8 of the ~35 kinds (tools.ts:121). prompt.ts:28 sends every approval to answer_workflow_approval. That tool is only for workflow approval steps (tools.ts:1419-1421), yet ai_approval items include AI teammate drafts (detectors/ai-approval.ts:2,18), which need decide_teammate_draft and Home approves them as drafts (attention-actions.tsx:347-352, 377). For kinds HandsFreeOS won't handle, handle_attention_item returns the LET_HANDLE_REFUSALS sentence (kinds.ts:663-693) or 'Open it on Home…' (tools-attention.ts:291-297, 313-316). Another tool presses that very button: do_wallet_top_up (Top up), do_lead_catch_up (Move), do_referral_create_lead (Create lead), update_appointment outcome done (Mark done), do_teammate_lesson_apply (Add to its instructions), do_addon_alert_acknowledge and update_customer (Add address). wallet_low's refusal, 'Only you can put money on your own balance', and prompt.ts:34 (topping up is listed as something only they can do, so the model calls settings_help) both contradict do_wallet_top_up, which is in SCREEN_ACTIONS (coverage.ts:161) and charges the card on file (commands/wallet.ts:260-263).",
+      "fix": "Add a kind → tool line to the Action Center paragraph in prompt.ts:28. Teammate drafts (ai_approval whose chip says it's the teammate's) go to decide_teammate_draft with the draft id, and workflow approvals to answer_workflow_approval. Then wallet_low/empty → do_wallet_top_up; pipeline_mismatch → do_lead_catch_up; referral_mentioned → do_referral_create_lead; job_unconfirmed/job_never_completed → update_appointment outcome 'done'; ai_corrections → do_teammate_lesson_apply; addon_alert → do_addon_alert_acknowledge; job_no_address → update_customer. In handlePlan's mode 'none' branch (tools-attention.ts:291-297), return {useInstead: <tool>, ids: {…from item.subject…}} rather than the refusal. Take 'topping up their balance' out of prompt.ts:34's list of steps that need the person.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "audit-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Audit log: each row's sentence (\"Ava (AI) texted Dana…\"), its category, the actor name, and the hidden \"Show what HandsFreeOS noticed\" rows",
+      "gap": "read_audit_list returns raw AuditEntry rows (schemas/audit.ts:45-76): the action code, actor.type, actor.fullName (null for the AI teammate), and before/after JSON. The screen's sentence, category label, actor name and detection flag come from describeAudit, auditCategory, AUDIT_CATEGORY_LABEL, auditActor and isAuditDetection, which live only in apps/web/src/lib/audit-describe.ts. No Assistant file uses them. The model can sometimes find the teammate's name in after.teammate and guess a category from the prefix. But system 'attention_item.*' and attention opened/reopened/resolved/became_urgent rows, which the screen hides until 'Show what HandsFreeOS noticed' is ticked, come back unmarked. The places-map Audit log entry (places-map.ts:547-560) leaves out that checkbox and the Filter by activity choices.",
+      "fix": "Move describeAudit, auditActor, auditCategory, AUDIT_CATEGORY_LABEL and isAuditDetection from apps/web/src/lib/audit-describe.ts into @hfos/core (for example packages/core/src/audit/describe.ts), and point the web import at them. In queries/audit.list, add to each AuditEntry `sentence`, `category` (the label), `actorName` (auditActor(e, teammateName).name) and `noticed` (isAuditDetection(e)). In places-map.ts:551, add 'Show what HandsFreeOS noticed (with All activity or Action Center) shows what the Action Center noticed on its own'. List Filter by activity's choices: Members, Invitations, Workspace, Contacts, Inbox & texting, Calendar, Leads, Tasks, Files, Imports, Workflows, Action Center, Assistant.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "audit-2",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Audit log filters: Who (AI teammate, HandsFreeOS) and What (Contacts, Calendar, Leads, Tasks, Workspace, Inbox & texting, Workflows)",
+      "gap": "Several of the screen's filters can already be run on the server through AuditListInput. A person is actorId, and a workflow too since actor_id is the workflow (queries/audit.list.ts:26). All workflows is channel 'workflow'. Assistant is channel 'assistant'. Members, Invitations, Files, Imports and Action Center are action prefixes, which is what the web itself sends (audit-log.tsx:28-36, 50-62). Only these run in the browser alone (audit-log.tsx:133-156): Who = AI teammate (actor.type ai_employee, or category ai_team) and Who = HandsFreeOS (actor.type system), plus What = Workspace, Contacts, Inbox & texting, Calendar, Leads, Tasks and Workflows (several prefixes each). runScreenRead also cuts the JSON at 16,000 characters (tools-screen-reads.ts:18, 44-53). AuditListOutput ends with nextCursor, so a cut answer loses the cursor and can't be paged.",
+      "fix": "Add `actorType: z.enum(['user','ai_employee','workflow','system']).optional()` and `category: z.enum(AUDIT_CATEGORIES).optional()` to AuditListInput (packages/core/src/schemas/audit.ts:30-43). Filter on them in packages/core/src/queries/audit.list.ts, using the moved auditCategory's prefixes. In tools-screen-reads.ts runScreenRead, when cutting, lift data.nextCursor (if any) into the result beside cutShort so the next page can be read.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "bell-1",
+      "severity": "medium",
+      "kind": "words",
+      "where": "The bell beside the brand at the top of the side menu (web) and in the phone's top bar: Notifications sheet with Needs you, Recent, unread marks, Show older",
+      "gap": "The bell sits at the top of the side menu and, on phone width, in the header. It opens 'Notifications' with 'Needs you' (open add-on alerts), then 'Recent', unread marks and 'Show older' (notifications-bell.tsx:23-28; core bell.ts:22-41). The phone has it in the app bar (app-bar.tsx:111). None of the Assistant's place text names it. EVERY_PAGE's top-of-menu line (places-map.ts:605) and PHONE_APP (places-map.ts:622-630) both skip it. LOOK_ALIKES' Notifications line (places-map.ts:650) points only to Settings → Account. The Assistant can read the list (read_notification_list, screen-reads.ts:62) but would send 'where are my notifications?' to the wrong screen.",
+      "fix": "In places-map.ts:605, add: 'the bell beside the business name opens Notifications: Needs you (add-ons' alerts still open) first, then Recent, what HandsFreeOS sent to your phone about this business in the last 30 days; pressing one opens it and marks it read; Show older'. Add 'the bell in the top bar' to PHONE_APP. Start the LOOK_ALIKES Notifications line with 'what you were sent is the bell at the top of the side menu;' before 'what a person is told about is Settings → Account (Notifications)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "viewas-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Members, a member's ⋯ menu: \"View as <name>\" and \"Edit my hours\"; phone More → View as a teammate",
+      "gap": "'Edit hours' is already in the Members onScreen text (settings-map.ts:441). Only one's own row says 'Edit my hours' (members-table.tsx:217), a small wording difference. What's missing: 'View as <name>' in the member's ⋯ menu (members-table.tsx:221-229; VIEW_AS_WORDS.start) and the phone's More → 'View as a teammate' (more.tsx:166-173; VIEW_AS_WORDS.pickTitle). No Assistant words mention viewing as someone. teammate_view.start/end being in NEVER (coverage.ts:406-407) is correct. The phone hides Ask HandsFreeOS and the bell while viewing (app-bar.tsx:110-111).",
+      "fix": "In settings-map.ts:441, change the Members ⋯ line to 'Edit hours (Edit my hours on your own row), View as <name> (see the app as they do; nothing can be changed meanwhile), Permissions (owners only)…'. Add 'View as a teammate (owners and admins)' to PHONE_APP's More line at places-map.ts:625, with 'Ask HandsFreeOS is hidden while you view as someone on the phone'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "phone-1",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Phone More tab: Changes on this phone, Documents, Set up your AI teammate, Run quick setup again, View as a teammate, Add-ons, and the bell",
+      "gap": "PHONE_APP's More line (places-map.ts:625) lists 'Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web'. more.tsx also shows these, depending on role: Changes on this phone (always, first), Documents, Set up your AI teammate, Run quick setup again, View as a teammate, Add-ons and add-ons' own rows (more.tsx:94-210). Nothing says what Changes on this phone holds (changes.tsx: Needs you, waiting, sent; Discard). PHONE_APP's 'Only on the web: … the AI teammate's settings' clashes with the phone's Set up your AI teammate and Run quick setup again.",
+      "fix": "In places-map.ts:625, rewrite the More line in more.tsx's order: 'More: Switch (business), any add-on's places, Changes on this phone, Contacts, Tasks, Money, Forms, Documents (who can send them), Approvals, Set up your AI teammate or Test your AI teammate and Run quick setup again (who manage it), View as a teammate (owners and admins), Settings, Add-ons (who manage them), Ideas, Get help, Open on the web'. Add a line: 'Changes on this phone: changes saved with no signal, waiting to send; ones that need you, each with Fix or Discard; and what was sent just now'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "menu-1",
+      "severity": "low",
+      "kind": "do",
+      "where": "Side menu editor (Edit menu): Move up/Move down, Move to group, Add group, rename a group, Ungroup, and hiding an add-on's row",
+      "gap": "arrange_my_menu takes only action hide | show | use_suggested | start_over over places: z.enum(MENU_KEYS) (core tools-extra.ts:420-434). The Edit menu screen also has Move up, Move down, Move to (a group), Add a group, Group name (rename) and Ungroup (MENU_WORDS, menu.ts:664-670; menu-editor.tsx), and hides add-on rows. EVERY_PAGE even tells the model 'Each person can reorder, group or hide places' (places-map.ts:609), so it describes moves it can't make. This is the person's own menu preference and safe to do. It's a real gap but small, so severity is lowered.",
+      "fix": "In packages/core/src/assistant/tools-extra.ts:423-431, add 'move' (place plus before or after a place key), 'add_group' (name, places), 'rename_group' (group, name), 'move_to_group' (places, group) and 'ungroup' (group) to arrange_my_menu's action enum. Let places take addon:<id> keys from the person's active add-ons. In apps/worker/src/assistant/tools-extra.ts arrangeMyMenu (~1385), write the same menu preference the editor saves, and update the description.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "panel-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "The Ask HandsFreeOS panel itself: Your chats (rename and archive under ⋯), New chat, Close, the microphone / Talk, Stop, editing a sent message; on the phone the Ask tab",
+      "gap": "The panel appears in the Assistant's words only as 'Ask HandsFreeOS (⌘J or Ctrl J), which is you' (places-map.ts:605). The panel itself has: Your chats, New chat, Close (assistant-panel.tsx:43, 97-156); each chat's ⋯ with Rename and Archive (thread-list.tsx:161-180); and Talk/microphone, Stop and Send (composer.tsx:105, 149, 203). None of the place text or the prompt names them.",
+      "fix": "Add a line to EVERY_PAGE in places-map.ts after 605: 'In Ask HandsFreeOS: Your chats lists past chats (⋯ on one has Rename and Archive), New chat starts over, the microphone lets them talk instead of type and hear the answer, Stop ends an answer, Close hides the panel'. On the phone, add 'the HandsFreeOS mark in the top bar opens Ask HandsFreeOS' to PHONE_APP.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "search-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Search everything page: Include archived, Only mine, the kinds list and Only <kind>, Show N more; a kind's page: All · Leads · Clients, Sort, Compare and merge, Look further back, Look in Spam, Show 50 more",
+      "gap": "EVERY_PAGE (places-map.ts:605-606) names Search everything and says Enter opens the Search page. It doesn't describe that page's own controls or a kind's page. APP_PLACES has no Search entry (labels at places-map.ts:34-582). The page has Include archived, Only mine and Show more (search-page.tsx:335-342, 508-604). A kind's page adds Include archived, Only mine, All · Leads · Clients, Sort, Show 50 more, Look further back and Look in Spam (kind-page.tsx:249-260, 269-300, 302-313, 404, 428-437), plus merging duplicates (kind-page.tsx:97).",
+      "fix": "Add an APP_PLACES entry {label: 'Search', where: [], then: 'Search everything at the top of the side menu, then Enter', onScreen: ['Include archived and Only mine; each kind with Show more, and pressing a kind opens its own page', 'A kind's page: Include archived, Only mine, All · Leads · Clients and Sort for contacts, contacts who share a phone or email to compare and merge, Show 50 more, Look further back for messages and notes, and Look in Spam for messages'], path: '/search'}. Copy the exact button words from SEARCH words in core.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "search-2",
+      "severity": "low",
+      "kind": "words",
+      "where": "Search: the kind filter and the Only mine / archived / further-back switches as the Assistant calls them",
+      "gap": "includeArchived, onlyMine, sort (best|recent|name) and standing (lead|client) explain themselves by name and enum. Valid kinds can be found too: every group in read_search_everything's output carries its `kind` key (schemas/search.ts:126-128), so one search shows the model the keys. What's real: `kind` is a bare regex with no description (schemas/search.ts:16, 172). The special keys 'archived', 'bin' and 'spam' appear only in a JSDoc comment the model never sees. `before` (Look further back), `depth` and `settingsMatched` have no .describe(). The model has no way to know settingsMatched is a device-side flag it should leave alone.",
+      "fix": "In packages/core/src/schemas/search.ts, add .describe() to SearchKindInput.kind: 'A group's kind from search.everything (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <addon>.<kind>), or archived, bin or spam'. Add one to before: 'Look further back: a windowed kind's searchedBack'. On SearchEverythingInput, describe depth ('full' looks further, slower) and settingsMatched ('leave false').",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "home-5",
+      "severity": "low",
+      "kind": "read",
+      "where": "Home → Today card: Now / Not confirmed / Confirmed on each appointment, the footer \"N tomorrow · M confirmed so far\", and the tick circle on Tasks due today",
+      "gap": "'Now' is covered: todays_schedule gives happeningNow per appointment (tools-calendar.ts:236-241). Task ids can be reached with list_tasks, which returns ids (tools-read.ts:458). What's real: todays_schedule's appointments have no confirmation (appointmentResult, tools-calendar.ts:198-206). There's no tomorrow count or 'M confirmed so far' (today-card.tsx:50, 56-59). tasksDueToday has no ids, always reads scope 'mine' (tools-read.ts:482-498), and includes overdue. The card's 'Due today' follows the Mine/Everyone switch and shows only today's (today-card.tsx:51-54). Tomorrow's confirmations can be pieced together only from list_appointments (no confirmed field, worker tools-scheduling.ts:335-352) plus get_appointment for each.",
+      "fix": "In apps/worker/src/assistant/tools-calendar.ts appointmentResult, add `confirmed: booked(a).length > 0 && booked(a).every(p => p.confirmedAt)` for one-customer bookings. In todays_schedule (tools-read.ts:482), add tomorrow: {count, confirmed} from tomorrow's appointment.list, and add id: t.id to each tasksDueToday entry.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "home-6",
+      "severity": "low",
+      "kind": "do",
+      "where": "Home card: Snooze, Dismiss (with reason) and Assign",
+      "gap": "In core, the rule for screen commands is that only risk 0 runs on its own and risk 1 and up waits (screen-actions.ts:32-33, 49). attention.assign is risk 1 (commands/attention.ts:404), so its confirm card is consistent. The auditor's 'risk 0-1 runs on its own' is the add-on rule. attention.snooze and attention.dismiss are risk 0 (commands/attention.ts:229, 322), and update_attention_item still puts them behind Confirm (tools.ts:1485), while do_attention_restore and do_attention_cancel_auto (risk 0) run on their own. That inconsistency is real. But README.md:154 records the confirm card as the design ('can handle, snooze, dismiss or assign an item through a confirm card'). A snooze or dismissal can also cancel a message HandsFreeOS was about to send, which the card warns about (tools-attention.ts:728-732).",
+      "fix": "Ask the owner before changing it, since README.md:154 documents it. If agreed, split autonomy in apps/worker/src/assistant/tools-attention.ts updateItem: run snooze and dismiss straight away (attention.snooze / attention.dismiss) unless item.auto.state === 'scheduled', and keep Confirm for assign and for anything that stops a scheduled message. Then drop 'snoozed, dismissed' from prompt.ts:17's waiting list for that case.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "panel-2",
+      "severity": "low",
+      "kind": "never",
+      "where": "Ask HandsFreeOS panel → Your chats → ⋯ → Rename / Archive",
+      "gap": "assistant_thread.rename and assistant_thread.archive sit in NEVER_FOR_THE_ASSISTANT with 'the panel's own list of chats' (coverage.ts:408-409). That's not one of the settled reasons, and no owner decision in the docs covers it. Both commands are risk 1 (commands/assistant.ts:25, 45), not risk 0. So as screen actions they would wait for Confirm (screen-actions.ts:49). Moving them to SCREEN_ACTIONS alone wouldn't work either. ToolContext has no threadId (runtime.ts:91-98), and assistant_thread.list is NOT_FOR_THE_ASSISTANT (screen-reads.ts:131-132), so the model could never get a threadId to pass.",
+      "fix": "Remove both lines from NEVER_FOR_THE_ASSISTANT and add a small core tool, rename_or_archive_this_chat {action: 'rename'|'archive', title?}, with autonomy 'auto' or 'confirm' per the owner. Put threadId on ToolContext in apps/worker/src/assistant/runtime.ts, and have the worker run assistant_thread.rename/archive with ctx.threadId. Another chat's id never goes through the model.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "help-1",
+      "severity": "low",
+      "kind": "words",
+      "where": "Bottom of the side menu → Get help (menu of Getting started, Take the tour, Ask us for help) and the account menu's Sell HandsFreeOS",
+      "gap": "Getting started under Get help is already described (places-map.ts:47, 'Get help at the foot of the menu, then Getting started'). What's missing: while the guide is unfinished, Get help opens a menu with Getting started, Take the tour and Ask us for help (get-help.tsx:116-150), and the form only follows Ask us for help. The form's dialog title is 'Ask us for help'. The account menu (name and email at the foot of the menu) has Sell HandsFreeOS and Sign out (user-menu.tsx:47-60; affiliates/words.ts:209), and no Assistant words name it, though affiliate.apply, make_code and turn_code are screen actions (coverage.ts:331-342).",
+      "fix": "In places-map.ts:608, change Get help to: 'Get help (while Getting started isn't finished it first offers Getting started, Take the tour and Ask us for help; Ask us for help is the form: In a few words, What happened?, then Send it; a person at HandsFreeOS answers)'. Add: 'the account menu (your name at the foot of the menu): Sell HandsFreeOS (the affiliate page) and Sign out'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "phone-2",
+      "severity": "low",
+      "kind": "read",
+      "where": "Phone: Changes on this phone (Needs you, Waiting, Sent just now) and Home's waiting-changes banner",
+      "gap": "Changes on this phone (changes.tsx: 'Needs you · N' with Fix and Discard, then waiting and sent) reads the phone's own outbox. The rows never reached the server, so no query can return them. Phone Ask sends only the page record (chat.ts:521; schemas/assistant.ts:333-339). 'Did my note to Dana send?' or 'why is something stuck?' can't be answered from what the person sees.",
+      "fix": "Add `deviceChanges: z.object({waiting: z.int(), needsYou: z.array(z.object({title: z.string().max(200), problem: z.string().max(300)})).max(10)}).optional()` to AssistantAskInput. Fill it in apps/mobile/src/assistant/chat.ts from the outbox snapshot that changes.tsx reads. In context.ts/prompt.ts turnText, add one line, quoted as data.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

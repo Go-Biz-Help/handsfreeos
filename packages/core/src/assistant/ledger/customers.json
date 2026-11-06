@@ -1,0 +1,2632 @@
+{
+  "area": "customers",
+  "title": "Contacts: people, companies, a business's own kinds of records, leads, imports and files",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx": "eefa28e7afb6",
+    "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx": "cb2d19dfb095",
+    "apps/mobile/src/app/app/w/[workspaceId]/customers/people/[personId].tsx": "340fbd35a7c7",
+    "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx": "43593e8ad1b3",
+    "apps/mobile/src/components/bin/delete-sheet.tsx": "4d51e37958fe",
+    "apps/mobile/src/components/customers/attribution.tsx": "f7bd1bf0943a",
+    "apps/mobile/src/components/customers/bits.tsx": "4d10da9c3dc9",
+    "apps/mobile/src/components/customers/files.tsx": "0531c95a1f8a",
+    "apps/mobile/src/components/customers/funnel-card.tsx": "83638a313ac2",
+    "apps/mobile/src/components/customers/partner-card.tsx": "1436d5ed4d05",
+    "apps/mobile/src/components/customers/phone-call-notes.tsx": "70e95859a93c",
+    "apps/mobile/src/components/customers/record-screen.tsx": "fc0e242eff1e",
+    "apps/mobile/src/components/customers/sheets.tsx": "b1d62d48d9bb",
+    "apps/mobile/src/components/customers/timeline.tsx": "e46a52d6940a",
+    "apps/mobile/src/components/pipeline/bits.tsx": "a87c31659b1e",
+    "apps/mobile/src/customers/actions.ts": "baaac56be7df",
+    "apps/mobile/src/customers/add-customer.ts": "170c4cb792c8",
+    "apps/mobile/src/customers/contact-lines.ts": "83705fbb0234",
+    "apps/mobile/src/customers/fixers.ts": "f6de8cd16c56",
+    "apps/mobile/src/customers/names.ts": "49044c8b9de2",
+    "apps/mobile/src/customers/outbox.ts": "e02d9d8ab420",
+    "apps/mobile/src/customers/pick-contact.ts": "5263e1631d71",
+    "apps/mobile/src/customers/queries.ts": "3d51ec7ef271",
+    "apps/mobile/src/customers/use-customers.ts": "d763bc0b983a",
+    "apps/mobile/src/customers/use-record.ts": "c15e55dc868f",
+    "apps/mobile/src/documents/card.tsx": "2ea0060711b9",
+    "apps/web/src/app/app/w/[workspaceId]/customers/companies/[companyId]/page.tsx": "e18f47112dca",
+    "apps/web/src/app/app/w/[workspaceId]/customers/page.tsx": "f9c068562164",
+    "apps/web/src/app/app/w/[workspaceId]/customers/people/[personId]/page.tsx": "edcd85637770",
+    "apps/web/src/app/app/w/[workspaceId]/customers/records/[recordId]/page.tsx": "ea5cf6f70752",
+    "apps/web/src/app/app/w/[workspaceId]/imports/[importId]/page.tsx": "44c5c5fad812",
+    "apps/web/src/app/app/w/[workspaceId]/imports/new/page.tsx": "27589d46b2ab",
+    "apps/web/src/app/app/w/[workspaceId]/leads/[leadId]/page.tsx": "3335a06916ae",
+    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/bin/record-gone.tsx": "f8224f223de8",
+    "apps/web/src/components/calendar/upcoming-card.tsx": "300a62a1d8c8",
+    "apps/web/src/components/crm/archive-dialog.tsx": "e648191d777a",
+    "apps/web/src/components/crm/assigned-card.tsx": "bc7f83fe071e",
+    "apps/web/src/components/crm/attribution-card.tsx": "3600f25774e2",
+    "apps/web/src/components/crm/call-consent.tsx": "0633a89f8701",
+    "apps/web/src/components/crm/chips.tsx": "49b81877acb0",
+    "apps/web/src/components/crm/company-dialog.tsx": "9519d60e3bfb",
+    "apps/web/src/components/crm/contact-points.tsx": "68f04387c5ec",
+    "apps/web/src/components/crm/custom-fields.tsx": "70e8626a035b",
+    "apps/web/src/components/crm/customers-list.tsx": "1253083d3367",
+    "apps/web/src/components/crm/duplicate-warning.tsx": "2e8660295e13",
+    "apps/web/src/components/crm/lead-dialog.tsx": "228bdf162fa0",
+    "apps/web/src/components/crm/maintenance-card.tsx": "91e8a26432e6",
+    "apps/web/src/components/crm/merge-dialog.tsx": "c4d177bfdc4e",
+    "apps/web/src/components/crm/next-action-dialog.tsx": "da25b96eb9d0",
+    "apps/web/src/components/crm/person-dialog.tsx": "c9d492d7b457",
+    "apps/web/src/components/crm/record-money.tsx": "a55e39f309ec",
+    "apps/web/src/components/crm/record-page.tsx": "669fcb3d9e36",
+    "apps/web/src/components/crm/record-picker.tsx": "415ed8b189ad",
+    "apps/web/src/components/crm/tag-picker.tsx": "74b0055a510a",
+    "apps/web/src/components/files/file-grid.tsx": "0b455a816429",
+    "apps/web/src/components/files/upload-zone.tsx": "22135ce708f3",
+    "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
+    "apps/web/src/components/import/fields.ts": "c2639d2fba22",
+    "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",
+    "apps/web/src/components/import/import-wizard.tsx": "e3a7f56dff11",
+    "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
+    "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
+    "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
+    "apps/web/src/components/pipeline/attention-banner.tsx": "c47471f7ab30",
+    "apps/web/src/components/pipeline/lead-detail.tsx": "008861551277",
+    "apps/web/src/components/pipeline/lead-edit-dialog.tsx": "a243336d9301",
+    "apps/web/src/components/pipeline/lost-reason-dialog.tsx": "cc53e1b2c72f",
+    "apps/web/src/components/pipeline/qualification-card.tsx": "bae443297eb8",
+    "apps/web/src/components/relationships/add-relationship-dialog.tsx": "66332ce8327a",
+    "apps/web/src/components/relationships/custom-record-dialog.tsx": "472c7c8142a5",
+    "apps/web/src/components/relationships/custom-record-page.tsx": "46e053be4882",
+    "apps/web/src/components/relationships/record-icon.tsx": "d5ecf2478d67",
+    "apps/web/src/components/relationships/relationships-card.tsx": "6b37d4d192cc",
+    "apps/web/src/components/tasks/task-dialog.tsx": "1714eecb5a55",
+    "apps/web/src/components/tasks/task-list.tsx": "3037204f8554",
+    "apps/web/src/components/timeline/describe.tsx": "9cc0387828b6",
+    "apps/web/src/components/timeline/log-activity-sheet.tsx": "7f502a2a0c95",
+    "apps/web/src/components/timeline/timeline.tsx": "f3bb029639b3",
+    "apps/web/src/components/video-call/start-call.tsx": "fda198cba6fb",
+    "apps/web/src/components/workflows/contact-workflows.tsx": "2a656efb1da1"
+  },
+  "items": [
+    {
+      "path": "Contacts → tabs → People and Companies counts",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:146",
+      "covered": "yes",
+      "by": "read_crm_summary people, companies"
+    },
+    {
+      "path": "Contacts → tabs → switch to a business's own kind",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:146",
+      "covered": "yes",
+      "by": "get_settings relationships; find_records kinds"
+    },
+    {
+      "path": "Contacts → Import",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:184",
+      "covered": "person",
+      "by": "import.create NEVER: the person's own spreadsheet"
+    },
+    {
+      "path": "Contacts → Add person, company or record",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:190",
+      "covered": "yes",
+      "by": "create_customer; manage_company create; manage_record create"
+    },
+    {
+      "path": "Contacts → search box",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:202",
+      "covered": "yes",
+      "by": "list_customers query; search_customers; find_records"
+    },
+    {
+      "path": "Contacts → All / Leads / Clients",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:218",
+      "covered": "partly",
+      "by": "read_search_everything badges only; list_customers has no such filter"
+    },
+    {
+      "path": "Contacts → tag filter",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:238",
+      "covered": "partly",
+      "by": "list_customers tagId, withoutTagId: people only"
+    },
+    {
+      "path": "Contacts → assigned-to filter",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:252",
+      "covered": "no",
+      "by": "list_customers has no assignee filter"
+    },
+    {
+      "path": "Contacts → show archived",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:269",
+      "covered": "yes",
+      "by": "find_archived"
+    },
+    {
+      "path": "Contacts → n shown of total",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:280",
+      "covered": "partly",
+      "by": "read_crm_summary totals; lists page by cursor"
+    },
+    {
+      "path": "Contacts → empty state and how to add",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:358",
+      "covered": "yes",
+      "by": "list_customers returns none"
+    },
+    {
+      "path": "Contacts → People → name",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "yes",
+      "by": "list_customers name"
+    },
+    {
+      "path": "Contacts → People → Contact: phone, email",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "yes",
+      "by": "list_customers phone, email"
+    },
+    {
+      "path": "Contacts → People → company under the name",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "partly",
+      "by": "search_customers company; not in list_customers"
+    },
+    {
+      "path": "Contacts → People → Client badge",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "partly",
+      "by": "read_search_everything client badge only"
+    },
+    {
+      "path": "Contacts → People → Tags",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "yes",
+      "by": "list_customers tags"
+    },
+    {
+      "path": "Contacts → People → Open leads",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "partly",
+      "by": "search_customers openLeads; list_leads personId"
+    },
+    {
+      "path": "Contacts → People → Last activity",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "no",
+      "by": "no tool returns last activity"
+    },
+    {
+      "path": "Contacts → People → open a person",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:519",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Contacts → People → tick rows, select all",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:490",
+      "covered": "yes",
+      "by": "move_to_bin ids, up to 100"
+    },
+    {
+      "path": "Contacts → People → n selected → Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:468",
+      "covered": "yes",
+      "by": "move_to_bin person (Deleted bin)"
+    },
+    {
+      "path": "Contacts → People → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:600",
+      "covered": "yes",
+      "by": "list_customers cursor"
+    },
+    {
+      "path": "Delete dialog → what goes with them, what stays",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/delete-dialog.tsx:176",
+      "covered": "yes",
+      "by": "move_to_bin card (bin.preview)"
+    },
+    {
+      "path": "Delete dialog → Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/bin/delete-dialog.tsx:231",
+      "covered": "yes",
+      "by": "move_to_bin; restore_from_bin undoes"
+    },
+    {
+      "path": "Contacts → Companies → Company name",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:673",
+      "covered": "yes",
+      "by": "search_customers companies"
+    },
+    {
+      "path": "Contacts → Companies → Contact: phone, email",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:673",
+      "covered": "partly",
+      "by": "search_customers phone only"
+    },
+    {
+      "path": "Contacts → Companies → Tags",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:673",
+      "covered": "no",
+      "by": "company tags not returned"
+    },
+    {
+      "path": "Contacts → Companies → People count",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:673",
+      "covered": "no",
+      "by": "no tool counts a company's people"
+    },
+    {
+      "path": "Contacts → Companies → Open leads",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:673",
+      "covered": "no",
+      "by": "list_leads has no companyId"
+    },
+    {
+      "path": "Contacts → Companies → open a company",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:673",
+      "covered": "yes",
+      "by": "get_record_details company"
+    },
+    {
+      "path": "Contacts → Companies → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:759",
+      "covered": "no",
+      "by": "no paged company list"
+    },
+    {
+      "path": "Contacts → a kind's records → name",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:846",
+      "covered": "yes",
+      "by": "find_records name, detail"
+    },
+    {
+      "path": "Contacts → a kind's records → Related to",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:846",
+      "covered": "yes",
+      "by": "find_records relatedTo"
+    },
+    {
+      "path": "Contacts → a kind's records → Updated",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/customers-list.tsx:846",
+      "covered": "no",
+      "by": "find_records has no updated date"
+    },
+    {
+      "path": "Contacts → a kind's records → open a record",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:846",
+      "covered": "yes",
+      "by": "get_record_details"
+    },
+    {
+      "path": "Contacts → a kind's records → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/customers-list.tsx:900",
+      "covered": "partly",
+      "by": "find_records limit 50, no cursor"
+    },
+    {
+      "path": "Add or edit person → First name",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:364",
+      "covered": "yes",
+      "by": "create_customer firstName; update_customer name"
+    },
+    {
+      "path": "Add or edit person → Last name",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:374",
+      "covered": "yes",
+      "by": "create_customer lastName; update_customer name"
+    },
+    {
+      "path": "Add or edit person → Phone",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:384",
+      "covered": "yes",
+      "by": "create_customer phone; update_customer phone"
+    },
+    {
+      "path": "Add or edit person → Email",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:396",
+      "covered": "yes",
+      "by": "create_customer email; update_customer email"
+    },
+    {
+      "path": "Add or edit person → other numbers, label Mobile/Work/Home/Office/Other",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:408",
+      "covered": "yes",
+      "by": "update_customer addOtherPhones with label"
+    },
+    {
+      "path": "Add or edit person → other emails, label Work/Personal/Billing/Other",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:415",
+      "covered": "yes",
+      "by": "update_customer addOtherEmails with label"
+    },
+    {
+      "path": "Add or edit person → Add another number or email",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/contact-points.tsx:304",
+      "covered": "yes",
+      "by": "update_customer addOtherPhones, addOtherEmails"
+    },
+    {
+      "path": "Add or edit person → remove another number or email",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/contact-points.tsx:290",
+      "covered": "yes",
+      "by": "update_customer removeOtherPhones, removeOtherEmails"
+    },
+    {
+      "path": "Add or edit person → make another number or email the main one",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/contact-points.tsx:287",
+      "covered": "partly",
+      "by": "set phone or email, add old one back; no one step"
+    },
+    {
+      "path": "Add or edit person → duplicate warning, open them",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/duplicate-warning.tsx:36",
+      "covered": "yes",
+      "by": "create_customer card warns (crm.find_matches)"
+    },
+    {
+      "path": "Add or edit person → Save anyway past a duplicate",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/duplicate-warning.tsx:55",
+      "covered": "yes",
+      "by": "create_customer ignoreDuplicates (Add anyway)"
+    },
+    {
+      "path": "Add or edit person → Company",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:439",
+      "covered": "yes",
+      "by": "update_customer companyId; manage_company create"
+    },
+    {
+      "path": "Add or edit person → Address: street, line 2, city, state, ZIP",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:454",
+      "covered": "yes",
+      "by": "update_customer address"
+    },
+    {
+      "path": "Add or edit person → other addresses, label Home/Work/Billing/Job site/Rental/Other",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:486",
+      "covered": "no",
+      "by": "no tool sets other addresses"
+    },
+    {
+      "path": "Add or edit person → Tags",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:492",
+      "covered": "yes",
+      "by": "tag_customers personIds"
+    },
+    {
+      "path": "Add or edit person → Add source and notes",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:525",
+      "covered": "yes",
+      "by": "fields always open to the tool"
+    },
+    {
+      "path": "Add or edit person → Source",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:503",
+      "covered": "yes",
+      "by": "update_customer source"
+    },
+    {
+      "path": "Add or edit person → Notes",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:515",
+      "covered": "yes",
+      "by": "create_customer notes; update_customer notes"
+    },
+    {
+      "path": "Add or edit person → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:537",
+      "covered": "yes",
+      "by": "create_customer; update_customer"
+    },
+    {
+      "path": "Add or edit company → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:294",
+      "covered": "yes",
+      "by": "manage_company name"
+    },
+    {
+      "path": "Add or edit company → Phone",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:305",
+      "covered": "yes",
+      "by": "manage_company phone"
+    },
+    {
+      "path": "Add or edit company → Email",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:317",
+      "covered": "yes",
+      "by": "manage_company email"
+    },
+    {
+      "path": "Add or edit company → other numbers and emails with labels",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:329",
+      "covered": "no",
+      "by": "manage_company has no other phones or emails"
+    },
+    {
+      "path": "Add or edit company → make main, remove another",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:336",
+      "covered": "no",
+      "by": "manage_company has no other phones or emails"
+    },
+    {
+      "path": "Add or edit company → duplicate warning, Add anyway",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:344",
+      "covered": "yes",
+      "by": "manage_company card warns; Add anyway"
+    },
+    {
+      "path": "Add or edit company → Website",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:352",
+      "covered": "yes",
+      "by": "manage_company website"
+    },
+    {
+      "path": "Add or edit company → Address",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:361",
+      "covered": "yes",
+      "by": "manage_company address"
+    },
+    {
+      "path": "Add or edit company → other addresses",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:393",
+      "covered": "no",
+      "by": "no tool sets other addresses"
+    },
+    {
+      "path": "Add or edit company → Tags",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:400",
+      "covered": "yes",
+      "by": "tag_customers companyIds"
+    },
+    {
+      "path": "Add or edit company → Source",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:408",
+      "covered": "yes",
+      "by": "manage_company source"
+    },
+    {
+      "path": "Add or edit company → Notes",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:411",
+      "covered": "yes",
+      "by": "manage_company notes"
+    },
+    {
+      "path": "Add or edit company → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/company-dialog.tsx:418",
+      "covered": "yes",
+      "by": "manage_company create or change"
+    },
+    {
+      "path": "Tag picker → tick or untick a tag",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:121",
+      "covered": "yes",
+      "by": "tag_customers addTagIds, removeTagIds"
+    },
+    {
+      "path": "Tag picker → New tag: name",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:136",
+      "covered": "yes",
+      "by": "tag_customers newTagNames; manage_tag"
+    },
+    {
+      "path": "Tag picker → New tag: color",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:153",
+      "covered": "yes",
+      "by": "manage_tag color"
+    },
+    {
+      "path": "Tag picker → Create",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/tag-picker.tsx:164",
+      "covered": "yes",
+      "by": "tag_customers newTagNames"
+    },
+    {
+      "path": "Record picker → type a name, phone or company",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-picker.tsx:127",
+      "covered": "yes",
+      "by": "search_customers"
+    },
+    {
+      "path": "Customer page → header → name, company",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:312",
+      "covered": "yes",
+      "by": "get_customer name, company"
+    },
+    {
+      "path": "Customer page → header → phone, email, address (copyable)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:312",
+      "covered": "yes",
+      "by": "get_customer phone, email, address"
+    },
+    {
+      "path": "Customer page → header → tags",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:312",
+      "covered": "yes",
+      "by": "get_customer tags"
+    },
+    {
+      "path": "Customer page → header → customer since and source (web, phone)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/bits.tsx:140",
+      "covered": "partly",
+      "by": "get_customer source; no createdAt"
+    },
+    {
+      "path": "Customer page → header → Owes badge",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:94",
+      "covered": "yes",
+      "by": "customer_money owes"
+    },
+    {
+      "path": "Customer page → header → Lead, Client badges",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:312",
+      "covered": "partly",
+      "by": "get_customer openLeads; client badge only in search"
+    },
+    {
+      "path": "Customer page → Archived notice",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:452",
+      "covered": "yes",
+      "by": "get_record_details archived"
+    },
+    {
+      "path": "Customer page → Merged into notice and link",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:452",
+      "covered": "partly",
+      "by": "mergedInto not returned"
+    },
+    {
+      "path": "Customer page → deleted: in the Deleted bin, open it",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/record-gone.tsx:24",
+      "covered": "yes",
+      "by": "get_settings deleted_bin; restore_from_bin"
+    },
+    {
+      "path": "Customer page → menu → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:411",
+      "covered": "yes",
+      "by": "update_customer; manage_company change"
+    },
+    {
+      "path": "Customer page → menu → Merge",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:416",
+      "covered": "yes",
+      "by": "merge_customers"
+    },
+    {
+      "path": "Customer page → menu → Archive or Restore",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:424",
+      "covered": "yes",
+      "by": "archive_or_restore"
+    },
+    {
+      "path": "Customer page → menu → Delete (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:437",
+      "covered": "yes",
+      "by": "move_to_bin person or company"
+    },
+    {
+      "path": "Merge → pick the other customer",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/merge-dialog.tsx:155",
+      "covered": "yes",
+      "by": "search_customers; merge_customers duplicateId"
+    },
+    {
+      "path": "Merge → Keep and Merge in sides",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/merge-dialog.tsx:172",
+      "covered": "yes",
+      "by": "merge_customers card"
+    },
+    {
+      "path": "Merge → swap which is kept",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/merge-dialog.tsx:178",
+      "covered": "yes",
+      "by": "merge_customers keepId"
+    },
+    {
+      "path": "Merge → summary of what moves",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/merge-dialog.tsx:185",
+      "covered": "yes",
+      "by": "merge_customers card"
+    },
+    {
+      "path": "Merge → Merge",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/merge-dialog.tsx:206",
+      "covered": "yes",
+      "by": "merge_customers"
+    },
+    {
+      "path": "Archive → what stands in the way (open leads)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/archive-dialog.tsx:95",
+      "covered": "yes",
+      "by": "archive_or_restore card"
+    },
+    {
+      "path": "Archive → Archive or Archive anyway",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/archive-dialog.tsx:111",
+      "covered": "yes",
+      "by": "archive_or_restore archiveOpenLeads"
+    },
+    {
+      "path": "Archive → Restore",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/archive-dialog.tsx:130",
+      "covered": "yes",
+      "by": "archive_or_restore"
+    },
+    {
+      "path": "Customer page → Call (browser dialer, own phone; web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:477",
+      "covered": "never",
+      "by": "call.start NEVER: own microphone; call_customer only offers a Call button"
+    },
+    {
+      "path": "Customer page → Text (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:495",
+      "covered": "partly",
+      "by": "send_text to the main number only"
+    },
+    {
+      "path": "Customer page → Email, pick which address (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:519",
+      "covered": "partly",
+      "by": "send_email to the main address only"
+    },
+    {
+      "path": "Customer page → Video call (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:542",
+      "covered": "no",
+      "by": "start is a worker route; no tool"
+    },
+    {
+      "path": "Customer page → Book (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:552",
+      "covered": "yes",
+      "by": "book_appointment personId"
+    },
+    {
+      "path": "Customer page → Note (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:563",
+      "covered": "yes",
+      "by": "add_note personId or companyId"
+    },
+    {
+      "path": "Customer page → Log call or visit",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:572",
+      "covered": "no",
+      "by": "add_note writes kind note only"
+    },
+    {
+      "path": "Customer page → Task (person)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:581",
+      "covered": "yes",
+      "by": "create_task personId"
+    },
+    {
+      "path": "Customer page → Task (company; web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:581",
+      "covered": "partly",
+      "by": "create_task has no companyId"
+    },
+    {
+      "path": "Customer page → Lead (person)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:590",
+      "covered": "yes",
+      "by": "create_lead personId"
+    },
+    {
+      "path": "Customer page → Lead (company)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:590",
+      "covered": "no",
+      "by": "create_lead needs a person; no companyId"
+    },
+    {
+      "path": "Customer page → File (web)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:599",
+      "covered": "person",
+      "by": "upload from device; file.begin_upload NEVER"
+    },
+    {
+      "path": "Customer page → Document to sign (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:609",
+      "covered": "yes",
+      "by": "do_document_send"
+    },
+    {
+      "path": "Customer page → Add to workflow",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:620",
+      "covered": "yes",
+      "by": "start_workflow"
+    },
+    {
+      "path": "Customer page → tabs: Timeline, Appointments, Leads, Tasks, Files, Details, Money",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:639",
+      "covered": "yes",
+      "by": "get_customer and the list tools"
+    },
+    {
+      "path": "Customer page → Appointments tab: upcoming and past",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:701",
+      "covered": "yes",
+      "by": "list_appointments personId"
+    },
+    {
+      "path": "Customer page → Appointments → open a visit",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:701",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Customer page → Leads tab: title, stage, value, status",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:759",
+      "covered": "yes",
+      "by": "list_leads personId"
+    },
+    {
+      "path": "Customer page → Leads tab → open a lead",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:759",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Tasks → row: title, due, assignee, done",
+      "kind": "see",
+      "file": "apps/web/src/components/tasks/task-list.tsx:143",
+      "covered": "partly",
+      "by": "get_customer openTasks: open only, no notes"
+    },
+    {
+      "path": "Tasks → tick done (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:127",
+      "covered": "yes",
+      "by": "complete_task"
+    },
+    {
+      "path": "Tasks → untick to reopen",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:127",
+      "covered": "partly",
+      "by": "task.reopen only as Undo of complete_task"
+    },
+    {
+      "path": "Tasks → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:177",
+      "covered": "partly",
+      "by": "update_task title, dueAt, assignee only"
+    },
+    {
+      "path": "Tasks → Open lead",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:182",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Tasks → Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:188",
+      "covered": "partly",
+      "by": "task.delete only as Undo of create_task"
+    },
+    {
+      "path": "Tasks → New task",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-list.tsx:202",
+      "covered": "yes",
+      "by": "create_task"
+    },
+    {
+      "path": "Task dialog → Task",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:164",
+      "covered": "yes",
+      "by": "create_task title; update_task title"
+    },
+    {
+      "path": "Task dialog → Due",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:175",
+      "covered": "yes",
+      "by": "create_task dueAt; update_task dueAt"
+    },
+    {
+      "path": "Task dialog → specific time or all day",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:184",
+      "covered": "partly",
+      "by": "create_task allDay; update_task has none"
+    },
+    {
+      "path": "Task dialog → Assigned to",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:204",
+      "covered": "yes",
+      "by": "assigneeUserId"
+    },
+    {
+      "path": "Task dialog → Related lead",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:220",
+      "covered": "partly",
+      "by": "create_task leadId; update_task can't change it"
+    },
+    {
+      "path": "Task dialog → Notes",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:231",
+      "covered": "partly",
+      "by": "create_task notes; update_task has none"
+    },
+    {
+      "path": "Files → file: name, type, size, added by, when",
+      "kind": "see",
+      "file": "apps/web/src/components/files/file-grid.tsx:136",
+      "covered": "yes",
+      "by": "get_record_details files"
+    },
+    {
+      "path": "Files → locked mark",
+      "kind": "see",
+      "file": "apps/web/src/components/files/file-grid.tsx:151",
+      "covered": "no",
+      "by": "no locked flag returned"
+    },
+    {
+      "path": "Files → open or preview (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/files/file-grid.tsx:136",
+      "covered": "no",
+      "by": "no file link returned"
+    },
+    {
+      "path": "Files → Download",
+      "kind": "do",
+      "file": "apps/web/src/components/files/file-grid.tsx:172",
+      "covered": "no",
+      "by": "no file link returned"
+    },
+    {
+      "path": "Files → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/files/file-grid.tsx:174",
+      "covered": "yes",
+      "by": "delete_file (deletes for good: see notes)"
+    },
+    {
+      "path": "Files → Choose or drop a file (JPEG, PNG, HEIC, PDF, Word, Excel, CSV; 25 MB)",
+      "kind": "do",
+      "file": "apps/web/src/components/files/upload-zone.tsx:141",
+      "covered": "person",
+      "by": "upload from device; file.begin_upload NEVER"
+    },
+    {
+      "path": "Files → upload progress, too big or wrong type",
+      "kind": "see",
+      "file": "apps/web/src/components/files/upload-zone.tsx:141",
+      "covered": "person",
+      "by": "only during the person's own upload"
+    },
+    {
+      "path": "Details → phone, email, address",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:834",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Details → other numbers and emails with labels",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:834",
+      "covered": "yes",
+      "by": "get_customer otherPhones, otherEmails"
+    },
+    {
+      "path": "Details → other addresses",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:834",
+      "covered": "no",
+      "by": "get_customer has no otherAddresses"
+    },
+    {
+      "path": "Details → company, source, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:834",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Details → added on",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:834",
+      "covered": "no",
+      "by": "get_customer has no createdAt"
+    },
+    {
+      "path": "Details → Calls from us status",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/call-consent.tsx:84",
+      "covered": "partly",
+      "by": "only on record_consent card; get_customer has no callConsent"
+    },
+    {
+      "path": "Calls from us → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/call-consent.tsx:84",
+      "covered": "yes",
+      "by": "record_consent"
+    },
+    {
+      "path": "Calls from us → Not asked, Agreed in writing, Doesn't want calls",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/call-consent.tsx:95",
+      "covered": "partly",
+      "by": "record_consent agreed or said_no; not back to Not asked"
+    },
+    {
+      "path": "Calls from us → where they agreed",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/call-consent.tsx:104",
+      "covered": "yes",
+      "by": "record_consent where"
+    },
+    {
+      "path": "Calls from us → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/call-consent.tsx:120",
+      "covered": "yes",
+      "by": "record_consent"
+    },
+    {
+      "path": "Details → custom fields filled in (person, record)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/custom-fields.tsx:114",
+      "covered": "yes",
+      "by": "get_customer fields; get_record_details fields"
+    },
+    {
+      "path": "Details → No fields yet, Nothing filled in yet",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/custom-fields.tsx:89",
+      "covered": "yes",
+      "by": "get_settings fields"
+    },
+    {
+      "path": "Details → Manage fields",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/custom-fields.tsx:71",
+      "covered": "yes",
+      "by": "manage_custom_field"
+    },
+    {
+      "path": "Details → Edit fields → each value",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/custom-fields.tsx:199",
+      "covered": "yes",
+      "by": "update_customer fields; manage_record values"
+    },
+    {
+      "path": "Company page → custom fields: see and edit",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/custom-fields.tsx:114",
+      "covered": "no",
+      "by": "manage_company has no fields; none returned"
+    },
+    {
+      "path": "Company page → Details: website, email, address, notes, source",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:834",
+      "covered": "partly",
+      "by": "manage_company sets; only name, phone read back"
+    },
+    {
+      "path": "Money → Owes, Nothing owed",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:179",
+      "covered": "yes",
+      "by": "customer_money owes"
+    },
+    {
+      "path": "Money → New estimate",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-money.tsx:200",
+      "covered": "yes",
+      "by": "write_estimate personId"
+    },
+    {
+      "path": "Money → New invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-money.tsx:208",
+      "covered": "yes",
+      "by": "write_invoice"
+    },
+    {
+      "path": "Money → Put on a plan",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-money.tsx:210",
+      "covered": "yes",
+      "by": "manage_customer_plan start"
+    },
+    {
+      "path": "Money → On a plan",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:232",
+      "covered": "yes",
+      "by": "customer_money plans"
+    },
+    {
+      "path": "Money → Estimates",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:253",
+      "covered": "yes",
+      "by": "customer_money estimates"
+    },
+    {
+      "path": "Money → Invoices",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:270",
+      "covered": "partly",
+      "by": "customer_money open invoices only"
+    },
+    {
+      "path": "Money → Payments",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:291",
+      "covered": "partly",
+      "by": "no per-customer payments; money_collected has no personId"
+    },
+    {
+      "path": "Timeline → entries: notes, calls, texts, emails, visits, changes",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:143",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Timeline → open an entry",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:282",
+      "covered": "yes",
+      "by": "read_activity_get"
+    },
+    {
+      "path": "Timeline → voicemail and its words",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:190",
+      "covered": "partly",
+      "by": "words only; no audio"
+    },
+    {
+      "path": "Timeline → call notes and summary (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:213",
+      "covered": "partly",
+      "by": "read_activity_get; read_appointment_transcripts"
+    },
+    {
+      "path": "Timeline → attachments",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:230",
+      "covered": "partly",
+      "by": "named, can't be opened"
+    },
+    {
+      "path": "Timeline → delete an entry",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:181",
+      "covered": "partly",
+      "by": "activity.delete only as Undo of add_note"
+    },
+    {
+      "path": "Timeline → Show older",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:250",
+      "covered": "yes",
+      "by": "read_timeline_list cursor"
+    },
+    {
+      "path": "Timeline → nothing yet",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:113",
+      "covered": "yes",
+      "by": "read_timeline_list empty"
+    },
+    {
+      "path": "Log activity → Note, Call or Visit",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:145",
+      "covered": "partly",
+      "by": "add_note writes notes only"
+    },
+    {
+      "path": "Log activity → what happened",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:150",
+      "covered": "yes",
+      "by": "add_note text"
+    },
+    {
+      "path": "Log activity → When",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:162",
+      "covered": "no",
+      "by": "add_note has no time"
+    },
+    {
+      "path": "Log activity → Related lead",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:171",
+      "covered": "partly",
+      "by": "add_note on the lead instead of both"
+    },
+    {
+      "path": "Log activity → next action for the lead",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:186",
+      "covered": "yes",
+      "by": "update_lead nextAction"
+    },
+    {
+      "path": "Log activity → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:212",
+      "covered": "partly",
+      "by": "add_note"
+    },
+    {
+      "path": "Assigned card → who looks after them, main one, Nobody yet",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/assigned-card.tsx:105",
+      "covered": "yes",
+      "by": "get_record_details lookedAfterBy"
+    },
+    {
+      "path": "Assigned card → Make main",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/assigned-card.tsx:135",
+      "covered": "yes",
+      "by": "assign_customer make_main"
+    },
+    {
+      "path": "Assigned card → Take off",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/assigned-card.tsx:140",
+      "covered": "yes",
+      "by": "assign_customer remove"
+    },
+    {
+      "path": "Assigned card → Assign to…",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/assigned-card.tsx:160",
+      "covered": "yes",
+      "by": "assign_customer add"
+    },
+    {
+      "path": "Upcoming card → next visits (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:934",
+      "covered": "yes",
+      "by": "get_customer upcomingAppointments"
+    },
+    {
+      "path": "Regular services → service, due, last done, schedule, status",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:942",
+      "covered": "yes",
+      "by": "read_maintenance_for_person"
+    },
+    {
+      "path": "Regular services → schedule: default, every N months, never",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/maintenance-card.tsx:136",
+      "covered": "yes",
+      "by": "do_maintenance_set_schedule"
+    },
+    {
+      "path": "Conversations card → threads and last message",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:949",
+      "covered": "yes",
+      "by": "get_customer conversations; find_conversations personId"
+    },
+    {
+      "path": "Conversations card → open a conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversations-card.tsx:1",
+      "covered": "yes",
+      "by": "find_conversations (Inbox ledger for inside)"
+    },
+    {
+      "path": "Where they came from → summary (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/attribution-card.tsx:127",
+      "covered": "yes",
+      "by": "read_attribution_list"
+    },
+    {
+      "path": "Where they came from → first touch, every touch",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/attribution-card.tsx:98",
+      "covered": "yes",
+      "by": "read_attribution_list"
+    },
+    {
+      "path": "Where they came from → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/attribution-card.tsx:137",
+      "covered": "yes",
+      "by": "read_attribution_list"
+    },
+    {
+      "path": "Partner card → partner, who referred them, share (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/partners/partner-card.tsx:124",
+      "covered": "yes",
+      "by": "read_partner_of_person"
+    },
+    {
+      "path": "Partner card → make partner, change referral (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-card.tsx:148",
+      "covered": "yes",
+      "by": "manage_partner add, set_referral"
+    },
+    {
+      "path": "Partner card → share",
+      "kind": "do",
+      "file": "apps/web/src/components/partners/partner-card.tsx:163",
+      "covered": "yes",
+      "by": "manage_partner set_share"
+    },
+    {
+      "path": "Workflows card → runs they are in, step",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:259",
+      "covered": "yes",
+      "by": "list_workflow_runs personId"
+    },
+    {
+      "path": "Workflows card → Add to workflow…, pick, Add",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:73",
+      "covered": "yes",
+      "by": "start_workflow"
+    },
+    {
+      "path": "Workflows card → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:367",
+      "covered": "yes",
+      "by": "remove_contact_from_workflow"
+    },
+    {
+      "path": "Funnel card → funnel, stage, last message, paused (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:117",
+      "covered": "yes",
+      "by": "read_funnel_of_person"
+    },
+    {
+      "path": "Funnel card → Pause or Resume",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:117",
+      "covered": "yes",
+      "by": "do_funnel_pause_person"
+    },
+    {
+      "path": "Funnel card → Move to…",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:136",
+      "covered": "yes",
+      "by": "move_lead"
+    },
+    {
+      "path": "Funnel card → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:151",
+      "covered": "yes",
+      "by": "do_funnel_remove_person"
+    },
+    {
+      "path": "Funnel card → suggestion Yes or No",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:188",
+      "covered": "yes",
+      "by": "do_funnel_decide_suggestion"
+    },
+    {
+      "path": "Funnel card → Add to a funnel",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:232",
+      "covered": "yes",
+      "by": "do_funnel_add_person"
+    },
+    {
+      "path": "Open lead card → title, stage, value",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:969",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Open lead card → days in stage",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:969",
+      "covered": "partly",
+      "by": "read_lead_board stageEnteredAt, top of column only"
+    },
+    {
+      "path": "Open lead card → next action and when",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:969",
+      "covered": "partly",
+      "by": "get_lead nextAction; no time"
+    },
+    {
+      "path": "Open lead card → open the lead",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-page.tsx:969",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Next action → what (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:103",
+      "covered": "yes",
+      "by": "update_lead nextAction"
+    },
+    {
+      "path": "Next action → When",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:114",
+      "covered": "yes",
+      "by": "update_lead nextActionAt"
+    },
+    {
+      "path": "Next action → time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:126",
+      "covered": "yes",
+      "by": "update_lead nextActionAt with zone"
+    },
+    {
+      "path": "Next action → Clear",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:138",
+      "covered": "yes",
+      "by": "update_lead nextAction"
+    },
+    {
+      "path": "Next action → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:145",
+      "covered": "yes",
+      "by": "update_lead"
+    },
+    {
+      "path": "Relationships → company, groups by type, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:147",
+      "covered": "yes",
+      "by": "get_record_details relationships"
+    },
+    {
+      "path": "Relationships → Add",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:76",
+      "covered": "yes",
+      "by": "manage_record relate"
+    },
+    {
+      "path": "Relationships → Edit note",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:287",
+      "covered": "yes",
+      "by": "manage_record change_note"
+    },
+    {
+      "path": "Relationships → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:291",
+      "covered": "yes",
+      "by": "manage_record unrelate"
+    },
+    {
+      "path": "Relationships → set up kinds of links",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:170",
+      "covered": "yes",
+      "by": "manage_relationship_type"
+    },
+    {
+      "path": "Company page → People · n (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:110",
+      "covered": "no",
+      "by": "a company's people are not listed"
+    },
+    {
+      "path": "Company page → open a person from People (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:110",
+      "covered": "partly",
+      "by": "get_customer, once found by search"
+    },
+    {
+      "path": "Company page → Add person",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/relationships-card.tsx:113",
+      "covered": "yes",
+      "by": "update_customer companyId"
+    },
+    {
+      "path": "Add relationship → how they're related",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:197",
+      "covered": "yes",
+      "by": "manage_record relationshipTypeId"
+    },
+    {
+      "path": "Add relationship → search the other side",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:254",
+      "covered": "yes",
+      "by": "search_customers; find_records"
+    },
+    {
+      "path": "Add relationship → create new and relate",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:272",
+      "covered": "partly",
+      "by": "records in one step (relateToId); people, companies in two"
+    },
+    {
+      "path": "Add relationship → note",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/add-relationship-dialog.tsx:314",
+      "covered": "yes",
+      "by": "manage_record note"
+    },
+    {
+      "path": "Customer page → add-on panels (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-page.tsx:1076",
+      "covered": "partly",
+      "by": "only add-on operations that declare ai"
+    },
+    {
+      "path": "New or edit record → name",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-dialog.tsx:115",
+      "covered": "yes",
+      "by": "manage_record name"
+    },
+    {
+      "path": "New or edit record → each field of the kind",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-dialog.tsx:115",
+      "covered": "yes",
+      "by": "manage_record values"
+    },
+    {
+      "path": "New or edit record → notes",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-dialog.tsx:136",
+      "covered": "yes",
+      "by": "manage_record notes"
+    },
+    {
+      "path": "New or edit record → Save or Add",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-dialog.tsx:148",
+      "covered": "yes",
+      "by": "manage_record create or change"
+    },
+    {
+      "path": "Record page → header: kind, name",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:166",
+      "covered": "yes",
+      "by": "get_record_details kind, name"
+    },
+    {
+      "path": "Record page → menu → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:193",
+      "covered": "yes",
+      "by": "manage_record change"
+    },
+    {
+      "path": "Record page → menu → Archive or Restore",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:206",
+      "covered": "yes",
+      "by": "archive_or_restore record"
+    },
+    {
+      "path": "Record page → menu → Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:222",
+      "covered": "yes",
+      "by": "move_to_bin custom_record"
+    },
+    {
+      "path": "Record page → Book",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:242",
+      "covered": "partly",
+      "by": "book_appointment needs a person; no record link"
+    },
+    {
+      "path": "Record page → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:251",
+      "covered": "no",
+      "by": "add_note has no record target"
+    },
+    {
+      "path": "Record page → Task",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:260",
+      "covered": "no",
+      "by": "create_task has no record target"
+    },
+    {
+      "path": "Record page → File",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:269",
+      "covered": "person",
+      "by": "upload from device; file.begin_upload NEVER"
+    },
+    {
+      "path": "Record page → tabs",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
+      "covered": "partly",
+      "by": "some tabs have no tool"
+    },
+    {
+      "path": "Record page → Timeline",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Record page → Appointments",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
+      "covered": "partly",
+      "by": "list_appointments has no record filter"
+    },
+    {
+      "path": "Record page → Tasks",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
+      "covered": "no",
+      "by": "no tool lists a record's tasks"
+    },
+    {
+      "path": "Record page → Files",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:282",
+      "covered": "yes",
+      "by": "get_record_details files"
+    },
+    {
+      "path": "Record page → Details: fields, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:396",
+      "covered": "yes",
+      "by": "get_record_details fields, notes"
+    },
+    {
+      "path": "Record page → Details: added on",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:404",
+      "covered": "no",
+      "by": "no date returned"
+    },
+    {
+      "path": "Record page → Team: who looks after it",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:428",
+      "covered": "partly",
+      "by": "owner and team not returned for a record"
+    },
+    {
+      "path": "Record page → Team: assign, take off, make main",
+      "kind": "do",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:428",
+      "covered": "yes",
+      "by": "do_custom_record_assign, do_custom_record_unassign"
+    },
+    {
+      "path": "Record page → Relationships",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:442",
+      "covered": "yes",
+      "by": "get_record_details relationships"
+    },
+    {
+      "path": "Record page → related customers' conversations",
+      "kind": "see",
+      "file": "apps/web/src/components/relationships/custom-record-page.tsx:461",
+      "covered": "partly",
+      "by": "find_conversations one person at a time"
+    },
+    {
+      "path": "Lead page → menu → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:331",
+      "covered": "partly",
+      "by": "update_lead value, assignee only"
+    },
+    {
+      "path": "Lead page → menu → Archive",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:338",
+      "covered": "yes",
+      "by": "archive_or_restore lead"
+    },
+    {
+      "path": "Lead page → menu → Delete (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:351",
+      "covered": "yes",
+      "by": "move_to_bin lead"
+    },
+    {
+      "path": "Lead page → title, customer",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:366",
+      "covered": "yes",
+      "by": "get_lead title, customer"
+    },
+    {
+      "path": "Lead page → open the customer (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:366",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Lead page → funnel line",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:383",
+      "covered": "yes",
+      "by": "read_funnel_of_person"
+    },
+    {
+      "path": "Lead page → needs-attention banner, why",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:392",
+      "covered": "yes",
+      "by": "what_needs_attention; read_attention_for_record"
+    },
+    {
+      "path": "Attention banner → Snooze",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:131",
+      "covered": "yes",
+      "by": "handle_attention_item snooze"
+    },
+    {
+      "path": "Attention banner → Dismiss",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:147",
+      "covered": "yes",
+      "by": "handle_attention_item dismiss"
+    },
+    {
+      "path": "Attention banner → Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/attention-banner.tsx:117",
+      "covered": "yes",
+      "by": "do_attention_restore"
+    },
+    {
+      "path": "Lead page → stage stepper (web, phone badge)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:408",
+      "covered": "yes",
+      "by": "get_lead stage, stages"
+    },
+    {
+      "path": "Lead page → move to a stage (web, phone Move to)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:408",
+      "covered": "yes",
+      "by": "move_lead stageId"
+    },
+    {
+      "path": "Lead page → next action, when, overdue",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:436",
+      "covered": "partly",
+      "by": "get_lead nextAction, needsNextAction; no time"
+    },
+    {
+      "path": "Lead page → set next action inline (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:464",
+      "covered": "yes",
+      "by": "update_lead nextAction, nextActionAt"
+    },
+    {
+      "path": "Lead page → lost reason and date",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:494",
+      "covered": "partly",
+      "by": "read_lead_board only, top of column"
+    },
+    {
+      "path": "Lead page → won date",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:503",
+      "covered": "partly",
+      "by": "read_lead_board only, top of column"
+    },
+    {
+      "path": "Lead page → details: value, assignee, created",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:518",
+      "covered": "yes",
+      "by": "get_lead"
+    },
+    {
+      "path": "Lead page → details: expected close, source, last contact",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:518",
+      "covered": "partly",
+      "by": "read_lead_board only, top of column"
+    },
+    {
+      "path": "Lead page → tags",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:536",
+      "covered": "partly",
+      "by": "read_lead_board tags only"
+    },
+    {
+      "path": "Lead page → change tags",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:536",
+      "covered": "yes",
+      "by": "tag_customers leadIds"
+    },
+    {
+      "path": "Lead page → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:548",
+      "covered": "yes",
+      "by": "add_note leadId"
+    },
+    {
+      "path": "Lead page → Log call",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:557",
+      "covered": "no",
+      "by": "add_note writes notes only"
+    },
+    {
+      "path": "Lead page → Book",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:562",
+      "covered": "yes",
+      "by": "book_appointment leadId"
+    },
+    {
+      "path": "Lead page → File",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:574",
+      "covered": "person",
+      "by": "upload from device; file.begin_upload NEVER"
+    },
+    {
+      "path": "Lead page → Add to workflow",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:586",
+      "covered": "yes",
+      "by": "start_workflow"
+    },
+    {
+      "path": "Lead page → Won",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:600",
+      "covered": "yes",
+      "by": "move_lead to a won stage"
+    },
+    {
+      "path": "Lead page → Lost (web, phone sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:616",
+      "covered": "yes",
+      "by": "move_lead lostReason"
+    },
+    {
+      "path": "Lead page → Reopen",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:630",
+      "covered": "yes",
+      "by": "move_lead to an open stage"
+    },
+    {
+      "path": "Lead page → Qualification: status, answers, summary",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/qualification-card.tsx:1",
+      "covered": "no",
+      "by": "get_lead has no qualification"
+    },
+    {
+      "path": "Lead page → Money: estimates, invoices for the lead",
+      "kind": "see",
+      "file": "apps/web/src/components/crm/record-money.tsx:322",
+      "covered": "partly",
+      "by": "customer_money by person, not by lead"
+    },
+    {
+      "path": "Lead page → Money → New estimate",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/record-money.tsx:322",
+      "covered": "yes",
+      "by": "write_estimate for the lead"
+    },
+    {
+      "path": "Lead page → Upcoming visits",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:663",
+      "covered": "partly",
+      "by": "get_customer upcomingAppointments of the person"
+    },
+    {
+      "path": "Lead page → add-on panels",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:673",
+      "covered": "partly",
+      "by": "only add-on operations that declare ai"
+    },
+    {
+      "path": "Lead page → workflows",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:682",
+      "covered": "yes",
+      "by": "list_workflow_runs personId"
+    },
+    {
+      "path": "Lead page → tasks",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:689",
+      "covered": "partly",
+      "by": "get_customer openTasks of the person"
+    },
+    {
+      "path": "Lead page → files",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:705",
+      "covered": "yes",
+      "by": "get_record_details lead files"
+    },
+    {
+      "path": "Lead page → timeline, latest (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/pipeline/lead-detail.tsx:720",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Edit lead → Title",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:108",
+      "covered": "no",
+      "by": "update_lead has no title"
+    },
+    {
+      "path": "Edit lead → Value",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:118",
+      "covered": "yes",
+      "by": "update_lead value"
+    },
+    {
+      "path": "Edit lead → Assigned to",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:127",
+      "covered": "yes",
+      "by": "update_lead assigneeUserId"
+    },
+    {
+      "path": "Edit lead → Expected close",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:143",
+      "covered": "no",
+      "by": "update_lead has no expectedCloseOn"
+    },
+    {
+      "path": "Edit lead → Source",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:151",
+      "covered": "no",
+      "by": "update_lead has no source"
+    },
+    {
+      "path": "Edit lead → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:159",
+      "covered": "partly",
+      "by": "update_lead"
+    },
+    {
+      "path": "Lost → reason: another bidder, not doing the work, no response",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:40",
+      "covered": "yes",
+      "by": "move_lead lostReason"
+    },
+    {
+      "path": "Lost → Anything else",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:56",
+      "covered": "yes",
+      "by": "move_lead lostReason"
+    },
+    {
+      "path": "Lost → Mark as lost",
+      "kind": "do",
+      "file": "apps/web/src/components/pipeline/lost-reason-dialog.tsx:74",
+      "covered": "yes",
+      "by": "move_lead"
+    },
+    {
+      "path": "New lead → Who is it for (person or company)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:149",
+      "covered": "partly",
+      "by": "create_lead personId; no companyId"
+    },
+    {
+      "path": "New lead → Title",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:163",
+      "covered": "yes",
+      "by": "create_lead title"
+    },
+    {
+      "path": "New lead → Value",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:174",
+      "covered": "yes",
+      "by": "create_lead value"
+    },
+    {
+      "path": "New lead → Assigned to",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:184",
+      "covered": "yes",
+      "by": "create_lead assigneeUserId"
+    },
+    {
+      "path": "New lead → Pipeline",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:200",
+      "covered": "yes",
+      "by": "create_lead stageId of that pipeline"
+    },
+    {
+      "path": "New lead → Stage",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:216",
+      "covered": "yes",
+      "by": "create_lead stageId"
+    },
+    {
+      "path": "New lead → Next action",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:227",
+      "covered": "yes",
+      "by": "create_lead nextAction"
+    },
+    {
+      "path": "New lead → When and time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:239",
+      "covered": "partly",
+      "by": "create_lead has no time; update_lead after"
+    },
+    {
+      "path": "New lead → Expected close",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:259",
+      "covered": "no",
+      "by": "create_lead has no expectedCloseOn"
+    },
+    {
+      "path": "New lead → Source",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:267",
+      "covered": "no",
+      "by": "create_lead has no source"
+    },
+    {
+      "path": "New lead → Create",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:280",
+      "covered": "yes",
+      "by": "create_lead"
+    },
+    {
+      "path": "New import → steps: Upload, Match columns, Preview, Run",
+      "kind": "see",
+      "file": "apps/web/src/components/import/import-wizard.tsx:192",
+      "covered": "person",
+      "by": "import.create, import.start NEVER: own spreadsheet"
+    },
+    {
+      "path": "New import → People or Companies",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-wizard.tsx:238",
+      "covered": "person",
+      "by": "part of the person's own import"
+    },
+    {
+      "path": "New import → Choose file",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-wizard.tsx:258",
+      "covered": "person",
+      "by": "upload from device"
+    },
+    {
+      "path": "New import → Match columns to fields",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-wizard.tsx:343",
+      "covered": "person",
+      "by": "part of the person's own import"
+    },
+    {
+      "path": "New import → Preview rows and problems",
+      "kind": "see",
+      "file": "apps/web/src/components/import/import-wizard.tsx:393",
+      "covered": "person",
+      "by": "part of the person's own import"
+    },
+    {
+      "path": "New import → Calls from us for everyone",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-wizard.tsx:449",
+      "covered": "person",
+      "by": "part of the person's own import"
+    },
+    {
+      "path": "New import → On a match: Skip it or Update it",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-wizard.tsx:484",
+      "covered": "person",
+      "by": "part of the person's own import"
+    },
+    {
+      "path": "New import → Run",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-wizard.tsx:513",
+      "covered": "person",
+      "by": "import.start NEVER"
+    },
+    {
+      "path": "Import page → status",
+      "kind": "see",
+      "file": "apps/web/src/components/import/import-progress.tsx:83",
+      "covered": "yes",
+      "by": "read_import_get"
+    },
+    {
+      "path": "Import page → rows done of total",
+      "kind": "see",
+      "file": "apps/web/src/components/import/import-progress.tsx:118",
+      "covered": "yes",
+      "by": "read_import_get"
+    },
+    {
+      "path": "Import page → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-progress.tsx:129",
+      "covered": "yes",
+      "by": "do_import_cancel"
+    },
+    {
+      "path": "Import page → Created, Updated, Skipped, Errors",
+      "kind": "see",
+      "file": "apps/web/src/components/import/import-progress.tsx:145",
+      "covered": "yes",
+      "by": "read_import_get"
+    },
+    {
+      "path": "Import page → error rows and why",
+      "kind": "see",
+      "file": "apps/web/src/components/import/import-progress.tsx:159",
+      "covered": "yes",
+      "by": "read_import_get"
+    },
+    {
+      "path": "Import page → Download errors as CSV",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-progress.tsx:193",
+      "covered": "partly",
+      "by": "read_import_get lists errors; no file"
+    },
+    {
+      "path": "Import page → See the customers",
+      "kind": "do",
+      "file": "apps/web/src/components/import/import-progress.tsx:205",
+      "covered": "yes",
+      "by": "list_customers"
+    },
+    {
+      "path": "Phone Contacts → pick from phone contacts",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:87",
+      "covered": "person",
+      "by": "reads the phone's own contacts"
+    },
+    {
+      "path": "Phone Contacts → search name, number or note",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:100",
+      "covered": "yes",
+      "by": "search_customers; read_search_everything"
+    },
+    {
+      "path": "Phone Contacts → People · n, Companies · n",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:131",
+      "covered": "yes",
+      "by": "read_crm_summary; list_customers"
+    },
+    {
+      "path": "Phone Contacts → search hits by kind",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:146",
+      "covered": "yes",
+      "by": "read_search_everything"
+    },
+    {
+      "path": "Phone Contacts → Search everything",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:155",
+      "covered": "yes",
+      "by": "read_search_everything"
+    },
+    {
+      "path": "Phone Contacts → no matches",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:159",
+      "covered": "yes",
+      "by": "search returns none"
+    },
+    {
+      "path": "Phone Contacts → person row",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:208",
+      "covered": "yes",
+      "by": "list_customers"
+    },
+    {
+      "path": "Phone Contacts → company row",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/customers.tsx:235",
+      "covered": "partly",
+      "by": "search_customers companies: name, phone"
+    },
+    {
+      "path": "Phone customer or company → Photo: take one or choose",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:414",
+      "covered": "person",
+      "by": "camera or library on the device"
+    },
+    {
+      "path": "Phone customer or company → Files → uploading row",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/files.tsx:61",
+      "covered": "person",
+      "by": "the person's own upload"
+    },
+    {
+      "path": "Phone customer → Task sheet: due none/today/tomorrow/next week, for me or anyone",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:290",
+      "covered": "yes",
+      "by": "create_task dueAt, assigneeUserId"
+    },
+    {
+      "path": "Phone customer → Duplicate banner, open the other",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/bits.tsx:278",
+      "covered": "partly",
+      "by": "possible duplicate not returned; merge_customers"
+    },
+    {
+      "path": "Phone customer → Documents card",
+      "kind": "see",
+      "file": "apps/mobile/src/documents/card.tsx:15",
+      "covered": "yes",
+      "by": "read_document_list"
+    },
+    {
+      "path": "Phone customer → Owes card, Open their money",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/bits.tsx:346",
+      "covered": "yes",
+      "by": "customer_money"
+    },
+    {
+      "path": "Phone customer → Edit: First, Last, Mobile, Email, Street, City, State, ZIP, Notes",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/sheets.tsx:207",
+      "covered": "yes",
+      "by": "update_customer"
+    },
+    {
+      "path": "Phone company → Edit: Name, Phone, Email, Website, Notes",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/customers/companies/[companyId].tsx:170",
+      "covered": "yes",
+      "by": "manage_company change"
+    },
+    {
+      "path": "Phone customer or lead → n changes waiting to send, refused, OK",
+      "kind": "see",
+      "file": "apps/mobile/src/components/customers/bits.tsx:313",
+      "covered": "no",
+      "by": "the phone's own outbox; no tool sees it"
+    },
+    {
+      "path": "Phone lead → Call first name",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:125",
+      "covered": "never",
+      "by": "call.start NEVER: own microphone"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "crm-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "A company's page (Contacts → Companies → a company): header phone/email/address, Details tab (Phone, other numbers, Email, other emails, Website, Address, other addresses, Assigned to, Source, Created, Notes), Fields, People · N in Relationships, its Leads and Tasks tabs; and the Companies tab columns (Contact, Tags, People, Open leads)",
+      "gap": "No tool reads a company in full. get_record_details for a company returns only name, archived, lookedAfterBy, relationships and files. search_customers returns a company's id, name and phone, at most 3. Some of it can be reached: read_search_everything, or read_search_kind with kind 'companies' and the company's name, returns the main phone, email, address (street and city), people count and open-lead count, and read_search_kind with kind 'contacts' and the company's name finds the people there. Nothing returns the website, other numbers, emails or addresses, notes, source, tags, the company's own fields, created date, the named list of people from company.get, or the company's leads. list_leads has no companyId, though lead.list takes one.",
+      "fix": "In get_record_details, when recordType is company (tools-inbox-crm.ts about()), also return from company.get: email, phone, website, address, otherPhones, otherEmails and otherAddresses (each with its label), notes, source, tags (names), createdAt, fields (fieldId, label, type, value via customValueText over custom_field.list {entity:'company'}), people [{id, name, phone, email, archived}], and openLeads from lead.list {companyId, status:'open'} (id, title, stage, value). Add companyId to list_leads in tools.ts:88-101 and pass it through in tools-read.ts list_leads.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "Contacts list: All / Leads / Clients segmented filter, Assigned to anyone picker, Client badge, Open leads and Last activity columns, company/address line; the Companies tab list",
+      "gap": "list_customers passes only q, tagId, withoutTagId, limit and cursor to person.list. It can't filter to leads or clients, by who a customer is assigned to, or by company, although person.list takes standing, assignedUserId and companyId. It returns id, name, phone, email and tag names, with no client flag, open-lead count, last activity, company or address. No tool lists companies: search_customers stops at 3 and needs words; read_search_kind (which takes standing) needs at least 2 characters to search; find_archived lists only archived companies; crm.summary gives only the counts.",
+      "fix": "Add standing ('lead'|'client'), assignedUserId, companyId, includeArchived and sort ('name'|'recent') to list_customers (tools.ts:63-75), and pass them to person.list in tools-contacts.ts:77-91. Return client, openLeads, lastActivityAt, company {id, name} and address.city. Add a list_companies tool on company.list (q, tagId, assignedUserId, standing, includeArchived, limit, cursor) returning id, name, phone, email, website, tags, peopleCount, openLeads, client and nextCursor.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-3",
+      "severity": "high",
+      "kind": "do",
+      "where": "A customer's, company's, lead's and record's page: Log call (and the Note sheet's Note / Call / Visit choice, When, Related lead, Set a next action from this)",
+      "gap": "add_note always calls activity.log with kind 'note'. It takes no occurredAt and no customRecordId. The Assistant can't log a call or a visit, back-date an entry, or put a note on a pet, vehicle or property, although activity.log takes all three and the places map tells it to use 'Note or Log call'. The only part already covered: it can attach the note to a lead together with a person.",
+      "fix": "Add kind ('note'|'call'|'visit', default 'note'), occurredAt (when, optional) and customRecordId to add_note (tools.ts:1163-1174), or rename it log_activity. Pass them to activity.log in tools-write.ts:195-206, title the done card 'Call on …' or 'Visit on …', and link a record with recordHref. Keep it auto with Undo, as activity.delete already undoes it (tools-write.ts:928).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "A lead (web full page and side sheet, phone lead screen): next action time, Lost: reason · date, Won · date, Value, Assigned to, Last contact, Expected close, Source, Tags, “N days in stage”, its company, archived",
+      "gap": "get_lead and list_leads use leadResult, which drops nextActionAt, nextActionOverdue, lostReason, lostAt, wonAt, lastContactAt, expectedCloseOn, source, tags, stageEnteredAt, company and archivedAt, although lead.get and lead.list return them. Some of it can be reached: read_lead_board returns the full lead cards, but for one pipeline, without archived leads, and cut off after 16,000 characters (about 20 leads). read_timeline_list on a lead shows the 'Lost: <reason>' line with its date. Neither is the natural path for 'when is the follow-up due?', and get_lead answers with the next action but not its time.",
+      "fix": "In tools-read.ts:210-222 leadResult, add: nextActionAt (formatted with when()), nextActionOverdue, lostReason, lostAt, wonAt, lastContactAt, expectedCloseOn, source, tags (names), daysInStage (from stageEnteredAt), company {id, name} and archived. Widen the LeadItem interface (tools-read.ts:136-151) to match, and update get_lead's description ('…next action and when, last contact, expected close, source, tags, why it was lost…').",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A customer's page: Details tab rows Other addresses (with labels), Calls from us (Not asked / Agreed in writing (where) / Doesn’t want calls), Created and the “Customer since” badge, the Archived badge and the “merged into … Open (name)” notice; phone head line (customer since · source) and the possible-duplicate banner",
+      "gap": "Archived is already readable: get_record_details for a person returns archived, and find_archived lists archived customers with the date. get_customer still leaves out otherAddresses (with labels), callConsent (consent and where it's written), createdAt (Customer since), mergedInto (the record a duplicate was merged into) and the company's id, all of which person.get returns. The Assistant can't say whether someone agreed to calls, give their second address, say how long they've been a customer, or point from a merged duplicate to the record kept.",
+      "fix": "In tools-read.ts get_customer (313-327), add otherAddresses [{label, address line}], calls {consent: 'not asked'|'agreed in writing'|'doesn’t want calls', where: callConsent.source}, customerSince: createdAt, archived: !!archivedAt, mergedInto {id, name}, and company {id, name} in place of the bare name. Add these fields to the PersonItem interface (tools-read.ts:121-135).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-6",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Edit lead dialog (⋯ → Edit details on a lead): Title, Expected close, Source",
+      "gap": "update_lead takes only assigneeUserId, value, nextAction and nextActionAt. It can't rename a lead or change its Expected close or Source, although lead.update takes title, expectedCloseOn and source, and the places map tells it 'Change its value, owner or close date: ⋯, then Edit details'. A nextActionAt on its own is refused. The model can work around that by sending the current nextAction text again.",
+      "fix": "Add title (text 160), expectedCloseOn (YYYY-MM-DD, nullable) and source (max 80, nullable) to update_lead (tools.ts:1297-1308). In tools-write.ts updateLead, add card rows Title, Expected close and Source (before → after) and pass them to lead.update. When only nextActionAt is given, call lead.set_next_action with the lead's current nextAction text, and refuse only when the lead has none.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-7",
+      "severity": "medium",
+      "kind": "do",
+      "where": "New lead dialog (Lead button on a person's or company's page, Pipeline → New lead): Who is it for? (person or company), Pipeline, Next action + When, Expected close, Source",
+      "gap": "create_lead needs a personId, so it can't open a lead for a company, although lead.create takes a companyId. It also leaves out the dialog's next-action time, Expected close and Source. Correction: the New lead dialog doesn't set tags. Additional bug: create_lead's commit sends stageId without pipelineId. lead.create then takes the first pipeline and refuses a stage from any other, so a lead can't be opened in a second pipeline, even though the card shows that stage.",
+      "fix": "In tools.ts:1282-1295, make personId optional and add companyId (exactly one required), nextActionAt (when), expectedCloseOn (date) and source. In tools-write.ts createLead (672-735), read the company's name for the card, find the stage's pipeline and pass pipelineId, and pass companyId, nextActionAt, expectedCloseOn and source to lead.create.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-8",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A company's page: Details tab → Fields → Edit (the business's own company fields)",
+      "gap": "No tool sets or reads a company's own fields. manage_company has no field values. manage_record 'change' runs record.set_fields only with recordType 'custom_record', and update_customer only with 'person'. get_record_details for a company returns no fields.",
+      "fix": "Add values (field id → value, null clears it) to manage_company 'change' (tools-inbox-crm.ts:138-160). Check them with valueLines against custom_field.list {entity:'company'} and run record.set_fields {recordType:'company'} in the commit. Return the company's fields (fieldId, label, type, value) from get_record_details (crm-1).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-9",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Edit details (person and company): Add another address with its label, Make main for a number/email/address; company's Add another phone / email",
+      "gap": "For a person, 'Make main' on a number or email is already possible: update_customer can set phone or email, removeOtherPhones/removeOtherEmails and addOtherPhones/addOtherEmails (with labels) in one call. What's missing: update_customer can't add, remove, relabel or make main a person's other addresses (otherAddresses), and manage_company can't touch a company's other phones, emails or addresses at all, although company.update takes otherPhones, otherEmails and otherAddresses.",
+      "fix": "Add addOtherAddresses [{line1, line2, city, state, postalCode, label}] and removeOtherAddresses to update_customer, built as tools-contacts.ts:610-660 builds the phone and email lists. Add addOtherPhones, removeOtherPhones, addOtherEmails, removeOtherEmails, addOtherAddresses and removeOtherAddresses to manage_company, with card rows 'Other numbers', 'Other emails' and 'Other addresses'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-10",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Details tab → Fields (fields marked to show when empty, choice fields shown by their label)",
+      "gap": "update_customer's description tells the model to take field ids 'from get_customer', and its own refusal sends it back there (tools-contacts.ts:707). get_customer lists only fields that already have a value, with the raw stored value, no type, and no choice labels. An empty field (gate code, account number) has no id the model is told about. get_settings with area fields does read custom_field.list, but nothing points the model there.",
+      "fix": "In tools-read.ts get_customer (301-311), always read custom_field.list {entity:'person'} and return every field as {id, name, type, choices (value and label), value: customValueText(field, custom[id]) or null}. Also change update_customer's description to 'by field id, from get_customer (every field, empty ones too)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-11",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A lead's full page: Qualification card (the AI teammate's qualifying answers, status, the questions still missing)",
+      "gap": "lead.get returns lead.qualification, but get_lead drops it in leadResult. No other Assistant source reads it. The timeline gets only a 'lead_qualified' line, with the lead's title, once it's qualified. The Assistant can't say whether a lead is qualified, not a fit or in progress, what the customer answered, or which questions are still missing.",
+      "fix": "In tools-read.ts get_lead (376-399), return qualification: status; answers [{question (from ai_teammate.get config.qualify.questions by id), answer, by: 'AI teammate' or the person's name, at}]; missing (the question texts); notAFit. Mention qualification in get_lead's description.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-12",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Tasks tab on a company's page and on a record's page (New task), and every record's Tasks tab including done tasks",
+      "gap": "create_task takes only personId and leadId, so it can't put a task on a company or on a pet, vehicle or property, although task.create takes companyId and customRecordId. list_tasks always asks for status 'open' and has no person, lead, company or record filter. Its rows give only the person's name, not the lead, company or record, although task.list takes all those filters and returns them.",
+      "fix": "Add companyId and customRecordId to create_task (tools.ts:1129-1143) and pass them in tools-write.ts create_task. Add personId, leadId, companyId, customRecordId and status ('open'|'done'|'all', default open) to list_tasks (tools.ts:132-142) and pass them in tools-read.ts:440-446. Return each task's lead.title, company.name, customRecord (name, kind), notes and doneAt.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-13",
+      "severity": "low",
+      "kind": "read",
+      "where": "Files tab (customer, company, lead, record): each file's “Signed · kept” lock, opening it, Download",
+      "gap": "No Assistant read says whether a file is locked ('Signed · kept'): get_record_details drops locked, although file.list returns it. Opening a file is partly covered: read_search_everything with the file's name returns a path to the file on its record's Files tab (?tab=files&file=<id>), but it's a path, not a full link, and get_record_details gives no link at all.",
+      "fix": "In get_record_details' files (tools-inbox-crm.ts:1910-1917), add locked: f.locked (and the words 'Signed and kept: it can’t be deleted'). Add href: the record's page (pageOf) + '?tab=files&file=<id>', made a full link from the web app's address as the commits' webUrl is, or return a list card with those hrefs.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-14",
+      "severity": "high",
+      "kind": "never",
+      "where": "Files tab ⋯ → Remove (shown only to people with Delete files, files.delete)",
+      "gap": "delete_file runs file.delete, which removes the file for good (no Deleted bin; the worker deletes the stored object, and its own card says it 'can’t be brought back'). That breaks the owner's settled rule that the Assistant never deletes anything for good (docs/operations.md, settings-map's Deleted bin handover, and the public site's 'It never deletes anything for good'). It's also offered with records.write, while the screen shows Remove only with files.delete. Correction: the database's refusal reaches the person as plain words ('Only the person who added this file can delete it…'), not a raw error, but only after Confirm. A member who uploaded a file can also delete it through the Assistant although the screen hides Remove from them.",
+      "fix": "Add 'file.delete': 'deleting a file for good, which stays the person’s (the owner, 2026-10-26)' to NEVER_FOR_THE_ASSISTANT. Remove delete_file from tools-inbox-crm.ts (core 249-260 and worker 2266-2300, plus inboxCrmConfirmTools and inboxCrmStepLabels), and remove the places-map canChange line 'delete a file on their record'. Have the Assistant point to 'their page, Files tab, ⋯ beside the file, Remove'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-15",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A record's own page (Contacts → a kind's tab → a pet, vehicle or property)",
+      "gap": "AssistantPageRecord's types are person, company, lead, conversation, appointment, workflow and workflow_run, and RECORD_ROUTES has no customers/records. On a record's page (/customers/records/<id>), the panel is told 'No customer, lead or appointment is on screen', so 'this', 'add a note to this' or 'who owns this dog?' can't be tied to the record.",
+      "fix": "Add 'custom_record' to AssistantPageRecord.type (schemas/assistant.ts:319-330) and ['custom_record','customers/records'] to RECORD_ROUTES (words.ts:413-420). In context.ts pageLabel, read custom_record.get and label it '<name> (<kind singular>)'. In prompt.ts pageLines, say 'get_record_details with recordType record reads it'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-16",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A record kept to its people (e.g. a Real Estate deal): the Assigned card with its main person and team",
+      "gap": "get_record_details for a record returns name, kind, typeId, archived, notes and fields, but not keptToTeam, owner or team, which custom_record.get has and the Assigned card shows. No other read returns them (the records search gives only archivedAt). Meanwhile do_custom_record_assign and do_custom_record_unassign are offered.",
+      "fix": "In tools-inbox-crm.ts getRecordDetails' record branch (1870-1885), add keptToTeam: record.keptToTeam and lookedAfterBy {main: owner {userId, name}, alsoOnIt: team [{userId, name}]}, as the person and company branch does (1860-1863).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-17",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Contacts → a kind's tab (Pets · N): the count on the tab, Show more, the Updated column",
+      "gap": "find_records caps limit at 50, has no cursor, and drops custom_record.list's nextCursor. It doesn't return each kind's recordCount (from custom_record_type.list) or updatedAt. Its card title is count(items.length), so 'How many vehicles?' is answered from at most 50 rows without saying there are more.",
+      "fix": "In find_records, take a cursor and return nextCursor and a 'more' note. Return recordCount on each kind (it's already in custom_record_type.list's output) and updatedAt on each record. Word the card title with '+' when nextCursor is set.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-18",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A record's page: Book (an appointment tied to the pet/vehicle/property), and its Appointments tab",
+      "gap": "A repeat series can already be tied to a record: manage_repeat_visits takes customRecordId. A single booking can't: book_appointment (and update_appointment) take no customRecordId, although appointment.create does. list_appointments can't filter to a record's visits, although appointment.list takes customRecordId. So 'Book Max in Tuesday' books only the owner, and Max's Appointments tab can't be read.",
+      "fix": "Add customRecordId to book_appointment (tools.ts:1345-1361) and pass it to appointment.create in its commit. Add customRecordId as a filter to list_appointments (tools-scheduling.ts:37-52) and pass it to appointment.list.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-19",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A customer's page: Text ▾ and Email ▾ when they have more than one number or email (each “number · Work” choice)",
+      "gap": "send_text and send_email pick the target from personId (the main number, or their first text thread) or a conversationId. The Assistant can't text or email one of a person's other numbers or addresses unless a thread with it already exists, although message.send takes toPhone and toEmail. The screen's Text ▾ and Email ▾ offer each 'number · label'.",
+      "fix": "Add an optional to to send_text (a phone from get_customer's phone or otherPhones) and to send_email (from email or otherEmails), checked against person.get. Pass toPhone or toEmail to message.send in the commits (tools-write.ts:399-405,494-500), and show 'To: (512) 555-0101 · Work' on the card.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-20",
+      "severity": "medium",
+      "kind": "words",
+      "where": "A lead's ⋯ (Lead actions) menu: Edit details, Archive lead, Delete for good… (owners)",
+      "gap": "The lead's ⋯ menu has Delete for good… for owners (lead-delete, on the web and the phone), and move_to_bin takes leads. But the places map says '⋯ has Edit details and Archive lead' and lists 'deleting a lead (archive it)' under Not in HandsFreeOS, and the prompt tells the model to say plainly that HandsFreeOS doesn't do anything on that list.",
+      "fix": "In places-map.ts:224, change the ⋯ line to '⋯ has Edit details, Archive lead and Delete for good… (owners)'. Add the howTo 'Delete a lead for good: ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin'. Remove notHere 'deleting a lead (archive it)' (line 235). Add 'delete it through the Deleted bin (owners)' to canChange.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-21",
+      "severity": "low",
+      "kind": "words",
+      "where": "A company's page and a record's page (pet, vehicle, property)",
+      "gap": "The places map has no entry for a record's page. The company page is only 'the same, without calling, texting, booking or money' inside the customer page's entry. That leaves out the company's People list and Add person in Relationships, and wrongly implies Merge…, Calls from us, Regular services, Conversations, Workflows and Document are there. How to archive or book a pet, or where its buttons are, has nothing to go on.",
+      "fix": "Add places entries 'A company’s page' (path /customers/companies/[companyId]): Note, Log call, Task, Lead, File; ⋯ Edit details, Archive, Delete for good… (owners); tabs; Assigned to, Open lead, Relationships with People and Add person. Add 'A record’s page' (path /customers/records/[recordId]): Book, Note, Task, File; ⋯ Edit details, Archive, Delete for good…; Appointments, Tasks and Files tabs; Assigned (when kept to its people) and Relationships.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-22",
+      "severity": "low",
+      "kind": "words",
+      "where": "A customer's page: the buttons along the top and the cards beside them",
+      "gap": "The customer page's 'Along the top' line leaves out Document (shown with documents.send) and the video call button. 'Beside them' leaves out the Facebook/Instagram ads card (AttributionCard) and the Partner card. The places map has no Documents place either, so asked where to send a document from a customer, the model has nothing to quote.",
+      "fix": "Change places-map.ts:160 to 'Along the top: Call, Text, Email, Video call, Book, Note, Log call, Task, Lead, File, Document (with Send documents), and Add to workflow…'. Change line 162 to add 'the ads and links that brought them (when any did), Partner (while partners are on)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "crm-23",
+      "severity": "low",
+      "kind": "read",
+      "where": "A lead's full page: Money card (what has been quoted or billed on this job)",
+      "gap": "customer_money always reads money.for_record with recordType 'person', and its documents don't say which lead they're for. get_money_document doesn't return the lead either. A lead's Money card (what's quoted or billed on that job) can't be read apart from the customer's other jobs, although money.for_record takes a lead.",
+      "fix": "Add an optional leadId to customer_money (tools.ts:249-255; personId optional when leadId is given) that reads money.for_record {recordType:'lead', recordId: leadId}. Or return each estimate's and invoice's lead {id, title} in customer_money and get_money_document.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}
