@@ -957,6 +957,7 @@ describe('registry', () => {
       'platform.problem_report.get',
       'platform.problem_report.groups',
       'platform.learned_way.list',
+      'platform.assistant_ledger',
       'teammate_view.current',
       'teammate_view.lens',
       'founding.counts',
