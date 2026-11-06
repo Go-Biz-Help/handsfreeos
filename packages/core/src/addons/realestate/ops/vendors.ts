@@ -150,31 +150,37 @@ const vendorOut = (v: Vendor) => ({ vendorId: v.id, companyId: v.companyId, appr
 const digitsOf = (phone: string) => phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
 
 /**
- * A vendor's email or phone number, changed: they're the company's in Contacts, so the change goes there, as
- * Contacts would make it, and only when it differs from what the company has (the Change dialog sends them back as
- * they were).
+ * A vendor's name, email or phone number, changed: they're the company's in Contacts, so the change goes there, as
+ * Contacts would make it, and only when it differs from what the company has (the Change dialog sends email and
+ * phone back as they were).
  */
 async function contactsOf(
   ctx: CommandContext,
   companyId: string,
-  input: { readonly email?: string | undefined; readonly phone?: string | undefined },
+  input: {
+    readonly name?: string | undefined;
+    readonly email?: string | undefined;
+    readonly phone?: string | undefined;
+  },
 ) {
-  if (!input.email && !input.phone) return;
+  if (!input.name && !input.email && !input.phone) return;
   const [c] = await ctx.tx
-    .select({ email: companies.email, phone: companies.phone })
+    .select({ name: companies.name, email: companies.email, phone: companies.phone })
     .from(companies)
     .where(and(eq(companies.id, companyId), eq(companies.workspaceId, ctx.scope.workspaceId!)));
   if (!c) return;
+  const name = input.name && input.name !== c.name ? input.name : undefined;
   const email =
     input.email && input.email.toLowerCase() !== String(c.email ?? '').toLowerCase()
       ? input.email
       : undefined;
   const phone =
     input.phone && digitsOf(input.phone) !== digitsOf(c.phone ?? '') ? input.phone : undefined;
-  if (email === undefined && phone === undefined) return;
+  if (name === undefined && email === undefined && phone === undefined) return;
   await executeCommandWithin(ctx, companyUpdate, {
     workspaceId: ctx.scope.workspaceId!,
     companyId,
+    ...(name !== undefined ? { name } : {}),
     ...(email !== undefined ? { email } : {}),
     ...(phone !== undefined ? { phone } : {}),
   });
@@ -194,7 +200,7 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
     tool: 'realestate_vendor_save',
     autonomy: 'confirm',
     description:
-      'Add a vendor to the directory (Real Estate Agent → Vendors), or change one (vendorId, from realestate_vendors): what they do (services) and where (areas), each the whole list as it should end up; a part left out of a change stays as it is. A disclosure the client must be told of, and a note for the team. A new email or phone number goes on their company in Contacts. One archived is brought back by adding them again. A new vendor, or a changed disclosure, waits for someone who runs the deal settings to approve them.',
+      'Add a vendor to the directory (Real Estate Agent → Vendors), or change one (vendorId, from realestate_vendors): what they do (services) and where (areas), each the whole list as it should end up; a part left out of a change stays as it is. A disclosure the client must be told of, and a note for the team. A new name, email or phone number goes on their company in Contacts. One archived is brought back by adding them again. A new vendor, or a changed disclosure, waits for someone who runs the deal settings to approve them.',
   },
   scope: inWorkspace,
   // Adding works with no signal, with the phone's id for a new one; approving one needs an owner or admin with signal

@@ -179,6 +179,16 @@ describe('the directory', () => {
       note: 'Weekends too',
     });
     expect(String(v.phone).replace(/\D/g, '')).toMatch(/5125550142$/);
+    // A new name goes on the company too, never dropped.
+    await runAs(agent, 'realestate.vendor.save', {
+      vendorId: ids['cheap'],
+      name: 'Quick Look Inspections',
+    });
+    const [renamed] = await rows<{ name: string }>(
+      admin(),
+      sql`select name from app.companies where id = ${v.companyId}`,
+    );
+    expect(renamed!.name).toBe('Quick Look Inspections');
     // A new vendor still says what they do.
     expect(await refused(runAs(agent, 'realestate.vendor.save', { name: 'No Services Co' }))).toBe(
       'validation',
