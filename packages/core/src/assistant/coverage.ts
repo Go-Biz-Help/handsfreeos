@@ -21,7 +21,7 @@ export interface ScreenAction {
   readonly warning?: string;
   /**
    * Who it's offered to, when that isn't the command's own permission: one the kernel lets anyone run and that checks
-   * who may inside (notifications, an add-on's settings), or one of the agency's, whose organization permission the
+   * who may inside (notifications, say), or one of the agency's, whose organization permission the
    * kernel checks (offered on workspace.update, which every agency owner and admin holds in each of its businesses).
    */
   readonly offeredTo?: Permission;
@@ -143,7 +143,6 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'look.find': {},
   'look.set': {},
   'onboarding.set_enabled': {},
-  'addon.save_settings': { offeredTo: 'workspace.read' },
   'addon.save_my_settings': {},
   'addon.vote': {},
   'addon.unvote': {},
@@ -862,6 +861,17 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     'remindAfterDueDays',
     'nudgeEstimateAfterDays',
   ].map((field) => ({ tool: 'update_money_settings', field })),
+  // ---- Partners ----
+  'partners.pay': ['sharePercent', 'smallestPayout', 'calendarId'].map((field) => ({
+    tool: 'update_partner_settings',
+    field,
+  })),
+  'partners.terms': [{ tool: 'update_partner_settings', field: 'terms' }],
+  // ---- Add-ons' own settings pages: what the add-on's schema holds, merged into what is set now ----
+  'addon.realestate.page.settings': [
+    { tool: 'update_addon_settings', field: 'addonId' },
+    { tool: 'update_addon_settings', field: 'settings' },
+  ],
 };
 
 /** Setting rows the Assistant never changes, and why. */
@@ -890,6 +900,8 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
     'a preview page the person opens to chat with their own chat box; test chats create and send nothing, so there is nothing to set',
   'tags.ai_changes':
     'what the AI changed lately and why, to read (ai_tagging_status): nothing to set, and a tag it put on comes off with tag_customers',
+  'partners.payouts':
+    'the card partner payouts are charged to is typed on the payment provider’s own page, which only the person can do (do_partner_payout_forget_card takes it off); what each partner is owed, the next payout and each month’s statement are read with get_settings (area partners)',
   'payments.card':
     'always on, with nothing to switch: every customer can pay by card, Apple Pay or Google Pay, and nothing is ever added for paying that way',
   'payments.cash':
@@ -908,4 +920,4 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
  * The Settings pages (and add-ons' settings) whose rows aren't checked yet, in menu order: the daily routine takes
  * the first, says which tool changes each of its rows (adding what's missing), and takes it off.
  */
-export const SETTINGS_NOT_YET: readonly string[] = ['partners', 'realestate'];
+export const SETTINGS_NOT_YET: readonly string[] = [];
