@@ -1,4 +1,5 @@
 'use client';
+import { formEmbedSnippet } from '@hfos/core';
 import { Download, Link2, QrCode } from 'lucide-react';
 import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
@@ -101,9 +102,8 @@ export function FormShare({
 
   // Past the guard above `siteSlug` is a string, so this is the address itself rather than a maybe-null one.
   const publicUrl = `${origin}${PUBLIC_FORM_PATH(siteSlug, form.slug)}`;
-  // The iframe, and the line that fits its box to the form (/embed/v1/form.js), from our own address: a business's
-  // own domain serves its pages, not our scripts.
-  const embedSnippet = `<iframe src="${publicUrl}?embed=1" title="${form.name}" width="100%" height="720" style="border:0" loading="lazy"></iframe>\n<script src="${appOrigin}/embed/v1/form.js" async></script>`;
+  // The iframe, and the line that fits its box to the form, from our own address (core's, which the Assistant uses too).
+  const embedSnippet = formEmbedSnippet({ publicUrl, appOrigin, name: form.name });
 
   return (
     // One column that is the screen's width, not the embed snippet's: an implicit grid column grows to fit its widest

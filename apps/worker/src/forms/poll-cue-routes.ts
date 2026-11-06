@@ -185,6 +185,12 @@ export function cueRequest(
   return lines.join('\n');
 }
 
+/** Each slide's words, from what the worker read in the file: its text, cut where each page starts. */
+export const slidesFromRead = (read: { text: string; pages: number[] }): string[] =>
+  read.pages
+    .slice(0, MAX_SLIDES)
+    .map((start, i) => read.text.slice(start, read.pages[i + 1] ?? read.text.length));
+
 /**
  * The words on each of a poll's slides, read as the person asking: what the worker already read in the file, or the PDF
  * itself when it hasn't yet (just uploaded). 404 when the slides aren't there.
@@ -212,10 +218,7 @@ export async function slidesText(
   const { file, read } = found;
   if (!file || file.status !== 'ready')
     throw HfosError.notFound('The poll’s slides aren’t there anymore. Add them again.');
-  if (read?.pages.length)
-    return read.pages
-      .slice(0, MAX_SLIDES)
-      .map((start, i) => read.text.slice(start, read.pages[i + 1] ?? read.text.length));
+  if (read?.pages.length) return slidesFromRead(read);
   const pdf = await pdfPages(
     await deps.store.download(file.bucket, file.object_path),
     SLIDES_CHARS,

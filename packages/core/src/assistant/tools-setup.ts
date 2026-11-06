@@ -241,7 +241,7 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_web_address',
     description:
-      'The business’s own web address for its forms, payment links, estimates, invoices, website chat and booking page (like go.lonestarhvac.com instead of handsfreeos.com): add it, check it now, or stop using it. Putting the DNS records in is the person’s own job, with whoever sold them the domain; say so, and read the records out once there are some. What is there now is in get_settings (area branded_domain).',
+      'The business’s own web address for its forms, payment links, estimates, invoices, website chat and booking page (like go.lonestarhvac.com instead of app.handsfreeos.com): add it, check it now, or stop using it. Putting the DNS records in is the person’s own job, with whoever sold them the domain; say so, and read the records out once there are some. What is there now is in get_settings (area branded_domain).',
     input: z.object({
       action: z.enum(['add', 'check', 'remove']),
       domain: hostname.describe('The address, like go.lonestarhvac.com'),

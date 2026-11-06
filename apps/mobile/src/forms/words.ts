@@ -1,4 +1,10 @@
-import { publicFormPath, whenLabel } from '@hfos/core';
+import {
+  answerWords,
+  FORM_SOURCE_WORDS,
+  publicFormPath,
+  whenLabel,
+  type AnswerInput,
+} from '@hfos/core';
 
 /**
  * What the phone says about a form's answers and its link (M17): the words, and the small sums that turn what the
@@ -34,16 +40,6 @@ export const FORM_WORDS = {
     `The newest ${most.toLocaleString('en-US')} answer sheets are in the file.`,
 } as const;
 
-/** Where an answer sheet came from, as the line under it says it. */
-const SOURCE_WORDS: Readonly<Record<string, string>> = {
-  link: 'from the link',
-  qr: 'from the QR code',
-  embed: 'on your website',
-  chat: 'in a conversation',
-  app: 'on the phone',
-  api: 'from another app',
-};
-
 /** One row of `form.response_list`, as much of it as the line needs. */
 export interface ResponseLineInput {
   readonly completedAt: string | null;
@@ -61,36 +57,14 @@ export function responseLine(response: ResponseLineInput, timeZone: string): str
       : `Not finished · started ${whenLabel(Date.parse(response.startedAt), timeZone)}`,
     response.scorePercent !== null ? `${response.scorePercent}%` : null,
     response.passed === null ? null : response.passed ? 'passed' : 'not passed',
-    SOURCE_WORDS[response.source] ?? null,
+    FORM_SOURCE_WORDS[response.source] ?? null,
   ]
     .filter(Boolean)
     .join(' · ');
 }
 
-/** One answer from `form.response_get`. */
-export interface AnswerInput {
-  readonly questionType: string;
-  readonly value: unknown;
-  readonly text: string | null;
-  readonly labels: readonly string[];
-}
-
-/** Kinds of answer the phone has no way to show: a file, a signature, a card payment. */
-const SHOWN_ON_THE_WEB = new Set(['file', 'signature', 'payment']);
-
-/**
- * An answer in words: the choices picked, else the words the server kept for it (`form_answers.text_value`), else
- * what the value plainly is. A file or a signature is a thing to look at rather than read, so it says where to.
- */
-export function answerWords(answer: AnswerInput): string {
-  if (answer.labels.length) return answer.labels.join(', ');
-  if (answer.text?.trim()) return answer.text;
-  if (SHOWN_ON_THE_WEB.has(answer.questionType)) return 'Open it on the web to see this one.';
-  if (typeof answer.value === 'boolean') return answer.value ? 'Yes' : 'No';
-  if (typeof answer.value === 'number') return String(answer.value);
-  if (typeof answer.value === 'string' && answer.value.trim()) return answer.value;
-  return 'No answer';
-}
+// An answer in words is core's, so the Assistant reads an answer sheet out as the phone shows it.
+export { answerWords, type AnswerInput };
 
 /** What `branded_domain.get` sends, as much as the link needs. */
 export interface DomainInput {

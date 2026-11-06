@@ -12,6 +12,7 @@ import {
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
+import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
@@ -36,11 +37,14 @@ let organizationId: string;
 const mark = randomUUID().slice(0, 8);
 // A bare domain, so the www version is added beside it (a subdomain gets none).
 const site = `chat-${mark}.com`;
+/** The web app's address, which a public link starts with while the business has no domain of its own. */
+const WEB = 'https://app.example.test';
 
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
 interface Widget {
   id: string;
   name: string;
+  publicKey: string;
   ownTextColor: string | null;
   headerColor: string | null;
   showLogo: boolean;
@@ -75,7 +79,9 @@ const prepare = async (args: Record<string, unknown>) => {
   return out as { card: ConfirmCard };
 };
 const commit = (args: Record<string, unknown>) =>
-  createToolExecutor(api()).commit(tool, argsOf(args), ctx(), { toolCallId: randomUUID() });
+  createToolExecutor(api(), null, null, WEB).commit(tool, argsOf(args), ctx(), {
+    toolCallId: randomUUID(),
+  });
 const chats = async () =>
   (
     (await executeQuery(
@@ -133,11 +139,37 @@ describe('Settings → Website chat', () => {
     expect(field(card, 'Greeting')).toBe('Hi! How can we help?');
     expect(await chat()).toBeUndefined();
 
-    await commit(args);
+    const done = await commit(args);
     const made = (await chat())!;
     expect(made.allowedOrigins).toEqual([`https://${site}`, `https://www.${site}`]);
     expect(made.greeting).toBe('Hi! How can we help?');
     expect(made.teammate).toBeNull();
+    // The snippet to paste, whole, as Add it to your site copies it: nothing for the model to finish or guess.
+    expect(done.outcome).toContain(
+      `<script async src="${WEB}/embed/v1/${made.publicKey}.js"></script>`,
+    );
+  });
+
+  it('gives each chat’s snippet whole in get_settings and on the chat’s own read', async () => {
+    const made = (await chat())!;
+    const executor = createToolExecutor(api(), null, null, WEB);
+    const settings = assistantToolByName.get('get_settings')!;
+    const got = await executor.run(
+      settings,
+      settings.input.parse({ area: 'website_chat' }) as Record<string, unknown>,
+      ctx(),
+    );
+    const listed = (got.result as { websiteChat: { items: { id: string; snippet: string }[] } })
+      .websiteChat.items;
+    const snippet = `<script async src="${WEB}/embed/v1/${made.publicKey}.js"></script>`;
+    expect(listed.find((w) => w.id === made.id)?.snippet).toBe(snippet);
+    const screen = allScreenReadTools().find((t) => t.name === 'read_chat_widget_get')!;
+    const read = await executor.run(
+      screen,
+      screen.input.parse({ widgetId: made.id }) as Record<string, unknown>,
+      ctx(),
+    );
+    expect((read.result as { data: { snippet: string } }).data.snippet).toBe(snippet);
   });
 
   it('changes where the button sits on computers and phones, its colours, logo and name, only on Confirm', async () => {

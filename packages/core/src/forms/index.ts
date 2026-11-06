@@ -14,6 +14,7 @@ export * from './describe';
 export * from './ai-tools';
 export * from './starters';
 export * from './links';
+export * from './answer-words';
 export * from './export';
 export * from './video';
 export * from './personal';

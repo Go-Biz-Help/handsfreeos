@@ -12,7 +12,7 @@ import {
   type FormDefinition,
 } from '../../src/forms/index';
 import { rng } from '../calendar/random';
-import { choice, def, page, pickOne, qid, shortText } from './fixtures';
+import { choice, def, page, pickOne, pid, qid, shortText } from './fixtures';
 
 /** Ids the tests can predict, so a diff of tool calls reads the same every run. */
 const seeded = () => {
@@ -170,6 +170,38 @@ describe('the AI builder', () => {
     expect(
       (allQuestions(out.definition)[0]!.live as { points: Record<string, number> }).points,
     ).toEqual({ [ads.choices[0]!.id]: 10 });
+  });
+
+  it('renames a page, saves their details on it, and takes a page break out as the editor does', () => {
+    const start = def({
+      pages: [
+        page('about', [shortText('name')]),
+        page('job', [shortText('what'), shortText('when')]),
+      ],
+    });
+    const out = build(start, [
+      call('update_page', { pageId: pid('about'), title: 'You', savesContact: true }),
+      call('delete_page', { pageId: pid('job') }),
+    ]);
+    expect(out.results.every((r) => r.ok)).toBe(true);
+    expect(out.definition.pages).toHaveLength(1);
+    expect(out.definition.pages[0]!.title).toBe('You');
+    expect(out.definition.pages[0]!.savesContact).toBe(true);
+    // Its questions join the end of the page before, in their order, rather than going with it.
+    expect(out.definition.pages[0]!.questions.map((q) => q.id)).toEqual([
+      qid('name'),
+      qid('what'),
+      qid('when'),
+    ]);
+  });
+
+  it('won’t take out the first page', () => {
+    const out = build(def(), [call('delete_page', { pageId: pid('about') })]);
+    expect(out.results[0]).toMatchObject({
+      ok: false,
+      message: 'The first page can’t be taken out.',
+    });
+    expect(out.ops).toEqual([]);
   });
 
   it('shows the model the form with its ids', () => {

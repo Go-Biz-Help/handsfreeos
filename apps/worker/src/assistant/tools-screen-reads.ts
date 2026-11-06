@@ -5,6 +5,9 @@
  */
 import {
   addonToolArguments,
+  chatSnippet,
+  chatSnippetSrc,
+  chatWidgetGet,
   executeQuery,
   leadBoard,
   money,
@@ -50,6 +53,19 @@ function withJoin(data: unknown, webUrl: string): unknown {
     ...(data as object),
     ...(webUrl ? { join: `${webUrl}/call/${call.id}` } : {}),
     ...door,
+  };
+}
+
+/**
+ * A website chat's answer, with the snippet Add it to your site copies. Its address goes as a path, which the executor
+ * writes out whole on the business's own domain when one is serving, as the screen does.
+ */
+function withSnippet(data: unknown): unknown {
+  const widget = (data as { widget?: { publicKey?: unknown } | null } | null)?.widget;
+  if (!widget || typeof widget.publicKey !== 'string') return data;
+  return {
+    ...(data as object),
+    snippet: chatSnippet(chatSnippetSrc('', widget.publicKey)),
   };
 }
 
@@ -170,7 +186,9 @@ export async function runScreenRead(
         ? boardSummary(got as Board, args['shown'])
         : tool.query.name === scheduleTeam.name
           ? scheduleWords(got as TeamSchedule)
-          : got;
+          : tool.query.name === chatWidgetGet.name
+            ? withSnippet(got)
+            : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:
