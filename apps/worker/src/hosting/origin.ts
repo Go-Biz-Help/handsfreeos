@@ -9,7 +9,7 @@
  * **The path never changes, only the origin.** `brandedHostProxy` serves every one of those paths on a
  * branded domain unaltered, which is what makes this a one-line swap at each call site instead of a second
  * set of link builders: `https://go.lonestarhvac.com/i/AbCd1234…` is the same link as
- * `https://handsfreeos.com/i/AbCd1234…`, and a link already sent on either name keeps working.
+ * `https://app.handsfreeos.com/i/AbCd1234…`, and a link already sent on either name keeps working.
  *
  * **Not the app.** `/app/…` links go to the business's own team and stay on our address; the proxy redirects
  * them off a branded domain anyway. Only the pages a customer opens move.

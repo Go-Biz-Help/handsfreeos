@@ -5,7 +5,7 @@
  * before the model reads it, on the business's own domain when one is serving and on ours otherwise, the same
  * address Settings copies. Paths in the app (`/app/…`) are the team's own and stay as they are.
  */
-import { isPublicPagePath } from '@hfos/core';
+import { AFFILIATE_SITE, isPublicPagePath } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import { query } from './tools-read';
 import type { ToolContext } from './runtime';
@@ -60,6 +60,55 @@ export async function publicOriginFor(db: Db, ctx: ToolContext, webUrl: string):
   }>(db, ctx, 'branded_domain.get').catch(() => null);
   const d = got?.domain;
   return d && d.status === 'verified' && d.certificateReady ? `https://${d.domain}` : webUrl;
+}
+
+/** The hosts that are ours: the web app's, and the website's (handsfreeos.com), which serves no business's pages. */
+function oursOf(webUrl: string): (host: string) => boolean {
+  const site = new URL(AFFILIATE_SITE).hostname;
+  let app = '';
+  try {
+    app = new URL(webUrl).hostname;
+  } catch {
+    // No address known (some tests): only the website is ours.
+  }
+  return (host) => host === app || host === site || host === `www.${site}`;
+}
+
+/**
+ * The arguments a model gave, with each link in them to one of the business's public pages put on the address those
+ * pages are on. The model read the path from a tool, but the address in front is ours to give, never its guess: a
+ * listing's page link on our website's host instead of the app's would reach every contact a campaign goes to as a
+ * page that isn't there. Only a link on one of our own hosts moves; one on any other host is left alone, since it may
+ * be the business's own website. The address is looked up only when there is a link to move.
+ */
+export async function onPublicOrigin(
+  args: Record<string, unknown>,
+  origin: () => Promise<string>,
+  webUrl: string,
+): Promise<Record<string, unknown>> {
+  const ours = oursOf(webUrl);
+  const moving = (s: string): URL | null => {
+    if (!/^https?:\/\/\S+$/.test(s)) return null;
+    try {
+      const url = new URL(s);
+      return ours(url.hostname) && isPublicPagePath(url.pathname) ? url : null;
+    } catch {
+      return null;
+    }
+  };
+  let any = false;
+  mapStrings(args, (s) => {
+    if (!any && moving(s)) any = true;
+    return null;
+  });
+  if (!any) return args;
+  const base = (await origin()).replace(/\/+$/, '');
+  if (!base) return args;
+  return mapStrings(args, (s) => {
+    const url = moving(s);
+    const whole = url ? `${base}${url.pathname}${url.search}${url.hash}` : null;
+    return whole && whole !== s ? whole : null;
+  }) as Record<string, unknown>;
 }
 
 /**

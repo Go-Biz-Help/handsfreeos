@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { wholeLinksIn, withWholeLinks } from '../src/assistant/full-links';
+import { onPublicOrigin, wholeLinksIn, withWholeLinks } from '../src/assistant/full-links';
 
 /**
  * Whole links for the Assistant (assistant/full-links.ts): the setup keeps public pages as paths, and the model is
@@ -76,5 +76,43 @@ describe('what a tool found', () => {
     const path = { bookingPath: '/book/acme' };
     expect(await withWholeLinks(path, origin)).toBe(path);
     expect(asked).toBe(1);
+  });
+});
+
+describe('a link the model gives an add-on', () => {
+  const LISTING = '/a/acme/realestate/12-elm-st';
+
+  it('is put on the business’s own address when the model guessed one of ours in front of the path', async () => {
+    const args = {
+      dealId: 'd1',
+      pageUrl: `https://handsfreeos.com${LISTING}`,
+      details: { link: `${ORIGIN}/book/acme/tune-up?ref=x`, offer: 'A tune-up' },
+    };
+    expect(await onPublicOrigin(args, async () => 'https://go.acme.com/', ORIGIN)).toEqual({
+      dealId: 'd1',
+      pageUrl: `https://go.acme.com${LISTING}`,
+      details: { link: 'https://go.acme.com/book/acme/tune-up?ref=x', offer: 'A tune-up' },
+    });
+  });
+
+  it('leaves another site’s link, the app’s own pages and words alone, and looks nothing up for them', async () => {
+    let asked = 0;
+    const origin = async () => {
+      asked++;
+      return 'https://go.acme.com';
+    };
+    const args = {
+      website: 'https://acme.com/book/now',
+      videoLink: 'https://www.loom.com/share/abc',
+      back: `${ORIGIN}/app/w/1/settings`,
+      note: `Book at https://handsfreeos.com/book/acme today`,
+    };
+    expect(await onPublicOrigin(args, origin, ORIGIN)).toBe(args);
+    expect(asked).toBe(0);
+  });
+
+  it('is left as it was when it is already on the address the pages are on', async () => {
+    const args = { pageUrl: `${ORIGIN}${LISTING}` };
+    expect(await onPublicOrigin(args, async () => ORIGIN, ORIGIN)).toEqual(args);
   });
 });

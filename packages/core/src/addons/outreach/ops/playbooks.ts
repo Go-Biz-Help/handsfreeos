@@ -160,7 +160,7 @@ export const playbookList = defineAddonQuery(outreachAddon, {
 export const playbookSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.playbook.save',
   description:
-    'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). A save sends the whole playbook: read it first with its list, and change only what the person asked.',
+    'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook: read it first with its list, and change only what the person asked.',
   risk: 1,
   input: PlaybookSaveInput,
   output: PlaybookOut,

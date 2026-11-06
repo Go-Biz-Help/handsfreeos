@@ -142,6 +142,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Workspace'],
     onScreen: [
       'Workspace: Business name, Time zone, Industry, Website, Review link (Google Business Profile), and Business hours (the AI teammate’s after-hours follows them)',
+      'Logo and colour: the logo and the colour on the booking page, website chat, invoices and emails',
+      'Your page: Show your page, and once it’s on, Your page is at, with Copy the link and Open it',
+      'Getting started guide: Show Getting started, for everyone in the business',
       'Your own web address',
       'Delete this business (owners only)',
     ],
@@ -149,6 +152,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: 'workspace.update',
     canChange: ['the name, time zone and industry', 'the website and review link', 'open hours'],
     handovers: [],
+    howTo: [
+      'Copy your page’s link: Settings → Workspace, then Copy the link under Your page is at (Show your page has to be on)',
+    ],
   },
   branded_domain: {
     label: 'Your own web address',
@@ -379,7 +385,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Turn a calendar on, pause or archive it: press the calendar, then Turn on, or More for Pause and Archive',
       'Put a calendar back to a draft, or bring an archived one back: press the calendar, then More, then Back to draft or Bring back as a draft',
       'Rename a calendar, or change its colour or time zone: press the calendar, then More, then Name, color and time zone…',
-      'Change a calendar’s link: press the calendar, then More, then Change link…',
+      'Change a calendar’s link: press the calendar, then More, then Change link… (the old link keeps working and sends people to the new one)',
       'See or put back an earlier version of a calendar: press the calendar, then History, then Restore',
       'See a calendar’s booking page: press the calendar, then Preview booking page',
       'Copy one calendar’s booking link: Settings → Calendars, the copy icon beside it, or press the calendar and Copy under Booking link',

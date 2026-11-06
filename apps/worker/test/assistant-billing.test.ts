@@ -284,6 +284,8 @@ const TOOLS: Record<string, { autonomy: string; permission: string; commands: st
   list_plans: { autonomy: 'auto', permission: 'money.read', commands: [] },
   // A customer's link is a way to take their money: only for whoever bills, as Copy link is.
   get_customer_link: { autonomy: 'auto', permission: 'money.bill', commands: [] },
+  // A signer's link opens the document as them: only for whoever sends documents, as Copy their link is.
+  get_signing_link: { autonomy: 'auto', permission: 'documents.send', commands: [] },
   write_estimate: {
     autonomy: 'confirm',
     permission: 'money.bill',

@@ -52,7 +52,7 @@ import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-settings-calendar';
 import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
-import { publicOriginFor, withWholeLinks } from './full-links';
+import { onPublicOrigin, publicOriginFor, withWholeLinks } from './full-links';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
@@ -1744,11 +1744,16 @@ export function createToolExecutor(
   // A public page's path in what a tool found goes to the model as a whole link, never a path it must finish.
   const linked = (ctx: ToolContext) => (value: unknown) =>
     withWholeLinks(value, () => publicOriginFor(db, ctx, webUrl));
+  // An add-on is given a link to one of the business's public pages on the business's own address, whatever host the
+  // model put in front of the path (a listing's page in a campaign, a booking page in a playbook).
+  const addressed = (args: Args, ctx: ToolContext) =>
+    onPublicOrigin(args, () => publicOriginFor(db, ctx, webUrl), webUrl);
   const runTool = async (tool: OfferedTool, args: Args, ctx: ToolContext): Promise<ToolOutcome> => {
     // An add-on's tool is its own operation, run through the kernel as the person.
-    if (isAddonAiTool(tool)) return runAddonTool(db, tool, args, ctx);
+    if (isAddonAiTool(tool)) return runAddonTool(db, tool, await addressed(args, ctx), ctx);
     // Or one of its worker actions, through the door its screens use.
-    if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
+    if (isAddonActionTool(tool))
+      return runAddonActionTool(addonActions, db, tool, await addressed(args, ctx), ctx);
     // Or a screen's own query, as the person; or one of its commands that runs on its own.
     if (isScreenReadTool(tool)) return runScreenRead(db, tool, args, ctx, webUrl);
     if (isScreenActionTool(tool)) return runScreenAction(db, tool, args, ctx);
@@ -1779,8 +1784,10 @@ export function createToolExecutor(
     ctx: ToolContext,
     toolCallId: string,
   ): Promise<PreparedAction> => {
-    if (isAddonAiTool(tool)) return prepareAddonTool(db, tool, args, ctx, toolCallId);
-    if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
+    if (isAddonAiTool(tool))
+      return prepareAddonTool(db, tool, await addressed(args, ctx), ctx, toolCallId);
+    if (isAddonActionTool(tool))
+      return prepareAddonActionTool(tool, await addressed(args, ctx), toolCallId);
     if (isScreenActionTool(tool)) return prepareScreenAction(db, tool, args, ctx, toolCallId);
     const offer = mainOfferConfirmTools[tool.name];
     if (offer) return offer.prepare(db, ctx, args, toolCallId);
@@ -1794,8 +1801,9 @@ export function createToolExecutor(
     ctx: ToolContext,
     extra: { readonly lostReason?: string; readonly toolCallId: string },
   ): Promise<CommittedAction> => {
-    if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
-    if (isAddonActionTool(tool)) return commitAddonActionTool(addonActions, db, tool, args, ctx);
+    if (isAddonAiTool(tool)) return commitAddonTool(db, tool, await addressed(args, ctx), ctx);
+    if (isAddonActionTool(tool))
+      return commitAddonActionTool(addonActions, db, tool, await addressed(args, ctx), ctx);
     if (isScreenActionTool(tool)) return commitScreenAction(db, tool, args, ctx, webUrl);
     const offer = mainOfferConfirmTools[tool.name];
     if (offer) return offer.commit(db, ctx, args, offerDeps);

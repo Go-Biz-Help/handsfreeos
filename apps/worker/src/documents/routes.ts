@@ -32,7 +32,7 @@ import {
   type DocumentPage,
   type RequestMeta,
 } from '@hfos/core/server';
-import { asUser, asWorker, rows, sql, type Tx } from '@hfos/db/client';
+import { asWorker, rows, sql, type Tx } from '@hfos/db/client';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { clientIdFor, reachOf, sendEmail, sendText, wasSent } from '../booking/deliver';
@@ -40,7 +40,7 @@ import { documentCodeEmail } from '../emails/templates';
 import { authenticate, header, parseBody, requirePermission, type HttpDeps } from '../http/common';
 import { publicLookOf, type PublicLook } from '../look/public';
 import { systemActor, type TenantScope } from '../services';
-import { newSigningCode, resolveSignerToken, signerUrlFor, signingCodeHash } from './links';
+import { newSigningCode, resolveSignerToken, signingCodeHash, teamSignerLink } from './links';
 
 const MIN = 60_000;
 
@@ -337,32 +337,13 @@ export async function registerDocumentRoutes(app: FastifyInstance, deps: HttpDep
     const actor = await authenticate(deps, req);
     const input = parseBody(LinkInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'documents.send');
-    // Asked as them, so a document about a customer they can't see is "not there".
-    const [seen] = await asUser(deps.httpDb, actor.claims, (tx) =>
-      rows<{ status: string; kind: string; doc_status: string }>(
-        tx,
-        sql`select s.status, s.kind, d.status as doc_status from app.document_signers s
-              join app.documents d on d.id = s.document_id
-            where s.id = ${input.signerId} and s.workspace_id = ${input.workspaceId}`,
-      ),
+    const { url } = await teamSignerLink(
+      deps.httpDb,
+      deps.moneyLinks,
+      actor.claims,
+      input.workspaceId,
+      input.signerId,
     );
-    if (!seen)
-      throw HfosError.notFound(
-        'That signer isn’t on this document anymore. Refresh the page and try again.',
-      );
-    if (seen.doc_status !== 'out' && seen.doc_status !== 'completed')
-      throw HfosError.rule(
-        'document_not_out',
-        409,
-        'This document isn’t out for signing anymore, so its links don’t open it. Send it again if it’s still needed.',
-      );
-    const url = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
-      signerUrlFor(tx, deps.moneyLinks, input.signerId),
-    );
-    if (!url)
-      throw HfosError.notFound(
-        'That signer isn’t on this document anymore. Refresh the page and try again.',
-      );
     return { url };
   });
 

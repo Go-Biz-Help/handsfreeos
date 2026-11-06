@@ -52,6 +52,20 @@ const WORKER_ROUTES: Readonly<Record<string, string>> = {
 };
 
 /**
+ * The worker's routes a screen gets a link from to copy (a customer's pay link, a signer's link), by the Assistant's
+ * tool that gives the same link. They run no command, so the test above can't see them.
+ */
+const LINK_ROUTES: Readonly<Record<string, string>> = {
+  '/v1/money/link': 'get_customer_link',
+  '/v1/documents/link': 'get_signing_link',
+};
+/** Routes named …/link that give nobody a link to pass on, with why. */
+const NOT_A_LINK: Readonly<Record<string, string>> = {
+  '/v1/zoom-live/link':
+    'connects the person’s own Zoom account once they have signed in to Zoom, which only they can do',
+};
+
+/**
  * Each command the web and the phone run, with the files that run it: by its address, by the phone's own
  * `change('…')` (which sends it once there's signal), or through one of the worker's routes above.
  */
@@ -106,6 +120,23 @@ describe('what the Assistant can do', () => {
     // Each one: add it to SCREEN_ACTIONS in packages/core/src/assistant/coverage.ts (a tool made from the command), give
     // it a tool of its own, or add it to NEVER_FOR_THE_ASSISTANT or ASSISTANT_NOT_YET with the reason.
     expect(missing.map((name) => `${name} (${screenCommands.get(name)!.join(', ')})`)).toEqual([]);
+  });
+
+  it('gives every link a screen copies from the worker, or says why it isn’t one to give', () => {
+    const found = new Set<string>();
+    for (const dir of ['apps/web/src', 'apps/mobile/src'])
+      for (const file of filesIn(join(ROOT, dir)))
+        for (const m of readFileSync(file, 'utf8').matchAll(/(\/v1\/[a-z0-9/-]+\/link)['"`]/g))
+          found.add(m[1]!);
+    const known: Record<string, string> = { ...LINK_ROUTES, ...NOT_A_LINK };
+    // A new one: give the Assistant a tool that gives the same link and add it to LINK_ROUTES, or say why in NOT_A_LINK.
+    expect([...found].filter((route) => !(route in known)).sort()).toEqual([]);
+    expect(Object.keys(known).filter((route) => !found.has(route))).toEqual([]);
+    for (const [route, tool] of Object.entries(LINK_ROUTES))
+      expect(
+        assistantTools.some((t) => t.name === tool),
+        `${route}: ${tool}`,
+      ).toBe(true);
   });
 
   it('lists each command once, as the registry has it, while a screen runs it', () => {

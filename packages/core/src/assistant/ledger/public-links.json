@@ -154,8 +154,8 @@
       "path": "Booking site → website chat script on the page",
       "kind": "see",
       "file": "apps/web/src/app/book/[site]/layout.tsx:37",
-      "covered": "partly",
-      "by": "get_settings website_chat publicKey, websites; no snippet"
+      "covered": "yes",
+      "by": "get_settings website_chat: each chat’s snippet, whole; a new key’s snippet in do_chat_widget_rotate_key’s outcome"
     },
     {
       "path": "Booking site → 'Times in {zone}'",
@@ -245,8 +245,8 @@
       "path": "Booking site → simple page → Privacy and Terms links",
       "kind": "see",
       "file": "apps/web/src/components/booking/business-page.tsx:187",
-      "covered": "no",
-      "by": "no tool returns the /legal/ policy or its link"
+      "covered": "yes",
+      "by": "get_settings booking_site and texting privacyAndTerms (whole links)"
     },
     {
       "path": "Calendar page → ?service preselect",
@@ -861,8 +861,8 @@
       "path": "Webinar door link (/live/<key>)",
       "kind": "see",
       "file": "apps/web/src/app/live/[key]/page.tsx:1",
-      "covered": "partly",
-      "by": "read_video_call_get doorKey only, no whole link"
+      "covered": "yes",
+      "by": "read_video_call_get and get_appointment linkAnyoneCanUse (whole link)"
     },
     {
       "path": "Video call (/call/) → 'Video calls aren’t on for…'",
@@ -875,8 +875,8 @@
       "path": "Video call link (/call/<id>)",
       "kind": "see",
       "file": "apps/web/src/app/call/[callId]/page.tsx:1",
-      "covered": "no",
-      "by": "never returned; video_call.start not offered"
+      "covered": "yes",
+      "by": "read_video_call_get join; start_video_call’s answer join (the team’s own link)"
     },
     {
       "path": "Video call → pre-join: guest name, Ask to join",
@@ -1205,7 +1205,7 @@
       "kind": "see",
       "file": "apps/web/src/app/chat/[key]/page.tsx:1",
       "covered": "partly",
-      "by": "get_settings website_chat publicKey; no snippet or link"
+      "by": "get_settings website_chat snippet (whole); the /chat page is only the texting registration’s opt-in link"
     },
     {
       "path": "Website chat → not found",
@@ -1323,8 +1323,8 @@
       "path": "Form link (/f/<site>/<slug>, ?embed=1, personal ?k, ?ref)",
       "kind": "see",
       "file": "apps/web/src/app/f/[site]/[slug]/page.tsx:1",
-      "covered": "partly",
-      "by": "list_forms link has a literal …; send_form puts the full link in its text"
+      "covered": "yes",
+      "by": "list_forms and get_form link (whole), get_form embedSnippet; send_form sends it"
     },
     {
       "path": "Form → head: name, intro",
@@ -1435,8 +1435,8 @@
       "path": "Signing link (/d/<token>)",
       "kind": "see",
       "file": "apps/web/src/app/d/[token]/page.tsx:1",
-      "covered": "partly",
-      "by": "do_document_remind resends it; the link is never returned"
+      "covered": "yes",
+      "by": "get_signing_link, as Copy their link gives it; do_document_remind resends it"
     },
     {
       "path": "Signing → link states",
@@ -1533,8 +1533,8 @@
       "path": "Estimate link (/e/<token>)",
       "kind": "see",
       "file": "apps/web/src/app/e/[token]/page.tsx:1",
-      "covered": "no",
-      "by": "signed by the worker only; get_money_document has no link"
+      "covered": "yes",
+      "by": "get_customer_link kind estimate, as Copy link gives it"
     },
     {
       "path": "Estimate → link stale / missing",
@@ -1624,8 +1624,8 @@
       "path": "Invoice link (/i/<token>)",
       "kind": "see",
       "file": "apps/web/src/app/i/[token]/page.tsx:1",
-      "covered": "partly",
-      "by": "manage_invoice send emails it (drafts only); link never returned"
+      "covered": "yes",
+      "by": "get_customer_link kind invoice, as Copy link gives it; manage_invoice send emails it"
     },
     {
       "path": "Invoice → link stale / missing",
@@ -1715,8 +1715,8 @@
       "path": "Plan link (/p/<token>)",
       "kind": "see",
       "file": "apps/web/src/app/p/[token]/page.tsx:1",
-      "covered": "partly",
-      "by": "manage_customer_plan ask_for_card sends it; never returned"
+      "covered": "yes",
+      "by": "get_customer_link kind plan; manage_customer_plan ask_for_card sends it"
     },
     {
       "path": "Plan → link problems, loading",
@@ -2051,8 +2051,8 @@
       "path": "Video upload link (/v/<token>)",
       "kind": "see",
       "file": "apps/web/src/app/v/[token]/page.tsx:1",
-      "covered": "partly",
-      "by": "video_link.create runs, but its link is lost (screen action returns no output)"
+      "covered": "yes",
+      "by": "do_video_link_create shows it whole on its card once; reply_in_conversation askForVideo sends it"
     },
     {
       "path": "Video upload → missing, stopped (run out, full)",
@@ -2149,8 +2149,8 @@
       "path": "Legal page → link, or redirect to the business's own policy",
       "kind": "see",
       "file": "apps/web/src/app/legal/[site]/[kind]/page.tsx:1",
-      "covered": "no",
-      "by": "no tool returns the policy link"
+      "covered": "yes",
+      "by": "get_settings booking_site and texting privacyAndTerms: the links, and that they open the business’s own once given"
     },
     {
       "path": "Add-on public page link (/a/<site>/<addon>/…)",
@@ -2406,7 +2406,7 @@
       "where": "Every answer that gives a link (the Assistant's own instructions); Settings → Workspace → Your own web address",
       "gap": "The only full link the model ever sees is the style example https://handsfreeos.com/book/acme (prompt.ts:49; the voice note at prompt.ts:82 only says https://…). handsfreeos.com is the marketing site (apps/site): its only top-level dynamic route is [trade], and its proxy.ts handles only ?ref=/?code=, so /book/acme gives a 404 there. Customer links live on WEB_URL=https://app.handsfreeos.com (fly.toml:45) or on the business's verified domain. context.ts never states an origin: grep finds no link, url, domain or brand in it. No read returns a full booking link (links-2). The branded-domain words name handsfreeos.com as the fallback: settings-map.ts:141, core tools-setup.ts:244, and worker tools-setup.ts:1747, 1797 and 1842. The doc comment in hosting/origin.ts:11 also says https://handsfreeos.com/i/…, so the wrong host is written down in more than one place.",
       "fix": "In context.ts, work out publicOrigin(tx, ws, webUrl) once per turn (apps/worker/src/hosting/origin.ts:75) and add a line such as \"This business’s customer links start with https://<origin>; the team’s own pages are on https://app.handsfreeos.com.\" In prompt.ts:49, change the example to https://app.handsfreeos.com/book/acme, or to words like \"the link exactly as a tool gives it\", and add: \"Never write a bare path like /book/… and never guess a web address.\" Change handsfreeos.com to app.handsfreeos.com in settings-map.ts:141, core tools-setup.ts:244, worker tools-setup.ts:1747, 1797 and 1842, and the comment in hosting/origin.ts:11.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2416,7 +2416,7 @@
       "where": "Settings → Calendars → Booking site: the link at the top, with Copy the link and Open. Settings → Calendars: each calendar's link with its copy icon (\"Copy the link to <name>\"). A calendar's Booking link card, with Copy and Open.",
       "gap": "Every booking-link answer is a bare path. get_settings(booking_site) passes booking_site.get straight through, with site.path \"/book/<slug>\" (tools-settings.ts:134, queries/calendar.ts:1068). get_settings(calendars) passes calendar.list, with bookingPath \"/book/<site>/<cal>\" and permanentPath \"/book/c/<id>\" (tools-settings.ts:130, queries/calendar.ts:142-143). get_calendar_settings returns no link (tools-scheduling.ts:434-460). update_booking_site's card shows Address /book/<slug> (tools-settings-calendar.ts:939), and its outcome says \"Your booking page is at /book/<slug>\" (:968). manage_calendar's card shows only the slug (:220-221). ToolContext (runtime.ts:91-98) has no origin, and createToolExecutor passes webUrl only to confirm-tool commits (tools-write.ts:917), never to reads. answer-text.ts:31 makes only /app/w/ paths pressable, so a bare /book/ path is dead text in the panel. The screens show and copy origin + path (booking-site-form.tsx:75-96, calendars-list.tsx:101-111, builder.tsx:411-412).",
       "fix": "Add publicOrigin to ToolContext, worked out once per turn in the runtime. In tools-settings.ts, give booking_site a shape that adds site.url = origin + path, and give calendars one that adds bookingUrl and permanentUrl to each item. Add bookingLink (the full URL, from bookingPath or else permanentPath) to get_calendar_settings' calendar block. Show the full URL in update_booking_site's Address field and outcome, and in manage_calendar's Booking link field and outcome.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2426,7 +2426,7 @@
       "where": "Money → Estimates → an estimate: Copy link. Money → Invoices → an invoice: Copy link. Money → Plans → a customer's plan: Copy link. On the phone: the estimate's and invoice's link with Send it.",
       "gap": "No Assistant tool returns an estimate's or invoice's customer link (/e/ or /i/). get_money_document's estimateDocument and invoiceDocument return only in-app hrefs from moneyPaths (tools-billing.ts:2290, 2348). list_plans returns paths.plan in-app hrefs (:2490). The links are signed only in the worker, by estimateUrlFor, invoiceUrlFor and planUrlFor (apps/worker/src/money/links.ts:244-304), behind POST /v1/money/link (link-routes.ts:91). Nothing re-sends a sent invoice or estimate: manage_invoice send and send_estimate work only on drafts (core tools-billing.ts:191-205, tools.ts:267-282). Yet places-map.ts:335 tells the model \"Send the pay link again: press the invoice, Copy link\". Plans are partly covered: manage_customer_plan ask_for_card texts or emails the customer their card link. Even so, the plan link is never returned to the person. The coverage test scans only /v1/commands/ (assistant-coverage.test.ts:51), so worker routes never show up as gaps.",
       "fix": "In apps/worker/src/assistant/tools-billing.ts, add result.link to estimateDocument when sentAt is set and it isn't voided, and to invoiceDocument under the same rule (the same rule as CopyLinkButton, document-page.tsx:260). Build them with estimateUrlFor and invoiceUrlFor on linksOn(services.moneyLinks, publicOrigin). Add link (planUrlFor) to each customer row of list_plans. Thread moneyLinks into the money read tools through createToolExecutor. Extend assistant-coverage.test.ts to also scan the workerPost routes the screens call (/v1/money/link, /v1/documents/link, /v1/video-calls/start).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2436,7 +2436,7 @@
       "where": "Forms → a form → Share: The link with Copy the link; QR code; On your own website with Copy the snippet",
       "gap": "list_forms' description promises \"its public link\" (tools.ts:1491-1492), but it returns `/f/…/${slug}`, with a literal ellipsis where the site's link name goes (tools-forms.ts:85). get_form returns no link (tools-forms.ts:94-118). manage_form change_link's card shows …/f/<site>/<slug> for New link and Was (tools-content.ts:1327-1334). Only send_form's commit builds the full branded-or-app URL (tools-forms.ts:376-389), and only inside the text it sends. No tool returns the embed snippet, which is an iframe on publicUrl plus <app origin>/embed/v1/form.js (share.tsx:105).",
       "fix": "In tools-forms.ts listForms and getForm, read booking_site.get and the public origin once. Set link to `${origin}/f/${site.slug}/${slug}`: null for a draft, and the words \"no link name yet: set one under Settings → Calendars → Booking site\" when there's no site. Add embedSnippet to get_form, built like share.tsx:105, with the iframe on the public origin and form.js on the app origin. In tools-content.ts:1327, show the full URL in the change_link card. Factor send_form's origin code (tools-forms.ts:380-388) into the shared helper.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2446,7 +2446,7 @@
       "where": "Real Estate → a listing → Marketing: the page link, and telling your contacts by email or text",
       "gap": "realestate_listing_campaign requires pageUrl, a full http(s) link (schemas.ts:2705). Its explaining comment is JSDoc, so the model never sees it. The AI can read only page.path (/a/<site>/realestate/<slug>), from realestate_listing_flyer (marketing.ts:421-424) and realestate_listing_marketing, and nothing tells it the origin. The op checks only the protocol and url.pathname === page.path (marketing.ts:455-464), so a guessed host such as the prompt's handsfreeos.com passes, and that host goes into the words (marketing.ts:476-477). One correction: the campaign waits in Campaigns for someone to approve it (the op's description, marketing.ts:434). A wrong link goes out to every chosen contact once it is approved there, not straight away. The screen builds the link with usePublicOrigin + path (marketing-page.tsx:90-91).",
       "fix": "Don't take the origin from the model. Either drop pageUrl from the AI input and fill it in the worker (prepareAddonTool and commitAddonTool, for this op) as publicOrigin + page.path, the way /v1/video-calls/start fills video_call.start's origin. Or keep it and also check that url.origin is the business's public origin or the app origin, with the refusal \"Use the listing’s page link, as it shows on Marketing.\" Return page.url beside page.path in realestate_listing_marketing and realestate_listing_flyer.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2466,7 +2466,7 @@
       "where": "Documents → a document: Copy link on each signer, beside Sign now. On the phone: Share link.",
       "gap": "Getting a signer's link to the signer is covered: do_document_remind (coverage.ts:108) sends the link again by email and text (document.ts:515-517). What's real: no tool gives the person a signer's /d/ link to paste or share. read_document_get (document.get) returns no link. The link is signed only by signerUrlFor (documents/links.ts:98), behind POST /v1/documents/link (documents/routes.ts:335). Documents isn't in places-map.ts at all, though it's a side-menu page (apps/web/src/app/app/w/[workspaceId]/documents). So the Assistant can't name Documents → a document → Copy link, Sign now, Remind or Void, and per prompt.ts it must say it isn't sure where documents are.",
       "fix": "Add a get_signing_link tool (records.read, only while the document is out and the signer hasn't signed) that returns signerUrlFor(...) on the public origin, or add each pending signer's link to the document.get read. Add a Documents place to places-map.ts: where ['Documents'], then press the document. Its onScreen lists each signer with Copy link, Sign now and Remind, plus Void and the signed copy. Its howTo includes \"Send the signing link again: press the document, then Remind\".",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2476,7 +2476,7 @@
       "where": "Settings → Partners → a partner: their link with Copy. On the phone: Share link.",
       "gap": "get_settings(partners) drops each partner's link on purpose (tools-settings.ts:170, \"their earnings and links are the page's\"). read_partner_get (partner.get, a screen read) returns linkPath \"/book/c/<calendarId>?ref=…\" (queries/partners.ts:134, partners/rules.ts:26), a path with no origin. The screen copies `${origin}${p.linkPath}` (partner-detail.tsx:104).",
       "fix": "In tools-settings.ts, add link: publicOrigin + linkPath to the partnerList shape. In runScreenRead (tools-screen-reads.ts), add a <name>Url field beside any linkPath, requestPath, signInPath or bookingPath field that starts with a PUBLIC_PREFIXES path (hosting/branded-paths.ts).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2486,7 +2486,7 @@
       "where": "Settings → Website chat, and Forms → Website chats → a chat: Add it to your site (the snippet, with Copy); Get a new key",
       "gap": "The website_chat handover's first step says \"I set the chat box up and give you the snippet.\" (settings-map.ts:610), but no tool returns a snippet. get_settings(website_chat) and chat_widget.get return publicKey only (queries/chat.ts:50, 86, 102). manage_website_chat's card and commit tell the person to copy it from the page themselves (tools-settings-channels.ts:801, 835-837). A confirmed do_chat_widget_rotate_key returns 'Done' (tools-screen-actions.ts:132). The snippet is `<script async src=\"${origin}/embed/v1/${key}.js\"></script>` (chat-install.tsx:73-77), and the model can't build it without the origin. The /chat/<key> page isn't given either.",
       "fix": "In tools-settings.ts, add a shape to website_chat giving each widget snippet = snippetOf(snippetSrc(publicOrigin, publicKey)) and chatPage = publicOrigin + '/chat/' + publicKey. Return the snippet in manage_website_chat's create outcome, and in the rotate-key result once commits can return output (links-6). If none of that is done, reword settings-map.ts:610 to \"I set the chat box up; its snippet is under Add it to your site on its page.\"",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2496,7 +2496,7 @@
       "where": "Calendar → a webinar's appointment: Link anyone can use, with Copy",
       "gap": "read_video_call_get returns call.doorKey only (commands/video-call.ts:133, 169). The /live/<key> path is in a JSDoc comment the model never sees, and nothing gives the full URL. get_appointment shows a virtual place as meetingUrl (tools-scheduling.ts:202), which for a HandsFreeOS call is the team's /call link and the wrong one to post for a webinar. The screen builds the door as `${window.location.origin}${webinarDoorPath(doorKey)}` (video-call-block.tsx:78-81), which is the app origin. /live/ is also served on a branded domain (branded-paths.ts:29).",
       "fix": "Add doorLink = origin + webinarDoorPath(doorKey) to the video_call.get read (in runScreenRead) and to get_appointment for webinar calls. Use the app origin to match the screen, or publicOrigin. In get_appointment, say that meetingUrl is the team's own Join link and doorLink is the one to post.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2516,7 +2516,7 @@
       "where": "Selling HandsFreeOS (/affiliate): Your link with Copy; each code's Copy link",
       "gap": "read_affiliate_mine (affiliate.mine) returns affiliate.code and each code's code, but no links (schemas/affiliates.ts:263-306). Its links field is the affiliate's own text, not a URL. The links are https://handsfreeos.com/?ref=<code> (affiliates/words.ts:12, 23) and /?code=<code> (affiliates/codes.ts:20). Those are on the marketing site, unlike every business link. The model has to guess the format. Severity is lowered because this concerns only affiliates, and the guess usually lands on the right host. It still matters as a warning for the full-links work.",
       "fix": "Add link: affiliateLink(code) to AffiliateMine and link: affiliateCodeLink(code) to each code that's on, either in the query output or in runScreenRead's shape for affiliate.mine. In the links-1 fix, note that affiliate links are the one place https://handsfreeos.com is right.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2526,7 +2526,7 @@
       "where": "Settings → Workspace → Your page: Show your page, and Your page is at with Copy the link and Open it",
       "gap": "business.onScreen (settings-map.ts:129-133) lists the Workspace card, Your own web address and Delete this business. It leaves out the Your page card (page-card.tsx, which Settings → Workspace imports), the Look card and the Getting started card. SETTING_TOOLS does map all three rows (coverage.ts:501-507), so the Assistant can change them but can't say where they are. Your page's link isn't returned either. The screen shows the branded origin when a domain is serving, otherwise origin + /book/<slug> (page-card.tsx:59). get_settings(booking_site) has only page:true and path (calendar.ts:1067-1068). do_booking_site_set_page's Confirm returns 'Done'.",
       "fix": "Add to business.onScreen: \"Your page: Show your page, and Your page is at, with Copy the link and Open it\", \"Look: your logo and colour\" and \"Getting started\". Add a howTo line: \"Copy your page’s link: Settings → Workspace, Your page, Copy the link\". Return pageUrl in get_settings(booking_site): the serving branded origin, else publicOrigin + path, and null while page is off.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2536,7 +2536,7 @@
       "where": "Social Outreach → a playbook: the booking link field and its Your booking pages picks",
       "gap": "outreach_save_playbook (risk 1, confirm) needs details.link as a full http(s) link (outreach/playbooks.ts:246). On the screen, Your booking pages sets `${origin}${page.path}` with usePublicOrigin (playbook-builder.tsx:495, 949-960). Nothing the AI reads gives a booking page's full URL: calendar reads carry only paths (links-2), and no outreach op lists booking pages. A guessed host is accepted and goes into every demo link built from the playbook (demos.ts:86-89).",
       "fix": "Once calendar reads carry bookingUrl (links-2), add to outreach.playbook.save's description: \"For one of the business’s booking pages, use its bookingUrl from get_settings (area calendars).\" Or add bookingPages [{name, url}] on the public origin to outreach_playbooks' answer.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2546,7 +2546,7 @@
       "where": "Real Estate → a listing: Marketing (the page's link and QR), Showings (the request link, Copy), Open houses (the sign-in sheet link), Flyer",
       "gap": "Every public link from the Real Estate add-on reaches the AI as a path only. realestate_showings returns requestPath (ops/showings.ts:599), realestate_open_houses returns signInPath (ops/open-houses.ts:362), and realestate_listing_flyer and realestate_listing_marketing return page.path (ops/marketing.ts:421-424). answerFrom passes them through unchanged (tools-addons.ts:65-77). The screens add usePublicOrigin (marketing-page.tsx:90, showings-page.tsx:83, open-houses-page.tsx:87, flyer-page.tsx:44). realestate_publish_listing_page's Confirm returns \"Done in Real Estate\" and drops the page (tools-addons.ts:216).",
       "fix": "In apps/worker/src/assistant/tools-addons.ts answerFrom, add a sibling `<field>Url` for any string field named path or ending in Path whose value starts with a PUBLIC_PREFIXES path such as /a/, using ToolContext's publicOrigin. Return the command output on commit (links-6).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2556,7 +2556,7 @@
       "where": "What customers see (the Assistant's list of public pages)",
       "gap": "Real: CUSTOMER_PAGES (places-map.ts:632-641) leaves out many pages that exist under apps/web/src/app. Missing: the customer portal (/c/<token>, with messages, files, documents and partner), a document to sign (/d/), a webinar's door (/live/), a call's join links (/call/, /j/), the send-a-video link (/v/), Your page, partner links, website chat and its /chat/ page, and the privacy policy and terms (/legal/). Nothing else in the assistant maps mentions the portal. Not a present defect: \"All of them can be on the business’s own web address\" is true of the six pages listed today (/book, /m/, /e/, /i/, /p/, /f/ are all in PUBLIC_PREFIXES, branded-paths.ts:15-39). It becomes wrong only once /c/, /d/ and /call/ are added, since those are sent elsewhere on a branded domain.",
       "fix": "Add one CUSTOMER_PAGES line each for: the customer portal (given and taken away on the customer's page, from portal_access), documents to sign (Documents → the document → Copy link), a webinar's Link anyone can use, the send-a-video link (Inbox → Ask for a video), Your page (Settings → Workspace), partner links (Settings → Partners), website chat (Forms → Website chats), and the privacy policy and terms. Change the last line to \"All of them except the portal, signing pages and video calls can be on the business’s own web address (Settings → Workspace)\".",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2566,7 +2566,7 @@
       "where": "Settings → Texting & calls → registration: Your privacy policy and terms (the ones HandsFreeOS hosts), and the simple page's links to them",
       "gap": "No tool returns the hosted privacy policy or terms link (/legal/<site>/privacy|terms on the public origin). registration.get_draft returns only saved answers and savedAt (schemas/telephony.ts:365-369). submit_carrier_registration has no privacyPageUrl, termsPageUrl, optInPath, optInUrl or otherWays input (tools.ts:663-700, tools-settings-channels.ts:253-279). The wizard sends all of these (a2p-wizard.tsx:1376-1386). There is a bigger problem beside the link one. registration.submit refuses unless registrationFingerprint(kind, business) matches the wizard's last all-green check (commands/registration.ts:127-166), and the fingerprint hashes the whole business object. The Assistant's object lacks these fields, so it can practically never match.",
       "fix": "Have submit_carrier_registration submit the saved and checked draft (registration.get_draft answers, plus legalPagesOf and urlsOf worked out in the worker on publicOrigin) instead of retyped fields. Or add privacyPageUrl, termsPageUrl, optInPath, optInUrl and otherWays to its input, prefilled from the draft. Return privacyPage and termsPage (the business's own, else publicOrigin + /legal/<site>/privacy and /terms) from get_settings(texting).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2576,7 +2576,7 @@
       "where": "The Assistant's Send this text? card for a form",
       "gap": "send_form's confirm card shows To, Form and the message body only (tools-forms.ts:353-365). The link, and the domain it's on, is worked out and appended only in commit (tools-forms.ts:376-390). So the person OKs a text without seeing the address that goes out. A business with no booking site finds out only on commit.",
       "fix": "Move the site, branded-domain and origin lookup from commit into prepare (or a shared helper). Add a { label: 'Link', value: link } field to the card, or put the body as `${message}\\n\\n${link}`. Refuse with no_booking_site in prepare.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2586,7 +2586,7 @@
       "where": "Settings → Calendars → Booking site; a calendar's More → Change link…; the get_settings tool description",
       "gap": "Real: booking_site.onScreen lists only the fields (settings-map.ts:431), not the link row at the top with Copy the link and Open (booking-site-form.tsx:75-96). calendars.howTo (settings-map.ts:345-359) has no line for a calendar's More → Change link… (builder.tsx:489-491), whose dialog says the old link keeps working (builder.tsx:1020, 1039). Mostly not real: the get_settings description (tools.ts:342-345) leaves out booking site, own web address and partners, but its area enum (SETTINGS_AREAS, settings-map.ts:19-54) names booking_site, branded_domain and partners, so the model sees them anyway.",
       "fix": "Add \"At the top, the address, with Copy the link and Open\" to booking_site.onScreen. Add the calendars.howTo line \"Change a calendar’s link: Settings → Calendars, press the calendar, More, then Change link… (the old link keeps working)\". Optionally name booking site, own web address and partners in the get_settings description.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     }
   ]

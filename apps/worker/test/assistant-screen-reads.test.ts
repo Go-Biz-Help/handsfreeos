@@ -3,6 +3,9 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   ADDON_SERVER_MODULES,
+  AFFILIATE_TERMS_VERSION,
+  affiliateCodeLink,
+  affiliateLink,
   allAddonAiTools,
   assistantTools,
   executeCommand,
@@ -17,6 +20,7 @@ import {
   screenReadName,
   type HumanActor,
 } from '@hfos/core/server';
+import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
@@ -200,5 +204,40 @@ describe('what the Assistant can see', () => {
     });
     expect(me).not.toHaveProperty('windows');
     expect(me).not.toHaveProperty('weekly');
+  });
+
+  it('gives an affiliate their link and each code’s that’s on, once their page shows them', async () => {
+    const admin = testDbs().admin.db;
+    const code = `sr-${randomUUID().slice(0, 8)}`;
+    const [row] = await rows<{ id: string }>(
+      admin,
+      sql`insert into platform.affiliates (user_id, code, name, pitch, links, status, terms_version, terms_accepted_at)
+          values (${owner.id}, ${code}, 'Sam Owner', 'My newsletter', 'https://sam.example', 'approved',
+                  ${AFFILIATE_TERMS_VERSION}, now())
+          returning id`,
+    );
+    const affiliateId = row!.id;
+    try {
+      await admin.execute(
+        sql`insert into platform.affiliate_codes (affiliate_id, code, trial_days, status)
+            values (${affiliateId}, ${`${code}-on`}, 14, 'on'), (${affiliateId}, ${`${code}-off`}, 14, 'off')`,
+      );
+      type Mine = { affiliate: { link?: string; codes: { code: string; link?: string }[] } };
+      const mine = (await read('affiliate.mine', {})).result.data as Mine;
+      // On HandsFreeOS's own website, as their page's Copy gives them.
+      expect(mine.affiliate.link).toBe(affiliateLink(code));
+      expect(mine.affiliate.codes.find((c) => c.code === `${code}-on`)?.link).toBe(
+        affiliateCodeLink(`${code}-on`),
+      );
+      expect(mine.affiliate.codes.find((c) => c.code === `${code}-off`)).not.toHaveProperty('link');
+      // Until they agree to the terms their page shows no link, and neither does the Assistant.
+      await admin.execute(
+        sql`update platform.affiliates set terms_version = null, terms_accepted_at = null where id = ${affiliateId}`,
+      );
+      const before = (await read('affiliate.mine', {})).result.data as Mine;
+      expect(before.affiliate).not.toHaveProperty('link');
+    } finally {
+      await admin.execute(sql`delete from platform.affiliates where id = ${affiliateId}`);
+    }
   });
 });

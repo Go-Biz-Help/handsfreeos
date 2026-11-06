@@ -6,6 +6,9 @@
  */
 import {
   addonToolArguments,
+  chatSnippet,
+  chatSnippetSrc,
+  chatWidgetRotateKey,
   executeCommand,
   foundingApprove,
   FOUNDING_WORDS,
@@ -176,6 +179,18 @@ const PASS_ON: Readonly<Record<string, (output: Args, webUrl: string) => PassedO
   },
 };
 
+/**
+ * What a card says once done in place of "Done", when what the command made is something to use straight away: a
+ * website chat's new key, with the snippet Add it to your site now copies. Its address goes as a path, which the
+ * executor writes out whole on the business's own domain when one is serving, as the screen does.
+ */
+const SAID_WHEN_DONE: Readonly<Record<string, (output: Args) => string | null>> = {
+  [chatWidgetRotateKey.name]: (o) =>
+    typeof o['publicKey'] === 'string'
+      ? `Done. The snippet on the site stopped working: paste this one in its place, just before </body> on every page. ${chatSnippet(chatSnippetSrc('', o['publicKey']))}`
+      : null,
+};
+
 /** Any other command's one-time link or code, should one be offered: said the same plain way. */
 function passedOn(command: CommandDef, output: unknown, webUrl: string): PassedOn | null {
   if (!command.shownOnce?.length || !output || typeof output !== 'object') return null;
@@ -225,8 +240,9 @@ export async function commitScreenAction(
     };
   }
   const once = passedOn(tool.command, done.output, webUrl);
+  const made = SAID_WHEN_DONE[tool.command.name]?.((done.output ?? {}) as Args) ?? null;
   return {
-    outcome: once?.kept ?? 'Done',
+    outcome: once?.kept ?? made ?? 'Done',
     href: null,
     command: tool.command.name,
     answer: keptAnswer(done.output, tool.command.shownOnce),

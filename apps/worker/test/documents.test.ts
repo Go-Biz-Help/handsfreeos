@@ -16,6 +16,7 @@
  */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import {
+  assistantToolByName,
   documentRemind,
   documentSend,
   documentTemplateBeginUpload,
@@ -36,6 +37,8 @@ import { closeTestDbs, signInTestUser, testDbs } from '@hfos/db/testing';
 import { degrees, PDFDocument, StandardFonts } from 'pdf-lib';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { ToolContext } from '../src/assistant/runtime';
+import { createToolExecutor } from '../src/assistant/tools-write';
 import { documentsSweep } from '../src/documents/jobs';
 import { resolveSignerToken, signerToken } from '../src/documents/links';
 import type { JobContext, JobRow } from '../src/jobs';
@@ -483,6 +486,45 @@ describe('signing, start to finish', () => {
       payload: { workspaceId: w.workspaceId, signerId: s.id },
     });
     expect(anon.statusCode).toBe(401);
+  });
+
+  it('the Assistant gives the same link as Copy their link, and none once it’s voided', async () => {
+    const cy = await customer('Cy');
+    const { documentId } = await send(cy.id);
+    await drain(w);
+    const s = await signerOf(documentId, 'customer');
+    const tool = assistantToolByName.get('get_signing_link')!;
+    const ctx: ToolContext = {
+      actor: { type: 'human', userId: w.owner.id, email: w.owner.email, claims: w.owner.claims },
+      workspaceId: w.workspaceId,
+      organizationId: w.organizationId,
+      correlationId: randomUUID(),
+      timezone: 'America/Chicago',
+    };
+    // As the runtime runs it: with the worker's services, so with the same link key.
+    const executor = createToolExecutor(testDbs().worker.db, null, null, '', undefined, {
+      services: w.s,
+    });
+    const got = (await executor.run(tool, { signerId: s.id }, ctx)).result as {
+      for: string;
+      link: string;
+      note: string;
+    };
+    expect(
+      got.link.endsWith(
+        `/d/${signerToken(w.s.moneyLinks, { publicRef: s.public_ref, signerId: s.id, linkVersion: s.link_version })}`,
+      ),
+    ).toBe(true);
+    expect(got.for).toContain('Cy');
+    expect(got.note).toContain('only send it to them');
+    // Without the link key it says where to copy it instead.
+    await expect(
+      createToolExecutor(testDbs().worker.db).run(tool, { signerId: s.id }, ctx),
+    ).rejects.toMatchObject({ rule: 'signing_link_unavailable' });
+    await run(w, documentVoid, { workspaceId: w.workspaceId, documentId });
+    await expect(executor.run(tool, { signerId: s.id }, ctx)).rejects.toMatchObject({
+      rule: 'document_not_out',
+    });
   });
 
   it('an old link, after a newer one was sent, says so', async () => {

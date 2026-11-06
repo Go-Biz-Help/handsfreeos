@@ -11,7 +11,8 @@
  * read the table can try the million codes against it.
  */
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
-import { asWorker, rows, sql, type Db, type Tx } from '@hfos/db/client';
+import { HfosError } from '@hfos/core/server';
+import { asUser, asWorker, rows, sql, type Db, type Tx, type UserClaims } from '@hfos/db/client';
 import { CODE_LENGTH, parseLinkToken } from '../booking/links';
 import { linksOn, publicOrigin } from '../hosting/origin';
 import { base62, type MoneyLinks } from '../money/links';
@@ -107,6 +108,41 @@ export async function signerUrlFor(
   if (!s) return null;
   const on = linksOn(links, await publicOrigin(tx, s.workspace_id, links.webUrl));
   return signerUrl(on, { publicRef: s.public_ref, signerId, linkVersion: s.link_version });
+}
+
+/** Said when a signer's link is asked for and the signer can't be seen, or is gone. */
+const SIGNER_GONE = 'That signer isn’t on this document anymore. Refresh the page and try again.';
+
+/**
+ * A signer's current link for the team to copy: Copy their link on the document's page (`POST /v1/documents/link`)
+ * and the Assistant's get_signing_link. Asked as the person first, so a document about a customer they can't see is
+ * "not there", and only while the document is out or signed: a voided, declined or expired one opens for nobody.
+ */
+export async function teamSignerLink(
+  db: Db,
+  links: MoneyLinks,
+  claims: UserClaims,
+  workspaceId: string,
+  signerId: string,
+): Promise<{ url: string; name: string; document: string; status: string }> {
+  const [seen] = await asUser(db, claims, (tx) =>
+    rows<{ status: string; name: string; doc_status: string; doc_name: string }>(
+      tx,
+      sql`select s.status, s.name, d.status as doc_status, d.name as doc_name from app.document_signers s
+            join app.documents d on d.id = s.document_id
+          where s.id = ${signerId} and s.workspace_id = ${workspaceId}`,
+    ),
+  );
+  if (!seen) throw HfosError.notFound(SIGNER_GONE);
+  if (seen.doc_status !== 'out' && seen.doc_status !== 'completed')
+    throw HfosError.rule(
+      'document_not_out',
+      409,
+      'This document isn’t out for signing anymore, so its links don’t open it. Send it again if it’s still needed.',
+    );
+  const url = await asWorker(db, { workspaceId }, (tx) => signerUrlFor(tx, links, signerId));
+  if (!url) throw HfosError.notFound(SIGNER_GONE);
+  return { url, name: seen.name, document: seen.doc_name, status: seen.status };
 }
 
 /** A fresh 6-digit code, with a leading zero as likely as any other digit. */
