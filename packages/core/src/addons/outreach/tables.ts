@@ -835,6 +835,11 @@ export const sends = addonOutreach.table(
     approvedAt: ts('approved_at'),
     /** One tried again goes no sooner (decision 132): each a few minutes after the one before. */
     notBefore: ts('not_before'),
+    /**
+     * The version of the AI's rules it was drafted under (../sends.ts `RULES_VERSION`, decision 157): one drafted under
+     * older rules, still waiting or OK'd, is written again.
+     */
+    rulesVersion: integer('rules_version').notNull().default(0),
     doneAt: ts('done_at'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

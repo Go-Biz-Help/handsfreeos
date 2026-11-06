@@ -23,6 +23,7 @@ import {
   type RequestMode,
 } from '../automation';
 import type { CheckVerdict } from '../checks';
+import { RULES_VERSION } from '../sends';
 import { answersRequests, NETWORKS, PLATFORM_KEYS, type Platform } from '../networks';
 import { friends, needs, posts, profiles, sends } from '../tables';
 import {
@@ -61,7 +62,7 @@ import { automationOf, everyoneAutomation } from './automation';
 import { contactable, inWorkspace, neverDeleted, type Ctx } from './common';
 import { playbooksInUse } from './friends';
 import { openNeed, retrySince } from './needs';
-import { commentHoldOf, listed, mine, sendsAgain } from './sends';
+import { commentHoldOf, draftedNow, listed, mine, sendsAgain } from './sends';
 import { notNever, requestFit, type RequestAnswered } from './today';
 
 const DAY = 86_400_000;
@@ -102,6 +103,8 @@ async function sendAndNeedKinds(
             max(created_at) filter (where not handed_over) as messaged_at
           from addon_outreach.sends
           where workspace_id = ${ws} and state = 'waiting' and user_id = any (${ids(userIds)}::uuid[])
+            -- One drafted under older rules is written again first (decision 157).
+            and rules_version >= ${RULES_VERSION}
           group by user_id`,
     ),
     // A need names who and why: a colleague's are counted on the database, never read (decision 41). One put back on
@@ -379,7 +382,7 @@ export const waiting = defineAddonQuery(outreachAddon, {
     const commentHolds: Platform[] = [];
     if (input.items) {
       const [waitingSends, needed, asked] = await Promise.all([
-        listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'))),
+        listed(ctx, and(mine(ctx, me), eq(sends.state, 'waiting'), draftedNow)),
         neededOf(ctx, me, now),
         asksNeedingYou(ctx, [me], now, me),
       ]);

@@ -137,7 +137,7 @@ export async function partnerDraft(
   );
   const draft = async (kind: PartnerMessageKind) => {
     const { value } = await askStructured(ctx, ctx.scope, {
-      system: todayDraftSystem(partner.platform),
+      system: todayDraftSystem(partner.platform, { partner: true }),
       messages: [
         {
           role: 'user',
