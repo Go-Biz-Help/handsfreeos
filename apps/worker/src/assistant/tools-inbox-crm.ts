@@ -29,8 +29,11 @@ import type { Db } from '@hfos/db/client';
 import type { PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { otherContactsEdit, type OtherListChange } from './tools-contacts';
 import {
+  answeredBy,
   CALL_WORDS,
   command,
+  FOLDER_WORDS,
+  handoffOf,
   money,
   otherAddressLines,
   ownFields,
@@ -38,6 +41,7 @@ import {
   query,
   quoted,
   when as at,
+  type Handling,
 } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
@@ -125,9 +129,9 @@ async function teammateName(db: Db, ctx: ToolContext, userId: string): Promise<s
 
 // ---------- conversations ----------
 
-interface Conv {
+interface Conv extends Handling {
   id: string;
-  channel: 'sms' | 'email' | 'chat' | 'portal';
+  channel: 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram';
   counterpart: string;
   counterpartDisplay: string;
   status: 'open' | 'snoozed' | 'closed';
@@ -139,11 +143,14 @@ interface Conv {
   awaitingReplySince: string | null;
   snoozedUntil: string | null;
   archived: boolean;
-  handledBy: 'none' | 'ai' | 'person';
-  teammate: { id: string; name: string } | null;
-  needsPersonSince: string | null;
-  takenOverBy: Ref;
   sameAs: { id: string; fullName: string } | null;
+  folder: 'inbox' | 'other' | 'spam';
+  private: boolean;
+  lanes: { id: string; channel: string; lineDisplay: string; unreadCount: number }[];
+  lastMessageAt: string | null;
+  lastSentBy: Ref;
+  onSiteNow: boolean;
+  openLead: { id: string; title: string; stageName: string } | null;
 }
 interface ConvGet {
   conversation: Conv;
@@ -157,7 +164,7 @@ interface ThreadItem {
   occurredAt: string;
   direction: 'inbound' | 'outbound';
   status: string;
-  channel: 'sms' | 'email' | 'chat' | 'portal' | null;
+  channel: 'sms' | 'email' | 'chat' | 'portal' | 'messenger' | 'instagram' | null;
   body: string | null;
   subject: string | null;
   errorCode: string | null;
@@ -170,21 +177,16 @@ const CHANNEL: Record<string, string> = {
   email: 'Email',
   chat: 'Website chat',
   portal: 'Client portal',
+  messenger: 'Messenger',
+  instagram: 'Instagram',
 };
+const SOCIAL = new Set(['messenger', 'instagram']);
 const STATUS: Record<string, string> = { open: 'Open', snoozed: 'Snoozed', closed: 'Closed' };
 const DAY_MS = 86_400_000;
 
 const conversationOf = (db: Db, ctx: ToolContext, conversationId: unknown) =>
   query<ConvGet>(db, ctx, 'conversation.get', { conversationId });
 const withWhom = (c: Conv) => c.person?.fullName ?? c.counterpartDisplay;
-const answeredBy = (c: Conv) =>
-  c.handledBy === 'ai'
-    ? `${c.teammate?.name ?? 'The AI teammate'} (AI)`
-    : c.needsPersonSince
-      ? 'Waiting for a person'
-      : c.handledBy === 'person'
-        ? (c.takenOverBy?.fullName ?? 'A person')
-        : 'Nobody in particular';
 const minutesSince = (iso: string) =>
   Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60_000));
 /** A message that didn't go out: failed or undelivered (a cancelled text never shows in the thread). */
@@ -203,44 +205,85 @@ const cannotText = (reason: string | null): string | null =>
         : null;
 
 async function findConversations(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
-  const { items } = await query<{ items: Conv[] }>(
+  const { items, nextCursor } = await query<{ items: Conv[]; nextCursor: string | null }>(
     db,
     ctx,
     'inbox.list',
     defined({
       box: args['box'] ?? 'all',
+      mailbox: args['mailbox'] ?? 'team',
       status: args['status'] ?? 'open',
       q: str(args['query']),
       personId: idOf(args['personId']),
       channel: str(args['channel']),
+      unread: args['unread'] === true ? true : undefined,
+      cursor: str(args['cursor']),
       limit: Number(args['limit'] ?? 10) || 10,
     }),
   );
   const p = paths(ctx.workspaceId);
   return {
     result: {
-      conversations: items.map((c) => ({
-        id: c.id,
-        with: withWhom(c),
-        personId: c.person?.id ?? null,
-        ...(c.person
-          ? {}
-          : {
-              looksLike: c.sameAs ? { personId: c.sameAs.id, name: c.sameAs.fullName } : null,
-            }),
-        channel: c.channel,
-        status: c.status,
-        ...(c.status === 'snoozed' && c.snoozedUntil
-          ? { snoozedUntil: at(c.snoozedUntil, ctx.timezone) }
-          : {}),
-        archived: c.archived,
-        assignee: c.assignee?.fullName ?? null,
-        answeredBy: answeredBy(c),
-        unread: c.unreadCount,
-        waitingMinutes: c.awaitingReplySince ? minutesSince(c.awaitingReplySince) : null,
-        lastMessage: c.lastDirection === 'inbound' ? quoted(c.lastPreview) : c.lastPreview,
-      })),
+      conversations: items.map((c) => {
+        const others = c.lanes.filter((l) => l.id !== c.id);
+        return {
+          id: c.id,
+          with: withWhom(c),
+          personId: c.person?.id ?? null,
+          ...(c.person
+            ? { counterpart: c.counterpartDisplay }
+            : {
+                looksLike: c.sameAs ? { personId: c.sameAs.id, name: c.sameAs.fullName } : null,
+              }),
+          channel: c.channel,
+          line: c.lanes.find((l) => l.id === c.id)?.lineDisplay ?? null,
+          status: c.status,
+          ...(c.status === 'snoozed' && c.snoozedUntil
+            ? { snoozedUntil: at(c.snoozedUntil, ctx.timezone) }
+            : {}),
+          archived: c.archived,
+          ...(c.folder !== 'inbox' ? { folder: FOLDER_WORDS[c.folder] ?? c.folder } : {}),
+          ...(c.private ? { private: 'Only you see it, until you share it with the team.' } : {}),
+          assignee: c.assignee?.fullName ?? null,
+          answeredBy: answeredBy(c),
+          handoff: handoffOf(c, ctx.timezone),
+          unread: c.unreadCount,
+          waitingMinutes: c.awaitingReplySince ? minutesSince(c.awaitingReplySince) : null,
+          lastAt: c.lastMessageAt ? at(c.lastMessageAt, ctx.timezone) : null,
+          lastMessage: c.lastDirection === 'inbound' ? quoted(c.lastPreview) : c.lastPreview,
+          ...(c.lastDirection === 'outbound' && c.lastSentBy
+            ? { lastSentBy: c.lastSentBy.fullName }
+            : {}),
+          ...(c.onSiteNow ? { onSiteNow: true } : {}),
+          // The stage chip on the row: their open lead.
+          ...(c.openLead
+            ? {
+                openLead: {
+                  leadId: c.openLead.id,
+                  title: c.openLead.title,
+                  stage: c.openLead.stageName,
+                },
+              }
+            : {}),
+          ...(others.length
+            ? {
+                otherLanes: others.map((l) => ({
+                  conversationId: l.id,
+                  channel: l.channel,
+                  line: l.lineDisplay,
+                  unread: l.unreadCount,
+                })),
+              }
+            : {}),
+        };
+      }),
       ...(items.length ? {} : { note: 'No conversations match.' }),
+      ...(nextCursor
+        ? {
+            more: 'There are more. Ask again with this cursor for the next ones.',
+            cursor: nextCursor,
+          }
+        : {}),
     },
     card: items.length
       ? {
@@ -426,20 +469,32 @@ const manageConversation: SettingsConfirmTool = {
         const title = `Hand the conversation with ${who} to your AI teammate?`;
         // The same refusals the command makes, said before anyone agrees.
         if (!teammate)
-          return stop(title, 'There’s no AI teammate yet. Set one up in Settings → AI teammate.');
+          return stop(
+            title,
+            'This business doesn’t have an AI teammate yet. Set one up on the AI teammate page first.',
+          );
         if (teammate.status === 'off')
-          return stop(title, `Turn ${teammate.name} on first, in Settings → AI teammate.`);
+          return stop(
+            title,
+            `${teammate.name} is off, so it can’t answer this conversation. Set it to Training wheels or Automatic under Status on the AI teammate page first.`,
+          );
         // A client's portal is for the people on their deal: the AI teammate never answers it.
         if (c.channel === 'portal')
           return stop(
             title,
             `${teammate.name} doesn’t answer messages in a client’s portal. Someone on their deal replies.`,
           );
+        // Nor Messenger or Instagram yet: a person answers those.
+        if (SOCIAL.has(c.channel))
+          return stop(
+            title,
+            `${teammate.name} can’t answer ${CHANNEL[c.channel]} messages yet, so someone on the team has to.`,
+          );
         const on = teammate.config.channels?.[c.channel] ?? (c.channel === 'chat' ? false : true);
         if (!on)
           return stop(
             title,
-            `${teammate.name} doesn’t answer ${CHANNEL[c.channel]?.toLowerCase()}. Turn that on in its settings first.`,
+            `${teammate.name} doesn’t answer ${c.channel === 'sms' ? 'texts' : CHANNEL[c.channel]?.toLowerCase()}. Turn on ${CHANNEL[c.channel]} under Channels on the AI teammate page first.`,
           );
         if (c.handledBy === 'ai' && c.teammate?.id === teammate.id)
           throw nothing(`${teammate.name} has it already.`);
@@ -608,17 +663,20 @@ const manageConversation: SettingsConfirmTool = {
             'That message didn’t fail, so there’s nothing to send again. Only a message that didn’t go out can be sent again.',
           );
         const email = m.channel === 'email';
+        // A text, an email, or a message in a chat, a portal, Messenger or Instagram.
+        const text = (m.channel ?? c.channel) === 'sms';
+        const kind = email ? 'email' : text ? 'text' : 'message';
         const fields: Field[] = [
           ...(email && m.subject ? [{ label: 'Subject', value: m.subject }] : []),
-          { label: email ? 'Email' : 'Text', value: clip(m.body) },
+          { label: email ? 'Email' : text ? 'Text' : 'Message', value: clip(m.body) },
           { label: 'Didn’t go because', value: m.errorMessage ?? 'Nothing said why' },
         ];
-        const title = `Send this ${email ? 'email' : 'text'} to ${who} again?`;
-        const cant = email ? null : cannotText(got.canText.reason);
+        const title = `Send this ${kind} to ${who} again?`;
+        const cant = text ? cannotText(got.canText.reason) : null;
         if (cant) return stop(title, cant);
         // In quiet hours a text tried again waits for them to end (message.retry), like any held text.
         return draft(title, fields, 'Send it again', [
-          !email && got.quiet.quiet && got.quiet.endsAt
+          text && got.quiet.quiet && got.quiet.endsAt
             ? {
                 kind: 'quiet_hours',
                 text: `It’s ${formatClock(got.quiet.localTime)} where the business is, in quiet hours. It goes to ${who} when they end, at ${formatClock(got.quiet.endsAt)}, and you can cancel it until then.`,

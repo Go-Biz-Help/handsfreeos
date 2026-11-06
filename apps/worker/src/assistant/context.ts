@@ -181,7 +181,9 @@ const attentionFor = (list: AttentionList | null): PromptContext['attention'] =>
 /** The name of the record on screen, or null when it can't be read (gone, or not this person's to see). */
 async function pageLabel(
   ask: Ask,
-  page: PageRecord & { readonly type: Exclude<PageRecord['type'], 'workflow_run'> },
+  page: PageRecord & {
+    readonly type: Exclude<PageRecord['type'], 'workflow_run' | 'conversation'>;
+  },
   timezone: string,
 ): Promise<string | null> {
   try {
@@ -210,25 +212,6 @@ async function pageLabel(
         });
         return lead.person ? `${lead.title} (${lead.person.fullName})` : lead.title;
       }
-      case 'conversation': {
-        const { conversation } = await ask<{
-          conversation: {
-            channel: string;
-            counterpartDisplay: string;
-            person: { fullName: string } | null;
-          };
-        }>('conversation.get', { conversationId: page.id });
-        const who = conversation.person?.fullName ?? conversation.counterpartDisplay;
-        const kind =
-          conversation.channel === 'email'
-            ? 'Email'
-            : conversation.channel === 'chat'
-              ? 'Website chat'
-              : conversation.channel === 'portal'
-                ? 'Portal messages'
-                : 'Texts';
-        return `${kind} with ${who}`;
-      }
       case 'appointment': {
         const { appointment: a } = await ask<{ appointment: AppointmentLite }>('appointment.get', {
           appointmentId: page.id,
@@ -243,12 +226,44 @@ async function pageLabel(
   }
 }
 
-/** The record on screen: its name, and for a run, the workflow and customer it belongs to. */
+/** What a conversation on screen is, by its channel: "Texts with Dana", "Instagram messages with dana.k". */
+const CONVERSATION_KINDS: Readonly<Record<string, string>> = {
+  sms: 'Texts',
+  email: 'Email',
+  chat: 'Website chat',
+  portal: 'Portal messages',
+  messenger: 'Messenger messages',
+  instagram: 'Instagram messages',
+};
+
+/**
+ * The record on screen: its name, and for a run, the workflow and customer it belongs to; for a conversation, the
+ * customer it is with, so "book her" needs no search.
+ */
 async function pageDetails(
   ask: Ask,
   page: PageRecord,
   timezone: string,
 ): Promise<{ label: string; related: string | null } | null> {
+  if (page.type === 'conversation') {
+    try {
+      const { conversation: c } = await ask<{
+        conversation: {
+          channel: string;
+          counterpartDisplay: string;
+          person: { id: string; fullName: string } | null;
+        };
+      }>('conversation.get', { conversationId: page.id });
+      return {
+        label: `${CONVERSATION_KINDS[c.channel] ?? 'Texts'} with ${c.person?.fullName ?? c.counterpartDisplay}`,
+        related: c.person
+          ? `It is with ${c.person.fullName} (person id ${c.person.id}). "Him", "her" or "them" usually means this customer, and get_conversation reads the thread.`
+          : 'It isn’t linked to a customer yet. get_conversation reads it, and manage_conversation with link_customer links it to one.',
+      };
+    } catch {
+      return null;
+    }
+  }
   if (page.type !== 'workflow_run') {
     const label = await pageLabel(ask, { ...page, type: page.type }, timezone);
     return label ? { label, related: null } : null;

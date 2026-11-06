@@ -2,11 +2,17 @@ import {
   ADDON_CATALOG,
   contactLabelWords,
   conversationOpen,
+  formatClock,
   HfosError,
   isAddonAiTool,
   isScreenActionTool,
   isScreenReadTool,
   normalizePhone,
+  SOCIAL_CHANNEL_NAMES,
+  VIDEO_LINK_DAYS,
+  VIDEO_CALL_WORDS,
+  videoCallAppPath,
+  videoLinkCreate,
   type AssistantCard,
   type Catalog,
 } from '@hfos/core/server';
@@ -34,7 +40,7 @@ import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
 import { contactConfirmTools, contactReadTools } from './tools-contacts';
 import { moneyConfirmTools, moneyReadTools } from './tools-money';
-import { command, money, paths, query, readTools, when } from './tools-read';
+import { command, money, paths, query, readTools, rehearse, when } from './tools-read';
 import { settingsReadTools } from './tools-settings';
 import { settingsBusinessConfirmTools } from './tools-settings-business';
 import { settingsChannelConfirmTools } from './tools-settings-channels';
@@ -288,9 +294,16 @@ interface TextTarget {
   conversationId: string | null;
   blocked: string | null;
   fromNumber: string | null;
-  quiet: { quiet: boolean; localTime: string } | null;
+  quiet: Quiet | null;
   /** Another of their numbers or emails, as the screen's Text ▾ and Email ▾ pick one; null for the main one. */
   to?: string | null;
+}
+
+/** Quiet hours as the business has them now: the local time, and when they end (both "21:30"). */
+interface Quiet {
+  quiet: boolean;
+  localTime: string;
+  endsAt: string | null;
 }
 
 interface OnFile {
@@ -368,19 +381,22 @@ async function laneWith(
   return items.find((c) => c.counterpart.toLowerCase() === counterpart.toLowerCase())?.id ?? null;
 }
 
-/** The conversation another number or address is texted or emailed in: the screen's own way of opening it. */
+/**
+ * The conversation another number or address is texted or emailed in, or their main one when `to` is left out: the
+ * screen's own way of opening it.
+ */
 async function openWith(
   db: Db,
   ctx: ToolContext,
   personId: string,
   channel: 'sms' | 'email',
-  to: string,
+  to?: string,
 ): Promise<string> {
   const { conversationId } = await command<{ conversationId: string }>(
     db,
     ctx,
     conversationOpen.name,
-    { personId, channel, to },
+    { personId, channel, ...(to ? { to } : {}) },
   );
   return conversationId;
 }
@@ -397,7 +413,7 @@ async function textTarget(db: Db, ctx: ToolContext, args: Args): Promise<TextTar
       : await query<{
           number: { display: string } | null;
           messagingReady: boolean;
-          quiet: { quiet: boolean; localTime: string };
+          quiet: Quiet;
         }>(db, ctx, 'phone.setup_status').catch(() => null);
     return {
       name: other.person.fullName,
@@ -434,11 +450,15 @@ async function textTarget(db: Db, ctx: ToolContext, args: Args): Promise<TextTar
       person: { phone: string | null } | null;
       canText: { ok: boolean; reason: string | null };
       fromNumber: string | null;
-      quiet: { quiet: boolean; localTime: string };
+      quiet: Quiet;
     }>(db, ctx, 'conversation.get', { conversationId });
     return {
       name: c.conversation.person?.fullName ?? c.conversation.counterpartDisplay,
-      phone: c.person?.phone ?? c.conversation.counterpartDisplay,
+      // The number this thread is with, which may be another of theirs, not their main one.
+      phone:
+        c.conversation.channel === 'sms'
+          ? c.conversation.counterpartDisplay
+          : (c.person?.phone ?? null),
       personId: c.conversation.person?.id ?? personId,
       conversationId,
       blocked: c.canText.ok ? null : c.canText.reason,
@@ -460,7 +480,7 @@ async function textTarget(db: Db, ctx: ToolContext, args: Args): Promise<TextTar
   const setup = await query<{
     number: { display: string } | null;
     messagingReady: boolean;
-    quiet: { quiet: boolean; localTime: string };
+    quiet: Quiet;
   }>(db, ctx, 'phone.setup_status').catch(() => null);
   const blocked = !person.phone
     ? 'no_phone'
@@ -493,24 +513,54 @@ function cannotText(reason: string, first: string): string {
     case 'email_channel':
       return 'That conversation is email. Send an email instead.';
     case 'chat_channel':
-      return 'That conversation is a website chat. Reply in the chat instead.';
+      return 'That conversation is a website chat, so a reply goes in the chat, not by text.';
     case 'portal_channel':
-      return `That conversation is in ${first}’s portal. Reply to them there, from the Inbox.`;
+      return `That conversation is in ${first}’s portal, so a reply goes there, not by text.`;
+    case 'social_channel':
+      return 'That conversation is on Messenger or Instagram, so a reply goes there, not by text.';
     default:
       return 'Texts to them can’t go out right now.';
   }
+}
+
+/** The conversations a text never goes in, whose replies reply_in_conversation sends on their own channel. */
+const REPLIED_IN_PLACE = new Set(['chat_channel', 'portal_channel', 'social_channel']);
+
+type RichText =
+  | { kind: 'buttons'; buttons: { title: string }[] }
+  | { kind: 'card'; title: string; buttons: { title: string }[] };
+/** Reply buttons or a card, as Add buttons or a card makes them, said on the card. */
+function richFields(rich: RichText | undefined): { label: string; value: string }[] {
+  if (!rich) return [];
+  const buttons = rich.buttons.map((b) => b.title).join(' · ');
+  return [
+    ...(rich.kind === 'card' ? [{ label: 'Card', value: rich.title }] : []),
+    ...(buttons ? [{ label: 'Buttons', value: buttons }] : []),
+  ];
 }
 
 const sendText: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const t = await textTarget(db, ctx, args);
     const first = firstName(t.name);
+    // In quiet hours the composer offers both: hold it until they end, or send it now.
+    const later = args['whenQuiet'] !== 'send_anyway';
+    const quiet = !t.blocked && !!t.quiet?.quiet;
+    const ends = t.quiet?.endsAt ? formatClock(t.quiet.endsAt) : null;
+    const video = args['askForVideo'] === true;
     const warnings: Warning[] = [];
     if (t.blocked) warnings.push({ kind: 'blocked', text: cannotText(t.blocked, first) });
-    else if (t.quiet?.quiet)
+    else if (quiet && t.quiet)
       warnings.push({
         kind: 'quiet_hours',
-        text: `It’s ${t.quiet.localTime} for the business, inside quiet hours. Sending now is up to you.`,
+        text: later
+          ? `It’s ${formatClock(t.quiet.localTime)} for the business, inside quiet hours, so it waits until they end${ends ? `, at ${ends}` : ''}. You can cancel it until then.`
+          : `It’s ${formatClock(t.quiet.localTime)} for the business, inside quiet hours. It goes now, as you asked.`,
+      });
+    if (video && !t.blocked)
+      warnings.push({
+        kind: 'note',
+        text: `A link goes under your words for ${first} to send you a video at full quality. It lasts ${VIDEO_LINK_DAYS} days, and what they send lands in this conversation.`,
       });
     return {
       card: confirmCard(toolCallId, 'send_text', {
@@ -523,36 +573,81 @@ const sendText: ConfirmTool = {
             label: 'From',
             value: t.fromNumber ? `Your business number · ${t.fromNumber}` : 'Your business number',
           },
+          ...(quiet
+            ? [
+                {
+                  label: 'Goes',
+                  value: later
+                    ? `When quiet hours end${ends ? `, at ${ends}` : ''}`
+                    : 'Now, in quiet hours',
+                },
+              ]
+            : []),
+          ...(video ? [{ label: 'Adds', value: 'A link for them to send you a video' }] : []),
+          ...richFields(args['rich'] as RichText | undefined),
         ],
         body: String(args['body']),
         stageFrom: null,
         stageTo: null,
         warnings,
         reasons: [],
-        confirmLabel: t.blocked ? '' : t.quiet?.quiet ? 'Send anyway' : 'Send text',
+        confirmLabel: t.blocked
+          ? ''
+          : !quiet
+            ? 'Send text'
+            : !later
+              ? 'Send anyway'
+              : ends
+                ? `Send at ${ends}`
+                : 'Send when quiet hours end',
         editable: !t.blocked,
       }),
       result: {
         to: t.name,
         ...(t.blocked ? { cannotSend: cannotText(t.blocked, first) } : {}),
-        ...(t.quiet?.quiet ? { quietHours: true } : {}),
+        ...(t.blocked && REPLIED_IN_PLACE.has(t.blocked)
+          ? { next: 'Reply with reply_in_conversation and this conversationId.' }
+          : {}),
+        ...(quiet ? { quietHours: true, goes: later ? 'when quiet hours end' : 'now' } : {}),
       },
     };
   },
   async commit(db, ctx, args, extra) {
     const t = await textTarget(db, ctx, args);
     // Another of their numbers goes in its own conversation, opened as the screen's Text ▾ opens it.
-    const conversationId =
+    let conversationId =
       t.to && t.personId ? await openWith(db, ctx, t.personId, 'sms', t.to) : t.conversationId;
-    const sent = await command<{ conversationId: string }>(db, ctx, 'message.send', {
-      ...(conversationId ? { conversationId } : { personId: t.personId }),
-      channel: 'sms',
-      body: args['body'],
-      acknowledgeQuietHours: true,
-      clientId: clientId(extra.toolCallId),
-    });
+    let body = String(args['body']);
+    if (args['askForVideo'] === true) {
+      // What they send lands in a conversation, so a first text opens theirs, as the reply box has one open.
+      conversationId ??= await openWith(db, ctx, String(t.personId), 'sms');
+      const { path } = await command<{ path: string }>(db, ctx, videoLinkCreate.name, {
+        conversationId,
+      });
+      // On a line of its own under the words, on the business's own domain once it works, as the AI teammate's.
+      const origin = (await publicOriginFor(db, ctx, extra.webUrl)).replace(/\/+$/, '');
+      body = `${body}\n${origin}${path}`;
+    }
+    const sent = await command<{ conversationId: string; scheduledFor?: string }>(
+      db,
+      ctx,
+      'message.send',
+      {
+        ...(conversationId ? { conversationId } : { personId: t.personId }),
+        channel: 'sms',
+        body,
+        ...(args['rich'] ? { rich: args['rich'] } : {}),
+        // Held until quiet hours end unless the person said to send it now; outside them it goes now either way.
+        ...(args['whenQuiet'] === 'send_anyway'
+          ? { acknowledgeQuietHours: true }
+          : { sendAfterQuietHours: true }),
+        clientId: clientId(extra.toolCallId),
+      },
+    );
     return {
-      outcome: `Sent to ${t.name}`,
+      outcome: sent.scheduledFor
+        ? `Held for ${t.name} until quiet hours end: it goes ${when(sent.scheduledFor, ctx.timezone)}, and can be cancelled until then`
+        : `Sent to ${t.name}`,
       href: paths(ctx.workspaceId).conversation(sent.conversationId),
       command: 'message.send',
     };
@@ -564,8 +659,58 @@ interface ComposeOptions {
   conversationId: string | null;
   canEmail: { ok: boolean; reason: 'no_email' | 'suppressed' | null };
   suppressed: { reason: string } | null;
-  addresses: { id: string; address: string; displayName: string; isDefault: boolean }[];
+  addresses: {
+    id: string;
+    address: string;
+    displayName: string;
+    isDefault: boolean;
+    usable: boolean;
+    mine?: boolean;
+  }[];
   fromAddressId: string | null;
+  mailboxes: {
+    id: string;
+    provider: 'microsoft' | 'google';
+    accountEmail: string | null;
+  }[];
+}
+
+const MAILBOX_WORDS = { google: 'Gmail', microsoft: 'Outlook' } as const;
+
+/**
+ * Another address an email goes from, as the composer's From picks it: one of the business's addresses that can
+ * send, or the person's own connected Gmail or Outlook. Null for the conversation's own or the default.
+ */
+function fromChoice(
+  opts: ComposeOptions,
+  asked: string | undefined,
+): { emailAddressId?: string; mailboxConnectionId?: string; words: string } | null {
+  if (!asked) return null;
+  const want = asked.toLowerCase();
+  const address = opts.addresses.find((a) => a.address.toLowerCase() === want);
+  if (address?.usable)
+    return {
+      emailAddressId: address.id,
+      words: address.mine ? `${address.address} (yours)` : address.address,
+    };
+  const mailbox = opts.mailboxes.find((m) => m.accountEmail?.toLowerCase() === want);
+  if (mailbox)
+    return {
+      mailboxConnectionId: mailbox.id,
+      words: `${mailbox.accountEmail} (your ${MAILBOX_WORDS[mailbox.provider]})`,
+    };
+  const choices = [
+    ...opts.addresses.filter((a) => a.usable).map((a) => a.address),
+    ...opts.mailboxes.flatMap((m) => (m.accountEmail ? [m.accountEmail] : [])),
+  ];
+  throw HfosError.validation(
+    [{ path: 'from', message: 'Pick an address this email can go from.' }],
+    address
+      ? `${asked} can’t send email yet: finish setting it up in Settings → Email first, or pick another.${choices.length ? ` It can go from ${choices.join(', ')}.` : ''}`
+      : choices.length
+        ? `This email can’t go from ${asked}. It can go from ${choices.join(', ')}.`
+        : `This email can’t go from ${asked}. Add the address in Settings → Email, or connect your own mailbox there.`,
+  );
 }
 
 async function emailTarget(db: Db, ctx: ToolContext, args: Args) {
@@ -609,6 +754,8 @@ async function emailTarget(db: Db, ctx: ToolContext, args: Args) {
   return {
     opts,
     from,
+    chosen: fromChoice(opts, str(args['from'])),
+    cc: Array.isArray(args['cc']) ? (args['cc'] as string[]) : [],
     name,
     conversationId: other ? null : (conversationId ?? opts.conversationId ?? null),
     personId: personId ?? null,
@@ -633,7 +780,11 @@ const sendEmail: ConfirmTool = {
         title: `Email ${first}?`,
         fields: [
           { label: 'To', value: [e.name, e.toWords ?? e.opts.to].filter(Boolean).join(' · ') },
-          { label: 'From', value: e.from ? e.from.address : 'Your business address' },
+          {
+            label: 'From',
+            value: e.chosen?.words ?? (e.from ? e.from.address : 'Your business address'),
+          },
+          ...(e.cc.length ? [{ label: 'Cc', value: e.cc.join(', ') }] : []),
           { label: 'Subject', value: String(args['subject']) },
         ],
         body: String(args['body']),
@@ -656,12 +807,272 @@ const sendEmail: ConfirmTool = {
       channel: 'email',
       subject: args['subject'],
       body: args['body'],
+      ...(e.chosen?.emailAddressId ? { emailAddressId: e.chosen.emailAddressId } : {}),
+      ...(e.chosen?.mailboxConnectionId
+        ? { mailboxConnectionId: e.chosen.mailboxConnectionId }
+        : {}),
+      ...(e.cc.length ? { cc: e.cc } : {}),
       clientId: clientId(extra.toolCallId),
     });
     return {
       outcome: `Emailed ${e.name}`,
       href: paths(ctx.workspaceId).conversation(sent.conversationId),
       command: 'message.send',
+    };
+  },
+};
+
+// ---------- a reply where the customer wrote: a website chat, a portal, Messenger or Instagram ----------
+
+/** Where a reply goes, as the card's title says it. */
+const REPLY_WHERE: Readonly<Record<string, string>> = {
+  chat: 'in the chat',
+  portal: 'in their portal',
+  messenger: 'on Messenger',
+  instagram: 'on Instagram',
+};
+const THREAD_NAMES: Readonly<Record<string, string>> = {
+  chat: 'Website chat',
+  portal: 'Client portal',
+  ...SOCIAL_CHANNEL_NAMES,
+};
+
+interface ReplyPlace {
+  conversation: {
+    id: string;
+    channel: string;
+    counterpartDisplay: string;
+    person: { id: string; fullName: string } | null;
+  };
+  chat: { name: string | null } | null;
+  social: {
+    account: { label: string } | null;
+    contact: { name: string };
+    window: { open: boolean; peopleOnly: boolean; closesAt: string | null };
+  } | null;
+}
+
+/** The conversation a reply goes in: never a text or email thread, which send_text and send_email write in. */
+async function replyPlace(db: Db, ctx: ToolContext, args: Args) {
+  const got = await query<ReplyPlace>(db, ctx, 'conversation.get', {
+    conversationId: args['conversationId'],
+  });
+  const c = got.conversation;
+  if (c.channel === 'sms' || c.channel === 'email')
+    throw HfosError.validation(
+      [{ path: 'conversationId', message: 'Pick a website chat, portal or social conversation.' }],
+      `That conversation is ${c.channel === 'sms' ? 'texts' : 'email'}. Write with ${c.channel === 'sms' ? 'send_text' : 'send_email'} and this conversationId instead.`,
+    );
+  const who =
+    c.person?.fullName ?? got.social?.contact.name ?? got.chat?.name ?? c.counterpartDisplay;
+  return { got, c, who, where: REPLY_WHERE[c.channel] ?? 'there' };
+}
+
+const replyInConversation: ConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const { got, c, who, where } = await replyPlace(db, ctx, args);
+    const first = firstName(who);
+    // The reply box's own refusals, said before anyone agrees: Meta's reply window, a blocked visitor, a closed account.
+    let why: string | null = null;
+    try {
+      await rehearse(db, ctx, 'message.send', {
+        conversationId: c.id,
+        channel: c.channel,
+        body: args['body'],
+      });
+    } catch (e) {
+      if (!(e instanceof HfosError)) throw e;
+      why = e.message;
+    }
+    const window = got.social?.window;
+    const warnings: Warning[] = why
+      ? [{ kind: 'blocked', text: why }]
+      : [
+          { kind: 'caution', text: `It reaches ${first} now.` },
+          ...(window?.closesAt
+            ? [
+                {
+                  kind: 'note',
+                  text: `${THREAD_NAMES[c.channel]} lets the business answer until ${when(window.closesAt, ctx.timezone)}${window.peopleOnly ? ', and only a person on the team now' : ''}.`,
+                },
+              ]
+            : []),
+        ];
+    return {
+      card: confirmCard(toolCallId, 'reply_in_conversation', {
+        personId: c.person?.id ?? null,
+        conversationId: c.id,
+        title: `Reply to ${first} ${where}?`,
+        fields: [
+          { label: 'To', value: `${who} · ${THREAD_NAMES[c.channel] ?? c.channel}` },
+          ...(got.social?.account ? [{ label: 'Through', value: got.social.account.label }] : []),
+        ],
+        body: String(args['body']),
+        stageFrom: null,
+        stageTo: null,
+        warnings,
+        reasons: [],
+        confirmLabel: why ? '' : 'Send reply',
+        editable: !why,
+      }),
+      result: { to: who, channel: c.channel, ...(why ? { cannotSend: why } : {}) },
+    };
+  },
+  async commit(db, ctx, args, extra) {
+    const { c, who, where } = await replyPlace(db, ctx, args);
+    const sent = await command<{ conversationId: string }>(db, ctx, 'message.send', {
+      conversationId: c.id,
+      channel: c.channel,
+      body: args['body'],
+      clientId: clientId(extra.toolCallId),
+    });
+    return {
+      outcome: `Replied to ${who} ${where}`,
+      href: paths(ctx.workspaceId).conversation(sent.conversationId),
+      command: 'message.send',
+    };
+  },
+};
+
+// ---------- a HandsFreeOS video call with a customer ----------
+
+/** What video_call.start is given, with the business's own address for the customer's link, as its route does. */
+async function videoCallInput(db: Db, ctx: ToolContext, args: Args, webUrl: string) {
+  const origin = (await publicOriginFor(db, ctx, webUrl)).replace(/\/+$/, '');
+  return defined({
+    personId: str(args['personId']),
+    conversationId: str(args['conversationId']),
+    channel: str(args['channel']),
+    origin,
+  });
+}
+
+/** Who the call is with, and how their link goes, as the Video call button says it. */
+async function videoCallWith(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+): Promise<{ name: string; personId: string | null; conversationId: string | null; by: string }> {
+  const conversationId = str(args['conversationId']) ?? null;
+  if (conversationId) {
+    const { conversation: c } = await query<{
+      conversation: {
+        channel: string;
+        counterpartDisplay: string;
+        person: { id: string; fullName: string } | null;
+      };
+    }>(db, ctx, 'conversation.get', { conversationId });
+    return {
+      name: c.person?.fullName ?? c.counterpartDisplay,
+      personId: c.person?.id ?? null,
+      conversationId,
+      by: `In this conversation (${(THREAD_NAMES[c.channel] ?? (c.channel === 'sms' ? 'Texts' : 'Email')).toLowerCase()})`,
+    };
+  }
+  const personId = str(args['personId']);
+  if (!personId)
+    throw HfosError.validation(
+      [{ path: 'personId', message: 'Say who the call is with.' }],
+      'Say who the call is with: give their personId (search_customers finds it) or the conversationId.',
+    );
+  const { person } = await query<{
+    person: { fullName: string; phone: string | null; email: string | null };
+  }>(db, ctx, 'person.get', { personId });
+  const channel = str(args['channel']);
+  return {
+    name: person.fullName,
+    personId,
+    conversationId: null,
+    by:
+      channel === 'email' || (!channel && !person.phone && person.email)
+        ? `By email${person.email ? ` to ${person.email}` : ''}`
+        : channel === 'sms' || person.phone
+          ? `By text${person.phone ? ` to ${person.phone}` : ''}${channel ? '' : ', or by email if a text can’t go'}`
+          : 'By text or email',
+  };
+}
+
+const startVideoCall: ConfirmTool = {
+  async prepare(db, ctx, args, toolCallId, deps) {
+    const who = await videoCallWith(db, ctx, args);
+    const first = firstName(who.name);
+    const input = await videoCallInput(db, ctx, args, deps?.webUrl ?? '');
+    // The command's own refusals, said before anyone agrees; quiet hours ask the person, as the button does.
+    let quiet: string | null = null;
+    let why: string | null = null;
+    const tryIt = async (acknowledgeQuietHours: boolean) => {
+      try {
+        await rehearse(db, ctx, 'video_call.start', { ...input, acknowledgeQuietHours });
+        return null;
+      } catch (e) {
+        if (!(e instanceof HfosError)) throw e;
+        return e;
+      }
+    };
+    const tried = await tryIt(false);
+    if (tried?.rule === 'quiet_hours') {
+      quiet = tried.message;
+      why = (await tryIt(true))?.message ?? null;
+    } else why = tried?.message ?? null;
+    return {
+      card: confirmCard(toolCallId, 'start_video_call', {
+        personId: who.personId,
+        conversationId: who.conversationId,
+        title: `Start a video call with ${first}?`,
+        fields: [
+          { label: 'With', value: who.name },
+          { label: 'Their link goes', value: who.by },
+          { label: 'Then', value: 'The call opens for you from this card' },
+        ],
+        body: null,
+        stageFrom: null,
+        stageTo: null,
+        warnings: why
+          ? [{ kind: 'blocked', text: why }]
+          : [
+              ...(quiet
+                ? [{ kind: 'quiet_hours', text: `${quiet} It goes now if you confirm.` }]
+                : []),
+              {
+                kind: 'caution',
+                text: `${first} gets their own link now, from you. Only they get it.`,
+              },
+            ],
+        reasons: [],
+        confirmLabel: why ? '' : quiet ? VIDEO_CALL_WORDS.sendAnyway : 'Start the call',
+        editable: false,
+      }),
+      result: {
+        with: who.name,
+        ...(why ? { cannotStart: why } : {}),
+        ...(quiet && !why ? { quietHours: true } : {}),
+      },
+    };
+  },
+  async commit(db, ctx, args, extra) {
+    const input = await videoCallInput(db, ctx, args, extra.webUrl);
+    const out = await command<{
+      callId: string;
+      conversationId: string | null;
+      channel: string;
+      name: string;
+    }>(db, ctx, 'video_call.start', { ...input, acknowledgeQuietHours: true });
+    const by =
+      out.channel === 'sms'
+        ? 'by text'
+        : out.channel === 'email'
+          ? 'by email'
+          : 'in your conversation';
+    return {
+      outcome: `${out.name}’s link is on its way ${by}. Open the call from here to join it.`,
+      href: videoCallAppPath(ctx.workspaceId, out.callId),
+      command: 'video_call.start',
+      answer: {
+        callId: out.callId,
+        conversationId: out.conversationId,
+        // The team's own way in: the customer's link went to them alone and is never shown.
+        join: `${extra.webUrl}/call/${out.callId}`,
+      },
     };
   },
 };
@@ -1073,6 +1484,8 @@ function nextActionOf(
 const confirmTools: Record<string, ConfirmTool> = {
   send_text: sendText,
   send_email: sendEmail,
+  reply_in_conversation: replyInConversation,
+  start_video_call: startVideoCall,
   move_lead: moveLead,
   create_customer: createCustomer,
   create_lead: createLead,
@@ -1146,7 +1559,7 @@ export function createToolExecutor(
     // Or one of its worker actions, through the door its screens use.
     if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
     // Or a screen's own query, as the person; or one of its commands that runs on its own.
-    if (isScreenReadTool(tool)) return runScreenRead(db, tool, args, ctx);
+    if (isScreenReadTool(tool)) return runScreenRead(db, tool, args, ctx, webUrl);
     if (isScreenActionTool(tool)) return runScreenAction(db, tool, args, ctx);
     const capabilities = capabilityTools[tool.name];
     if (capabilities) return capabilities(db, ctx, args, addonCatalog);

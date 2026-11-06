@@ -13,6 +13,8 @@ import {
   AssistantCard,
   aiTeammateCreate,
   assistantToolByName,
+  customRecordCreate,
+  customRecordTypeCreate,
   executeCommand,
   formCreate,
   formPublish,
@@ -1010,5 +1012,87 @@ describe('the AI teammate’s drafts', () => {
     expect(after.card.confirmLabel).toBe('');
     expect(blocked(after.card)).toContain('Mike wrote again after this draft');
     expect(field(after.card, 'They wrote')).toBe('Actually, Wednesday is better.');
+  });
+
+  it('lists an add-on’s ask with what it does and its record, and a reply’s flags, and says what approving an ask does', async () => {
+    const { customRecordTypeId } = await run(customRecordTypeCreate, {
+      workspaceId,
+      singular: 'Home',
+    });
+    const { customRecordId } = await run(customRecordCreate, {
+      workspaceId,
+      typeId: customRecordTypeId,
+      name: '412 Oak St',
+    });
+    const ask = {
+      addonId: 'realestate',
+      addonName: 'Real Estate Agent',
+      operation: 'realestate.home.save',
+      tool: 'save_home',
+      input: { address: '412 Oak St' },
+      recordId: customRecordId,
+      summary: 'Add 412 Oak St to Mike’s homes',
+    };
+    const askId = (
+      await one<{ id: string }>(
+        sql`insert into app.ai_teammate_drafts (workspace_id, teammate_id, person_id, custom_record_id, kind,
+              preview, client_id, expires_at)
+            values (${workspaceId}, ${teammateId}, ${personId}, ${customRecordId}, 'ask',
+              ${JSON.stringify({ message: null, actions: [], ask })}::jsonb,
+              ${`ai:${randomUUID()}`}, now() + interval '2 hours')
+            returning id`,
+      )
+    ).id;
+    const flagged = await draft('reply', {
+      message: { channel: 'sms', body: 'It’s a great area for families.' },
+      actions: [],
+      flags: [{ addonName: 'Real Estate Agent', message: 'Saying who an area suits can steer.' }],
+      funnel: { name: 'Spring tune-up', stageName: 'Day 3' },
+    });
+
+    // The kind the screen filters on, asks among them.
+    const { result } = await read('list_teammate_drafts', { kind: 'ask' });
+    const drafts = result['drafts'] as Record<string, unknown>[];
+    expect(drafts.map((d) => d['id'])).toEqual([askId]);
+    expect(drafts[0]).toMatchObject({
+      what: 'Ava asks: Add 412 Oak St to Mike’s homes',
+      kind: 'ask',
+      ask: {
+        addon: 'Real Estate Agent',
+        does: 'Add 412 Oak St to Mike’s homes',
+        recordId: customRecordId,
+        record: '412 Oak St',
+      },
+      canDecide: true,
+    });
+    const all = (await read('list_teammate_drafts', {})).result['drafts'] as Record<
+      string,
+      unknown
+    >[];
+    expect(all.find((d) => d['id'] === flagged)).toMatchObject({
+      flags: ['Real Estate Agent: Saying who an area suits can steer.'],
+      fromFunnel: 'Spring tune-up, Day 3',
+    });
+
+    const { card } = await prepare('decide_teammate_draft', {
+      draftId: askId,
+      decision: 'approve',
+    });
+    expect(card.title).toBe('Approve what Ava asks: Add 412 Oak St to Mike’s homes?');
+    expect(field(card, 'Asks')).toBe('Add 412 Oak St to Mike’s homes (Real Estate Agent)');
+    expect(caution(card)).toBe('Approving does it as you. Nothing is sent.');
+    expect(card.confirmLabel).toBe('Approve');
+    // A flagged reply says what the check found before it goes as it is, as the screen's card does.
+    const flaggedCard = await prepare('decide_teammate_draft', {
+      draftId: flagged,
+      decision: 'approve',
+    });
+    expect(caution(flaggedCard.card)).toBe(
+      'Ava answers on its own, but this reply waits for you. Real Estate Agent: Saying who an area suits can steer.',
+    );
+    expect(flaggedCard.card.confirmLabel).toBe('Send as it is');
+    expect(field(flaggedCard.card, 'From funnel')).toBe('Spring tune-up, Day 3');
+    // Nothing is decided until Confirm.
+    expect((await row(askId)).status).toBe('pending');
   });
 });

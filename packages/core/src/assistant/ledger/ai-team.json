@@ -62,12 +62,12 @@
     "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
     "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
     "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
-    "packages/core/src/assistant/coverage.ts": "bcd7e0bb1843",
-    "packages/core/src/assistant/screen-reads.ts": "ab9c0ef02734",
-    "packages/core/src/assistant/settings-map.ts": "f9711991ae20",
-    "packages/core/src/assistant/tools-content.ts": "0d085b953ed0",
+    "packages/core/src/assistant/coverage.ts": "babf38712a5c",
+    "packages/core/src/assistant/screen-reads.ts": "b029afaf7483",
+    "packages/core/src/assistant/settings-map.ts": "036cfaa9ca4c",
+    "packages/core/src/assistant/tools-content.ts": "b383cb78ef0a",
     "packages/core/src/assistant/tools-extra.ts": "e5fe009ee8f3",
-    "packages/core/src/assistant/tools.ts": "dbf798ced613"
+    "packages/core/src/assistant/tools.ts": "f47a13abb5a2"
   },
   "items": [
     {
@@ -1621,8 +1621,8 @@
       "path": "Approvals → draft → byline funnel name and stage",
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:95",
-      "covered": "no",
-      "by": "not in list_teammate_drafts"
+      "covered": "yes",
+      "by": "list_teammate_drafts fromFunnel; decide_teammate_draft From funnel"
     },
     {
       "path": "Approvals → draft → “in the inbox too”",
@@ -1684,15 +1684,15 @@
       "path": "Approvals → draft → add-on ask summary",
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:225",
-      "covered": "no",
-      "by": "not in list_teammate_drafts"
+      "covered": "yes",
+      "by": "list_teammate_drafts ask, what"
     },
     {
       "path": "Approvals → draft → why it was held (flags)",
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:235",
-      "covered": "no",
-      "by": "preview.flags not in list_teammate_drafts"
+      "covered": "yes",
+      "by": "list_teammate_drafts flags; decide_teammate_draft warns and offers Send as it is"
     },
     {
       "path": "Approvals → draft → approving also does (actions), discount",
@@ -2497,7 +2497,7 @@
       "where": "AI teammate → Approvals (and Workflows → Approvals). A draft card shows: an add-on's ask ('<name> asks …'); the add-on's flag box (such as Real Estate's fair-housing check) with Send as it is; the funnel byline '· <funnel>, <stage>'; and who to ask when the person can't decide an ask.",
       "gap": "The worker's Draft interface and list_teammate_drafts drop preview.ask, preview.flags, preview.funnel and record. Core's draft schema and the screen card all carry them.\n- An 'ask' draft gets draftTitle's fallthrough title ('<name>'s reply/text to …') with no ask summary or add-on name.\n- The kind enum (reply, approval, call) can't filter asks.\n- When canDecide is false, decide_teammate_draft says 'Only owners and admins decide…' even for an ask, which the screen sends to whoever may see the record.\n- A reply an add-on flagged (Real Estate's fair-housing check) is listed and confirmed with no flag. The card's button reads 'Approve and send', not the screen's 'Send as it is', so the person can approve a flagged message without seeing the warning.\n- A funnel message isn't said to come from its funnel and stage.",
       "fix": "In apps/worker/src/assistant/tools-content.ts:\n- Extend `interface Draft` (line 2590) with `kind: 'reply'|'approval'|'call'|'ask'`, `record: {id; name: string|null}|null` and, in preview, `ask: {addonName; summary}|null`, `flags: {addonName; message}[]` and `funnel: {name; stageName}|null`.\n- In listTeammateDrafts, add `asks: DRAFT_WORDS.askFrom(name, ask.addonName) + summary`, `heldBecause: flags.map(f => f.message)`, `fromFunnel: '<name>, <stageName>'` and, for an ask nobody here can decide, `whoDecides: DRAFT_WORDS.askWho(record?.name)`. DRAFT_WORDS lives at packages/core/src/inbox/teammate.ts:419.\n- In draftTitle, add an 'ask' branch.\n- In decideTeammateDraft.prepare, add each flag as a 'caution' warning headed by DRAFT_WORDS.heldWhy(name), use DRAFT_WORDS.sendAsItIs as the confirm label when flags exist, and use askWho as the blocked words for an ask.\n- In packages/core/src/assistant/tools-content.ts:349, change the kind enum to TEAMMATE_DRAFT_KINDS, and say in the description that asks come from add-ons.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {

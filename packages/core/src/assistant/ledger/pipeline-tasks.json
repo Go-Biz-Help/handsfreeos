@@ -2024,7 +2024,7 @@
       "kind": "see",
       "file": "apps/mobile/src/components/drafts/draft-card.tsx:256",
       "covered": "partly",
-      "by": "list_teammate_drafts what; no held or ask titles"
+      "by": "list_teammate_drafts what (an ask by its summary); a held reply isn’t titled Held for you"
     },
     {
       "path": "Approvals (phone) → AI draft → expires",
@@ -2037,8 +2037,8 @@
       "path": "Approvals (phone) → AI draft → add-on ask: summary, then what goes to the customer",
       "kind": "see",
       "file": "apps/mobile/src/components/drafts/draft-card.tsx:270",
-      "covered": "partly",
-      "by": "list_teammate_drafts kind ask; no ask summary"
+      "covered": "yes",
+      "by": "list_teammate_drafts ask, drafted"
     },
     {
       "path": "Approvals (phone) → AI draft → message: subject and words",
@@ -2058,15 +2058,15 @@
       "path": "Approvals (phone) → AI draft → held: why an add-on's check held it",
       "kind": "see",
       "file": "apps/mobile/src/components/drafts/draft-card.tsx:346",
-      "covered": "no",
-      "by": "list_teammate_drafts leaves out flags"
+      "covered": "yes",
+      "by": "list_teammate_drafts flags; decide_teammate_draft warnings"
     },
     {
       "path": "Approvals (phone) → AI draft → Safety passed / Owners decide / ask who; segments",
       "kind": "see",
       "file": "apps/mobile/src/components/drafts/draft-card.tsx:358",
       "covered": "partly",
-      "by": "canDecide, onlyOwnersAndAdminsDecide; no safety or segments"
+      "by": "canDecide, onlyOwnersAndAdminsDecide, whoDecides for an ask; no safety or segments"
     },
     {
       "path": "Approvals (phone) → AI draft → Approve and send / Approve / Send as it is",
@@ -2234,7 +2234,7 @@
       "where": "Approvals: the teammate’s “ask” drafts (“Ava asks Real Estate: …”, “Only people on <record> can decide it.”) and held replies (“… answers on its own, but this reply waits for you” with each add-on’s reason, Send as it is)",
       "gap": "The worker's Draft type has no 'ask' kind and no preview.ask, preview.flags, preview.funnel, record or knowledge. list_teammate_drafts' kind enum is reply|approval|call, though TEAMMATE_DRAFT_KINDS includes 'ask'. An ask draft falls through draftTitle to '<Ava>'s reply to …', its summary and add-on aren't returned, and a held reply's reasons (flags) aren't either. A non-decider is told 'Only owners and admins decide what Ava asks approval for.', while the screen says only people on that record decide.",
       "fix": "apps/worker/src/assistant/tools-content.ts:2590-2606: add kind 'ask', preview.ask, preview.flags, preview.funnel, record and knowledge to Draft. draftTitle: use core DRAFT_WORDS.askFrom(name, addonName). listTeammateDrafts: return ask {summary, addon}, heldBecause (flags[].message), funnel and record. :2755 blocked line: use DRAFT_WORDS.askWho(record?.name) for kind 'ask'. packages/core/src/assistant/tools-content.ts:349: kind z.enum(TEAMMATE_DRAFT_KINDS).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {

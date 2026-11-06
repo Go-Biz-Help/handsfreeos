@@ -16,6 +16,7 @@ import {
   applyWorkflowOps,
   closedStageWords,
   describeOps,
+  DRAFT_WORDS,
   describeStep,
   describeTrigger,
   findStep,
@@ -2589,7 +2590,7 @@ const manageWorkflowRun: SettingsConfirmTool = {
 
 interface Draft {
   id: string;
-  kind: 'reply' | 'approval' | 'call';
+  kind: 'reply' | 'approval' | 'call' | 'ask';
   teammate: { id: string; name: string };
   conversationId: string | null;
   channel: string | null;
@@ -2600,17 +2601,31 @@ interface Draft {
     actions: { kind: string; summary: string }[];
     discount: { percent: number; reason: string } | null;
     call: { toDisplay: string; goal: string } | null;
+    /** An add-on's action the teammate asks a person on the record to OK. */
+    ask: { addonName: string; summary: string; recordId: string } | null;
+    /** A funnel's message: which funnel and stage it's from. */
+    funnel: { name: string; stageName: string } | null;
+    /** What an add-on's check found in the reply (Real Estate's fair housing). */
+    flags: { addonName: string; message: string }[];
   };
   expiresAt: string | null;
   createdAt: string;
   canDecide: boolean;
+  /** An ask's record, named when the reader may see it. */
+  record: { id: string; name: string | null } | null;
+  /** The knowledge its run used, as the run recorded it ({itemId, title} each). */
+  knowledge: unknown[];
 }
 const MESSAGE_NOUN = { sms: 'text', email: 'email', chat: 'chat reply' } as const;
 
-/** "Ava’s text to Mike Johnson", "Ava’s call to Mike Johnson", "Ava asks: 10% off for Mike Johnson". */
+/**
+ * "Ava’s text to Mike Johnson", "Ava’s call to Mike Johnson", "Ava asks: 10% off for Mike Johnson", "Ava asks: Add
+ * 412 Oak St to Dana’s homes".
+ */
 function draftTitle(d: Draft): string {
   const who = d.person?.fullName ?? 'a new customer';
   if (d.kind === 'call') return `${d.teammate.name}’s call to ${who}`;
+  if (d.kind === 'ask' && d.preview.ask) return `${d.teammate.name} asks: ${d.preview.ask.summary}`;
   if (d.kind === 'approval' && d.preview.discount)
     return `${d.teammate.name} asks: ${d.preview.discount.percent}% off for ${who}`;
   if (d.kind === 'approval') return `${d.teammate.name} asks to go ahead for ${who}`;
@@ -2618,6 +2633,21 @@ function draftTitle(d: Draft): string {
   return `${d.teammate.name}’s ${noun} to ${who}`;
 }
 const alsoDoes = (d: Draft) => d.preview.actions.map((a) => a.summary).filter(Boolean);
+/** Who may decide a draft this person can't: the people on an ask's record, or owners and admins. */
+const whoDecides = (d: Draft, name: string) =>
+  d.kind === 'ask'
+    ? DRAFT_WORDS.askWho(d.record?.name ?? null)
+    : `Only owners and admins decide what ${name} asks approval for.`;
+/** An add-on's check on the reply, in its own words: "Real Estate Agent: …". */
+const flagsOf = (d: Draft) => d.preview.flags.map((f) => `${f.addonName}: ${f.message}`);
+/** The funnel a message is from, as the card's byline says it: "Spring tune-up, Day 3". */
+const funnelOf = (f: { name: string; stageName: string }) => `${f.name}, ${f.stageName}`;
+/** The titles of the knowledge the teammate used, as "Used Duct cleaning prices" names them. */
+const knowledgeOf = (d: Draft) =>
+  (d.knowledge ?? []).flatMap((k) => {
+    const title = (k as { title?: unknown } | null)?.title;
+    return typeof title === 'string' && title ? [title] : [];
+  });
 const expired = (d: Draft) => !!d.expiresAt && Date.parse(d.expiresAt) <= Date.now();
 /** The held changes that ask the customer for money (core's MONEY_DRAFT_ACTIONS). */
 const asksForMoney = (d: Draft) =>
@@ -2680,10 +2710,27 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
         ...(d.preview.call
           ? { call: `Calls ${d.preview.call.toDisplay} about ${d.preview.call.goal}` }
           : {}),
+        ...(d.preview.ask
+          ? {
+              ask: {
+                addon: d.preview.ask.addonName,
+                does: d.preview.ask.summary,
+                recordId: d.preview.ask.recordId,
+                ...(d.record?.name ? { record: d.record.name } : {}),
+              },
+            }
+          : {}),
+        ...(flagsOf(d).length ? { flags: flagsOf(d) } : {}),
+        ...(d.preview.funnel ? { fromFunnel: funnelOf(d.preview.funnel) } : {}),
+        ...(knowledgeOf(d).length ? { usedKnowledge: knowledgeOf(d) } : {}),
         waitingSince: when(d.createdAt, ctx.timezone),
         ...(d.expiresAt ? { expires: when(d.expiresAt, ctx.timezone) } : {}),
         canDecide: d.canDecide && !expired(d),
-        ...(!d.canDecide ? { onlyOwnersAndAdminsDecide: true } : {}),
+        ...(!d.canDecide
+          ? d.kind === 'ask'
+            ? { whoDecides: whoDecides(d, d.teammate.name) }
+            : { onlyOwnersAndAdminsDecide: true }
+          : {}),
       })),
       ...(items.length ? {} : { note: 'Nothing is waiting for an OK.' }),
     },
@@ -2694,7 +2741,11 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
           items: items.slice(0, 12).map((d) => ({
             title: draftTitle(d),
             detail: clip(
-              d.preview.message?.body ?? d.preview.call?.goal ?? alsoDoes(d)[0] ?? '',
+              d.preview.message?.body ??
+                d.preview.call?.goal ??
+                d.preview.ask?.summary ??
+                alsoDoes(d)[0] ??
+                '',
               140,
             ),
             tone: (expired(d) ? 'danger' : 'warning') as Tone,
@@ -2752,7 +2803,7 @@ const decideTeammateDraft: SettingsConfirmTool = {
     const first = d.person ? firstName(d.person.fullName) : 'them';
     const { said, wroteAgain } = await lastWords(db, ctx, d);
     const blocked = !d.canDecide
-      ? `Only owners and admins decide what ${name} asks approval for.`
+      ? whoDecides(d, name)
       : expired(d)
         ? 'This draft expired.'
         : approve && wroteAgain
@@ -2762,6 +2813,11 @@ const decideTeammateDraft: SettingsConfirmTool = {
       { label: 'To', value: `${who}${m ? ` · ${MESSAGE_NOUN[m.channel]}` : ''}` },
       { label: 'They wrote', value: said ? clip(said, 240) : '' },
       { label: 'Subject', value: m?.channel === 'email' ? (edits.subject ?? m.subject ?? '') : '' },
+      {
+        label: 'Asks',
+        value: d.preview.ask ? `${d.preview.ask.summary} (${d.preview.ask.addonName})` : '',
+      },
+      { label: 'From funnel', value: d.preview.funnel ? funnelOf(d.preview.funnel) : '' },
       { label: 'Also', value: alsoDoes(d).join('; ') },
       {
         label: 'Discount',
@@ -2807,12 +2863,14 @@ const decideTeammateDraft: SettingsConfirmTool = {
             kind: 'caution',
             text: `${name} calls ${first} once you confirm. The call says it’s an AI and that it’s recorded.`,
           }
-        : m
-          ? {
-              kind: 'caution',
-              text: `It goes to ${first} as soon as you confirm, from ${name} with your name on it.`,
-            }
-          : { kind: 'caution', text: 'Approving carries it out at once.' };
+        : d.kind === 'ask'
+          ? { kind: 'caution', text: DRAFT_WORDS.askThen(first, m?.body ?? null) }
+          : m
+            ? {
+                kind: 'caution',
+                text: `It goes to ${first} as soon as you confirm, from ${name} with your name on it.`,
+              }
+            : { kind: 'caution', text: 'Approving carries it out at once.' };
     return {
       card: card(toolCallId, 'decide_teammate_draft', {
         title:
@@ -2822,14 +2880,27 @@ const decideTeammateDraft: SettingsConfirmTool = {
               ? d.preview.discount
                 ? `Approve ${d.preview.discount.percent}% off for ${who}?`
                 : `Approve what ${name} asks for ${who}?`
-              : `Send ${draftTitle(d)}?`,
+              : d.kind === 'ask' && d.preview.ask
+                ? `Approve what ${name} asks: ${d.preview.ask.summary}?`
+                : `Send ${draftTitle(d)}?`,
         personId: d.person?.id ?? null,
         fields,
         body: edits.body ?? m?.body ?? null,
         ...orBlocked(
           blocked,
-          d.kind === 'call' ? 'Approve the call' : m ? 'Approve and send' : 'Approve',
+          d.kind === 'call'
+            ? 'Approve the call'
+            : flagsOf(d).length
+              ? DRAFT_WORDS.sendAsItIs
+              : m
+                ? 'Approve and send'
+                : 'Approve',
           [
+            // What an add-on's check found in the reply, before anyone sends it as it is.
+            ...flagsOf(d).map((f) => ({
+              kind: 'caution',
+              text: `${DRAFT_WORDS.heldWhy(name)}. ${f}`,
+            })),
             goes,
             ...(asksForMoney(d)
               ? [

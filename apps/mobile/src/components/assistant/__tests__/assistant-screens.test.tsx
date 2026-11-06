@@ -9,6 +9,7 @@ import { ConfirmCard } from '../confirm-card';
 import { EmptyChat, MessageRow } from '../message-list';
 import { NoticeCard } from '../notices';
 import type { AnswerMessage, CallState, QuestionMessage } from '@/assistant/chat';
+import { callRequests } from '@/inbox/calls';
 
 /**
  * Ask HandsFreeOS's parts with React Native Testing Library: the consent step before the first question, the
@@ -362,6 +363,29 @@ describe('the chat itself', () => {
     expect(screen.getByTestId('assistant-select-text-body').props.editable).toBe(false);
     await fireEvent.press(screen.getByTestId('assistant-select-text-done'));
     await waitFor(() => expect(screen.queryByTestId('assistant-select-text-body')).toBeNull());
+  });
+
+  it('calls the customer on its call card through your own cell, in this business', async () => {
+    const PERSON = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    callRequests.clear();
+    await render(
+      row(
+        answer({
+          text: 'Here’s Robert.',
+          cards: [
+            { type: 'call', personId: PERSON, fullName: 'Robert Chen', phone: '(713) 555-0110' },
+          ],
+        }),
+      ),
+    );
+    expect(screen.getByText('(713) 555-0110')).toBeTruthy();
+    expect(callRequests.current()).toBeNull();
+    fireEvent.press(screen.getByTestId('assistant-call'));
+    expect(callRequests.current()).toMatchObject({
+      target: { personId: PERSON },
+      workspaceId: WS,
+    });
+    callRequests.clear();
   });
 
   it('Ask again asks the question that had no signal', async () => {

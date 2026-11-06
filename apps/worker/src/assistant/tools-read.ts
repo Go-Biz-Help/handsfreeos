@@ -4,11 +4,13 @@ import {
   customerSince,
   customValueText,
   executeCommand,
+  handoffWhy,
   plainSpaces,
   registry,
   rehearseCommand,
   teammateConfigOf,
   type AssistantCard,
+  type ConversationHandoffReason,
   type CustomFieldShape,
   type LeadQualification,
 } from '@hfos/core/server';
@@ -31,7 +33,6 @@ export const paths = (ws: string) => ({
   pipeline: () => `/app/w/${ws}/pipeline`,
   tasks: () => `/app/w/${ws}/tasks`,
   inbox: () => `/app/w/${ws}/inbox`,
-  calls: () => `/app/w/${ws}/calls`,
 });
 
 export const money = (cents: number): string =>
@@ -203,6 +204,217 @@ interface ConversationItem {
   lastPreview: string | null;
   lastDirection: 'inbound' | 'outbound' | null;
   awaitingReplySince: string | null;
+}
+
+/** Who answers a conversation and why it went to a person, as conversation.get and inbox.list carry it. */
+export interface Handling {
+  handledBy: 'none' | 'ai' | 'person';
+  teammate: { id: string; name: string } | null;
+  needsPersonSince: string | null;
+  handoffReason: ConversationHandoffReason | null;
+  handoffNote: string | null;
+  takenOverBy: Ref;
+}
+
+/** "Ava (AI)", "Waiting for a person", the person who took it over, or nobody in particular. */
+export const answeredBy = (c: Handling) =>
+  c.handledBy === 'ai'
+    ? `${c.teammate?.name ?? 'The AI teammate'} (AI)`
+    : c.needsPersonSince
+      ? 'Waiting for a person'
+      : c.handledBy === 'person'
+        ? (c.takenOverBy?.fullName ?? 'A person')
+        : 'Nobody in particular';
+
+/**
+ * Why the AI teammate handed it to a person, in the words the conversation's own banner uses, its note for whoever
+ * picks it up (the teammate's words, so data), and who took it. Null when it never handed it over.
+ */
+export function handoffOf(c: Handling, timezone: string) {
+  if (!c.handoffReason && !c.handoffNote && !c.needsPersonSince) return null;
+  return {
+    why: handoffWhy(c.handoffReason, c.teammate?.name ?? 'The AI teammate'),
+    note: c.handoffNote ? { ai_teammate_wrote: c.handoffNote } : null,
+    ...(c.needsPersonSince ? { waitingForAPersonSince: when(c.needsPersonSince, timezone) } : {}),
+    takenOverBy: c.handledBy === 'person' ? (c.takenOverBy?.fullName ?? null) : null,
+  };
+}
+
+/** Where an email thread lives, beside the Inbox. */
+export const FOLDER_WORDS: Readonly<Record<string, string>> = { other: 'Other mail', spam: 'Spam' };
+
+/** One of a customer's lanes: a thread of theirs, named by the business's own end of it. */
+interface Lane {
+  id: string;
+  channel: string;
+  lineDisplay: string;
+  unreadCount: number;
+  status: string;
+}
+
+/** What get_conversation reads of conversation.get. */
+interface ConversationGot {
+  conversation: Handling & {
+    channel: string;
+    counterpartDisplay: string;
+    status: string;
+    person: { id: string; fullName: string } | null;
+    assignee: Ref;
+    awaitingReplySince: string | null;
+    archived: boolean;
+    folder: 'inbox' | 'other' | 'spam';
+    private: boolean;
+    lanes: Lane[];
+  };
+  chat: {
+    site: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    pagePath: string | null;
+    lastSeenAt: string | null;
+    onSiteNow: boolean;
+    blocked: boolean;
+  } | null;
+  social: {
+    account: { label: string; status: string } | null;
+    contact: { name: string; username: string | null };
+    window: { open: boolean; peopleOnly: boolean; closesAt: string | null };
+  } | null;
+}
+
+/** A message or call in a thread, as conversation.thread gives it (ThreadItem). */
+interface ThreadEntry {
+  type: 'message' | 'call';
+  id: string;
+  occurredAt: string;
+  direction: 'inbound' | 'outbound';
+  status: string;
+  body: string | null;
+  subject: string | null;
+  fromAddress: string | null;
+  toAddresses: string[];
+  ccAddresses: string[];
+  via: 'microsoft' | 'google' | null;
+  media: { name: string; contentType: string; via?: 'video_link' | 'file_link' }[];
+  sentBy: Ref;
+  errorMessage: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
+  transport: string | null;
+  scheduledFor: string | null;
+  durationSeconds: number | null;
+  isVoicemail: boolean;
+  hasRecording: boolean;
+  answeredVia: string | null;
+  answeredBy: Ref;
+  transcript: string | null;
+  transcriptStatus: string | null;
+  teammate: { id: string; name: string } | null;
+  approvedBy: Ref;
+  handoffLine: boolean;
+  rich: {
+    kind: string;
+    title: string | null;
+    buttons: { title: string }[];
+    cards: { title: string | null; buttons: { title: string }[] }[];
+  } | null;
+  buttonReply: { title: string } | null;
+  social: {
+    shared?: { type: string; url: string | null; title: string | null }[];
+    elsewhere?: boolean;
+    replyTo?: { story: boolean };
+    postback?: { title: string | null };
+  } | null;
+  editedAt: string | null;
+  unsentAt: string | null;
+}
+
+const MAILBOX = { google: 'their own Gmail', microsoft: 'their own Outlook' } as const;
+const CAME_BY = { video_link: 'your video link', file_link: 'your file link' } as const;
+
+/**
+ * One message or call of a thread, as the conversation shows it: who sent it (the AI teammate, and whose OK sent it),
+ * an email's addresses, how far it got, its files and buttons, and what Messenger or Instagram added. Anything the
+ * customer wrote, typed or shared is marked as theirs.
+ */
+function threadEntryOut(i: ThreadEntry) {
+  if (i.type === 'call')
+    return {
+      at: i.occurredAt,
+      call: {
+        callId: i.id,
+        direction: i.direction,
+        status: i.status,
+        seconds: i.durationSeconds,
+        voicemail: i.isVoicemail,
+        answeredBy: i.answeredBy?.fullName ?? (i.answeredVia === 'ai' ? 'The AI' : null),
+        recorded: i.hasRecording,
+        transcript: quoted(i.transcript),
+        ...(i.transcript ? {} : { note: callNote(i.hasRecording, i.transcriptStatus) }),
+      },
+    };
+  const inbound = i.direction === 'inbound';
+  const buttons = i.rich
+    ? [...i.rich.buttons, ...i.rich.cards.flatMap((c) => c.buttons)].map((b) => b.title)
+    : [];
+  return {
+    id: i.id,
+    at: i.occurredAt,
+    from: inbound
+      ? 'customer'
+      : i.teammate
+        ? `${i.teammate.name} (AI teammate)`
+        : (i.sentBy?.fullName ?? 'the business'),
+    ...(i.approvedBy ? { approvedBy: i.approvedBy.fullName } : {}),
+    ...(i.handoffLine ? { handOffMessage: true } : {}),
+    ...(i.fromAddress ? { fromAddress: inbound ? quoted(i.fromAddress) : i.fromAddress } : {}),
+    ...(i.toAddresses.length ? { toAddresses: i.toAddresses } : {}),
+    ...(i.ccAddresses.length ? { cc: i.ccAddresses } : {}),
+    ...(i.via ? { through: MAILBOX[i.via] } : {}),
+    ...(i.subject ? { subject: inbound ? quoted(i.subject) : i.subject } : {}),
+    text: i.unsentAt ? null : inbound ? quoted(i.body) : i.body,
+    ...(i.unsentAt ? { unsent: 'They took this message back, so nothing of it is kept.' } : {}),
+    ...(i.editedAt ? { editedAt: i.editedAt } : {}),
+    ...(i.media.length
+      ? {
+          files: i.media.map((m) => ({
+            name: inbound ? quoted(m.name) : m.name,
+            kind: m.contentType.split('/')[0],
+            ...(m.via ? { cameBy: CAME_BY[m.via] } : {}),
+          })),
+        }
+      : {}),
+    ...(i.rich ? { carried: { kind: i.rich.kind, title: i.rich.title, buttons } } : {}),
+    ...(i.buttonReply ? { tapped: quoted(i.buttonReply.title) } : {}),
+    ...(i.social?.shared?.length
+      ? { shared: quoted(i.social.shared.map((s) => s.title ?? s.url ?? s.type).join(', ')) }
+      : {}),
+    ...(i.social?.replyTo ? { answers: i.social.replyTo.story ? 'their story' : 'a message' } : {}),
+    ...(i.social?.postback?.title ? { tapped: quoted(i.social.postback.title) } : {}),
+    ...(i.social?.elsewhere ? { writtenIn: 'Facebook’s or Instagram’s own inbox' } : {}),
+    ...(inbound
+      ? {}
+      : {
+          status: i.status,
+          ...(i.transport ? { went: i.transport.toUpperCase() } : {}),
+          ...(i.deliveredAt ? { deliveredAt: i.deliveredAt } : {}),
+          ...(i.readAt ? { readAt: i.readAt } : {}),
+          ...(i.scheduledFor ? { waitsForQuietHoursUntil: i.scheduledFor } : {}),
+          ...((i.status === 'failed' || i.status === 'undelivered') && i.errorMessage
+            ? { didNotGo: i.errorMessage }
+            : {}),
+        }),
+  };
+}
+
+/** What a call with no words written out says: recorded or not, and whether its words are still coming. */
+function callNote(recorded: boolean, transcriptStatus: string | null): string {
+  if (!recorded) return 'Nothing was recorded on that call.';
+  if (transcriptStatus === null) return 'It was recorded, but its words weren’t written out.';
+  if (transcriptStatus === 'failed')
+    return 'That call was never written out, so you don’t know what was said on it. Don’t guess.';
+  return 'That call hasn’t been written out yet. Don’t guess at what was said.';
 }
 
 const customerOf = (l: LeadItem) => l.person?.fullName ?? l.company?.name ?? 'No customer';
@@ -699,53 +911,82 @@ export const readTools: Record<string, ReadTool> = {
       return {
         result: { messages: [], note: 'There is no conversation with them on that channel yet.' },
       };
-    const [{ conversation }, thread] = await Promise.all([
-      query<{ conversation: ConversationItem }>(db, ctx, 'conversation.get', { conversationId }),
-      query<{
-        items: {
-          type: 'message' | 'call';
-          occurredAt: string;
-          direction: 'inbound' | 'outbound';
-          status: string;
-          body: string | null;
-          subject: string | null;
-          sentBy: Ref;
-          durationSeconds: number | null;
-          isVoicemail: boolean;
-          transcript: string | null;
-        }[];
-      }>(db, ctx, 'conversation.thread', { conversationId, limit: 20 }),
+    const before = typeof args['before'] === 'string' && args['before'] ? args['before'] : null;
+    const [got, thread] = await Promise.all([
+      query<ConversationGot>(db, ctx, 'conversation.get', { conversationId }),
+      query<{ items: ThreadEntry[]; nextCursor: string | null }>(db, ctx, 'conversation.thread', {
+        conversationId,
+        limit: Math.min(Number(args['limit'] ?? 20) || 20, 50),
+        ...(before ? { cursor: before } : {}),
+      }),
     ]);
+    const c = got.conversation;
+    const others = c.lanes.filter((l) => l.id !== conversationId);
+    const handoff = handoffOf(c, ctx.timezone);
+    const chat = got.chat;
+    const social = got.social;
     return {
       result: {
         conversationId,
-        with: conversation.person?.fullName ?? conversation.counterpartDisplay,
-        channel: conversation.channel,
-        status: conversation.status,
-        assignee: conversation.assignee?.fullName ?? null,
-        waitingSince: conversation.awaitingReplySince,
-        messages: [...thread.items].reverse().map((i) =>
-          i.type === 'call'
-            ? {
-                at: i.occurredAt,
-                call: {
-                  direction: i.direction,
-                  status: i.status,
-                  seconds: i.durationSeconds,
-                  voicemail: i.isVoicemail,
-                  transcript: quoted(i.transcript),
-                },
-              }
-            : i.direction === 'inbound'
-              ? { at: i.occurredAt, from: 'customer', subject: i.subject, text: quoted(i.body) }
-              : {
-                  at: i.occurredAt,
-                  from: i.sentBy?.fullName ?? 'the business',
-                  subject: i.subject,
-                  text: i.body,
-                  status: i.status,
-                },
-        ),
+        with: c.person?.fullName ?? c.counterpartDisplay,
+        personId: c.person?.id ?? null,
+        // Which of their numbers or addresses this thread is with, and the business's own end of it.
+        counterpart: c.counterpartDisplay,
+        line: c.lanes.find((l) => l.id === conversationId)?.lineDisplay ?? null,
+        channel: c.channel,
+        status: c.status,
+        ...(c.archived ? { archived: true } : {}),
+        ...(FOLDER_WORDS[c.folder] ? { folder: FOLDER_WORDS[c.folder] } : {}),
+        ...(c.private
+          ? { private: 'Your own mail: only you see it until you share it with the team.' }
+          : {}),
+        assignee: c.assignee?.fullName ?? null,
+        answeredBy: answeredBy(c),
+        ...(handoff ? { handoff } : {}),
+        waitingSince: c.awaitingReplySince,
+        // Their other threads with the business (another number, email, chat), as the lane switcher has them.
+        ...(others.length
+          ? {
+              otherLanes: others.map((l) => ({
+                conversationId: l.id,
+                channel: l.channel,
+                line: l.lineDisplay,
+                unread: l.unreadCount,
+                status: l.status,
+              })),
+            }
+          : {}),
+        ...(chat
+          ? {
+              visitor: {
+                site: chat.site,
+                saidTheirNameIs: quoted(chat.name),
+                typed: quoted([chat.phone, chat.email].filter(Boolean).join(' · ')),
+                page: quoted(chat.pagePath),
+                onTheSiteNow: chat.onSiteNow,
+                lastSeen: chat.lastSeenAt,
+                blocked: chat.blocked,
+              },
+            }
+          : {}),
+        ...(social
+          ? {
+              social: {
+                account: social.account?.label ?? 'A Page or account no longer connected',
+                ...(social.account && social.account.status !== 'active'
+                  ? { accountNeedsAttention: true }
+                  : {}),
+                them: quoted(
+                  `${social.contact.name}${social.contact.username ? ` (@${social.contact.username})` : ''}`,
+                ),
+                canReplyNow: social.window.open || social.window.peopleOnly,
+                ...(social.window.peopleOnly ? { onlyAPersonCanReply: true } : {}),
+                replyBy: social.window.closesAt,
+              },
+            }
+          : {}),
+        messages: [...thread.items].reverse().map(threadEntryOut),
+        ...(thread.nextCursor ? { more: true, before: thread.nextCursor } : {}),
       },
     };
   },
@@ -771,6 +1012,7 @@ export const readTools: Record<string, ReadTool> = {
         transcript: string | null;
         transcriptStatus: string | null;
         conversationId: string | null;
+        personId: string | null;
       }[];
     }>(db, ctx, 'call.log', {
       filter: args['filter'] ?? 'all',
@@ -780,6 +1022,9 @@ export const readTools: Record<string, ReadTool> = {
     return {
       result: {
         calls: items.map((c) => ({
+          callId: c.id,
+          conversationId: c.conversationId,
+          personId: c.personId,
           at: c.occurredAt,
           who: c.who,
           number: c.counterpart,
@@ -791,32 +1036,41 @@ export const readTools: Record<string, ReadTool> = {
           // The caller's own words, marked as theirs: a voicemail is a stranger talking, and nothing in it is
           // an instruction to the Assistant.
           said: quoted(c.transcript),
-          ...(c.transcript
-            ? {}
-            : {
-                note:
-                  c.transcriptStatus === 'failed'
-                    ? 'That call was never written out, so you don’t know what was said on it. Don’t guess.'
-                    : c.transcriptStatus === null
-                      ? 'Nothing was recorded on that call.'
-                      : 'That call hasn’t been written out yet. Don’t guess at what was said.',
-              }),
-          href: c.conversationId ? p.conversation(c.conversationId) : p.calls(),
+          ...(c.transcript ? {} : { note: callNote(!!c.recordingPath, c.transcriptStatus) }),
+          href: c.conversationId
+            ? p.conversation(c.conversationId)
+            : c.personId
+              ? p.person(c.personId)
+              : null,
         })),
       },
     };
   },
 
   async list_inbox(db, ctx, args) {
-    const { items } = await query<{ items: ConversationItem[] }>(db, ctx, 'inbox.list', {
+    // Waiting customers can sit behind newer threads, so they're looked for among more of them.
+    const waitingOnly = !!args['waitingOnly'];
+    const { items, nextCursor } = await query<{
+      items: ConversationItem[];
+      nextCursor: string | null;
+    }>(db, ctx, 'inbox.list', {
       box: args['box'] ?? 'all',
       status: 'open',
-      limit: 20,
+      limit: waitingOnly ? 100 : 20,
     });
-    const rows = args['waitingOnly'] ? items.filter((c) => c.awaitingReplySince) : items;
+    const found = waitingOnly ? items.filter((c) => c.awaitingReplySince) : items;
+    const rows = found.slice(0, 20);
+    const more = found.length > rows.length || !!nextCursor;
     const p = paths(ctx.workspaceId);
     return {
       result: {
+        ...(more
+          ? {
+              more: waitingOnly
+                ? 'There may be more waiting than these: what_needs_attention lists every customer waiting.'
+                : 'There are more: find_conversations pages through them all.',
+            }
+          : {}),
         conversations: rows.map((c) => ({
           id: c.id,
           who: c.person?.fullName ?? c.counterpartDisplay,
@@ -829,7 +1083,7 @@ export const readTools: Record<string, ReadTool> = {
       card: rows.length
         ? {
             type: 'list',
-            title: rows.length === 1 ? '1 conversation' : `${rows.length} conversations`,
+            title: `${rows.length === 1 ? '1 conversation' : `${rows.length} conversations`}${more ? ', and more in the inbox' : ''}`,
             items: rows.slice(0, 12).map((c) => ({
               title: c.person?.fullName ?? c.counterpartDisplay,
               detail: `${c.lastPreview ?? ''}`.slice(0, 100),
@@ -871,7 +1125,10 @@ export const readTools: Record<string, ReadTool> = {
     if (!person.phone)
       return { result: { error: 'There is no phone number on file for them.' }, isError: true };
     return {
-      result: { phone: person.phone, note: 'A Call button is shown; the person places the call.' },
+      result: {
+        phone: person.phone,
+        note: 'A Call button is shown; the person places the call themselves, from their browser or, on the phone, through their own cell.',
+      },
       card: { type: 'call', personId: person.id, fullName: person.fullName, phone: person.phone },
     };
   },

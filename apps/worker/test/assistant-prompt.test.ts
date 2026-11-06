@@ -67,6 +67,20 @@ describe('Assistant context (PERF-M20)', () => {
     ).toContain(
       `On screen now: Rex (pet), one of the business’s own records (customRecordId ${ID}). "It" or "this" usually means this record; get_record_details with recordType record reads it`,
     );
+    // A conversation on screen says who it's with, by their id, so "book her" needs no search.
+    const convo = turnText({
+      ...PROMPT,
+      page: {
+        type: 'conversation',
+        id: ID,
+        label: 'Instagram messages with Dana Reyes',
+        related: 'It is with Dana Reyes (person id p1).',
+      },
+    });
+    expect(convo).toContain(
+      `On screen now: Instagram messages with Dana Reyes (conversation id ${ID}).`,
+    );
+    expect(convo).toContain('It is with Dana Reyes (person id p1).');
     expect(on(`/a/realestate/deals/${ID}`)).toContain(
       `On screen now: the page at /a/realestate/deals/${ID}, which isn’t one of the places above, showing deal id ${ID}.`,
     );

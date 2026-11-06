@@ -769,8 +769,8 @@
       "path": "Customer page → Video call (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/crm/record-page.tsx:542",
-      "covered": "no",
-      "by": "start is a worker route; no tool"
+      "covered": "yes",
+      "by": "start_video_call"
     },
     {
       "path": "Customer page → Book (web, phone)",

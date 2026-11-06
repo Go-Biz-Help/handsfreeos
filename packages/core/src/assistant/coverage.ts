@@ -387,6 +387,11 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'handing the person’s own phone or computer to a customer who’s with them, to sign on it there',
   'user_phone.start_verification': 'confirming a cell by answering a call on it',
   'call.start': 'a call from the browser, on the person’s own microphone',
+  'call.connect_me':
+    'a call through the person’s own cell, which rings them first: Call on the Assistant’s call card starts it on the phone',
+  'call.cancel_connect': 'hanging up a call through the person’s own cell, on its call sheet',
+  'push_device.register': 'the phone signing itself up for notifications, which only the app does',
+  'push_device.remove': 'the phone signing itself out of notifications, which only the app does',
   'founding.buy': 'paying on Stripe’s page, which only the person can do',
   'founding.start_checkout': 'paying on Stripe’s page, which only the person can do',
   'founding.pay_renewal': 'paying on Stripe’s page, which only the person can do',
@@ -427,7 +432,18 @@ export interface NotYet {
   readonly why: string;
 }
 
-export const ASSISTANT_NOT_YET: readonly NotYet[] = [];
+export const ASSISTANT_NOT_YET: readonly NotYet[] = [
+  {
+    page: 'Forms → a form → Fill it in (phone)',
+    actions: ['form_response.record'],
+    why: 'Found when the check began reading the phone’s own changes (6 November). Filling in a form for a customer needs a tool that takes each answer and shows them on the card.',
+  },
+  {
+    page: 'Settings → Safety (phone)',
+    actions: ['safety.check_in', 'safety.help', 'safety_contact.save', 'safety_contact.remove'],
+    why: 'Found when the check began reading the phone’s own changes (6 November). Checking in, asking for help and choosing who is told are the phone’s safety screens, still to be checked for what the Assistant may do there.',
+  },
+];
 
 // ---------- settings: every row on the Settings pages (settings/catalog.ts) ----------
 
