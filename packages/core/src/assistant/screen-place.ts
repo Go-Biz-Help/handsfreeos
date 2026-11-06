@@ -24,8 +24,8 @@ export interface ScreenPlace {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** A word of a route ("calendars", "open-houses"): the only kind of segment the Assistant is told as it is. */
 const WORD = /^[a-z0-9][a-z0-9-]{0,31}$/;
-/** A query's key short for something longer. */
-const KEY_NAMES: Readonly<Record<string, string>> = { appt: 'appointment' };
+/** A query's key short for something longer (a Map, so no key reads anything else off an object). */
+const KEY_NAMES: ReadonlyMap<string, string> = new Map([['appt', 'appointment']]);
 
 interface Candidate {
   readonly segments: readonly string[];
@@ -73,8 +73,24 @@ const nameOfKey = (key: string) =>
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .toLowerCase();
 
+/**
+ * Words of a route that don't name the id after them, so a tool is never handed it as the wrong kind: the phone opens
+ * an appointment at /calendar/<id> (a calendar's own is /settings/calendars/<id>), Money → Plans opens a customer's
+ * plan (its subscriptionId, not the planId of a plan sold), and the phone's Changes open one change to fix or text.
+ */
+const SEGMENT_NAMES: ReadonlyMap<string, string> = new Map([
+  ['calendar', 'appointment'],
+  ['plans', 'customer plan'],
+  ['safety', 'check in'],
+  ['chats', 'chat widget'],
+  ['fix', 'change'],
+  ['text', 'change'],
+]);
+
 /** "calendars" → "calendar", "companies" → "company", "open-houses" → "open house". */
 function singular(segment: string): string {
+  const named = SEGMENT_NAMES.get(segment);
+  if (named) return named;
   const words = segment.replace(/-/g, ' ');
   if (words === 'people') return 'person';
   if (/ies$/.test(words)) return words.replace(/ies$/, 'y');
@@ -140,7 +156,7 @@ export function screenPlace(address: string | null | undefined): ScreenPlace | n
       continue;
     }
     if (UUID.test(id) && /^[A-Za-z][A-Za-z0-9_]{0,23}$/.test(key))
-      ids.push({ name: KEY_NAMES[key] ?? nameOfKey(key), id: id.toLowerCase() });
+      ids.push({ name: KEY_NAMES.get(key) ?? nameOfKey(key), id: id.toLowerCase() });
   }
 
   return {

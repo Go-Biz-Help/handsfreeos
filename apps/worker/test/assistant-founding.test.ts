@@ -13,7 +13,7 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
 import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor } from '../src/assistant/tools-write';
@@ -90,6 +90,12 @@ beforeAll(async () => {
         values (${FREE}, 'Founding Partner', 5, 0, 'open', 1000, false),
                (${PAID}, 'Founding Customer', 5, 49700, 'open', 1000, false)`,
   );
+});
+// One business, one seat (founding_grants_one_live_per_org): each approval starts from a business holding none, so
+// the paid seat one test holds never stops the next from turning a free one on.
+beforeEach(async () => {
+  await admin().execute(sql`delete from platform.founding_grants where organization_id = ${orgId}`);
+  await admin().execute(sql`delete from app.workspace_plans where workspace_id = ${wsId}`);
 });
 afterAll(async () => {
   await cleanUp();

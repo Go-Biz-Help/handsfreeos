@@ -285,6 +285,27 @@ describe('the screen a question is asked from', () => {
     expect(screenPlace('/audit')).toMatchObject({ label: 'Audit log', way: 'Audit log' });
   });
 
+  it('names an id for what it is where the route’s word says something else', () => {
+    // The phone opens an appointment at /calendar/<id>: never a calendar's id, which tools take as calendarId.
+    expect(screenPlace(`/calendar/${ID}`)).toMatchObject({
+      label: 'Calendar',
+      ids: [{ name: 'appointment', id: ID }],
+    });
+    // Money → Plans opens someone's plan, not a plan the business sells.
+    expect(screenPlace(`/money/plans/${ID}`)).toMatchObject({
+      label: 'Plans',
+      ids: [{ name: 'customer plan', id: ID }],
+    });
+    expect(screenPlace(`/safety/${ID}`)).toMatchObject({ ids: [{ name: 'check in', id: ID }] });
+    expect(screenPlace(`/forms/chats/${ID}`)).toMatchObject({
+      ids: [{ name: 'chat widget', id: ID }],
+    });
+    // A query's key is only ever a name, never something read off an object.
+    expect(screenPlace(`/calendar?constructor=${ID}`)).toMatchObject({
+      ids: [{ name: 'constructor', id: ID }],
+    });
+  });
+
   it('never takes Home or Settings for a page under them, and names a page neither map has by its address', () => {
     expect(screenPlace('/settings')).toMatchObject({ label: 'Account', area: 'my_account' });
     expect(screenPlace('/settings/support-access')).toMatchObject({
