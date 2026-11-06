@@ -39,6 +39,7 @@ import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-settings-calendar';
 import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
+import { publicOriginFor, withWholeLinks } from './full-links';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 import { billingAutoTools, billingConfirmTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
@@ -867,54 +868,80 @@ export function createToolExecutor(
   // The main offer's score and tries are the builder's own, which ask the model with the worker's AI services.
   const offerDeps = workflows ? { ...workflows, httpDb: db } : null;
   // The map, for a service area so many miles from an address: the worker's own, when it has its services.
-  const settingsDeps: SettingsDeps = { geocoder: addonActions?.services.geocoder ?? null };
+  const settingsDeps: SettingsDeps = { geocoder: addonActions?.services.geocoder ?? null, webUrl };
+  // A public page's path in what a tool found goes to the model as a whole link, never a path it must finish.
+  const linked = (ctx: ToolContext) => (value: unknown) =>
+    withWholeLinks(value, () => publicOriginFor(db, ctx, webUrl));
+  const runTool = async (tool: OfferedTool, args: Args, ctx: ToolContext): Promise<ToolOutcome> => {
+    // An add-on's tool is its own operation, run through the kernel as the person.
+    if (isAddonAiTool(tool)) return runAddonTool(db, tool, args, ctx);
+    // Or one of its worker actions, through the door its screens use.
+    if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
+    // Or a screen's own query, as the person; or one of its commands that runs on its own.
+    if (isScreenReadTool(tool)) return runScreenRead(db, tool, args, ctx);
+    if (isScreenActionTool(tool)) return runScreenAction(db, tool, args, ctx);
+    const capabilities = capabilityTools[tool.name];
+    if (capabilities) return capabilities(db, ctx, args, addonCatalog);
+    const offer = mainOfferAutoTools[tool.name];
+    if (offer) return offer(db, ctx, args, offerDeps);
+    const run =
+      readTools[tool.name] ??
+      contactReadTools[tool.name] ??
+      settingsReadTools[tool.name] ??
+      autoWrites[tool.name] ??
+      attentionAutoTools[tool.name] ??
+      moneyReadTools[tool.name] ??
+      moreAutoTools[tool.name];
+    if (run) return run(db, ctx, args);
+    const form = formAutoTools[tool.name];
+    if (form) return form(db, ctx, args, forms ?? (workflows as FormToolDeps | null));
+    const flow = workflowAutoTools[tool.name];
+    if (!flow) throw new Error(`No executor for ${tool.name}`);
+    return flow(db, ctx, args, workflows);
+  };
+  const prepareTool = async (
+    tool: OfferedTool,
+    args: Args,
+    ctx: ToolContext,
+    toolCallId: string,
+  ): Promise<PreparedAction> => {
+    if (isAddonAiTool(tool)) return prepareAddonTool(db, tool, args, ctx, toolCallId);
+    if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
+    if (isScreenActionTool(tool)) return prepareScreenAction(db, tool, args, ctx, toolCallId);
+    const offer = mainOfferConfirmTools[tool.name];
+    if (offer) return offer.prepare(db, ctx, args, toolCallId);
+    const t = confirmTools[tool.name];
+    if (!t) throw new Error(`No confirmation for ${tool.name}`);
+    return t.prepare(db, ctx, args, toolCallId, settingsDeps);
+  };
+  const commitTool = async (
+    tool: OfferedTool,
+    args: Args,
+    ctx: ToolContext,
+    extra: { readonly lostReason?: string; readonly toolCallId: string },
+  ): Promise<CommittedAction> => {
+    if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
+    if (isAddonActionTool(tool)) return commitAddonActionTool(addonActions, db, tool, args, ctx);
+    if (isScreenActionTool(tool)) return commitScreenAction(db, tool, args, ctx);
+    const offer = mainOfferConfirmTools[tool.name];
+    if (offer) return offer.commit(db, ctx, args, offerDeps);
+    const t = confirmTools[tool.name];
+    if (!t) throw new Error(`No confirmation for ${tool.name}`);
+    return t.commit(db, ctx, args, { ...extra, ...settingsDeps, webUrl });
+  };
   return {
-    async run(tool: OfferedTool, args: Args, ctx: ToolContext) {
-      // An add-on's tool is its own operation, run through the kernel as the person.
-      if (isAddonAiTool(tool)) return runAddonTool(db, tool, args, ctx);
-      // Or one of its worker actions, through the door its screens use.
-      if (isAddonActionTool(tool)) return runAddonActionTool(addonActions, db, tool, args, ctx);
-      // Or a screen's own query, as the person; or one of its commands that runs on its own.
-      if (isScreenReadTool(tool)) return runScreenRead(db, tool, args, ctx);
-      if (isScreenActionTool(tool)) return runScreenAction(db, tool, args, ctx);
-      const capabilities = capabilityTools[tool.name];
-      if (capabilities) return capabilities(db, ctx, args, addonCatalog);
-      const offer = mainOfferAutoTools[tool.name];
-      if (offer) return offer(db, ctx, args, offerDeps);
-      const run =
-        readTools[tool.name] ??
-        contactReadTools[tool.name] ??
-        settingsReadTools[tool.name] ??
-        autoWrites[tool.name] ??
-        attentionAutoTools[tool.name] ??
-        moneyReadTools[tool.name] ??
-        moreAutoTools[tool.name];
-      if (run) return run(db, ctx, args);
-      const form = formAutoTools[tool.name];
-      if (form) return form(db, ctx, args, forms ?? (workflows as FormToolDeps | null));
-      const flow = workflowAutoTools[tool.name];
-      if (!flow) throw new Error(`No executor for ${tool.name}`);
-      return flow(db, ctx, args, workflows);
+    async run(tool, args, ctx) {
+      const out = await runTool(tool, args, ctx);
+      return { ...out, result: await linked(ctx)(out.result) };
     },
     async prepare(tool, args, ctx, toolCallId) {
-      if (isAddonAiTool(tool)) return prepareAddonTool(db, tool, args, ctx, toolCallId);
-      if (isAddonActionTool(tool)) return prepareAddonActionTool(tool, args, toolCallId);
-      if (isScreenActionTool(tool)) return prepareScreenAction(db, tool, args, ctx, toolCallId);
-      const offer = mainOfferConfirmTools[tool.name];
-      if (offer) return offer.prepare(db, ctx, args, toolCallId);
-      const t = confirmTools[tool.name];
-      if (!t) throw new Error(`No confirmation for ${tool.name}`);
-      return t.prepare(db, ctx, args, toolCallId, settingsDeps);
+      // The card is the person's and keeps its links as the screens use them; what the model is told gets them whole.
+      const out = await prepareTool(tool, args, ctx, toolCallId);
+      return { ...out, result: await linked(ctx)(out.result) };
     },
     async commit(tool, args, ctx, extra) {
-      if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
-      if (isAddonActionTool(tool)) return commitAddonActionTool(addonActions, db, tool, args, ctx);
-      if (isScreenActionTool(tool)) return commitScreenAction(db, tool, args, ctx);
-      const offer = mainOfferConfirmTools[tool.name];
-      if (offer) return offer.commit(db, ctx, args, offerDeps);
-      const t = confirmTools[tool.name];
-      if (!t) throw new Error(`No confirmation for ${tool.name}`);
-      return t.commit(db, ctx, args, { ...extra, webUrl, ...settingsDeps });
+      const done = await commitTool(tool, args, ctx, extra);
+      return { ...done, outcome: (await linked(ctx)(done.outcome)) as string };
     },
     async undo(tool, record, ctx) {
       switch (tool.name) {

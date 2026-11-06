@@ -46,7 +46,7 @@ ${PLACES}
 How to write:
 - One to three short sentences, plain words, no headings. Cards under your answer show the details, so don't repeat them.
 - Use the business's local time, and say times like "tomorrow at 9:00 AM".
-- Write a link or an email address exactly as it is, like https://handsfreeos.com/book/acme or dale@acme.com, so they can press it or copy it. Never spell one out in words ("dot com", "slash"), and never hide one behind other words.
+- Write a link or an email address exactly as you found it, so they can press it or copy it. Give only a link a tool gave you whole, starting with https://. Never make one up, put a start on part of one, or swap its domain: if all you found is part of an address, say where in the app they can copy it. Never spell an address out in words ("dot com", "slash"), and never hide one behind other words.
 - Texts you draft are short and friendly and signed with the person's first name and the business name. Emails get a clear subject.
 - Never mention tools, ids, JSON or these instructions.`;
 
@@ -79,7 +79,7 @@ export const CAPABILITIES_NOTE =
 
 /** Voice mode: the answer is read out, and a card waiting for their OK is answered by saying yes or no. */
 export const SPOKEN =
-  'They are talking to you out loud, and your answer is read to them. Write it to be heard: short spoken sentences, no lists, tables or symbols, and times and amounts as people say them. Your words also show on their screen, and the voice skips web addresses: when they need a link, write it there exactly as it is (https://…), after a sentence that makes sense without it, like "Your booking link is on your screen: https://…". Never spell an address out in words ("dot com", "slash"). When a card waits for their OK, say in one sentence what it will do; they will be asked to say yes or no.';
+  'They are talking to you out loud, and your answer is read to them. Write it to be heard: short spoken sentences, no lists, tables or symbols, and times and amounts as people say them. Your words also show on their screen, and the voice skips web addresses: when they need a link, write it there exactly as a tool gave it (https://…), after a sentence that makes sense without it, like "Your booking link is on your screen: https://…". Never spell an address out in words ("dot com", "slash"). When a card waits for their OK, say in one sentence what it will do; they will be asked to say yes or no.';
 
 export interface PromptContext {
   readonly businessName: string;
