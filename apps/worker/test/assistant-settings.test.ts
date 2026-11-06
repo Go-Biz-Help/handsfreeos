@@ -1478,6 +1478,46 @@ describe('a teammate’s hours', () => {
     ]);
   });
 
+  it('names the time off it takes out and whose it is, and won’t take a teammate’s out as yours', async () => {
+    const day = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+    const { exceptionId } = (await run(
+      registry.command('time_off.add')! as CommandDef<z.ZodType, z.ZodType>,
+      { workspaceId, ownerKind: 'user', ownerId: marco.id, startDate: day, note: 'Dentist' },
+      owner,
+    )) as { exceptionId: string };
+
+    // Named as the owner's own, it isn't on their calendar: said before any card.
+    await expect(
+      prepare('update_my_hours', { action: 'remove_time_off', exceptionId }, owner),
+    ).rejects.toMatchObject({
+      rule: 'time_off_not_found',
+      message: expect.stringContaining('give userId for a teammate’s'),
+    });
+
+    const { card, parsed, tool } = await prepare(
+      'update_my_hours',
+      { action: 'remove_time_off', userId: marco.id, exceptionId },
+      owner,
+    );
+    expect(card.title).toBe('Put that time back');
+    expect(card.fields).toEqual(
+      expect.arrayContaining([
+        { label: 'Whose', value: 'Marco Member' },
+        { label: 'When', value: expect.stringContaining('all day') },
+        { label: 'What it is', value: 'Dentist' },
+        { label: 'What changes', value: 'Marco can be booked then again' },
+      ]),
+    );
+    const done = await confirm(tool!, parsed, owner);
+    expect(done).toMatchObject({ command: 'time_off.remove', outcome: 'Put back' });
+    expect(
+      await rows(
+        testDbs().admin.db,
+        sql`select id from app.schedule_exceptions where id = ${exceptionId}`,
+      ),
+    ).toEqual([]);
+  });
+
   it('tells a member, before any card, that only owners and admins set someone else’s hours', async () => {
     await expect(
       prepare(

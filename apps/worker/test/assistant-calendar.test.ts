@@ -867,4 +867,24 @@ describe('moving and booking, as the Move dialog and New appointment do', () => 
     expect(confirm.fields.find((f) => f.label === 'Where')?.value).toContain('500 Elm St');
     expect(result).toMatchObject({ where: expect.stringContaining('500 Elm St') });
   });
+
+  it('won’t book at a place the calendar doesn’t offer, and says which places it does', async () => {
+    await expect(
+      tool.book_appointment!.prepare(
+        db(),
+        ctx(),
+        {
+          calendarId,
+          personId: mikeId,
+          startsAt: iso(dayAt(7, '15:00')),
+          serviceId,
+          location: { kind: 'virtual' },
+        },
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({
+      rule: 'place_not_offered',
+      message: expect.stringContaining('It offers visits at the customer’s address'),
+    });
+  });
 });

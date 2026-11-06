@@ -606,6 +606,14 @@ function addressLine(a: PersonGet['person']['address']): string | null {
 
 const zipOf = (address: string | null) => address?.match(/\b(\d{5})(?:-\d{4})?\s*$/)?.[1] ?? null;
 
+/** Each kind of place, as a calendar offers it. */
+const PLACE_WORDS: Record<string, string> = {
+  customer_address: 'visits at the customer’s address',
+  business: 'visits at the business',
+  virtual: 'video calls',
+  phone: 'phone calls',
+};
+
 /**
  * Where it happens, as New appointment's Location sets it: the place the model picked, filled in from the calendar's
  * own place of that kind (its address, or its link) and, at the customer's, from their address on file. Left out,
@@ -627,6 +635,17 @@ function placeFor(
   }
   const kind = String(chosen['kind']);
   const option = options.find((o) => o.kind === kind);
+  // New appointment's Location offers only the calendar's own places.
+  if (!option)
+    throw HfosError.rule(
+      'place_not_offered',
+      409,
+      `${calendar.name} doesn’t offer ${PLACE_WORDS[kind] ?? kind}. ${
+        options.length
+          ? `It offers ${joinAnd(options.map((o) => PLACE_WORDS[o.kind] ?? o.kind))}: pick one of those, or leave location out for the first.`
+          : 'It has no places set, so leave location out.'
+      } To add a place, use Locations in Settings → Calendars → ${calendar.name}.`,
+    );
   if (kind === 'customer_address') {
     const address = str(chosen['address']) ?? home;
     return {

@@ -1157,6 +1157,38 @@ describe('Invoice this visit', () => {
     ).rejects.toMatchObject({ message: expect.stringContaining('Ana Lopez’s') });
   });
 
+  it('won’t bill a time still held for its deposit, as the sheet waits to offer the button', async () => {
+    const held = await book(boId, at(9, '10:00'));
+    const { result } = await read('get_appointment', { appointmentId: held });
+    const [seat] = result['customers'] as { attendeeId: string }[];
+    // The booking page's deposit, still a draft while it is being paid, holds the time for this seat.
+    await run(
+      byName('invoice.create'),
+      {
+        workspaceId,
+        personId: boId,
+        attendeeId: seat!.attendeeId,
+        purpose: 'deposit',
+        origin: 'booking',
+        title: 'Deposit',
+        lines: [{ name: 'Deposit', quantity: 1, unitPriceCents: 5_000 }],
+      },
+      owner,
+    );
+    const { result: opened } = await read('get_appointment', { appointmentId: held });
+    expect(opened['status']).toBe('Not booked yet');
+    expect(opened['money']).toMatchObject({ canInvoiceThisVisit: false });
+    await expect(
+      prepare('write_invoice', {
+        appointmentId: held,
+        lines: [{ name: 'AC tune-up', unitPrice: 150 }],
+      }),
+    ).rejects.toMatchObject({
+      rule: 'visit_held',
+      message: expect.stringContaining('Bo Nguyen pays the deposit'),
+    });
+  });
+
   it('lists the bookings that reserve a room, truck or chair, as the Resources view does', async () => {
     const { result } = await read('list_appointments', { resourceId: randomUUID() });
     expect(result['appointments']).toEqual([]);

@@ -22,6 +22,7 @@ import {
   estimateMoveProblem,
   ESTIMATE_WORDS,
   HfosError,
+  holdOf,
   INVOICE_WORDS,
   invoiceVoidBlock,
   isManualPaymentMethod,
@@ -849,7 +850,10 @@ interface VisitToBill {
   kind: 'booking' | 'session';
   capacity: number;
   title: string;
+  status: string;
   startsAt: string;
+  /** Set while a deposit holds the time: it isn't booked yet. */
+  heldUntil: string | null;
   leadId: string | null;
   priceCents: number | null;
   service: { name: string } | null;
@@ -866,7 +870,8 @@ interface VisitInvoice {
  * Invoice this visit, as the visit sheet's button does: a new draft for the visit's one customer and its deal, tied to
  * their seat, so the sheet sees the visit is billed and offers the button no more. With a deposit already paid it is
  * the balance, its line the visit's price less the deposit, and it says so; unless the model gave lines of its own.
- * Null when no visit is named. A visit already billed is refused, so it is never billed twice.
+ * Null when no visit is named. A visit already billed is refused, so it is never billed twice, and so is a time
+ * still held for its deposit, as the sheet offers the button only once the visit is booked.
  */
 async function visitToBill(
   db: Db,
@@ -896,6 +901,13 @@ async function visitToBill(
       'Invoice this visit is for a visit with one customer. For a group session, write each person’s invoice with their personId and leave appointmentId out.',
     );
   const seat = seats[0]!;
+  // As the sheet's button waits: a time held for a deposit isn't the customer's yet, so it isn't billed.
+  if (holdOf(a, Date.now()))
+    throw HfosError.rule(
+      'visit_held',
+      409,
+      `This time is only held while ${seat.fullName} pays the deposit that books it, so it isn’t billed yet. Invoice this visit once the deposit is paid and the visit is booked.`,
+    );
   if (str(args['personId']) && args['personId'] !== seat.personId)
     throw HfosError.rule(
       'visit_other_customer',

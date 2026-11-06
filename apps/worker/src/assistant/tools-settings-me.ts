@@ -11,6 +11,7 @@ import { HfosError, plainSpaces, zonePickLabel } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { firstName } from './calendar-format';
 import type { ToolContext } from './runtime';
+import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { command, query } from './tools-read';
 import {
   dryRun,
@@ -61,6 +62,53 @@ async function teammateOf(db: Db, ctx: ToolContext, args: Args): Promise<string 
       'That person isn’t on this business’s team. Pick a teammate from list_team.',
     );
   return m.fullName || m.email;
+}
+
+const DAY = 86_400_000;
+
+/** One time off or extra open time, as get_settings (my_calendar) and read_schedule_team list it. */
+interface Listed {
+  exceptionId: string;
+  when: string;
+  note?: string;
+}
+
+/**
+ * The time off remove_time_off takes out, found among whose hours these are (yesterday to two months out, as
+ * Settings → My calendar lists them), so the card says which time comes back and whose it is. Extra open time is
+ * marked, since taking that out closes the time instead. Refused, before any card, when it isn't theirs there.
+ */
+async function timeOffToRemove(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  who: string | null,
+): Promise<Listed & { extra: boolean }> {
+  const exceptionId = str(args['exceptionId']);
+  const read = who
+    ? `read_schedule_team with ${firstName(who)}’s userId`
+    : 'get_settings (area my_calendar)';
+  if (!exceptionId)
+    throw HfosError.validation(
+      [{ path: 'exceptionId', message: 'Say which time off.' }],
+      `Say which time off to take out: pass its exceptionId, as ${read} lists it.`,
+    );
+  const now = Date.now();
+  const team = await query<TeamSchedule>(db, ctx, 'schedule.team', {
+    from: new Date(now - DAY).toISOString(),
+    to: new Date(now + 60 * DAY).toISOString(),
+    userIds: [ownerOf(ctx, args)],
+  });
+  const theirs = scheduleWords(team).people[0];
+  const off = theirs?.timeOff.find((t) => t.exceptionId === exceptionId);
+  const extra = theirs?.extraOpenTime?.find((t) => t.exceptionId === exceptionId);
+  if (!off && !extra)
+    throw HfosError.rule(
+      'time_off_not_found',
+      404,
+      `That time off isn’t on ${who ? `${firstName(who)}’s` : 'your'} calendar from yesterday to two months out. Read it again with ${read} and pass the exceptionId listed there${who ? '' : ', or give userId for a teammate’s'}.`,
+    );
+  return { ...(off ?? extra)!, extra: !off };
 }
 
 /** The hours command update_my_hours runs, the same for the card's dry run and for Confirm. */
@@ -218,23 +266,35 @@ const updateMyHours: SettingsConfirmTool = {
         result: { waiting: true, ...(who ? { whose: who } : {}) },
       };
     }
-    if (act === 'remove_time_off')
+    if (act === 'remove_time_off') {
+      // Which time comes back, and whose: the card names it rather than an id.
+      const off = await timeOffToRemove(db, ctx, args, who);
+      const them = who ? firstName(who) : 'you';
+      const Them = who ? them : 'You';
       return {
         card: settingsCard(toolCallId, 'update_my_hours', {
-          title: 'Put that time back',
+          title: off.extra ? 'Take out that extra open time' : 'Put that time back',
           fields: [
             ...(who ? [{ label: 'Whose', value: who }] : []),
+            { label: 'When', value: off.when },
+            ...(off.note ? [{ label: 'What it is', value: off.note }] : []),
             {
               label: 'What changes',
-              value: who
-                ? `${firstName(who)} can be booked then again`
-                : 'You can be booked then again',
+              value: off.extra
+                ? `Nobody can book ${them} then, unless it’s in ${who ? 'their' : 'your'} usual hours`
+                : `${Them} can be booked then again`,
             },
           ],
-          confirmLabel: 'Put it back',
+          confirmLabel: off.extra ? 'Take it out' : 'Put it back',
         }),
-        result: { waiting: true, ...(who ? { whose: who } : {}) },
+        result: {
+          waiting: true,
+          when: off.when,
+          ...(off.extra ? { extraOpenTime: true } : {}),
+          ...(who ? { whose: who } : {}),
+        },
       };
+    }
     const start = str(args['startDate']);
     const end = str(args['endDate']);
     const partial = str(args['startsAt']);
@@ -269,13 +329,18 @@ const updateMyHours: SettingsConfirmTool = {
     const who = await teammateOf(db, ctx, args);
     const userId = ownerOf(ctx, args);
     const href = `/app/w/${ctx.workspaceId}/settings/my-calendar${who ? `?user=${userId}` : ''}`;
+    // The time the card named, still theirs: nobody else's is taken out on this card's say-so.
+    const off =
+      action(args) === 'remove_time_off' ? await timeOffToRemove(db, ctx, args, who) : null;
     const done = await saveHours(db, ctx, args);
     const your = who ? `${firstName(who)}’s` : 'your';
     const outcome =
       done === 'schedule.set'
         ? `${who ? your : 'Your'} hours are saved`
         : done === 'time_off.remove'
-          ? 'Put back'
+          ? off?.extra
+            ? 'Taken out'
+            : 'Put back'
           : `Time off is in ${your} calendar`;
     return { outcome, href, command: done };
   },
