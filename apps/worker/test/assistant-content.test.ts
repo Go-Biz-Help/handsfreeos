@@ -544,7 +544,12 @@ describe('reviews', () => {
       sql`update app.review_connections set status = 'needs_attention'
           where workspace_id = ${workspaceId} and provider = 'google'`,
     );
-    await rows(admin(), sql`update app.reviews set reply_body = null where id = ${ids['Gia']}`);
+    // Unanswered again: a reply and when it went up are cleared together.
+    await rows(
+      admin(),
+      sql`update app.reviews set reply_body = null, reply_posted_at = null, reply_by = null
+          where id = ${ids['Gia']}`,
+    );
     const { card } = await prepare('answer_review', { reviewId: ids['Gia'], answer: 'Thanks!' });
     expect(card.confirmLabel).toBe('Post the answer');
     expect(card.warnings.map((w) => w.text).join(' ')).toContain('Google needs signing in again');
