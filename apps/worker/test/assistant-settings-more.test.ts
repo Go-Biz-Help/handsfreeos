@@ -234,7 +234,8 @@ describe('the last settings by asking', () => {
     const before = await q<{ settings: Record<string, unknown> }>('addon.settings', {
       addonId: 'realestate',
     });
-    expect(before.settings).not.toHaveProperty('alertPersonUserIds');
+    // The screen's save keeps every setting, its defaults filled in: nobody else hears alerts yet.
+    expect(before.settings).toMatchObject({ alertPersonUserIds: [], keepClosedYears: 9 });
     expect((await confirm('update_addon_settings', parsed)).outcome).toBe(
       'Saved Real Estate Agent’s settings',
     );
