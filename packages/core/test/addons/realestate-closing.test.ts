@@ -111,7 +111,10 @@ describe('the repair request draft', () => {
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
-const meta = (channel: 'test' | 'assistant' = 'test') => ({ correlationId: randomUUID(), channel });
+const meta = (channel: 'test' | 'assistant' | 'contact_ai' = 'test') => ({
+  correlationId: randomUUID(),
+  channel,
+});
 const human = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -127,7 +130,7 @@ const op = (name: string) =>
 const run = (
   name: string,
   input: Record<string, unknown>,
-  channel: 'test' | 'assistant' = 'test',
+  channel: 'test' | 'assistant' | 'contact_ai' = 'test',
 ): Promise<Any> =>
   executeCommand(
     api(),
@@ -243,25 +246,31 @@ describe('financing', () => {
       ).rule,
     ).toBe('realestate_step_proof');
     const lock = await document('rate_lock', 'Lock confirmation.pdf');
+    // The AI teammate never marks a step done; the agent does, on the page or on their own Assistant's card, which
+    // runs as them (Chris, 2026-10-26).
     expect(
       (
         await refused(
           run(
             'realestate.financing.mark_done',
             { dealId: deal, step: 'rate_lock', proof: { kind: 'document', id: lock } },
-            'assistant',
+            'contact_ai',
           ),
         )
       ).rule,
     ).toBe('forbidden');
     expect(
-      await run('realestate.financing.mark_done', {
-        dealId: deal,
-        step: 'rate_lock',
-        proof: { kind: 'document', id: lock },
-        rate: 6.125,
-        expiresOn: '2026-11-09',
-      }),
+      await run(
+        'realestate.financing.mark_done',
+        {
+          dealId: deal,
+          step: 'rate_lock',
+          proof: { kind: 'document', id: lock },
+          rate: 6.125,
+          expiresOn: '2026-11-09',
+        },
+        'assistant',
+      ),
     ).toMatchObject({ termsEntered: 1 });
     const f = await ask('realestate.financing', { dealId: deal });
     expect(f.lender).toMatchObject({ lenderName: 'Summit Lending', officerName: 'Jo Park' });

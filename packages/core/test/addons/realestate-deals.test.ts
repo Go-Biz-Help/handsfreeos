@@ -11,6 +11,7 @@ import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { realestateBusiness } from './realestate-fixture';
+import { termsConfirmCard } from '../../src/addons/realestate/ai-answers';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
 import {
   executeCommand,
@@ -432,6 +433,78 @@ describe('Key dates and contract duties', () => {
       due_date: '2027-01-14',
     });
   });
+
+  it('confirm several values on one card, each once, and only this deal’s', async () => {
+    const mine = await open(agent, {
+      side: 'buyer',
+      name: 'Rivera purchase',
+      stage: 'under_contract',
+    });
+    const elsewhere = await open(agent, {
+      side: 'buyer',
+      name: 'Okafor purchase',
+      stage: 'under_contract',
+    });
+    const enter = (dealId: string, value: Record<string, unknown>) =>
+      run(agent, 'realestate.term.enter', {
+        dealId,
+        source: 'contract',
+        confirm: false,
+        ...value,
+      }).then((o) => o.entryId as string);
+    const closing = await enter(mine, { key: 'closing', date: '2026-12-15' });
+    const price = await enter(mine, { key: 'price', cents: 45_000_000 });
+    const theirs = await enter(elsewhere, { key: 'emd_amount', cents: 500_000 });
+    // Another deal's entry is never confirmed from this one, and then nothing is.
+    expect(
+      await refused(
+        run(agent, 'realestate.term.confirm_all', { dealId: mine, entryIds: [closing, theirs] }),
+      ),
+    ).toBe('not_found');
+    const out = await run(agent, 'realestate.term.confirm_all', {
+      dealId: mine,
+      entryIds: [closing, price, closing],
+    });
+    expect(out).toMatchObject({ dealId: mine, dealName: 'Rivera purchase' });
+    expect(out.confirmed).toEqual([
+      { entryId: closing, label: 'Closing', value: expect.stringContaining('2026') },
+      { entryId: price, label: 'Purchase price', value: '$450,000' },
+    ]);
+    expect(out.dutiesActivated).toBeGreaterThan(0);
+    expect(await duty(mine, 'X-03')).toMatchObject({ status: 'not_started', needs_dates: [] });
+    const terms = (await ask(agent, 'realestate.deal.get', { dealId: mine, duties: 'none' })).terms;
+    expect(terms.find((t: Any) => t.key === 'closing')).toMatchObject({ confirmed: true });
+    expect(terms.find((t: Any) => t.key === 'price')).toMatchObject({ confirmed: true });
+    // The card names each value, on whose deal.
+    expect(termsConfirmCard(out)).toMatchObject({
+      title: 'Confirm 2 values on Rivera purchase?',
+      lines: [
+        { label: 'Closing', value: expect.stringContaining('2026') },
+        { label: 'Purchase price', value: '$450,000' },
+      ],
+    });
+    // Asked again, nothing is left to confirm; the other deal's value still waits.
+    const again = await run(agent, 'realestate.term.confirm_all', {
+      dealId: mine,
+      entryIds: [closing],
+    });
+    expect(again.confirmed).toEqual([]);
+    expect(termsConfirmCard(again)?.title).toBe('Nothing to confirm on Rivera purchase');
+    const other = (await ask(agent, 'realestate.deal.get', { dealId: elsewhere, duties: 'none' }))
+      .terms;
+    expect(other.find((t: Any) => t.key === 'emd_amount')).toMatchObject({ confirmed: false });
+    // One set aside is refused, as Confirm refuses it.
+    await run(agent, 'realestate.term.reject', {
+      dealId: elsewhere,
+      entryId: theirs,
+      reason: 'Typed on the wrong deal',
+    });
+    expect(
+      await refused(
+        run(agent, 'realestate.term.confirm_all', { dealId: elsewhere, entryIds: [theirs] }),
+      ),
+    ).toBe('realestate_term_replaced');
+  });
 });
 
 describe('Facts', () => {
@@ -746,6 +819,29 @@ describe('Archiving and the lists', () => {
       waitingOn: 'Summit Lending',
       blocked: null,
     });
+  });
+
+  it('give a deal’s open duties, its done ones, all of them, or none', async () => {
+    const deal = await open(agent, {
+      side: 'buyer',
+      name: 'Duty card purchase',
+      stage: 'searching',
+    });
+    const all = (await ask(agent, 'realestate.deal.get', { dealId: deal })).duties;
+    expect(all.length).toBeGreaterThan(1);
+    await run(agent, 'realestate.duty.cancel', {
+      dutyId: all[0].dutyId,
+      reason: 'Not on this deal',
+    });
+    const ids = async (duties: string) =>
+      (await ask(agent, 'realestate.deal.get', { dealId: deal, duties })).duties
+        .map((d: Any) => d.dutyId)
+        .sort();
+    const every = all.map((d: Any) => d.dutyId).sort();
+    expect(await ids('done')).toEqual([all[0].dutyId]);
+    expect(await ids('open')).toEqual(every.filter((id: string) => id !== all[0].dutyId));
+    expect(await ids('all')).toEqual(every);
+    expect(await ids('none')).toEqual([]);
   });
 
   it('find a property already here by its address', async () => {

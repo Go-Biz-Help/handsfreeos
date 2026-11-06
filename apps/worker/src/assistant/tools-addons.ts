@@ -266,20 +266,42 @@ export async function prepareAddonTool(
   }
   // Tried first and rolled back whole, so a change its own rules would refuse now is said before any card: nobody
   // presses Confirm on something that can't go through.
+  let rehearsed: unknown;
   try {
-    await rehearseCommand(db, tool.op, input, ctx.actor, meta(ctx));
+    rehearsed = await rehearseCommand(db, tool.op, input, ctx.actor, meta(ctx));
   } catch (e) {
     throw saidPlainly(tool, e);
   }
+  // The operation's own card, from what it would do, when it has one; else a line for each part of what it's given.
+  const own = tool.op.ai?.card?.(rehearsed, input) ?? null;
   const shown = tool.input.safeParse(args);
   return {
     card: settingsCard(toolCallId, tool.name, {
-      title: `Do this in ${tool.addonName}?`,
-      fields: cardFields(tool, shown.success ? (shown.data as Args) : args),
+      title: own ? clip(own.title, 120) : `Do this in ${tool.addonName}?`,
+      fields: own
+        ? [{ label: 'What', value: clip(tool.description) }, ...ownLines(own.lines)]
+        : cardFields(tool, shown.success ? (shown.data as Args) : args),
       confirmLabel: 'Confirm',
+      ...(own?.warning ? { warnings: [{ kind: 'caution', text: clip(own.warning) }] } : {}),
     }),
-    result: { waiting: true, addon: tool.addonName, what: tool.description },
+    result: {
+      waiting: true,
+      addon: tool.addonName,
+      what: tool.description,
+      // What the card says it would do, so the model can say it too.
+      ...(own ? { card: own.title, says: ownLines(own.lines) } : {}),
+    },
   };
+}
+
+/** An operation's own card lines, each kept short, nine at most with the rest counted: the card holds ten. */
+function ownLines(lines: readonly Field[]): Field[] {
+  const shown = lines
+    .map((l) => ({ label: clip(l.label, 60), value: clip(l.value) }))
+    .filter((l) => l.value);
+  return shown.length > 9
+    ? [...shown.slice(0, 8), { label: 'And', value: `${shown.length - 8} more` }]
+    : shown;
 }
 
 /** The person pressed Confirm: the operation runs through the kernel, which checks the add-on and the permission again. */

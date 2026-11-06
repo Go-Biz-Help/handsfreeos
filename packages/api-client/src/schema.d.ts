@@ -12137,6 +12137,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/realestate.lockbox.describe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a lockbox to a listing, or change one’s kind, where it is or its serial, without its code: the code it has is kept.
+         * @description Risk level 1. Requires realestate.use. Emits .
+         */
+        post: operations["command_realestate_lockbox_describe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/realestate.lockbox.remove": {
         parameters: {
             query?: never;
@@ -13011,6 +13031,26 @@ export interface paths {
          * @description Risk level 1. Requires realestate.use. Emits realestate.term.confirmed.
          */
         post: operations["command_realestate_term_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/realestate.term.confirm_all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm several key dates or terms someone entered, all at once, as Key dates’ Confirm N values does. Duties resting on the dates they confirm become ready to work.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.term.confirmed.
+         */
+        post: operations["command_realestate_term_confirm_all"];
         delete?: never;
         options?: never;
         head?: never;
@@ -21627,7 +21667,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties.
+         * One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties (open, done, all or none).
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_deal_get"];
@@ -52484,10 +52524,21 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        audience: {
+                            stages: string[];
+                            tags: string[];
+                        };
                         /** Format: uuid */
                         campaignId: string;
+                        /** @enum {string} */
+                        channel: "sms" | "email";
                         recipients: number;
                         skipped: number;
+                        street: string;
+                        words: {
+                            body: string;
+                            subject: string | null;
+                        };
                     };
                 };
             };
@@ -53049,8 +53100,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        changes: string[];
                         /** Format: uuid */
                         dealId: string;
+                        dealName: string;
                         photos: number;
                     };
                 };
@@ -53312,6 +53365,67 @@ export interface operations {
                         created: boolean;
                         /** Format: uuid */
                         taskId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_lockbox_describe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /**
+                     * Format: uuid
+                     * @description The lockbox to change; left out, a new one
+                     */
+                    id?: string;
+                    /** @enum {string} */
+                    kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                    /** @description Where it is: "On the side gate" */
+                    place?: string | null;
+                    serial?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        before: {
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        } | null;
+                        /** Format: uuid */
+                        dealId: string;
+                        dealName: string;
+                        lockbox: {
+                            codeSetAt: string | null;
+                            hasCode: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "sentrilock" | "supra" | "combination" | "keypad" | "other";
+                            kindLabel: string;
+                            place: string | null;
+                            serial: string | null;
+                        };
                     };
                 };
             };
@@ -55360,6 +55474,50 @@ export interface operations {
                         dutiesRedated: number;
                         /** Format: uuid */
                         entryId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_realestate_term_confirm_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    dealId: string;
+                    /** @description The entries to confirm */
+                    entryIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        confirmed: {
+                            /** Format: uuid */
+                            entryId: string;
+                            label: string;
+                            value: string;
+                        }[];
+                        /** Format: uuid */
+                        dealId: string;
+                        dealName: string;
+                        dutiesActivated: number;
+                        dutiesCreated: number;
+                        dutiesRedated: number;
                     };
                 };
             };
@@ -84784,6 +84942,12 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     dealId: string;
+                    /**
+                     * @description Its duties: open, done, all or none
+                     * @default all
+                     * @enum {string}
+                     */
+                    duties?: "open" | "done" | "all" | "none";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -85888,8 +86052,20 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     dealId: string;
+                    /**
+                     * Format: uuid
+                     * @description One home only
+                     */
+                    homeId?: string;
                     /** @default false */
                     includeRemoved?: boolean;
+                    /** @description How many to read at once (a few at a time on a long list); left out: every one */
+                    limit?: number;
+                    /**
+                     * @description How many to skip, for the next page
+                     * @default 0
+                     */
+                    offset?: number;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -86005,6 +86181,7 @@ export interface operations {
                             status: "saved" | "shortlisted" | "toured" | "offered" | "passed" | "removed";
                             statusNote: string | null;
                         }[];
+                        total: number;
                     };
                 };
             };
@@ -86285,6 +86462,7 @@ export interface operations {
                                 number: string;
                             } | null;
                             page: {
+                                path: string | null;
                                 publishedAt: string | null;
                                 slug: string | null;
                                 /** @enum {string} */
@@ -86607,6 +86785,13 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     dealId: string;
+                    /** @description How many to read at once (a few at a time on a long list); left out: every one */
+                    limit?: number;
+                    /**
+                     * @description How many to skip, for the next page
+                     * @default 0
+                     */
+                    offset?: number;
                     /** @enum {string} */
                     state?: "new" | "sent" | "dismissed";
                     /** Format: uuid */
@@ -86895,6 +87080,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        atListPrice: {
+                            lines: {
+                                cents: number;
+                                key: string;
+                                label: string;
+                            }[];
+                            netCents: number;
+                            priceCents: number;
+                        } | null;
                         choices: {
                             /** Format: date-time */
                             at: string;

@@ -528,11 +528,13 @@ tools. So does every worker action a person presses (its own test holds those). 
 the model asks for together run at the same time; changes run one at a time, in order. An operation's `ai.answer`
 reshapes what the model reads of its answer (a link its screens build written out whole, the short facts ahead of the
 long lists), never more than the person was given, and `ai.outcome` ends a confirmed card in its screen's own words,
-with a page to open. The manifest's `ai.places` says where its pages are, the way core's places are said, and
-`ai.lookAlikes` the words it shares with core's pages: both are told only where it runs, to people who may open it, and
-name the page a question is asked from (`addonPlaces`, with `queryIds` for what an id in a page's query holds there).
-`ui.settingsPath` is where its business settings are when that isn't its page keyed `settings`, for the card that
-saves them. `find_capabilities` answers "can
+with a page to open. `ai.card` draws an operation's Confirm card from what the change would do, read from its
+rehearsal (rolled back whole): whose thing it changes, by name, each line as it was and will be, and a warning for what
+reaches people; without it the card shows what the model gave, a line for each part. The manifest's `ai.places` says
+where its pages are, the way core's places are said, and `ai.lookAlikes` the words it shares with core's pages: both
+are told only where it runs, to people who may open it, and name the page a question is asked from (`addonPlaces`,
+with `queryIds` for what an id in a page's query holds there). `ui.settingsPath` is where its business settings are
+when that isn't its page keyed `settings`, for the card that saves them. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only
 when asked what's coming, and never as something to install.

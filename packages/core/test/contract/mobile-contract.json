@@ -16714,6 +16714,24 @@
           "includeRemoved": {
             "default": false,
             "type": "boolean"
+          },
+          "homeId": {
+            "description": "One home only",
+            "type": "string",
+            "format": "uuid"
+          },
+          "offset": {
+            "default": 0,
+            "description": "How many to skip, for the next page",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "description": "How many to read at once (a few at a time on a long list); left out: every one",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
           }
         },
         "required": ["workspaceId", "dealId"]
@@ -16814,6 +16832,19 @@
           "state": {
             "type": "string",
             "enum": ["new", "sent", "dismissed"]
+          },
+          "offset": {
+            "default": 0,
+            "description": "How many to skip, for the next page",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "limit": {
+            "description": "How many to read at once (a few at a time on a long list); left out: every one",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
           }
         },
         "required": ["workspaceId", "dealId"]

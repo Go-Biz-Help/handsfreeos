@@ -10,9 +10,12 @@ import { and, eq } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
+import { termsConfirmCard } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import {
   TermChangeOutput,
+  TermConfirmAllInput,
+  TermConfirmAllOutput,
   TermConfirmInput,
   TermEnterInput,
   TermEnterOutput,
@@ -247,27 +250,77 @@ export const termConfirm = defineAddonCommand(realestateAddon, {
     const e = await entryOf(ctx, deal, input.entryId);
     if (!isLive(e)) throw settled(e);
     const w = await openWork(ctx, deal);
-    if (e.confirmedAt) return { dealId: deal.recordId, entryId: e.id, ...termCounts(w) };
-    await ctx.tx
-      .update(termEntries)
-      .set({ confirmedBy: actorUserId(ctx), confirmedAt: w.at })
-      .where(eq(termEntries.id, e.id));
-    await afterTermsChanged(w);
-    const label = termLabel(e.key as TermKey);
-    await historyLine(ctx, deal, 'term_confirmed', {
-      after: { key: e.key, entryId: e.id, value: termValueWords(e) },
-    });
-    const eventId = await ctx.emit({
-      type: 'realestate.term.confirmed',
-      entityType: 'custom_record',
-      entityId: deal.recordId,
-      payload: { name: deal.name, key: e.key, entryId: e.id },
-      after: { name: deal.name, [e.key]: termValueWords(e) },
-    });
-    await dealLine(ctx, deal, `confirmed the ${label.toLowerCase()}: ${termValueWords(e)}`, {
-      eventId,
-    });
+    await confirmEntry(ctx, deal, w, e);
     return { dealId: deal.recordId, entryId: e.id, ...termCounts(w) };
+  },
+});
+
+/** Confirms one live entry, as Confirm does; false when it was confirmed already. */
+async function confirmEntry(ctx: CommandContext, deal: Deal, w: Work, e: Entry): Promise<boolean> {
+  if (e.confirmedAt) return false;
+  await ctx.tx
+    .update(termEntries)
+    .set({ confirmedBy: actorUserId(ctx), confirmedAt: w.at })
+    .where(eq(termEntries.id, e.id));
+  await afterTermsChanged(w);
+  const label = termLabel(e.key as TermKey);
+  await historyLine(ctx, deal, 'term_confirmed', {
+    after: { key: e.key, entryId: e.id, value: termValueWords(e) },
+  });
+  const eventId = await ctx.emit({
+    type: 'realestate.term.confirmed',
+    entityType: 'custom_record',
+    entityId: deal.recordId,
+    payload: { name: deal.name, key: e.key, entryId: e.id },
+    after: { name: deal.name, [e.key]: termValueWords(e) },
+  });
+  await dealLine(ctx, deal, `confirmed the ${label.toLowerCase()}: ${termValueWords(e)}`, {
+    eventId,
+  });
+  return true;
+}
+
+/**
+ * Several key dates or terms confirmed at once, as Key dates' Confirm N values does (the page confirms each in turn):
+ * for the Assistant, so the person confirms them on one card rather than one card each.
+ */
+export const termConfirmAll = defineAddonCommand(realestateAddon, {
+  name: 'realestate.term.confirm_all',
+  description:
+    'Confirm several key dates or terms someone entered, all at once, as Key dates’ Confirm N values does. Duties resting on the dates they confirm become ready to work.',
+  risk: 1,
+  input: TermConfirmAllInput,
+  output: TermConfirmAllOutput,
+  permission: 'realestate.use',
+  scope: inWorkspace,
+  ai: {
+    tool: 'realestate_confirm_dates',
+    description:
+      'Confirm several key dates or terms at once (each entryId from realestate_get_deal’s terms, the ones not confirmed yet), as Key dates’ Confirm N values does: one card for all of them. Asks the person first.',
+    autonomy: 'confirm',
+    // The card lists each value it confirms, by name, on whose deal.
+    card: termsConfirmCard,
+  },
+  emits: ['realestate.term.confirmed'],
+  async handler(ctx, input) {
+    const deal = await loadDeal(ctx, input.dealId, { lock: true });
+    requireNotArchived(deal);
+    const entries: Entry[] = [];
+    for (const id of new Set(input.entryIds)) {
+      const e = await entryOf(ctx, deal, id);
+      if (!isLive(e)) throw settled(e);
+      entries.push(e);
+    }
+    const w = await openWork(ctx, deal);
+    const confirmed: { entryId: string; label: string; value: string }[] = [];
+    for (const e of entries)
+      if (await confirmEntry(ctx, deal, w, e))
+        confirmed.push({
+          entryId: e.id,
+          label: termLabel(e.key as TermKey),
+          value: termValueWords(e),
+        });
+    return { dealId: deal.recordId, dealName: deal.name, confirmed, ...termCounts(w) };
   },
 });
 
@@ -389,4 +442,4 @@ export const termResolve = defineAddonCommand(realestateAddon, {
   },
 });
 
-export const termCommands = [termEnter, termConfirm, termReject, termResolve];
+export const termCommands = [termEnter, termConfirm, termConfirmAll, termReject, termResolve];

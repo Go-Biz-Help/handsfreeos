@@ -103,7 +103,7 @@ async function serviceFor(
     const baseUri = typeof d['baseUri'] === 'string' ? d['baseUri'] : '';
     if (!accountId || !baseUri)
       throw new ConnectionRefused(
-        'HandsFreeOS lost track of which DocuSign account to send from. Sign in to DocuSign again under Real Estate → Settings → Connections.',
+        'HandsFreeOS lost track of which DocuSign account to send from. Sign in to DocuSign again in Real Estate Agent → Deal settings → Connections.',
       );
     return {
       service: createDocusign({ accessToken, accountId, baseUri, fetch: viaEsignFetch }),
@@ -113,7 +113,7 @@ async function serviceFor(
   const profileId = typeof d['profileId'] === 'string' ? d['profileId'] : '';
   if (!profileId)
     throw new ConnectionRefused(
-      'HandsFreeOS lost track of which Dotloop profile to use. Sign in to Dotloop again under Real Estate → Settings → Connections.',
+      'HandsFreeOS lost track of which Dotloop profile to use. Sign in to Dotloop again in Real Estate Agent → Deal settings → Connections.',
     );
   return { service: createDotloop({ accessToken, profileId, fetch: viaEsignFetch }), tokens };
 }
@@ -225,7 +225,7 @@ async function connectionOf(ctx: AddonScopeContext, row: EnvelopeRow) {
   const connection = row.connection_id ? await connectionById(ctx, row.connection_id) : null;
   return {
     connection,
-    gone: `The ${serviceName(row.provider)} connection here was let go. Someone who runs the deal settings can connect it again under Real Estate → Settings → Connections; then send the document again.`,
+    gone: `The ${serviceName(row.provider)} connection here was let go. Someone who runs the deal settings can connect it again in Real Estate Agent → Deal settings → Connections; then send the document again.`,
   };
 }
 

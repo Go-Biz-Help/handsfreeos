@@ -1460,7 +1460,7 @@
   "apps/web/src/lib/texting.ts": "9dea0156d051",
   "packages/core/src/account/notification-rows.ts": "274b05c79aa2",
   "packages/core/src/addons/outreach/manifest.ts": "762e0bb9a068",
-  "packages/core/src/addons/realestate/manifest.ts": "5388ac67bb8f",
+  "packages/core/src/addons/realestate/manifest.ts": "a7c3a0e0318f",
   "packages/core/src/assistant/coverage.ts": "733b1a391f6b",
   "packages/core/src/assistant/screen-reads.ts": "822258dd8049",
   "packages/core/src/assistant/settings-map.ts": "5586d524343f",

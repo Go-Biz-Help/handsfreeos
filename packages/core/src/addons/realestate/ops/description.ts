@@ -34,7 +34,7 @@ import {
 import { clientTasks, fairHousingChecks, listingDescriptions } from '../tables';
 import { textHashOf } from './client-updates';
 import {
-  actorKind,
+  personDecides,
   actorUserId,
   dealClients,
   historyLine,
@@ -252,9 +252,9 @@ export const mayLetThrough = (ctx: Ctx): boolean =>
   ctx.actor.type === 'human' && scopeCan(ctx.scope, 'realestate.except' as Permission);
 
 export function requireLetThrough(ctx: CommandContext, what: string): void {
-  if (actorKind(ctx) !== 'person')
+  if (!personDecides(ctx))
     throw HfosError.forbidden(
-      `Only a person can let ${what} through without the seller’s sign-off, from the listing’s page.`,
+      `Only a person can let ${what} through without the seller’s sign-off: on the listing’s page, or on the Assistant’s card they confirm.`,
     );
   if (!mayLetThrough(ctx))
     throw HfosError.forbidden(
@@ -494,9 +494,9 @@ export const descriptionAcknowledgeFlags = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: ['realestate.listing.description_flags_kept'],
   async handler(ctx, input) {
-    if (actorKind(ctx) !== 'person')
+    if (!personDecides(ctx))
       throw HfosError.forbidden(
-        'Only a person keeps fair housing flags as written, from the description’s page.',
+        'Only a person keeps fair housing flags as written: on the description’s page, or on the Assistant’s card they confirm.',
       );
     const { d, deal } = await loadDescription(ctx, input.descriptionId, true);
     requireNotArchived(deal);

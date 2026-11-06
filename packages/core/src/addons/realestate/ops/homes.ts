@@ -28,6 +28,7 @@ import {
   type HomeStatus,
   type ListingFacts,
 } from '../homes';
+import { homesAnswer } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import {
   BuyerProfileGetInput,
@@ -57,6 +58,7 @@ import {
 import { buyerProfiles, buyerProfileVersions, feedMatches, homeReactions, homes } from '../tables';
 import {
   actorKind,
+  personDecides,
   actorUserId,
   dealLine,
   feedConnected,
@@ -522,8 +524,10 @@ export const homeConfirmFacts = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: ['realestate.home.facts_confirmed'],
   async handler(ctx, input) {
-    if (ctx.actor.type !== 'human' || ctx.meta.channel === 'assistant')
-      throw HfosError.forbidden('A person confirms a home’s facts, against the listing.');
+    if (!personDecides(ctx))
+      throw HfosError.forbidden(
+        'A person confirms a home’s facts, against the listing: on the deal’s Homes, or on the Assistant’s card they confirm.',
+      );
     const home = await loadHome(ctx, input.homeId, { lock: true });
     const deal = await loadDeal(ctx, home.dealRecordId);
     requireNotArchived(deal);
@@ -625,11 +629,13 @@ export const dealHomes = defineAddonQuery(realestateAddon, {
   ai: {
     tool: 'realestate_list_homes',
     description:
-      'The homes on a buyer’s deal, how each fits what they want, and what the clients said.',
+      'The homes on a buyer’s deal, how each fits what they want, what the MLS says of each, and what the clients said. A home from the MLS is long: read a few at a time (limit, then offset for the next ones; total says how many), or one by homeId.',
+    // What the MLS says of each, without its photos' links (how many there are instead): the rest is whole.
+    answer: homesAnswer,
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
-    const list = await ctx.tx
+    const every = await ctx.tx
       .select()
       .from(homes)
       .where(
@@ -637,9 +643,15 @@ export const dealHomes = defineAddonQuery(realestateAddon, {
           eq(homes.workspaceId, deal.workspaceId),
           eq(homes.dealRecordId, deal.recordId),
           ...(input.includeRemoved ? [] : [ne(homes.status, 'removed')]),
+          ...(input.homeId ? [eq(homes.id, input.homeId)] : []),
         ),
       )
       .orderBy(asc(homes.createdAt), asc(homes.id));
+    // A page of them, for the Assistant; the screens read every one.
+    const list = every.slice(
+      input.offset,
+      input.limit === undefined ? undefined : input.offset + input.limit,
+    );
     const profile = fitProfileOf(await profileOf(ctx, deal.recordId));
     const ids = list.map((h) => h.id);
     const reactions = ids.length
@@ -713,6 +725,7 @@ export const dealHomes = defineAddonQuery(realestateAddon, {
           addedAt: h.createdAt.toISOString(),
         };
       }),
+      total: every.length,
     };
   },
 });

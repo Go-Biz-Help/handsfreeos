@@ -228,6 +228,14 @@ export function actorKind(ctx: Ctx): 'person' | 'system' | 'ai' | 'client' {
   return 'system';
 }
 
+/**
+ * A person decides it themselves: on the screens, or through their own Assistant once they pressed Confirm on its card,
+ * which runs as them (the owner's decision, 2026-10-26: whatever a person does on these screens is a tool that waits
+ * for their OK and still needs their permission). Never the AI teammate, a client, or HandsFreeOS on its own.
+ */
+export const personDecides = (ctx: Ctx): boolean =>
+  ctx.actor.type === 'human' && ctx.meta.channel !== 'contact_ai';
+
 export const actorUserId = (ctx: Ctx): string | null =>
   ctx.actor.type === 'human'
     ? ctx.actor.userId

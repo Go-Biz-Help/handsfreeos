@@ -62,6 +62,8 @@ export function listingShape(input: {
   /** The name of whoever confirmed the facts, if they're still known. */
   readonly confirmedByName: string | null;
   readonly listPriceCents: number | null;
+  /** The business's site name, which the page's address is under, if it has one. */
+  readonly site: string | null;
 }) {
   const { listing: l, questionnaire: q, address } = input;
   const taskId = q ? null : input.questionnaireTaskId;
@@ -106,6 +108,8 @@ export function listingShape(input: {
     page: {
       state: l?.pageState ?? ('none' as const),
       slug: l?.slug ?? null,
+      // Its address, as Marketing's link has it, so whoever reads the listing has the page's own.
+      path: listingPageOf(input.dealId, l, input.site).path,
       publishedAt: l?.pagePublishedAt ?? null,
     },
     listPriceCents: input.listPriceCents,

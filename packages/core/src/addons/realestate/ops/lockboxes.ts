@@ -9,13 +9,18 @@
  * - **An opening**: SentriLock's or Supra's email read by the worker into the listing it's about, with the showing
  *   it fits. One that fits no showing raises an alert to the listing's agents (the worker's subscriber).
  */
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, gte, isNull, lte, or, sql as dsql } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
+import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { lockboxCard } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import {
   LockboxCodeViewedInput,
   LockboxCodeViewedOutput,
+  LockboxDescribeInput,
+  LockboxDescribeOutput,
   LockboxListInput,
   LockboxListOutput,
   LockboxOpenedInput,
@@ -72,6 +77,86 @@ const lockboxOut = (l: LockboxRow) => ({
   codeSetAt: l.codeSetAt ? l.codeSetAt.toISOString() : null,
 });
 
+/**
+ * Adds or changes a listing's lockbox, with what it was before. `code` left out keeps the one it has; the Assistant's
+ * way in (`lockboxDescribe`) never has one, so a code never goes through the AI.
+ */
+async function saveLockbox(
+  ctx: CommandContext,
+  input: {
+    readonly dealId: string;
+    readonly id: string;
+    readonly kind: LockboxKind;
+    readonly place?: string | null;
+    readonly serial?: string | null;
+    readonly code?: string | null;
+  },
+) {
+  const deal = await loadDeal(ctx, input.dealId, { lock: true });
+  requireOpen(deal);
+  requireListingSide(deal);
+  const [was] = await ctx.tx
+    .select({
+      ...PUBLIC_COLUMNS,
+      dealRecordId: lockboxes.dealRecordId,
+      removedAt: lockboxes.removedAt,
+    })
+    .from(lockboxes)
+    .where(and(eq(lockboxes.workspaceId, deal.workspaceId), eq(lockboxes.id, input.id)));
+  if (was && (was.dealRecordId !== deal.recordId || was.removedAt))
+    throw HfosError.rule(
+      'realestate_lockbox_elsewhere',
+      409,
+      'That lockbox isn’t on this listing anymore. Add it again here.',
+    );
+  const now = new Date();
+  const code =
+    input.code === undefined
+      ? {}
+      : input.code === null
+        ? { codeEnc: null, codeSetAt: null, codeSetBy: null }
+        : { codeEnc: input.code, codeSetAt: now, codeSetBy: actorUserId(ctx) };
+  const values = {
+    kind: input.kind,
+    ...(input.place !== undefined ? { place: input.place } : {}),
+    ...(input.serial !== undefined ? { serial: input.serial } : {}),
+    ...code,
+    updatedAt: now,
+  };
+  const [row] = was
+    ? await ctx.tx
+        .update(lockboxes)
+        .set(values)
+        .where(and(eq(lockboxes.workspaceId, deal.workspaceId), eq(lockboxes.id, input.id)))
+        .returning(PUBLIC_COLUMNS)
+    : await ctx.tx
+        .insert(lockboxes)
+        .values({
+          id: input.id,
+          workspaceId: deal.workspaceId,
+          dealRecordId: deal.recordId,
+          createdBy: actorUserId(ctx),
+          ...values,
+        })
+        .returning(PUBLIC_COLUMNS);
+  // The history says the code changed, never what it is.
+  const before = was ? { kind: was.kind, place: was.place, serial: was.serial } : null;
+  await historyLine(ctx, deal, was ? 'lockbox_changed' : 'lockbox_added', {
+    before,
+    after: {
+      kind: row!.kind,
+      place: row!.place,
+      serial: row!.serial,
+      ...(input.code === undefined ? {} : { code: input.code === null ? 'cleared' : 'set' }),
+    },
+  });
+  return {
+    deal,
+    before: was ? { ...before!, kindLabel: LOCKBOX_KIND_LABELS[was.kind] } : null,
+    lockbox: lockboxOut(row!),
+  };
+}
+
 export const lockboxSave = defineAddonCommand(realestateAddon, {
   name: 'realestate.lockbox.save',
   description:
@@ -83,64 +168,43 @@ export const lockboxSave = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: [],
   async handler(ctx, input) {
-    const deal = await loadDeal(ctx, input.dealId, { lock: true });
-    requireOpen(deal);
-    requireListingSide(deal);
-    const [was] = await ctx.tx
-      .select({
-        ...PUBLIC_COLUMNS,
-        dealRecordId: lockboxes.dealRecordId,
-        removedAt: lockboxes.removedAt,
-      })
-      .from(lockboxes)
-      .where(and(eq(lockboxes.workspaceId, deal.workspaceId), eq(lockboxes.id, input.id)));
-    if (was && (was.dealRecordId !== deal.recordId || was.removedAt))
-      throw HfosError.rule(
-        'realestate_lockbox_elsewhere',
-        409,
-        'That lockbox isn’t on this listing anymore. Add it again here.',
-      );
-    const now = new Date();
-    const code =
-      input.code === undefined
-        ? {}
-        : input.code === null
-          ? { codeEnc: null, codeSetAt: null, codeSetBy: null }
-          : { codeEnc: input.code, codeSetAt: now, codeSetBy: actorUserId(ctx) };
-    const values = {
+    const { deal, lockbox } = await saveLockbox(ctx, input);
+    return { dealId: deal.recordId, lockbox };
+  },
+});
+
+/**
+ * A lockbox without its code, for the Assistant (the owner's rule: a lockbox's code never goes through the AI). Its
+ * kind, where it is and its serial carry none. The input has no code, so one given is dropped and the code it has is
+ * kept; the person types the code on the listing's Showings page, under Lockboxes.
+ */
+export const lockboxDescribe = defineAddonCommand(realestateAddon, {
+  name: 'realestate.lockbox.describe',
+  description:
+    'Add a lockbox to a listing, or change one’s kind, where it is or its serial, without its code: the code it has is kept.',
+  risk: 1,
+  input: LockboxDescribeInput,
+  output: LockboxDescribeOutput,
+  permission: 'realestate.use',
+  ai: {
+    tool: 'realestate_lockbox_save',
+    description:
+      'Add a lockbox to a listing, or change one’s kind, where it is or its serial (its id from realestate_lockbox_list; left out, a new one). Never its code: the person types that on the listing’s Showings page, under Lockboxes, and a code never goes through the Assistant.',
+    autonomy: 'confirm',
+    // The card says whose listing, and what it was and will be: never a code.
+    card: lockboxCard,
+  },
+  scope: inWorkspace,
+  emits: [],
+  async handler(ctx, input) {
+    const { deal, before, lockbox } = await saveLockbox(ctx, {
+      dealId: input.dealId,
+      id: input.id ?? randomUUID(),
       kind: input.kind,
-      ...(input.place !== undefined ? { place: input.place } : {}),
-      ...(input.serial !== undefined ? { serial: input.serial } : {}),
-      ...code,
-      updatedAt: now,
-    };
-    const [row] = was
-      ? await ctx.tx
-          .update(lockboxes)
-          .set(values)
-          .where(and(eq(lockboxes.workspaceId, deal.workspaceId), eq(lockboxes.id, input.id)))
-          .returning(PUBLIC_COLUMNS)
-      : await ctx.tx
-          .insert(lockboxes)
-          .values({
-            id: input.id,
-            workspaceId: deal.workspaceId,
-            dealRecordId: deal.recordId,
-            createdBy: actorUserId(ctx),
-            ...values,
-          })
-          .returning(PUBLIC_COLUMNS);
-    // The history says the code changed, never what it is.
-    await historyLine(ctx, deal, was ? 'lockbox_changed' : 'lockbox_added', {
-      before: was ? { kind: was.kind, place: was.place, serial: was.serial } : null,
-      after: {
-        kind: row!.kind,
-        place: row!.place,
-        serial: row!.serial,
-        ...(input.code === undefined ? {} : { code: input.code === null ? 'cleared' : 'set' }),
-      },
+      place: input.place,
+      serial: input.serial,
     });
-    return { dealId: deal.recordId, lockbox: lockboxOut(row!) };
+    return { dealId: deal.recordId, dealName: deal.name, before, lockbox };
   },
 });
 
@@ -370,5 +434,11 @@ export const lockboxList = defineAddonQuery(realestateAddon, {
   },
 });
 
-export const lockboxCommands = [lockboxSave, lockboxRemove, lockboxOpened, lockboxCodeViewed];
+export const lockboxCommands = [
+  lockboxSave,
+  lockboxDescribe,
+  lockboxRemove,
+  lockboxOpened,
+  lockboxCodeViewed,
+];
 export const lockboxQueries = [lockboxList];

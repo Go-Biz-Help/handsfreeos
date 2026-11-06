@@ -256,6 +256,7 @@ import {
   InspectionUpdateInput,
   ListingPhotoAddInput,
   ListingPhotosArrangeInput,
+  ListingPhotosArrangeOutput,
   ListingPhotosOutput,
   ListingPriceProposeInput,
   ListingPriceProposeOutput,
@@ -787,7 +788,7 @@ export const PHONE_COMMANDS = {
   'realestate.listing.photos_arrange': command(
     ANYTIME,
     ListingPhotosArrangeInput,
-    ListingPhotosOutput,
+    ListingPhotosArrangeOutput,
   ),
   'realestate.listing.posts_request': command(ONLINE, ListingPostsRequestInput, ListingPostsOutput),
   'realestate.listing.price.propose': command(

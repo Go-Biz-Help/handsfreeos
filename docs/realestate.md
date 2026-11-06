@@ -188,7 +188,7 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
   Acknowledging stops an alert climbing. A changed wire raises a critical alert at once and a duty finished only by
   a phone check.
 - **The Assistant** looks things up on its own and changes things only with a person's OK. Everything a person does
-  on the add-on's screens is one of its tools (each operation's `ai`, 216 in all). That includes exceptions, waives,
+  on the add-on's screens is one of its tools (each operation's `ai`, 218 in all). That includes exceptions, waives,
   ending or archiving a deal, the final commission, the team and the duty list (Chris, 2026-10-26, which lifted
   2026-09-30's "never"): each waits for a person's OK, and each still needs that person's permission. The changes
   it makes without asking are only the agent's own notes, drafts and records (a field note, a tour's feedback, a

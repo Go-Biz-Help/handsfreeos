@@ -714,14 +714,19 @@ export async function executeCommand<I extends z.ZodType, O extends z.ZodType>(
   }
 }
 
-/** What a rehearsal throws once the command ran, so its transaction rolls back. */
-class Rehearsed extends Error {}
+/** What a rehearsal throws once the command ran, so its transaction rolls back, with what the command answered. */
+class Rehearsed extends Error {
+  constructor(readonly output: unknown) {
+    super('rehearsed');
+  }
+}
 
 /**
- * A person's command run as executeCommand runs it, then rolled back whole: it resolves when the command would go
- * through now, and throws the refusal it would give. For a card that asks before a change (the Assistant's add-on
- * tools), so a change that can't go through is said before anyone presses Confirm. Nothing is kept: a command's
- * writes, events, outbox and audit rows are all in its transaction, and no receipt is claimed.
+ * A person's command run as executeCommand runs it, then rolled back whole: it resolves, with what the command would
+ * answer, when the command would go through now, and throws the refusal it would give. For a card that asks before a
+ * change (the Assistant's add-on tools), so a change that can't go through is said before anyone presses Confirm, and
+ * the card can say what it would do (how many people a campaign reaches). Nothing is kept: a command's writes, events,
+ * outbox and audit rows are all in its transaction, and no receipt is claimed.
  */
 export async function rehearseCommand<I extends z.ZodType, O extends z.ZodType>(
   db: Db,
@@ -729,7 +734,7 @@ export async function rehearseCommand<I extends z.ZodType, O extends z.ZodType>(
   rawInput: unknown,
   actor: HumanActor,
   meta: RequestMeta,
-): Promise<void> {
+): Promise<z.output<O>> {
   assertActorAllowed(cmd, actor);
   assertNotTestRun(actor);
   assertAppRequest(meta);
@@ -750,13 +755,14 @@ export async function rehearseCommand<I extends z.ZodType, O extends z.ZodType>(
       await assertAddonRuns(tx, cmd.addon ?? null, scope.workspaceId, true);
       if (cmd.permission) assertPermission(scope, cmd.permission);
       await shareChangeMoment(tx, meta);
-      await runCommand(tx, cmd, input, actor, scope, meta, cmd.addon ?? null);
-      throw new Rehearsed();
+      const { output } = await runCommand(tx, cmd, input, actor, scope, meta, cmd.addon ?? null);
+      throw new Rehearsed(output);
     });
   } catch (e) {
-    if (e instanceof Rehearsed) return;
+    if (e instanceof Rehearsed) return e.output as z.output<O>;
     throw translateDbError(e);
   }
+  throw new Error(`${cmd.name} rehearsed without an answer`);
 }
 
 /** executeCommandIn's caller must hold exactly the actor's tenant, as the service actor, and nothing more. */

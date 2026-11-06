@@ -319,7 +319,10 @@ export const openHousesList = defineAddonQuery(realestateAddon, {
   input: ListingInput,
   output: OpenHousesOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_open_houses' },
+  ai: {
+    tool: 'realestate_open_houses',
+    keywords: ['sign-in sheet', 'open house QR', 'open house link', 'visitors'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

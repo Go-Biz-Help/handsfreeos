@@ -11,7 +11,7 @@
  */
 import { and, asc, desc, eq, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { files } from '@hfos/db/schema';
+import { bookingSites, files } from '@hfos/db/schema';
 import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
@@ -19,6 +19,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { feedFacts, type MlsSnapshot } from '../feed';
 import { factChoices, streetOf, type FactFrom, type SellerAnswers } from '../listing';
 import { listingShape, type ListingRow } from '../listing-shape';
+import { listingAnswer, photoChanges, photosArrangeCard } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import {
   ListingConfirmFactsInput,
@@ -32,6 +33,7 @@ import {
   ListingPhotoAddInput,
   ListingPhotoRemoveInput,
   ListingPhotosArrangeInput,
+  ListingPhotosArrangeOutput,
   ListingPhotosOutput,
   ListingQuestionnaireRequestInput,
   ListingQuestionnaireRequestOutput,
@@ -45,7 +47,7 @@ import {
   type ListingFactSource,
 } from '../tables';
 import {
-  actorKind,
+  personDecides,
   actorUserId,
   dealLine,
   historyLine,
@@ -154,6 +156,15 @@ async function questionnaireTask(ctx: Ctx, dealId: string) {
   return t ?? null;
 }
 
+/** The business's site name, which its public pages are under, if it has one yet (putting a page up makes it). */
+async function siteOf(ctx: Ctx, workspaceId: string): Promise<string | null> {
+  const [s] = await ctx.tx
+    .select({ slug: bookingSites.slug })
+    .from(bookingSites)
+    .where(eq(bookingSites.workspaceId, workspaceId));
+  return s ? String(s.slug) : null;
+}
+
 /** Everything the listing's page and the deal page read: its facts and their sources, photos, the MLS, the page. */
 export async function listingView(ctx: Ctx, deal: Deal) {
   const l = await listingOf(ctx, deal.recordId);
@@ -188,6 +199,7 @@ export async function listingView(ctx: Ctx, deal: Deal) {
     photos,
     confirmedByName: l?.factsConfirmedBy ? (names.get(l.factsConfirmedBy) ?? null) : null,
     listPriceCents: await listPriceOf(ctx, deal.recordId),
+    site: l?.slug ? await siteOf(ctx, deal.workspaceId) : null,
   });
   return {
     ...shape,
@@ -241,7 +253,10 @@ export const listingGet = defineAddonQuery(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_get_listing',
-    description: 'A listing’s facts, photos, MLS status, public page and list price.',
+    description:
+      'A listing’s list price, public page, MLS number and the description in use, then its facts, photos, MLS status and each fact’s choices.',
+    // The price, page and signed-off words first, the long lists last, the feed's photos as a count.
+    answer: listingAnswer,
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
@@ -358,9 +373,9 @@ export const listingConfirmFacts = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: ['realestate.listing.facts_confirmed', ...PROOF_EVENTS],
   async handler(ctx, input) {
-    if (actorKind(ctx) !== 'person')
+    if (!personDecides(ctx))
       throw HfosError.forbidden(
-        'Only a person confirms a home’s facts, from the listing’s facts page.',
+        'Only a person confirms a home’s facts: on the listing’s facts page, or on the Assistant’s card they confirm.',
       );
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);
@@ -562,9 +577,16 @@ export const listingPhotosArrange = defineAddonCommand(realestateAddon, {
     'Put a listing’s photos in order, with their captions, and say which the public page shows. Every photo is listed, in the order shown.',
   risk: 1,
   input: ListingPhotosArrangeInput,
-  output: ListingPhotosOutput,
+  output: ListingPhotosArrangeOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_listing_photos_arrange', autonomy: 'confirm' },
+  ai: {
+    tool: 'realestate_listing_photos_arrange',
+    description:
+      'Put a listing’s photos in order, change their captions, and say which the public page shows. Give every photo (realestate_get_listing lists them), in the order shown; the card says only what changes.',
+    autonomy: 'confirm',
+    // The card lists each photo that changes and how, never the whole list.
+    card: photosArrangeCard,
+  },
   scope: inWorkspace,
   // Order and cover save with no signal too; photos changed since are refused, to put in order again.
   offline: 'anytime',
@@ -574,9 +596,16 @@ export const listingPhotosArrange = defineAddonCommand(realestateAddon, {
     requireNotArchived(deal);
     requireListingSide(deal);
     const have = await ctx.tx
-      .select({ id: listingPhotos.id })
+      .select({
+        id: listingPhotos.id,
+        caption: listingPhotos.caption,
+        public: listingPhotos.public,
+        name: files.name,
+      })
       .from(listingPhotos)
-      .where(eq(listingPhotos.dealRecordId, deal.recordId));
+      .leftJoin(files, eq(files.id, listingPhotos.fileId))
+      .where(eq(listingPhotos.dealRecordId, deal.recordId))
+      .orderBy(asc(listingPhotos.position), asc(listingPhotos.createdAt), asc(listingPhotos.id));
     const ids = new Set(have.map((p) => p.id));
     if (
       input.photos.length !== ids.size ||
@@ -599,7 +628,12 @@ export const listingPhotosArrange = defineAddonCommand(realestateAddon, {
       payload: { arranged: input.photos.length },
       broadcast: false,
     });
-    return { dealId: deal.recordId, photos: input.photos.length };
+    return {
+      dealId: deal.recordId,
+      photos: input.photos.length,
+      dealName: deal.name,
+      changes: photoChanges(have, input.photos),
+    };
   },
 });
 

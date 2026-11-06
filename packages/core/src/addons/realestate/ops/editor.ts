@@ -464,7 +464,7 @@ async function targetOf(ctx: Ctx, templateSetId: string | undefined) {
       throw HfosError.rule(
         'realestate_no_version',
         409,
-        'The duty list hasn’t been published yet. Publish it in Settings → Real Estate → Duties first.',
+        'The duty list hasn’t been published yet. Publish it in Real Estate Agent → Deal settings → Duty list first.',
       );
     return last;
   }

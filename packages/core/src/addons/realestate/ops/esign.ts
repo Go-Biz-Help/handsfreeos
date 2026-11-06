@@ -93,7 +93,7 @@ const noEsign = () =>
   HfosError.rule(
     'realestate_no_esign',
     409,
-    'No e-signature service is connected. Someone who runs the deal settings can connect DocuSign or Dotloop under Real Estate → Settings → Connections.',
+    'No e-signature service is connected. Someone who runs the deal settings can connect DocuSign or Dotloop in Real Estate Agent → Deal settings → Connections.',
   );
 
 async function loadEnvelope(
@@ -244,7 +244,7 @@ export const esignPrepare = defineAddonCommand(realestateAddon, {
         throw HfosError.rule(
           'realestate_esign_not_connected',
           409,
-          `${ESIGN_PROVIDERS[input.provider]} isn’t connected here. Send it with ${ESIGN_PROVIDERS[service.provider]}, or ask someone who runs the deal settings to connect ${ESIGN_PROVIDERS[input.provider]} under Real Estate → Settings → Connections.`,
+          `${ESIGN_PROVIDERS[input.provider]} isn’t connected here. Send it with ${ESIGN_PROVIDERS[service.provider]}, or ask someone who runs the deal settings to connect ${ESIGN_PROVIDERS[input.provider]} in Real Estate Agent → Deal settings → Connections.`,
         );
       service = picked;
     } else if (new Set(services.map((s) => s.provider)).size > 1)

@@ -53,7 +53,7 @@ import {
 import { cmaComps, cmas, fairHousingChecks } from '../tables';
 import { textHashOf } from './client-updates';
 import {
-  actorKind,
+  personDecides,
   actorUserId,
   dealLine,
   historyLine,
@@ -844,9 +844,9 @@ export const cmaAcknowledgeFlags = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: ['realestate.cma.flags_acknowledged'],
   async handler(ctx, input) {
-    if (actorKind(ctx) !== 'person')
+    if (!personDecides(ctx))
       throw HfosError.forbidden(
-        'Only a person confirms fair-housing flags are fine, from the CMA’s page.',
+        'Only a person confirms fair-housing flags are fine: on the CMA’s page, or on the Assistant’s card they confirm.',
       );
     const { cma, deal } = await loadCma(ctx, input.cmaId, true);
     requireNotArchived(deal);

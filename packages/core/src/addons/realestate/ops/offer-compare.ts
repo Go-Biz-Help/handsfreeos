@@ -16,7 +16,7 @@ import { requireCustomer } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { realestateAddon } from '../manifest';
-import { netFiguresOf, netSheetOut, SELLER_CHOICES, type NetFigures } from '../net';
+import { atListPrice, netFiguresOf, netSheetOut, SELLER_CHOICES, type NetFigures } from '../net';
 import { compareRows, LIVE_OFFER_STATUSES } from '../offer-words';
 import {
   ListingInput,
@@ -42,7 +42,7 @@ import {
   type Ctx,
   type Deal,
 } from './common';
-import { listingAddress, requireListingSide } from './listing';
+import { listingAddress, listPriceOf, requireListingSide } from './listing';
 import { addProof, PROOF_EVENTS } from './proof-hooks';
 
 type Sheet = typeof netSheets.$inferSelect;
@@ -171,13 +171,15 @@ export const offersCompare = defineAddonQuery(realestateAddon, {
   ai: {
     tool: 'realestate_compare_offers',
     description:
-      'A listing’s offers side by side with the seller’s estimated net for each (an estimate).',
+      'A listing’s offers side by side with the seller’s estimated net for each (an estimate), the net sheet’s figures, and before any offer what they’d take home at the list price (atListPrice).',
+    keywords: ['net sheet', 'seller’s estimate', 'offers side by side', 'take home'],
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
     requireListingSide(deal);
     const sheets = await sheetsOf(ctx, deal.recordId);
     const figures = await figuresOut(ctx, sheets);
+    const rows = await compareRowsOf(ctx, deal, netFiguresOf(sheets[0]));
     const [shared] = await ctx.tx
       .select({ id: offerComparisons.id, at: offerComparisons.sharedAt })
       .from(offerComparisons)
@@ -194,7 +196,12 @@ export const offersCompare = defineAddonQuery(realestateAddon, {
       dealId: deal.recordId,
       figures: figures[0] ?? null,
       figureHistory: figures.slice(1),
-      rows: await compareRowsOf(ctx, deal, netFiguresOf(sheets[0])),
+      rows,
+      atListPrice: atListPrice(
+        rows.length ? null : await listPriceOf(ctx, deal.recordId),
+        netFiguresOf(sheets[0]),
+        rows.length,
+      ),
       shared: shared ? { comparisonId: shared.id, at: shared.at.toISOString() } : null,
       choices: said.map((c) => ({
         offerId: c.offerId,

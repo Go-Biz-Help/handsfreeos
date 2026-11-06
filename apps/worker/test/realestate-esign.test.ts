@@ -246,7 +246,7 @@ describe('sending a document for signing', () => {
       run('realestate.esign.prepare', { documentId: doc, signers: SIGNERS }),
     );
     expect(none).toMatchObject({ rule: 'realestate_no_esign' });
-    expect(none.message).toMatch(/Real Estate → Settings → Connections/);
+    expect(none.message).toMatch(/Real Estate Agent → Deal settings → Connections/);
     await connect('docusign');
     const twice = await refusal(
       run('realestate.esign.prepare', {

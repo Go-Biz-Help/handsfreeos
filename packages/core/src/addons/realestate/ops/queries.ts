@@ -14,6 +14,7 @@ import type { Permission } from '../../../permissions';
 import { defineAddonQuery } from '../../server';
 import type { ResolvedDuty } from '../catalog/types';
 import { checkDealDates } from '../dates/conflicts';
+import { historyAnswer } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import { gapWords, proofGaps, type EvidenceFact } from '../proof';
 import { proofRuleWords } from '../rule-words';
@@ -356,10 +357,17 @@ export const propertySearch = defineAddonQuery(realestateAddon, {
   },
 });
 
+/** The duties a deal's read is asked for, as its Duties card's Open, Done and All. */
+const dutiesAsked =
+  (which: 'open' | 'done' | 'all' | 'none') =>
+  (t: { status: string }): boolean =>
+    which === 'all' ||
+    (which !== 'none' && isDoneDuty(t.status as DutyStatus) === (which === 'done'));
+
 export const dealGet = defineAddonQuery(realestateAddon, {
   name: 'realestate.deal.get',
   description:
-    'One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties.',
+    'One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties (open, done, all or none).',
   input: DealGetInput,
   output: DealGetOutput,
   permission: 'realestate.use',
@@ -367,7 +375,7 @@ export const dealGet = defineAddonQuery(realestateAddon, {
   ai: {
     tool: 'realestate_get_deal',
     description:
-      'Read one deal whole: stage, people, property, key dates and any that disagree, date problems, commission, and every duty with its status, due time and missing proof.',
+      'Read one deal whole: stage, people, property, key dates and any that disagree, date problems, commission, and its duties with their status, due time, owner, what they wait on and missing proof. A deal can have 50 duties or more: ask for duties "open" (or "done", or "none") rather than all of them, and realestate_get_duty for one duty’s history.',
   },
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);
@@ -574,7 +582,7 @@ export const dealGet = defineAddonQuery(realestateAddon, {
         today: todayIn(timeZone),
       }).map((p) => ({ check: p.check, severity: p.severity, keys: [...p.keys], words: p.words })),
       commission: commissionView({ ...deal, finalCommissionAt: d.finalCommissionAt }, terms),
-      duties: dutyRows.map((t) => ({
+      duties: dutyRows.filter(dutiesAsked(input.duties)).map((t) => ({
         dutyId: t.id,
         key: t.dutyKey,
         pass: t.pass,
@@ -616,7 +624,8 @@ export const dealHistoryQuery = defineAddonQuery(realestateAddon, {
   input: DealHistoryInput,
   output: DealHistoryOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_deal_history' },
+  // Each line in the words the History page shows.
+  ai: { tool: 'realestate_deal_history', answer: historyAnswer },
   scope: inWorkspace,
   handler: async (ctx, input) => {
     const deal = await loadDeal(ctx, input.dealId);

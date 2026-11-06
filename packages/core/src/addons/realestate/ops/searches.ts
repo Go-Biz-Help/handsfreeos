@@ -11,6 +11,7 @@ import { HfosError } from '../../../errors';
 import { changeMoment } from '../../../kernel/moment';
 import { FRESH_MINUTES } from '../../../mobile';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { matchesAnswer } from '../ai-answers';
 import { feedAddressWords, mlsOut, type MlsSnapshot } from '../feed';
 import { addressKey, fitProfileOf, homeFit } from '../homes';
 import { realestateAddon } from '../manifest';
@@ -343,7 +344,10 @@ export const dealMatches = defineAddonQuery(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_matches',
-    description: 'The homes a buyer’s saved search found on the MLS, and how each fits.',
+    description:
+      'The homes a buyer’s saved search found on the MLS, new ones first, and how each fits. Each is long: read a few at a time (limit, then offset; counts says how many of each), or only the new ones (state new).',
+    // What the MLS says of each, without its photos' links (how many there are instead): the rest is whole.
+    answer: matchesAnswer,
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
@@ -388,6 +392,8 @@ export const dealMatches = defineAddonQuery(realestateAddon, {
       },
       matches: [...list]
         .sort((a, b) => order[a.state] - order[b.state])
+        // A page of them, for the Assistant; the screens read every one (counts says how many of each).
+        .slice(input.offset, input.limit === undefined ? undefined : input.offset + input.limit)
         .map((m) => {
           const s = m.mls as unknown as MlsSnapshot;
           const address = feedAddressWords(s.address);

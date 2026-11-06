@@ -11,7 +11,7 @@
  * Browser-safe and pure.
  */
 import type { z } from 'zod';
-import { netFiguresOf, netSheetOut, type NetSheetRow } from '../net';
+import { atListPrice, netFiguresOf, netSheetOut, type NetSheetRow } from '../net';
 import {
   agentFirstNameOf,
   compareRows,
@@ -26,6 +26,7 @@ import type { OffersCompareOutput, OffersOutput } from '../schemas';
 import { byTimeAsc, byTimeDesc, num, str, yesNo } from './columns';
 import { holdsWhole, isoOr } from './deal-facts';
 import { byText, iso, type RealestateCopy } from './synced';
+import { listPriceOfCopy } from './listing';
 
 export type OffersView = z.infer<typeof OffersOutput>;
 export type OffersCompareView = z.infer<typeof OffersCompareOutput>;
@@ -165,11 +166,13 @@ export function offersCompareOfCopy(
       .filter((l) => l.addonKey === 'realestate_client' && l.personId)
       .map((l) => l.personId!),
   );
+  const rows = compareRows(offers, versions, netFiguresOf(sheets[0]));
   return {
     dealId,
     figures: figures[0] ?? null,
     figureHistory: figures.slice(1),
-    rows: compareRows(offers, versions, netFiguresOf(sheets[0])),
+    rows,
+    atListPrice: atListPrice(listPriceOfCopy(copy, dealId), netFiguresOf(sheets[0]), rows.length),
     shared: shared ? { comparisonId: shared.id, at: isoOr(shared.data.shared_at) ?? iso(0) } : null,
     choices: [...copy.rows('offer_choices', dealId)]
       .sort((a, b) => byTimeDesc(a.data.at, b.data.at) || byText(b.id, a.id))

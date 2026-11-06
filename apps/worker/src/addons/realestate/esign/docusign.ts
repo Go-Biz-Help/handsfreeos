@@ -48,7 +48,7 @@ async function token(
   });
   if (res.status === 400 || res.status === 401)
     throw new ConnectionRefused(
-      'DocuSign didn’t accept that sign-in. Choose Connect under Real Estate → Settings → Connections and sign in again.',
+      'DocuSign didn’t accept that sign-in. Choose Connect in Real Estate Agent → Deal settings → Connections and sign in again.',
     );
   if (!res.ok)
     throw new EsignUnreachable(
@@ -126,7 +126,7 @@ export function docusignOAuth(fetchImpl: EsignFetch = fetch): AddonOAuthProvider
       const refreshToken = tokens['refreshToken'];
       if (!refreshToken)
         throw new ConnectionRefused(
-          'DocuSign needs signing in to again. Choose Connect under Real Estate → Settings → Connections.',
+          'DocuSign needs signing in to again. Choose Connect in Real Estate Agent → Deal settings → Connections.',
         );
       const t = await token(
         app,
