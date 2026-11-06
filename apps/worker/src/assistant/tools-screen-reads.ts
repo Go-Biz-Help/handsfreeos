@@ -8,6 +8,7 @@ import {
   executeQuery,
   registry,
   screenReadTools,
+  videoCallGet,
   type Permission,
   type ScreenReadTool,
 } from '@hfos/core/server';
@@ -26,21 +27,34 @@ export const allScreenReadTools = (): readonly ScreenReadTool[] =>
 export const screenReadToolsFor = (can: (permission: Permission) => boolean): ScreenReadTool[] =>
   allScreenReadTools().filter((t) => can(t.permission));
 
+/**
+ * A video call's answer, with the address the team joins it at: the screen's Join opens it. The customer's own link
+ * is kept only as a hash, so it never can be.
+ */
+function withJoin(data: unknown, webUrl: string): unknown {
+  const call = (data as { call?: { id?: unknown } | null } | null)?.call;
+  if (!webUrl || !call || typeof call.id !== 'string') return data;
+  return { ...(data as object), join: `${webUrl}/call/${call.id}` };
+}
+
 export async function runScreenRead(
   db: Db,
   tool: ScreenReadTool,
   args: Record<string, unknown>,
   ctx: ToolContext,
+  /** The web app's address, for the join address a video call's answer adds. */
+  webUrl = '',
 ): Promise<ToolOutcome> {
   const input = {
     ...addonToolArguments(tool, args),
     ...(tool.scope.includes('workspaceId') ? { workspaceId: ctx.workspaceId } : {}),
     ...(tool.scope.includes('organizationId') ? { organizationId: ctx.organizationId } : {}),
   };
-  const data = await executeQuery(db, tool.query, input, ctx.actor, {
+  const got = await executeQuery(db, tool.query, input, ctx.actor, {
     correlationId: ctx.correlationId,
     channel: 'assistant',
   });
+  const data = tool.query.name === videoCallGet.name ? withJoin(got, webUrl) : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

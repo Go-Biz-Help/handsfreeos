@@ -333,7 +333,10 @@ export function assistantCancelledText(card: ConfirmCard): string {
   switch (card.tool) {
     case 'send_text':
     case 'send_email':
+    case 'reply_in_conversation':
       return first ? `Not sent. Nothing went to ${first}.` : 'Not sent.';
+    case 'start_video_call':
+      return 'Not started. No link went to them.';
     case 'move_lead':
       return lostMove(card)
         ? `Not changed. It stays in ${card.stageFrom}.`
@@ -382,6 +385,8 @@ const OPEN_LABELS: Record<string, string> = {
   resume_workflow: 'Open workflow',
   answer_workflow_approval: 'See the run',
   add_knowledge_item: 'Open item',
+  // The call itself, as the Video call button opens it.
+  start_video_call: 'Join',
 };
 
 /** An Action Center card opens where its result landed: the conversation, the lead, or Home. */
@@ -394,7 +399,7 @@ export function assistantOpenLabel(tool: string, href: string): string {
     return attentionOpenLabel(href);
   return (
     OPEN_LABELS[tool] ??
-    (tool === 'send_text' || tool === 'send_email'
+    (tool === 'send_text' || tool === 'send_email' || tool === 'reply_in_conversation'
       ? 'Open conversation'
       : tool === 'create_customer' || tool === 'update_customer'
         ? 'Open customer'

@@ -25,6 +25,7 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { undoToolCall } from '@/assistant/stream';
 import type { CallState } from '@/assistant/chat';
+import { startCall } from '@/inbox/calls';
 import { errorMessage } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -440,7 +441,11 @@ function KnowledgeCard({ card }: { card: CardOf<'knowledge'> }) {
   );
 }
 
-function CallCard({ card }: { card: CardOf<'call'> }) {
+/**
+ * A customer to call, with Call: the call goes through the person's own cell, as Call on a conversation does (the call
+ * sheet rings them first, then the customer).
+ */
+function CallCard({ card, workspaceId }: { card: CardOf<'call'>; workspaceId: string }) {
   return (
     <CardShell testID="assistant-card-call">
       <CardHead>
@@ -453,6 +458,15 @@ function CallCard({ card }: { card: CardOf<'call'> }) {
             {card.phone}
           </Text>
         </View>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={Phone}
+          onPress={() => startCall({ personId: card.personId }, { workspaceId })}
+          testID="assistant-call"
+        >
+          Call
+        </Button>
       </CardHead>
     </CardShell>
   );
@@ -569,7 +583,7 @@ export function AnswerCard({
     case 'knowledge':
       return <KnowledgeCard card={card} />;
     case 'call':
-      return <CallCard card={card} />;
+      return <CallCard card={card} workspaceId={workspaceId} />;
     case 'done':
       return (
         <DoneCard

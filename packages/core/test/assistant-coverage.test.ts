@@ -43,13 +43,31 @@ function filesIn(dir: string): string[] {
   });
 }
 
-/** Each command the web and the phone run, with the files that run it. */
+/**
+ * The worker's routes a screen runs a command through as the person, by the command each one runs: the ones that add
+ * what only the worker has, such as the business's own address for a customer's link.
+ */
+const WORKER_ROUTES: Readonly<Record<string, string>> = {
+  '/v1/video-calls/start': 'video_call.start',
+};
+
+/**
+ * Each command the web and the phone run, with the files that run it: by its address, by the phone's own
+ * `change('…')` (which sends it once there's signal), or through one of the worker's routes above.
+ */
 const screenCommands = (() => {
   const found = new Map<string, string[]>();
+  const add = (name: string, file: string) =>
+    found.set(name, [...(found.get(name) ?? []), relative(ROOT, file)]);
   for (const dir of ['apps/web/src', 'apps/mobile/src'])
-    for (const file of filesIn(join(ROOT, dir)))
-      for (const m of readFileSync(file, 'utf8').matchAll(/\/v1\/commands\/([a-z_]+\.[a-z_.]+)/g))
-        found.set(m[1]!, [...(found.get(m[1]!) ?? []), relative(ROOT, file)]);
+    for (const file of filesIn(join(ROOT, dir))) {
+      const source = readFileSync(file, 'utf8');
+      for (const m of source.matchAll(/\/v1\/commands\/([a-z_]+\.[a-z_.]+)/g)) add(m[1]!, file);
+      for (const m of source.matchAll(/\bchange(?:<[^>]*>)?\(\s*'([a-z_]+\.[a-z_.]+)'/g))
+        add(m[1]!, file);
+      for (const [route, name] of Object.entries(WORKER_ROUTES))
+        if (source.includes(`'${route}'`)) add(name, file);
+    }
   return found;
 })();
 

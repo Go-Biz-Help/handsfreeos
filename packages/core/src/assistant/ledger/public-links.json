@@ -112,7 +112,7 @@
       "where": "A customer's page: Video call. A conversation: Video call. The phone call's bar: Switch to video.",
       "gap": "video_call.start (commands/video-call.ts:1211, risk 2) sends the customer their own call link as the person, and starts the call. The screens call it through the worker route /v1/video-calls/start (video-calls/routes.ts:164; start-call.tsx:50-60), which fills in origin, so the coverage test (which scans only /v1/commands/) never sees it. It is in neither SCREEN_ACTIONS nor NEVER_FOR_THE_ASSISTANT: only call.start, the browser phone call, is excluded (coverage.ts:383). So the Assistant can't start a video call with a customer, or give the person the /call/<id> link to join.",
       "fix": "Add a confirm tool start_video_call({personId|conversationId, channel?}) that runs the route's logic with origin = publicOrigin and returns the team's full /call/<callId> link on the app origin for the person to open. Or list video_call.start in NEVER_FOR_THE_ASSISTANT with a reason, if joining on the person's own camera is meant to stay theirs. Extend assistant-coverage.test.ts to scan workerPost routes.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {

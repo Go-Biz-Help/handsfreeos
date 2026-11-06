@@ -47,6 +47,7 @@ import * as React from 'react';
 import { FlatList, Platform, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { askHref } from '@/assistant/page-record';
 import {
   AskSheet,
   QuietHoursSheet,
@@ -877,7 +878,12 @@ function Thread() {
           ) : null}
           <HeaderButton
             label="Ask HandsFreeOS"
-            onPress={() => router.push(businessHref(business.id, 'ask'))}
+            // The conversation goes with the question, so "text her back" means this one, as the web's mark does.
+            onPress={() =>
+              router.push(
+                askHref(business.id, { type: 'conversation', id: conversationId }) as Href,
+              )
+            }
             testID="ask-handsfreeos"
           >
             <BrandMark size={24} />

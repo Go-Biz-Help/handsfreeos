@@ -227,6 +227,7 @@ function pageLines(page: NonNullable<PromptContext['page']>): string[] {
         ? `Their next appointment: ${page.next.label} (appointment id ${page.next.id}).`
         : 'They have no upcoming appointments.',
     );
+  if (page.related) lines.push(page.related);
   return lines;
 }
 

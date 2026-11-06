@@ -73,9 +73,9 @@ export const CORE_CAPABILITIES: readonly CoreCapability[] = [
   },
   {
     id: 'inbox.messaging',
-    label: 'Texting, email and website chat',
+    label: 'Texting, email, website chat, Messenger and Instagram',
     description:
-      'One shared inbox for texts, email and website chat, on the business’s own number.',
+      'One shared inbox for texts, email, website chat, a client’s portal messages, and Messenger and Instagram direct messages, on the business’s own number.',
     permission: 'inbox.use',
   },
   {
@@ -83,6 +83,13 @@ export const CORE_CAPABILITIES: readonly CoreCapability[] = [
     label: 'Calls',
     description: 'Calls to and from the business number, recorded on the customer’s timeline.',
     permission: 'inbox.use',
+  },
+  {
+    id: 'inbox.video_calls',
+    label: 'Video calls',
+    description:
+      'Start a HandsFreeOS video call with a customer from their conversation (⋯, then Video call); their own link goes to them by text or email.',
+    permission: 'appointments.write',
   },
   {
     id: 'calendar.appointments',

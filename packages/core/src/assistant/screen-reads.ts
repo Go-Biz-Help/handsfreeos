@@ -156,6 +156,12 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'teammate_view.lens': 'what the screens show while someone looks as a teammate',
 };
 
+/** What a look-up's answer adds to what the screen shows, said after its description. */
+const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
+  'video_call.get':
+    'Its answer adds join, the address the team joins the call at. The customer’s own link went to them by text or email and is never shown. A call that isn’t for an appointment is found by its callId: start_video_call’s answer has it, and once it has been held it is on the customer’s timeline (read_timeline_list, a call’s meta.videoCallId).',
+};
+
 /** One of a screen's queries, offered to the Assistant as a look-up. */
 export interface ScreenReadTool extends AssistantTool<z.ZodObject> {
   readonly query: QueryDef;
@@ -183,7 +189,7 @@ export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTo
     return [
       {
         name: screenReadName(name),
-        description: `${query.description} What the person sees on the screen it’s on.`,
+        description: `${query.description} What the person sees on the screen it’s on.${SCREEN_READ_MORE[name] ? ` ${SCREEN_READ_MORE[name]}` : ''}`,
         input: view.input,
         autonomy: 'auto' as const,
         permission: (query.permission ?? 'assistant.use') as Permission,
