@@ -214,6 +214,10 @@ function pageLines(page: NonNullable<PromptContext['page']>): string[] {
     return [
       `On screen now: ${page.label} (appointment id ${page.id}). "It" or "this" usually means this appointment, and "him", "her" or "them" its customer.`,
     ];
+  if (page.type === 'custom_record')
+    return [
+      `On screen now: ${page.label}, one of the business’s own records (customRecordId ${page.id}). "It" or "this" usually means this record; get_record_details with recordType record reads it, and who it belongs to.`,
+    ];
   const lines = [
     `On screen now: ${page.label} (${page.type} id ${page.id}). "Him", "her", "them" or "this" usually means this ${page.type}.`,
   ];

@@ -292,17 +292,18 @@ const nothingChanges = (why: string) => HfosError.validation([], `Nothing would 
 
 type ReadTool = (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>;
 
-/** The range list_appointments reads: the model's dates, today, or a customer's month either side. */
+/** The range list_appointments reads: the model's dates, today, or a customer's or record's month either side. */
 function rangeOf(args: Args, tz: string): { from: number; to: number } {
   const today = localDateOf(Date.now(), tz);
+  const one = Boolean(args['personId'] || args['customRecordId']);
   const start = (v: string) => (isLocalDate(v) ? startOfLocalDay(v, tz) : Date.parse(v));
   const end = (v: string) => (isLocalDate(v) ? startOfLocalDay(addDays(v, 1), tz) : Date.parse(v));
   const from = str(args['from']);
   const to = str(args['to']);
   let range: { from: number; to: number };
   if (from) range = { from: start(from), to: to ? end(to) : start(from) + DAY };
-  else if (to) range = { from: end(to) - (args['personId'] ? 30 : 1) * DAY, to: end(to) };
-  else if (args['personId'])
+  else if (to) range = { from: end(to) - (one ? 30 : 1) * DAY, to: end(to) };
+  else if (one)
     range = {
       from: startOfLocalDay(addDays(today, -30), tz),
       to: startOfLocalDay(addDays(today, 31), tz),
@@ -335,6 +336,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
         from: iso(from),
         to: iso(to),
         personId: str(args['personId']),
+        customRecordId: str(args['customRecordId']),
         calendarIds: str(args['calendarId']) ? [args['calendarId']] : undefined,
         userIds: str(args['userId']) ? [args['userId']] : undefined,
         status: args['status'],
@@ -343,6 +345,14 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
     const list = [...items].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
     const who = str(args['personId'])
       ? await personOf(db, ctx, args['personId']).catch(() => null)
+      : null;
+    // A pet's, vehicle's or property's own, as its Appointments tab lists them.
+    const record = str(args['customRecordId'])
+      ? await query<{ record: { name: string } }>(db, ctx, 'custom_record.get', {
+          customRecordId: args['customRecordId'],
+        })
+          .then((r) => r.record)
+          .catch(() => null)
       : null;
     const span = `${dayLabel(from, tz)}${to - from > DAY ? ` to ${dayLabel(to - 1, tz)}` : ''}`;
     const shown = list.slice(0, 25);
@@ -364,6 +374,7 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           status: statusWords(a),
           ...(isGroup(a) ? { seats: `${a.seatsTaken} of ${a.capacity} taken` } : {}),
           ...(a.seriesId ? { repeatVisit: a.occurrence } : {}),
+          ...(a.customRecord ? { forRecord: a.customRecord.name } : {}),
         })),
         ...(list.length > shown.length ? { more: list.length - shown.length } : {}),
         ...(list.length ? {} : { note: 'No appointments in that range.' }),
@@ -371,7 +382,11 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
       card: list.length
         ? {
             type: 'list',
-            title: who ? `${firstName(who.fullName)}’s appointments` : 'Appointments',
+            title: record
+              ? `${record.name}’s appointments`
+              : who
+                ? `${firstName(who.fullName)}’s appointments`
+                : 'Appointments',
             aside: `${span} · ${zoneLabel(tz, from)}`,
             items: list.slice(0, 12).map((a) => {
               const start = Date.parse(a.startsAt);

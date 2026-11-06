@@ -1344,8 +1344,8 @@
       "path": "Lead (page) → Files → ⋯ Remove",
       "kind": "do",
       "file": "apps/web/src/components/files/file-grid.tsx:177",
-      "covered": "yes",
-      "by": "delete_file recordType lead"
+      "covered": "never",
+      "by": "Never: Remove deletes the file for good, past the Deleted bin (file.delete in NEVER_FOR_THE_ASSISTANT); the person presses it"
     },
     {
       "path": "Lead (page) → Files → empty state",

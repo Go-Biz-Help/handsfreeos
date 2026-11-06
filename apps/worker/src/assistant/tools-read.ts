@@ -1,9 +1,16 @@
 import {
+  addressLine,
+  contactLabelWords,
+  customerSince,
+  customValueText,
   executeCommand,
   plainSpaces,
   registry,
   rehearseCommand,
+  teammateConfigOf,
   type AssistantCard,
+  type CustomFieldShape,
+  type LeadQualification,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { personQuery } from './context';
@@ -118,20 +125,34 @@ export async function rehearse(
 }
 
 type Ref = { id: string; fullName: string } | null;
+interface AddressParts {
+  line1: string | null;
+  line2: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+}
 interface PersonItem {
   id: string;
   fullName: string;
   phone: string | null;
   email: string | null;
-  address: { line1?: string | null; city?: string | null } | null;
+  address: AddressParts | null;
   company: { id: string; name: string } | null;
   openLeads: number;
   notes?: string | null;
   tags?: { id: string; name: string }[];
   otherEmails?: { email: string; label: string | null }[];
   otherPhones?: { phone: string; label: string | null }[];
+  otherAddresses?: (AddressParts & { label: string | null })[];
   source?: string | null;
   custom?: Record<string, unknown>;
+  owner?: Ref;
+  team?: { id: string; fullName: string }[];
+  callConsent?: { consent: 'unknown' | 'opted_in' | 'opted_out'; source: string | null };
+  mergedInto?: { id: string; fullName: string } | null;
+  archivedAt?: string | null;
+  createdAt?: string;
 }
 interface LeadItem {
   id: string;
@@ -143,19 +164,34 @@ interface LeadItem {
   person: { id: string; fullName: string } | null;
   company: { id: string; name: string } | null;
   valueCents: number;
+  source: string | null;
   assignee: Ref;
+  expectedCloseOn: string | null;
   nextAction: string | null;
   nextActionAt: string | null;
   needsNextAction: boolean;
+  nextActionOverdue: boolean;
+  lastContactAt: string | null;
+  wonAt: string | null;
+  lostAt: string | null;
+  lostReason: string | null;
+  tags: { id: string; name: string }[];
+  stageEnteredAt: string;
+  archivedAt: string | null;
   createdAt: string;
 }
 interface TaskItem {
   id: string;
   title: string;
+  notes: string | null;
   dueAt: string | null;
   dueBucket: 'overdue' | 'today' | 'week' | 'later' | 'none';
   assignee: Ref;
   person: { id: string; fullName: string } | null;
+  company: { id: string; name: string } | null;
+  lead: { id: string; title: string } | null;
+  customRecord: { id: string; name: string; kind: string } | null;
+  doneAt: string | null;
 }
 interface ConversationItem {
   id: string;
@@ -207,19 +243,109 @@ async function customerCard(db: Db, ctx: ToolContext, p: PersonItem): Promise<As
   };
 }
 
-const leadResult = (l: LeadItem) => ({
+/** What Calls from us says, on the customer's Details tab and on record_consent's card. */
+export const CALL_WORDS: Record<string, string> = {
+  unknown: 'Not asked',
+  opted_in: 'Agreed in writing',
+  opted_out: 'Doesn’t want calls',
+};
+
+/** Whole days since a time, as the lead card's "N days in stage" counts them. */
+const daysSince = (iso: string) =>
+  Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
+
+/** A lead as its card and page show it: stage, value, owner, next action and when, and how it ended. */
+const leadResult = (l: LeadItem, timezone: string) => ({
   id: l.id,
   title: l.title,
   customer: customerOf(l),
   personId: l.person?.id ?? null,
+  company: l.company ? { id: l.company.id, name: l.company.name } : null,
   stage: l.stageName,
   status: l.status,
   value: money(l.valueCents),
   assignee: l.assignee?.fullName ?? null,
   nextAction: l.nextAction,
+  nextActionAt: l.nextActionAt ? when(l.nextActionAt, timezone) : null,
+  ...(l.nextActionOverdue ? { nextActionOverdue: true } : {}),
   needsNextAction: l.needsNextAction,
+  lastContact: l.lastContactAt ? when(l.lastContactAt, timezone) : null,
+  expectedClose: l.expectedCloseOn,
+  source: l.source,
+  tags: l.tags.map((t) => t.name),
+  daysInStage: l.status === 'open' ? daysSince(l.stageEnteredAt) : null,
+  ...(l.wonAt ? { won: when(l.wonAt, timezone) } : {}),
+  ...(l.lostAt ? { lost: when(l.lostAt, timezone), lostReason: l.lostReason } : {}),
+  ...(l.archivedAt ? { archived: true } : {}),
   createdAt: l.createdAt,
 });
+
+const QUALIFICATION_WORDS = {
+  qualified: 'Qualified',
+  not_a_fit: 'Not a fit',
+  incomplete: 'Incomplete: still missing answers',
+} as const;
+
+/**
+ * A lead's qualifying answers as its Qualification card shows them: where it stands, each answer under the question
+ * as it was asked (and who answered), the questions still to ask and the answers that ruled it out. A question still
+ * missing is named from the AI teammate's questions now, as the card names it.
+ */
+async function qualificationOf(db: Db, ctx: ToolContext, q: LeadQualification) {
+  const unnamed = [...q.missing, ...q.notAFit].filter((id) => !q.answers[id]);
+  const asked = unnamed.length
+    ? await query<{ teammate: { name: string; config: unknown } | null }>(
+        db,
+        ctx,
+        'ai_teammate.get',
+      )
+        .then((r) => (r.teammate ? teammateConfigOf(r.teammate).qualify.questions : []))
+        .catch(() => [])
+    : [];
+  const questionOf = (id: string) =>
+    q.answers[id]?.question ?? asked.find((x) => x.id === id)?.question ?? null;
+  return {
+    status: QUALIFICATION_WORDS[q.status],
+    answers: Object.values(q.answers)
+      .sort((a, b) => Date.parse(a.answeredAt) - Date.parse(b.answeredAt))
+      .map((a) => ({
+        question: a.question,
+        answer: quoted(a.answer),
+        by: a.by === 'ai' ? 'the AI teammate' : 'a person',
+        at: when(a.answeredAt, ctx.timezone),
+        ...(a.files.length ? { files: a.files.map((f) => f.name) } : {}),
+      })),
+    // How many are still to ask, as the card says when it can't name them all.
+    questionsStillToAsk: q.missing.length,
+    stillToAsk: q.missing.map(questionOf).filter((t): t is string => !!t),
+    ruledOutBy: q.notAFit.map(questionOf).filter((t): t is string => !!t),
+  };
+}
+
+/** The business's own fields of one kind, every one of them (empty ones too), as the Details tab lists them. */
+export async function ownFields(
+  db: Db,
+  ctx: ToolContext,
+  entity: 'person' | 'company',
+  values: Record<string, unknown>,
+) {
+  const { fields } = await query<{ fields: CustomFieldShape[] }>(db, ctx, 'custom_field.list', {
+    entity,
+  }).catch(() => ({ fields: [] as CustomFieldShape[] }));
+  return fields.map((f) => ({
+    id: f.id,
+    name: f.label,
+    type: f.type,
+    ...(f.options.length
+      ? { choices: f.options.map((o) => ({ value: o.value, label: o.label })) }
+      : {}),
+    value: customValueText(f, values[f.id]),
+  }));
+}
+
+/** Other addresses as the Details tab lists them: the line, and its label. */
+export const otherAddressLines = (list: (AddressParts & { label: string | null })[] = []) =>
+  list.map((a) => ({ address: addressLine(a), label: contactLabelWords(a.label, 'address') }));
 
 export type ReadTool = (
   db: Db,
@@ -298,17 +424,10 @@ export const readTools: Record<string, ReadTool> = {
       upcomingFor(db, ctx, personId),
     ]);
     const next = upcoming.items[0];
-    // The business's own fields, by id and name, so update_customer can change them (0107).
-    const custom = person.custom ?? {};
-    const fields = Object.keys(custom).length
-      ? (
-          await query<{ fields: { id: string; label: string }[] }>(db, ctx, 'custom_field.list', {
-            entity: 'person',
-          }).catch(() => ({ fields: [] as { id: string; label: string }[] }))
-        ).fields
-          .filter((f) => custom[f.id] !== undefined)
-          .map((f) => ({ id: f.id, name: f.label, value: custom[f.id] }))
-      : [];
+    // Every one of the business's own fields, empty ones too, by id with its choices, so update_customer can fill
+    // in a gate code nobody has written yet (0107).
+    const fields = await ownFields(db, ctx, 'person', person.custom ?? {});
+    const consent = person.callConsent;
     return {
       result: {
         person: {
@@ -319,13 +438,34 @@ export const readTools: Record<string, ReadTool> = {
           address: person.address,
           otherPhones: person.otherPhones ?? [],
           otherEmails: person.otherEmails ?? [],
-          company: person.company?.name ?? null,
+          otherAddresses: otherAddressLines(person.otherAddresses),
+          company: person.company ? { id: person.company.id, name: person.company.name } : null,
           source: person.source ?? null,
+          ...(person.createdAt
+            ? { added: person.createdAt.slice(0, 10), badge: customerSince(person.createdAt) }
+            : {}),
+          ...(person.archivedAt ? { archived: true } : {}),
+          ...(person.mergedInto
+            ? {
+                mergedInto: { id: person.mergedInto.id, name: person.mergedInto.fullName },
+                note: `This record was merged into ${person.mergedInto.fullName}’s, which is the one to use.`,
+              }
+            : {}),
+          lookedAfterBy: {
+            main: person.owner ? { userId: person.owner.id, name: person.owner.fullName } : null,
+            alsoOnIt: (person.team ?? []).map((t) => ({ userId: t.id, name: t.fullName })),
+          },
+          ...(consent
+            ? {
+                callsFromUs: CALL_WORDS[consent.consent] ?? CALL_WORDS['unknown'],
+                ...(consent.source ? { callsAgreedWhere: consent.source } : {}),
+              }
+            : {}),
           tags: (person.tags ?? []).map((t) => ({ id: t.id, name: t.name })),
           fields,
           notes: person.notes ?? null,
         },
-        openLeads: leads.items.map(leadResult),
+        openLeads: leads.items.map((l) => leadResult(l, ctx.timezone)),
         openTasks: tasks.items.map((t) => ({
           id: t.id,
           title: t.title,
@@ -352,12 +492,13 @@ export const readTools: Record<string, ReadTool> = {
       createdAfter: args['createdAfter'],
       assigneeUserId: args['assigneeUserId'],
       personId: args['personId'],
+      companyId: args['companyId'],
       withoutNextAction: args['withoutNextAction'],
       limit: args['limit'] ?? 10,
     });
     const p = paths(ctx.workspaceId);
     return {
-      result: { count: items.length, leads: items.map(leadResult) },
+      result: { count: items.length, leads: items.map((l) => leadResult(l, ctx.timezone)) },
       card: items.length
         ? {
             type: 'list',
@@ -375,12 +516,15 @@ export const readTools: Record<string, ReadTool> = {
 
   async get_lead(db, ctx, args) {
     const { lead, stages } = await query<{
-      lead: LeadItem;
+      lead: LeadItem & { qualification: LeadQualification | null };
       stages: { id: string; name: string; kind: string }[];
     }>(db, ctx, 'lead.get', { leadId: args['leadId'] });
     return {
       result: {
-        lead: leadResult(lead),
+        lead: leadResult(lead, ctx.timezone),
+        ...(lead.qualification
+          ? { qualification: await qualificationOf(db, ctx, lead.qualification) }
+          : {}),
         stages: stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
       },
       card: {
@@ -438,10 +582,19 @@ export const readTools: Record<string, ReadTool> = {
   // what_needs_attention reads the Action Center: tools-attention.ts.
 
   async list_tasks(db, ctx, args) {
+    const on = {
+      personId: args['personId'],
+      companyId: args['companyId'],
+      leadId: args['leadId'],
+      customRecordId: args['customRecordId'],
+    };
+    const status = args['status'] ?? 'open';
     const { items } = await query<{ items: TaskItem[] }>(db, ctx, 'task.list', {
-      scope: args['scope'] ?? 'mine',
-      status: 'open',
+      // A record's Tasks tab lists everyone's tasks on it.
+      scope: Object.values(on).some(Boolean) ? 'all' : (args['scope'] ?? 'mine'),
+      status,
       assigneeUserId: args['assigneeUserId'],
+      ...on,
       limit: 60,
     });
     const due = args['due'] ?? 'any';
@@ -461,12 +614,25 @@ export const readTools: Record<string, ReadTool> = {
           dueBucket: t.dueBucket,
           assignee: t.assignee?.fullName ?? null,
           customer: t.person?.fullName ?? null,
+          ...(t.company ? { company: t.company.name } : {}),
+          ...(t.lead ? { lead: { id: t.lead.id, title: t.lead.title } } : {}),
+          ...(t.customRecord
+            ? {
+                record: {
+                  id: t.customRecord.id,
+                  name: t.customRecord.name,
+                  kind: t.customRecord.kind,
+                },
+              }
+            : {}),
+          ...(t.notes ? { notes: t.notes } : {}),
+          ...(t.doneAt ? { done: when(t.doneAt, ctx.timezone) } : {}),
         })),
       },
       card: picked.length
         ? {
             type: 'list',
-            title: picked.length === 1 ? '1 task' : `${picked.length} tasks`,
+            title: `${picked.length === 1 ? '1 task' : `${picked.length} tasks`}${status === 'done' ? ' done' : ''}`,
             items: picked.slice(0, 12).map((t) => ({
               title: t.title,
               detail: `${when(t.dueAt, ctx.timezone)} · ${t.assignee?.fullName ?? 'Nobody'}`,

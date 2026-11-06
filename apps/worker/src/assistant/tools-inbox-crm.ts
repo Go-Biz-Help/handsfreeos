@@ -27,7 +27,18 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { PreparedAction, ToolContext, ToolOutcome } from './runtime';
-import { command, paths, query, quoted, when as at } from './tools-read';
+import { otherContactsEdit, type OtherListChange } from './tools-contacts';
+import {
+  CALL_WORDS,
+  command,
+  money,
+  otherAddressLines,
+  ownFields,
+  paths,
+  query,
+  quoted,
+  when as at,
+} from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -744,13 +755,35 @@ interface CompanyGet {
     phoneE164: string | null;
     website: string | null;
     address: Record<string, string | null>;
+    otherEmails: { email: string; label: string | null }[];
+    otherPhones: { phone: string; phoneE164: string; label: string | null }[];
+    otherAddresses: {
+      label: string | null;
+      line1: string | null;
+      line2: string | null;
+      city: string | null;
+      state: string | null;
+      postalCode: string | null;
+      country: string;
+    }[];
     notes: string | null;
     source: string | null;
+    tags: { id: string; name: string }[];
+    custom: Record<string, unknown>;
     archivedAt: string | null;
+    createdAt: string;
+    peopleCount: number;
     openLeads: number;
     owner: Ref;
     team: { id: string; fullName: string }[];
   };
+  people: {
+    id: string;
+    fullName: string;
+    email: string | null;
+    phone: string | null;
+    archived: boolean;
+  }[];
 }
 interface LeadGet {
   lead: {
@@ -766,6 +799,7 @@ interface RecordType {
   singular: string;
   plural: string;
   archived: boolean;
+  recordCount?: number;
 }
 interface RecordGet {
   record: {
@@ -775,6 +809,10 @@ interface RecordGet {
     custom: Record<string, unknown>;
     type: RecordType;
     archivedAt: string | null;
+    createdAt: string;
+    keptToTeam: boolean;
+    owner: Ref;
+    team: { id: string; fullName: string }[];
   };
 }
 
@@ -1263,6 +1301,14 @@ function companyInput(args: Args): Args {
   });
 }
 
+/** The lists that change, as company.create and company.update take them: each whole. */
+const othersInput = (changes: OtherListChange[]): Args =>
+  Object.fromEntries(changes.map((c) => [c.key, c.next]));
+
+/** The business's own company fields (Settings → Fields), to check values against as the command will. */
+const companyFields = async (db: Db, ctx: ToolContext) =>
+  (await query<{ fields: FieldOut[] }>(db, ctx, 'custom_field.list', { entity: 'company' })).fields;
+
 const manageCompany: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const act = action(args);
@@ -1277,7 +1323,14 @@ const manageCompany: SettingsConfirmTool = {
           'A new company needs a name. Give it in name.',
           'Give the company a name.',
         );
-      checkInput(ctx, 'company.create', input);
+      const others = otherContactsEdit(
+        {},
+        args,
+        ['phones', 'emails', 'addresses'],
+        'get_record_details',
+      );
+      checkInput(ctx, 'company.create', { ...input, ...othersInput(others) });
+      const fieldLines = valueLines(await companyFields(db, ctx), (args['values'] ?? {}) as Args);
       const { matches } = await query<{ matches: { name: string; matchedOn: string }[] }>(
         db,
         ctx,
@@ -1302,8 +1355,10 @@ const manageCompany: SettingsConfirmTool = {
           { label: 'Email', value: str(args['email']) ?? '' },
           { label: 'Website', value: str(args['website']) ?? '' },
           { label: 'Address', value: where },
+          ...others.map((o) => ({ label: o.label, value: o.after.join(', ') })),
           { label: 'Source', value: str(args['source']) ?? '' },
           { label: 'Notes', value: clip(str(args['notes'])) },
+          ...fieldLines,
         ],
         matches.length ? 'Add anyway' : 'Add company',
         matches.slice(0, 3).map((m) => ({
@@ -1315,8 +1370,14 @@ const manageCompany: SettingsConfirmTool = {
     }
     const companyId = idOf(args['companyId']);
     if (!companyId) throw missing('companyId', 'Say which company (search_customers).');
-    checkInput(ctx, 'company.update', { companyId, ...input });
     const { company } = await query<CompanyGet>(db, ctx, 'company.get', { companyId });
+    const others = otherContactsEdit(
+      company,
+      args,
+      ['phones', 'emails', 'addresses'],
+      'get_record_details',
+    );
+    checkInput(ctx, 'company.update', { companyId, ...input, ...othersInput(others) });
     const changes: Field[] = [];
     const change = (label: string, next: unknown, was: string | null, same: boolean) => {
       if (next === undefined || same) return;
@@ -1350,6 +1411,11 @@ const manageCompany: SettingsConfirmTool = {
         company.address[k] ?? null,
         (address[k] ?? null) === (company.address[k] ?? null),
       );
+    for (const o of others)
+      changes.push({
+        label: o.label,
+        value: `${o.after.join(', ') || 'none'} (was ${o.before.join(', ') || 'none'})`,
+      });
     change('Source', input['source'], company.source, (input['source'] ?? null) === company.source);
     change(
       'Notes',
@@ -1358,6 +1424,9 @@ const manageCompany: SettingsConfirmTool = {
         : clip(String(input['notes'])),
       null,
       (input['notes'] ?? null) === company.notes,
+    );
+    changes.push(
+      ...valueLines(await companyFields(db, ctx), (args['values'] ?? {}) as Args, company.custom),
     );
     if (!changes.length)
       throw nothing(`Nothing would change. ${company.name} already has those details.`);
@@ -1374,11 +1443,29 @@ const manageCompany: SettingsConfirmTool = {
 
   async commit(db, ctx, args) {
     const input = companyInput(args);
+    const values = (args['values'] ?? {}) as Args;
+    // The company's own fields, as Fields → Edit saves them.
+    const setFields = async (companyId: string) => {
+      if (Object.keys(values).length)
+        await command(db, ctx, 'record.set_fields', {
+          recordType: 'company',
+          recordId: companyId,
+          values,
+        });
+    };
     if (action(args) === 'create') {
+      const others = otherContactsEdit(
+        {},
+        args,
+        ['phones', 'emails', 'addresses'],
+        'get_record_details',
+      );
       const { companyId } = await command<{ companyId: string }>(db, ctx, 'company.create', {
         ...input,
+        ...othersInput(others),
         ignoreDuplicates: true,
       });
+      await setFields(companyId);
       return {
         outcome: `Added ${String(input['name'])} to Contacts`,
         href: paths(ctx.workspaceId).company(companyId),
@@ -1386,7 +1473,14 @@ const manageCompany: SettingsConfirmTool = {
       };
     }
     const companyId = String(args['companyId']);
-    await command(db, ctx, 'company.update', { companyId, ...input });
+    // The lists are worked out again from the company as it is now, so a number someone added since stays.
+    const { company } = await query<CompanyGet>(db, ctx, 'company.get', { companyId });
+    const others = othersInput(
+      otherContactsEdit(company, args, ['phones', 'emails', 'addresses'], 'get_record_details'),
+    );
+    if (Object.keys(input).length || Object.keys(others).length)
+      await command(db, ctx, 'company.update', { companyId, ...input, ...others });
+    await setFields(companyId);
     return {
       outcome: 'Saved',
       href: paths(ctx.workspaceId).company(companyId),
@@ -1521,11 +1615,6 @@ const assignCustomer: SettingsConfirmTool = {
 
 // ---------- what a customer said about being contacted ----------
 
-const CALL_WORDS: Record<string, string> = {
-  unknown: 'Not asked',
-  opted_in: 'Agreed in writing',
-  opted_out: 'Doesn’t want calls',
-};
 /**
  * Why the Assistant never records a yes to texts. The screens don't either: a yes comes from the customer, by START or
  * a box they tick, which is also what puts them in texting campaigns, and it's the proof the carriers ask for.
@@ -1747,25 +1836,33 @@ const pageOf = (ws: string, kind: EndKind | 'lead', id: string) => {
 
 async function findRecords(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const typeId = idOf(args['typeId']);
-  const [{ types: kinds }, { types: relTypes }, { fields }, { items }] = await Promise.all([
-    query<{ types: RecordType[] }>(db, ctx, 'custom_record_type.list'),
-    query<{ types: RelType[] }>(db, ctx, 'relationship_type.list'),
-    query<{ fields: FieldOut[] }>(db, ctx, 'custom_field.list', { entity: 'custom_record' }),
-    query<{
-      items: {
-        id: string;
-        typeId: string;
-        name: string;
-        detail: string | null;
-        related: { id: string; name: string; label: string; kind: EndKind }[];
-      }[];
-    }>(
-      db,
-      ctx,
-      'custom_record.list',
-      defined({ q: str(args['query']), typeId, limit: Number(args['limit'] ?? 20) || 20 }),
-    ),
-  ]);
+  const [{ types: kinds }, { types: relTypes }, { fields }, { items, nextCursor }] =
+    await Promise.all([
+      query<{ types: RecordType[] }>(db, ctx, 'custom_record_type.list'),
+      query<{ types: RelType[] }>(db, ctx, 'relationship_type.list'),
+      query<{ fields: FieldOut[] }>(db, ctx, 'custom_field.list', { entity: 'custom_record' }),
+      query<{
+        items: {
+          id: string;
+          typeId: string;
+          name: string;
+          detail: string | null;
+          related: { id: string; name: string; label: string; kind: EndKind }[];
+          updatedAt: string;
+        }[];
+        nextCursor: string | null;
+      }>(
+        db,
+        ctx,
+        'custom_record.list',
+        defined({
+          q: str(args['query']),
+          typeId,
+          limit: Number(args['limit'] ?? 20) || 20,
+          cursor: str(args['cursor']),
+        }),
+      ),
+    ]);
   const kindName = new Map(kinds.map((k) => [k.id, k.singular]));
   return {
     result: {
@@ -1773,6 +1870,8 @@ async function findRecords(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
         typeId: k.id,
         name: k.singular,
         plural: k.plural,
+        // The count on its tab: records of the kind that aren't archived.
+        ...(k.recordCount !== undefined ? { records: k.recordCount } : {}),
         fields: fields
           .filter((f) => f.recordTypeId === k.id)
           .map((f) => ({
@@ -1797,7 +1896,14 @@ async function findRecords(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
         name: r.name,
         detail: r.detail,
         relatedTo: r.related.map((x) => ({ id: x.id, name: x.name, is: x.label })),
+        updated: at(r.updatedAt, ctx.timezone),
       })),
+      nextCursor,
+      ...(nextCursor
+        ? {
+            more: 'There are more records than these. Pass nextCursor as cursor for the next page; each kind’s records is how many it has.',
+          }
+        : {}),
       ...(kinds.length
         ? {}
         : {
@@ -1807,7 +1913,7 @@ async function findRecords(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
     card: items.length
       ? {
           type: 'list',
-          title: count(items.length, 'record'),
+          title: `${count(items.length, 'record')}${nextCursor ? '+' : ''}`,
           items: items.slice(0, 12).map((r) => ({
             title: r.name,
             detail: [kindName.get(r.typeId), r.detail, r.related.map((x) => x.name).join(', ')]
@@ -1826,6 +1932,7 @@ interface FileOut {
   name: string;
   mimeType: string | null;
   sizeBytes: number | null;
+  locked: boolean;
   uploadedBy: Ref;
   createdAt: string;
 }
@@ -1848,19 +1955,52 @@ async function getRecordDetails(db: Db, ctx: ToolContext, args: Args): Promise<T
       : query<{ items: Pair[] }>(db, ctx, 'relationship.list', { recordType: kind, recordId }).then(
           (r) => r.items,
         );
+  const lookedAfterBy = (c: { owner: Ref; team: { id: string; fullName: string }[] }) => ({
+    main: c.owner ? { userId: c.owner.id, name: c.owner.fullName } : null,
+    alsoOnIt: c.team.map((t) => ({ userId: t.id, name: t.fullName })),
+  });
   const about = async (): Promise<Args> => {
-    if (kind === 'person' || kind === 'company') {
-      const c =
-        kind === 'person'
-          ? (await query<PersonGet>(db, ctx, 'person.get', { personId: recordId })).person
-          : (await query<CompanyGet>(db, ctx, 'company.get', { companyId: recordId })).company;
+    if (kind === 'person') {
+      const c = (await query<PersonGet>(db, ctx, 'person.get', { personId: recordId })).person;
+      return { name: c.fullName, archived: !!c.archivedAt, lookedAfterBy: lookedAfterBy(c) };
+    }
+    if (kind === 'company') {
+      // A company's page in full: its details, its own fields, its people and its open leads.
+      const [{ company: c, people }, leads] = await Promise.all([
+        query<CompanyGet>(db, ctx, 'company.get', { companyId: recordId }),
+        query<{
+          items: { id: string; title: string; stageName: string; valueCents: number }[];
+        }>(db, ctx, 'lead.list', { companyId: recordId, status: 'open', limit: 20 }),
+      ]);
       return {
-        name: 'fullName' in c ? c.fullName : c.name,
+        name: c.name,
         archived: !!c.archivedAt,
-        lookedAfterBy: {
-          main: c.owner ? { userId: c.owner.id, name: c.owner.fullName } : null,
-          alsoOnIt: c.team.map((t) => ({ userId: t.id, name: t.fullName })),
-        },
+        phone: c.phone,
+        email: c.email,
+        website: c.website,
+        address: c.address,
+        otherPhones: c.otherPhones.map((p) => ({ phone: p.phone, label: p.label })),
+        otherEmails: c.otherEmails,
+        otherAddresses: otherAddressLines(c.otherAddresses),
+        notes: c.notes,
+        source: c.source,
+        tags: c.tags.map((t) => ({ id: t.id, name: t.name })),
+        added: c.createdAt.slice(0, 10),
+        fields: await ownFields(db, ctx, 'company', c.custom ?? {}),
+        lookedAfterBy: lookedAfterBy(c),
+        people: people.map((p) => ({
+          id: p.id,
+          name: p.fullName,
+          phone: p.phone,
+          email: p.email,
+          ...(p.archived ? { archived: true } : {}),
+        })),
+        openLeads: leads.items.map((l) => ({
+          id: l.id,
+          title: l.title,
+          stage: l.stageName,
+          value: money(l.valueCents),
+        })),
       };
     }
     if (kind === 'lead') {
@@ -1876,6 +2016,7 @@ async function getRecordDetails(db: Db, ctx: ToolContext, args: Args): Promise<T
       kind: record.type.singular,
       typeId: record.type.id,
       archived: !!record.archivedAt,
+      added: record.createdAt.slice(0, 10),
       notes: record.notes,
       fields: fields.map((f) => ({
         fieldId: f.id,
@@ -1883,9 +2024,14 @@ async function getRecordDetails(db: Db, ctx: ToolContext, args: Args): Promise<T
         type: f.type,
         value: customValueText(f, record.custom[f.id]),
       })),
+      // The Assigned card, on a record kept to its people (a Real Estate deal).
+      ...(record.keptToTeam ? { keptToItsPeople: true, lookedAfterBy: lookedAfterBy(record) } : {}),
     };
   };
   const [record, found, related] = await Promise.all([about(), files, pairs]);
+  // Each file opens on its record's Files tab, as a search result's does.
+  const fileHref = (id: string) =>
+    `${pageOf(ctx.workspaceId, kind, recordId)}?tab=files&file=${id}`;
   return {
     result: {
       recordType: args['recordType'],
@@ -1913,8 +2059,27 @@ async function getRecordDetails(db: Db, ctx: ToolContext, args: Args): Promise<T
         size: size(f.sizeBytes),
         addedBy: f.uploadedBy?.fullName ?? null,
         added: at(f.createdAt, ctx.timezone),
+        ...(f.locked ? { signedAndKept: 'Signed and kept: it can’t be deleted or renamed.' } : {}),
       })),
     },
+    card: found.length
+      ? {
+          type: 'list',
+          title: `Files · ${found.length}`,
+          items: found.slice(0, 12).map((f) => ({
+            title: f.name,
+            detail: [
+              f.locked ? 'Signed · kept' : null,
+              size(f.sizeBytes),
+              at(f.createdAt, ctx.timezone),
+            ]
+              .filter(Boolean)
+              .join(' · '),
+            tone: 'muted' as const,
+            href: fileHref(f.id),
+          })),
+        }
+      : null,
   };
 }
 
@@ -2245,62 +2410,6 @@ const manageRecord: SettingsConfirmTool = {
   },
 };
 
-// ---------- a file on a record ----------
-
-/** The file, found on the record it was listed on: only a customer's, company's, lead's or record's own. */
-async function fileOn(db: Db, ctx: ToolContext, args: Args) {
-  const kind = kindOf(args['recordType']);
-  const recordId = String(args['recordId']);
-  const [files, name] = await Promise.all([
-    filesOn(db, ctx, kind, recordId),
-    nameOf(db, ctx, kind, recordId),
-  ]);
-  const file = files.find((f) => f.id === args['fileId']);
-  if (!file)
-    throw HfosError.notFound(
-      'That file isn’t on this record: get_record_details lists the ones that are.',
-    );
-  return { file, name, kind, recordId };
-}
-
-const deleteFile: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
-    const { file, name } = await fileOn(db, ctx, args);
-    return card(
-      toolCallId,
-      'delete_file',
-      `Delete ${file.name}?`,
-      [
-        { label: 'File', value: file.name },
-        { label: 'On', value: name },
-        {
-          label: 'Added',
-          value: `${at(file.createdAt, ctx.timezone)}${file.uploadedBy ? ` by ${file.uploadedBy.fullName}` : ''}`,
-        },
-        { label: 'Size', value: size(file.sizeBytes) ?? '' },
-      ],
-      'Delete it',
-      [
-        {
-          kind: 'caution',
-          text: 'It’s deleted for good: nobody can open it again, and it can’t be brought back.',
-        },
-      ],
-    );
-  },
-
-  async commit(db, ctx, args) {
-    // Found on the record again, so this only ever deletes a file that is on it.
-    const { file, kind, recordId } = await fileOn(db, ctx, args);
-    await command(db, ctx, 'file.delete', { fileId: file.id });
-    return {
-      outcome: 'Deleted',
-      href: pageOf(ctx.workspaceId, kind, recordId),
-      command: 'file.delete',
-    };
-  },
-};
-
 export const inboxCrmAutoTools: Record<
   string,
   (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>
@@ -2320,7 +2429,6 @@ export const inboxCrmConfirmTools: Record<string, SettingsConfirmTool> = {
   assign_customer: assignCustomer,
   record_consent: recordConsent,
   manage_record: manageRecord,
-  delete_file: deleteFile,
 };
 
 /** What the panel says while each one runs. */
@@ -2337,5 +2445,4 @@ export const inboxCrmStepLabels: Record<string, string> = {
   find_records: 'Looking at your records',
   get_record_details: 'Looking at the record',
   manage_record: 'Getting the record ready',
-  delete_file: 'Finding the file',
 };

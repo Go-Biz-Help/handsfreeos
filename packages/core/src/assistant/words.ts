@@ -417,6 +417,7 @@ const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const RECORD_ROUTES: readonly (readonly [PageRecord['type'], string])[] = [
   ['person', 'customers/people'],
   ['company', 'customers/companies'],
+  ['custom_record', 'customers/records'],
   ['lead', 'leads'],
   ['conversation', 'inbox'],
   ['workflow_run', 'workflows/runs'],
@@ -426,9 +427,10 @@ const RECORD_ROUTES: readonly (readonly [PageRecord['type'], string])[] = [
 /**
  * The record on screen when the question is asked, so "text him" means the customer whose page is open. The phone's
  * screens sit at the web's own addresses, so both read it the same way: `/app/w/<ws>/customers/people/<id>` is a
- * person, `customers/companies/<id>` a company, `leads/<id>` a lead, `inbox/<id>` a conversation, `workflows/<id>` a
- * workflow, `workflows/runs/<id>` a run of one, and `/calendar?appt=<id>` the appointment that's open. Every other
- * page has no record.
+ * person, `customers/companies/<id>` a company, `customers/records/<id>` a pet, vehicle or property (a business's
+ * own kind of record), `leads/<id>` a lead, `inbox/<id>` a conversation, `workflows/<id>` a workflow,
+ * `workflows/runs/<id>` a run of one, and `/calendar?appt=<id>` the appointment that's open. Every other page has no
+ * record.
  */
 export function assistantPageRecord(
   pathname: string,

@@ -13,6 +13,7 @@ import {
   dollars,
   localDay,
   minutes,
+  otherAddressInput,
   text,
   UpcomingVisits,
   WeeklyHoursInput,
@@ -63,7 +64,7 @@ export const assistantTools = [
   define({
     name: 'get_customer',
     description:
-      'One person in full: contact details, open leads, open tasks, upcoming appointments (with ids) and their conversations.',
+      'One person in full: contact details (other numbers, emails and addresses with their labels), company, who looks after them, how long they’ve been a customer, whether they agreed to calls, every one of the business’s own fields (empty ones too, with their ids and choices), open leads, open tasks, upcoming appointments (with ids) and their conversations. A duplicate merged away says which record was kept.',
     input: z.object({ personId: uuid }),
     autonomy: 'auto',
     permission: 'records.read',
@@ -71,11 +72,35 @@ export const assistantTools = [
   define({
     name: 'list_customers',
     description:
-      'Many customers at once, up to 100 a page with their ids and tags: everyone, the ones matching words (name, phone, email, street), the ones with a tag, or the ones without one. Use it to gather who to tag; pass nextCursor back for the next page.',
+      'Many people at once, up to 100 a page, as the Contacts list shows them: each one’s id, tags, whether they are a client, open leads, last activity, company and town. Everyone, or the ones matching words (name, phone, email, street), with or without a tag, only leads or only clients, assigned to a teammate, at one company, or with archived ones too; by name or most recently changed. Use it to gather who to tag; pass nextCursor back for the next page. Companies are list_companies.',
     input: z.object({
       query: z.string().trim().max(120).optional(),
       tagId: uuid.optional().describe('Only customers with this tag'),
       withoutTagId: uuid.optional().describe('Only customers without this tag'),
+      standing: z
+        .enum(['lead', 'client'])
+        .optional()
+        .describe('Only leads, or only clients (Contacts’ Leads and Clients)'),
+      assignedUserId: uuid.optional().describe('Only the ones this teammate looks after'),
+      companyId: uuid.optional().describe('Only the people at this company'),
+      includeArchived: z.boolean().default(false),
+      sort: z.enum(['name', 'recent']).default('name'),
+      limit: z.number().int().min(1).max(100).default(50),
+      cursor: z.string().max(400).optional().describe('nextCursor from the page before'),
+    }),
+    autonomy: 'auto',
+    permission: 'records.read',
+  }),
+  define({
+    name: 'list_companies',
+    description:
+      'Companies, up to 100 a page, as Contacts → Companies lists them: each one’s id, phone, email, website, tags, how many people, open leads and whether it is a client. Everyone, or the ones matching words, with a tag, only leads or only clients, assigned to a teammate, or with archived ones too. Pass nextCursor back for the next page. One company in full is get_record_details.',
+    input: z.object({
+      query: z.string().trim().max(120).optional(),
+      tagId: uuid.optional().describe('Only companies with this tag'),
+      standing: z.enum(['lead', 'client']).optional(),
+      assignedUserId: uuid.optional().describe('Only the ones this teammate looks after'),
+      includeArchived: z.boolean().default(false),
       limit: z.number().int().min(1).max(100).default(50),
       cursor: z.string().max(400).optional().describe('nextCursor from the page before'),
     }),
@@ -96,12 +121,13 @@ export const assistantTools = [
   define({
     name: 'list_leads',
     description:
-      'Leads, newest first. Filter by status, by when they came in, by assignee, by customer, or to those without a next action.',
+      'Leads, newest first, each with its stage, value, owner, next action and when it’s due, last contact, expected close, source, tags, days in its stage, and why it was lost. Filter by status, by when they came in, by assignee, by customer or company, or to those without a next action.',
     input: z.object({
       status: z.enum(['open', 'won', 'lost']).optional(),
       createdAfter: when.optional(),
       assigneeUserId: uuid.optional(),
       personId: uuid.optional(),
+      companyId: uuid.optional(),
       withoutNextAction: z.boolean().optional(),
       limit: z.number().int().min(1).max(20).default(10),
     }),
@@ -111,7 +137,7 @@ export const assistantTools = [
   define({
     name: 'get_lead',
     description:
-      'One lead with its stage, value, assignee, next action and the stages of its pipeline (with ids).',
+      'One lead with its stage, value, assignee, next action and when it’s due (and whether that’s overdue), last contact, expected close, source, tags, days in its stage, when it was won or lost and why, its customer or company, whether it’s archived, the AI teammate’s qualifying answers (qualified, not a fit or still missing answers, each answer and the questions still to ask), and the stages of its pipeline (with ids).',
     input: z.object({ leadId: uuid }),
     autonomy: 'auto',
     permission: 'records.read',
@@ -141,11 +167,16 @@ export const assistantTools = [
   define({
     name: 'list_tasks',
     description:
-      'Open tasks, soonest first, for the person or everyone, optionally one teammate or one due window.',
+      'Tasks, soonest first, for the person or everyone, optionally one teammate or one due window; open ones unless status says done or all. With a customer, company, lead or record (a pet, vehicle, property), everyone’s tasks on it, as its Tasks tab lists them. Each comes with its notes, what it’s about and when it was done.',
     input: z.object({
       scope: z.enum(['mine', 'all']).default('mine'),
       assigneeUserId: uuid.optional(),
       due: z.enum(['overdue', 'today', 'week', 'any']).default('any'),
+      status: z.enum(['open', 'done', 'all']).default('open'),
+      personId: uuid.optional(),
+      companyId: uuid.optional(),
+      leadId: uuid.optional(),
+      customRecordId: uuid.optional().describe('A pet, vehicle or property, from find_records'),
     }),
     autonomy: 'auto',
     permission: 'records.read',
@@ -258,8 +289,8 @@ export const assistantTools = [
   define({
     name: 'customer_money',
     description:
-      'One customer’s money: what they still owe, what they have paid, what is quoted out to them, and the documents and plans behind it (with ids). Call search_customers first if you only have a name.',
-    input: z.object({ personId: uuid }),
+      'One customer’s money: what they still owe, what they have paid, what is quoted out to them, and the documents and plans behind it (with ids). With leadId instead, only that lead’s, as its Money card shows. Call search_customers first if you only have a name.',
+    input: z.object({ personId: uuid.optional(), leadId: uuid.optional() }),
     autonomy: 'auto',
     permission: 'money.read',
   }),
@@ -1215,14 +1246,17 @@ export const assistantTools = [
   // ---------- tasks and notes (auto, with Undo) ----------
   define({
     name: 'create_task',
-    description: 'Add a task, optionally due at a time, for a teammate, about a customer or lead.',
+    description:
+      'Add a task, optionally due at a time, for a teammate, about a customer, a company, a lead or a record (a pet, vehicle, property).',
     input: z.object({
       title: text(200),
       dueAt: when.optional(),
       allDay: z.boolean().default(false),
       assigneeUserId: uuid.optional(),
       personId: uuid.optional(),
+      companyId: uuid.optional(),
       leadId: uuid.optional(),
+      customRecordId: uuid.optional().describe('A pet, vehicle or property, from find_records'),
       notes: z.string().trim().max(2000).optional(),
     }),
     autonomy: 'auto',
@@ -1230,12 +1264,16 @@ export const assistantTools = [
   }),
   define({
     name: 'update_task',
-    description: 'Change a task’s title, due time or assignee.',
+    description:
+      'Change a task’s title, due time (all day or at a time), assignee, notes or the lead it’s about (null takes one off).',
     input: z.object({
       taskId: uuid,
       title: text(200).optional(),
       dueAt: when.nullable().optional(),
+      allDay: z.boolean().optional(),
       assigneeUserId: uuid.nullable().optional(),
+      notes: z.string().trim().max(2000).nullable().optional(),
+      leadId: uuid.nullable().optional(),
     }),
     autonomy: 'auto',
     permission: 'records.write',
@@ -1249,12 +1287,16 @@ export const assistantTools = [
   }),
   define({
     name: 'add_note',
-    description: 'Add a note to a customer, company or lead timeline.',
+    description:
+      'Add a note, or log a call or a visit (kind), on the timeline of a customer, company, lead or record (a pet, vehicle, property), as Note and Log call do. Give a person and one of their leads together to put it on both. occurredAt is when it happened, for one logged after the fact.',
     input: z.object({
       body: text(5000),
+      kind: z.enum(['note', 'call', 'visit']).default('note'),
+      occurredAt: when.optional().describe('When it happened; leave out for now'),
       personId: uuid.optional(),
       companyId: uuid.optional(),
       leadId: uuid.optional(),
+      customRecordId: uuid.optional().describe('A pet, vehicle or property, from find_records'),
     }),
     autonomy: 'auto',
     permission: 'records.write',
@@ -1278,7 +1320,7 @@ export const assistantTools = [
   define({
     name: 'update_customer',
     description:
-      'Change, add or remove any of a person’s details: name, main phone and email (null takes one off), address (only the parts that change; null clears a part), other numbers and emails (add or remove), notes, source, company and the business’s own fields (by field id, from get_customer; null clears one). Pass only what changes, and why in reason: it is kept in the audit log.',
+      'Change, add or remove any of a person’s details: name, main phone and email (null takes one off), address (only the parts that change; null clears a part), other numbers, emails and addresses (add or remove; an address added again takes its new label), notes, source, company and the business’s own fields (by field id, from get_customer, which lists every field, empty ones too; null clears one). To make another number, email or address the main one, set it as the main one, add the old main one as another and remove the one moved. Pass only what changes, and why in reason: it is kept in the audit log.',
     input: z.object({
       personId: uuid,
       firstName: z.string().trim().max(80).optional(),
@@ -1314,6 +1356,12 @@ export const assistantTools = [
         .max(5)
         .optional(),
       removeOtherEmails: z.array(z.string().trim().max(254)).max(20).optional(),
+      addOtherAddresses: z.array(otherAddressInput).max(5).optional(),
+      removeOtherAddresses: z
+        .array(z.string().trim().max(300))
+        .max(20)
+        .optional()
+        .describe('Each by its street or its whole line, as get_customer gives it'),
       notes: z.string().trim().max(10000).nullable().optional().describe('Replaces the notes'),
       source: z.string().trim().max(80).nullable().optional(),
       companyId: uuid.nullable().optional(),
@@ -1369,25 +1417,33 @@ export const assistantTools = [
   define({
     name: 'create_lead',
     description:
-      'Open a lead for a customer, optionally with a value, stage, assignee and next action.',
+      'Open a lead for a customer or a company (one of the two), optionally with a value, stage (in any pipeline), assignee, next action and when, expected close and source.',
     input: z.object({
       title: text(160),
-      personId: uuid,
+      personId: uuid.optional(),
+      companyId: uuid.optional(),
       value: dollars.optional(),
-      stageId: uuid.optional(),
+      stageId: uuid.optional().describe('Its pipeline is the stage’s; leave out for the first one'),
       assigneeUserId: uuid.optional(),
       nextAction: z.string().trim().max(200).optional(),
+      nextActionAt: when.optional(),
+      expectedCloseOn: localDay.optional().describe('Expected close, like 2026-09-30'),
+      source: z.string().trim().max(80).optional().describe('Where it came from'),
     }),
     autonomy: 'confirm',
     permission: 'records.write',
   }),
   define({
     name: 'update_lead',
-    description: 'Change a lead’s assignee, value or next action.',
+    description:
+      'Change a lead’s title, assignee, value, expected close, source, or next action and when it’s due, as Edit details and the next action box do: a time alone moves the next action it has, and a new step alone keeps its time. null takes one off.',
     input: z.object({
       leadId: uuid,
+      title: text(160).optional(),
       assigneeUserId: uuid.nullable().optional(),
       value: dollars.optional(),
+      expectedCloseOn: localDay.nullable().optional().describe('Expected close, like 2026-09-30'),
+      source: z.string().trim().max(80).nullable().optional(),
       nextAction: z.string().trim().max(200).nullable().optional(),
       nextActionAt: when.nullable().optional(),
     }),
@@ -1409,10 +1465,16 @@ export const assistantTools = [
   define({
     name: 'send_text',
     description:
-      'Draft a text to a customer from the business number. Keep it short and friendly, and sign it with the person’s first name and the business name.',
+      'Draft a text to a customer from the business number. Keep it short and friendly, and sign it with the person’s first name and the business name. It goes to their main number unless to names another of their numbers (from get_customer).',
     input: z.object({
       personId: uuid.optional(),
       conversationId: uuid.optional(),
+      to: z
+        .string()
+        .trim()
+        .max(40)
+        .optional()
+        .describe('With personId: another of their numbers to text instead of the main one'),
       body: text(1600),
     }),
     autonomy: 'confirm',
@@ -1420,10 +1482,17 @@ export const assistantTools = [
   }),
   define({
     name: 'send_email',
-    description: 'Draft an email to a customer from the business address, with a subject.',
+    description:
+      'Draft an email to a customer from the business address, with a subject. It goes to their main email unless to names another of their emails (from get_customer).',
     input: z.object({
       personId: uuid.optional(),
       conversationId: uuid.optional(),
+      to: z
+        .string()
+        .trim()
+        .max(254)
+        .optional()
+        .describe('With personId: another of their emails to write to instead of the main one'),
       subject: text(200),
       body: text(10000),
     }),
@@ -1433,7 +1502,7 @@ export const assistantTools = [
   define({
     name: 'book_appointment',
     description:
-      'Book a customer on a calendar at a time. Leave out userIds to let the calendar pick who (round robin, first available…). The customer gets a confirmation unless the person says not to. The card shows who, where, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
+      'Book a customer on a calendar at a time, optionally for one of their pets, vehicles or properties (customRecordId, from find_records), as a record’s Book does. Leave out userIds to let the calendar pick who (round robin, first available…). The customer gets a confirmation unless the person says not to. The card shows who, where, reminders, how the customer is told and any warnings (outside hours, busy, time off) before the person books it.',
     input: z.object({
       calendarId: uuid,
       personId: uuid,
@@ -1442,6 +1511,7 @@ export const assistantTools = [
       serviceId: uuid.optional(),
       userIds: z.array(uuid).min(1).max(10).optional().describe('Teammates who work it'),
       leadId: uuid.optional(),
+      customRecordId: uuid.optional().describe('The pet, vehicle or property it’s for'),
       notes: z.string().trim().max(5000).optional(),
       notify: z.boolean().default(true).describe('Send the customer a confirmation'),
     }),
