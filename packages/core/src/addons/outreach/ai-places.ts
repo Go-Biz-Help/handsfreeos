@@ -20,6 +20,8 @@ const S = SETTINGS_WORDS;
 const PARTS = OUTREACH_WORDS.settingsParts;
 const about = (line: string) => line.replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase());
 const views = Object.values(PEOPLE_VIEWS).join(', ');
+/** Its Settings open someone else's, for owners and admins, at `?for=` their user id. */
+const WHOSE = { for: 'user' } as const;
 const PERSON_MENU =
   'press a person’s name for their menu: Add to Contacts, Mark as client, Demo booked, Potential partner, Later, Don’t pitch, Never contact, and open their page or their chat';
 
@@ -210,6 +212,7 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
       'Start fresh, which deletes the add-on’s data: the owner types the name on Start fresh themselves',
     ],
     path: 'settings',
+    queryIds: WHOSE,
   },
   ...PLATFORM_KEYS.map((p): AppPlace => ({
     label: `${PLATFORMS[p]} in Social Outreach`,
@@ -220,6 +223,7 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
     ],
     howTo: [],
     path: `settings/${p}`,
+    queryIds: WHOSE,
   })),
   {
     label: PARTS.computer,
@@ -232,6 +236,7 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
     ],
     howTo: ['Get the extension again or a newer one: Social Outreach → Settings → Your computer'],
     path: 'settings/computer',
+    queryIds: WHOSE,
   },
   {
     label: PARTS.videos,
@@ -242,6 +247,7 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
     ],
     howTo: [],
     path: 'settings/videos',
+    queryIds: WHOSE,
   },
   {
     label: PARTS.team,
@@ -256,6 +262,7 @@ export const OUTREACH_PLACES: readonly AppPlace[] = [
       'See or change a teammate’s choices: Social Outreach → Settings → Team, then Their settings beside them',
     ],
     path: 'settings/team',
+    queryIds: WHOSE,
   },
 ];
 

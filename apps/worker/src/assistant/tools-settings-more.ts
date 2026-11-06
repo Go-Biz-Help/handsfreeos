@@ -277,6 +277,28 @@ function mergedOnto(
 }
 
 /**
+ * The parts named in a group of settings that the group doesn't have, deeper down too, each with the group it was named
+ * in: a part the schema doesn't know would be dropped as it's checked, and the save would quietly change nothing.
+ */
+function strangeParts(
+  changes: Record<string, unknown>,
+  parts: Readonly<Record<string, unknown>>,
+  at = '',
+): { path: string; group: string; known: readonly string[] }[] {
+  return Object.entries(changes).flatMap(([k, v]) => {
+    const group = groupOf(parts[k]);
+    if (!group || !isPlain(v)) return [];
+    const known = Object.keys(group);
+    return [
+      ...Object.keys(v)
+        .filter((p) => !Object.hasOwn(group, p))
+        .map((p) => ({ path: `${at}${k}.${p}`, group: `${at}${k}`, known })),
+      ...strangeParts(v, group, `${at}${k}.`),
+    ];
+  });
+}
+
+/**
  * The card's lines for one setting. A group with groups inside says each part that changes on a line of its own
  * ("Rules → Daily limits: Friend request: 20"), so the change shows however deep it is; anything else, a group of
  * plain settings like a set of switches among them, is said whole, as it will be.
@@ -347,6 +369,17 @@ async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
       })),
       `${m.name} has no setting called ${strange.join(', ')}. Its settings are ${known.join(', ')}.`,
     );
+  const strangeDeeper = strangeParts(changes, groupOf(schema) ?? {});
+  if (strangeDeeper.length) {
+    const first = strangeDeeper[0]!;
+    throw HfosError.validation(
+      strangeDeeper.map((s) => ({
+        path: `settings.${s.path}`,
+        message: `${m.name} has no setting by that name.`,
+      })),
+      `${m.name} has no setting called ${strangeDeeper.map((s) => s.path).join(', ')}. The parts of ${first.group} are ${first.known.join(', ')}.`,
+    );
+  }
   const strangeFlags = Object.keys(flagChanges).filter((k) => !Object.hasOwn(declared, k));
   if (strangeFlags.length)
     throw HfosError.validation(

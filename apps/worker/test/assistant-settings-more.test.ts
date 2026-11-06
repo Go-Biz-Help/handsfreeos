@@ -336,6 +336,15 @@ describe('the last settings by asking', () => {
         settings: { rules: { dailyLimits: { friend_request: 12 } } },
       }),
     ).rejects.toThrow('Nothing would change');
+    // A part its group doesn't have is refused by its name, never dropped as the settings are checked.
+    await expect(
+      prepare('update_addon_settings', {
+        addonId: 'outreach',
+        settings: { rules: { dailyLimit: { like: 5 } } },
+      }),
+    ).rejects.toThrow(
+      'Social Outreach has no setting called rules.dailyLimit. The parts of rules are sendingAllowed',
+    );
   });
 
   it('brings something back from the Deleted bin on Confirm, never empties it', async () => {

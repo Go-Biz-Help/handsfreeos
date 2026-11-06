@@ -27,6 +27,11 @@ export interface AppPlace {
   readonly notHere?: readonly string[];
   /** The screen, under /app/w/<workspaceId> (under /app/org/<orgId> for the agency area). */
   readonly path: string;
+  /**
+   * What an id in its address's query holds, by the query's key, when the key alone doesn't say and means that only
+   * here (an add-on's Settings opening a teammate's at `?for=<their user id>`: `{ for: 'user' }`).
+   */
+  readonly queryIds?: Readonly<Record<string, string>>;
 }
 
 export const APP_PLACES: readonly AppPlace[] = [

@@ -36,8 +36,6 @@ const KEY_NAMES: ReadonlyMap<string, string> = new Map([
   // The Calendar's people are teammates (user ids), and its chips the calendars shown.
   ['people', 'user'],
   ['calendars', 'calendar'],
-  // Social Outreach's Team opens a teammate's own settings at ?for=<their user id>.
-  ['for', 'user'],
 ]);
 /** The Calendar's views, as its address keeps them: the only words of a query ever repeated to the model. */
 const VIEWS: ReadonlySet<string> = new Set(['team', 'week', 'day', 'month', 'resources']);
@@ -52,6 +50,8 @@ interface Candidate {
    * person's Account), since every page sits under those and most of them are something else.
    */
   readonly exact: boolean;
+  /** What an id in the query holds here, by its key, where the place says (`AppPlace.queryIds`). */
+  readonly queryIds?: ReadonlyMap<string, string>;
 }
 
 const segmentsOf = (path: string) => path.split('/').filter(Boolean);
@@ -62,6 +62,7 @@ const placeCandidate = (p: AppPlace): Candidate => ({
   way: placeWay(p),
   area: null,
   exact: p.path === '',
+  ...(p.queryIds ? { queryIds: new Map(Object.entries(p.queryIds)) } : {}),
 });
 
 let candidates: readonly Candidate[] | null = null;
@@ -184,7 +185,10 @@ export function screenPlace(
     // One id, or several with commas between (the Calendar's people and chips).
     for (const id of decoded.split(','))
       if (UUID.test(id))
-        ids.push({ name: KEY_NAMES.get(key) ?? nameOfKey(key), id: id.toLowerCase() });
+        ids.push({
+          name: best?.queryIds?.get(key) ?? KEY_NAMES.get(key) ?? nameOfKey(key),
+          id: id.toLowerCase(),
+        });
   }
   const shows = view
     ? `the ${view} view${date ? ` of ${date}` : ''}`

@@ -153,6 +153,15 @@ describe('Social Outreach’s places', () => {
     expect(screenPlace('/a/outreach/settings/linkedin', places)?.way).toBe(
       'Social Outreach → Settings → LinkedIn',
     );
+    // Their settings, as Team opens them: whose they are is a user.
+    expect(screenPlace(`/a/outreach/settings?for=${someone}`, places)).toMatchObject({
+      way: 'Social Outreach → Settings',
+      ids: [{ name: 'user', id: someone }],
+    });
+    // `?for=` means that only on Social Outreach's Settings: on Settings → Fields it is a kind of record, never a user.
+    expect(screenPlace(`/settings/fields?for=${someone}`, places)?.ids).toEqual([
+      { name: 'for', id: someone },
+    ]);
     expect(screenPlace('/a/outreach/people/friends?show=sent', places)?.way).toBe(
       'Social Outreach → People → Friends',
     );

@@ -525,7 +525,14 @@ module's `notForTheAssistant` with why (what its browser extension sends in, wha
 deleting for good). `addonAssistantIssues` holds every add-on to that, a new one from the generator too; a client's
 portal, the public pages, the worker's own work and an answer to a search are never a person's to run, so never
 tools. So does every worker action a person presses (its own test holds those). Look-ups
-the model asks for together run at the same time; changes run one at a time, in order. `find_capabilities` answers "can
+the model asks for together run at the same time; changes run one at a time, in order. An operation's `ai.answer`
+reshapes what the model reads of its answer (a link its screens build written out whole, the short facts ahead of the
+long lists), never more than the person was given, and `ai.outcome` ends a confirmed card in its screen's own words,
+with a page to open. The manifest's `ai.places` says where its pages are, the way core's places are said, and
+`ai.lookAlikes` the words it shares with core's pages: both are told only where it runs, to people who may open it, and
+name the page a question is asked from (`addonPlaces`, with `queryIds` for what an id in a page's query holds there).
+`ui.settingsPath` is where its business settings are when that isn't its page keyed `settings`, for the card that
+saves them. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only
 when asked what's coming, and never as something to install.
