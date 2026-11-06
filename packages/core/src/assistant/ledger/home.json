@@ -12,7 +12,7 @@
     "apps/mobile/src/components/add-ons/news-card.tsx": "6d1402bba2e5",
     "apps/mobile/src/components/add-ons/suggestion-card.tsx": "e9bf6f1d07af",
     "apps/mobile/src/components/assistant/answer-text.tsx": "029a63c8835f",
-    "apps/mobile/src/components/assistant/cards.tsx": "e277a7d3b743",
+    "apps/mobile/src/components/assistant/cards.tsx": "355c4d8f82ce",
     "apps/mobile/src/components/assistant/composer.tsx": "9e38a01573a9",
     "apps/mobile/src/components/assistant/confirm-card.tsx": "3302f63c38d4",
     "apps/mobile/src/components/assistant/consent-step.tsx": "5fe7d1579e5a",

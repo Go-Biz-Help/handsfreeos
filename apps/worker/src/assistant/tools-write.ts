@@ -3,6 +3,7 @@ import {
   contactLabelWords,
   conversationOpen,
   formatClock,
+  formatPhone,
   HfosError,
   isAddonAiTool,
   isScreenActionTool,
@@ -526,13 +527,25 @@ function cannotText(reason: string, first: string): string {
 /** The conversations a text never goes in, whose replies reply_in_conversation sends on their own channel. */
 const REPLIED_IN_PLACE = new Set(['chat_channel', 'portal_channel', 'social_channel']);
 
+type RichButton = { type?: string; title: string; url?: string; phone?: string };
 type RichText =
-  | { kind: 'buttons'; buttons: { title: string }[] }
-  | { kind: 'card'; title: string; buttons: { title: string }[] };
-/** Reply buttons or a card, as Add buttons or a card makes them, said on the card. */
+  | { kind: 'buttons'; buttons: RichButton[] }
+  | { kind: 'card'; title: string; buttons: RichButton[] };
+/**
+ * Reply buttons or a card, as Add buttons or a card makes them, said on the card: where a link button goes and the
+ * number a call button rings, since both reach the customer.
+ */
 function richFields(rich: RichText | undefined): { label: string; value: string }[] {
   if (!rich) return [];
-  const buttons = rich.buttons.map((b) => b.title).join(' · ');
+  const buttons = rich.buttons
+    .map((b) =>
+      b.type === 'link' && b.url
+        ? `${b.title} (opens ${b.url})`
+        : b.type === 'call' && b.phone
+          ? `${b.title} (calls ${formatPhone(b.phone) || b.phone})`
+          : b.title,
+    )
+    .join(' · ');
   return [
     ...(rich.kind === 'card' ? [{ label: 'Card', value: rich.title }] : []),
     ...(buttons ? [{ label: 'Buttons', value: buttons }] : []),
@@ -868,6 +881,19 @@ async function replyPlace(db: Db, ctx: ToolContext, args: Args) {
   return { got, c, who, where: REPLY_WHERE[c.channel] ?? 'there' };
 }
 
+/**
+ * A refusal in words the card can show: a check's own message, or, for words that don't fit (an Instagram reply over
+ * 1,000 characters), what each field needs, rather than the kernel's general "Some fields need attention".
+ */
+function refusalWords(e: HfosError): string {
+  const fields = e.code === 'validation' && Array.isArray(e.details) ? e.details : [];
+  const said = fields.flatMap((f) => {
+    const message = (f as { message?: unknown } | null)?.message;
+    return typeof message === 'string' && message ? [message] : [];
+  });
+  return said.length ? said.join(' ') : e.message;
+}
+
 const replyInConversation: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { got, c, who, where } = await replyPlace(db, ctx, args);
@@ -882,7 +908,7 @@ const replyInConversation: ConfirmTool = {
       });
     } catch (e) {
       if (!(e instanceof HfosError)) throw e;
-      why = e.message;
+      why = refusalWords(e);
     }
     const window = got.social?.window;
     const warnings: Warning[] = why
@@ -962,11 +988,18 @@ async function videoCallWith(
         person: { id: string; fullName: string } | null;
       };
     }>(db, ctx, 'conversation.get', { conversationId });
+    // A channel asked for that isn't this thread's goes the customer's own way: by text, or to their email.
+    const asked = str(args['channel']);
     return {
       name: c.person?.fullName ?? c.counterpartDisplay,
       personId: c.person?.id ?? null,
       conversationId,
-      by: `In this conversation (${(THREAD_NAMES[c.channel] ?? (c.channel === 'sms' ? 'Texts' : 'Email')).toLowerCase()})`,
+      by:
+        asked && asked !== c.channel
+          ? asked === 'email'
+            ? 'By email, to their email address'
+            : 'By text, to their phone number'
+          : `In this conversation (${(THREAD_NAMES[c.channel] ?? (c.channel === 'sms' ? 'Texts' : 'Email')).toLowerCase()})`,
     };
   }
   const personId = str(args['personId']);
@@ -1012,8 +1045,9 @@ const startVideoCall: ConfirmTool = {
     const tried = await tryIt(false);
     if (tried?.rule === 'quiet_hours') {
       quiet = tried.message;
-      why = (await tryIt(true))?.message ?? null;
-    } else why = tried?.message ?? null;
+      const then = await tryIt(true);
+      why = then ? refusalWords(then) : null;
+    } else why = tried ? refusalWords(tried) : null;
     return {
       card: confirmCard(toolCallId, 'start_video_call', {
         personId: who.personId,

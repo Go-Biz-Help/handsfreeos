@@ -421,6 +421,15 @@ describe('replying where the customer wrote', () => {
     expect(card.title).toBe('Reply to Lee on Messenger?');
     expect(card.confirmLabel).toBe('');
     expect(card.warnings[0]?.kind).toBe('blocked');
+    // Words too long for Messenger say so, not that "some fields need attention".
+    const long = await prepare('reply_in_conversation', {
+      conversationId: leeMessenger,
+      body: 'a'.repeat(2001),
+    });
+    expect(long.card.warnings[0]).toEqual({
+      kind: 'blocked',
+      text: 'Keep Messenger replies under 2,000 characters.',
+    });
 
     const { teammateId } = await run(
       aiTeammateCreate,
@@ -454,6 +463,25 @@ describe('texting and emailing', () => {
     expect((await lastEmailTo(dana)).cc).toEqual(['office@park.test']);
     await expect(prepare('send_email', { ...args, from: 'nobody@else.test' })).rejects.toThrow(
       'This email can’t go from nobody@else.test.',
+    );
+  });
+
+  it('says on the card where a link button goes and which number a call button rings', async () => {
+    const { card } = await prepare('send_text', {
+      conversationId: danaText,
+      body: 'Ready for your spring tune-up?',
+      rich: {
+        kind: 'card',
+        title: 'Spring tune-up',
+        buttons: [
+          { type: 'link', title: 'Book', url: 'https://example.test/book' },
+          { type: 'call', title: 'Call us', phone: '512-555-0100' },
+        ],
+      },
+    });
+    expect(field(card, 'Card')).toBe('Spring tune-up');
+    expect(field(card, 'Buttons')).toBe(
+      'Book (opens https://example.test/book) · Call us (calls (512) 555-0100)',
     );
   });
 
@@ -595,5 +623,14 @@ describe('a HandsFreeOS video call', () => {
     const screen = allScreenReadTools().find((t) => t.name === 'read_video_call_get')!;
     const got = await tools().run(screen, screen.input.parse({ callId: id }), ctx());
     expect((got.result as { data: { join: string } }).data.join).toBe(`${WEB}/call/${id}`);
+
+    // From a conversation the link goes in it, unless the person asked for the other way.
+    const here = await prepare('start_video_call', { conversationId: danaText });
+    expect(field(here.card, 'Their link goes')).toBe('In this conversation (texts)');
+    const byEmail = await prepare('start_video_call', {
+      conversationId: danaText,
+      channel: 'email',
+    });
+    expect(field(byEmail.card, 'Their link goes')).toBe('By email, to their email address');
   });
 });

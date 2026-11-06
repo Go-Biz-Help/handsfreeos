@@ -1067,7 +1067,7 @@ export const readTools: Record<string, ReadTool> = {
         ...(more
           ? {
               more: waitingOnly
-                ? 'There may be more waiting than these: what_needs_attention lists every customer waiting.'
+                ? 'More may be waiting than these: what_needs_attention with kind customer_waiting counts and lists them.'
                 : 'There are more: find_conversations pages through them all.',
             }
           : {}),

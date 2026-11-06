@@ -1470,7 +1470,7 @@ export const assistantTools = [
   define({
     name: 'send_email',
     description:
-      'Draft an email to a customer from the business address, with a subject. It goes to their main email unless to names another of their emails (from get_customer). from picks another address it goes from, as the composer’s From does: one of the business’s addresses, or the person’s own connected Gmail or Outlook; the card lists the choices when one isn’t there. cc copies other people.',
+      'Draft an email to a customer from the business address, with a subject. It goes to their main email unless to names another of their emails (from get_customer). from picks another address it goes from, as the composer’s From does: one of the business’s addresses, or the person’s own connected Gmail or Outlook; when one can’t, the answer lists those that can. cc copies other people.',
     input: z.object({
       personId: uuid.optional(),
       conversationId: uuid.optional(),
