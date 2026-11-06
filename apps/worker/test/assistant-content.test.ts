@@ -978,6 +978,39 @@ describe('the AI teammate’s drafts', () => {
     expect(forOwner.card.title).toBe('Approve 10% off for Mike Draft?');
     expect(field(forOwner.card, 'Discount')).toBe('10% off: Repeat customer');
   });
+
+  it('reads the Decided list: who approved or rejected each draft, when, and why', async () => {
+    const id = await draft('reply', {
+      message: { channel: 'sms', body: 'We can come by tonight for free.' },
+      actions: [],
+    });
+    await commit('decide_teammate_draft', {
+      draftId: id,
+      decision: 'reject',
+      reason: 'Not tonight',
+    });
+    const { result, card } = await read('list_teammate_drafts', { status: 'decided' });
+    const drafts = result['drafts'] as Record<string, unknown>[];
+    expect(drafts.find((d) => d['id'] === id)).toMatchObject({
+      what: 'Ava’s text to Mike Draft',
+      decided: 'Rejected by Dale: “Not tonight”',
+      when: expect.any(String),
+      drafted: { ai_teammate_wrote: { words: 'We can come by tonight for free.' } },
+    });
+    // The one Mo approved in his own words, earlier, says so.
+    expect(drafts).toContainEqual(
+      expect.objectContaining({
+        decided: expect.stringMatching(/^Approved by Mo with an edit/),
+        edited: true,
+      }),
+    );
+    expect(card).toMatchObject({ type: 'list', title: expect.stringMatching(/ decided$/) });
+    // Waiting ones aren't in it, and decided ones aren't waiting.
+    const waiting = (await read('list_teammate_drafts', {})).result['drafts'] as {
+      id: string;
+    }[];
+    expect(waiting.map((d) => d.id)).not.toContain(id);
+  });
   it('won’t approve a reply the customer has written past, and shows what they last said', async () => {
     const conversation = await one<{ id: string }>(
       sql`insert into app.conversations (workspace_id, channel, counterpart, person_id)

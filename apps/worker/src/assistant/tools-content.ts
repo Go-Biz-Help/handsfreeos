@@ -17,6 +17,7 @@ import {
   closedStageWords,
   describeOps,
   DRAFT_WORDS,
+  draftDecidedLine,
   describeStep,
   describeTrigger,
   findStep,
@@ -2611,6 +2612,13 @@ interface Draft {
   expiresAt: string | null;
   createdAt: string;
   canDecide: boolean;
+  /** Pending, or how it was decided (the Decided list). */
+  status: string;
+  edits: unknown;
+  reason: string | null;
+  decidedBy: { id: string; fullName: string } | null;
+  decidedAt: string | null;
+  via: string | null;
   /** An ask's record, named when the reader may see it. */
   record: { id: string; name: string | null } | null;
   /** The knowledge its run used, as the run recorded it ({itemId, title} each). */
@@ -2677,12 +2685,54 @@ async function lastWords(
 
 async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const kind = str(args['kind']);
+  // Waiting ones, oldest first; or the Decided list, newest first, as Approvals → Decided shows it.
+  const decided = args['status'] === 'decided';
   const { items } = await query<{ items: Draft[] }>(db, ctx, 'ai_teammate.draft_list', {
-    status: 'pending',
+    status: decided ? 'decided' : 'pending',
     limit: Number(args['limit'] ?? 10),
     ...(kind ? { kind } : {}),
   });
   const p = contentPaths(ctx.workspaceId);
+  if (decided)
+    return {
+      result: {
+        drafts: items.map((d) => ({
+          id: d.id,
+          what: draftTitle(d),
+          kind: d.kind,
+          teammate: d.teammate.name,
+          for: d.person?.fullName ?? 'Someone not in Contacts yet',
+          personId: d.person?.id ?? null,
+          conversationId: d.conversationId,
+          decided: draftDecidedLine(d),
+          ...(d.decidedAt ? { when: when(d.decidedAt, ctx.timezone) } : {}),
+          ...(d.status === 'approved' ? { edited: !!d.edits } : {}),
+          ...(d.preview.message
+            ? {
+                drafted: {
+                  ai_teammate_wrote: {
+                    ...(d.preview.message.subject ? { subject: d.preview.message.subject } : {}),
+                    words: d.preview.message.body,
+                  },
+                },
+              }
+            : {}),
+        })),
+        ...(items.length ? {} : { note: 'Nothing decided lately.' }),
+      },
+      card: items.length
+        ? {
+            type: 'list',
+            title: `${plural(items.length, 'draft')} decided`,
+            items: items.slice(0, 12).map((d) => ({
+              title: draftTitle(d),
+              detail: draftDecidedLine(d),
+              tone: (d.status === 'approved' ? 'accent' : 'muted') as Tone,
+              href: d.conversationId ? p.conversation(d.conversationId) : p.drafts(),
+            })),
+          }
+        : null,
+    };
   return {
     result: {
       drafts: items.map((d) => ({

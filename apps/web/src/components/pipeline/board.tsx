@@ -89,6 +89,25 @@ export function PipelineBoard({
   const shown = useRef<Record<string, number>>({});
 
   useEffect(() => setBoard(initial), [initial]);
+  /**
+   * The lead open in the side sheet, kept in the address (?lead=<id>) so Ask HandsFreeOS knows which lead "this" is,
+   * and so a link to it opens it.
+   */
+  const openLead = useCallback(
+    (id: string | null) => {
+      setSelected(id);
+      const params = new URLSearchParams(window.location.search);
+      if (id) params.set('lead', id);
+      else params.delete('lead');
+      const query = params.toString();
+      window.history.replaceState(null, '', `${pathname}${query ? `?${query}` : ''}`);
+    },
+    [pathname],
+  );
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('lead');
+    if (id) setSelected(id);
+  }, []);
   // Phones get the list by default: dragging fights with scrolling there.
   useEffect(() => {
     if (!initialView && window.matchMedia('(max-width: 767px)').matches) setView('list');
@@ -356,7 +375,7 @@ export function PipelineBoard({
                   key={s.id}
                   stage={s}
                   selectedId={selected}
-                  onOpen={setSelected}
+                  onOpen={openLead}
                   onShowMore={() => showMore(s)}
                   disabled={busy}
                 />
@@ -376,13 +395,13 @@ export function PipelineBoard({
             onMove={(leadId, stageId) =>
               requestMove(leadId, stageId, board.stages.find((s) => s.id === stageId)!.leads.length)
             }
-            onOpen={setSelected}
+            onOpen={openLead}
             onShowMore={showMore}
             busy={busy}
           />
         )}
 
-        <Sheet open={selected !== null} onOpenChange={(o) => !o && setSelected(null)}>
+        <Sheet open={selected !== null} onOpenChange={(o) => !o && openLead(null)}>
           <SheetContent title="Lead" hideHeader className="sm:w-[520px]">
             {selected ? (
               <LeadDetail
@@ -395,7 +414,7 @@ export function PipelineBoard({
                 tags={tags}
                 compact
                 onChanged={() => void refetch()}
-                onDeleted={() => setSelected(null)}
+                onDeleted={() => openLead(null)}
               />
             ) : null}
           </SheetContent>

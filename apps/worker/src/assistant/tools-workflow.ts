@@ -6,6 +6,13 @@
  * commands and queries the app uses, as the person, marked as done through the Assistant.
  */
 import {
+  APPROVALS_WORDS,
+  approvalAsked,
+  approvalCustomerOf,
+  approvalDecidedLine,
+  approvalFieldLabel,
+  approvalKind,
+  approvalPreviewOf,
   describeStep,
   describeTrigger,
   HfosError,
@@ -21,9 +28,8 @@ import type { Logger } from 'pino';
 import { proposeGap } from '../knowledge/gaps';
 import { systemActor, type WorkerServices } from '../services';
 import { draftProposal, proposalLines } from '../workflows/builder';
-import { approvalPreview, approvalWhat } from './approval-words';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
-import { command, query } from './tools-read';
+import { command, query, quoted, when } from './tools-read';
 
 type Args = Record<string, unknown>;
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
@@ -175,7 +181,136 @@ async function remindsTwice(
   return out;
 }
 
+/** A workflow approval as `workflow.approval_list` gives it (core's ApprovalFacts). */
+interface ApprovalItem {
+  id: string;
+  runId: string;
+  workflow: { id: string; name: string };
+  status: string;
+  approvers: { id: string; fullName: string }[];
+  preview: Record<string, unknown>;
+  edits: Record<string, unknown> | null;
+  reason: string | null;
+  decidedBy: { id: string; fullName: string } | null;
+  decidedAt: string | null;
+  via: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  person: { id: string; fullName: string } | null;
+  canDecide: boolean;
+}
+
+/** Past its expiry: the approval step's own path takes over, so nobody can decide it now. */
+const approvalExpired = (a: Pick<ApprovalItem, 'expiresAt'>) =>
+  !!a.expiresAt && Date.parse(a.expiresAt) <= Date.now();
+
+/**
+ * One approval as its card on Workflows → Approvals shows it: the customer, the workflow, what goes out, the step's
+ * note, each AI-written text by its key (what the AI wrote, so data), the customer's latest message (theirs), the
+ * knowledge used, who was asked, how long it has waited and when it expires; or, decided, the Decided list's line.
+ */
+function approvalOut(a: ApprovalItem, timezone: string) {
+  const p = approvalPreviewOf(a);
+  const pending = a.status === 'pending';
+  const expired = pending && approvalExpired(a);
+  return {
+    id: a.id,
+    workflow: { id: a.workflow.id, name: a.workflow.name },
+    customer: approvalCustomerOf(a, p),
+    personId: a.person?.id ?? null,
+    runId: a.runId,
+    whatGoesOut: approvalKind(p),
+    ...(p.note ? { note: p.note } : {}),
+    ...(p.fields.length
+      ? {
+          aiWritten: Object.fromEntries(
+            p.fields.map(([key, text]) => [
+              key,
+              { label: approvalFieldLabel(p, key), ai_wrote: text },
+            ]),
+          ),
+        }
+      : {}),
+    ...(p.asked ? { theirLatestMessage: quoted(p.asked) } : {}),
+    ...(p.items.length ? { knowledgeUsed: p.items.map((i) => i.title) } : {}),
+    asked: approvalAsked(a.approvers),
+    waitingSince: when(a.createdAt, timezone),
+    ...(pending && a.expiresAt
+      ? expired
+        ? { expired: APPROVALS_WORDS.expiredInfo }
+        : { expires: when(a.expiresAt, timezone), ifNobodyDecides: APPROVALS_WORDS.expiryInfo }
+      : {}),
+    ...(pending
+      ? {
+          canDecide: a.canDecide && !expired,
+          ...(!a.canDecide
+            ? { whoDecides: 'Only the people it asks, or owners and admins, can decide it.' }
+            : {}),
+        }
+      : {
+          decided: approvalDecidedLine(a),
+          ...(a.decidedAt ? { when: when(a.decidedAt, timezone) } : {}),
+          ...(a.status === 'approved'
+            ? { edited: !!a.edits && Object.keys(a.edits).length > 0 }
+            : {}),
+        }),
+  };
+}
+
 export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
+  async list_workflow_approvals(db, ctx, args) {
+    const status = str(args['status']) ?? 'pending';
+    const { items, nextCursor } = await query<{
+      items: ApprovalItem[];
+      nextCursor: string | null;
+    }>(db, ctx, 'workflow.approval_list', {
+      status,
+      ...(str(args['workflowId']) ? { workflowId: args['workflowId'] } : {}),
+      limit: Number(args['limit'] ?? 10),
+      ...(str(args['cursor']) ? { cursor: args['cursor'] } : {}),
+    });
+    const p = workflowPaths(ctx.workspaceId);
+    return {
+      result: {
+        approvals: items.map((a) => approvalOut(a, ctx.timezone)),
+        shown: items.length,
+        ...(nextCursor ? { more: true, nextCursor } : {}),
+        ...(items.length
+          ? {}
+          : {
+              note:
+                status === 'pending'
+                  ? 'No workflow approval is waiting.'
+                  : `No workflow approval was ${status} lately.`,
+            }),
+      },
+      card: items.length
+        ? {
+            type: 'list',
+            title:
+              status === 'pending'
+                ? `${plural(items.length, 'approval')} waiting`
+                : `${plural(items.length, 'approval')} ${status}`,
+            items: items.slice(0, 12).map((a) => {
+              const pv = approvalPreviewOf(a);
+              const late = a.status === 'pending' && approvalExpired(a);
+              return {
+                title: `${approvalCustomerOf(a, pv)} · ${a.workflow.name}`,
+                detail:
+                  a.status !== 'pending'
+                    ? approvalDecidedLine(a)
+                    : late
+                      ? 'Expired'
+                      : `${approvalKind(pv)}, ${approvalAsked(a.approvers)}`,
+                tone: a.status !== 'pending' ? 'muted' : late ? 'danger' : 'warning',
+                href: p.approvals(),
+              };
+            }),
+          }
+        : null,
+    };
+  },
+
   async list_workflows(db, ctx, args) {
     const calendarId = str(args['calendarId']);
     const { items } = await query<{ items: WorkflowItem[] }>(db, ctx, 'workflow.list', {
@@ -581,16 +716,6 @@ const removeContact: WorkflowConfirmTool = {
   },
 };
 
-interface ApprovalItem {
-  id: string;
-  runId: string;
-  workflow: { id: string; name: string };
-  status: string;
-  preview: Record<string, unknown>;
-  person: { id: string; fullName: string } | null;
-  canDecide: boolean;
-}
-
 async function pendingApproval(db: Db, ctx: ToolContext, id: unknown): Promise<ApprovalItem> {
   const { items } = await query<{ items: ApprovalItem[] }>(db, ctx, 'workflow.approval_list', {
     status: 'pending',
@@ -604,18 +729,57 @@ async function pendingApproval(db: Db, ctx: ToolContext, id: unknown): Promise<A
   return a;
 }
 
+/**
+ * The approver's new words, by the key each AI-written text is kept under: `edits` names them, and `message` is the
+ * one text of an approval that has a single one (or its first). Only keys the approval has are sent; an unknown one is
+ * refused, naming the ones it has. Null when nothing differs from what the AI wrote.
+ */
+function approvalEdits(
+  p: ReturnType<typeof approvalPreviewOf>,
+  args: Args,
+): Record<string, string> | null {
+  if (args['decision'] === 'reject' || !p.fields.length) return null;
+  const raw = args['edits'];
+  const given =
+    raw && typeof raw === 'object'
+      ? Object.entries(raw as Record<string, unknown>).flatMap(([k, v]) => {
+          const text = str(v);
+          return text ? [[k, text] as const] : [];
+        })
+      : [];
+  const keys = p.fields.map(([k]) => k);
+  const unknown = given.filter(([k]) => !keys.includes(k)).map(([k]) => k);
+  if (unknown.length)
+    throw HfosError.validation(
+      [{ path: 'edits', message: 'Use the keys of its AI-written texts.' }],
+      `This approval has no AI-written text called ${unknown.join(' or ')}. Its texts are ${keys.join(', ')}: list_workflow_approvals shows each.`,
+    );
+  const out: Record<string, string> = Object.fromEntries(given);
+  const message = str(args['message']);
+  const first = keys[0]!;
+  if (message && !(first in out)) out[first] = message;
+  const changed = Object.entries(out).filter(
+    ([k, v]) => p.fields.find(([f]) => f === k)?.[1] !== v,
+  );
+  return changed.length ? Object.fromEntries(changed) : null;
+}
+
 const answerApproval: WorkflowConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const a = await pendingApproval(db, ctx, args['approvalId']);
-    const p = approvalPreview(a.preview);
+    const p = approvalPreviewOf(a);
     const approve = args['decision'] !== 'reject';
-    const what = approvalWhat(a.preview);
-    const who = a.person?.fullName ?? p.customer ?? 'the customer';
-    const edited = approve && p.fields.length ? str(args['message']) : undefined;
-    const text = edited ?? p.fields[0]?.[1] ?? null;
-    const blocked = a.canDecide
-      ? null
-      : 'Only the people this approval names, or owners and admins, can decide it.';
+    const what = approvalKind(p);
+    const who = approvalCustomerOf(a, p);
+    const edits = approve ? approvalEdits(p, args) : null;
+    // What goes out: each AI-written text, with the approver's words where they changed it.
+    const texts = p.fields.map(([key, text]) => [key, edits?.[key] ?? text] as const);
+    // Past its expiry the approval step's own path has taken over, and the command refuses a decision.
+    const blocked = approvalExpired(a)
+      ? APPROVALS_WORDS.expiredInfo
+      : a.canDecide
+        ? null
+        : 'Only the people this approval names, or owners and admins, can decide it.';
     const title =
       what === 'the next step'
         ? `${approve ? 'Approve' : 'Reject'} the next step of “${a.workflow.name}” for ${who}?`
@@ -627,37 +791,52 @@ const answerApproval: WorkflowConfirmTool = {
         fields: [
           { label: 'Workflow', value: a.workflow.name },
           ...(p.note ? [{ label: 'Asks', value: p.note }] : []),
-          ...(edited ? [{ label: 'Edited', value: 'Your words go instead of the AI’s' }] : []),
+          // An approval with more than one AI-written text shows each one, by what it is.
+          ...(texts.length > 1
+            ? texts.map(([key, text]) => ({ label: approvalFieldLabel(p, key), value: text }))
+            : []),
+          ...(edits ? [{ label: 'Edited', value: 'Your words go instead of the AI’s' }] : []),
           ...(!approve && str(args['reason'])
             ? [{ label: 'Reason', value: String(args['reason']) }]
             : []),
         ],
-        body: text,
+        body: texts.length === 1 ? texts[0]![1] : null,
         warnings: blocked ? [{ kind: 'blocked', text: blocked }] : [],
-        confirmLabel: blocked ? '' : approve ? (text ? 'Approve and send' : 'Approve') : 'Reject',
+        confirmLabel: blocked
+          ? ''
+          : approve
+            ? texts.length
+              ? 'Approve and send'
+              : 'Approve'
+            : 'Reject',
       }),
       result: {
         workflow: a.workflow.name,
         customer: who,
         decision: approve ? 'approve' : 'reject',
         whatGoesOut: what,
+        // The words that go once it's approved: the AI's, with any edit in place.
+        ...(texts.length
+          ? { text: Object.fromEntries(texts.map(([k, t]) => [k, { ai_wrote: t }])) }
+          : {}),
+        ...(edits ? { edited: Object.keys(edits) } : {}),
         ...(blocked ? { cannotDecide: blocked } : {}),
       },
     };
   },
   async commit(db, ctx, args) {
     const a = await pendingApproval(db, ctx, args['approvalId']);
-    const p = approvalPreview(a.preview);
+    const p = approvalPreviewOf(a);
     const approve = args['decision'] !== 'reject';
-    const message = approve && p.fields.length ? str(args['message']) : undefined;
+    const edits = approve ? approvalEdits(p, args) : null;
     await command(db, ctx, 'workflow.decide_approval', {
       approvalId: a.id,
       decision: approve ? 'approve' : 'reject',
-      ...(message ? { edits: { [p.fields[0]![0]]: message } } : {}),
+      ...(edits ? { edits } : {}),
       ...(!approve && str(args['reason']) ? { reason: String(args['reason']) } : {}),
     });
-    const who = a.person?.fullName ?? p.customer ?? 'the customer';
-    const what = approvalWhat(a.preview);
+    const who = approvalCustomerOf(a, p);
+    const what = approvalKind(p);
     return {
       outcome: approve
         ? what === 'the next step'

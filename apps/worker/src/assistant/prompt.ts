@@ -31,7 +31,7 @@ Workflows: the context lists them with their ids, and the approvals waiting on t
 
 Tags and customer details: "tag everyone who…" means gather the customers with list_customers (and get_customer when you need their history), then tag_customers with all of their ids at once and a reason. When it can't be told from the list alone (what customers said, bought or asked about), or they mean the whole list, ai_tag_customers has the AI go through each customer in the background, with what to look for in their words. update_customer changes, adds or takes off any detail; take a detail off only when they asked. merge_customers joins two records for the same customer into one: find both with search_customers, and ask which one to keep when they didn't say. Every tag and detail change is kept in the audit log with its reason, so give the one they said. ai_tagging_status says how the AI's tagging is going and what it changed lately, and why.
 
-The Action Center: for what needs attention, call what_needs_attention. It reads the same list as Home, in the same order, so say how many there are and what comes first in a sentence and let the card show the rest. The context lists the top items with their ids: "the first one" is number 1, and a name means the item with that name in its title. handle_attention_item does what Let HandsFreeOS Handle would: HandsFreeOS's own confirmation request or follow-up, handing a waiting customer to the AI teammate, a reply you draft, or the next action. update_attention_item snoozes, dismisses or assigns an item. Approvals are decided with answer_workflow_approval, and tasks are done with complete_task.
+The Action Center: for what needs attention, call what_needs_attention. It reads the same list as Home, in the same order, so say how many there are and what comes first in a sentence and let the card show the rest. The context lists the top items with their ids: "the first one" is number 1, and a name means the item with that name in its title. handle_attention_item does what Let HandsFreeOS Handle would: HandsFreeOS's own confirmation request or follow-up, handing a waiting customer to the AI teammate, a reply you draft, or the next action. update_attention_item snoozes, dismisses or assigns an item. Approvals wait in Workflows → Approvals, and the context lists the ones waiting on this person: a workflow's are read with list_workflow_approvals (what the AI wrote, who was asked, when it expires) and decided with answer_workflow_approval; the AI teammate's drafts are read with list_teammate_drafts and decided with decide_teammate_draft. Tasks are done with complete_task.
 
 Questions about the business itself (what it offers, prices, policies, hours, what to tell a customer): answer only from the business profile in the context and what search_knowledge finds, following the knowledge rules in the context, and say which item you used. When the knowledge doesn't say, say so plainly, never guess, and offer to add it with add_knowledge_item (a draft unless they ask to publish it).
 
@@ -94,6 +94,8 @@ export interface PromptContext {
   readonly timezone: string;
   readonly now: Date;
   readonly pipelines: readonly {
+    /** Optional so older callers and tests still fit: read_lead_board and list_leads take it. */
+    readonly id?: string;
     readonly name: string;
     readonly stages: readonly {
       readonly id: string;
@@ -142,13 +144,19 @@ export interface PromptContext {
     readonly status: string;
     readonly trigger: string;
   }[];
-  /** Workflow approvals this person can decide now. */
+  /** Workflow approvals this person can decide now: the newest 10 waiting. */
   readonly approvals?: readonly {
     readonly id: string;
     readonly workflow: string;
     readonly customer: string | null;
     readonly what: string;
   }[];
+  /** More approvals are waiting than the newest 10 read for the context. */
+  readonly moreApprovals?: boolean;
+  /** The AI teammate's drafts this person can OK now, from the same Approvals list: the oldest 10 waiting. */
+  readonly teammateDrafts?: readonly { readonly id: string; readonly what: string }[];
+  /** More drafts are waiting than the 10 read for the context. */
+  readonly moreTeammateDrafts?: boolean;
   /** The business profile's brief (quoted) and the rules for what the Assistant says about the business. */
   readonly knowledge?: { readonly brief: string; readonly rules: string } | null;
   /** They're talking out loud and hear the answer read to them (voice mode). */
@@ -262,7 +270,7 @@ export function lastingText(c: PromptContext): string {
     'Pipelines and their stages:',
     ...c.pipelines.map(
       (p) =>
-        `- ${p.name}: ${p.stages.map((s) => `${s.name} [${s.kind}] (stage id ${s.id})`).join(', ')}`,
+        `- ${p.name}${p.id ? ` (pipeline id ${p.id})` : ''}: ${p.stages.map((s) => `${s.name} [${s.kind}] (stage id ${s.id})`).join(', ')}`,
     ),
     'Team:',
     ...c.team.map((m) => `- ${m.fullName}, ${m.role} (user id ${m.userId})`),
@@ -350,11 +358,17 @@ export function turnText(c: PromptContext): string {
     `It is ${local} (time zone ${c.timezone}).`,
     ...(c.approvals?.length
       ? [
-          'Workflow approvals waiting on this person:',
+          `Workflow approvals waiting on this person${c.moreApprovals ? ' (the newest 10 waiting; list_workflow_approvals reads the rest)' : ''}:`,
           ...c.approvals.map(
             (a) =>
               `- ${a.customer ?? 'A customer'} · ${a.what}, from ${a.workflow} (approval id ${a.id})`,
           ),
+        ]
+      : []),
+    ...(c.teammateDrafts?.length
+      ? [
+          `The AI teammate’s drafts waiting for this person’s OK${c.moreTeammateDrafts ? ' (the oldest 10; list_teammate_drafts reads the rest)' : ''}:`,
+          ...c.teammateDrafts.map((d) => `- ${d.what} (draft id ${d.id})`),
         ]
       : []),
     ...(c.attention ? attentionLines(c.attention) : []),

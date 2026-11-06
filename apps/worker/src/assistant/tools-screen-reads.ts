@@ -6,6 +6,8 @@
 import {
   addonToolArguments,
   executeQuery,
+  leadBoard,
+  money,
   registry,
   screenReadTools,
   videoCallGet,
@@ -37,6 +39,99 @@ function withJoin(data: unknown, webUrl: string): unknown {
   return { ...(data as object), join: `${webUrl}/call/${call.id}` };
 }
 
+/** The cards of each stage the board's summary lists, unless the model asked for more of a stage (`shown`). */
+const BOARD_CARDS = 5;
+
+interface BoardCard {
+  id: string;
+  title: string;
+  person: { fullName: string } | null;
+  company: { name: string } | null;
+  valueCents: number;
+  assignee: { fullName: string } | null;
+  nextAction: string | null;
+  nextActionOverdue: boolean;
+  needsNextAction: boolean;
+  source: string | null;
+  stageEnteredAt: string;
+  lostReason: string | null;
+}
+interface Board {
+  pipeline: { id: string; name: string };
+  pipelines: { id: string; name: string }[];
+  funnel: {
+    id: string;
+    name: string;
+    status: string;
+    leads: { leadId: string; paused: boolean }[];
+  } | null;
+  stages: {
+    id: string;
+    name: string;
+    kind: string;
+    count: number;
+    valueCents: number;
+    leads: BoardCard[];
+  }[];
+}
+
+/**
+ * The pipeline board as its header and columns show it: the open leads and their value, then every stage's count and
+ * total first (Won and Lost too), and only then each stage's first cards in the board's order, trimmed to what a card
+ * shows. The whole board as it comes is far too long to read, and cut short it lost the later stages' counts.
+ */
+function boardSummary(board: Board, shown: unknown): unknown {
+  const asked = new Map(
+    (Array.isArray(shown) ? (shown as { stageId?: unknown; limit?: unknown }[]) : []).flatMap(
+      (x): [string, number][] =>
+        typeof x.stageId === 'string' ? [[x.stageId, Number(x.limit) || BOARD_CARDS]] : [],
+    ),
+  );
+  const open = board.stages.filter((st) => st.kind === 'open');
+  const now = Date.now();
+  // The card's funnel badge: In {funnel}, or Paused · {funnel} while the team talks to them.
+  const inFunnel = new Map((board.funnel?.leads ?? []).map((x) => [x.leadId, x.paused]));
+  const funnelName = board.funnel?.name ?? '';
+  return {
+    pipeline: board.pipeline,
+    pipelines: board.pipelines,
+    ...(board.funnel
+      ? { funnel: { id: board.funnel.id, name: board.funnel.name, status: board.funnel.status } }
+      : {}),
+    openLeads: open.reduce((n, st) => n + st.count, 0),
+    openValue: money(open.reduce((n, st) => n + st.valueCents, 0)),
+    stages: board.stages.map((st) => {
+      const cards = st.leads.slice(0, asked.get(st.id) ?? BOARD_CARDS);
+      return {
+        id: st.id,
+        name: st.name,
+        kind: st.kind,
+        count: st.count,
+        value: money(st.valueCents),
+        leads: cards.map((l) => ({
+          id: l.id,
+          title: l.title,
+          customer: l.person?.fullName ?? l.company?.name ?? null,
+          ...(l.person && l.company ? { company: l.company.name } : {}),
+          value: money(l.valueCents),
+          assignee: l.assignee?.fullName ?? null,
+          nextAction: l.nextAction,
+          ...(l.nextActionOverdue ? { nextActionOverdue: true } : {}),
+          ...(l.needsNextAction ? { needsNextAction: true } : {}),
+          daysInStage: Math.max(0, Math.floor((now - Date.parse(l.stageEnteredAt)) / 86_400_000)),
+          ...(l.source ? { source: l.source } : {}),
+          ...(inFunnel.has(l.id)
+            ? { funnel: inFunnel.get(l.id) ? `Paused · ${funnelName}` : `In ${funnelName}` }
+            : {}),
+          ...(l.lostReason ? { lostReason: l.lostReason } : {}),
+        })),
+        ...(st.count > cards.length ? { notListed: st.count - cards.length } : {}),
+      };
+    }),
+    note: 'count and value are every lead in the stage. Only its first cards are listed, in the board’s order: for more of one stage, ask again with shown [{stageId, limit}], or use list_leads with pipelineId. get_lead reads one lead in full (last contact, expected close, tags, when it was won or lost).',
+  };
+}
+
 export async function runScreenRead(
   db: Db,
   tool: ScreenReadTool,
@@ -54,7 +149,12 @@ export async function runScreenRead(
     correlationId: ctx.correlationId,
     channel: 'assistant',
   });
-  const data = tool.query.name === videoCallGet.name ? withJoin(got, webUrl) : got;
+  const data =
+    tool.query.name === videoCallGet.name
+      ? withJoin(got, webUrl)
+      : tool.query.name === leadBoard.name
+        ? boardSummary(got as Board, args['shown'])
+        : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

@@ -63,11 +63,11 @@
     "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
     "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
     "packages/core/src/assistant/coverage.ts": "babf38712a5c",
-    "packages/core/src/assistant/screen-reads.ts": "7bad8957b678",
+    "packages/core/src/assistant/screen-reads.ts": "fda9ec12cf5d",
     "packages/core/src/assistant/settings-map.ts": "036cfaa9ca4c",
-    "packages/core/src/assistant/tools-content.ts": "b383cb78ef0a",
+    "packages/core/src/assistant/tools-content.ts": "c156c69209eb",
     "packages/core/src/assistant/tools-extra.ts": "e5fe009ee8f3",
-    "packages/core/src/assistant/tools.ts": "01c2b3d6576d"
+    "packages/core/src/assistant/tools.ts": "ab4f51e33d27"
   },
   "items": [
     {
@@ -1593,8 +1593,8 @@
       "path": "Approvals → Decided lately tab with count",
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:170",
-      "covered": "no",
-      "by": "list_teammate_drafts returns pending only; ai_teammate.draft_list isn’t a screen read"
+      "covered": "partly",
+      "by": "list_teammate_drafts status decided, newest first (up to 20; no paging yet, tm-7)"
     },
     {
       "path": "Approvals → training note",
@@ -1747,8 +1747,8 @@
       "path": "Approvals → decided row: person, AI name, decided by, when, link",
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:380",
-      "covered": "no",
-      "by": "decided drafts aren’t read"
+      "covered": "yes",
+      "by": "list_teammate_drafts status decided → for, teammate, decided (by whom, with an edit or why), when, conversationId"
     },
     {
       "path": "Funnels → header → New funnel",

@@ -612,7 +612,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     ],
     howTo: [
       'Add a task: Tasks, press New task, then Add task',
-      'Add a task about a customer or lead: from their page, Task (New task on the Tasks page can’t attach one)',
+      'Add a task about a customer: their page, press Task, then New task; about a lead: New task in the lead’s Tasks section (New task on the Tasks page can’t attach one)',
       'Tick a task off: press its circle (Recently done has the ones to undo)',
       'Change or delete a task: its ⋯, then Edit or Delete',
     ],
@@ -692,7 +692,7 @@ export const EVERY_PAGE: readonly string[] = [
 
 /** What people ask for that HandsFreeOS doesn’t do anywhere, so the Assistant says so plainly. */
 export const NOT_ANYWHERE: readonly string[] = [
-  'deleting a company or lead for good (they are archived; owners can delete customers, conversations and bookings for good)',
+  'deleting an add-on’s records for good, such as Real Estate’s deals (they are archived; owners delete customers, companies, leads, records, conversations and bookings for good, and those wait 30 days in Settings → Deleted bin)',
   'choosing many rows of a list at once to change them together, other than deleting customers or conversations (the Assistant can tag many customers at once)',
   'exporting customers, leads or the audit log to a spreadsheet (form answers do have Export to CSV)',
   'a keypad to ring any number (calls start from a customer, a conversation or an item on Home)',
@@ -702,6 +702,9 @@ export const NOT_ANYWHERE: readonly string[] = [
 export const PHONE_APP: readonly string[] = [
   'The bar along the bottom: Home, Inbox, Pipeline, Calendar and More',
   'More: Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web',
+  'Pipeline: one stage at a time, with the stages as chips along the top showing their counts; tap a lead to open it, then Move to… to change its stage (it works with no signal, and Lost asks why); there is no dragging on the phone',
+  'Tasks, under More: Mine or Everyone; the circle ticks one off (and reopens a done one); tapping a task opens its customer or lead; New task at the bottom',
+  'Approvals, under More: Waiting and Decided, with the AI teammate’s drafts and workflow approvals together',
   'Its Settings: My cell phone, unlocking with Face ID or a fingerprint, Businesses on this phone, Usage & balance, Notifications, Appearance, Sign out, Delete my account',
   'Only on the web: workflows, the AI teammate’s settings, Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
   'Money, under More: invoices and estimates (and payments and plans for whoever manages money); on an invoice, Record cash or a check, Send and Send a payment link; on an estimate, Send and Send their link; New invoice on the web and New estimate on the web write one on the web',

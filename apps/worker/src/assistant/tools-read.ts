@@ -3,11 +3,14 @@ import {
   contactLabelWords,
   customerSince,
   customValueText,
+  dueLabel,
   executeCommand,
   handoffWhy,
+  money as coreMoney,
   plainSpaces,
   registry,
   rehearseCommand,
+  TASK_GROUPS,
   teammateConfigOf,
   type AssistantCard,
   type ConversationHandoffReason,
@@ -35,12 +38,8 @@ export const paths = (ws: string) => ({
   inbox: () => `/app/w/${ws}/inbox`,
 });
 
-export const money = (cents: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(cents / 100);
+/** Money as the screens show it: $4,312.50, with cents only when there are any (core's one formatter). */
+export const money = (cents: number): string => coreMoney(cents);
 
 /** A due time as people say it, in the business's time zone. */
 export const when = (iso: string | null, timezone: string): string =>
@@ -56,6 +55,28 @@ export const when = (iso: string | null, timezone: string): string =>
         }).format(new Date(iso)),
       )
     : 'No due date';
+
+/** A day as people say it, in the business's time zone, with no time: "Fri, Nov 13". */
+const dayWords = (iso: string, timezone: string): string =>
+  plainSpaces(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(iso)),
+  );
+
+/**
+ * When a task is due, as its row means it: an all-day task by its day alone ("Fri, Nov 13, all day"), never the noon
+ * it is kept at; one at a time with the time. "No due date" for none.
+ */
+export const dueWords = (t: { dueAt: string | null; allDay: boolean }, timezone: string): string =>
+  !t.dueAt
+    ? 'No due date'
+    : t.allDay
+      ? `${dayWords(t.dueAt, timezone)}, all day`
+      : when(t.dueAt, timezone);
 
 /** Anything a customer wrote, marked so the model reads it as their words and nothing more. */
 export const quoted = (text: string | null | undefined) => (text ? { customer_wrote: text } : null);
@@ -186,6 +207,7 @@ interface TaskItem {
   title: string;
   notes: string | null;
   dueAt: string | null;
+  allDay: boolean;
   dueBucket: 'overdue' | 'today' | 'week' | 'later' | 'none';
   assignee: Ref;
   person: { id: string; fullName: string } | null;
@@ -193,7 +215,18 @@ interface TaskItem {
   lead: { id: string; title: string } | null;
   customRecord: { id: string; name: string; kind: string } | null;
   doneAt: string | null;
+  doneBy: Ref;
 }
+
+/** The Tasks page's group names, by bucket. */
+const GROUP_WORDS = Object.fromEntries(TASK_GROUPS.map((g) => [g.key, g.label])) as Record<
+  TaskItem['dueBucket'],
+  string
+>;
+
+/** A task's row on the Tasks page, as the card's line under its title: "Today · Dale", "Done Nov 3 · Dale". */
+const taskRowDetail = (t: TaskItem, timezone: string) =>
+  `${dueLabel(t, new Date(), timezone).text} · ${(t.doneAt ? t.doneBy : t.assignee)?.fullName ?? 'Nobody'}`;
 interface ConversationItem {
   id: string;
   channel: 'sms' | 'email';
@@ -681,7 +714,7 @@ export const readTools: Record<string, ReadTool> = {
         openTasks: tasks.items.map((t) => ({
           id: t.id,
           title: t.title,
-          due: when(t.dueAt, ctx.timezone),
+          due: dueWords(t, ctx.timezone),
           assignee: t.assignee?.fullName ?? null,
         })),
         upcomingAppointments: upcoming.results,
@@ -699,18 +732,32 @@ export const readTools: Record<string, ReadTool> = {
   },
 
   async list_leads(db, ctx, args) {
-    const { items } = await query<{ items: LeadItem[] }>(db, ctx, 'lead.list', {
-      status: args['status'],
-      createdAfter: args['createdAfter'],
-      assigneeUserId: args['assigneeUserId'],
-      personId: args['personId'],
-      companyId: args['companyId'],
-      withoutNextAction: args['withoutNextAction'],
-      limit: args['limit'] ?? 10,
-    });
+    const { items, nextCursor } = await query<{ items: LeadItem[]; nextCursor: string | null }>(
+      db,
+      ctx,
+      'lead.list',
+      {
+        status: args['status'],
+        pipelineId: args['pipelineId'],
+        q: args['query'],
+        createdAfter: args['createdAfter'],
+        assigneeUserId: args['assigneeUserId'],
+        personId: args['personId'],
+        companyId: args['companyId'],
+        withoutNextAction: args['withoutNextAction'],
+        includeArchived: args['includeArchived'] ?? false,
+        limit: args['limit'] ?? 10,
+        ...(typeof args['cursor'] === 'string' && args['cursor'] ? { cursor: args['cursor'] } : {}),
+      },
+    );
     const p = paths(ctx.workspaceId);
     return {
-      result: { count: items.length, leads: items.map((l) => leadResult(l, ctx.timezone)) },
+      result: {
+        // This page, not a total: read_lead_board and read_crm_summary count them all.
+        shown: items.length,
+        ...(nextCursor ? { more: true, nextCursor } : {}),
+        leads: items.map((l) => leadResult(l, ctx.timezone)),
+      },
       card: items.length
         ? {
             type: 'list',
@@ -801,32 +848,34 @@ export const readTools: Record<string, ReadTool> = {
       customRecordId: args['customRecordId'],
     };
     const status = args['status'] ?? 'open';
-    const { items } = await query<{ items: TaskItem[] }>(db, ctx, 'task.list', {
-      // A record's Tasks tab lists everyone's tasks on it.
-      scope: Object.values(on).some(Boolean) ? 'all' : (args['scope'] ?? 'mine'),
-      status,
-      assigneeUserId: args['assigneeUserId'],
-      ...on,
-      limit: 60,
-    });
-    const due = args['due'] ?? 'any';
-    const picked = items.filter((t) =>
-      due === 'any'
-        ? true
-        : due === 'week'
-          ? ['overdue', 'today', 'week'].includes(t.dueBucket)
-          : t.dueBucket === due,
+    const { items, nextCursor } = await query<{ items: TaskItem[]; nextCursor: string | null }>(
+      db,
+      ctx,
+      'task.list',
+      {
+        // A record's Tasks tab lists everyone's tasks on it.
+        scope: Object.values(on).some(Boolean) ? 'all' : (args['scope'] ?? 'mine'),
+        status,
+        assigneeUserId: args['assigneeUserId'],
+        ...on,
+        limit: 100,
+        ...(typeof args['cursor'] === 'string' && args['cursor'] ? { cursor: args['cursor'] } : {}),
+      },
     );
+    // One of the Tasks page's groups, as task.list puts each task in one: This week is only the days after today.
+    const due = args['due'] ?? 'any';
+    const picked = items.filter((t) => due === 'any' || t.dueBucket === due);
     return {
       result: {
         tasks: picked.map((t) => ({
           id: t.id,
           title: t.title,
-          due: when(t.dueAt, ctx.timezone),
-          dueBucket: t.dueBucket,
+          due: dueWords(t, ctx.timezone),
+          ...(t.doneAt ? {} : { group: GROUP_WORDS[t.dueBucket] }),
           assignee: t.assignee?.fullName ?? null,
           customer: t.person?.fullName ?? null,
-          ...(t.company ? { company: t.company.name } : {}),
+          ...(t.person ? { personId: t.person.id } : {}),
+          ...(t.company ? { company: { id: t.company.id, name: t.company.name } } : {}),
           ...(t.lead ? { lead: { id: t.lead.id, title: t.lead.title } } : {}),
           ...(t.customRecord
             ? {
@@ -838,8 +887,21 @@ export const readTools: Record<string, ReadTool> = {
               }
             : {}),
           ...(t.notes ? { notes: t.notes } : {}),
-          ...(t.doneAt ? { done: when(t.doneAt, ctx.timezone) } : {}),
+          ...(t.doneAt
+            ? { done: when(t.doneAt, ctx.timezone), doneBy: t.doneBy?.fullName ?? null }
+            : {}),
         })),
+        shown: picked.length,
+        ...(nextCursor
+          ? {
+              more: true,
+              nextCursor,
+              note:
+                due === 'any'
+                  ? 'There are more: pass nextCursor for the next page.'
+                  : 'These are from the first page of tasks only: pass nextCursor for the next page, which may hold more of this group.',
+            }
+          : {}),
       },
       card: picked.length
         ? {
@@ -847,9 +909,14 @@ export const readTools: Record<string, ReadTool> = {
             title: `${picked.length === 1 ? '1 task' : `${picked.length} tasks`}${status === 'done' ? ' done' : ''}`,
             items: picked.slice(0, 12).map((t) => ({
               title: t.title,
-              detail: `${when(t.dueAt, ctx.timezone)} · ${t.assignee?.fullName ?? 'Nobody'}`,
-              tone:
-                t.dueBucket === 'overdue' ? 'danger' : t.dueBucket === 'today' ? 'accent' : 'muted',
+              detail: taskRowDetail(t, ctx.timezone),
+              tone: t.doneAt
+                ? 'muted'
+                : t.dueBucket === 'overdue'
+                  ? 'danger'
+                  : t.dueBucket === 'today'
+                    ? 'accent'
+                    : 'muted',
               href: paths(ctx.workspaceId).tasks(),
             })),
           }
@@ -871,8 +938,9 @@ export const readTools: Record<string, ReadTool> = {
       result: {
         ...appointments.result,
         tasksDueToday: due.map((t) => ({
+          id: t.id,
           title: t.title,
-          due: when(t.dueAt, ctx.timezone),
+          due: dueWords(t, ctx.timezone),
           overdue: t.dueBucket === 'overdue',
         })),
       },
@@ -887,7 +955,7 @@ export const readTools: Record<string, ReadTool> = {
                 detail:
                   t.dueBucket === 'overdue'
                     ? `Overdue · ${t.assignee?.fullName ?? 'You'}`
-                    : when(t.dueAt, ctx.timezone),
+                    : dueLabel(t, new Date(), ctx.timezone).text,
                 tone: t.dueBucket === 'overdue' ? 'danger' : 'accent',
                 href: paths(ctx.workspaceId).tasks(),
               })),
