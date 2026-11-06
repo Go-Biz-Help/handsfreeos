@@ -198,6 +198,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: 'addons.manage',
     canChange: [
       'add an add-on, turn one on or off, or uninstall one, with what has to move with it',
+      'change an add-on’s own settings, the ones on its settings page (Real Estate Agent’s Deal settings, Social Outreach’s settings), for whoever that add-on lets change them',
     ],
     handovers: [
       {
@@ -720,11 +721,13 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/payments',
     permission: 'money.manage',
     canChange: [
-      'ways to pay, sales tax and your business address',
-      'terms, notes, and how estimates and invoices are numbered',
-      'deposits, and how long an estimate is good for',
-      'invoice reminders and estimate nudges',
-      'rename a payout account, make one the default, or disconnect it',
+      'bank transfer on or off (card is always on), sales tax, its name and whether new items start taxable',
+      'your business address on documents, or taking it off',
+      'when invoices are due, the notes at the bottom of estimates and invoices, and how long an estimate is good for',
+      'the deposit an estimate asks for: none, a share or a set amount',
+      'invoice reminders before, on and after the due date, and the nudge for an estimate nobody answered',
+      'rename a payout account, make one the default, or disconnect it (plans still billing through it keep billing at Stripe or Square only if you say so)',
+      'who may bill into each payout account',
       'the letters in front of invoice and estimate numbers, and the next number (it only goes up)',
     ],
     handovers: [
@@ -770,10 +773,21 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/partners',
     permission: 'partners.manage',
     canChange: [
-      'how partners are paid: their share, the smallest payout, the calendar their links book, and the terms',
+      'how partners are paid: their share, the smallest payout, the calendar their links book, and the terms (or taking them off)',
       'make a customer a partner, give one their own share, pause, end or bring one back, and mark which partner sent a customer',
+      'take the card partner payouts are charged to off (only someone who manages money)',
     ],
-    handovers: [],
+    handovers: [
+      {
+        what: 'put on, or change, the card partner payouts are charged to',
+        why: 'the card is typed on the payment provider’s own page, which only you can do',
+        steps: [
+          'Open Settings → Partners.',
+          'Under Paying your partners, press Add a card, or Change the card.',
+          'Type the card on Stripe’s page; you come back here when it is done.',
+        ],
+      },
+    ],
   },
   usage: {
     label: 'Usage & balance',
