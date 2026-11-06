@@ -39,7 +39,7 @@ import { FACT_FROM_KEYS, LISTING_HOME_FACT_KEYS } from './listing';
 import { SELLER_CHOICE_KEYS } from './net';
 import { LOAN_TYPE_KEYS, OFFER_STATUS_KEYS } from './offer-words';
 import { MEMORY_KIND_KEYS } from './memory';
-import { DEAL_SIDES, DUTY_STATUSES } from './states';
+import { DEAL_SIDES, DUTY_STATUSES, stageKeyWords } from './states';
 import { CONTRACT_DATE_KEYS, CONTRACT_KEYS, READ_KINDS } from './contract-read';
 import { CONTINGENCY_ENDINGS, CONTINGENCY_KIND_KEYS, CONTINGENCY_STATES } from './contingencies';
 import { ESIGN_PROVIDER_KEYS, ESIGN_STATE_KEYS, SIGNER_STATE_KEYS } from './esign';
@@ -89,7 +89,12 @@ export const DealOpenInput = z.object({
   side: z.enum(DEAL_SIDES),
   name: z.string().trim().min(1, 'Name the deal.').max(160, 'Keep it under 160 characters.'),
   /** Where it starts: its side's first stage unless said. Stages before it get their duties too. */
-  stage: z.string().optional(),
+  stage: z
+    .string()
+    .optional()
+    .describe(
+      `Where it starts, by its key: its side’s first stage unless said, and the stages before it bring their duties too. A buyer deal’s: ${stageKeyWords('buyer')}. A listing’s: ${stageKeyWords('listing', false)}.`,
+    ),
   /** The client, one of the business's customers. */
   clientPersonId: uuid.optional(),
   /** The Pipeline lead it came from. */
@@ -315,16 +320,49 @@ export const TermConfirmAllOutput = TermDatesOut.extend({
 export const DealListInput = z.object({
   workspaceId: uuid,
   /** Only the deals they're on. */
-  mine: z.boolean().default(false),
+  mine: z
+    .boolean()
+    .default(false)
+    .describe('Only the deals they’re on, as main agent or on the team (My deals)'),
   side: z.enum(DEAL_SIDES).optional(),
   status: z.enum(['open', 'closed', 'ended', 'archived', 'all']).default('open'),
   search: z.string().trim().max(100).optional(),
   limit: z.number().int().min(1).max(200).default(100),
   /** Round four: one agent's deals, a stage, closing within so many days, or waiting on someone. */
-  agentUserId: uuid.optional(),
-  stage: z.string().max(40).optional(),
-  closingWithinDays: z.number().int().min(0).max(365).optional(),
-  waitingOn: z.enum(['outside', 'blocked', 'either']).optional(),
+  agentUserId: uuid
+    .optional()
+    .describe('Only the deals whose main agent is this person (their user id, from the team)'),
+  stage: z
+    .string()
+    .max(40)
+    .optional()
+    .describe(
+      `Only deals at this stage, by its key (its words work too). A buyer deal’s: ${stageKeyWords('buyer')}. A listing’s: ${stageKeyWords('listing')}.`,
+    ),
+  closingWithinDays: z
+    .number()
+    .int()
+    .min(0)
+    .max(365)
+    .optional()
+    .describe('Only deals whose closing date is within this many days from today'),
+  waitingOn: z
+    .enum(['outside', 'blocked', 'either'])
+    .optional()
+    .describe(
+      'Only deals with a duty waiting on someone outside (outside), one blocked (blocked), or either',
+    ),
+  /** Deals' Health filter, and the Needs attention tab (health not green, or dates to confirm). */
+  health: z
+    .enum(['green', 'yellow', 'red'])
+    .optional()
+    .describe('Only deals this healthy: red is At risk, yellow Needs attention, green On track'),
+  needsAttention: z
+    .boolean()
+    .optional()
+    .describe(
+      'true: the Needs attention tab’s deals, those not on track or with dates to confirm; false: the rest',
+    ),
 });
 const DealRow = z.object({
   dealId: uuid,
@@ -561,6 +599,15 @@ export const OverviewOutput = z.object({
   version: z.string(),
   openDeals: z.number().int(),
   myOpenDeals: z.number().int(),
+  /** Open deals by health, as Deals' tiles count them: Healthy, Needs attention and At risk. */
+  healthy: z.number().int(),
+  needsAttention: z.number().int(),
+  atRisk: z.number().int(),
+  /** Open deals with a date or term nobody has confirmed yet (the Dates to confirm tile). */
+  datesToConfirm: z.number().int(),
+  /** The Needs attention tab: open deals not on track, or with dates to confirm. */
+  needsAttentionTab: z.number().int(),
+  /** The duties they answer for, as My duties groups them: overdue, and due later today or in the next six days. */
   overdueDuties: z.number().int(),
   dueThisWeek: z.number().int(),
 });
@@ -788,11 +835,40 @@ export const DutyListInput = z.object({
   workspaceId: uuid,
   /** Only those they answer for. */
   mine: z.boolean().default(true),
+  /** The phone's I'm watching: the duties on their deals that someone else answers for (mine is then set aside). */
+  watching: z
+    .boolean()
+    .optional()
+    .describe(
+      'true: I’m watching, the duties on the deals they’re on that someone else answers for (mine is then set aside)',
+    ),
   status: z.enum(['open', 'overdue', 'drafts', 'all']).default('open'),
   dealId: uuid.optional(),
   limit: z.number().int().min(1).max(500).default(200),
+  /** How many of them to pass over first, soonest due first: the next page. */
+  offset: z
+    .number()
+    .int()
+    .min(0)
+    .max(10_000)
+    .default(0)
+    .describe('How many to pass over first, for the next page'),
+});
+/** How many there are, as My duties groups them, over the same duties (theirs or everyone's, one deal or all). */
+const DutyTotals = z.object({
+  open: z.number().int(),
+  overdue: z.number().int(),
+  today: z.number().int(),
+  thisWeek: z.number().int(),
+  later: z.number().int(),
+  noDeadline: z.number().int(),
+  waiting: z.number().int(),
+  blocked: z.number().int(),
+  /** Waiting for a date to be confirmed. */
+  drafts: z.number().int(),
 });
 export const DutyListOutput = z.object({
+  totals: DutyTotals,
   duties: z.array(
     z.object({
       dutyId: uuid,
@@ -3510,9 +3586,11 @@ export const DutyChasedInput = z.object({
 export const CoordinateInput = z.object({
   workspaceId: uuid,
   /** Only what they answer for or are on. */
-  mine: z.boolean().optional(),
+  mine: z.boolean().optional().describe('Only what they answer for or the deals they’re on (Mine)'),
   /** Only one agent's deals. */
-  agentUserId: uuid.optional(),
+  agentUserId: uuid
+    .optional()
+    .describe('Only the deals whose main agent is this person (their user id, from the team)'),
 });
 const Health = z.enum(['green', 'yellow', 'red']);
 const TodayDuty = z.object({
@@ -4115,14 +4193,22 @@ export const VendorSaveInput = z
     name: z.string().trim().min(1, 'Enter the vendor’s name.').max(120).optional(),
     email: z.email({ error: 'Enter an email like hello@vendor.com.' }).max(254).optional(),
     phone: z.string().trim().min(7, 'Enter a phone number.').max(40).optional(),
-    services: z.array(vendorService).min(1, 'Pick at least one thing they do.').max(9),
-    areas: z.array(z.string().trim().min(1).max(60)).max(20).default([]),
+    /**
+     * What they do and where, each the whole list as it should end up. A new vendor needs what they do; on a change,
+     * one left out stays as it is.
+     */
+    services: z.array(vendorService).min(1, 'Pick at least one thing they do.').max(9).optional(),
+    areas: z.array(z.string().trim().min(1).max(60)).max(20).optional(),
     disclosure: z.string().trim().min(1).max(500).nullable().optional(),
     note: z.string().trim().min(1).max(1000).nullable().optional(),
   })
   .refine((v) => !!v.vendorId || !!v.companyId || !!v.name, {
     path: ['name'],
     message: 'Enter the vendor’s name, or pick a company from Contacts.',
+  })
+  .refine((v) => !!v.vendorId || !!v.services?.length, {
+    path: ['services'],
+    message: 'Pick at least one thing they do.',
   });
 export const VendorOutput = z.object({
   vendorId: uuid,

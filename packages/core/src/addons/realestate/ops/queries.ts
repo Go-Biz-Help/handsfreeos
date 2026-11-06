@@ -9,6 +9,7 @@ import { linkedProblems, type LinkedDates } from '../dates/linked';
 import { and, asc, desc, eq, lt, type SQL } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { customRecords } from '@hfos/db/schema';
+import { HfosError } from '../../../errors';
 import { scopeCan } from '../../../kernel/execute';
 import type { Permission } from '../../../permissions';
 import { defineAddonQuery } from '../../server';
@@ -39,6 +40,8 @@ import {
   isOverdue,
   OPEN_DUTY_STATUSES,
   STAGE_LABELS,
+  stageKeyOf,
+  stageKeyWords,
   type DealStage,
   type DutyStatus,
 } from '../states';
@@ -205,7 +208,7 @@ async function dealRows(ctx: Ctx, filter: SQL, limit: number) {
 export const overview = defineAddonQuery(realestateAddon, {
   name: 'realestate.overview',
   description:
-    'Real Estate Agent at a glance: open deals in the business and the person’s own, and their overdue and this week’s duties.',
+    'Real Estate Agent at a glance: open deals in the business and the person’s own, how healthy they are, and the overdue and this week’s duties they answer for.',
   input: OverviewInput,
   output: OverviewOutput,
   permission: 'realestate.use',
@@ -214,32 +217,60 @@ export const overview = defineAddonQuery(realestateAddon, {
   ai: {
     tool: 'realestate_overview',
     description:
-      'How many deals are open, how many are the person’s own, and how many of their duties are overdue or due this week.',
+      'How many open deals the person sees and how many are theirs; how healthy they are, as Deals’ tiles count them (healthy, needsAttention is yellow, atRisk is red, and datesToConfirm); how many the Needs attention tab holds (not on track, or with dates to confirm: realestate_find_deals needsAttention lists them); and, as My duties counts them, how many of the duties they answer for are overdue or due today or this week (realestate_list_duties lists them).',
   },
   handler: async (ctx) => {
     const mine = onDealSql(me(ctx));
-    const [c] = await rows<{ open: number; mine: number; overdue: number; week: number }>(
+    const zone = await timeZoneOf(ctx);
+    const unconfirmed = sql`exists (select 1 from addon_realestate.term_entries e
+      where e.deal_record_id = d.record_id and e.confirmed_at is null
+        and e.superseded_at is null and e.rejected_at is null)`;
+    // The duties they answer for, as My duties groups them: waiting and blocked ones apart, the rest by when.
+    const theirs = sql`t.workspace_id = ${ctx.scope.workspaceId!} and t.status in ${OPEN}
+      and t.status not in ('waiting_external', 'blocked') and r.archived_at is null
+      and t.accountable_user_id = ${me(ctx)}::uuid`;
+    const [c] = await rows<{
+      open: number;
+      mine: number;
+      green: number;
+      yellow: number;
+      red: number;
+      dates: number;
+      attention: number;
+      overdue: number;
+      week: number;
+    }>(
       ctx.tx,
-      sql`select
-            (select count(*)::int from addon_realestate.deals d join app.custom_records r on r.id = d.record_id
-              where d.workspace_id = ${ctx.scope.workspaceId!} and d.outcome is null and r.archived_at is null) as open,
-            (select count(*)::int from addon_realestate.deals d join app.custom_records r on r.id = d.record_id
-              where d.workspace_id = ${ctx.scope.workspaceId!} and d.outcome is null and r.archived_at is null
-                and ${mine}) as mine,
+      sql`with live as (
+            select d.record_id, d.health, ${mine} as mine, ${unconfirmed} as unconfirmed
+            from addon_realestate.deals d join app.custom_records r on r.id = d.record_id
+            where d.workspace_id = ${ctx.scope.workspaceId!} and d.outcome is null and r.archived_at is null)
+          select
+            (select count(*)::int from live) as open,
+            (select count(*)::int from live where mine) as mine,
+            (select count(*)::int from live where health = 'green') as green,
+            (select count(*)::int from live where health = 'yellow') as yellow,
+            (select count(*)::int from live where health = 'red') as red,
+            (select count(*)::int from live where unconfirmed) as dates,
+            (select count(*)::int from live where health <> 'green' or unconfirmed) as attention,
             (select count(*)::int from addon_realestate.duties t
               join app.custom_records r on r.id = t.deal_record_id
-              where t.workspace_id = ${ctx.scope.workspaceId!} and t.status in ${OPEN} and r.archived_at is null
-                and t.due_at <= now() and ${mine}) as overdue,
+              where ${theirs} and t.due_at <= now()) as overdue,
             (select count(*)::int from addon_realestate.duties t
               join app.custom_records r on r.id = t.deal_record_id
-              where t.workspace_id = ${ctx.scope.workspaceId!} and t.status in ${OPEN} and r.archived_at is null
-                and t.due_at > now() and t.due_at <= now() + interval '7 days' and ${mine}) as week`,
+              where ${theirs} and t.due_at > now()
+                and (t.due_at at time zone ${zone})::date - (now() at time zone ${zone})::date < 7) as week`,
     );
     return {
       name: realestateAddon.name,
       version: realestateAddon.version,
       openDeals: c?.open ?? 0,
       myOpenDeals: c?.mine ?? 0,
+      healthy: c?.green ?? 0,
+      needsAttention: c?.yellow ?? 0,
+      atRisk: c?.red ?? 0,
+      datesToConfirm: c?.dates ?? 0,
+      needsAttentionTab: c?.attention ?? 0,
       overdueDuties: c?.overdue ?? 0,
       dueThisWeek: c?.week ?? 0,
     };
@@ -257,8 +288,8 @@ export const dealList = defineAddonQuery(realestateAddon, {
   ai: {
     tool: 'realestate_find_deals',
     description:
-      'Find deals the person sees: open, closed or ended, theirs or everyone’s, buyer deals or listings, by name, client or address.',
-    keywords: ['deals', 'listings', 'buyers', 'my deals'],
+      'Find deals the person sees, as Deals lists them: open, closed, ended (lost, ended or terminated), archived or all; theirs or everyone’s; buyer deals or listings; by name, client or address; and by main agent, stage, closing within so many days, waiting on someone, health, or the Needs attention tab. realestate_overview counts them.',
+    keywords: ['deals', 'listings', 'buyers', 'my deals', 'at risk', 'needs attention'],
   },
   handler: async (ctx, input) => {
     const parts: SQL[] = [];
@@ -271,7 +302,24 @@ export const dealList = defineAddonQuery(realestateAddon, {
     if (input.mine) parts.push(onDealSql(me(ctx)));
     // Round four: the coordinator's filters.
     if (input.agentUserId) parts.push(sql`r.owner_user_id = ${input.agentUserId}`);
-    if (input.stage) parts.push(sql`d.stage = ${input.stage}`);
+    if (input.stage) {
+      // By its key or its words, so "Under contract" never quietly finds nothing.
+      const stage = stageKeyOf(input.stage);
+      if (!stage)
+        throw HfosError.rule(
+          'realestate_bad_stage',
+          400,
+          `“${input.stage}” isn’t a stage. Pick one of a buyer deal’s (${stageKeyWords('buyer')}) or a listing’s (${stageKeyWords('listing')}).`,
+        );
+      parts.push(sql`d.stage = ${stage}`);
+    }
+    if (input.health) parts.push(sql`d.health = ${input.health}`);
+    if (input.needsAttention !== undefined) {
+      const attention = sql`(d.health <> 'green' or exists (select 1 from addon_realestate.term_entries e
+        where e.deal_record_id = d.record_id and e.confirmed_at is null
+          and e.superseded_at is null and e.rejected_at is null))`;
+      parts.push(input.needsAttention ? attention : sql`not ${attention}`);
+    }
     if (input.closingWithinDays !== undefined) {
       const today = todayIn(await timeZoneOf(ctx));
       parts.push(

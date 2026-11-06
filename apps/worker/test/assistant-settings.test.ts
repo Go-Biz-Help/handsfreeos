@@ -5,6 +5,7 @@ import {
   bookingSiteSetPage,
   calendarCreate,
   calendarSave,
+  catalogAddon,
   executeCommand,
   executeQuery,
   hasWorkspacePermission,
@@ -187,6 +188,17 @@ describe('get_settings', () => {
     expect(vote.comingSoon).toContain('Real Estate Agent');
     expect(vote.planned).toBeGreaterThan(100);
     expect(JSON.stringify(result['theyDoThemselves'])).toContain('delete an add-on’s data');
+
+    // One in the business, turned off here, comes with its id, which manage_add_on and update_addon_settings take.
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${workspaceId}, 'realestate', 'disabled', ${catalogAddon('realestate').version})`,
+    );
+    const again = await readTool('get_settings', 'add_ons', owner);
+    expect((again.result['addOns'] as { inThisBusiness: unknown[] }).inThisBusiness).toEqual([
+      expect.objectContaining({ addonId: 'realestate', name: 'Real Estate Agent' }),
+    ]);
   });
 
   it('reads every part without failing, whatever is set up', async () => {

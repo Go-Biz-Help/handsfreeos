@@ -26,6 +26,7 @@ import {
   type ScreenReadTool,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { z } from 'zod';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 
@@ -216,7 +217,21 @@ function withDefaults(got: unknown): unknown {
   if (settings === null || settings === undefined) return got;
   const schema = ADDON_CATALOG.find((m) => m.id === addonId)?.settings?.workspace;
   const read = schema?.safeParse(settings);
-  return read?.success ? { ...got, settings: read.data } : got;
+  return read?.success ? { ...got, settings: read.data, ...labelsOf(schema) } : got;
+}
+
+/**
+ * What each of an add-on's settings is, in the words its schema gives it ("Years a closed deal is kept"), so the model
+ * names a setting the way its page does and never guesses what a key holds. None when the schema gives none.
+ */
+function labelsOf(schema: unknown): { labels?: Record<string, string> } {
+  if (!(schema instanceof z.ZodObject)) return {};
+  const labels = Object.fromEntries(
+    Object.entries(schema.shape as Record<string, z.ZodType>).flatMap(([key, part]) =>
+      part.description ? [[key, part.description]] : [],
+    ),
+  );
+  return Object.keys(labels).length ? { labels } : {};
 }
 
 export async function runScreenRead(

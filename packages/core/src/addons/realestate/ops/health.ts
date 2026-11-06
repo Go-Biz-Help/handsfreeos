@@ -413,8 +413,8 @@ export function escalatesAt(since: Date, timeZone: string, calendar: BusinessCal
 }
 
 /**
- * The people told of critical alerts besides a deal's own team: those the business picked (Settings → Real Estate),
- * while they still see every deal, else its owners.
+ * The people told of critical alerts besides a deal's own team: those the business picked (Real Estate Agent → Deal
+ * settings → Alerts & dates), while they still see every deal, else its owners, so someone always hears them.
  */
 export async function alertPeopleOf(ctx: Ctx): Promise<string[]> {
   const [i] = await rows<{ picked: string[] | null }>(
@@ -424,17 +424,24 @@ export async function alertPeopleOf(ctx: Ctx): Promise<string[]> {
         where workspace_id = ${ctx.scope.workspaceId!} and addon_id = 'realestate'`,
   );
   const picked = (i?.picked ?? []).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
-  const people = await rows<{ user_id: string }>(
-    ctx.tx,
-    picked.length
-      ? sql`select wa.user_id from app.workspace_access wa
+  const seeEveryDeal = picked.length
+    ? await rows<{ user_id: string }>(
+        ctx.tx,
+        sql`select wa.user_id from app.workspace_access wa
             where wa.workspace_id = ${ctx.scope.workspaceId!} and 'realestate.all_deals' = any (wa.permissions)
               and wa.user_id = any (${`{${picked.join(',')}}`}::uuid[])
-            order by wa.user_id`
-      : sql`select wa.user_id from app.workspace_access wa
+            order by wa.user_id`,
+      )
+    : [];
+  // Nobody picked, or nobody picked who still sees every deal: the owners.
+  const people = seeEveryDeal.length
+    ? seeEveryDeal
+    : await rows<{ user_id: string }>(
+        ctx.tx,
+        sql`select wa.user_id from app.workspace_access wa
             where wa.workspace_id = ${ctx.scope.workspaceId!} and wa.role = 'owner'
             order by wa.user_id`,
-  );
+      );
   return people.map((p) => p.user_id);
 }
 

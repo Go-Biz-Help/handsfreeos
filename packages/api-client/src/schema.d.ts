@@ -13007,7 +13007,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. A draft until published.
+         * Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. Only what’s given changes; the rest of what the business changed stays, and `clear` puts parts back as the list has them. A draft until published.
          * @description Risk level 1. Requires realestate.manage. Emits realestate.template.changed.
          */
         post: operations["command_realestate_template_set_override"];
@@ -13288,7 +13288,7 @@ export interface paths {
         put?: never;
         /**
          * Add a vendor to the business’s directory, or change one: the company (one in Contacts, or a new one), what they do, where, and any disclosure the client must be told of (an affiliation, a referral fee). A new vendor waits for approval.
-         * @description Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created. Can wait on a phone with no signal.
+         * @description Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created, company.updated. Can wait on a phone with no signal.
          */
         post: operations["command_realestate_vendor_save"];
         delete?: never;
@@ -22167,7 +22167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Real Estate Agent at a glance: open deals in the business and the person’s own, and their overdue and this week’s duties.
+         * Real Estate Agent at a glance: open deals in the business and the person’s own, how healthy they are, and the overdue and this week’s duties they answer for.
          * @description Requires realestate.use.
          */
         post: operations["query_realestate_overview"];
@@ -22307,7 +22307,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The duty list as drafted: every catalog duty (on or off, and what the business changed) and the business’s own, with the version published now and whether the drafts differ from it.
+         * The duty list as drafted: the version published now, whether the drafts differ from it, how many duties each chip holds, and every catalog duty (on or off, and what the business changed) and the business’s own, or only those asked for.
          * @description Requires realestate.manage.
          */
         post: operations["query_realestate_template_list"];
@@ -50154,6 +50154,7 @@ export interface operations {
                     propertyId?: string;
                     /** @enum {string} */
                     side: "buyer" | "listing";
+                    /** @description Where it starts, by its key: its side’s first stage unless said, and the stages before it bring their duties too. A buyer deal’s: Lead (lead), Onboarding (onboarding), Representation (representation), Financing (financing), Searching (searching), Touring (touring), Offer (offer), Negotiation (negotiation), Under contract (under_contract), Inspections (inspections), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Possession (possession), Past client (past_client). A listing’s: Seller lead (seller_lead), Consultation (consultation), Signed (signed), Pre-listing (pre_listing), Coming soon (coming_soon), Active (active), Showings (showings), Offers (offers), Negotiation (negotiation), Under contract (under_contract), Inspection (inspection), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Sold (sold), Past client (past_client). */
                     stage?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -55319,10 +55320,15 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description Parts to put back as the list has them */
+                    clear?: ("due" | "reminders" | "accountable" | "proof" | "materiality")[];
                     dutyKey: string;
-                    /** @default true */
+                    /** @description On or off for new deals; left out, it stays as it is (on for a duty not changed yet) */
                     enabled?: boolean;
-                    /** @default {} */
+                    /**
+                     * @description Only the parts that change, each as it should end up; the rest of what the business changed stays
+                     * @default {}
+                     */
                     patch?: {
                         /** @enum {string} */
                         accountable?: "agent" | "coordinator" | "broker";
@@ -55433,7 +55439,10 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        changed: string[];
                         dutyKey: string;
+                        on: boolean;
+                        title: string;
                         unpublished: boolean;
                     };
                 };
@@ -56010,7 +56019,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** @default [] */
                     areas?: string[];
                     /** Format: uuid */
                     companyId?: string;
@@ -56022,7 +56030,7 @@ export interface operations {
                     name?: string;
                     note?: string | null;
                     phone?: string;
-                    services: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
+                    services?: ("inspection" | "hvac" | "repairs" | "photos" | "staging" | "lender" | "title" | "insurance" | "other")[];
                     /** Format: uuid */
                     vendorId?: string;
                     /** Format: uuid */
@@ -85177,23 +85185,41 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: uuid */
+                    /**
+                     * Format: uuid
+                     * @description Only the deals whose main agent is this person (their user id, from the team)
+                     */
                     agentUserId?: string;
+                    /** @description Only deals whose closing date is within this many days from today */
                     closingWithinDays?: number;
+                    /**
+                     * @description Only deals this healthy: red is At risk, yellow Needs attention, green On track
+                     * @enum {string}
+                     */
+                    health?: "green" | "yellow" | "red";
                     /** @default 100 */
                     limit?: number;
-                    /** @default false */
+                    /**
+                     * @description Only the deals they’re on, as main agent or on the team (My deals)
+                     * @default false
+                     */
                     mine?: boolean;
+                    /** @description true: the Needs attention tab’s deals, those not on track or with dates to confirm; false: the rest */
+                    needsAttention?: boolean;
                     search?: string;
                     /** @enum {string} */
                     side?: "buyer" | "listing";
+                    /** @description Only deals at this stage, by its key (its words work too). A buyer deal’s: Lead (lead), Onboarding (onboarding), Representation (representation), Financing (financing), Searching (searching), Touring (touring), Offer (offer), Negotiation (negotiation), Under contract (under_contract), Inspections (inspections), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Possession (possession), Past client (past_client). A listing’s: Seller lead (seller_lead), Consultation (consultation), Signed (signed), Pre-listing (pre_listing), Coming soon (coming_soon), Active (active), Showings (showings), Offers (offers), Negotiation (negotiation), Under contract (under_contract), Inspection (inspection), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Sold (sold), Past client (past_client), Withdrawn (withdrawn), Expired (expired), Cancelled (cancelled). */
                     stage?: string;
                     /**
                      * @default open
                      * @enum {string}
                      */
                     status?: "open" | "closed" | "ended" | "archived" | "all";
-                    /** @enum {string} */
+                    /**
+                     * @description Only deals with a duty waiting on someone outside (outside), one blocked (blocked), or either
+                     * @enum {string}
+                     */
                     waitingOn?: "outside" | "blocked" | "either";
                     /** Format: uuid */
                     workspaceId: string;
@@ -85559,10 +85585,17 @@ export interface operations {
                     /** @default true */
                     mine?: boolean;
                     /**
+                     * @description How many to pass over first, for the next page
+                     * @default 0
+                     */
+                    offset?: number;
+                    /**
                      * @default open
                      * @enum {string}
                      */
                     status?: "open" | "overdue" | "drafts" | "all";
+                    /** @description true: I’m watching, the duties on the deals they’re on that someone else answers for (mine is then set aside) */
+                    watching?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -85597,6 +85630,17 @@ export interface operations {
                             status: "draft" | "pending_approval" | "not_started" | "in_progress" | "waiting_external" | "blocked" | "completed" | "waived" | "cancelled";
                             title: string;
                         }[];
+                        totals: {
+                            blocked: number;
+                            drafts: number;
+                            later: number;
+                            noDeadline: number;
+                            open: number;
+                            overdue: number;
+                            thisWeek: number;
+                            today: number;
+                            waiting: number;
+                        };
                     };
                 };
             };
@@ -85798,8 +85842,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: uuid */
+                    /**
+                     * Format: uuid
+                     * @description Only the deals whose main agent is this person (their user id, from the team)
+                     */
                     agentUserId?: string;
+                    /** @description Only what they answer for or the deals they’re on (Mine) */
                     mine?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
@@ -87269,9 +87317,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        atRisk: number;
+                        datesToConfirm: number;
                         dueThisWeek: number;
+                        healthy: number;
                         myOpenDeals: number;
                         name: string;
+                        needsAttention: number;
+                        needsAttentionTab: number;
                         openDeals: number;
                         overdueDuties: number;
                         version: string;
@@ -87696,6 +87749,20 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description One duty by its id (B-05, S-12, X-03, C-01), with everything it says */
+                    dutyKey?: string;
+                    /**
+                     * @description Only the business’s own duties, the changed ones, or the turned-off ones
+                     * @enum {string}
+                     */
+                    only?: "own" | "changed" | "off";
+                    /** @description Find a duty by its words or id */
+                    search?: string;
+                    /**
+                     * @description Only one side’s duties (the Buyer, Listing and Both chips)
+                     * @enum {string}
+                     */
+                    side?: "buyer" | "listing" | "both";
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -87709,6 +87776,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        counts: {
+                            all: number;
+                            both: number;
+                            buyer: number;
+                            changed: number;
+                            listing: number;
+                            off: number;
+                            own: number;
+                        };
                         items: {
                             changed: string[];
                             definition: {
@@ -87849,8 +87925,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: uuid */
+                    /**
+                     * Format: uuid
+                     * @description Only the deals whose main agent is this person (their user id, from the team)
+                     */
                     agentUserId?: string;
+                    /** @description Only what they answer for or the deals they’re on (Mine) */
                     mine?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
@@ -88084,8 +88164,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: uuid */
+                    /**
+                     * Format: uuid
+                     * @description Only the deals whose main agent is this person (their user id, from the team)
+                     */
                     agentUserId?: string;
+                    /** @description Only what they answer for or the deals they’re on (Mine) */
                     mine?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
@@ -88190,8 +88274,12 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: uuid */
+                    /**
+                     * Format: uuid
+                     * @description Only the deals whose main agent is this person (their user id, from the team)
+                     */
                     agentUserId?: string;
+                    /** @description Only what they answer for or the deals they’re on (Mine) */
                     mine?: boolean;
                     /** Format: uuid */
                     workspaceId: string;

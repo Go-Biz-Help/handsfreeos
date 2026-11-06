@@ -287,6 +287,12 @@ export interface AddonSettingsDeclaration {
   readonly permission?: string;
   /** On/off switches with a default, kept per business in `app.addon_installations.flags`. */
   readonly flags?: Readonly<Record<string, { readonly label: string; readonly default: boolean }>>;
+  /**
+   * Settings that pick people (a list of their user ids), by key, and the permission each one picked must hold here
+   * to count (an owner holds every one). Someone newly picked without it is refused as it's saved, on the screen and
+   * through the Assistant alike, with their name and then `why`: what it means, and what to do instead.
+   */
+  readonly people?: Readonly<Record<string, { readonly permission: string; readonly why: string }>>;
 }
 
 /**

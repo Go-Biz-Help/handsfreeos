@@ -6,7 +6,16 @@
  *
  * Browser-safe and pure.
  */
+import type { ProofRule } from './catalog/types';
+import type { DueRule } from './dates/due';
 import { dealHistoryWords, dutyLogWords } from './history-words';
+import {
+  ACCOUNTABLE_LABELS,
+  dueRuleWords,
+  MATERIALITY_LABELS,
+  proofRuleWords,
+  remindersWords,
+} from './rule-words';
 
 type Bag = Record<string, unknown>;
 type Card = {
@@ -137,6 +146,107 @@ export function historyAnswer(output: unknown): unknown {
 export function dutyAnswer(output: unknown): unknown {
   if (!isObject(output)) return output;
   return { ...output, log: linesInWords(output['log'], dutyLogWords) };
+}
+
+// ---------- the duty list ----------
+
+const labelOf = (labels: Readonly<Record<string, string>>, key: unknown) =>
+  typeof key === 'string' ? (labels[key] ?? key) : null;
+
+/**
+ * The duty list as the model reads it: the version published, whether changes wait and the chips' counts first, then
+ * each duty as the Duty list's table shows it (when it's due, what finishes it, who answers for it, in its words)
+ * rather than its whole rules, which run to a page each: over a hundred of them would be cut short after a few. One
+ * duty asked for by its id keeps its whole rules too, to change it.
+ */
+export function templateListAnswer(output: unknown, input: unknown): unknown {
+  if (!isObject(output) || !Array.isArray(output['items'])) return output;
+  const one = isObject(input) && typeof input['dutyKey'] === 'string';
+  return {
+    published: output['published'],
+    unpublished: output['unpublished'],
+    counts: output['counts'],
+    items: output['items'].map((item) => {
+      if (!isObject(item)) return item;
+      const d = isObject(item['definition']) ? item['definition'] : {};
+      return {
+        key: item['key'],
+        title: item['title'],
+        side: item['side'],
+        on: item['enabled'],
+        own: item['own'],
+        changed: item['changed'],
+        due: isObject(d['due']) ? dueRuleWords(d['due'] as unknown as DueRule) : null,
+        proof: proofRuleWords((d['proof'] ?? null) as ProofRule | null),
+        accountable: labelOf(ACCOUNTABLE_LABELS, d['accountable']),
+        matters: labelOf(MATERIALITY_LABELS, d['materiality']),
+        reminders: Array.isArray(d['reminders'])
+          ? remindersWords(d['reminders'].filter((n): n is number => typeof n === 'number'))
+          : null,
+        ...(one ? { definition: d } : {}),
+      };
+    }),
+  };
+}
+
+/** A part of a list's duty a business changes, as the duty editor names it. */
+const PART_WORDS: Readonly<Record<string, string>> = {
+  due: 'When it’s due',
+  reminders: 'Remind, days before',
+  accountable: 'Accountable',
+  proof: 'What finishes it',
+  materiality: 'How much it matters',
+};
+
+/** One part's new value, in the duty editor's words. */
+function partWords(part: string, value: unknown): string {
+  if (part === 'due' && isObject(value)) return dueRuleWords(value as unknown as DueRule);
+  if (part === 'proof') return proofRuleWords((value ?? null) as ProofRule | null);
+  if (part === 'reminders' && Array.isArray(value))
+    return remindersWords(value.filter((x): x is number => typeof x === 'number'));
+  if (part === 'accountable') return labelOf(ACCOUNTABLE_LABELS, value) ?? '';
+  if (part === 'materiality') return labelOf(MATERIALITY_LABELS, value) ?? '';
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+/**
+ * The card for changing one of the list's duties: the duty by its id and name, each part that changes in the duty
+ * editor's words, what goes back to the list's, and everything the business will have changed on it, so nobody
+ * confirms a change that drops an earlier one unseen.
+ */
+export function overrideCard(output: unknown, input: unknown): Card | null {
+  if (!isObject(output) || !isObject(input)) return null;
+  const patch = isObject(input['patch']) ? input['patch'] : {};
+  const clear = Array.isArray(input['clear']) ? input['clear'].map(String) : [];
+  const changed = Array.isArray(output['changed']) ? output['changed'].map(String) : [];
+  return {
+    title: `Change ${String(output['dutyKey'])} · ${String(output['title'])} on the duty list?`,
+    lines: [
+      ...(typeof input['enabled'] === 'boolean'
+        ? [{ label: 'New deals get it', value: input['enabled'] ? 'Yes' : 'No: turned off' }]
+        : []),
+      ...Object.entries(patch).map(([part, value]) => ({
+        label: PART_WORDS[part] ?? part,
+        value: partWords(part, value),
+      })),
+      ...(clear.length
+        ? [
+            {
+              label: 'Back as the list has it',
+              value: clear.map((p) => PART_WORDS[p] ?? p).join(', '),
+            },
+          ]
+        : []),
+      {
+        label: 'Changed from the list',
+        value: changed.length ? changed.join(', ') : 'Nothing: it’s as the list has it',
+      },
+      {
+        label: 'When',
+        value: `A draft until the duty list is published; it’s ${output['on'] === false ? 'off' : 'on'} for new deals then`,
+      },
+    ],
+  };
 }
 
 // ---------- the listing's photos ----------

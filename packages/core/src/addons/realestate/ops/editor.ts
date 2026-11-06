@@ -32,6 +32,7 @@ import {
   type ListItem,
   type OverridePatch,
 } from '../editor';
+import { overrideCard, templateListAnswer } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import {
   BUYER_STAGES,
@@ -141,20 +142,46 @@ function refuseIssues(issues: readonly string[]) {
 
 const Changed = z.object({ dutyKey: z.string(), unpublished: z.boolean() });
 
+/** The parts of a list's duty a business changes, each of which can go back to how the list has it. */
+const PATCH_FIELDS = ['due', 'reminders', 'accountable', 'proof', 'materiality'] as const;
+
 export const templateSetOverride = defineAddonCommand(realestateAddon, {
   name: 'realestate.template.set_override',
   description:
-    'Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. A draft until published.',
+    'Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. Only what’s given changes; the rest of what the business changed stays, and `clear` puts parts back as the list has them. A draft until published.',
   risk: 1,
   input: z.object({
     ...ws,
     dutyKey: catalogKey,
-    enabled: z.boolean().default(true),
-    patch: OverridePatchSchema.default({}),
+    enabled: z
+      .boolean()
+      .optional()
+      .describe(
+        'On or off for new deals; left out, it stays as it is (on for a duty not changed yet)',
+      ),
+    patch: OverridePatchSchema.default({}).describe(
+      'Only the parts that change, each as it should end up; the rest of what the business changed stays',
+    ),
+    clear: z
+      .array(z.enum(PATCH_FIELDS))
+      .max(PATCH_FIELDS.length)
+      .optional()
+      .describe('Parts to put back as the list has them'),
   }),
-  output: Changed,
+  output: Changed.extend({
+    /** The duty's name, whether it's on, and everything the business has changed on it now, in words. */
+    title: z.string(),
+    on: z.boolean(),
+    changed: z.array(z.string()),
+  }),
   permission: 'realestate.manage',
-  ai: { tool: 'realestate_template_set_override', autonomy: 'confirm' },
+  ai: {
+    tool: 'realestate_template_set_override',
+    autonomy: 'confirm',
+    description:
+      'Change one of the list’s duties for this business (Real Estate Agent → Deal settings → Duty list, Edit): turn it on or off, or change when it’s due, its reminders, who answers for it, what finishes it or how much it matters. Pass only what changes: everything else it has stays, and clear puts a part back as the list has it. Read it first with realestate_template_list (dutyKey) for its rules as they are. A draft until the list is published (realestate_template_publish).',
+    card: overrideCard,
+  },
   scope: inWorkspace,
   emits: ['realestate.template.changed'],
   async handler(ctx, input) {
@@ -163,25 +190,41 @@ export const templateSetOverride = defineAddonCommand(realestateAddon, {
       throw HfosError.notFound(
         'That duty isn’t on the list. Refresh the duty list and pick again.',
       );
-    const item = buildList(
-      new Map([[input.dutyKey, { enabled: input.enabled, patch: input.patch }]]),
-      [],
-    ).find((i) => i.key === input.dutyKey)!;
+    const [was] = await ctx.tx
+      .select()
+      .from(templateOverrides)
+      .where(
+        and(
+          eq(templateOverrides.workspaceId, ctx.scope.workspaceId!),
+          eq(templateOverrides.dutyKey, input.dutyKey),
+        ),
+      );
+    // What's given goes onto what the business changed before; what's cleared goes back to the list's.
+    const enabled = input.enabled ?? was?.enabled ?? true;
+    const merged: Record<string, unknown> = {
+      ...((was?.patch as OverridePatch) ?? {}),
+      ...input.patch,
+    };
+    for (const part of input.clear ?? []) delete merged[part];
+    const patch = merged as OverridePatch;
+    const item = buildList(new Map([[input.dutyKey, { enabled, patch }]]), []).find(
+      (i) => i.key === input.dutyKey,
+    )!;
     refuseIssues(listIssues([item]));
     await ctx.tx
       .insert(templateOverrides)
       .values({
         workspaceId: ctx.scope.workspaceId!,
         dutyKey: input.dutyKey,
-        enabled: input.enabled,
-        patch: input.patch as Record<string, unknown>,
+        enabled,
+        patch: patch as Record<string, unknown>,
         updatedBy: actorUserId(ctx),
       })
       .onConflictDoUpdate({
         target: [templateOverrides.workspaceId, templateOverrides.dutyKey],
         set: {
-          enabled: input.enabled,
-          patch: input.patch as Record<string, unknown>,
+          enabled,
+          patch: patch as Record<string, unknown>,
           updatedBy: actorUserId(ctx),
           updatedAt: new Date(),
         },
@@ -193,12 +236,18 @@ export const templateSetOverride = defineAddonCommand(realestateAddon, {
       payload: {
         addonId: 'realestate',
         dutyKey: input.dutyKey,
-        enabled: input.enabled,
-        patch: Object.keys(input.patch),
+        enabled,
+        patch: Object.keys(patch),
       },
-      after: { duty: def.title, on: input.enabled, changed: Object.keys(input.patch) },
+      after: { duty: def.title, on: enabled, changed: Object.keys(patch) },
     });
-    return { dutyKey: input.dutyKey, unpublished: true };
+    return {
+      dutyKey: input.dutyKey,
+      unpublished: true,
+      title: def.title,
+      on: enabled,
+      changed: itemChanges(resolveDuty(def), item.definition),
+    };
   },
 });
 
@@ -585,12 +634,52 @@ export const dealApplyTemplateVersion = defineAddonCommand(realestateAddon, {
 
 // ---------- reading ----------
 
+/** The Duty list's chips: which duties a list read keeps, as the chips filter them. */
+const TemplateListInput = z.object({
+  ...ws,
+  side: z
+    .enum(['buyer', 'listing', 'both'])
+    .optional()
+    .describe('Only one side’s duties (the Buyer, Listing and Both chips)'),
+  only: z
+    .enum(['own', 'changed', 'off'])
+    .optional()
+    .describe('Only the business’s own duties, the changed ones, or the turned-off ones'),
+  search: z.string().trim().min(1).max(80).optional().describe('Find a duty by its words or id'),
+  dutyKey: z
+    .string()
+    .trim()
+    .max(8)
+    .optional()
+    .describe('One duty by its id (B-05, S-12, X-03, C-01), with everything it says'),
+});
+
 export const templateList = defineAddonQuery(realestateAddon, {
   name: 'realestate.template.list',
   description:
-    'The duty list as drafted: every catalog duty (on or off, and what the business changed) and the business’s own, with the version published now and whether the drafts differ from it.',
-  input: z.object(ws),
+    'The duty list as drafted: the version published now, whether the drafts differ from it, how many duties each chip holds, and every catalog duty (on or off, and what the business changed) and the business’s own, or only those asked for.',
+  input: TemplateListInput,
   output: z.object({
+    published: z
+      .object({
+        templateSetId: uuid,
+        version: z.number().int(),
+        publishedAt: z.string(),
+        publishedBy: z.object({ userId: uuid, name: z.string() }).nullable(),
+        note: z.string().nullable(),
+      })
+      .nullable(),
+    unpublished: z.boolean(),
+    /** The Duty list's chips: All, Listing, Buyer, Both, Your own, Changed and Turned off. */
+    counts: z.object({
+      all: z.number().int(),
+      listing: z.number().int(),
+      buyer: z.number().int(),
+      both: z.number().int(),
+      own: z.number().int(),
+      changed: z.number().int(),
+      off: z.number().int(),
+    }),
     items: z.array(
       z.object({
         key: z.string(),
@@ -604,39 +693,36 @@ export const templateList = defineAddonQuery(realestateAddon, {
         definition: z.record(z.string(), z.unknown()),
       }),
     ),
-    published: z
-      .object({
-        templateSetId: uuid,
-        version: z.number().int(),
-        publishedAt: z.string(),
-        publishedBy: z.object({ userId: uuid, name: z.string() }).nullable(),
-        note: z.string().nullable(),
-      })
-      .nullable(),
-    unpublished: z.boolean(),
   }),
   permission: 'realestate.manage',
-  ai: { tool: 'realestate_template_list' },
+  ai: {
+    tool: 'realestate_template_list',
+    description:
+      'Read the duty list (Real Estate Agent → Deal settings → Duty list): the version published now, whether changes wait to be published, how many duties each chip holds, and each duty with when it’s due, what finishes it and who answers for it, in the table’s words. Over a hundred duties: ask for one side, only your own, changed or turned-off ones, a search, or one duty by its id (dutyKey), which comes with everything it says.',
+    answer: templateListAnswer,
+  },
   scope: inWorkspace,
-  handler: async (ctx) => {
+  handler: async (ctx, input) => {
     const list = await draftList(ctx);
     const last = await latestSet(ctx);
     const names = await userNames(ctx, [last?.publishedBy ?? null]);
+    const items = list.map((i) => {
+      const base = catalogDuty(i.key);
+      return {
+        key: i.key,
+        title: i.definition.title,
+        side: i.definition.side,
+        phase: i.definition.phase,
+        tracker: i.definition.tracker,
+        enabled: i.enabled,
+        own: !base,
+        changed: base ? itemChanges(resolveDuty(base), i.definition) : [],
+        definition: i.definition as unknown as Record<string, unknown>,
+      };
+    });
+    const needle = input.search?.toLowerCase();
+    const key = input.dutyKey?.toUpperCase();
     return {
-      items: list.map((i) => {
-        const base = catalogDuty(i.key);
-        return {
-          key: i.key,
-          title: i.definition.title,
-          side: i.definition.side,
-          phase: i.definition.phase,
-          tracker: i.definition.tracker,
-          enabled: i.enabled,
-          own: !base,
-          changed: base ? itemChanges(resolveDuty(base), i.definition) : [],
-          definition: i.definition as unknown as Record<string, unknown>,
-        };
-      }),
       published: last
         ? {
             templateSetId: last.id,
@@ -649,6 +735,26 @@ export const templateList = defineAddonQuery(realestateAddon, {
           }
         : null,
       unpublished: last ? !sameList(list, await itemsOf(ctx, last.id)) : true,
+      counts: {
+        all: items.length,
+        listing: items.filter((i) => i.side === 'listing').length,
+        buyer: items.filter((i) => i.side === 'buyer').length,
+        both: items.filter((i) => i.side === 'both').length,
+        own: items.filter((i) => i.own).length,
+        changed: items.filter((i) => i.changed.length).length,
+        off: items.filter((i) => !i.enabled).length,
+      },
+      items: items.filter(
+        (i) =>
+          (!input.side || i.side === input.side) &&
+          (input.only !== 'own' || i.own) &&
+          (input.only !== 'changed' || i.changed.length > 0) &&
+          (input.only !== 'off' || !i.enabled) &&
+          (!needle ||
+            i.title.toLowerCase().includes(needle) ||
+            i.key.toLowerCase().includes(needle)) &&
+          (!key || i.key === key),
+      ),
     };
   },
 });

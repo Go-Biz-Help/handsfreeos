@@ -69407,6 +69407,7 @@
                     "maxLength": 160
                   },
                   "stage": {
+                    "description": "Where it starts, by its key: its side’s first stage unless said, and the stages before it bring their duties too. A buyer deal’s: Lead (lead), Onboarding (onboarding), Representation (representation), Financing (financing), Searching (searching), Touring (touring), Offer (offer), Negotiation (negotiation), Under contract (under_contract), Inspections (inspections), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Possession (possession), Past client (past_client). A listing’s: Seller lead (seller_lead), Consultation (consultation), Signed (signed), Pre-listing (pre_listing), Coming soon (coming_soon), Active (active), Showings (showings), Offers (offers), Negotiation (negotiation), Under contract (under_contract), Inspection (inspection), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Sold (sold), Past client (past_client).",
                     "type": "string"
                   },
                   "clientPersonId": {
@@ -73968,7 +73969,7 @@
     "/v1/commands/realestate.template.set_override": {
       "post": {
         "operationId": "command_realestate_template_set_override",
-        "summary": "Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. A draft until published.",
+        "summary": "Change one of the list’s duties for this business: turn it off or on, or change when it’s due, its reminders, who answers for it, what finishes it, or how much it matters. Only what’s given changes; the rest of what the business changed stays, and `clear` puts parts back as the list has them. A draft until published.",
         "tags": [
           "commands"
         ],
@@ -73990,11 +73991,12 @@
                     "pattern": "^[BSX]-\\d{2}$"
                   },
                   "enabled": {
-                    "default": true,
+                    "description": "On or off for new deals; left out, it stays as it is (on for a duty not changed yet)",
                     "type": "boolean"
                   },
                   "patch": {
                     "default": {},
+                    "description": "Only the parts that change, each as it should end up; the rest of what the business changed stays",
                     "type": "object",
                     "properties": {
                       "due": {
@@ -74564,6 +74566,21 @@
                         ]
                       }
                     }
+                  },
+                  "clear": {
+                    "description": "Parts to put back as the list has them",
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "due",
+                        "reminders",
+                        "accountable",
+                        "proof",
+                        "materiality"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -74587,11 +74604,26 @@
                     },
                     "unpublished": {
                       "type": "boolean"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "on": {
+                      "type": "boolean"
+                    },
+                    "changed": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "dutyKey",
-                    "unpublished"
+                    "unpublished",
+                    "title",
+                    "on",
+                    "changed"
                   ],
                   "additionalProperties": false
                 }
@@ -86766,7 +86798,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created. Can wait on a phone with no signal.",
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.vendor.saved, company.created, company.updated. Can wait on a phone with no signal.",
         "requestBody": {
           "required": true,
           "content": {
@@ -86830,7 +86862,6 @@
                     }
                   },
                   "areas": {
-                    "default": [],
                     "maxItems": 20,
                     "type": "array",
                     "items": {
@@ -86865,8 +86896,7 @@
                   }
                 },
                 "required": [
-                  "workspaceId",
-                  "services"
+                  "workspaceId"
                 ]
               }
             }
@@ -193793,7 +193823,7 @@
     "/v1/queries/realestate.overview": {
       "post": {
         "operationId": "query_realestate_overview",
-        "summary": "Real Estate Agent at a glance: open deals in the business and the person’s own, and their overdue and this week’s duties.",
+        "summary": "Real Estate Agent at a glance: open deals in the business and the person’s own, how healthy they are, and the overdue and this week’s duties they answer for.",
         "tags": [
           "queries"
         ],
@@ -193842,6 +193872,31 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
+                    "healthy": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "needsAttention": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "atRisk": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "datesToConfirm": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "needsAttentionTab": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "overdueDuties": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -193858,6 +193913,11 @@
                     "version",
                     "openDeals",
                     "myOpenDeals",
+                    "healthy",
+                    "needsAttention",
+                    "atRisk",
+                    "datesToConfirm",
+                    "needsAttentionTab",
                     "overdueDuties",
                     "dueThisWeek"
                   ],
@@ -193891,6 +193951,7 @@
                   },
                   "mine": {
                     "default": false,
+                    "description": "Only the deals they’re on, as main agent or on the team (My deals)",
                     "type": "boolean"
                   },
                   "side": {
@@ -193922,26 +193983,43 @@
                     "maximum": 200
                   },
                   "agentUserId": {
+                    "description": "Only the deals whose main agent is this person (their user id, from the team)",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "stage": {
+                    "description": "Only deals at this stage, by its key (its words work too). A buyer deal’s: Lead (lead), Onboarding (onboarding), Representation (representation), Financing (financing), Searching (searching), Touring (touring), Offer (offer), Negotiation (negotiation), Under contract (under_contract), Inspections (inspections), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Possession (possession), Past client (past_client). A listing’s: Seller lead (seller_lead), Consultation (consultation), Signed (signed), Pre-listing (pre_listing), Coming soon (coming_soon), Active (active), Showings (showings), Offers (offers), Negotiation (negotiation), Under contract (under_contract), Inspection (inspection), Appraisal (appraisal), Financing and title (financing_title), Closing (closing), Sold (sold), Past client (past_client), Withdrawn (withdrawn), Expired (expired), Cancelled (cancelled).",
                     "type": "string",
                     "maxLength": 40
                   },
                   "closingWithinDays": {
+                    "description": "Only deals whose closing date is within this many days from today",
                     "type": "integer",
                     "minimum": 0,
                     "maximum": 365
                   },
                   "waitingOn": {
+                    "description": "Only deals with a duty waiting on someone outside (outside), one blocked (blocked), or either",
                     "type": "string",
                     "enum": [
                       "outside",
                       "blocked",
                       "either"
                     ]
+                  },
+                  "health": {
+                    "description": "Only deals this healthy: red is At risk, yellow Needs attention, green On track",
+                    "type": "string",
+                    "enum": [
+                      "green",
+                      "yellow",
+                      "red"
+                    ]
+                  },
+                  "needsAttention": {
+                    "description": "true: the Needs attention tab’s deals, those not on track or with dates to confirm; false: the rest",
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -196778,6 +196856,10 @@
                     "default": true,
                     "type": "boolean"
                   },
+                  "watching": {
+                    "description": "true: I’m watching, the duties on the deals they’re on that someone else answers for (mine is then set aside)",
+                    "type": "boolean"
+                  },
                   "status": {
                     "default": "open",
                     "type": "string",
@@ -196798,6 +196880,13 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 500
+                  },
+                  "offset": {
+                    "default": 0,
+                    "description": "How many to pass over first, for the next page",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
                   }
                 },
                 "required": [
@@ -196815,6 +196904,68 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "open": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "overdue": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "today": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "thisWeek": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "later": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "noDeadline": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "waiting": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "blocked": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "drafts": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "open",
+                        "overdue",
+                        "today",
+                        "thisWeek",
+                        "later",
+                        "noDeadline",
+                        "waiting",
+                        "blocked",
+                        "drafts"
+                      ],
+                      "additionalProperties": false
+                    },
                     "duties": {
                       "type": "array",
                       "items": {
@@ -196923,6 +197074,7 @@
                     }
                   },
                   "required": [
+                    "totals",
                     "duties"
                   ],
                   "additionalProperties": false
@@ -197344,7 +197496,7 @@
     "/v1/queries/realestate.template.list": {
       "post": {
         "operationId": "query_realestate_template_list",
-        "summary": "The duty list as drafted: every catalog duty (on or off, and what the business changed) and the business’s own, with the version published now and whether the drafts differ from it.",
+        "summary": "The duty list as drafted: the version published now, whether the drafts differ from it, how many duties each chip holds, and every catalog duty (on or off, and what the business changed) and the business’s own, or only those asked for.",
         "tags": [
           "queries"
         ],
@@ -197360,6 +197512,35 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "side": {
+                    "description": "Only one side’s duties (the Buyer, Listing and Both chips)",
+                    "type": "string",
+                    "enum": [
+                      "buyer",
+                      "listing",
+                      "both"
+                    ]
+                  },
+                  "only": {
+                    "description": "Only the business’s own duties, the changed ones, or the turned-off ones",
+                    "type": "string",
+                    "enum": [
+                      "own",
+                      "changed",
+                      "off"
+                    ]
+                  },
+                  "search": {
+                    "description": "Find a duty by its words or id",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "dutyKey": {
+                    "description": "One duty by its id (B-05, S-12, X-03, C-01), with everything it says",
+                    "type": "string",
+                    "maxLength": 8
                   }
                 },
                 "required": [
@@ -197377,60 +197558,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "key": {
-                            "type": "string"
-                          },
-                          "title": {
-                            "type": "string"
-                          },
-                          "side": {
-                            "type": "string"
-                          },
-                          "phase": {
-                            "type": "string"
-                          },
-                          "tracker": {
-                            "type": "string"
-                          },
-                          "enabled": {
-                            "type": "boolean"
-                          },
-                          "own": {
-                            "type": "boolean"
-                          },
-                          "changed": {
-                            "type": "array",
-                            "items": {
-                              "type": "string"
-                            }
-                          },
-                          "definition": {
-                            "type": "object",
-                            "propertyNames": {
-                              "type": "string"
-                            },
-                            "additionalProperties": {}
-                          }
-                        },
-                        "required": [
-                          "key",
-                          "title",
-                          "side",
-                          "phase",
-                          "tracker",
-                          "enabled",
-                          "own",
-                          "changed",
-                          "definition"
-                        ],
-                        "additionalProperties": false
-                      }
-                    },
                     "published": {
                       "anyOf": [
                         {
@@ -197497,12 +197624,117 @@
                     },
                     "unpublished": {
                       "type": "boolean"
+                    },
+                    "counts": {
+                      "type": "object",
+                      "properties": {
+                        "all": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "listing": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "buyer": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "both": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "own": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "changed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "off": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "all",
+                        "listing",
+                        "buyer",
+                        "both",
+                        "own",
+                        "changed",
+                        "off"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "side": {
+                            "type": "string"
+                          },
+                          "phase": {
+                            "type": "string"
+                          },
+                          "tracker": {
+                            "type": "string"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "own": {
+                            "type": "boolean"
+                          },
+                          "changed": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "definition": {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "title",
+                          "side",
+                          "phase",
+                          "tracker",
+                          "enabled",
+                          "own",
+                          "changed",
+                          "definition"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
-                    "items",
                     "published",
-                    "unpublished"
+                    "unpublished",
+                    "counts",
+                    "items"
                   ],
                   "additionalProperties": false
                 }
@@ -207872,9 +208104,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "mine": {
+                    "description": "Only what they answer for or the deals they’re on (Mine)",
                     "type": "boolean"
                   },
                   "agentUserId": {
+                    "description": "Only the deals whose main agent is this person (their user id, from the team)",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -208185,9 +208419,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "mine": {
+                    "description": "Only what they answer for or the deals they’re on (Mine)",
                     "type": "boolean"
                   },
                   "agentUserId": {
+                    "description": "Only the deals whose main agent is this person (their user id, from the team)",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -208485,9 +208721,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "mine": {
+                    "description": "Only what they answer for or the deals they’re on (Mine)",
                     "type": "boolean"
                   },
                   "agentUserId": {
+                    "description": "Only the deals whose main agent is this person (their user id, from the team)",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
@@ -208621,9 +208859,11 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "mine": {
+                    "description": "Only what they answer for or the deals they’re on (Mine)",
                     "type": "boolean"
                   },
                   "agentUserId": {
+                    "description": "Only the deals whose main agent is this person (their user id, from the team)",
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"

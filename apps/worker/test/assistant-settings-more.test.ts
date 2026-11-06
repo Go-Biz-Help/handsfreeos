@@ -276,6 +276,27 @@ describe('the last settings by asking', () => {
     await expect(
       prepare('update_addon_settings', { addonId: 'nosuch', settings: { a: 1 } }),
     ).rejects.toThrow('No add-on has that id');
+
+    // Read as the settings page shows them, each setting named in the page's words.
+    const reader = allScreenReadTools().find((t) => t.name === screenReadName('addon.settings'))!;
+    const shown = (await createToolExecutor(api()).run(
+      reader,
+      reader.input.parse({ addonId: 'realestate' }) as never,
+      ctx(),
+    )) as { result: { data: { labels?: Record<string, string> } } };
+    expect(shown.result.data.labels).toMatchObject({
+      keepClosedYears: 'Years a closed deal is kept',
+    });
+    // Someone who doesn't see every deal would never hear its alerts: refused by name, before any card.
+    const agent = await createTestUser('amore-agent', { fullName: 'Avery Agent' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${agent.id}, 'member')`,
+    );
+    await expect(refused({ alertPersonUserIds: [owner.id, agent.id] })).rejects.toThrow(
+      'Avery Agent doesn’t see every deal',
+    );
   });
 
   it('changes one part of a group of Social Outreach’s settings, keeping the rest, and links to where they are', async () => {

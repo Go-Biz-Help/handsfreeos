@@ -208,6 +208,54 @@ describe('The duty editor', () => {
       'X-43',
     ]);
   });
+
+  it('keeps what was changed before when one part changes, and puts back only what’s cleared', async () => {
+    // X-03's due date was changed and published; now only how much it matters changes.
+    const changed = await run(owner, 'realestate.template.set_override', {
+      dutyKey: 'X-03',
+      patch: { materiality: 'critical' },
+    });
+    expect(changed).toMatchObject({
+      dutyKey: 'X-03',
+      on: true,
+      changed: ['when it’s due', 'how much it matters'],
+    });
+    const one = await ask(owner, 'realestate.template.list', { dutyKey: 'x-03' });
+    expect(one.items).toHaveLength(1);
+    expect(one.items[0].definition).toMatchObject({
+      materiality: 'critical',
+      due: { kind: 'relative', to: 'closing', days: -5 },
+    });
+    expect(
+      await run(owner, 'realestate.template.set_override', { dutyKey: 'X-03', clear: ['due'] }),
+    ).toMatchObject({ changed: ['how much it matters'] });
+    // A turned-off duty stays off when something else about it changes.
+    expect(
+      await run(owner, 'realestate.template.set_override', {
+        dutyKey: 'B-31',
+        patch: { reminders: [2] },
+      }),
+    ).toMatchObject({ on: false, changed: ['its reminders'] });
+  });
+
+  it('reads one chip at a time, with every chip’s count', async () => {
+    const all = await ask(owner, 'realestate.template.list', {});
+    expect(all.counts.all).toBe(all.items.length);
+    expect(all.counts.own).toBe(1);
+    expect(all.counts.off).toBe(1);
+    expect(all.counts.changed).toBe(2);
+    expect(all.counts.buyer + all.counts.listing + all.counts.both).toBe(all.counts.all);
+    const own = await ask(owner, 'realestate.template.list', { only: 'own' });
+    expect(own.items.map((i: Any) => i.key)).toEqual(['C-01']);
+    expect(own.counts).toEqual(all.counts);
+    const off = await ask(owner, 'realestate.template.list', { only: 'off', side: 'buyer' });
+    expect(off.items.map((i: Any) => i.key)).toEqual(['B-31']);
+    const listing = await ask(owner, 'realestate.template.list', { side: 'listing' });
+    expect(listing.items.length).toBe(all.counts.listing);
+    expect(listing.items.every((i: Any) => i.side === 'listing')).toBe(true);
+    const found = await ask(owner, 'realestate.template.list', { search: 'cash-to-close' });
+    expect(found.items.map((i: Any) => i.key)).toEqual(['X-03']);
+  });
 });
 
 describe('Settings', () => {
@@ -243,5 +291,21 @@ describe('Settings', () => {
         off: { reason: 'closed', name: 'Christmas Eve' },
       }),
     ]);
+  });
+
+  it('hear alerts only from people who see every deal, keeping those picked before', async () => {
+    const save = (settings: Record<string, unknown>) =>
+      run(owner, 'addon.save_settings', { addonId: 'realestate', settings });
+    // The agent sees only the deals they're on, so they'd never hear a deal's alert.
+    expect(await refused(save({ alertPersonUserIds: [owner.id, agent.id] }))).toBe(
+      'addon_setting_person',
+    );
+    // Someone picked before who has since lost See every deal doesn't stop a save of something else.
+    await admin().execute(
+      sql`update app.addon_installations
+          set settings = coalesce(settings, '{}'::jsonb) || jsonb_build_object('alertPersonUserIds', jsonb_build_array(${agent.id}::text))
+          where workspace_id = ${ws}::uuid and addon_id = 'realestate'`,
+    );
+    await save({ closedDays: { '2026-12-31': 'New Year’s Eve' }, alertPersonUserIds: [agent.id] });
   });
 });

@@ -64,6 +64,9 @@ import { useAct } from './use-act';
 
 type Filter = 'all' | 'buyer' | 'listing' | 'both' | 'own' | 'changed' | 'off';
 
+/** The parts of a list's duty the editor changes: one it leaves as the list has it is put back. */
+const PATCH_PARTS = ['due', 'reminders', 'accountable', 'proof', 'materiality'] as const;
+
 const defOf = (i: TemplateItem) => i.definition as unknown as ResolvedDuty;
 
 export function DutyList({
@@ -361,8 +364,14 @@ function CatalogDutyDialog({
                         )
                       : unwrap(
                           await apiBrowser().POST('/v1/commands/realestate.template.set_override', {
-                            // As JSON: the API's own shape for a rule is the same, written less strictly.
-                            body: { ...ids, enabled, patch: JSON.parse(JSON.stringify(patch)) },
+                            // As JSON: the API's own shape for a rule is the same, written less strictly. The
+                            // editor shows the whole duty, so every part it leaves as the list has it goes back.
+                            body: {
+                              ...ids,
+                              enabled,
+                              patch: JSON.parse(JSON.stringify(patch)),
+                              clear: PATCH_PARTS.filter((part) => !(part in patch)),
+                            },
                           }),
                         ),
                   'Saved as a draft. Publish to use it on new deals.',

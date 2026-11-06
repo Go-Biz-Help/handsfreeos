@@ -102,6 +102,22 @@ export const FIRST_STAGE: Readonly<Record<DealSide, DealStage>> = {
 export const isStageOf = (side: DealSide, stage: string): stage is DealStage =>
   (stagesOf(side) as readonly string[]).includes(stage);
 
+/**
+ * A side's stages as a tool takes them, each its words then its key: "Lead (lead), Onboarding (onboarding), …"; a
+ * listing's ends (withdrawn, expired, cancelled) too unless `ends` is false.
+ */
+export const stageKeyWords = (side: DealSide, ends = true): string =>
+  (side === 'buyer' || ends ? stagesOf(side) : LISTING_STAGES)
+    .map((s) => `${STAGE_LABELS[s]} (${s})`)
+    .join(', ');
+
+/** A stage named by its key or by its words ("Under contract"), as its key; null when it's neither. */
+export function stageKeyOf(stage: string): DealStage | null {
+  const said = stage.trim().toLowerCase();
+  const all = Object.entries(STAGE_LABELS) as [DealStage, string][];
+  return all.find(([key, words]) => key === said || words.toLowerCase() === said)?.[0] ?? null;
+}
+
 /** Under contract or later, up to closing: what a contract's dates are about. */
 export function underContract(side: DealSide, stage: DealStage): boolean {
   const order = (side === 'buyer' ? BUYER_STAGES : LISTING_STAGES) as readonly string[];

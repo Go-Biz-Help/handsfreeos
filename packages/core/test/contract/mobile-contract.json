@@ -14509,7 +14509,6 @@
             }
           },
           "areas": {
-            "default": [],
             "maxItems": 20,
             "type": "array",
             "items": {
@@ -14543,7 +14542,7 @@
             ]
           }
         },
-        "required": ["workspaceId", "services"]
+        "required": ["workspaceId"]
       }
     },
     "realestate.walkthrough.add_item": {

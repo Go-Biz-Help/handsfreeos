@@ -151,7 +151,7 @@ export function addonQueries(catalog: Catalog) {
         !installations.some((i) => i.addonId === input.addonId)
       )
         throw HfosError.notFound(
-          'That add-on isn’t offered anymore. See the ones you can use in Settings → Add-ons.',
+          'That add-on isn’t offered anymore. See the ones you can use in Add-ons, at the bottom of the side menu.',
         );
       const cctx = capabilityContextOf(
         catalog,
@@ -234,7 +234,7 @@ export function addonQueries(catalog: Catalog) {
       const m = findAddon(catalog, input.addonId);
       if (!m)
         throw HfosError.notFound(
-          'That add-on isn’t offered anymore. See the ones you can use in Settings → Add-ons.',
+          'That add-on isn’t offered anymore. See the ones you can use in Add-ons, at the bottom of the side menu.',
         );
       const installations = await loadInstallations(ctx.tx, input.workspaceId);
       const mine = installations.find((i) => i.addonId === m.id);

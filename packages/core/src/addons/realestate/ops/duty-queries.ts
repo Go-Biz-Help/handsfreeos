@@ -25,11 +25,28 @@ import {
 } from '../schemas';
 import { isDoneDuty, isOverdue, OPEN_DUTY_STATUSES, type DutyStatus } from '../states';
 import { dutyLog } from '../tables';
-import { inWorkspace, loadDeal, userNames } from './common';
+import { inWorkspace, loadDeal, timeZoneOf, userNames } from './common';
 import { dealProofFactsOf, evidenceFactsOf, loadDuty } from './duties';
 
 const isoOf = (v: Date | string) => new Date(v).toISOString();
 const OPEN = sql.raw(`(${OPEN_DUTY_STATUSES.map((s) => `'${s}'`).join(', ')})`);
+/** Open, and not waiting on someone or blocked: the ones My duties groups by when they're due. */
+const DATED = sql.raw(
+  `(${OPEN_DUTY_STATUSES.filter((s) => s !== 'waiting_external' && s !== 'blocked')
+    .map((s) => `'${s}'`)
+    .join(', ')})`,
+);
+interface DutyTotalsRow extends Record<string, unknown> {
+  open: number;
+  overdue: number;
+  today: number;
+  thisWeek: number;
+  later: number;
+  noDeadline: number;
+  waiting: number;
+  blocked: number;
+  drafts: number;
+}
 
 export const dutyGet = defineAddonQuery(realestateAddon, {
   name: 'realestate.duty.get',
@@ -195,17 +212,26 @@ export const dutyList = defineAddonQuery(realestateAddon, {
   ai: {
     tool: 'realestate_list_duties',
     description:
-      'List duties across the deals the person sees: theirs or everyone’s, open, overdue, drafts or all, on one deal or all.',
-    keywords: ['my duties', 'overdue', 'what’s due'],
+      'List duties across the deals the person sees, soonest due first: theirs (mine, the default: the ones they answer for, as My duties), the ones on their deals someone else answers for (watching, the phone’s I’m watching) or everyone’s, open, overdue, drafts or all, on one deal or all. totals counts them as My duties groups them (open, overdue, today, this week, later, no deadline, waiting on someone, blocked, and drafts waiting for a date), whatever the page holds; offset gives the next page.',
+    keywords: ['my duties', 'overdue', 'what’s due', 'how many duties'],
   },
   handler: async (ctx, input) => {
     const me = ctx.actor.type === 'human' ? ctx.actor.userId : null;
     const parts: SQL[] = [sql`r.archived_at is null`];
-    if (input.mine) parts.push(me ? sql`t.accountable_user_id = ${me}` : sql`false`);
+    if (input.watching)
+      parts.push(
+        me
+          ? sql`(r.owner_user_id = ${me}::uuid or ${me}::uuid = any(r.team_user_ids))
+              and t.accountable_user_id is distinct from ${me}::uuid`
+          : sql`false`,
+      );
+    else if (input.mine) parts.push(me ? sql`t.accountable_user_id = ${me}` : sql`false`);
+    if (input.dealId) parts.push(sql`t.deal_record_id = ${input.dealId}`);
+    // The totals cover whose and which deal, whatever the status asked for.
+    const whose = sql.join([...parts], sql` and `);
     if (input.status === 'open') parts.push(sql`t.status in ${OPEN}`);
     if (input.status === 'overdue') parts.push(sql`t.status in ${OPEN} and t.due_at <= now()`);
     if (input.status === 'drafts') parts.push(sql`t.status = 'draft'`);
-    if (input.dealId) parts.push(sql`t.deal_record_id = ${input.dealId}`);
     const list = await rows<{
       id: string;
       deal_record_id: string;
@@ -225,7 +251,27 @@ export const dutyList = defineAddonQuery(realestateAddon, {
           join app.custom_records r on r.id = t.deal_record_id
           where t.workspace_id = ${ctx.scope.workspaceId!} and ${sql.join(parts, sql` and `)}
           order by t.due_at asc nulls last, t.created_at, t.id
-          limit ${input.limit}`,
+          limit ${input.limit} offset ${input.offset}`,
+    );
+    const zone = await timeZoneOf(ctx);
+    const DAYS = sql`((t.due_at at time zone ${zone})::date - (now() at time zone ${zone})::date)`;
+    // As My duties groups them: waiting and blocked apart, then no deadline, overdue, and by the day where the
+    // business is.
+    const [n] = await rows<DutyTotalsRow>(
+      ctx.tx,
+      sql`select count(*) filter (where t.status in ${OPEN})::int as open,
+            count(*) filter (where t.status = 'waiting_external')::int as waiting,
+            count(*) filter (where t.status = 'blocked')::int as blocked,
+            count(*) filter (where t.status in ${DATED} and t.due_at is null)::int as "noDeadline",
+            count(*) filter (where t.status in ${DATED} and t.due_at <= now())::int as overdue,
+            count(*) filter (where t.status in ${DATED} and t.due_at > now() and ${DAYS} <= 0)::int as today,
+            count(*) filter (where t.status in ${DATED} and t.due_at > now() and ${DAYS} between 1 and 6)::int
+              as "thisWeek",
+            count(*) filter (where t.status in ${DATED} and t.due_at > now() and ${DAYS} >= 7)::int as later,
+            count(*) filter (where t.status = 'draft')::int as drafts
+          from addon_realestate.duties t
+          join app.custom_records r on r.id = t.deal_record_id
+          where t.workspace_id = ${ctx.scope.workspaceId!} and ${whose}`,
     );
     const names = await userNames(
       ctx,
@@ -233,6 +279,17 @@ export const dutyList = defineAddonQuery(realestateAddon, {
     );
     const now = Date.now();
     return {
+      totals: {
+        open: n?.open ?? 0,
+        overdue: n?.overdue ?? 0,
+        today: n?.today ?? 0,
+        thisWeek: n?.thisWeek ?? 0,
+        later: n?.later ?? 0,
+        noDeadline: n?.noDeadline ?? 0,
+        waiting: n?.waiting ?? 0,
+        blocked: n?.blocked ?? 0,
+        drafts: n?.drafts ?? 0,
+      },
       duties: list.map((t) => {
         const dueAt = t.due_at ? isoOf(t.due_at) : null;
         return {
