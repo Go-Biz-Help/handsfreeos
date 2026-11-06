@@ -922,7 +922,7 @@ export function createToolExecutor(
   ): Promise<CommittedAction> => {
     if (isAddonAiTool(tool)) return commitAddonTool(db, tool, args, ctx);
     if (isAddonActionTool(tool)) return commitAddonActionTool(addonActions, db, tool, args, ctx);
-    if (isScreenActionTool(tool)) return commitScreenAction(db, tool, args, ctx);
+    if (isScreenActionTool(tool)) return commitScreenAction(db, tool, args, ctx, webUrl);
     const offer = mainOfferConfirmTools[tool.name];
     if (offer) return offer.commit(db, ctx, args, offerDeps);
     const t = confirmTools[tool.name];
@@ -940,8 +940,16 @@ export function createToolExecutor(
       return { ...out, result: await linked(ctx)(out.result) };
     },
     async commit(tool, args, ctx, extra) {
+      // What the model reads later (the outcome and the answer kept with the call), and the link shown once on the
+      // card, all get their public pages whole.
       const done = await commitTool(tool, args, ctx, extra);
-      return { ...done, outcome: (await linked(ctx)(done.outcome)) as string };
+      const whole = linked(ctx);
+      return {
+        ...done,
+        outcome: (await whole(done.outcome)) as string,
+        ...(done.answer !== undefined ? { answer: await whole(done.answer) } : {}),
+        ...(done.shownOnce ? { shownOnce: (await whole(done.shownOnce)) as string } : {}),
+      };
     },
     async undo(tool, record, ctx) {
       switch (tool.name) {

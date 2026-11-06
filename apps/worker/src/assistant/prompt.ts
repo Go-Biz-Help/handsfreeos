@@ -1,4 +1,10 @@
-import { formatDuration, placesText, plainSpaces, settingsMapText } from '@hfos/core';
+import {
+  formatDuration,
+  placesText,
+  plainSpaces,
+  settingsMapText,
+  type ScreenPlace,
+} from '@hfos/core';
 
 /**
  * What the model is told. The fixed part is the same for every question (cached by the provider);
@@ -122,6 +128,11 @@ export interface PromptContext {
     /** A line about what the record belongs to (a run's workflow and customer). */
     readonly related?: string | null;
   } | null;
+  /**
+   * The screen they asked from, as the maps name it (`screenPlace`): said when no record above is on it, so "this"
+   * can mean the calendar, invoice or setting that's open. Null when the screen didn't say.
+   */
+  readonly place?: ScreenPlace | null;
   /** The workflows with their ids (the tools start, pause and resume them). */
   readonly workflows?: readonly {
     readonly id: string;
@@ -211,6 +222,22 @@ function pageLines(page: NonNullable<PromptContext['page']>): string[] {
         : 'They have no upcoming appointments.',
     );
   return lines;
+}
+
+/**
+ * The screen they asked from, when no record is on it: its place and the way there, as the places and the setup above
+ * say them, and the ids in its address. A page neither names is said by its address.
+ */
+function placeLines(place: ScreenPlace): string[] {
+  const where = place.label
+    ? place.area
+      ? `${place.label} in the setup (${place.way}; its area is ${place.area})`
+      : `${place.label} (${place.way})`
+    : `the page at ${place.path}, which isn’t one of the places above`;
+  const ids = place.ids.map((i) => `${i.name} id ${i.id}`).join(', ');
+  return [
+    `On screen now: ${where}${ids ? `, showing ${ids}` : ''}. "This" or "here" usually means what is on it.`,
+  ];
 }
 
 /** Everything the model is told about the business, the person and what's on screen. */
@@ -319,7 +346,11 @@ export function turnText(c: PromptContext): string {
         ]
       : []),
     ...(c.attention ? attentionLines(c.attention) : []),
-    ...(c.page ? pageLines(c.page) : ['No customer, lead or appointment is on screen.']),
+    ...(c.page
+      ? pageLines(c.page)
+      : c.place
+        ? placeLines(c.place)
+        : ['No customer, lead or appointment is on screen.']),
     ...(c.spoken ? [SPOKEN] : []),
   ];
   return lines.join('\n');

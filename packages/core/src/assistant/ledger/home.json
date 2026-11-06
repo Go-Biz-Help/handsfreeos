@@ -6,7 +6,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4bb840d5dff6",
-    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "6ebd438f8256",
+    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "506dcc504dfc",
     "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx": "b0639b60a073",
     "apps/mobile/src/app/app/w/[workspaceId]/search.tsx": "1a959c92bf8a",
     "apps/mobile/src/components/add-ons/news-card.tsx": "6d1402bba2e5",
@@ -41,7 +41,7 @@
     "apps/web/src/components/assistant/ask-button.tsx": "1189fdcab4d4",
     "apps/web/src/components/assistant/assistant-panel.tsx": "1f1bf3886050",
     "apps/web/src/components/assistant/calendar-cards.tsx": "29df0d91f23f",
-    "apps/web/src/components/assistant/card-parts.tsx": "abbf993272e5",
+    "apps/web/src/components/assistant/card-parts.tsx": "8255351aebbd",
     "apps/web/src/components/assistant/cards.tsx": "696fa43a3910",
     "apps/web/src/components/assistant/composer.tsx": "867a1b9b5de7",
     "apps/web/src/components/assistant/confirm-card.tsx": "eadc98450bf0",
@@ -2577,7 +2577,7 @@
       "where": "Every screen other than a person, company, lead, conversation, appointment or workflow page: Home, Search, Audit log, Settings → Calendars (booking link), invoices, forms, documents and others",
       "gap": "The ask carries only `page: AssistantPageRecord` (schemas/assistant.ts:318-339). That covers 7 types: person, company, lead, conversation, appointment, workflow and workflow_run, matched from the URL by RECORD_ROUTES/assistantPageRecord (words.ts:413-447). Web and phone both send only that (assistant-provider.tsx:624, mobile chat.ts:521). On every other screen turnText adds the fixed 'No customer, lead or appointment is on screen.' (prompt.ts:322). That includes Home, Search, Audit log, Settings → Calendars, invoices, forms and documents. The Assistant has no idea which page or setting is open. Nothing else in context.ts adds it.",
       "fix": "Add `path: z.string().max(300).optional()` to AssistantAskInput (packages/core/src/schemas/assistant.ts:333). Send usePathname() and its search from the web panel (assistant-provider.tsx:624) and the phone (chat.ts:521, through askHref). In context.ts questionContext, match it against APP_PLACES[].path and SETTINGS_MAP[].path, and take any uuid in the path (the calendar on /settings/calendars/<id>, an invoice, a form). Put it in PromptContext as `place: {label, way, id?}`. In prompt.ts turnText, replace the fixed sentence with 'On screen now: <label> (<way>)' plus the id.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {

@@ -62,7 +62,7 @@
       "where": "Inbox → a conversation: the composer's Ask for a video button, which puts the ask and its link into the reply box",
       "gap": "video_link.create is in SCREEN_ACTIONS (coverage.ts:51) at risk 1. screen-actions.ts:49 makes everything above risk 0 a confirm tool. On Confirm, commitScreenAction runs the command and returns {outcome:'Done', href:null} (tools-screen-actions.ts:125-132). CommittedAction has nowhere to put output (runtime.ts:128-132). The command is shownOnce for token and path (video-link.ts:149), so the link is made, can't be read again, and is lost: the Assistant can neither show it nor text it. commitAddonTool drops output the same way (tools-addons.ts:203-216), for example realestate_publish_listing_page's page. The composer puts `${window.location.origin}${out.path}` into the reply box (composer.tsx:502), which is the app origin.",
       "fix": "Add an optional result to CommittedAction (runtime.ts:128) and fill it in commitScreenAction and commitAddonTool, through answerOf or answerFrom, so the model reads the output after Confirm. For video_link.create, turn result.path into a full URL on the app origin (webUrl, as the composer does; /v/ is also served on a branded domain). Better still, give it a dedicated tool that sends VIDEO_LINK_WORDS.ask(url) in the conversation, which is what the button is for.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {

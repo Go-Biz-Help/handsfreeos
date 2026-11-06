@@ -1229,8 +1229,8 @@
       "path": "Composer → Ask for a video",
       "kind": "do",
       "file": "apps/web/src/components/inbox/composer.tsx:903",
-      "covered": "partly",
-      "by": "do_video_link_create, link not returned"
+      "covered": "yes",
+      "by": "do_video_link_create: the whole link shows on its card once, after Confirm (texting it in the same step is inbox-3)"
     },
     {
       "path": "Composer → rich editor (buttons, picture, card, carousel)",
@@ -1918,7 +1918,7 @@
       "kind": "do",
       "where": "Composer → Ask for a video (sends the customer a link to record and upload a video)",
       "gap": "do_video_link_create exists (SCREEN_ACTIONS, risk 1, so it waits for Confirm), but commitScreenAction throws the command's output away and returns {outcome:'Done', href:null}. The one-time /v/<token> path never reaches the model. The Assistant can make a video-request link and then has nothing to send, and the token is shown only once. The link only works in an SMS conversation (video-link.ts:160-165). Its base is the web app's own address, not the business's public origin: the web uses window.location.origin and the phone config.webUrl.",
-      "fix": "Give send_text an askForVideo boolean. When it is set, the card says 'Adds a link for them to send a video' and the commit runs video_link.create {conversationId} first, then appends VIDEO_LINK_WORDS.ask(`${extra.webUrl}${out.path}`) to the body before message.send. Refuse it for a non-SMS conversation with the command's notByText words. More generally, have commitScreenAction (tools-screen-actions.ts:128-136) return the command's output, with any `path` made absolute using extra.webUrl, so a screen action's result is never lost.",
+      "fix": "Left open: the general part is fixed in the foundations step (a screen action’s answer is kept, and the video link shows whole on its card once, after Confirm); the send_text askForVideo option that texts it in the conversation is the inbox step’s. Give send_text an askForVideo boolean. When it is set, the card says 'Adds a link for them to send a video' and the commit runs video_link.create {conversationId} first, then appends VIDEO_LINK_WORDS.ask(`${extra.webUrl}${out.path}`) to the body before message.send. Refuse it for a non-SMS conversation with the command's notByText words. More generally, have commitScreenAction (tools-screen-actions.ts:128-136) return the command's output, with any `path` made absolute using extra.webUrl, so a screen action's result is never lost.",
       "status": "open",
       "pr": null
     },

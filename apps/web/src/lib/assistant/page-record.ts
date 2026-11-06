@@ -1,5 +1,5 @@
 'use client';
-import { assistantPageRecord, type PageRecord } from '@hfos/core';
+import { assistantPageRecord, assistantScreenPath, type PageRecord } from '@hfos/core';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
 
@@ -17,5 +17,18 @@ export function usePageRecord(workspaceId: string): PageRecord | null {
   return useMemo(
     () => assistantPageRecord(pathname, workspaceId, appt),
     [pathname, workspaceId, appt],
+  );
+}
+
+/**
+ * The screen itself, inside the business, with its query string: each question carries it too, so the Assistant
+ * knows which page or setting is open (a calendar's settings, an invoice, the audit log), not only which record.
+ */
+export function useScreenPath(workspaceId: string): string | null {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  return useMemo(
+    () => assistantScreenPath(pathname, workspaceId, search),
+    [pathname, workspaceId, search],
   );
 }

@@ -329,12 +329,27 @@ export const AssistantPageRecord = z.object({
   id: uuid,
 });
 
+/** The most of a screen's address one question carries (`assistantScreenPath` cuts it to this). */
+export const ASSISTANT_SCREEN_PATH_MAX = 1000;
+
 /** What the browser sends to the worker for one question. */
 export const AssistantAskInput = z.object({
   workspaceId: uuid,
   threadId: uuid.optional(),
   text: z.string().trim().min(1).max(4000),
   page: AssistantPageRecord.nullable().default(null),
+  /**
+   * The screen they asked from, inside the business: the address after /app/w/<workspaceId>, with its query string
+   * ("/settings/calendars/<id>", "/" for Home). The worker names its place for the model (`screenPlace`). One that
+   * can't be read is left out rather than refusing the question.
+   */
+  path: z
+    .string()
+    .startsWith('/')
+    .max(ASSISTANT_SCREEN_PATH_MAX)
+    .nullable()
+    .default(null)
+    .catch(null),
   /** They're talking out loud and hear the answer read to them (voice mode): it's written to be said. */
   spoken: z.boolean().default(false),
 });

@@ -10,6 +10,7 @@ import {
   assistantConsentOf,
   assistantToolByName,
   HfosError,
+  screenPlace,
   type AddonServerModule,
   type AssistantEvent,
   type Catalog,
@@ -25,6 +26,7 @@ import type { AddonWorkerModule } from '../addons/types';
 import { personQuery, questionContext } from './context';
 import { ask, SHUTTING_DOWN, warmUp, type ToolContext, type ToolExecutor } from './runtime';
 import { addonActionToolByName } from './tools-addons';
+import { screenActionToolByName } from './tools-screen-actions';
 import * as store from './store';
 import type { AiProvider } from '@hfos/ai';
 
@@ -142,7 +144,12 @@ export function registerAssistantRoutes(
         workerModules: assistant.workerAddons,
       },
     );
-    const prompt = input.spoken ? { ...context.prompt, spoken: true } : context.prompt;
+    // The screen they asked from, named as the maps name it, so "this" can mean the page or setting that's open.
+    const prompt = {
+      ...context.prompt,
+      place: screenPlace(input.path),
+      ...(input.spoken ? { spoken: true } : {}),
+    };
     const stream = openStream<AssistantEvent>(reply);
     const stop = new AbortController();
     let runId: string | null = null;
@@ -288,9 +295,11 @@ export function registerAssistantRoutes(
     const scope = { workspaceId: input.workspaceId, organizationId: '' };
     const call = await store.getToolCall(deps.httpDb, scope, req.params.id);
     // An add-on's card is confirmed with its tool whether or not the add-on still runs: the kernel checks that, and
-    // the permission, when it runs, and a card for an add-on turned off since says so.
+    // the permission, when it runs, and a card for an add-on turned off since says so. A screen's own command is
+    // found the same way, by its tool's name.
     const tool = call
       ? (assistantToolByName.get(call.tool) ??
+        screenActionToolByName(call.tool) ??
         addonAiToolByName(assistant.addons ?? ADDON_SERVER_MODULES, call.tool) ??
         addonActionToolByName(assistant.workerAddons ?? ADDON_WORKER_MODULES, call.tool))
       : undefined;
@@ -352,11 +361,18 @@ export function registerAssistantRoutes(
         toolCallId: call.id,
         ...(input.lostReason ? { lostReason: input.lostReason } : {}),
       });
+      // Kept with the call, for the model's later questions: what the card says and what the command answered. A
+      // link or code shown only once is never kept: it goes back to this card alone, this once.
       await store.updateToolCall(deps.httpDb, scope, call.id, {
         status: 'confirmed',
-        result: { outcome: done.outcome, href: done.href, command: done.command },
+        result: {
+          outcome: done.outcome,
+          href: done.href,
+          command: done.command,
+          ...(done.answer !== undefined ? { answer: done.answer } : {}),
+        },
       });
-      return out(call.id, call.tool, 'confirmed', done.outcome, done.href, null);
+      return out(call.id, call.tool, 'confirmed', done.shownOnce ?? done.outcome, done.href, null);
     } catch (e) {
       const message =
         e instanceof HfosError

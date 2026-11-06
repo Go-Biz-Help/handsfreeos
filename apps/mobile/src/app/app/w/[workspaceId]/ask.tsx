@@ -15,7 +15,7 @@ import { businessHref, useBusiness } from '@/components/shell/business-context';
 import { Screen } from '@/components/shell/screen';
 import { Icon } from '@/components/ui/icon';
 import { setupIsOff, useAssistantChat, type ChatMessage } from '@/assistant/chat';
-import { pageRecordOf } from '@/assistant/page-record';
+import { pageRecordOf, screenPathOf } from '@/assistant/page-record';
 import { useAssistantVoice } from '@/assistant/voice';
 import { useNetwork } from '@/lib/network';
 
@@ -30,9 +30,9 @@ export default function Ask() {
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardHeight();
   const { online } = useNetwork();
-  const params = useLocalSearchParams<{ type?: string; id?: string }>();
+  const params = useLocalSearchParams<{ type?: string; id?: string; from?: string }>();
   const page = React.useMemo(() => pageRecordOf(params), [params.type, params.id]);
-  const chat = useAssistantChat(business.id, userId, page);
+  const chat = useAssistantChat(business.id, userId, page, screenPathOf(params.from));
   const voice = useAssistantVoice(chat, business.id);
   const [draft, setDraft] = React.useState('');
   const [view, setView] = React.useState<'chat' | 'history'>('chat');

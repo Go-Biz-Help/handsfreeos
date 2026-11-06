@@ -11,6 +11,8 @@ export interface AskBody {
   readonly threadId?: string;
   readonly text: string;
   readonly page: PageRecord | null;
+  /** The screen it's asked from, inside the business, with its query string (`assistantScreenPath`). */
+  readonly path?: string | null;
   /** Asked out loud: the answer is written to be heard. */
   readonly spoken?: boolean;
 }

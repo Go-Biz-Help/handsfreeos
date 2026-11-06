@@ -127,9 +127,21 @@ const isAddonTool = (tool: OfferedTool): tool is AddonAiTool | AddonActionTool =
   isAddonAiTool(tool) || isAddonActionTool(tool);
 
 export interface CommittedAction {
+  /** What the card says once it's done, kept with the tool call: the model reads it in later questions too. */
   readonly outcome: string;
   readonly href: string | null;
   readonly command: string;
+  /**
+   * What the command answered, as the model reads it in later questions (kept with the tool call): without anything
+   * credential-looking or shown only once, cut short, with public pages as whole links (`keptAnswer`).
+   */
+  readonly answer?: unknown;
+  /**
+   * What the person must pass on that the command shows only once (a founding claim link, a link asking a customer
+   * for a video): the card says this instead of `outcome`, this once. It is never stored, so neither the chat nor
+   * the model ever has it again.
+   */
+  readonly shownOnce?: string;
 }
 
 /** The Assistant's hands: runs "auto" tools, drafts "confirm" tools as cards, and does them once confirmed. */

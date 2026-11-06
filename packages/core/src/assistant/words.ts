@@ -8,7 +8,11 @@
  * lucide-react-native on the phone).
  */
 import type { z } from 'zod';
-import type { AssistantCard, AssistantPageRecord } from '../schemas/assistant';
+import {
+  ASSISTANT_SCREEN_PATH_MAX,
+  type AssistantCard,
+  type AssistantPageRecord,
+} from '../schemas/assistant';
 
 /** The record a question is asked from (`AssistantPageRecord`'s own shape). */
 export type PageRecord = z.infer<typeof AssistantPageRecord>;
@@ -443,6 +447,24 @@ export function assistantPageRecord(
     if (m) return { type, id: m[1]!.toLowerCase() };
   }
   return null;
+}
+
+/**
+ * The screen a question is asked from, inside the business: the address after `/app/w/<ws>`, with its query string
+ * (`/settings/calendars/<id>`, `/calendar?appt=<id>`, `/` for Home), so the worker can tell the Assistant which page
+ * or setting is open, not only which record. Null outside the business. The phone's screens sit at the web's own
+ * addresses, so both send it the same way.
+ */
+export function assistantScreenPath(
+  pathname: string,
+  workspaceId: string,
+  search = '',
+): string | null {
+  const base = `/app/w/${workspaceId}`;
+  if (!workspaceId || (pathname !== base && !pathname.startsWith(`${base}/`))) return null;
+  const query = search.replace(/^\?/, '');
+  const path = `${pathname.slice(base.length) || '/'}${query ? `?${query}` : ''}`;
+  return path.slice(0, ASSISTANT_SCREEN_PATH_MAX);
 }
 
 const clock = (d: Date) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });

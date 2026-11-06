@@ -7,15 +7,22 @@
 import {
   addonToolArguments,
   executeCommand,
+  foundingApprove,
+  FOUNDING_WORDS,
+  foundingClaimPath,
   HfosError,
   registry,
   rehearseCommand,
   screenActionTools,
+  VIDEO_LINK_DAYS,
+  videoLinkCreate,
+  type CommandDef,
   type Permission,
   type RequestMeta,
   type ScreenActionTool,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { keptAnswer } from './committed';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { cardFields } from './tools-addons';
 import { settingsCard } from './tools-settings-calendar';
@@ -34,6 +41,14 @@ export const allScreenActionTools = (): readonly ScreenActionTool[] =>
 export const screenActionToolsFor = (
   can: (permission: Permission) => boolean,
 ): ScreenActionTool[] => allScreenActionTools().filter((t) => can(t.permission));
+
+let byName: ReadonlyMap<string, ScreenActionTool> | null = null;
+/**
+ * One by name, whether or not this person could be offered it now: what a waiting card is confirmed with. The kernel
+ * checks the permission again when it runs.
+ */
+export const screenActionToolByName = (name: string): ScreenActionTool | undefined =>
+  (byName ??= new Map(allScreenActionTools().map((t) => [t.name, t]))).get(name);
 
 const meta = (ctx: ToolContext): RequestMeta => ({
   correlationId: ctx.correlationId,
@@ -121,15 +136,86 @@ export async function prepareScreenAction(
   };
 }
 
-/** The person pressed Confirm: the command runs through the kernel, which checks the permission again. */
+/** What the card says this once (`now`), and what is kept in its place (`kept`). */
+interface PassedOn {
+  readonly now: string;
+  readonly kept: string;
+}
+
+const NOT_KEPT = 'showed on this card once, when you confirmed, and isn’t kept.';
+
+/**
+ * What a person must pass on from a command that shows it only once (its `shownOnce`), as the screens hand it over:
+ * the founding claim link to email, the link asking a customer for a video. A path is made a whole link with the
+ * rest of what the model reads (tools-write.ts), on the business's own domain when it is a public page; the claim
+ * link is the app's own, so it goes on `webUrl` here, as the Admin area's dialog does.
+ */
+const PASS_ON: Readonly<Record<string, (output: Args, webUrl: string) => PassedOn | null>> = {
+  // By the commands' own names: these stay screen actions (coverage.ts), not tools of their own.
+  [foundingApprove.name]: (o, webUrl) => {
+    const token = o['claimToken'];
+    const until = o['expiresAt'];
+    if (typeof token !== 'string' || typeof until !== 'string') return null;
+    const works = FOUNDING_WORDS.linkWorks(until);
+    return {
+      now: `Approved, and their seat is held. Copy this claim link into an email to them now. ${works} It isn’t shown again: ${webUrl}${foundingClaimPath(token)}`,
+      kept: `Approved, and their seat is held. The claim link ${NOT_KEPT} ${works}`,
+    };
+  },
+  [videoLinkCreate.name]: (o) => {
+    const path = o['path'];
+    if (typeof path !== 'string') return null;
+    return {
+      now: `Made the link. Text it to them so they can send you a video. It lasts ${VIDEO_LINK_DAYS} days and isn’t shown again: ${path}`,
+      kept: `Made a link for them to send a video. It ${NOT_KEPT}`,
+    };
+  },
+};
+
+/** Any other command's one-time link or code, should one be offered: said the same plain way. */
+function passedOn(command: CommandDef, output: unknown, webUrl: string): PassedOn | null {
+  if (!command.shownOnce?.length || !output || typeof output !== 'object') return null;
+  const o = output as Args;
+  const own = PASS_ON[command.name];
+  if (own) return own(o, webUrl);
+  const value = ['path', 'code'].find(
+    (k) => command.shownOnce!.includes(k) && typeof o[k] === 'string',
+  );
+  return value
+    ? {
+        now: `Done. It isn’t shown again, so copy it now: ${String(o[value])}`,
+        kept: `Done. What it made ${NOT_KEPT}`,
+      }
+    : null;
+}
+
+/**
+ * The person pressed Confirm: the command runs through the kernel, which checks the permission again. Its answer is
+ * kept for the model, and anything shown only once goes to the card alone (routes.ts).
+ */
 export async function commitScreenAction(
   db: Db,
   tool: ScreenActionTool,
   args: Args,
   ctx: ToolContext,
+  /** The web app's address, for a link that is the app's own (the founding claim link). */
+  webUrl = '',
 ): Promise<CommittedAction> {
-  await executeCommand(db, tool.command, inputOf(tool, args, ctx), ctx.actor, meta(ctx));
-  return { outcome: 'Done', href: null, command: tool.command.name };
+  const done = await executeCommand(
+    db,
+    tool.command,
+    inputOf(tool, args, ctx),
+    ctx.actor,
+    meta(ctx),
+  );
+  const once = passedOn(tool.command, done.output, webUrl);
+  return {
+    outcome: once?.kept ?? 'Done',
+    href: null,
+    command: tool.command.name,
+    answer: keptAnswer(done.output, tool.command.shownOnce),
+    ...(once ? { shownOnce: once.now } : {}),
+  };
 }
 
 /** What the panel says while one runs. */

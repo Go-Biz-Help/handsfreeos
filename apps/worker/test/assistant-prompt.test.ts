@@ -1,5 +1,10 @@
 import type { AiToolDefinition } from '@hfos/ai';
-import { ADDON_SERVER_MODULES, allAddonAiTools, assistantTools } from '@hfos/core/server';
+import {
+  ADDON_SERVER_MODULES,
+  allAddonAiTools,
+  assistantTools,
+  screenPlace,
+} from '@hfos/core/server';
 import { describe, expect, it } from 'vitest';
 import { contextText, lastingText, turnText, type PromptContext } from '../src/assistant/prompt';
 import { ADDON_WORKER_MODULES } from '../src/addons/modules';
@@ -41,6 +46,32 @@ describe('Assistant context (PERF-M20)', () => {
     expect(turnText(PROMPT)).toContain('(approval id a1)');
     expect(turnText(later)).toContain('On screen now: Mike Johnson');
     expect(contextText(PROMPT)).toBe(`${lastingText(PROMPT)}\n${turnText(PROMPT)}`);
+  });
+
+  it('says which page or setting is open when no record is, with the ids in its address', () => {
+    const ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const on = (path: string) => turnText({ ...PROMPT, place: screenPlace(path) });
+    expect(on(`/settings/calendars/${ID}`)).toContain(
+      `On screen now: Calendars in the setup (Settings → Calendars; its area is calendars), showing calendar id ${ID}.`,
+    );
+    expect(on(`/money/invoices/${ID}`)).toContain(
+      `On screen now: An invoice (Money → Invoices, then press the invoice), showing invoice id ${ID}.`,
+    );
+    expect(on('/audit')).toContain('On screen now: Audit log (Audit log).');
+    expect(on(`/a/realestate/deals/${ID}`)).toContain(
+      `On screen now: the page at /a/realestate/deals/${ID}, which isn’t one of the places above, showing deal id ${ID}.`,
+    );
+    // A record on screen is said as before, and a screen that didn't say keeps the old line.
+    expect(
+      turnText({
+        ...PROMPT,
+        page: { type: 'person', id: 'p1', label: 'Mike Johnson', next: null },
+        place: screenPlace('/customers/people/p1'),
+      }),
+    ).toContain('On screen now: Mike Johnson');
+    expect(turnText(PROMPT)).toContain('No customer, lead or appointment is on screen.');
+    // The place changes per question, so it never reaches the part that's cached.
+    expect(lastingText({ ...PROMPT, place: screenPlace('/audit') })).toBe(lastingText(PROMPT));
   });
 });
 

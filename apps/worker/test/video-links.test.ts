@@ -4,17 +4,23 @@
  * the video lands in the conversation as the customer's reply. What Storage measured is what's filed, a retry
  * files it once, and a file the link can't take is taken back out.
  */
+import { ScriptedProvider, type AiRequest } from '@hfos/ai';
 import {
   executeCommand,
   messageReceive,
   videoLinkCreate,
+  type AssistantEvent,
   type SystemActor,
 } from '@hfos/core/server';
+import { rows, sql } from '@hfos/db/client';
 import { messages } from '@hfos/db/schema';
-import { closeTestDbs, testDbs } from '@hfos/db/testing';
+import { closeTestDbs, signInTestUser, testDbs } from '@hfos/db/testing';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createToolExecutor } from '../src/assistant/tools-write';
+import { buildHttpServer } from '../src/http/server';
+import { consentToAssistant } from './assistant-consent';
 import {
   admin,
   errorOf,
@@ -25,9 +31,11 @@ import {
   run,
   type World,
 } from './booking-world';
+import { testTokenVerifier } from './finish-sign-in';
 
 let w: World;
 let token: string;
+let conversationId: string;
 const ROSA = '+17135550199';
 
 const system = (): SystemActor => ({
@@ -64,10 +72,11 @@ beforeAll(async () => {
     system(),
     { correlationId: randomUUID(), channel: 'test' },
   );
+  conversationId = output.conversationId;
   token = (
     await run(w, videoLinkCreate, {
       workspaceId: w.workspaceId,
-      conversationId: output.conversationId,
+      conversationId,
     })
   ).token;
 });
@@ -209,5 +218,102 @@ describe('the customer’s page', () => {
       website: 'http://spam.example',
     });
     expect(res.statusCode).toBe(404);
+  });
+});
+
+describe('asking for a video through the Assistant', () => {
+  it('shows the link once, whole, on the card after Confirm, and keeps only what it made', async () => {
+    const ORIGIN = 'https://app.handsfreeos.test';
+    const asked: AiRequest[] = [];
+    const inner = new ScriptedProvider([
+      {
+        when: /ask rosa for a video/i,
+        calls: () => [{ name: 'do_video_link_create', arguments: { conversationId } }],
+        reply: () => 'It’s ready for your OK.',
+      },
+      { when: /what did that make/i, reply: () => 'A link for Rosa to send a video.' },
+    ]);
+    const httpDb = testDbs().worker.db;
+    const server = await buildHttpServer({
+      ...w.s,
+      httpDb,
+      verifyToken: testTokenVerifier(),
+      webOrigins: ['http://localhost:3000'],
+      assistant: {
+        provider: {
+          id: inner.id,
+          model: inner.model,
+          stream: (request, options) => {
+            asked.push(request);
+            return inner.stream(request, options);
+          },
+        },
+        tools: createToolExecutor(httpDb, null, null, ORIGIN),
+      },
+    });
+    try {
+      await consentToAssistant(w.owner);
+      const bearer = { authorization: `Bearer ${await signInTestUser(w.owner)}` };
+      const ask = async (text: string, threadId?: string) => {
+        const res = await server.inject({
+          method: 'POST',
+          url: '/v1/assistant/messages',
+          headers: bearer,
+          payload: { workspaceId: w.workspaceId, text, ...(threadId ? { threadId } : {}) },
+        });
+        expect(res.statusCode).toBe(200);
+        return res.body
+          .split('\n\n')
+          .filter((chunk) => chunk.startsWith('data: '))
+          .map((chunk) => JSON.parse(chunk.slice(6)) as AssistantEvent);
+      };
+
+      const first = await ask('Ask Rosa for a video');
+      const threadId = first[0]!.type === 'run' ? first[0]!.threadId : '';
+      const card = first
+        .flatMap((e) => (e.type === 'card' ? [e.card] : []))
+        .find((c) => c.type === 'confirm');
+      expect(card).toMatchObject({ tool: 'do_video_link_create' });
+      const callId = card!.type === 'confirm' ? card!.toolCallId : '';
+
+      // A screen's own command is found by its card, and runs on Confirm.
+      const done = await server.inject({
+        method: 'POST',
+        url: `/v1/assistant/tool-calls/${callId}/confirm`,
+        headers: bearer,
+        payload: { workspaceId: w.workspaceId },
+      });
+      expect(done.statusCode).toBe(200);
+      const { status, outcome } = done.json() as { status: string; outcome: string };
+      expect(status).toBe('confirmed');
+      expect(outcome).toMatch(/isn’t shown again/);
+      const link = /https:\/\/app\.handsfreeos\.test\/v\/([\w-]+)$/.exec(outcome);
+      expect(link).not.toBeNull();
+      const made = link![1]!;
+      // It's a real link: the customer's page knows it.
+      expect((await get(w, `/public/video/${made}`)).statusCode).toBe(200);
+
+      // Kept with the call for later questions: what it made, never the link or its key.
+      const [kept] = await rows<{ result: Record<string, unknown> }>(
+        admin(),
+        sql`select result from app.assistant_tool_calls where id = ${callId}`,
+      );
+      expect(kept!.result).toMatchObject({
+        command: 'video_link.create',
+        outcome: expect.stringMatching(/isn’t kept/),
+        answer: { videoLinkId: expect.any(String), maxUploads: 3 },
+      });
+      expect(JSON.stringify(kept!.result)).not.toContain(made);
+      expect(JSON.stringify(kept!.result)).not.toContain('/v/');
+
+      // The next question reads what it made, and still never the link.
+      asked.length = 0;
+      await ask('What did that make?', threadId);
+      const history = JSON.stringify(asked[0]!.messages);
+      expect(history).toContain((kept!.result['answer'] as { videoLinkId: string }).videoLinkId);
+      expect(history).not.toContain(made);
+    } finally {
+      await server.close();
+    }
   });
 });

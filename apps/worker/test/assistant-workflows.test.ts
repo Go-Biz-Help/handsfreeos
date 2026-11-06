@@ -33,6 +33,7 @@ import { scriptedAi } from '../src/ai/scripted';
 import { questionContext, toolsFor } from '../src/assistant/context';
 import { contextText, SYSTEM } from '../src/assistant/prompt';
 import { scriptedAssistant } from '../src/assistant/scripted';
+import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -634,6 +635,41 @@ describe('workflows and knowledge in the Assistant', () => {
             where workspace_id = ${ws} and title = 'Do you work weekends?'`,
       ),
     ).toEqual([{ status: 'draft', body: 'Yes, Saturdays from 9 to 1.' }]);
+  });
+
+  it('keeps what a test answered once it’s confirmed, so the next question can find the test run', async () => {
+    const organizationId = (
+      await rows<{ organization_id: string }>(
+        admin(),
+        sql`select organization_id from app.workspaces where id = ${ws}`,
+      )
+    )[0]!.organization_id;
+    const done = await createToolExecutor(api()).commit(
+      screenActionToolByName('do_workflow_test')!,
+      { workflowId: followUp, mode: 'simulate' },
+      {
+        actor: actor(owner),
+        workspaceId: ws,
+        organizationId,
+        correlationId: randomUUID(),
+        timezone: 'America/Chicago',
+      },
+      { toolCallId: randomUUID() },
+    );
+    expect(done).toMatchObject({
+      outcome: 'Done',
+      command: 'workflow.test',
+      answer: { workflowId: followUp, mode: 'simulate', requested: true },
+    });
+    // The event the test run carries, as the screen's own answer names it.
+    const eventId = (done.answer as { eventId: string }).eventId;
+    expect(
+      await rows(
+        admin(),
+        sql`select event_type from app.events where id = ${eventId} and entity_id = ${followUp}`,
+      ),
+    ).toEqual([{ event_type: 'workflow.test_requested' }]);
+    expect(done.shownOnce).toBeUndefined();
   });
 
   it('never lets a member reach a workflows.manage tool', async () => {

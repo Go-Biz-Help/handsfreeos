@@ -31,7 +31,7 @@ import type {
   AssistantToolCall,
   AssistantToolStatus,
 } from '@/lib/api/types';
-import { usePageRecord, type PageRecord } from '@/lib/assistant/page-record';
+import { usePageRecord, useScreenPath, type PageRecord } from '@/lib/assistant/page-record';
 import { stopRun, streamAnswer, warmAssistant } from '@/lib/assistant/stream';
 import { isMac, isShortcut } from '@/lib/keys';
 import { useMatches } from '@/lib/use-media';
@@ -353,6 +353,7 @@ export function AssistantProvider({
 }) {
   const pathname = usePathname();
   const page = usePageRecord(workspaceId);
+  const screen = useScreenPath(workspaceId);
   const wide = useMatches(onInbox(pathname, workspaceId) ? DOCK_ON_INBOX : DOCK);
   const [consentNeeded, setConsentNeeded] = useState(consentNeededAtLoad);
   /** A question asked while the consent step was up (or refused for want of it): asked once the person says OK. */
@@ -374,6 +375,8 @@ export function AssistantProvider({
   const threadRef = useRef<string | null>(null);
   const pageRef = useRef(page);
   pageRef.current = page;
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const streamRef = useRef<AbortController | null>(null);
   const runRef = useRef<string | null>(null);
   const answerRef = useRef<string | null>(null);
@@ -622,6 +625,7 @@ export function AssistantProvider({
               ...(current ? { threadId: current } : {}),
               text,
               page: pageRef.current,
+              path: screenRef.current,
               ...(opts.spoken ? { spoken: true } : {}),
             },
             onEvent,

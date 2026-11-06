@@ -22,6 +22,8 @@ export interface AskBody {
   readonly text: string;
   /** The customer, lead or conversation the mark was pressed on, so "text her…" means them. */
   readonly page: PageRecord | null;
+  /** The screen the mark was pressed on, inside the business, with its query string (`assistantScreenPath`). */
+  readonly path?: string | null;
   /** Asked out loud: the answer is written to be heard. */
   readonly spoken?: boolean;
 }
