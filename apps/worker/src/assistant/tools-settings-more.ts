@@ -1,10 +1,11 @@
 /**
- * The last settings the Assistant used to hand back (packages/core/src/assistant/tools-settings-more.ts): add-ons,
- * the Deleted bin (moving things in, and bringing them back), partners and Settings → Safety. Each card is read from what is there now, so it says what will
+ * The last settings the Assistant used to hand back (packages/core/src/assistant/tools-settings-more.ts): add-ons and
+ * their own settings, the Deleted bin (moving things in, and bringing them back), partners and Settings → Safety. Each card is read from what is there now, so it says what will
  * really change; a request that changes nothing is turned back before a card is drawn. On Confirm, the screen's own
  * command runs as the person.
  */
 import {
+  ADDON_CATALOG,
   BIN_WORDS,
   binContentsTotal,
   binDeleteBox,
@@ -149,6 +150,240 @@ const manageAddOn: SettingsConfirmTool = {
       outcome: outcomes[act],
       href: href(ctx, 'add-ons'),
       command: LIFECYCLE_COMMAND[act],
+    };
+  },
+};
+
+// ---------- an add-on's own settings ----------
+
+/** `addon.settings`: both null for someone its settings permission doesn't cover. */
+interface AddonSettingsNow {
+  settings: Record<string, unknown> | null;
+  flags: Record<string, boolean> | null;
+}
+
+const isPlain = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** Key order never counts as a change: a set of days read back can come in any order. */
+const stable = (v: unknown): unknown =>
+  Array.isArray(v)
+    ? v.map(stable)
+    : isPlain(v)
+      ? Object.fromEntries(
+          Object.keys(v)
+            .sort()
+            .map((k) => [k, stable(v[k])]),
+        )
+      : v;
+const same = (a: unknown, b: unknown) => JSON.stringify(stable(a)) === JSON.stringify(stable(b));
+/** `keepClosedYears` or `under_contract` → "Keep closed years", "Under contract": for a setting with no words of its own. */
+const keyWords = (k: string) => {
+  const w = k
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .toLowerCase()
+    .trim();
+  return w.charAt(0).toUpperCase() + w.slice(1);
+};
+const dayWords = (d: string) =>
+  new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+const cut = (s: string) => (s.length > 300 ? `${s.slice(0, 299)}…` : s);
+
+/** A setting's value as the card says it: a person's or a calendar's name for its id, On or Off, a day as a date. */
+function valueWords(v: unknown, names: ReadonlyMap<string, string>): string {
+  if (v === null || v === undefined || v === '') return 'None';
+  if (typeof v === 'boolean') return v ? 'On' : 'Off';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'string') {
+    if (names.has(v.toLowerCase())) return names.get(v.toLowerCase())!;
+    return cut(DAY.test(v) ? dayWords(v) : v);
+  }
+  if (Array.isArray(v))
+    return v.length ? cut(v.map((x) => valueWords(x, names)).join(', ')) : 'None';
+  if (isPlain(v)) {
+    const entries = Object.entries(v);
+    if (!entries.length) return 'None';
+    return cut(
+      entries
+        .map(([k, x]) =>
+          DAY.test(k)
+            ? `${dayWords(k)}${typeof x === 'string' && x ? ` (${x})` : ''}`
+            : `${keyWords(k)}: ${valueWords(x, names).toLowerCase()}`,
+        )
+        .join('; '),
+    );
+  }
+  return cut(String(v));
+}
+
+/** Who and what an id in a setting can be: someone on the team, or a calendar. Null when either couldn't be read. */
+async function idNames(db: Db, ctx: ToolContext): Promise<Map<string, string> | null> {
+  const [team, calendars] = await Promise.all([
+    query<{ members: Member[] }>(db, ctx, 'workspace.members').catch(() => null),
+    query<{ items: CalendarRow[] }>(db, ctx, 'calendar.list').catch(() => null),
+  ]);
+  if (!team || !calendars) return null;
+  return new Map([
+    ...team.members.map((p) => [p.userId.toLowerCase(), p.fullName || p.email] as const),
+    ...calendars.items.map((c) => [c.id.toLowerCase(), c.name] as const),
+  ]);
+}
+
+/**
+ * The add-on's settings with the model's changes put on what is set now (a setting it didn't name stays as it is),
+ * checked with the add-on's own schema, and the card's lines for what really changes.
+ */
+async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
+  const addonId = str(args['addonId']) ?? '';
+  const m = ADDON_CATALOG.find((a) => a.id === addonId);
+  if (!m)
+    throw HfosError.notFound(
+      'No add-on has that id. The business’s add-ons are in get_settings (area add_ons).',
+    );
+  const now = await query<AddonSettingsNow>(db, ctx, 'addon.settings', { addonId: m.id });
+  if (now.settings === null || now.flags === null)
+    throw HfosError.forbidden(
+      `You don’t have permission to change ${m.name}’s settings. An owner of this business can give it to you in Settings → Permissions.`,
+    );
+  const schema = m.settings?.workspace;
+  const shape =
+    (schema as { shape?: Record<string, { description?: string }> } | undefined)?.shape ?? {};
+  const known = Object.keys(shape);
+  const declared = m.settings?.flags ?? {};
+  const changes = isPlain(args['settings']) ? args['settings'] : {};
+  const flagChanges = isPlain(args['flags']) ? (args['flags'] as Record<string, boolean>) : {};
+  if (!Object.keys(changes).length && !Object.keys(flagChanges).length)
+    throw HfosError.validation(
+      [],
+      `Say which of ${m.name}’s settings to change. What is set now is in read_addon_settings.`,
+    );
+  if (Object.keys(changes).length && !schema)
+    throw HfosError.validation(
+      [{ path: 'settings', message: `${m.name} has no settings of its own.` }],
+      `${m.name} has no settings of its own to change.${Object.keys(declared).length ? ' Its switches go in flags.' : ''}`,
+    );
+  const strange = known.length ? Object.keys(changes).filter((k) => !known.includes(k)) : [];
+  if (strange.length)
+    throw HfosError.validation(
+      strange.map((k) => ({
+        path: `settings.${k}`,
+        message: `${m.name} has no setting by that name.`,
+      })),
+      `${m.name} has no setting called ${strange.join(', ')}. Its settings are ${known.join(', ')}.`,
+    );
+  const strangeFlags = Object.keys(flagChanges).filter((k) => !Object.hasOwn(declared, k));
+  if (strangeFlags.length)
+    throw HfosError.validation(
+      strangeFlags.map((k) => ({
+        path: `flags.${k}`,
+        message: `${m.name} has no switch by that name.`,
+      })),
+      Object.keys(declared).length
+        ? `${m.name} has no switch called ${strangeFlags.join(', ')}. Its switches are ${Object.keys(declared).join(', ')}.`
+        : `${m.name} has no switches. Its settings go in settings.`,
+    );
+
+  // What is set now, with its defaults filled in the way the screen shows it; the model's changes go on top.
+  const stored = now.settings;
+  const read = schema?.safeParse(stored);
+  const current = read?.success && isPlain(read.data) ? read.data : stored;
+  const merged = { ...current, ...changes };
+  const label = (k: string) => shape[k]?.description ?? keyWords(k);
+  const checked = schema?.safeParse(merged);
+  if (checked && !checked.success) {
+    const issue = checked.error.issues[0]!;
+    const what = String(issue.path[0] ?? '');
+    const why = issue.message.replace(/[.!?]?$/, '.');
+    throw HfosError.validation(
+      checked.error.issues.map((i) => ({
+        path: `settings.${i.path.join('.')}`,
+        message: i.message,
+      })),
+      `That won’t work for “${what ? label(what) : m.name}”: ${why} What is set now is in read_addon_settings.`,
+    );
+  }
+  const next = (checked?.success && isPlain(checked.data) ? checked.data : merged) as Record<
+    string,
+    unknown
+  >;
+  const changedKeys = Object.keys(changes).filter((k) => !same(current[k], next[k]));
+  const flags = Object.fromEntries(
+    Object.entries(flagChanges).filter(([k, on]) => now.flags![k] !== on),
+  );
+
+  // An id the setting didn't hold before has to be someone on the team or a calendar here, so nothing is sent to,
+  // or put on, nobody.
+  const ids = (v: unknown) =>
+    (JSON.stringify(v ?? null).match(UUID) ?? []).map((s) => s.toLowerCase());
+  const added = changedKeys.flatMap((k) => {
+    const before = new Set(ids(current[k]));
+    return ids(next[k]).filter((id) => !before.has(id));
+  });
+  const names = changedKeys.some((k) => ids(next[k]).length) ? await idNames(db, ctx) : null;
+  const unknownIds = names ? added.filter((id) => !names.has(id)) : [];
+  if (unknownIds.length) {
+    const message =
+      'One of those ids isn’t anyone on the team or any calendar here. People are in get_settings (area team), calendars in get_settings (area calendars).';
+    throw HfosError.validation([{ path: 'settings', message }], message);
+  }
+
+  const fields: Field[] = [
+    ...changedKeys.map((k) => ({
+      label: label(k),
+      value: valueWords(next[k], names ?? new Map()),
+    })),
+    ...Object.entries(flags).map(([k, on]) => ({
+      label: declared[k]!.label,
+      value: on ? 'On' : 'Off',
+    })),
+  ];
+  const page = m.ui?.nav?.find((n) => n.key === 'settings');
+  return {
+    m,
+    fields,
+    save: {
+      addonId: m.id,
+      ...(changedKeys.length ? { settings: next } : {}),
+      ...(Object.keys(flags).length ? { flags } : {}),
+    },
+    path: page ? `a/${m.id}${page.path ? `/${page.path}` : ''}` : 'add-ons',
+  };
+}
+
+const updateAddonSettings: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const plan = await addonSettingsPlan(db, ctx, args);
+    if (!plan.fields.length) throw nothingChanges(`${plan.m.name} is already set that way.`);
+    return {
+      card: settingsCard(toolCallId, 'update_addon_settings', {
+        title: `Change ${plan.m.name}’s settings`,
+        fields: plan.fields,
+        confirmLabel: 'Save the change',
+        warnings: [
+          {
+            kind: 'note',
+            text: `Only what is listed changes. The rest of ${plan.m.name}’s settings stay as they are.`,
+          },
+        ],
+      }),
+      result: { waiting: true, changes: plan.fields.map((f) => f.label) },
+    };
+  },
+
+  async commit(db, ctx, args) {
+    const plan = await addonSettingsPlan(db, ctx, args);
+    await command(db, ctx, 'addon.save_settings', plan.save);
+    return {
+      outcome: `Saved ${plan.m.name}’s settings`,
+      href: href(ctx, plan.path),
+      command: 'addon.save_settings',
     };
   },
 };
@@ -359,6 +594,22 @@ const bpOf = (pct: number) => Math.round(pct * 100);
 const money = (cents: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
 
+/** The calendars a partner's link can book: active ones taking bookings on the booking page. */
+interface CalendarRow {
+  id: string;
+  name: string;
+  public: boolean;
+  status: string;
+}
+
+/** Long terms on a card of ten lines: the start, so the person can tell which they are. */
+const termsWords = (t: string) =>
+  !t
+    ? 'None: partners get their link without accepting any'
+    : t.length > 300
+      ? `${t.slice(0, 299)}…`
+      : t;
+
 /** The partner settings with the model's changes in, and the card's lines for what changed. */
 async function partnerSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
   const now = await query<PartnerSettingsNow>(db, ctx, 'partners.settings');
@@ -382,13 +633,28 @@ async function partnerSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
     );
   if (next.smallestPayoutCents !== now.settings.smallestPayoutCents)
     fields.push({ label: 'Smallest payout', value: money(next.smallestPayoutCents) });
-  if (next.calendarId !== now.settings.calendarId)
+  if (next.calendarId !== now.settings.calendarId) {
+    const { items } = await query<{ items: CalendarRow[] }>(db, ctx, 'calendar.list');
+    const calendar = items.find((c) => c.id === next.calendarId);
+    // Checked before Confirm, the way the save checks it, so the card never offers a calendar nobody can book.
+    if (next.calendarId && !calendar) {
+      const message = 'No calendar has that id. They’re in get_settings (area calendars).';
+      throw HfosError.validation([{ path: 'calendarId', message }], message);
+    }
+    if (calendar && (!calendar.public || calendar.status !== 'active')) {
+      const message = `${calendar.name} isn’t taking bookings on the booking page, so partners’ clients couldn’t book it. Pick another, or turn it on and make it public in Settings → Calendars.`;
+      throw HfosError.validation([{ path: 'calendarId', message }], message);
+    }
+    const first = items.find((c) => c.public && c.status === 'active');
     fields.push({
       label: 'The calendar their links book',
-      value: next.calendarId ? 'Changed' : 'None',
+      value: calendar
+        ? calendar.name
+        : `The first on your booking page${first ? ` (${first.name})` : ''}`,
     });
+  }
   const termsChanged = next.terms !== now.settings.terms;
-  if (termsChanged) fields.push({ label: 'Terms', value: next.terms || 'None' });
+  if (termsChanged) fields.push({ label: 'Terms', value: termsWords(next.terms) });
   return { next, fields, termsChanged };
 }
 
@@ -406,7 +672,8 @@ const updatePartnerSettings: SettingsConfirmTool = {
             kind: 'caution',
             text: 'What partners earn is a promise to people outside the business. A partner with their own share keeps it.',
           },
-          ...(plan.termsChanged
+          // Taking the terms off asks nobody anything: only new terms go out to be accepted.
+          ...(plan.termsChanged && plan.next.terms
             ? [{ kind: 'note', text: 'Every partner is asked to accept the new terms.' }]
             : []),
         ],
@@ -651,6 +918,7 @@ const updateSafetySettings: SettingsConfirmTool = {
 
 export const moreSettingsConfirmTools: Record<string, SettingsConfirmTool> = {
   manage_add_on: manageAddOn,
+  update_addon_settings: updateAddonSettings,
   move_to_bin: moveToBin,
   restore_from_bin: restoreFromBin,
   update_partner_settings: updatePartnerSettings,
@@ -661,6 +929,7 @@ export const moreSettingsConfirmTools: Record<string, SettingsConfirmTool> = {
 /** What the panel says while each one runs. */
 export const moreSettingsStepLabels: Record<string, string> = {
   manage_add_on: 'Getting the add-on change ready',
+  update_addon_settings: 'Changing the add-on’s settings',
   move_to_bin: 'Checking what goes with it',
   restore_from_bin: 'Finding it in the Deleted bin',
   update_partner_settings: 'Changing how partners are paid',

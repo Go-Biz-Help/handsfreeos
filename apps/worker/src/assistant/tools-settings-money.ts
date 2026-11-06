@@ -11,9 +11,14 @@
  */
 
 import {
+  addressLines,
   applyTeammatePatch,
   AUTOMATIONS,
+  businessAddressOf,
+  checkMoneySettings,
+  HfosError,
   numberingAtCounter,
+  reminderSchedule,
   type AutomationDef,
   type AttentionSettings,
   type MoneySettings,
@@ -26,6 +31,7 @@ import { settingsCard, type SettingsConfirmTool } from './tools-settings-calenda
 
 type Args = Record<string, unknown>;
 type Field = { label: string; value: string };
+type Warning = { kind: string; text: string };
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
 const num = (v: unknown) => (typeof v === 'number' ? v : undefined);
@@ -36,7 +42,6 @@ const cents = (d: number) => Math.round(d * 100);
 const money = (c: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(c / 100);
 const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
-const dayList = (ns: number[]) => (ns.length ? ns.map((n) => `${n}`).join(', ') : 'None');
 
 // ---------- how you get paid ----------
 
@@ -47,21 +52,53 @@ const TERMS_WORDS: Record<string, string> = {
   net_30: 'Within 30 days',
 };
 
+const nothingChanges = (why: string) => HfosError.validation([], `Nothing would change. ${why}`);
+
+type MoneySettingsGet = {
+  settings: MoneySettings;
+  nextEstimateNumber: string;
+  nextInvoiceNumber: string;
+};
+
 const moneySettingsOf = (db: Db, ctx: ToolContext) =>
-  query<{ settings: MoneySettings; nextEstimateNumber: string; nextInvoiceNumber: string }>(
-    db,
-    ctx,
-    'money.settings',
-  );
+  query<MoneySettingsGet>(db, ctx, 'money.settings');
+
+/**
+ * The settings as they really stand. The whole document is saved, so its numbering starts where documents really
+ * are: sending one moves the counter, not the settings, and a next number behind the counter is refused.
+ */
+const atCounter = (got: MoneySettingsGet): MoneySettings => ({
+  ...got.settings,
+  numbering: {
+    estimate: numberingAtCounter(got.settings.numbering.estimate, got.nextEstimateNumber),
+    invoice: numberingAtCounter(got.settings.numbering.invoice, got.nextInvoiceNumber),
+  },
+});
+
+/** A box the person can empty: null empties it, words fill it, and leaving it out keeps what is there. */
+const textOr = (v: unknown, now: string) => (v === null ? '' : (str(v) ?? now));
+/** Reminder days as the screen keeps them: each once, in order. */
+const dayListOf = (v: unknown) => {
+  const l = list<number>(v);
+  return l ? [...new Set(l)].sort((a, b) => a - b) : undefined;
+};
 
 /** The whole settings document, with only what was asked for changed. */
 function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
   const rate = num(args['taxRatePercent']);
   const depositPercent = num(args['depositPercent']);
   const depositDollars = num(args['depositDollars']);
+  // A share or an amount on its own says which kind of deposit it is, the way the screen's two boxes do.
+  const depositKind =
+    (str(args['depositKind']) as MoneySettings['deposit']['kind'] | undefined) ??
+    (depositPercent !== undefined && depositDollars === undefined
+      ? 'percent'
+      : depositDollars !== undefined && depositPercent === undefined
+        ? 'amount'
+        : now.deposit.kind);
   return {
     ...now,
-    businessAddress: str(args['businessAddress']) ?? now.businessAddress,
+    businessAddress: textOr(args['businessAddress'], now.businessAddress),
     tax: {
       ...now.tax,
       rateBp: rate === undefined ? now.tax.rateBp : Math.round(rate * 100),
@@ -71,13 +108,13 @@ function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
     terms: (str(args['terms']) as MoneySettings['terms']) ?? now.terms,
     notes: {
       ...now.notes,
-      estimate: str(args['estimateNote']) ?? now.notes.estimate,
-      invoice: str(args['invoiceNote']) ?? now.notes.invoice,
+      estimate: textOr(args['estimateNote'], now.notes.estimate),
+      invoice: textOr(args['invoiceNote'], now.notes.invoice),
     },
     estimateGoodForDays: num(args['estimateGoodForDays']) ?? now.estimateGoodForDays,
     deposit: {
       ...now.deposit,
-      kind: (str(args['depositKind']) as MoneySettings['deposit']['kind']) ?? now.deposit.kind,
+      kind: depositKind,
       percentBp:
         depositPercent === undefined ? now.deposit.percentBp : Math.round(depositPercent * 100),
       amountCents: depositDollars === undefined ? now.deposit.amountCents : cents(depositDollars),
@@ -85,9 +122,9 @@ function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
     bankTransfer: bool(args['offerBankTransfer']) ?? now.bankTransfer,
     reminders: {
       ...now.reminders,
-      beforeDueDays: list<number>(args['remindBeforeDueDays']) ?? now.reminders.beforeDueDays,
+      beforeDueDays: dayListOf(args['remindBeforeDueDays']) ?? now.reminders.beforeDueDays,
       onDue: bool(args['remindOnDueDay']) ?? now.reminders.onDue,
-      afterDueDays: list<number>(args['remindAfterDueDays']) ?? now.reminders.afterDueDays,
+      afterDueDays: dayListOf(args['remindAfterDueDays']) ?? now.reminders.afterDueDays,
       estimateAfterDays:
         args['nudgeEstimateAfterDays'] === undefined
           ? now.reminders.estimateAfterDays
@@ -96,84 +133,194 @@ function nextMoneySettings(now: MoneySettings, args: Args): MoneySettings {
   };
 }
 
+const percentWords = (bp: number) => `${Number((bp / 100).toFixed(2))}%`;
+const quote = (t: string) => (t ? `“${t.length > 80 ? `${t.slice(0, 79)}…` : t}”` : 'None');
+
+function depositWords(d: MoneySettings['deposit']): string {
+  if (d.kind === 'none') return 'None';
+  return d.kind === 'percent'
+    ? `${percentWords(d.percentBp)} up front`
+    : `${money(d.amountCents)} up front`;
+}
+
+/** "3 days before, on the day, 3, 7 and 14 days after", as the screen counts them. */
+function reminderWords(s: MoneySettings): string {
+  const steps = reminderSchedule(s);
+  if (!steps.length) return 'None';
+  const before = steps.filter((x) => x.when === 'before').map((x) => x.days);
+  const after = steps.filter((x) => x.when === 'after').map((x) => x.days);
+  const run = (ns: number[]) =>
+    ns.length === 1 ? days(ns[0]!) : `${ns.slice(0, -1).join(', ')} and ${days(ns.at(-1)!)}`;
+  return [
+    before.length ? `${run(before)} before` : null,
+    s.reminders.onDue ? 'on the day' : null,
+    after.length ? `${run(after)} after` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
+/** What the card lists: only what changes, each the way the screen says it. */
+function moneyChanges(now: MoneySettings, next: MoneySettings): Field[] {
+  const fields: Field[] = [];
+  if (next.tax.rateBp !== now.tax.rateBp || next.tax.name !== now.tax.name)
+    fields.push({
+      label: next.tax.name,
+      value: `${percentWords(next.tax.rateBp)}${
+        next.tax.name === now.tax.name ? '' : ` · was called ${now.tax.name}`
+      }`,
+    });
+  if (next.tax.newProductsTaxable !== now.tax.newProductsTaxable)
+    fields.push({
+      label: 'New items',
+      value: next.tax.newProductsTaxable ? 'Start taxable' : 'Start with no tax',
+    });
+  if (next.terms !== now.terms)
+    fields.push({ label: 'Invoices due', value: TERMS_WORDS[next.terms] ?? next.terms });
+  if (next.businessAddress !== now.businessAddress)
+    fields.push({
+      label: 'Your address',
+      value: next.businessAddress
+        ? next.businessAddress
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .join(', ')
+        : 'Off documents',
+    });
+  if (next.estimateGoodForDays !== now.estimateGoodForDays)
+    fields.push({ label: 'Estimates good for', value: days(next.estimateGoodForDays) });
+  const invoiceNote = next.notes.invoice !== now.notes.invoice;
+  const estimateNote = next.notes.estimate !== now.notes.estimate;
+  // One row for both notes keeps every change on a card of ten.
+  if (invoiceNote && estimateNote)
+    fields.push({
+      label: 'Notes',
+      value: `Invoices: ${quote(next.notes.invoice)} · Estimates: ${quote(next.notes.estimate)}`,
+    });
+  else if (invoiceNote)
+    fields.push({ label: 'Note on invoices', value: quote(next.notes.invoice) });
+  else if (estimateNote)
+    fields.push({ label: 'Note on estimates', value: quote(next.notes.estimate) });
+  if (depositWords(next.deposit) !== depositWords(now.deposit))
+    fields.push({ label: 'Deposit', value: depositWords(next.deposit) });
+  if (next.bankTransfer !== now.bankTransfer)
+    fields.push({
+      label: 'Bank transfer',
+      value: next.bankTransfer
+        ? 'Offered, and shown first'
+        : 'Not offered: customers see card only',
+    });
+  if (reminderWords(next) !== reminderWords(now))
+    fields.push({ label: 'Invoice reminders', value: reminderWords(next) });
+  if (next.reminders.estimateAfterDays !== now.reminders.estimateAfterDays)
+    fields.push({
+      label: 'Nudge an unanswered estimate',
+      value: next.reminders.estimateAfterDays
+        ? `After ${days(next.reminders.estimateAfterDays)}, once`
+        : 'Never',
+    });
+  return fields;
+}
+
+/** A deposit of nothing, refused the way the screen refuses it, before anyone presses Confirm. */
+function depositProblem(next: MoneySettings): HfosError | null {
+  const issue = checkMoneySettings(next).find((i) => i.severity === 'error');
+  if (!issue) return null;
+  const message =
+    next.deposit.kind === 'amount'
+      ? 'A deposit of $0 asks for nothing. Give an amount, like $500, or turn the deposit off.'
+      : 'A deposit of 0% asks for nothing. Give a share, like 25%, or turn the deposit off.';
+  return HfosError.validation(
+    [{ path: next.deposit.kind === 'amount' ? 'depositDollars' : 'depositPercent', message }],
+    message,
+  );
+}
+
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
+/** Settings this change sets fighting, said the way the screen's warnings say it, with its fixes as words. */
+function newMoneyWarnings(now: MoneySettings, next: MoneySettings): Warning[] {
+  const had = new Set(checkMoneySettings(now).map((i) => i.code));
+  return checkMoneySettings(next)
+    .filter((i) => i.severity === 'warning' && !had.has(i.code))
+    .map((i) => ({
+      kind: 'caution',
+      text: `${i.message}.${
+        i.fixes.length
+          ? ` To fix it: ${i.fixes.map((f) => lowerFirst(f.label)).join(', or ')}.`
+          : ''
+      }`,
+    }));
+}
+
+/** Taking the address off: what documents show instead. */
+async function addressWarning(
+  db: Db,
+  ctx: ToolContext,
+  now: MoneySettings,
+  next: MoneySettings,
+): Promise<Warning[]> {
+  if (next.businessAddress || !now.businessAddress) return [];
+  const got = await query<{ workspace: { settings: Record<string, unknown> } }>(
+    db,
+    ctx,
+    'workspace.get',
+  ).catch(() => null);
+  const setup = businessAddressOf(got?.workspace.settings);
+  return [
+    setup
+      ? {
+          kind: 'note',
+          text: `New estimates and invoices show the address from your setup instead: ${addressLines(setup).split('\n').join(', ')}.`,
+        }
+      : {
+          kind: 'caution',
+          text: 'New estimates and invoices go out with only your business name at the top.',
+        },
+  ];
+}
+
+async function moneyPlan(db: Db, ctx: ToolContext, args: Args) {
+  const now = atCounter(await moneySettingsOf(db, ctx));
+  const next = nextMoneySettings(now, args);
+  if (next.businessAddress.split('\n').length > 5) {
+    const message = 'Your address can be five lines at most. Put it on fewer lines.';
+    throw HfosError.validation([{ path: 'businessAddress', message }], message);
+  }
+  const problem = depositProblem(next);
+  if (problem) throw problem;
+  return { now, next };
+}
+
 const updateMoneySettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const { settings } = await moneySettingsOf(db, ctx);
-    const next = nextMoneySettings(settings, args);
-    const fields: Field[] = [];
-    if (next.tax.rateBp !== settings.tax.rateBp || str(args['taxName']))
-      fields.push({ label: next.tax.name, value: `${(next.tax.rateBp / 100).toFixed(2)}%` });
-    if (next.terms !== settings.terms)
-      fields.push({ label: 'Invoices due', value: TERMS_WORDS[next.terms] ?? next.terms });
-    if (str(args['businessAddress']))
-      fields.push({ label: 'Address on documents', value: next.businessAddress.split('\n')[0]! });
-    if (next.estimateGoodForDays !== settings.estimateGoodForDays)
-      fields.push({ label: 'Estimates good for', value: days(next.estimateGoodForDays) });
-    if (str(args['depositKind']) || num(args['depositPercent']) || num(args['depositDollars']))
-      fields.push({
-        label: 'Deposit',
-        value:
-          next.deposit.kind === 'none'
-            ? 'None'
-            : next.deposit.kind === 'percent'
-              ? `${next.deposit.percentBp / 100}% up front`
-              : `${money(next.deposit.amountCents)} up front`,
+    const { now, next } = await moneyPlan(db, ctx, args);
+    const fields = moneyChanges(now, next);
+    if (!fields.length) throw nothingChanges('Payments are already set that way.');
+    const warnings = [
+      ...(await addressWarning(db, ctx, now, next)),
+      ...newMoneyWarnings(now, next),
+    ];
+    if (next.tax.rateBp !== now.tax.rateBp)
+      warnings.push({
+        kind: 'note',
+        text: 'Estimates and invoices already sent keep the rate they went out with.',
       });
-    if (bool(args['offerBankTransfer']) !== undefined)
-      fields.push({ label: 'Bank transfer', value: next.bankTransfer ? 'Offered' : 'Not offered' });
-    if (
-      list(args['remindBeforeDueDays']) ||
-      bool(args['remindOnDueDay']) !== undefined ||
-      list(args['remindAfterDueDays'])
-    )
-      fields.push({
-        label: 'Invoice reminders',
-        value: `${dayList(next.reminders.beforeDueDays)} days before, ${
-          next.reminders.onDue ? 'on the day, ' : ''
-        }${dayList(next.reminders.afterDueDays)} days after`,
-      });
-    if (args['nudgeEstimateAfterDays'] !== undefined)
-      fields.push({
-        label: 'Nudge an unanswered estimate',
-        value: next.reminders.estimateAfterDays
-          ? `After ${days(next.reminders.estimateAfterDays)}`
-          : 'Never',
-      });
-    if (str(args['estimateNote']) || str(args['invoiceNote']))
-      fields.push({ label: 'Notes', value: 'Changed' });
     return {
       card: settingsCard(toolCallId, 'update_money_settings', {
         title: 'Change how you get paid',
         fields,
         confirmLabel: 'Save the change',
-        warnings:
-          next.terms === 'due_on_receipt' && next.reminders.beforeDueDays.length
-            ? [
-                {
-                  kind: 'note',
-                  text: 'Invoices due on arrival: a reminder before the due day would land before the invoice.',
-                },
-              ]
-            : [],
+        warnings,
       }),
-      result: { waiting: true, changes: fields.map((f) => f.label) },
+      result: { waiting: true, changes: fields.map((f) => `${f.label}: ${f.value}`) },
     };
   },
 
   async commit(db, ctx, args) {
-    const got = await moneySettingsOf(db, ctx);
-    // The whole document is saved, so its numbering starts where documents really are: sending one moves the
-    // counter, not the settings, and a next number behind the counter is refused.
-    const settings: MoneySettings = {
-      ...got.settings,
-      numbering: {
-        estimate: numberingAtCounter(got.settings.numbering.estimate, got.nextEstimateNumber),
-        invoice: numberingAtCounter(got.settings.numbering.invoice, got.nextInvoiceNumber),
-      },
-    };
-    await command(db, ctx, 'money.save_settings', {
-      settings: nextMoneySettings(settings, args),
-    });
+    const { next } = await moneyPlan(db, ctx, args);
+    await command(db, ctx, 'money.save_settings', { settings: next });
     return {
       outcome: 'Saved',
       href: `/app/w/${ctx.workspaceId}/settings/payments`,
@@ -255,73 +402,176 @@ const manageProduct: SettingsConfirmTool = {
 interface Connection {
   id: string;
   provider: string;
+  environment: string;
+  status: string;
   label: string | null;
+  displayName: string | null;
   isDefault: boolean;
+  connectedAt: string | null;
+  liveSubscriptions: number;
+}
+
+const PROVIDER_NAMES: Record<string, string> = { stripe: 'Stripe', square: 'Square' };
+const providerOf = (c: Connection) => PROVIDER_NAMES[c.provider] ?? c.provider;
+/** "Stripe · Main shop", the way the account's own row on Settings → Payments names it. */
+const accountName = (c: Connection) =>
+  `${providerOf(c)}${c.label || c.displayName ? ` · ${c.label ?? c.displayName}` : ''}`;
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
+async function accountPlan(db: Db, ctx: ToolContext, args: Args) {
+  const { connections } = await query<{ connections: Connection[] }>(
+    db,
+    ctx,
+    'payment_connection.list',
+  );
+  const c = connections.find((x) => x.id === args['connectionId']);
+  if (!c)
+    throw HfosError.notFound(
+      'No connected payment account has that id. They’re in get_settings (area payments).',
+    );
+  const act = action(args);
+  const name = accountName(c);
+  const notConnected = (what: string) =>
+    HfosError.rule(
+      'payment_connection_not_active',
+      409,
+      `${name} isn’t connected, so it can’t ${what}. Reconnect it in Settings → Payments first.`,
+    );
+  if (act === 'rename') {
+    const label = args['label'] === null ? null : (str(args['label']) ?? null);
+    if ((c.label ?? null) === label)
+      throw nothingChanges(
+        label ? `It’s already called ${label}.` : 'It already goes by its own name.',
+      );
+    if (c.status !== 'active') throw notConnected('be renamed');
+    return { act, c, name, label };
+  }
+  if (act === 'make_default') {
+    if (c.isDefault) throw nothingChanges(`${name} is already where new invoices are paid.`);
+    if (c.status !== 'active') throw notConnected('be the default');
+    const was = connections.find((x) => x.isDefault && x.environment === c.environment);
+    return { act, c, name, was };
+  }
+  // Plans keep billing at the provider after a disconnect, so only the person's say-so leaves them billing. Cancelling
+  // them is their own step: the provider is told by the worker, which needs the sign-in a disconnect destroys.
+  const keepBilling = c.liveSubscriptions > 0 && args['keepPlansBilling'] === true;
+  if (c.liveSubscriptions > 0 && !keepBilling) {
+    const n = c.liveSubscriptions;
+    throw HfosError.rule(
+      'payment_connection_has_plans',
+      409,
+      `${n === 1 ? 'A plan still bills' : `${n} plans still bill`} through ${name}. Cancel ${plural(n, 'it', 'them')} first and disconnect a few minutes later, or disconnect anyway and ${providerOf(c)} keeps charging ${plural(n, 'it', 'them')}.`,
+    );
+  }
+  // A business without a default has nowhere to be paid: the oldest account still connected takes over.
+  const next = c.isDefault
+    ? connections
+        .filter((x) => x.id !== c.id && x.status === 'active' && x.environment === c.environment)
+        .sort((a, b) => (a.connectedAt ?? '').localeCompare(b.connectedAt ?? ''))[0]
+    : undefined;
+  return { act, c, name, keepBilling, next };
 }
 
 const managePaymentAccount: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const { connections } = await query<{ connections: Connection[] }>(
-      db,
-      ctx,
-      'payment_connection.list',
-    ).catch(() => ({ connections: [] as Connection[] }));
-    const current = connections.find((c) => c.id === args['connectionId']);
-    const name = current?.label ?? current?.provider ?? 'the account';
+    const plan = await accountPlan(db, ctx, args);
+    const { c, name } = plan;
+    const fields: Field[] = [{ label: 'Account', value: name }];
+    const warnings: Warning[] = [];
+    if ('label' in plan)
+      fields.push({
+        label: 'Now called',
+        value: plan.label ?? `Its own name (${c.displayName ?? providerOf(c)})`,
+      });
+    if ('was' in plan) {
+      fields.push({ label: 'New invoices', value: `Paid into ${name}` });
+      if (plan.was)
+        warnings.push({
+          kind: 'note',
+          text: `Instead of ${accountName(plan.was)}. Invoices already sent keep the account they went out with.`,
+        });
+    }
+    if (plan.act === 'disconnect') {
+      const n = c.liveSubscriptions;
+      if (n && 'keepBilling' in plan && plan.keepBilling) {
+        fields.push({
+          label: 'Plans billing through it',
+          value: `${n}, still billing at ${providerOf(c)}`,
+        });
+        warnings.push({
+          kind: 'caution',
+          text: `${providerOf(c)} keeps charging ${plural(n, 'that customer', 'those customers')} every cycle, and HandsFreeOS stops managing ${plural(n, 'the plan', 'them')}.`,
+        });
+      }
+      if (c.isDefault && 'next' in plan)
+        warnings.push(
+          plan.next
+            ? {
+                kind: 'note',
+                text: `New invoices are paid into ${accountName(plan.next)} instead.`,
+              }
+            : {
+                kind: 'caution',
+                text: 'It’s the only account connected, so customers can’t pay an invoice online until another is connected.',
+              },
+        );
+      warnings.push({
+        kind: 'note',
+        text: 'Payments already on their way still settle. Reconnect the same account later and refunds on its old payments work again.',
+      });
+    }
     return {
       card: settingsCard(toolCallId, 'manage_payment_account', {
         title:
-          act === 'rename'
+          plan.act === 'rename'
             ? `Rename ${name}`
-            : act === 'make_default'
+            : plan.act === 'make_default'
               ? `Take payments through ${name}`
               : `Disconnect ${name}`,
-        fields: [
-          { label: 'Account', value: name },
-          ...(act === 'rename' ? [{ label: 'Now called', value: str(args['label']) ?? '' }] : []),
-        ],
+        fields,
         confirmLabel:
-          act === 'rename' ? 'Rename it' : act === 'make_default' ? 'Use it' : 'Disconnect it',
-        warnings:
-          act === 'disconnect'
-            ? [
-                {
-                  kind: 'blocked',
-                  text: 'Nothing new can be collected through it, and anything paying on a plan stops.',
-                },
-              ]
-            : [],
+          plan.act === 'rename'
+            ? 'Rename it'
+            : plan.act === 'make_default'
+              ? 'Use it'
+              : 'Disconnect it',
+        warnings,
       }),
-      result: { waiting: true, action: act },
+      result: { waiting: true, action: plan.act },
     };
   },
 
   async commit(db, ctx, args) {
-    const act = action(args);
+    const plan = await accountPlan(db, ctx, args);
     const href = `/app/w/${ctx.workspaceId}/settings/payments`;
-    if (act === 'rename') {
+    if (plan.act === 'rename') {
       await command(db, ctx, 'payment_connection.set_label', {
-        connectionId: args['connectionId'],
-        label: str(args['label']) ?? null,
+        connectionId: plan.c.id,
+        label: 'label' in plan ? plan.label : null,
       });
       return { outcome: 'Renamed', href, command: 'payment_connection.set_label' };
     }
-    if (act === 'make_default') {
-      await command(db, ctx, 'payment_connection.set_default', {
-        connectionId: args['connectionId'],
-      });
+    if (plan.act === 'make_default') {
+      await command(db, ctx, 'payment_connection.set_default', { connectionId: plan.c.id });
       return {
-        outcome: 'Payments go through it now',
+        outcome: `New invoices are paid into ${plan.name}`,
         href,
         command: 'payment_connection.set_default',
       };
     }
+    const keepBilling = 'keepBilling' in plan && plan.keepBilling;
+    // Only the person's say-so leaves plans billing: one started since the card was shown is refused.
     await command(db, ctx, 'payment_connection.disconnect', {
-      connectionId: args['connectionId'],
-      acknowledgeSubscriptions: true,
+      connectionId: plan.c.id,
+      acknowledgeSubscriptions: keepBilling,
     });
-    return { outcome: 'Disconnected', href, command: 'payment_connection.disconnect' };
+    return {
+      outcome: keepBilling
+        ? `Disconnected. The plans keep billing at ${providerOf(plan.c)}`
+        : 'Disconnected',
+      href,
+      command: 'payment_connection.disconnect',
+    };
   },
 };
 
