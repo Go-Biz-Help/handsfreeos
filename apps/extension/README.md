@@ -1151,6 +1151,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Events near you on Alignable's own Events page (0.126.4)
+
+The problem check of 6 Nov 2026 found the week's read of events near the owner showing none, as on 29 Oct. Both of the
+town's addresses it tried (/<town>/events, then /groups/<town>/events) only showed the town's group, with no events on
+it, while Alignable's menu links Events to /biz/events. That page is now tried last (`EVENTS_AT` in
+`src/jobs/alignable/events.ts`, and the same stop in Check Alignable). Its readers are still guesses: if it lists
+nothing either, the report carries its outline, so the next check can read the real page.
+
 ### No Add friend, Connect in More's menu, and posts with nothing to open (0.126.3)
 
 The problem check of 4 Nov 2026, 19:23 UTC, found four problems on 0.126.2. From 0.126.3:
