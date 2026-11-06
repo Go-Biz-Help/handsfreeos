@@ -26,7 +26,8 @@ describe('assistant coverage', () => {
     expect(c.never.map((n) => n.command)).toEqual(Object.keys(NEVER_FOR_THE_ASSISTANT));
     expect(c.notYet).toBe(ASSISTANT_NOT_YET);
     expect(c.notYetActions).toBe(ASSISTANT_NOT_YET.flatMap((p) => p.actions).length);
-    expect(c.settingRowsChecked).toBeLessThan(c.settingRows);
+    // Every row is checked once no page is left to check.
+    expect(c.settingRowsChecked === c.settingRows).toBe(SETTINGS_NOT_YET.length === 0);
     expect(c.settingsToCheck.map((p) => p.key)).toEqual(SETTINGS_NOT_YET);
   });
 

@@ -27,8 +27,8 @@ import {
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
- * The last settings the Assistant used to hand back (the owner, 2026-10-26): add-ons on and off, the Deleted bin,
- * partners and Settings → Safety; and moving things to the bin (2026-10-27). Each card says what will really change, nothing changes until Confirm, and then
+ * The last settings the Assistant used to hand back (the owner, 2026-10-26): add-ons on and off and their own
+ * settings, the Deleted bin, partners and Settings → Safety; and moving things to the bin (2026-10-27). Each card says what will really change, nothing changes until Confirm, and then
  * the screen's own command runs as the person.
  */
 
@@ -106,7 +106,7 @@ afterAll(closeTestDbs);
 describe('the last settings by asking', () => {
   it('each has a step label, asks first, and goes only to people the screens allow', () => {
     const names = Object.keys(moreSettingsConfirmTools);
-    expect(names).toHaveLength(6);
+    expect(names).toHaveLength(7);
     for (const name of names) {
       expect(assistantToolByName.get(name)?.autonomy, name).toBe('confirm');
       expect(moreSettingsStepLabels[name], name).toBeTruthy();
@@ -189,6 +189,91 @@ describe('the last settings by asking', () => {
       'partner.list',
     );
     expect(after.partners[0]).toMatchObject({ status: 'paused', rateBp: 2000, clients: 1 });
+
+    // A calendar nobody has is turned back before a card; taking the terms off asks no partner anything.
+    await expect(prepare('update_partner_settings', { calendarId: randomUUID() })).rejects.toThrow(
+      'No calendar has that id',
+    );
+    const noTerms = await prepare('update_partner_settings', { terms: '' });
+    expect(field(noTerms.card, 'Terms')).toBe(
+      'None: partners get their link without accepting any',
+    );
+    expect(noTerms.card.warnings.map((w) => w.text).join(' ')).not.toContain('accept');
+  });
+
+  it('changes one of an add-on’s own settings on Confirm, keeping the rest as they are', async () => {
+    await rows(
+      admin(),
+      sql`insert into app.addon_installations (workspace_id, addon_id, state, installed_version)
+          values (${workspaceId}, 'realestate', 'enabled', ${catalogAddon('realestate').version})`,
+    );
+    await run(registry.command('addon.save_settings')!, {
+      workspaceId,
+      addonId: 'realestate',
+      settings: { keepClosedYears: 9, closedDays: { '2026-12-24': 'Christmas Eve' } },
+    });
+    const drafts = {
+      under_contract: true,
+      inspection_done: false,
+      clear_to_close: true,
+      closed: true,
+    };
+    const { card, parsed } = await prepare('update_addon_settings', {
+      addonId: 'realestate',
+      settings: { alertPersonUserIds: [owner.id], milestoneDrafts: drafts },
+    });
+    expect(card.title).toBe('Change Real Estate Agent’s settings');
+    expect(card.fields).toEqual([
+      { label: 'Who else hears critical alerts (none: the owners)', value: 'Morgan Owner' },
+      {
+        label: 'Client updates drafted at each milestone',
+        value: 'Under contract: on; Inspection done: off; Clear to close: on; Closed: on',
+      },
+    ]);
+    expect(card.warnings[0]!.text).toContain('Only what is listed changes');
+    const before = await q<{ settings: Record<string, unknown> }>('addon.settings', {
+      addonId: 'realestate',
+    });
+    // The screen's save keeps every setting, its defaults filled in: nobody else hears alerts yet.
+    expect(before.settings).toMatchObject({ alertPersonUserIds: [], keepClosedYears: 9 });
+    expect((await confirm('update_addon_settings', parsed)).outcome).toBe(
+      'Saved Real Estate Agent’s settings',
+    );
+    const after = await q<{ settings: Record<string, unknown> }>('addon.settings', {
+      addonId: 'realestate',
+    });
+    expect(after.settings).toMatchObject({
+      keepClosedYears: 9,
+      closedDays: { '2026-12-24': 'Christmas Eve' },
+      alertPersonUserIds: [owner.id],
+      milestoneDrafts: drafts,
+    });
+
+    const days = await prepare('update_addon_settings', {
+      addonId: 'realestate',
+      settings: { closedDays: { '2026-12-31': 'New Year’s Eve', '2026-12-24': 'Christmas Eve' } },
+    });
+    expect(field(days.card, 'Days the office is closed')).toBe(
+      'Dec 31, 2026 (New Year’s Eve); Dec 24, 2026 (Christmas Eve)',
+    );
+    const refused = (settings: Record<string, unknown>) =>
+      prepare('update_addon_settings', { addonId: 'realestate', settings });
+    await expect(refused({ keepClosedYears: 9 })).rejects.toThrow('Nothing would change');
+    await expect(
+      refused({ closedDays: { '2026-12-24': 'Christmas Eve' }, keepClosedYears: 9 }),
+    ).rejects.toThrow('Nothing would change');
+    await expect(refused({ keepClosedYears: 0 })).rejects.toThrow(
+      'That won’t work for “Years a closed deal is kept”: Keep closed deals at least 1 year.',
+    );
+    await expect(refused({ closingDays: {} })).rejects.toThrow(
+      'Real Estate Agent has no setting called closingDays',
+    );
+    await expect(refused({ tourCalendarId: randomUUID() })).rejects.toThrow(
+      'isn’t anyone on the team or any calendar here',
+    );
+    await expect(
+      prepare('update_addon_settings', { addonId: 'nosuch', settings: { a: 1 } }),
+    ).rejects.toThrow('No add-on has that id');
   });
 
   it('brings something back from the Deleted bin on Confirm, never empties it', async () => {
