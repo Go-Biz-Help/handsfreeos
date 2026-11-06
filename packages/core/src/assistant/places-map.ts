@@ -316,7 +316,8 @@ export const APP_PLACES: readonly AppPlace[] = [
     ],
     canChange: [
       'write an estimate or an invoice, with lines from the catalogue or typed, a discount, a deposit and a note',
-      'change a draft estimate or invoice',
+      'change a draft estimate or invoice, a line at a time',
+      'read the Invoices, Estimates, Payments and Plans lists with their filters: status, search, how it was paid and the account',
     ],
     path: '/money',
   },
@@ -330,7 +331,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Payments, with Refund on each one',
     ],
     howTo: [
-      'Record cash or a cheque: Money → Invoices, press the invoice, then Record a payment',
+      'Record cash or a check: Money → Invoices, press the invoice, then Record a payment',
       'Refund a payment: Money → Invoices, press the invoice, then Refund on the payment (Money → Payments opens the same invoice)',
       'Send the pay link again: press the invoice, Copy link, and paste it in a text or email',
       'Get a PDF: press Copy link, open the link, then Print or save a PDF',
@@ -342,6 +343,8 @@ export const APP_PLACES: readonly AppPlace[] = [
     ],
     canChange: [
       'send a draft invoice by email or text',
+      'record cash, a check or another payment taken by hand',
+      'give the customer’s pay link, for them to paste into a text or email',
       'void it',
       'refund a payment, all or part',
     ],
@@ -363,7 +366,8 @@ export const APP_PLACES: readonly AppPlace[] = [
     notHere: ['a resend or follow-up button (the nudge is Settings → Payments, Invoice reminders)'],
     canChange: [
       'record a yes given by phone',
-      'turn it into an invoice, the whole job or just the deposit',
+      'turn it into an invoice, the whole job or just the deposit, and the account it is paid into',
+      'give the customer’s link to approve it',
       'void it',
     ],
     path: '/money/estimates/[estimateId]',
@@ -375,11 +379,14 @@ export const APP_PLACES: readonly AppPlace[] = [
     onScreen: [
       'Put someone on a plan and New plan, beside the filters',
       'The plans: press a plan’s name to change it (Name, Price, Bills, What it includes, Charge sales tax on it) or Stop selling it; Set visits for each',
-      'Who is on a plan; pressing someone opens their plan: Ask for a new card, Copy link, Pause (or Start it again), Cancel the plan',
+      'Who is on a plan; pressing someone opens their plan: Ask for a new card, Copy link, Pause (or Start it again), Cancel the plan (Cancel at the end of the period for a Square plan); while it waits on a card, Email them the link or Text it instead',
+      'Their plan’s schedule: Bills on, Next charge, Paid into (with Change the account), Card on file, Charged by; then What it has billed',
     ],
     howTo: [
       'Put a customer on a plan: Money → Plans, press Put someone on a plan, pick the customer, the plan and the account, then Start the plan, and send them the link from their plan',
-      'Pause or cancel someone’s plan: Money → Plans, press them, then Pause or Cancel the plan',
+      'Pause or cancel someone’s plan: Money → Plans, press them, then Pause or Cancel the plan (Cancel at the end of the period for a Square plan)',
+      'Move someone’s plan to another account: press them, then Change the account',
+      'Send the card link again: press them, then Email them the link or Text it instead',
       'Change the card on a plan: press them, then Ask for a new card',
       'Make a new plan to sell: Money → Plans, press New plan, then Add plan (whoever manages money)',
       'Change a plan’s price or what it includes: Money → Plans, press its name, then Save; people already on it keep what they signed up for',
@@ -389,6 +396,8 @@ export const APP_PLACES: readonly AppPlace[] = [
     canChange: [
       'put a customer on a plan and send them the card link',
       'pause, restart or cancel someone’s plan, or ask them for a new card',
+      'move someone’s plan to another account',
+      'give the customer’s link to their plan',
       'add, change or stop selling a plan',
     ],
     path: '/money/plans',
@@ -625,6 +634,7 @@ export const PHONE_APP: readonly string[] = [
   'More: Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web',
   'Its Settings: My cell phone, unlocking with Face ID or a fingerprint, Businesses on this phone, Usage & balance, Notifications, Appearance, Sign out, Delete my account',
   'Only on the web: workflows, the AI teammate’s settings, Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
+  'Money, under More: invoices and estimates (and payments and plans for whoever manages money); on an invoice, Record cash or a check, Send and Send a payment link; on an estimate, Send and Send their link; New invoice on the web and New estimate on the web write one on the web',
   'Search everything: the magnifying glass at the top of the business’s screens, and Search everything under the Contacts and Inbox boxes; with no signal it searches what is on the phone (contacts, companies, leads, tasks, notes, the calendar, form names and settings) and says so',
   'Its Settings has a search box at the top; a setting only the web changes opens on the web',
 ];

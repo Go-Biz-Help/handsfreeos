@@ -12,7 +12,14 @@
  * - **`money.summary` is owners and admins only**, so a member asking "what are we owed?" gets the total of
  *   what they can see, with a line saying so, rather than a refusal or somebody else's receivables.
  */
-import { HfosError, money, type AssistantCard } from '@hfos/core/server';
+import {
+  ESTIMATE_WORDS,
+  HfosError,
+  INVOICE_WORDS,
+  money,
+  PAYMENT_METHOD_WORDS,
+  type AssistantCard,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { command, query, when } from './tools-read';
@@ -86,6 +93,7 @@ interface EstimateItem {
 }
 interface PaymentItem {
   id: string;
+  invoiceId: string;
   amountCents: number;
   method: string;
   status: string;
@@ -120,23 +128,48 @@ interface Summary {
   monthlyRecurringCents: number;
 }
 
-/** "Overdue", "Paying", "Sent" — the same words the document's own page uses. */
-const STATE_WORDS: Readonly<Record<string, string>> = {
-  draft: 'Draft',
-  sent: 'Sent',
-  viewed: 'Opened',
-  partly_paid: 'Part paid',
-  paying: 'Paying',
-  paid: 'Paid',
-  refunded: 'Refunded',
-  partly_refunded: 'Partly refunded',
-  overdue: 'Overdue',
-  accepted: 'Approved',
-  declined: 'Declined',
-  expired: 'Expired',
-  void: 'Voided',
-};
-const stateWord = (state: string) => STATE_WORDS[state] ?? state;
+/** "Overdue", "Partly paid", "Opened" — core's words, the ones the document's own badge and page use. */
+const invoiceWord = (state: string) => INVOICE_WORDS[state as keyof typeof INVOICE_WORDS] ?? state;
+const estimateWord = (state: string) =>
+  ESTIMATE_WORDS[state as keyof typeof ESTIMATE_WORDS] ?? state;
+
+/** How a payment was made, as the Payments list says it: the card when there is one, else core's word for the way. */
+export const paymentHow = (p: {
+  method: string;
+  cardBrand: string | null;
+  cardLast4: string | null;
+}): string =>
+  p.method === 'card' && p.cardBrand && p.cardLast4
+    ? `${p.cardBrand} •••• ${p.cardLast4}`
+    : (PAYMENT_METHOD_WORDS[p.method as keyof typeof PAYMENT_METHOD_WORDS] ?? p.method);
+
+/** The most rows a look-up reads to count or order a whole list; past it, the answer says it stopped short. */
+const MOST_ROWS = 500;
+
+/**
+ * Every page of one of the money lists, as the person sees it, up to MOST_ROWS: counting them, or putting the oldest
+ * first, needs the whole list rather than its newest page. `more` says it stopped short.
+ */
+async function everyPage<T>(
+  db: Db,
+  ctx: ToolContext,
+  name: string,
+  input: Record<string, unknown>,
+  key: string,
+): Promise<{ items: T[]; more: boolean }> {
+  const items: T[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: Record<string, unknown> = await query<Record<string, unknown>>(db, ctx, name, {
+      ...input,
+      limit: 100,
+      ...(cursor ? { cursor } : {}),
+    });
+    items.push(...((page[key] as T[] | undefined) ?? []));
+    cursor = typeof page['nextCursor'] === 'string' ? page['nextCursor'] : null;
+  } while (cursor && items.length < MOST_ROWS);
+  return { items, more: cursor !== null };
+}
 
 /** Late is red and money on its way is amber; money that went back is done with, so it steps back. */
 const toneOf = (state: string): Row['tone'] =>
@@ -180,7 +213,7 @@ const invoiceRow = (i: InvoiceItem, ws: string, timezone: string): Row => ({
     i.state === 'paying'
       ? `${money(i.balanceCents)} on its way`
       : `${money(i.balanceCents)} · due ${dayWords(i.dueOn, timezone)}`,
-  status: stateWord(i.state),
+  status: invoiceWord(i.state),
   tone: toneOf(i.state),
   href: moneyPaths(ws).invoice(i.id),
 });
@@ -202,19 +235,26 @@ export const moneyReadTools: Record<string, MoneyTool> = {
     const personId = typeof args['personId'] === 'string' ? args['personId'] : undefined;
     const overdueOnly = args['overdueOnly'] === true;
     const limit = Number(args['limit'] ?? 8);
-    const [summary, list] = await Promise.all([
-      // Owners and admins get the whole business's figure; a member gets the total of what they can see.
-      personId ? Promise.resolve(null) : ifAllowed(query<Summary>(db, ctx, 'money.summary', {})),
-      query<{ invoices: InvoiceItem[] }>(db, ctx, 'invoice.list', {
-        openOnly: true,
-        limit: Math.max(limit, 25),
-        ...(personId ? { personId } : {}),
-      }),
-    ]);
-    const open = list.invoices.filter((i) => (overdueOnly ? i.state === 'overdue' : true));
+    // Owners and admins get the whole business's figures; a member gets the total of what they can see.
+    const summary = personId ? null : await ifAllowed(query<Summary>(db, ctx, 'money.summary', {}));
+    const filter = { openOnly: true, ...(personId ? { personId } : {}) };
+    // With the business's own figures, the newest page is all there is to show. Counting them here (a member, one
+    // customer) or putting the longest late first needs every open invoice, not the newest 25.
+    const { items: listed, more } =
+      summary && !overdueOnly
+        ? await query<{ invoices: InvoiceItem[] }>(db, ctx, 'invoice.list', {
+            ...filter,
+            limit: Math.max(limit, 25),
+          }).then((r) => ({ items: r.invoices, more: false }))
+        : await everyPage<InvoiceItem>(db, ctx, 'invoice.list', filter, 'invoices');
+    const open = overdueOnly
+      ? listed.filter(isOverdue).sort((a, b) => (a.dueOn ?? '').localeCompare(b.dueOn ?? ''))
+      : listed;
     const owedCents = summary && !overdueOnly ? summary.outstandingCents : total(open);
-    const overdueCents = summary ? summary.overdueCents : total(open.filter(isOverdue));
-    const settlingCents = summary ? summary.settlingCents : total(open.filter(isPaying));
+    const overdueCents = summary ? summary.overdueCents : total(listed.filter(isOverdue));
+    const settlingCents = summary ? summary.settlingCents : total(listed.filter(isPaying));
+    const owedCount = summary ? summary.outstandingCount : listed.length;
+    const overdueCount = summary ? summary.overdueCount : listed.filter(isOverdue).length;
     const title = overdueOnly ? 'Overdue' : 'What you are owed';
     const href = moneyPaths(ws).invoices();
     if (open.length === 0)
@@ -229,7 +269,7 @@ export const moneyReadTools: Record<string, MoneyTool> = {
     const stats = [
       ...(overdueOnly
         ? []
-        : [{ value: money(overdueCents), label: `overdue · ${countOf(open, isOverdue)}` }]),
+        : [{ value: money(overdueCents), label: `overdue · ${counted(overdueCount, 'invoice')}` }]),
       ...(settlingCents > 0
         ? [{ value: money(settlingCents), label: 'on its way by bank transfer' }]
         : []),
@@ -237,23 +277,33 @@ export const moneyReadTools: Record<string, MoneyTool> = {
     return {
       result: {
         owed: money(owedCents),
+        invoicesOwed: overdueOnly ? overdueCount : owedCount,
         overdue: money(overdueCents),
+        invoicesOverdue: overdueCount,
         settling: money(settlingCents),
         invoices: shown.map((i) => ({
           id: i.id,
           number: i.number,
           customer: i.person.fullName,
           balance: money(i.balanceCents),
-          state: stateWord(i.state),
+          state: invoiceWord(i.state),
           dueOn: i.dueOn,
         })),
+        ...(more
+          ? {
+              more: true,
+              countedFrom: `the newest ${listed.length} open invoices; Money → Invoices has the rest`,
+            }
+          : {}),
         ...(mine ? { note: mine } : {}),
       },
       card: {
         type: 'money',
         title,
         value: money(overdueOnly ? overdueCents : owedCents),
-        detail: [counted(open.length, 'invoice'), mine].filter(Boolean).join(' · '),
+        detail: [counted(overdueOnly ? overdueCount : owedCount, 'invoice'), mine]
+          .filter(Boolean)
+          .join(' · '),
         tone: overdueCents > 0 ? 'danger' : 'accent',
         stats: stats.slice(0, 4),
         items: shown.map((i) => invoiceRow(i, ws, ctx.timezone)),
@@ -269,7 +319,7 @@ export const moneyReadTools: Record<string, MoneyTool> = {
     const since = new Date(Date.now() - days * 86_400_000).toISOString();
     const [summary, list] = await Promise.all([
       ifAllowed(query<Summary>(db, ctx, 'money.summary', { days })),
-      query<{ payments: PaymentItem[] }>(db, ctx, 'payment.list', {
+      query<{ payments: PaymentItem[]; nextCursor: string | null }>(db, ctx, 'payment.list', {
         since,
         succeededOnly: true,
         limit: 100,
@@ -295,6 +345,22 @@ export const moneyReadTools: Record<string, MoneyTool> = {
         refunded: money(refundedCents),
         payments: paid.length,
         days,
+        // Who paid, for what, how and when: the Payments list's rows, newest first.
+        newest: paid.slice(0, 20).map((p) => ({
+          customer: p.person?.fullName ?? null,
+          invoice: p.invoiceNumber ?? null,
+          invoiceId: p.invoiceId,
+          amount: money(p.amountCents),
+          how: paymentHow(p),
+          when: p.receivedAt ?? p.createdAt,
+          ...(p.refundedCents > 0 ? { refunded: money(p.refundedCents) } : {}),
+        })),
+        ...(list.nextCursor
+          ? {
+              more: true,
+              countedFrom: `the newest ${paid.length} payments; Money → Payments has the rest`,
+            }
+          : {}),
         ...(mine ? { note: mine } : {}),
       },
       card: {
@@ -315,9 +381,7 @@ export const moneyReadTools: Record<string, MoneyTool> = {
           title: `${p.invoiceNumber ?? 'Payment'} · ${p.person?.fullName ?? 'Someone'}`,
           detail: [
             money(p.amountCents),
-            p.cardBrand && p.cardLast4
-              ? `${p.cardBrand} •••• ${p.cardLast4}`
-              : methodWord(p.method),
+            paymentHow(p),
             when(p.receivedAt ?? p.createdAt, ctx.timezone),
           ].join(' · '),
           tone: 'muted' as const,
@@ -360,14 +424,14 @@ export const moneyReadTools: Record<string, MoneyTool> = {
           id: i.id,
           number: i.number,
           balance: money(i.balanceCents),
-          state: stateWord(i.state),
+          state: invoiceWord(i.state),
           dueOn: i.dueOn,
         })),
         estimates: got.estimates.map((e) => ({
           id: e.id,
           number: e.number,
           total: money(e.totals.totalCents),
-          state: stateWord(e.state),
+          state: estimateWord(e.state),
         })),
         plans: plans.map((s) => ({ id: s.id, plan: s.planName, price: money(s.priceCents) })),
       },
@@ -400,26 +464,38 @@ export const moneyReadTools: Record<string, MoneyTool> = {
   async estimates_waiting(db, ctx, args) {
     const ws = ctx.workspaceId;
     const limit = Number(args['limit'] ?? 8);
-    const list = await query<{ estimates: EstimateItem[] }>(db, ctx, 'estimate.list', {
-      openOnly: true,
-      limit: Math.max(limit, 25),
-    });
+    // Every one that is out, not the newest page: the oldest are the ones to chase. One past its date isn't
+    // waiting any more, even before the nightly job marks it expired, and the business's figure leaves it out too.
+    const [summary, list] = await Promise.all([
+      ifAllowed(query<Summary>(db, ctx, 'money.summary', {})),
+      everyPage<EstimateItem>(db, ctx, 'estimate.list', { openOnly: true }, 'estimates'),
+    ]);
     // Oldest out first: the one that has been waiting longest is the one to chase.
-    const waiting = [...list.estimates].sort((a, b) =>
-      (a.sentAt ?? a.createdAt).localeCompare(b.sentAt ?? b.createdAt),
-    );
+    const waiting = list.items
+      .filter((e) => e.state !== 'expired')
+      .sort((a, b) => (a.sentAt ?? a.createdAt).localeCompare(b.sentAt ?? b.createdAt));
     const href = moneyPaths(ws).estimates();
     if (waiting.length === 0)
       return nothing('Estimates waiting', 'Every estimate has been answered.', href);
 
     const shown = waiting.slice(0, limit);
-    const quotedCents = waiting.reduce((sum, e) => sum + e.totals.totalCents, 0);
+    const quotedCents = summary
+      ? summary.quotedCents
+      : waiting.reduce((sum, e) => sum + e.totals.totalCents, 0);
+    const count = summary ? summary.quotedCount : waiting.length;
     const opened = waiting.filter((e) => !!e.firstViewedAt).length;
     return {
       result: {
         quotedOut: money(quotedCents),
-        waiting: waiting.length,
+        waiting: count,
         opened,
+        ...(list.more
+          ? {
+              more: true,
+              countedFrom: `the newest ${list.items.length} estimates out; Money → Estimates has the rest`,
+            }
+          : {}),
+        ...(summary ? {} : { note: 'Only the jobs you are on are counted here.' }),
         estimates: shown.map((e) => ({
           id: e.id,
           number: e.number,
@@ -434,7 +510,7 @@ export const moneyReadTools: Record<string, MoneyTool> = {
         type: 'money',
         title: 'Estimates waiting',
         value: money(quotedCents),
-        detail: `${counted(waiting.length, 'estimate')} out · ${opened} opened`,
+        detail: `${counted(count, 'estimate')} out · ${opened} opened`,
         tone: 'accent',
         stats: [],
         items: shown.map((e) => estimateRow(e, ws, ctx.timezone)),
@@ -447,17 +523,6 @@ export const moneyReadTools: Record<string, MoneyTool> = {
 const total = (list: readonly InvoiceItem[]) => list.reduce((sum, i) => sum + i.balanceCents, 0);
 const isOverdue = (i: InvoiceItem) => i.state === 'overdue';
 const isPaying = (i: InvoiceItem) => i.state === 'paying';
-const countOf = (list: readonly InvoiceItem[], is: (i: InvoiceItem) => boolean) =>
-  counted(list.filter(is).length, 'invoice');
-
-const METHOD_WORDS: Readonly<Record<string, string>> = {
-  card: 'card',
-  bank_transfer: 'bank transfer',
-  cash: 'cash',
-  check: 'cheque',
-  other: 'recorded by hand',
-};
-const methodWord = (method: string) => METHOD_WORDS[method] ?? method;
 
 function estimateRow(e: EstimateItem, ws: string, timezone: string): Row {
   const days = daysSince(e.sentAt);
@@ -471,7 +536,7 @@ function estimateRow(e: EstimateItem, ws: string, timezone: string): Row {
     ]
       .filter(Boolean)
       .join(' · '),
-    status: stateWord(e.state),
+    status: estimateWord(e.state),
     tone: days !== null && days >= 7 ? 'warning' : 'accent',
     href: moneyPaths(ws).estimate(e.id),
   };
@@ -514,7 +579,8 @@ const confirmCard = (
   personId: card.personId,
   conversationId: null,
   title: card.title,
-  fields: card.fields.slice(0, 6),
+  // A line with nothing to say (no way to reach them) is left off, as the billing cards leave it.
+  fields: card.fields.filter((f) => f.value).slice(0, 6),
   body: card.body,
   stageFrom: null,
   stageTo: null,
@@ -525,10 +591,48 @@ const confirmCard = (
 });
 
 interface EstimateGet {
-  estimate: EstimateItem & { notes: string | null };
+  estimate: EstimateItem & { notes: string | null; lines: unknown[] };
 }
 interface InvoiceGet {
   invoice: InvoiceItem;
+}
+
+const firstName = (full: string) => full.split(' ')[0] || full;
+
+/** The channels a customer can actually be reached on, of the ones asked for: what a send dialog leaves live. */
+export function reachable(person: Person, asked: readonly string[]) {
+  const can = asked.filter((c) => (c === 'sms' ? !!person.phone : !!person.email));
+  const missing = asked.filter((c) => !can.includes(c));
+  const how = (c: string) =>
+    c === 'sms' ? `Text · ${person.phone ?? ''}` : `Email · ${person.email ?? ''}`;
+  return { can, missing, words: can.map(how).join(' and ') };
+}
+
+/** Why nothing can go to someone, from the ways asked for that they have nothing on file for. */
+export const unreachable = (who: string, missing: readonly string[], what: string) =>
+  `${who} has no ${
+    missing.length > 1
+      ? 'mobile number or email address'
+      : missing[0] === 'sms'
+        ? 'mobile number'
+        : 'email address'
+  } on file, so ${what} can’t go to them. Add one on their page in Customers, then try again.`;
+
+export const noContact = (who: string, channel: string) =>
+  channel === 'sms'
+    ? `No mobile number on file for ${who}, so no text goes.`
+    : `No email address on file for ${who}, so no email goes.`;
+
+/** Why an estimate that isn't a draft can't be sent, and what to do instead. */
+function notADraft(e: { number: string | null; status: string }, first: string): HfosError {
+  const name = e.number ?? 'That estimate';
+  return HfosError.rule(
+    'estimate_not_open',
+    409,
+    e.status === 'void'
+      ? `${name} was voided, so it can’t be sent. Write a new estimate to quote again.`
+      : `${name} has already gone out, and ${first} has its link. To send that again, give them its link (get_customer_link) in a text or email; to send a changed one, void it and write a new estimate.`,
+  );
 }
 
 /** Sending an estimate: who it goes to, what it says, and that sending freezes it. */
@@ -537,56 +641,71 @@ const sendEstimate: ConfirmTool = {
     const { estimate } = await query<EstimateGet>(db, ctx, 'estimate.get', {
       estimateId: args['estimateId'],
     });
-    const channels = (args['channels'] as string[] | undefined) ?? ['email'];
     const person = estimate.person;
-    const warnings: { kind: string; text: string }[] = [];
-    if (estimate.status !== 'draft')
-      warnings.push({
-        kind: 'already_sent',
-        text: `This estimate has already gone out — it reads as ${stateWord(estimate.state).toLowerCase()}.`,
-      });
-    if (channels.includes('email') && !person.email)
-      warnings.push({ kind: 'no_email', text: 'No email address on file for them.' });
-    if (channels.includes('sms') && !person.phone)
-      warnings.push({ kind: 'no_phone', text: 'No mobile number on file for them.' });
-    warnings.push({
-      kind: 'freezes',
-      text: 'Sending takes its number and freezes it. Changing it afterwards means voiding and reissuing.',
-    });
+    const first = firstName(person.fullName);
+    // What the screen refuses is said before the card, not after the press: only a draft with a line goes out.
+    if (estimate.status !== 'draft') throw notADraft(estimate, first);
+    if (!estimate.lines.length)
+      throw HfosError.rule(
+        'money_document_empty',
+        409,
+        'This estimate has no lines yet, so there’s nothing to quote. Add one with write_estimate, then send it.',
+      );
+    const asked = (args['channels'] as string[] | undefined) ?? ['email'];
+    // Only the ways they can be reached, as the send dialog greys out the others; with none, Send stays off.
+    const to = reachable(person, asked);
+    const blocked = to.can.length === 0;
     const card = confirmCard(toolCallId, 'send_estimate', {
       title: `Send ${documentName(estimate, 'this estimate')} to ${person.fullName}`,
       personId: person.id,
       fields: [
         { label: 'To', value: person.fullName },
-        {
-          label: 'How',
-          value: channels.map((c) => (c === 'sms' ? 'Text' : 'Email')).join(' and '),
-        },
+        { label: 'How', value: to.words },
         { label: 'Total', value: money(estimate.totals.totalCents) },
         ...(estimate.title ? [{ label: 'For', value: estimate.title }] : []),
       ],
       body: (args['message'] as string | undefined) ?? null,
-      warnings,
-      confirmLabel: 'Send it',
+      warnings: blocked
+        ? [{ kind: 'blocked', text: unreachable(person.fullName, to.missing, 'the estimate') }]
+        : [
+            {
+              kind: 'freezes',
+              text: 'Sending takes its number and freezes it. Changing it afterwards means voiding and reissuing.',
+            },
+            ...to.missing.map((c) => ({ kind: 'note', text: noContact(first, c) })),
+          ],
+      confirmLabel: blocked ? '' : 'Send it',
     });
     return {
       card,
-      result: {
-        estimateId: estimate.id,
-        customer: person.fullName,
-        total: money(estimate.totals.totalCents),
-        channels,
-      },
+      result: blocked
+        ? { blocked: true, why: unreachable(person.fullName, to.missing, 'the estimate') }
+        : {
+            estimateId: estimate.id,
+            customer: person.fullName,
+            total: money(estimate.totals.totalCents),
+            channels: to.can,
+          },
     };
   },
   async commit(db, ctx, args) {
+    const { estimate } = await query<EstimateGet>(db, ctx, 'estimate.get', {
+      estimateId: args['estimateId'],
+    });
+    const to = reachable(estimate.person, (args['channels'] as string[] | undefined) ?? ['email']);
+    if (!to.can.length)
+      throw HfosError.rule(
+        'no_contact',
+        409,
+        unreachable(estimate.person.fullName, to.missing, 'the estimate'),
+      );
     const out = await command<{ estimateId: string; number: string | null }>(
       db,
       ctx,
       'estimate.send',
       {
-        estimateId: args['estimateId'],
-        channels: args['channels'] ?? ['email'],
+        estimateId: estimate.id,
+        channels: to.can,
         message: (args['message'] as string | undefined) ?? null,
       },
     );
@@ -604,42 +723,70 @@ const recordPayment: ConfirmTool = {
     const { invoice } = await query<InvoiceGet>(db, ctx, 'invoice.get', {
       invoiceId: args['invoiceId'],
     });
+    // The command's own refusals, said before the card: the screen only offers Record a payment while
+    // something is owed on an invoice that went out.
+    if (invoice.status === 'void')
+      throw HfosError.rule(
+        'invoice_voided',
+        409,
+        'That invoice was voided, so it can’t take a payment. Record the payment on a new invoice instead.',
+      );
+    if (invoice.status === 'draft')
+      throw HfosError.rule(
+        'invoice_not_sent',
+        409,
+        'This invoice is still a draft. Send it before recording a payment on it.',
+      );
+    if (invoice.balanceCents <= 0)
+      throw HfosError.rule(
+        'invoice_settled',
+        409,
+        'That invoice is already paid in full, so there’s nothing left to record.',
+      );
     const method = String(args['method'] ?? 'cash');
     const asked = args['amount'] === undefined ? null : Math.round(Number(args['amount']) * 100);
     const amountCents = asked ?? invoice.balanceCents;
-    const warnings: { kind: string; text: string }[] = [];
-    if (invoice.balanceCents <= 0)
-      warnings.push({ kind: 'nothing_owed', text: 'This invoice has already been paid in full.' });
-    if (amountCents > invoice.balanceCents && invoice.balanceCents > 0)
-      warnings.push({
-        kind: 'over_balance',
-        text: `That is more than the ${money(invoice.balanceCents)} still owed.`,
-      });
-    warnings.push({
-      kind: 'not_a_charge',
-      text: 'This writes down money you have already taken. Nothing is charged to a card.',
-    });
+    const owed = money(invoice.balanceCents);
+    // The dialog's Record it stays off for more than is owed, or nothing at all; so does Confirm here.
+    const blocked =
+      amountCents > invoice.balanceCents
+        ? `That’s more than the ${owed} still owed on it. Record ${owed} or less.`
+        : amountCents < 1
+          ? 'Say how much was paid: a cent or more.'
+          : null;
     const card = confirmCard(toolCallId, 'record_payment', {
       title: `Record ${money(amountCents)} on ${documentName(invoice, 'this invoice')}`,
       personId: invoice.person.id,
       fields: [
         { label: 'Customer', value: invoice.person.fullName },
         { label: 'Amount', value: money(amountCents) },
-        { label: 'How', value: methodWord(method) },
+        {
+          label: 'How',
+          value: PAYMENT_METHOD_WORDS[method as keyof typeof PAYMENT_METHOD_WORDS] ?? method,
+        },
         { label: 'Still owed', value: money(Math.max(0, invoice.balanceCents - amountCents)) },
       ],
       body: (args['reference'] as string | undefined) ?? null,
-      warnings,
-      confirmLabel: 'Record it',
+      warnings: blocked
+        ? [{ kind: 'blocked', text: blocked }]
+        : [
+            {
+              kind: 'not_a_charge',
+              text: 'This writes down money you have already taken. Nothing is charged to a card.',
+            },
+          ],
+      confirmLabel: blocked ? '' : 'Record it',
     });
     return {
       card,
-      result: {
-        invoiceId: invoice.id,
-        customer: invoice.person.fullName,
-        amount: money(amountCents),
-        balance: money(invoice.balanceCents),
-      },
+      result: blocked
+        ? { blocked: true, why: blocked }
+        : {
+            invoiceId: invoice.id,
+            customer: invoice.person.fullName,
+            amount: money(amountCents),
+            balance: owed,
+          },
     };
   },
   async commit(db, ctx, args) {
