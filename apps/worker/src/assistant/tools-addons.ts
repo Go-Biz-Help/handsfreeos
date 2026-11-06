@@ -275,24 +275,33 @@ export async function prepareAddonTool(
   // The operation's own card, from what it would do, when it has one; else a line for each part of what it's given.
   const own = tool.op.ai?.card?.(rehearsed, input) ?? null;
   const shown = tool.input.safeParse(args);
+  // The exact words that would go out, whole below the lines: a line is cut short, and these are what people get.
+  const body = own?.body?.trim() ? clip(own.body.trim(), BODY_MAX) : null;
   return {
-    card: settingsCard(toolCallId, tool.name, {
-      title: own ? clip(own.title, 120) : `Do this in ${tool.addonName}?`,
-      fields: own
-        ? [{ label: 'What', value: clip(tool.description) }, ...ownLines(own.lines)]
-        : cardFields(tool, shown.success ? (shown.data as Args) : args),
-      confirmLabel: 'Confirm',
-      ...(own?.warning ? { warnings: [{ kind: 'caution', text: clip(own.warning) }] } : {}),
-    }),
+    card: {
+      ...settingsCard(toolCallId, tool.name, {
+        title: own ? clip(own.title, 120) : `Do this in ${tool.addonName}?`,
+        fields: own
+          ? [{ label: 'What', value: clip(tool.description) }, ...ownLines(own.lines)]
+          : cardFields(tool, shown.success ? (shown.data as Args) : args),
+        confirmLabel: 'Confirm',
+        ...(own?.warning ? { warnings: [{ kind: 'caution', text: clip(own.warning) }] } : {}),
+      }),
+      body,
+    },
     result: {
       waiting: true,
       addon: tool.addonName,
       what: tool.description,
       // What the card says it would do, so the model can say it too.
       ...(own ? { card: own.title, says: ownLines(own.lines) } : {}),
+      ...(body ? { words: body } : {}),
     },
   };
 }
+
+/** Longest a card's own words run: a listing's email to contacts is a few short paragraphs. */
+const BODY_MAX = 4000;
 
 /** An operation's own card lines, each kept short, nine at most with the rest counted: the card holds ten. */
 function ownLines(lines: readonly Field[]): Field[] {

@@ -3321,7 +3321,7 @@
       "kind": "see",
       "file": "apps/web/src/addons/realestate/matches-page.tsx:159",
       "covered": "partly",
-      "by": "realestate_matches limit, offset, counts; each match’s MLS answer brief (photoCount, courtesy); no photo link"
+      "by": "realestate_matches limit, offset, counts; each match’s MLS answer brief (photoCount, its display: notice, logo link and courtesy); no photo link"
     },
     {
       "path": "New matches → a match → Send to the client",
@@ -3348,8 +3348,8 @@
       "path": "New matches → MLS notice and logo under the list",
       "kind": "see",
       "file": "apps/web/src/addons/realestate/matches-page.tsx:240",
-      "covered": "partly",
-      "by": "realestate_matches mls courtesy (paged); the logo is a picture"
+      "covered": "yes",
+      "by": "realestate_matches mls.display: the MLS’s notice, logo link and courtesy, with each match (paged)"
     },
     {
       "path": "New matches → the client’s search: asks for, runs on every MLS update or off, last run",

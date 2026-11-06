@@ -367,6 +367,8 @@ const moveSpaVisit = defineAddonCommand(spa, {
  * by name, and a warning that they're told, never the ids it was given.
  */
 let booked = 0;
+const spaText = (customer: string, day: string) =>
+  `Hi ${customer}, you’re booked for ${day}. ${'Bring comfortable clothes and arrive ten minutes early. '.repeat(6)}Reply STOP to opt out.`;
 const bookSpaVisit = defineAddonCommand(spa, {
   name: `${SPA}.visit.book`,
   description: 'Book a spa visit for a customer and text them the time.',
@@ -386,6 +388,8 @@ const bookSpaVisit = defineAddonCommand(spa, {
           { label: 'Who', value: o.customer },
           { label: 'When', value: o.day },
         ],
+        // The text's exact words, longer than a line holds.
+        body: spaText(o.customer, o.day),
         warning: `${o.customer} gets a text with the time.`,
       };
     },
@@ -1151,6 +1155,9 @@ describe('an add-on’s own words for what it found and did', () => {
       { label: 'Who', value: 'Ann Lee' },
       { label: 'When', value: 'Tuesday' },
     ]);
+    // The words the customer gets are its body, whole, never cut short as a line is.
+    expect(spaText('Ann Lee', 'Tuesday').length).toBeGreaterThan(300);
+    expect(card.body).toBe(spaText('Ann Lee', 'Tuesday'));
     // The id the model gave is on no line: the person reads who, not a number.
     expect(JSON.stringify(card)).not.toContain('5b2f0c1e');
     // It was tried once, to draw the card, and rolled back; the model reads what the card says.
@@ -1162,6 +1169,7 @@ describe('an add-on’s own words for what it found and did', () => {
         { label: 'Who', value: 'Ann Lee' },
         { label: 'When', value: 'Tuesday' },
       ],
+      words: spaText('Ann Lee', 'Tuesday'),
     });
     // Confirmed, it runs through the kernel for real.
     expect((await decide(card.toolCallId, 'confirm')).json()).toMatchObject({

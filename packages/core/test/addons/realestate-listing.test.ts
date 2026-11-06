@@ -910,10 +910,9 @@ describe('the public page', () => {
     });
     expect(listingCampaignCard(made)).toMatchObject({
       title: 'Text 1 person about 2207 Juniper Trail?',
-      lines: expect.arrayContaining([
-        { label: 'Tagged', value: 'Past clients' },
-        { label: 'Words', value: r!.draft },
-      ]),
+      lines: expect.arrayContaining([{ label: 'Tagged', value: 'Past clients' }]),
+      // Its exact words, whole, link and all.
+      body: r!.draft,
     });
   });
 

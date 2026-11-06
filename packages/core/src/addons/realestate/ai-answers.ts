@@ -12,6 +12,8 @@ type Bag = Record<string, unknown>;
 type Card = {
   readonly title: string;
   readonly lines: readonly { readonly label: string; readonly value: string }[];
+  /** The exact words that go out, shown whole below the lines (a line is cut short). */
+  readonly body?: string;
   readonly warning?: string;
 };
 type Outcome = { readonly words: string; readonly path?: string | null } | null;
@@ -25,19 +27,19 @@ const plural = (count: number, one: string, many = `${one}s`) =>
 const MLS_WORDS = 300;
 
 /**
- * A home's MLS answer, lighter: its photos as a count and its description cut short, without the display notice and
- * logo the page shows beside them. A few homes found on the MLS otherwise fill the whole answer with photo links.
+ * A home's MLS answer, lighter: its photos as a count and its description cut short. A few homes found on the MLS
+ * otherwise fill the whole answer with photo links. The MLS's notice, logo and courtesy line (`display`) stay whole:
+ * they go with its listings wherever they're shown (the owner's rule, round five), the Assistant's answers too.
  */
 export function briefMls(mls: unknown, whole = false): unknown {
   if (!isObject(mls)) return mls;
-  const { photos, description, display, ...rest } = mls;
+  const { photos, description, ...rest } = mls;
   const words = typeof description === 'string' ? description : null;
   return {
     ...rest,
     photoCount: Array.isArray(photos) ? photos.length : 0,
     description:
       words && !whole && words.length > MLS_WORDS ? `${words.slice(0, MLS_WORDS)}…` : words,
-    courtesy: isObject(display) ? (display['courtesy'] ?? null) : null,
   };
 }
 
@@ -245,7 +247,8 @@ export function lockboxCard(output: unknown): Card | null {
 
 /**
  * The card for telling the business's contacts about a listing: how many it reaches and who by name, how many it
- * leaves out, and its exact words with the page's link, as Campaigns will show them.
+ * leaves out, and its exact words with the page's link, as Campaigns will show them. The words are the card's body,
+ * whole: a line is cut short, and an email's words with the link at their end run longer than one.
  */
 export function listingCampaignCard(output: unknown): Card | null {
   if (!isObject(output) || typeof output['recipients'] !== 'number') return null;
@@ -277,8 +280,8 @@ export function listingCampaignCard(output: unknown): Card | null {
       ...(typeof words['subject'] === 'string' && words['subject']
         ? [{ label: 'Subject', value: words['subject'] }]
         : []),
-      ...(typeof words['body'] === 'string' ? [{ label: 'Words', value: words['body'] }] : []),
     ],
+    ...(typeof words['body'] === 'string' && words['body'] ? { body: words['body'] } : {}),
     warning: `It goes to ${people} of the business’s contacts. It waits in Campaigns until someone approves it, and nothing goes out before then.`,
   };
 }

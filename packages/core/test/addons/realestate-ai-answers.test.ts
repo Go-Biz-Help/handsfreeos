@@ -34,15 +34,15 @@ const mls = (photos: number, words = 'Sunny corner lot. '.repeat(40)) => ({
 });
 
 describe('a buyer’s homes and matches', () => {
-  it('count a home’s MLS photos and cut its description short, keeping who it’s courtesy of', () => {
+  it('count a home’s MLS photos and cut its description short, keeping the MLS’s notice, logo and courtesy line', () => {
     const brief = briefMls(mls(12)) as Record<string, unknown>;
     expect(brief).toMatchObject({
       mlsNumber: 'A123',
       photoCount: 12,
-      courtesy: 'Courtesy of Acme Realty',
+      // They go with its listings wherever they're shown (the owner's rule, round five).
+      display: mls(0).display,
     });
     expect(brief).not.toHaveProperty('photos');
-    expect(brief).not.toHaveProperty('display');
     expect((brief['description'] as string).length).toBeLessThanOrEqual(301);
     expect(brief['description']).toMatch(/…$/);
   });
@@ -164,8 +164,13 @@ describe('the card for emailing contacts about a listing', () => {
       { label: 'At the stage', value: 'Qualified (Sales)' },
       { label: 'Left out', value: '3 people: no email, unsubscribed, bounced or emailed lately' },
       { label: 'Subject', value: 'Just listed: 12 Oak St' },
-      { label: 'Words', value: output.words.body },
     ]);
+    // The words are its body, whole, however long they run: a line would cut the link off their end.
+    expect(card.body).toBe(output.words.body);
+    const long = `${'A sunny corner lot with a big yard. '.repeat(12)}See it: https://app.example/a/acme/realestate/oak`;
+    expect(listingCampaignCard({ ...output, words: { subject: 'S', body: long } })?.body).toBe(
+      long,
+    );
     expect(card.warning).toMatch(/waits in Campaigns until someone approves it/);
     expect(JSON.stringify(card)).not.toMatch(/tagIds|stageIds/);
   });
