@@ -784,11 +784,20 @@ describe('workflow approvals, read in full and answered text by text', () => {
   it('edits each AI-written text by its key, and refuses a key it doesn’t have', async () => {
     const args = { approvalId: twoTexts, decision: 'approve', edits: { subject: 'Tuesday at 9' } };
     const { card, result } = await prepare('answer_workflow_approval', args);
-    // Both texts are on the card, the subject in the approver's words.
-    expect(
-      card.fields.filter((f) => f.label === 'The email that will go').map((f) => f.value),
-    ).toEqual(['Tuesday at 9', 'Hi Mike, we can come Tuesday at 9.']);
+    // Both texts are on the card, the subject in the approver's words (in the order the database keeps the keys).
+    const texts = card.fields
+      .filter((f) => f.label === 'The email that will go')
+      .map((f) => f.value);
+    expect(texts).toHaveLength(2);
+    expect(texts).toEqual(
+      expect.arrayContaining(['Tuesday at 9', 'Hi Mike, we can come Tuesday at 9.']),
+    );
     expect(card.body).toBe(null);
+    // It reaches Mike, and the card says so.
+    expect(card.warnings).toContainEqual({
+      kind: 'caution',
+      text: 'The email goes to Mike Johnson once you confirm.',
+    });
     expect(result['edited']).toEqual(['subject']);
     expect(result['text']).toEqual({
       subject: { ai_wrote: 'Tuesday at 9' },

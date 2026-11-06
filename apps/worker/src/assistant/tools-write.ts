@@ -265,25 +265,59 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
   },
 
   async reopen_task(db, ctx, args) {
+    const href = paths(ctx.workspaceId).tasks();
+    // A task that is still open stays as it is: task.reopen changes nothing, and Undo mustn't then tick it off.
+    const { items } = await query<{ items: { title: string; doneAt: string | null }[] }>(
+      db,
+      ctx,
+      'task.list',
+      { scope: 'all', status: 'all', taskId: args['taskId'], limit: 1 },
+    );
+    const task = items[0];
+    if (!task)
+      throw HfosError.notFound(
+        'That task isn’t there anymore. It may have been deleted. Look on the Tasks page.',
+      );
+    if (!task.doneAt)
+      return {
+        result: { taskId: args['taskId'], open: true, note: 'It was already open.' },
+        card: {
+          type: 'done',
+          toolCallId: PENDING_ID,
+          kind: 'task',
+          title: task.title,
+          detail: 'Already open, so nothing changed',
+          href,
+          undoable: false,
+        },
+        record: { taskId: args['taskId'], outcome: 'The task was already open', href, undo: false },
+      };
     const out = await command<{ notApplied?: string[] }>(db, ctx, 'task.reopen', {
       taskId: args['taskId'],
     });
-    const href = paths(ctx.workspaceId).tasks();
+    // Someone ticked it off again after this was asked: theirs stands.
+    const kept = !!out.notApplied?.length;
     return {
-      result: { taskId: args['taskId'], open: true },
+      result: {
+        taskId: args['taskId'],
+        open: !kept,
+        ...(kept ? { note: 'Someone marked it done again after that, so it stays done.' } : {}),
+      },
       command: 'task.reopen',
       card: {
         type: 'done',
         toolCallId: PENDING_ID,
         kind: 'task',
-        title: 'Task reopened',
-        detail: out.notApplied?.length
+        title: kept ? task.title : 'Task reopened',
+        detail: kept
           ? 'Someone marked it done again after that, so it stays done'
           : 'It’s open again',
         href,
-        undoable: true,
+        undoable: !kept,
       },
-      record: { taskId: args['taskId'], outcome: 'Reopened the task', href },
+      record: kept
+        ? { taskId: args['taskId'], outcome: 'The task stayed done', href, undo: false }
+        : { taskId: args['taskId'], outcome: 'Reopened the task', href },
     };
   },
 
@@ -1191,6 +1225,7 @@ const startVideoCall: ConfirmTool = {
 interface LeadLite {
   id: string;
   title: string;
+  pipelineId: string;
   stageId: string;
   stageName: string;
   valueCents: number;
@@ -1222,6 +1257,7 @@ async function placeWords(
   ctx: ToolContext,
   args: Args,
   to: { id: string; name: string },
+  pipelineId: string,
 ): Promise<string | null> {
   const after = args['afterLeadId'];
   if (after === undefined) return null;
@@ -1235,7 +1271,7 @@ async function placeWords(
   if (other.stageId !== to.id)
     throw HfosError.validation(
       [{ path: 'afterLeadId', message: 'That lead is in another stage.' }],
-      `${other.title} is in ${other.stageName}, not ${to.name}. Name a lead of ${to.name} for it to follow, or null for the top.`,
+      `${other.title} is ${other.pipelineId === pipelineId ? `in ${other.stageName}, not ${to.name}` : 'in another pipeline'}. Name a lead of ${to.name} for it to follow, or null for the top.`,
     );
   return `After ${other.title} in ${to.name}`;
 }
@@ -1256,7 +1292,7 @@ const moveLead: ConfirmTool = {
         409,
         `It’s already in ${to.name}, so nothing would change. To move it up or down there, give afterLeadId (null for the top).`,
       );
-    const place = await placeWords(db, ctx, args, to);
+    const place = await placeWords(db, ctx, args, to, lead.pipelineId);
     const reason = str(args['lostReason']);
     // Moving it within the lost stage keeps the reason it was lost for.
     const lost = to.kind === 'lost' && !sameStage;
@@ -1798,6 +1834,12 @@ export function createToolExecutor(
           await command(db, ctx, 'task.reopen', { taskId: record['taskId'] });
           return 'Undone. The task is open again.';
         case 'reopen_task':
+          // It was already open, or stayed done: nothing changed, so nothing is ticked off.
+          if (record['undo'] === false)
+            throw HfosError.conflict(
+              'Nothing changed, so there’s nothing to undo.',
+              'nothing_to_undo',
+            );
           await command(db, ctx, 'task.complete', { taskId: record['taskId'] });
           return 'Undone. The task is done again.';
         case 'add_note':

@@ -801,7 +801,17 @@ const answerApproval: WorkflowConfirmTool = {
             : []),
         ],
         body: texts.length === 1 ? texts[0]![1] : null,
-        warnings: blocked ? [{ kind: 'blocked', text: blocked }] : [],
+        warnings: blocked
+          ? [{ kind: 'blocked', text: blocked }]
+          : approve && what !== 'the next step'
+            ? // It reaches the customer: the card says so before anyone confirms.
+              [
+                {
+                  kind: 'caution',
+                  text: `${what === 'a text' ? 'The text' : 'The email'} goes to ${who} once you confirm.`,
+                },
+              ]
+            : [],
         confirmLabel: blocked
           ? ''
           : approve

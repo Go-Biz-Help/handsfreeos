@@ -122,11 +122,18 @@ export const assistantTools = [
   define({
     name: 'list_leads',
     description:
-      'Leads, most recently changed first, each with its stage, value, owner, next action and when it’s due, last contact, expected close, source, tags, days in its stage, and why it was lost. Filter by status, pipeline, words in its title or customer, when they came in, assignee, customer or company, or to those without a next action; archived ones only with includeArchived. A page at a time: pass nextCursor back for more. For totals (how many open leads, what they’re worth, per stage) use read_lead_board or read_crm_summary, not a count of this page.',
+      'Leads, most recently changed first, each with its stage, value, owner, next action and when it’s due, last contact, expected close, source, tags, days in its stage, and why it was lost. Filter by status, pipeline, words in its title, when they came in, assignee, customer or company (find them with search_customers first), or to those without a next action; archived ones only with includeArchived. A page at a time: pass nextCursor back for more. For totals (how many open leads, what they’re worth, per stage) use read_lead_board or read_crm_summary, not a count of this page.',
     input: z.object({
       status: z.enum(['open', 'won', 'lost']).optional(),
       pipelineId: uuid.optional(),
-      query: z.string().trim().max(120).optional().describe('Words in its title or customer'),
+      query: z
+        .string()
+        .trim()
+        .max(120)
+        .optional()
+        .describe(
+          'Words in its title (a customer’s name isn’t searched: use personId or companyId)',
+        ),
       createdAfter: when.optional(),
       assigneeUserId: uuid.optional(),
       personId: uuid.optional(),

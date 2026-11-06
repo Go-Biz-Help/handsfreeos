@@ -187,7 +187,7 @@ describe('moving a lead within its stage', () => {
     );
     await expect(
       prepare('move_lead', { leadId: pineLead, stageId: stage, afterLeadId: commercialLead }),
-    ).rejects.toThrow(/Warehouse heaters is in /);
+    ).rejects.toThrow(/Warehouse heaters is in another pipeline/);
   });
 });
 
@@ -366,5 +366,27 @@ describe('reopening a task and the Tasks page’s groups', () => {
       'Undone. The task is done again.',
     );
     expect((await doneAt()).done_at).not.toBe(null);
+  });
+
+  it('leaves a task that is still open as it is, with nothing to undo', async () => {
+    const out = await tools().run(
+      tool('reopen_task'),
+      argsOf('reopen_task', { taskId: later }),
+      ctx(),
+    );
+    expect(out.card).toMatchObject({
+      type: 'done',
+      detail: 'Already open, so nothing changed',
+      undoable: false,
+    });
+    expect(out.result).toMatchObject({ open: true, note: 'It was already open.' });
+    // Undo never ticks off a task that was open all along.
+    await expect(tools().undo(tool('reopen_task'), out.record!, ctx())).rejects.toThrow(
+      /nothing to undo/,
+    );
+    const row = await one<{ done_at: Date | null }>(
+      sql`select done_at from app.tasks where id = ${later}`,
+    );
+    expect(row.done_at).toBe(null);
   });
 });
