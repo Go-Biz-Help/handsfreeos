@@ -1752,7 +1752,7 @@ export const assistantTools = [
   define({
     name: 'list_forms',
     description:
-      'The business’s forms, surveys, quizzes and live polls: what each one is, whether it is taking answers, its public link (as Share copies it), how many people answered and what share of them finish it, the sites allowed to show it, and whether the AI teammate asks it in a chat.',
+      'The business’s forms, surveys, quizzes and live polls: what each one is, whether it is taking answers, its public link (as Share copies it; a live poll has none), how many people answered and what share of them finish it, the sites allowed to show it, and whether the AI teammate asks it in a chat.',
     input: z.object({
       status: z.enum(['draft', 'live', 'closed']).optional(),
       mode: z.enum(['form', 'survey', 'quiz', 'poll']).optional(),
@@ -1827,7 +1827,7 @@ export const assistantTools = [
   define({
     name: 'send_form',
     description:
-      'Text or email a customer the link to a form (an intake form, a review request, a feedback survey). The form must be taking answers.',
+      'Text or email a customer the link to a form (an intake form, a review request, a feedback survey). The form must be taking answers, and a live poll has no link to send.',
     input: z.object({
       formId: uuid,
       personId: uuid,

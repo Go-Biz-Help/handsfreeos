@@ -113,12 +113,17 @@ const siteSlugOf = async (db: Db, ctx: ToolContext): Promise<string | null> =>
   (await query<{ site: { slug: string } | null }>(db, ctx, 'booking_site.get', {})).site?.slug ??
   null;
 
+/** Why a live poll has no link: its public page is never served, so a link to it would only say it isn't there. */
+const POLL_HAS_NO_LINK =
+  'A live poll has no link: its questions pop up during a HandsFreeOS video call or webinar.';
+
 /**
  * A form's link as Share copies it, for what the model reads: its path, which the executor writes out whole on the
- * business's own domain when one is serving (full-links.ts). Null for a draft, which has no link yet.
+ * business's own domain when one is serving (full-links.ts). Null for a draft, which has no link yet, and for a live
+ * poll, which never has one.
  */
-const linkPath = (site: string | null, f: Pick<FormSummary, 'status' | 'slug'>) =>
-  site && f.status !== 'draft' ? publicFormPath(site, f.slug) : null;
+const linkPath = (site: string | null, f: Pick<FormSummary, 'status' | 'slug' | 'mode'>) =>
+  site && f.status !== 'draft' && f.mode !== 'poll' ? publicFormPath(site, f.slug) : null;
 
 /**
  * A form's whole link, as it goes to a customer and on a card: on the business's own domain once it's serving, else the
@@ -165,7 +170,10 @@ async function listForms(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
         sitesAllowedToShowIt: f.embedOrigins,
         aiTeammateAsksIt: f.inChat,
       })),
-      ...(!site && out.items.some((f) => f.status !== 'draft') ? { noLink: NO_LINK_NAME } : {}),
+      ...(!site && out.items.some((f) => f.status !== 'draft' && f.mode !== 'poll')
+        ? { noLink: NO_LINK_NAME }
+        : {}),
+      ...(out.items.some((f) => f.mode === 'poll') ? { pollLink: POLL_HAS_NO_LINK } : {}),
     },
   };
 }
@@ -335,7 +343,11 @@ async function getForm(db: Db, ctx: ToolContext, args: Args, webUrl: string): Pr
       },
       // Share: the link, the snippet for their own site, the sites allowed to show it and the AI teammate's switch.
       link,
-      ...(f.status !== 'draft' && !site ? { noLink: NO_LINK_NAME } : {}),
+      ...(poll
+        ? { noLink: POLL_HAS_NO_LINK }
+        : f.status !== 'draft' && !site
+          ? { noLink: NO_LINK_NAME }
+          : {}),
       ...(link && !poll
         ? {
             embedSnippet: formEmbedSnippet({ publicUrl: link, appOrigin: webUrl, name: f.name }),
@@ -520,13 +532,16 @@ async function getFormResponse(db: Db, ctx: ToolContext, args: Args): Promise<To
     },
     card: {
       type: 'list',
-      title: `${who}’s answers to ${form.form.name}`,
+      title: r.personName
+        ? `${r.personName}’s answers to ${form.form.name}`
+        : `Answers to ${form.form.name}`,
       items: out.answers.slice(0, 12).map((a) => ({
         title: a.questionTitle,
         detail: answerWords(a),
+        tone: 'muted' as const,
         href,
       })),
-    } as AssistantCard,
+    } satisfies AssistantCard,
   };
 }
 
@@ -537,10 +552,8 @@ async function matchWebsite(
   db: Db,
   ctx: ToolContext,
   formId: string,
-  site: string,
-  deps: FormToolDeps & { readonly fetchUrl: SafeFetch },
+  found: Awaited<ReturnType<typeof websiteDesign>>,
 ): Promise<{ change: string; fontNote: string | null }> {
-  const found = await websiteDesign({ fetchUrl: deps.fetchUrl, log: deps.log }, siteAddress(site));
   const got = await query<{ revision: number }>(db, ctx, 'form.get', { formId });
   await command(db, ctx, 'form.save_draft', {
     formId,
@@ -566,14 +579,17 @@ async function buildForm(
     );
   if (description && !deps?.ai.provider)
     return { result: { error: AI_UNAVAILABLE_MESSAGE }, isError: true };
-  // Asked before anything is made, so a form isn't started for a look that can't be read.
-  const reader = deps?.fetchUrl ? { ...deps, fetchUrl: deps.fetchUrl } : null;
-  if (site && !reader)
+  // Read before anything is made, so a form isn't started for a look that can't be read.
+  if (site && !deps?.fetchUrl)
     throw HfosError.rule(
       'website_unreadable',
       503,
       'Websites can’t be read from here just now. Use Match my website on the form’s Design tab instead.',
     );
+  const look =
+    site && deps?.fetchUrl
+      ? await websiteDesign({ fetchUrl: deps.fetchUrl, log: deps.log }, siteAddress(site))
+      : null;
 
   let formId = str(args['formId']);
   let made = false;
@@ -586,7 +602,7 @@ async function buildForm(
     formId = created.formId;
     made = true;
   }
-  const matched = site && reader ? await matchWebsite(db, ctx, formId, site, reader) : null;
+  const matched = look ? await matchWebsite(db, ctx, formId, look) : null;
   const drafted =
     description && deps
       ? await draftForm({ db, ai: deps.ai, log: deps.log, wallet: deps.wallet }, ctx.actor, {
@@ -772,6 +788,13 @@ const sendForm: ConfirmTool = {
           ? `“${form.form.name}” was closed and isn’t taking answers. Reopen it with publish_form first.`
           : `“${form.form.name}” isn’t published yet, so it isn’t taking answers. Publish it with publish_form first.`,
       );
+    // A live poll's page is never served: a text with its link would only open a page that isn't there.
+    if (form.form.mode === 'poll')
+      throw HfosError.rule(
+        'form_is_a_poll',
+        409,
+        `“${form.form.name}” is a live poll, so it has no link to send: its questions pop up during a HandsFreeOS video call or webinar. Invite them to the call instead.`,
+      );
     // The address that goes with the words, as it will go out, so it's agreed to with the rest.
     const link = await linkToSend(db, ctx, deps?.webUrl ?? '', form.form.slug);
     const person = await query<{ person: { fullName: string } }>(db, ctx, 'person.get', {
@@ -952,9 +975,17 @@ function sheetId(toolCallId: string): string {
 /** What sending it starts, as the builder sets it, in a line for the card's warning. */
 function sendingDoes(d: FormDefinition, names: Names): string {
   const sent = whenSentOf(d, names);
+  // An anonymous form keeps no customer, so it opens no lead either.
+  const anonymous = d.settings.identity === 'anonymous';
   const parts = [
-    sent.customer.addsNewOnes ? 'adds them as a customer, or matches one' : 'matches a customer',
-    ...(sent.lead ? [`opens a lead${sent.lead.stage ? ` in ${sent.lead.stage}` : ''}`] : []),
+    anonymous
+      ? 'keeps the answers with no name on them'
+      : sent.customer.addsNewOnes
+        ? 'adds them as a customer, or matches one'
+        : 'matches a customer',
+    ...(sent.lead && !anonymous
+      ? [`opens a lead${sent.lead.stage ? ` in ${sent.lead.stage}` : ''}`]
+      : []),
     ...(sent.task ? [`makes the task “${sent.task.title}”`] : []),
     ...(sent.workflows.length ? [`starts ${sent.workflows.join(', ')}`] : []),
     ...(sent.tells !== 'Nobody' ? [`tells ${sent.tells}`] : []),
@@ -962,8 +993,8 @@ function sendingDoes(d: FormDefinition, names: Names): string {
   return `Sending it does what their own answers would: it ${parts.join(', ')}.`;
 }
 
-/** The most answers the card lists one by one. */
-const CARD_ANSWERS = 24;
+/** The most lines a Confirm card holds (core's AssistantCard), the form's own among them. */
+const CARD_FIELDS = 10;
 
 const fillInForm: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -981,21 +1012,17 @@ const fillInForm: ConfirmTool = {
       answers: state.answers,
     });
     const catalogs = await query<Catalogs>(db, ctx, 'form.catalogs').catch(() => null);
-    const fields = [
-      { label: 'Form', value: form.name },
-      ...answered.slice(0, CARD_ANSWERS).map((q) => ({
-        label: q.title,
-        value: shownAs(q, state.answers[q.id] ?? null),
-      })),
-      ...(answered.length > CARD_ANSWERS
-        ? [{ label: 'And', value: plural(answered.length - CARD_ANSWERS, 'more answer') }]
-        : []),
-    ];
+    const lines = answered.map((q) => ({
+      label: q.title,
+      value: shownAs(q, state.answers[q.id] ?? null),
+    }));
+    // Every answer is on the card: a line each while they fit beside the form's name, else written out under it.
+    const fits = lines.length < CARD_FIELDS;
     return {
       card: confirmCard(toolCallId, 'fill_in_form', {
         title: `Send “${form.name}” with these answers?`,
-        fields,
-        body: null,
+        fields: [{ label: 'Form', value: form.name }, ...(fits ? lines : [])],
+        body: fits ? null : lines.map((l) => `${l.label}: ${l.value}`).join('\n'),
         warnings: [
           { kind: 'caution', text: sendingDoes(definition, namesFrom(catalogs)) },
           {

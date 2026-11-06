@@ -1461,7 +1461,7 @@ const manageForm: SettingsConfirmTool = {
       }
       default:
         throw need(
-          'Say what to do: rename, duplicate, archive, restore or change_link. Deleting someone’s answers is for good, so the person does it: Results → One at a time, open the response, then Delete these answers.',
+          'Say what to do: rename, duplicate, archive, restore or change_link. Deleting someone’s answers is for good, so the person does it: Results → One at a time, open the response, then Delete this response (on the phone, Delete these answers).',
         );
     }
   },

@@ -706,7 +706,7 @@
       "kind": "see",
       "file": "apps/web/src/components/forms/form-list.tsx:124",
       "covered": "yes",
-      "by": "list_forms link, whole (null while it’s a draft)"
+      "by": "list_forms link, whole (null while it’s a draft, and for a live poll, whose page is never served)"
     },
     {
       "path": "Forms → each form: Draft, Taking answers or Closed",
