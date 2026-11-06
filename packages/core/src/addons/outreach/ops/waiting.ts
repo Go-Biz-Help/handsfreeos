@@ -13,6 +13,7 @@ import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import type { FitPlaybook } from '../fit';
+import { chatLinksAnswer, retryOutcome } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import {
   choicesFor,
@@ -362,7 +363,16 @@ export const waiting = defineAddonQuery(outreachAddon, {
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_waiting',
-    keywords: ['waiting for you', 'needs me', 'replies handed over', 'friend requests to decide'],
+    description:
+      'Needs you: everything waiting for the person, in one list: replies handed over to them, messages the extension drafted that wait for their OK, steps it couldn’t do and needs them for (each with its link), and friend requests that are theirs to decide; with how many of each, their training wheels, how their phone hears of it, and each chat’s link to open it on its network (chatUrl).',
+    keywords: [
+      'needs you',
+      'waiting for you',
+      'needs me',
+      'replies handed over',
+      'friend requests to decide',
+    ],
+    answer: chatLinksAnswer,
   },
   // The worker asks on a person's behalf, for the pushes about what waits (decision 40).
   actors: ['human', 'system'],
@@ -416,13 +426,13 @@ export const waiting = defineAddonQuery(outreachAddon, {
 
 const notWaiting = () =>
   HfosError.notFound(
-    'That isn’t waiting for you any more: it was done or let go. Refresh Waiting for you.',
+    'That isn’t waiting for you any more: it was done or let go. Refresh Needs you.',
   );
 
 export const needNote = defineAddonCommand(outreachAddon, {
   name: 'outreach.need.note',
   description:
-    'The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.',
+    'The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Needs you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.',
   risk: 0,
   input: NeedNoteInput,
   output: NeedNoteOutput,
@@ -477,7 +487,7 @@ export const needNote = defineAddonCommand(outreachAddon, {
 export const needClear = defineAddonCommand(outreachAddon, {
   name: 'outreach.need.clear',
   description:
-    'The person did a step the extension handed to them, or let it go: it leaves Waiting for you. Let go, the same step for the same person isn’t handed over again for a week.',
+    'The person did a step the extension handed to them, or let it go: it leaves Needs you. Let go, the same step for the same person isn’t handed over again for a week.',
   risk: 0,
   input: NeedClearInput,
   output: NeedClearOutput,
@@ -532,6 +542,7 @@ export const needRetry = defineAddonCommand(outreachAddon, {
     tool: 'outreach_retry_steps',
     autonomy: 'confirm',
     keywords: ['retry', 'retry all', 'try again', 'failed steps', 'resend', 'send again'],
+    outcome: (output) => retryOutcome(output),
   },
   scope: inWorkspace,
   emits: ['outreach.send.approved', 'outreach.need.cleared'],
@@ -558,7 +569,7 @@ export const needRetry = defineAddonCommand(outreachAddon, {
       .limit(NEED_RETRY_MOST);
     if (input.needIds && !open.length)
       throw HfosError.notFound(
-        'That isn’t waiting for you any more: it was done, let go or tried again already. Refresh Waiting for you.',
+        'That isn’t waiting for you any more: it was done, let go or tried again already. Refresh Needs you.',
       );
     // A message or comment that didn't go goes again through its send; the rest Today's list takes back.
     const bySend = open.filter((n) => n.sendId !== null && needRetryable(n));
@@ -589,7 +600,7 @@ export const needRetry = defineAddonCommand(outreachAddon, {
 export const requestSetAside = defineAddonCommand(outreachAddon, {
   name: 'outreach.request.set_aside',
   description:
-    'The person leaves a friend request they got as it is: it leaves Waiting for you until the same person asks again. Nothing changes on Facebook.',
+    'The person leaves a friend request they got as it is: it leaves Needs you until the same person asks again. Nothing changes on Facebook.',
   risk: 0,
   input: RequestSetAsideInput,
   output: RequestSetAsideOutput,
@@ -622,7 +633,7 @@ export const requestSetAside = defineAddonCommand(outreachAddon, {
       .returning({ profileId: friends.profileId });
     if (!row)
       throw HfosError.notFound(
-        'That friend request isn’t waiting any more: it was answered on Facebook. Refresh Waiting for you.',
+        'That friend request isn’t waiting any more: it was answered on Facebook. Refresh Needs you.',
       );
     await ctx.emit({
       type: 'outreach.request.set_aside',
@@ -637,7 +648,7 @@ export const requestSetAside = defineAddonCommand(outreachAddon, {
 export const requestAnswer = defineAddonCommand(outreachAddon, {
   name: 'outreach.request.answer',
   description:
-    'The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.',
+    'The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Needs you at once.',
   risk: 2,
   input: RequestAnswerInput,
   output: RequestAnswerOutput,
@@ -669,7 +680,7 @@ export const requestAnswer = defineAddonCommand(outreachAddon, {
     );
     if (!asked)
       throw HfosError.notFound(
-        'That friend request isn’t waiting any more: it was answered already. Refresh Waiting for you.',
+        'That friend request isn’t waiting any more: it was answered already. Refresh Needs you.',
       );
     const network = NETWORKS[asked.platform];
     if (!answersRequests(asked.platform))

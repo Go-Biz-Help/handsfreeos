@@ -614,7 +614,7 @@ test('a name opens the person menu, their page first; Mark as client ends outrea
   await menu.getByTestId('person-client').click();
   await expect(
     page.getByText(
-      'Rowan Ellis is a client now. Nobody here sends them outreach, and their replies still come to Waiting for you.',
+      'Rowan Ellis is a client now. Nobody here sends them outreach, and their replies still come to Needs you.',
     ),
   ).toBeVisible();
   await expect(card).toHaveCount(0);

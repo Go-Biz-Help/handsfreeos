@@ -40,6 +40,7 @@ import {
   NETWORKS,
   WORKING_PLATFORMS,
 } from '../networks';
+import { todayAnswer } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import {
   ANSWERS,
@@ -284,12 +285,21 @@ export const today = defineAddonQuery(outreachAddon, {
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_today',
+    description:
+      'Today on a network (Facebook unless named): the person’s list for today, for them or the extension to do (requests to confirm, likes before a friend request, friend requests, first messages, reconnecting, the pitch, follow-ups, replies owed, posts to comment on, and partners’ steps), each with its links (their page, the post, and chatUrl for their chat); and why no new friend requests are on it (requestsHeld), the day’s goal, today’s steps against the daily limits, any warning, the training wheels and whether they’re ready. A long day reads a kind at a time with kind.',
     keywords: ['todays list', 'who to message', 'follow-ups', 'pitch', 'say hi', 'reconnect'],
+    answer: todayAnswer,
   },
   // The worker asks on a person's behalf for the morning push (decision 22).
   actors: ['human', 'system'],
   scope: inWorkspace,
-  handler: async (ctx, input) => (await todayFor(ctx, input)).list,
+  async handler(ctx, input) {
+    const { list } = await todayFor(ctx, input);
+    if (!input.kind) return list;
+    const ofKind = (items: readonly { kind: string }[] | undefined) =>
+      (items ?? []).filter((i) => i.kind === input.kind);
+    return { ...list, items: ofKind(list.items), partners: ofKind(list.partners) } as typeof list;
+  },
 });
 
 /**

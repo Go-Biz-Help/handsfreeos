@@ -45,6 +45,7 @@ import {
   wheelsOn,
   wheelsState,
   withinRules,
+  type AutomationChanges,
   type AutomationSettings,
   type BusinessRules,
   type FreshState,
@@ -55,6 +56,7 @@ import {
 } from '../automation';
 import { AUTOPILOT_WORDS } from '../autopilot';
 import { outreachSettings } from '../chat-read';
+import { givenOnly } from '../loose';
 import type { Voice } from '../voice';
 import { outreachAddon } from '../manifest';
 import { networkLimitsNow, PLATFORM_KEYS, type Platform } from '../networks';
@@ -457,7 +459,7 @@ async function shown(ctx: Ctx, whose: string, row: Row | undefined, rules: Busin
 export const automationGet = defineAddonQuery(outreachAddon, {
   name: 'outreach.automation',
   description:
-    'What the person lets the browser extension do for them on Facebook on its own, its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.',
+    'What the person lets the browser extension do for them on its own, on each network they work (Facebook, LinkedIn, Instagram, Alignable), its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.',
   input: AutomationInput,
   output: AutomationOutput,
   permission: 'outreach.use',
@@ -475,18 +477,37 @@ export const automationGet = defineAddonQuery(outreachAddon, {
   },
 });
 
+/** `changes` put on `settings`: what's left out, in the voice and each network's choices too, stays as it is. */
+function withChanges(settings: AutomationSettings, changes: AutomationChanges): AutomationSettings {
+  const { voice, networks, ...rest } = changes;
+  const n = settings.networks;
+  return {
+    ...settings,
+    ...givenOnly(rest),
+    voice: { ...settings.voice, ...givenOnly(voice) },
+    networks: {
+      facebook: { ...n.facebook, ...givenOnly(networks?.facebook) },
+      linkedin: { ...n.linkedin, ...givenOnly(networks?.linkedin) },
+      instagram: { ...n.instagram, ...givenOnly(networks?.instagram) },
+      alignable: { ...n.alignable, ...givenOnly(networks?.alignable) },
+    },
+  };
+}
+
 export const automationSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.automation.save',
   description:
-    'The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows.',
+    'The person chooses what the browser extension does for them on its own, on each network they work (Facebook, LinkedIn, Instagram, Alignable: friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows. Everything as the screens send it (settings), or only what changes (changes): the rest stays as it is.',
   risk: 0,
   input: AutomationSaveInput,
   output: AutomationSaveOutput,
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_save_automation',
+    description:
+      'Change what the browser extension does for the person on its own (Social Outreach → Settings: You, and each network’s page), or for a teammate an owner or admin picks (userId, as Settings → Team → Their settings): on Facebook the choices themselves (sending, replies, warmUp, confirmRequests, collect, joinGroups, watchPosts, posting), on LinkedIn, Instagram and Alignable each network’s own under networks; whether each network is on for them; Autopilot; how the AI writes (voice); their alerts and their working hours (hours, sent whole). Send only what changes, in changes, by the names outreach_automation shows: everything left out, and each network’s choices left out, stays as it is. Only what the business allows.',
     autonomy: 'confirm',
-    keywords: ['change extension settings', 'let it send', 'working hours'],
+    keywords: ['change extension settings', 'let it send', 'working hours', 'autopilot'],
   },
   scope: inWorkspace,
   emits: ['outreach.automation.saved'],
@@ -501,15 +522,21 @@ export const automationSave = defineAddonCommand(outreachAddon, {
     // ones kept stay.
     const kept = settingsOf(before, rules);
     const own = ownOf(before, rules);
-    const autopilot = input.settings.autopilot ?? own.autopilot;
-    const asked: AutomationSettings = {
-      ...input.settings,
-      autopilot,
-      voice: input.settings.voice ?? kept.voice,
-      dayReport: input.settings.dayReport ?? kept.dayReport,
-      acceptedPush: input.settings.acceptedPush ?? kept.acceptedPush,
-      networks: input.settings.networks ?? kept.networks,
-    };
+    const sent = input.settings;
+    const whole: AutomationSettings = sent
+      ? {
+          ...sent,
+          autopilot: sent.autopilot ?? own.autopilot,
+          voice: sent.voice ?? kept.voice,
+          dayReport: sent.dayReport ?? kept.dayReport,
+          acceptedPush: sent.acceptedPush ?? kept.acceptedPush,
+          networks: sent.networks ?? kept.networks,
+        }
+      : { ...kept, autopilot: own.autopilot };
+    // Only what changes (the Assistant changing one choice): the rest, each part of the voice and of each network's
+    // choices too, as it is.
+    const asked = input.changes ? withChanges(whole, input.changes) : whole;
+    const autopilot = asked.autopilot;
     // While Autopilot is on, and as it's turned on or off, what it picks stays the person's own underneath (decision
     // 151): the screens show its picks then, so theirs come back as they were once it's off.
     const s = own.autopilot || autopilot ? keepOwnPicks(asked, own) : asked;

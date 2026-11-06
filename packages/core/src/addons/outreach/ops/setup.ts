@@ -14,6 +14,7 @@ import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { choicesFor, NO_RULES } from '../automation';
 import { outreachSettings } from '../chat-read';
 import { bestGroupFit } from '../groups';
+import { setupAnswer } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import { networksShown } from '../network-words';
 import { PLATFORM_KEYS } from '../networks';
@@ -39,7 +40,7 @@ import { days, groups, myGroups, playbooks, setup } from '../tables';
 import { automationOf } from './automation';
 import { inWorkspace, type Ctx } from './common';
 import { playbooksInUse } from './friends';
-import { libraryOf } from '../video-library';
+import { fromPlaybooks, libraryOf } from '../video-library';
 import { myComputers, workingOf } from './live';
 import { readinessFor } from './readiness';
 
@@ -184,6 +185,7 @@ async function shownSetup(ctx: Ctx, me: string, row: Row | undefined): Promise<S
     }),
     noVideo: business_.noVideo,
     videos: library.length,
+    library: canManage ? { videos: library, fromPlaybooks: fromPlaybooks(business_.videos) } : null,
     groups: {
       mine: Number(mine?.n ?? 0),
       business: Number(business?.n ?? 0),
@@ -208,7 +210,17 @@ export const setupGet = defineAddonQuery(outreachAddon, {
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_setup',
-    keywords: ['setup steps', 'getting started'],
+    description:
+      'The person’s own Social Outreach setup (Social Outreach → Set up): where each of their steps stands (the main setup’s and each network’s), the next one left, whether the extension signed in, whether they saved their settings, the playbooks in use and their groups saved; the whole https link to download the browser extension, with how to install it, update it and what to do when stuck (download); and for owners and admins the business’s video library as Settings → Videos shows it (library). To add to the library or change it, send update_addon_settings its videos: this list with the change, never only the new one.',
+    keywords: [
+      'setup steps',
+      'getting started',
+      'download the extension',
+      'install the extension',
+      'update the extension',
+      'video library',
+    ],
+    answer: setupAnswer,
   },
   scope: inWorkspace,
   async handler(ctx) {

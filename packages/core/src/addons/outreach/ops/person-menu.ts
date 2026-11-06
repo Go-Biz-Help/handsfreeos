@@ -16,6 +16,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { NO_JOURNEY } from '../journey';
+import { chatLinksAnswer, clientOutcome, SAME_NAME_FIRST } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import type { PartnerStage } from '../partners';
 import {
@@ -86,7 +87,9 @@ export const clientSet = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_mark_client',
     autonomy: 'confirm',
+    description: `Mark someone the person reached as a client (client true): they’re added to Contacts if they aren’t there, or tied to the customer named (personId), the Client tag goes on their customer, and anyone’s outreach messages to them waiting for an OK are skipped; nothing on Today reaches them again but a reply. Or take the Client tag off again (client false, Not a client after all); Contacts may still count them a client for another reason, which is said. When they aren’t in Contacts yet: ${SAME_NAME_FIRST}`,
     keywords: ['client', 'mark as client', 'customer'],
+    outcome: clientOutcome,
   },
   scope: inWorkspace,
   emits: ['outreach.client.marked', 'outreach.send.skipped', 'outreach.profile.saved'],
@@ -234,6 +237,7 @@ export const profileMarks = defineAddonQuery(outreachAddon, {
   ai: {
     tool: 'outreach_person_marks',
     keywords: ['is a client', 'dont pitch', 'never contact', 'in contacts', 'demo booked', 'later'],
+    answer: chatLinksAnswer,
   },
   scope: inWorkspace,
   async handler(ctx, input) {

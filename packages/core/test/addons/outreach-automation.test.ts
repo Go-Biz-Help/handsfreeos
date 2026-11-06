@@ -454,6 +454,51 @@ describe('settings in HandsFreeOS', () => {
     ]);
   });
 
+  it('changes only what it’s given, as the Assistant changes one choice', async () => {
+    const voice = { shorthand: true, acronyms: true, emoji: true, split: false };
+    await runAs(member, ws, 'outreach.automation.save', {
+      settings: { ...steps, warmUp: false, voice },
+    });
+    const before = (await runAs(member, ws, 'outreach.automation', {})).settings;
+    const after = await runAs(member, ws, 'outreach.automation.save', {
+      changes: {
+        collect: false,
+        voice: { emoji: false },
+        networks: { linkedin: { on: true, sending: 'steps' } },
+      },
+    });
+    // What was given changes; every other choice, each other part of the voice and of LinkedIn's, stays.
+    expect(after.settings).toMatchObject({
+      sending: before.sending,
+      warmUp: false,
+      collect: false,
+      hours: before.hours,
+      voice: { ...voice, emoji: false },
+      networks: {
+        facebook: before.networks.facebook,
+        linkedin: {
+          on: true,
+          sending: 'steps',
+          replies: before.networks.linkedin.replies,
+          warmUp: before.networks.linkedin.warmUp,
+        },
+        instagram: before.networks.instagram,
+      },
+    });
+    // An owner changes a teammate's the same way, and says so.
+    const theirs = await runAs(owner, ws, 'outreach.automation.save', {
+      userId: member.id,
+      changes: { collect: true },
+    });
+    expect(theirs).toMatchObject({
+      settings: { collect: true, warmUp: false },
+      changedBy: 'Morgan Owner',
+    });
+    // Saying nothing is refused.
+    expect(await refused(runAs(member, ws, 'outreach.automation.save', {}))).toBe('validation');
+    await runAs(member, ws, 'outreach.automation.save', { settings: steps });
+  });
+
   it('keeps someone else’s settings to owners and admins, and to people here', async () => {
     expect(await refused(runAs(member, ws, 'outreach.automation', { userId: owner.id }))).toBe(
       'forbidden',

@@ -6,7 +6,7 @@
  * Browser-safe and pure: a test reads it against the maps.
  */
 import { isLocalDate } from '../calendar/engine/zoned';
-import { APP_PLACES, placeWay } from './places-map';
+import { APP_PLACES, placeWay, type AppPlace } from './places-map';
 import { settingsAreas, type SettingsArea } from './settings-map';
 
 export interface ScreenPlace {
@@ -36,6 +36,8 @@ const KEY_NAMES: ReadonlyMap<string, string> = new Map([
   // The Calendar's people are teammates (user ids), and its chips the calendars shown.
   ['people', 'user'],
   ['calendars', 'calendar'],
+  // Social Outreach's Team opens a teammate's own settings at ?for=<their user id>.
+  ['for', 'user'],
 ]);
 /** The Calendar's views, as its address keeps them: the only words of a query ever repeated to the model. */
 const VIEWS: ReadonlySet<string> = new Set(['team', 'week', 'day', 'month', 'resources']);
@@ -54,18 +56,20 @@ interface Candidate {
 
 const segmentsOf = (path: string) => path.split('/').filter(Boolean);
 
+const placeCandidate = (p: AppPlace): Candidate => ({
+  segments: segmentsOf(p.path),
+  label: p.label,
+  way: placeWay(p),
+  area: null,
+  exact: p.path === '',
+});
+
 let candidates: readonly Candidate[] | null = null;
 /** The places first, then the setup: on an equal match, the first named wins. */
 function allCandidates(): readonly Candidate[] {
   return (candidates ??= [
     // The agency area is outside the business, so it is never a screen a question is asked from.
-    ...APP_PLACES.filter((p) => !p.path.startsWith('/app/')).map((p) => ({
-      segments: segmentsOf(p.path),
-      label: p.label,
-      way: placeWay(p),
-      area: null,
-      exact: p.path === '',
-    })),
+    ...APP_PLACES.filter((p) => !p.path.startsWith('/app/')).map(placeCandidate),
     ...settingsAreas().map((a) => ({
       segments: segmentsOf(a.path),
       label: a.label,
@@ -128,10 +132,14 @@ function fit(c: Candidate, segments: readonly string[]): number | null {
 }
 
 /**
- * The place the address is, the longest match in the maps, with the ids in it kept; a page neither map has keeps its
- * address as its name (an add-on's pages, for now). Null for one that can't be read as an address of the app.
+ * The place the address is, the longest match in the maps and `addonPlaces` (the pages of the add-ons running here,
+ * their paths under `/a/<id>`, from `addonPlaces` in addons/ai.ts), with the ids in it kept; a page none of them has
+ * keeps its address as its name. Null for one that can't be read as an address of the app.
  */
-export function screenPlace(address: string | null | undefined): ScreenPlace | null {
+export function screenPlace(
+  address: string | null | undefined,
+  addonPlaces: readonly AppPlace[] = [],
+): ScreenPlace | null {
   if (!address?.startsWith('/')) return null;
   const [pathPart = '', query = ''] = address.split(/\?(.*)/s, 2);
   const segments = segmentsOf(pathPart.split('#')[0]!);
@@ -140,7 +148,7 @@ export function screenPlace(address: string | null | undefined): ScreenPlace | n
 
   let best: Candidate | null = null;
   let bestFit = -1;
-  for (const c of allCandidates()) {
+  for (const c of [...allCandidates(), ...addonPlaces.map(placeCandidate)]) {
     const f = fit(c, segments);
     if (f !== null && f > bestFit) {
       best = c;

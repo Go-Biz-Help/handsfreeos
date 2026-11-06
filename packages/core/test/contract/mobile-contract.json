@@ -8304,9 +8304,283 @@
               }
             },
             "required": ["sending", "warmUp", "confirmRequests", "hours"]
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "autopilot": {
+                "type": "boolean"
+              },
+              "sending": {
+                "type": "string",
+                "enum": ["off", "steps", "approve_all", "everything"]
+              },
+              "replies": {
+                "type": "string",
+                "enum": ["draft", "simple", "everything"]
+              },
+              "warmUp": {
+                "type": "boolean"
+              },
+              "confirmRequests": {
+                "type": "boolean"
+              },
+              "collect": {
+                "type": "boolean"
+              },
+              "joinGroups": {
+                "type": "boolean"
+              },
+              "watchPosts": {
+                "type": "boolean"
+              },
+              "posting": {
+                "type": "string",
+                "enum": ["copy", "after_ok", "own"]
+              },
+              "hours": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 23
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 24
+                  },
+                  "days": {
+                    "minItems": 1,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 6
+                    }
+                  },
+                  "everyDay": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["start", "end", "days"]
+              },
+              "noting": {
+                "type": "boolean"
+              },
+              "readChats": {
+                "type": "boolean"
+              },
+              "markPosts": {
+                "type": "boolean"
+              },
+              "pushes": {
+                "type": "string",
+                "enum": ["bundled", "each"]
+              },
+              "dayReport": {
+                "type": "boolean"
+              },
+              "acceptedPush": {
+                "type": "boolean"
+              },
+              "voice": {
+                "type": "object",
+                "properties": {
+                  "shorthand": {
+                    "type": "boolean"
+                  },
+                  "acronyms": {
+                    "type": "boolean"
+                  },
+                  "emoji": {
+                    "type": "boolean"
+                  },
+                  "split": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "networks": {
+                "type": "object",
+                "properties": {
+                  "facebook": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "type": "boolean"
+                      },
+                      "young": {
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      }
+                    }
+                  },
+                  "linkedin": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      }
+                    }
+                  },
+                  "instagram": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      }
+                    }
+                  },
+                  "alignable": {
+                    "type": "object",
+                    "properties": {
+                      "on": {
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "type": "string",
+                        "enum": ["off", "steps", "approve_all", "everything"]
+                      },
+                      "replies": {
+                        "type": "string",
+                        "enum": ["draft", "simple", "everything"]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "type": "string",
+                        "enum": ["copy", "after_ok", "own"]
+                      },
+                      "young": {
+                        "type": "boolean"
+                      },
+                      "fullSpeed": {
+                        "type": "boolean"
+                      },
+                      "tidy": {
+                        "type": "string",
+                        "enum": ["off", "cancel", "unfriend"]
+                      },
+                      "requests": {
+                        "type": "string",
+                        "enum": ["fits", "fits_delete", "all", "delete"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         },
-        "required": ["workspaceId", "settings"]
+        "required": ["workspaceId"]
       }
     },
     "outreach.autopilot.answer": {
@@ -9500,9 +9774,455 @@
               "disclaimer",
               "tags"
             ]
+          },
+          "changes": {
+            "type": "object",
+            "properties": {
+              "goal": {
+                "type": "string",
+                "enum": [
+                  "demo",
+                  "consult",
+                  "estimate",
+                  "appointment",
+                  "call",
+                  "sale",
+                  "recruit",
+                  "partner",
+                  "community"
+                ]
+              },
+              "offer": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "link": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "niche": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "problem": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "proof": {
+                "maxItems": 5,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "usefulWhat": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "usefulLink": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "videoLink": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 500,
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "videoScript": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "part": {
+                              "type": "string",
+                              "enum": ["who", "cost", "method", "proof", "call", "next"]
+                            },
+                            "say": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 900
+                            },
+                            "show": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 240
+                            }
+                          },
+                          "required": ["part", "say", "show"]
+                        }
+                      },
+                      "at": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": ["parts", "at", "version"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "partnerKinds": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["group_admin", "creator", "business"]
+                }
+              },
+              "onItsNetworks": {
+                "type": "boolean",
+                "const": true
+              },
+              "facebookSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
+              "hashtags": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                }
+              },
+              "postSearches": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 60
+                }
+              },
+              "businessKinds": {
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "worksOnline": {
+                "type": ["boolean", "null"]
+              },
+              "wordsWritten": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["facebook", "instagram", "linkedin", "alignable"]
+                }
+              },
+              "audience": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "signs": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "skip": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 160
+                }
+              },
+              "area": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "platforms": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["facebook", "linkedin", "instagram", "alignable"]
+                }
+              },
+              "groupWords": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": ["connect", "engage", "message", "follow_up", "answer", "post"]
+                }
+              },
+              "pace": {
+                "type": "object",
+                "properties": {
+                  "messageAfterDays": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 14
+                  },
+                  "followUps": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 7
+                  },
+                  "followUpGaps": {
+                    "minItems": 5,
+                    "maxItems": 7,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 14
+                    }
+                  },
+                  "followUpAfterDays": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                  }
+                },
+                "required": ["messageAfterDays"]
+              },
+              "tone": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "samples": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                }
+              },
+              "openerStyles": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                }
+              },
+              "ownOpeners": {
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 600
+                }
+              },
+              "questions": {
+                "maxItems": 20,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "pattern": "^q[0-9]{1,3}$"
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "answers": {
+                      "maxItems": 6,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80
+                          },
+                          "tag": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "next": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": ["continue", "offer", "later", "stop"]
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^q[0-9]{1,3}$"
+                              }
+                            ]
+                          }
+                        },
+                        "required": ["label", "tag", "next"]
+                      }
+                    }
+                  },
+                  "required": ["id", "text", "answers"]
+                }
+              },
+              "avoid": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                }
+              },
+              "disclaimer": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "tags": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 40
+                }
+              }
+            }
           }
         },
-        "required": ["workspaceId", "name", "details"]
+        "required": ["workspaceId", "name"]
       }
     },
     "outreach.post.skip": {
@@ -15358,6 +16078,11 @@
             "minimum": 1,
             "maximum": 100000
           },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 5,
+            "maximum": 50
+          },
           "platform": {
             "type": "string",
             "enum": ["facebook", "linkedin", "instagram", "alignable"]
@@ -15590,6 +16315,13 @@
           "workspaceId": {
             "type": "string",
             "format": "uuid"
+          },
+          "playbookId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "archived": {
+            "type": "boolean"
           }
         },
         "required": ["workspaceId"]
@@ -15694,6 +16426,34 @@
             "default": "facebook",
             "type": "string",
             "enum": ["facebook", "linkedin", "instagram", "alignable"]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "reply",
+              "demo_reminder",
+              "rebook",
+              "birthday",
+              "new_job",
+              "warm_lead",
+              "pitch",
+              "video",
+              "opener",
+              "follow_up",
+              "check_in",
+              "reconnect",
+              "comment",
+              "group_reply",
+              "warm_up",
+              "friend_request",
+              "confirm",
+              "recommend",
+              "partner_reply",
+              "partner_details",
+              "partner_follow_up",
+              "partner_ask",
+              "partner_warm_up"
+            ]
           }
         },
         "required": ["workspaceId"]

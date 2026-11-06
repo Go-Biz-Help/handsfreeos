@@ -318,9 +318,53 @@ const spaVisits = defineAddonQuery(spa, {
   handler: async () => ({ visits: ['Friday 14:00'] }),
 });
 
+/** A look-up whose answer the model reads reshaped: the short facts first, the long list after. */
+const spaReadings = defineAddonQuery(spa, {
+  name: `${SPA}.reading.list`,
+  description: 'Water readings for each spa.',
+  input: z.object({ workspaceId: z.uuid() }),
+  output: z.object({ readings: z.array(z.string()), lastReadAt: z.string() }),
+  permission: `${SPA}.read`,
+  scope,
+  ai: {
+    tool: `${SPA}_spa_readings`,
+    answer: (output, input) => {
+      const o = output as { readings: string[]; lastReadAt: string };
+      return {
+        lastReadAt: o.lastReadAt,
+        count: o.readings.length,
+        readings: o.readings,
+        forThisBusiness: (input as { workspaceId: string }).workspaceId,
+      };
+    },
+  },
+  handler: async () => ({ readings: ['pH 7.4', 'pH 7.6'], lastReadAt: '2026-11-02' }),
+});
+
+/** A change whose card ends in its own words, as its screen's toast says them, with the page it changed. */
+const moveSpaVisit = defineAddonCommand(spa, {
+  name: `${SPA}.visit.move`,
+  description: 'Move a spa visit to another day and tell the customer.',
+  risk: 2,
+  input: z.object({ workspaceId: z.uuid(), to: z.string().trim().min(1).max(20) }),
+  output: z.object({ visitId: z.string(), day: z.string() }),
+  permission: `${SPA}.read`,
+  scope,
+  emits: [],
+  ai: {
+    tool: `${SPA}_move_visit`,
+    answer: (output) => ({ movedTo: (output as { day: string }).day }),
+    outcome: (output, input) => ({
+      words: `Moved to ${(input as { to: string }).to}. The customer was told.`,
+      path: `/visits/${(output as { visitId: string }).visitId}`,
+    }),
+  },
+  handler: async (_ctx, input) => ({ visitId: 'v-7', day: input.to }),
+});
+
 const MODULES: readonly AddonServerModule[] = [
   { manifest: pool, queries: [listVisits], commands: [noteVisit, cancelVisit, wipeVisits] },
-  { manifest: spa, queries: [spaVisits] },
+  { manifest: spa, queries: [spaVisits, spaReadings], commands: [moveSpaVisit] },
 ];
 
 // ---------- the stand-in model ----------
@@ -390,6 +434,18 @@ const rules: ScriptRule[] = [
         pool: JSON.parse(r[`${LIVE}_top10_visits`] ?? 'null'),
         spa: JSON.parse(r[`${SPA}_spa_visits`] ?? 'null'),
       }),
+  },
+  {
+    when: /^how is the spa water/i,
+    calls: () => [{ name: `${SPA}_spa_readings`, arguments: {} }],
+    reply: said(`${SPA}_spa_readings`),
+  },
+  {
+    when: /^move the spa visit to (\S+)/i,
+    calls: (q) => [
+      { name: `${SPA}_move_visit`, arguments: { to: /^move the spa visit to (\S+)/i.exec(q)![1] } },
+    ],
+    reply: said(`${SPA}_move_visit`),
   },
   { when: /^how many new leads/i, reply: () => 'Three new leads came in this week.' },
 ];
@@ -999,6 +1055,38 @@ describe('a task across two add-ons', () => {
       spa: { error: 'That is not something you can do here.' },
     });
     expect((await callsIn(runOf(one))).map((c) => c.tool)).toEqual([`${LIVE}_top10_visits`]);
+  });
+});
+
+describe('an add-on’s own words for what it found and did', () => {
+  it('reads an answer as the operation shapes it, and ends a confirmed card in its words, with its page', async () => {
+    await setAddonState(wsA, SPA, 'enabled');
+    const water = await ask(ownerToken, 'How is the spa water?');
+    expect(resultOf(water)).toEqual({
+      from: 'Spa Care',
+      data: {
+        lastReadAt: '2026-11-02',
+        count: 2,
+        readings: ['pH 7.4', 'pH 7.6'],
+        forThisBusiness: wsA,
+      },
+    });
+
+    const card = confirmCard(await ask(ownerToken, 'Move the spa visit to Saturday'));
+    expect(card).toMatchObject({ tool: `${SPA}_move_visit`, title: 'Do this in Spa Care?' });
+    const ok = await decide(card.toolCallId, 'confirm');
+    expect(ok.json()).toMatchObject({
+      status: 'confirmed',
+      outcome: 'Moved to Saturday. The customer was told.',
+      href: `/app/w/${wsA}/visits/v-7`,
+    });
+    // What the model reads of it later is the operation's own shape of the answer.
+    const [kept] = await rows<{ result: { answer?: unknown } }>(
+      admin(),
+      sql`select result from app.assistant_tool_calls where id = ${card.toolCallId}`,
+    );
+    expect(kept?.result.answer).toEqual({ movedTo: 'Saturday' });
+    await setAddonState(wsA, SPA, 'disabled');
   });
 });
 

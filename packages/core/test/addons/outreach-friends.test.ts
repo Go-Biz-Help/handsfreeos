@@ -441,6 +441,10 @@ describe('the Friends tab and the look-up', () => {
       page: 3,
       people: last.people,
     });
+    // A smaller page, as the Assistant reads a long list in parts: the same order, more pages.
+    const small = await runAs(owner, big, 'outreach.friends', { pageSize: 25, page: 2 });
+    expect(small).toMatchObject({ page: 2, pages: 9, total: 205 });
+    expect(names(small)).toEqual(names(first).slice(25, 50));
 
     // A search looks through every page, and has pages of its own.
     const found = await runAs(owner, big, 'outreach.friends', { search: '20', page: 2 });

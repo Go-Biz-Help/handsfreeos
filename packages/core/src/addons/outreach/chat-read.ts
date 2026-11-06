@@ -359,6 +359,8 @@ export const ChatsInput = z.object({
   search: z.string().trim().max(100).optional(),
   /** Which page, from 1. One past the end shows the last. */
   page: z.number().int().min(1).max(100_000).default(1),
+  /** How many a page: the tab's 50 when left out (the Assistant reads a long page in smaller ones). */
+  pageSize: z.number().int().min(5).max(CHATS_PAGE).optional(),
   /** Only the chats on one network, counts and tags too; every network's when left out. */
   platform: z.enum(PLATFORM_KEYS).optional(),
 });

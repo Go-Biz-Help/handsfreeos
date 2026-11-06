@@ -437,7 +437,7 @@ export const OUTREACH_WORDS = {
         ? `A client in Contacts: ${CLIENT_CAUSE_WORDS[cause]}`
         : 'Same name as a client in Contacts',
     clientDone: (name: string) =>
-      `${name} is a client now. Nobody here sends them outreach, and their replies still come to Waiting for you.`,
+      `${name} is a client now. Nobody here sends them outreach, and their replies still come to ${NEEDS_YOU}.`,
     clientOff: (name: string) =>
       `${name} isn’t a client any more. Messages skipped when you marked them stay skipped.`,
     /**
@@ -456,7 +456,7 @@ export const OUTREACH_WORDS = {
      * off in their menu), Contacts' own reason, or the same name as a client on the same network.
      */
     clientNoOutreach: (name: string, cause: ClientCause | null) =>
-      `${name} is a client, so Social Outreach doesn’t send them outreach. Their replies still come to Waiting for you. ${
+      `${name} is a client, so Social Outreach doesn’t send them outreach. Their replies still come to ${NEEDS_YOU}. ${
         cause === 'tagged'
           ? 'To reach out again, choose Not a client after all in their menu.'
           : cause

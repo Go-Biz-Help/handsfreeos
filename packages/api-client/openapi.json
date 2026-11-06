@@ -88268,7 +88268,7 @@
     "/v1/commands/outreach.playbook.save": {
       "post": {
         "operationId": "command_outreach_playbook_save",
-        "summary": "Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook: read it first with its list, and change only what the person asked.",
+        "summary": "Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.",
         "tags": [
           "commands"
         ],
@@ -88834,12 +88834,514 @@
                       "disclaimer",
                       "tags"
                     ]
+                  },
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "goal": {
+                        "type": "string",
+                        "enum": [
+                          "demo",
+                          "consult",
+                          "estimate",
+                          "appointment",
+                          "call",
+                          "sale",
+                          "recruit",
+                          "partner",
+                          "community"
+                        ]
+                      },
+                      "offer": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "link": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500,
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "niche": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "problem": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "proof": {
+                        "maxItems": 5,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "usefulWhat": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "usefulLink": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500,
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "videoLink": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 500,
+                            "format": "uri"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "videoScript": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "parts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "part": {
+                                      "type": "string",
+                                      "enum": [
+                                        "who",
+                                        "cost",
+                                        "method",
+                                        "proof",
+                                        "call",
+                                        "next"
+                                      ]
+                                    },
+                                    "say": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 900
+                                    },
+                                    "show": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 240
+                                    }
+                                  },
+                                  "required": [
+                                    "part",
+                                    "say",
+                                    "show"
+                                  ]
+                                }
+                              },
+                              "at": {
+                                "type": "string",
+                                "format": "date-time",
+                                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                              },
+                              "version": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "parts",
+                              "at",
+                              "version"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "partnerKinds": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "group_admin",
+                            "creator",
+                            "business"
+                          ]
+                        }
+                      },
+                      "onItsNetworks": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "facebookSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
+                      "hashtags": {
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        }
+                      },
+                      "postSearches": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        }
+                      },
+                      "businessKinds": {
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "worksOnline": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "wordsWritten": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "instagram",
+                            "linkedin",
+                            "alignable"
+                          ]
+                        }
+                      },
+                      "audience": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "signs": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        }
+                      },
+                      "skip": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160
+                        }
+                      },
+                      "area": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "platforms": {
+                        "minItems": 1,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "facebook",
+                            "linkedin",
+                            "instagram",
+                            "alignable"
+                          ]
+                        }
+                      },
+                      "groupWords": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "steps": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "enum": [
+                            "connect",
+                            "engage",
+                            "message",
+                            "follow_up",
+                            "answer",
+                            "post"
+                          ]
+                        }
+                      },
+                      "pace": {
+                        "type": "object",
+                        "properties": {
+                          "messageAfterDays": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 14
+                          },
+                          "followUps": {
+                            "type": "integer",
+                            "minimum": 5,
+                            "maximum": 7
+                          },
+                          "followUpGaps": {
+                            "minItems": 5,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 14
+                            }
+                          },
+                          "followUpAfterDays": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 30
+                          }
+                        },
+                        "required": [
+                          "messageAfterDays"
+                        ]
+                      },
+                      "tone": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "samples": {
+                        "maxItems": 10,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        }
+                      },
+                      "openerStyles": {
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      },
+                      "ownOpeners": {
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 600
+                        }
+                      },
+                      "questions": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^q[0-9]{1,3}$"
+                            },
+                            "text": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 200
+                            },
+                            "answers": {
+                              "maxItems": 6,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "label": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "tag": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 40
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "next": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "continue",
+                                          "offer",
+                                          "later",
+                                          "stop"
+                                        ]
+                                      },
+                                      {
+                                        "type": "string",
+                                        "pattern": "^q[0-9]{1,3}$"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "label",
+                                  "tag",
+                                  "next"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "text",
+                            "answers"
+                          ]
+                        }
+                      },
+                      "avoid": {
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80
+                        }
+                      },
+                      "disclaimer": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "tags": {
+                        "maxItems": 30,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        }
+                      }
+                    }
                   }
                 },
                 "required": [
                   "workspaceId",
-                  "name",
-                  "details"
+                  "name"
                 ]
               }
             }
@@ -92965,7 +93467,7 @@
     "/v1/commands/outreach.automation.save": {
       "post": {
         "operationId": "command_outreach_automation_save",
-        "summary": "The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows.",
+        "summary": "The person chooses what the browser extension does for them on its own, on each network they work (Facebook, LinkedIn, Instagram, Alignable: friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows. Everything as the screens send it (settings), or only what changes (changes): the rest stays as it is.",
         "tags": [
           "commands"
         ],
@@ -93470,11 +93972,379 @@
                       "confirmRequests",
                       "hours"
                     ]
+                  },
+                  "changes": {
+                    "type": "object",
+                    "properties": {
+                      "autopilot": {
+                        "type": "boolean"
+                      },
+                      "sending": {
+                        "type": "string",
+                        "enum": [
+                          "off",
+                          "steps",
+                          "approve_all",
+                          "everything"
+                        ]
+                      },
+                      "replies": {
+                        "type": "string",
+                        "enum": [
+                          "draft",
+                          "simple",
+                          "everything"
+                        ]
+                      },
+                      "warmUp": {
+                        "type": "boolean"
+                      },
+                      "confirmRequests": {
+                        "type": "boolean"
+                      },
+                      "collect": {
+                        "type": "boolean"
+                      },
+                      "joinGroups": {
+                        "type": "boolean"
+                      },
+                      "watchPosts": {
+                        "type": "boolean"
+                      },
+                      "posting": {
+                        "type": "string",
+                        "enum": [
+                          "copy",
+                          "after_ok",
+                          "own"
+                        ]
+                      },
+                      "hours": {
+                        "type": "object",
+                        "properties": {
+                          "start": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 23
+                          },
+                          "end": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 24
+                          },
+                          "days": {
+                            "minItems": 1,
+                            "maxItems": 7,
+                            "type": "array",
+                            "items": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 6
+                            }
+                          },
+                          "everyDay": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "start",
+                          "end",
+                          "days"
+                        ]
+                      },
+                      "noting": {
+                        "type": "boolean"
+                      },
+                      "readChats": {
+                        "type": "boolean"
+                      },
+                      "markPosts": {
+                        "type": "boolean"
+                      },
+                      "pushes": {
+                        "type": "string",
+                        "enum": [
+                          "bundled",
+                          "each"
+                        ]
+                      },
+                      "dayReport": {
+                        "type": "boolean"
+                      },
+                      "acceptedPush": {
+                        "type": "boolean"
+                      },
+                      "voice": {
+                        "type": "object",
+                        "properties": {
+                          "shorthand": {
+                            "type": "boolean"
+                          },
+                          "acronyms": {
+                            "type": "boolean"
+                          },
+                          "emoji": {
+                            "type": "boolean"
+                          },
+                          "split": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "networks": {
+                        "type": "object",
+                        "properties": {
+                          "facebook": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "boolean"
+                              },
+                              "young": {
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          },
+                          "linkedin": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          },
+                          "instagram": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          },
+                          "alignable": {
+                            "type": "object",
+                            "properties": {
+                              "on": {
+                                "type": "boolean"
+                              },
+                              "sending": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "steps",
+                                  "approve_all",
+                                  "everything"
+                                ]
+                              },
+                              "replies": {
+                                "type": "string",
+                                "enum": [
+                                  "draft",
+                                  "simple",
+                                  "everything"
+                                ]
+                              },
+                              "warmUp": {
+                                "type": "boolean"
+                              },
+                              "confirmRequests": {
+                                "type": "boolean"
+                              },
+                              "collect": {
+                                "type": "boolean"
+                              },
+                              "joinGroups": {
+                                "type": "boolean"
+                              },
+                              "watchPosts": {
+                                "type": "boolean"
+                              },
+                              "posting": {
+                                "type": "string",
+                                "enum": [
+                                  "copy",
+                                  "after_ok",
+                                  "own"
+                                ]
+                              },
+                              "young": {
+                                "type": "boolean"
+                              },
+                              "fullSpeed": {
+                                "type": "boolean"
+                              },
+                              "tidy": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "cancel",
+                                  "unfriend"
+                                ]
+                              },
+                              "requests": {
+                                "type": "string",
+                                "enum": [
+                                  "fits",
+                                  "fits_delete",
+                                  "all",
+                                  "delete"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
                   }
                 },
                 "required": [
-                  "workspaceId",
-                  "settings"
+                  "workspaceId"
                 ]
               }
             }
@@ -95598,7 +96468,7 @@
     "/v1/commands/outreach.send.done": {
       "post": {
         "operationId": "command_outreach_send_done",
-        "summary": "The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.",
+        "summary": "The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Needs you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.",
         "tags": [
           "commands"
         ],
@@ -96903,7 +97773,7 @@
     "/v1/commands/outreach.need.note": {
       "post": {
         "operationId": "command_outreach_need_note",
-        "summary": "The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.",
+        "summary": "The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Needs you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.",
         "tags": [
           "commands"
         ],
@@ -97032,7 +97902,7 @@
     "/v1/commands/outreach.need.clear": {
       "post": {
         "operationId": "command_outreach_need_clear",
-        "summary": "The person did a step the extension handed to them, or let it go: it leaves Waiting for you. Let go, the same step for the same person isn’t handed over again for a week.",
+        "summary": "The person did a step the extension handed to them, or let it go: it leaves Needs you. Let go, the same step for the same person isn’t handed over again for a week.",
         "tags": [
           "commands"
         ],
@@ -97207,7 +98077,7 @@
     "/v1/commands/outreach.request.set_aside": {
       "post": {
         "operationId": "command_outreach_request_set_aside",
-        "summary": "The person leaves a friend request they got as it is: it leaves Waiting for you until the same person asks again. Nothing changes on Facebook.",
+        "summary": "The person leaves a friend request they got as it is: it leaves Needs you until the same person asks again. Nothing changes on Facebook.",
         "tags": [
           "commands"
         ],
@@ -97266,7 +98136,7 @@
     "/v1/commands/outreach.request.answer": {
       "post": {
         "operationId": "command_outreach_request_answer",
-        "summary": "The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.",
+        "summary": "The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Needs you at once.",
         "tags": [
           "commands"
         ],
@@ -97341,7 +98211,7 @@
     "/v1/commands/outreach.ask.make": {
       "post": {
         "operationId": "command_outreach_ask_make",
-        "summary": "The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.",
+        "summary": "The person asks their computer, from HandsFreeOS, to do something only the browser extension can, on one of the networks they work (Facebook, LinkedIn, Instagram or Alignable; platform says which, Facebook when left out): get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.",
         "tags": [
           "commands"
         ],
@@ -101159,6 +102029,55 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "library": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "videos": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "link": {
+                                    "type": "string",
+                                    "maxLength": 500,
+                                    "format": "uri"
+                                  },
+                                  "about": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 400
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "link",
+                                  "about"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "fromPlaybooks": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "videos",
+                            "fromPlaybooks"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "groups": {
                       "type": "object",
@@ -109198,7 +110117,7 @@
     "/v1/commands/outreach.stage.mark": {
       "post": {
         "operationId": "command_outreach_stage_mark",
-        "summary": "Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.",
+        "summary": "Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Send the link), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.",
         "tags": [
           "commands"
         ],
@@ -208613,7 +209532,7 @@
     "/v1/queries/outreach.playbook.list": {
       "post": {
         "operationId": "query_outreach_playbook_list",
-        "summary": "The business’s playbooks for social outreach, the ones in use first, then any archived.",
+        "summary": "The business’s playbooks for social outreach, the ones in use first, then any archived; one alone, or only those in use or archived; and the ready-made ones a new playbook can start from.",
         "tags": [
           "queries"
         ],
@@ -208629,6 +209548,14 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "playbookId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "archived": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -209228,6 +210155,35 @@
                           "archivedAt",
                           "createdAt",
                           "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "templates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "crm_demos",
+                              "real_estate",
+                              "home_services",
+                              "coaching"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "summary": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "name",
+                          "summary"
                         ],
                         "additionalProperties": false
                       }
@@ -210981,6 +211937,11 @@
                     "minimum": 1,
                     "maximum": 100000
                   },
+                  "pageSize": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 100
+                  },
                   "platform": {
                     "type": "string",
                     "enum": [
@@ -211618,7 +212579,7 @@
     "/v1/queries/outreach.chats": {
       "post": {
         "operationId": "query_outreach_chats",
-        "summary": "The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.",
+        "summary": "The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first, 50 a page (fewer with pageSize).",
         "tags": [
           "queries"
         ],
@@ -211659,6 +212620,11 @@
                     "type": "integer",
                     "minimum": 1,
                     "maximum": 100000
+                  },
+                  "pageSize": {
+                    "type": "integer",
+                    "minimum": 5,
+                    "maximum": 50
                   },
                   "platform": {
                     "type": "string",
@@ -212348,6 +213314,34 @@
                       "linkedin",
                       "instagram",
                       "alignable"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "reply",
+                      "demo_reminder",
+                      "rebook",
+                      "birthday",
+                      "new_job",
+                      "warm_lead",
+                      "pitch",
+                      "video",
+                      "opener",
+                      "follow_up",
+                      "check_in",
+                      "reconnect",
+                      "comment",
+                      "group_reply",
+                      "warm_up",
+                      "friend_request",
+                      "confirm",
+                      "recommend",
+                      "partner_reply",
+                      "partner_details",
+                      "partner_follow_up",
+                      "partner_ask",
+                      "partner_warm_up"
                     ]
                   }
                 },
@@ -214703,7 +215697,7 @@
     "/v1/queries/outreach.automation": {
       "post": {
         "operationId": "query_outreach_automation",
-        "summary": "What the person lets the browser extension do for them on Facebook on its own, its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.",
+        "summary": "What the person lets the browser extension do for them on its own, on each network they work (Facebook, LinkedIn, Instagram, Alignable), its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.",
         "tags": [
           "queries"
         ],
@@ -216742,7 +217736,7 @@
     "/v1/queries/outreach.live": {
       "post": {
         "operationId": "query_outreach_live",
-        "summary": "What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.",
+        "summary": "What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Needs you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.",
         "tags": [
           "queries"
         ],
@@ -220639,6 +221633,55 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "library": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "videos": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 80
+                                  },
+                                  "link": {
+                                    "type": "string",
+                                    "maxLength": 500,
+                                    "format": "uri"
+                                  },
+                                  "about": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 400
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "link",
+                                  "about"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "fromPlaybooks": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "videos",
+                            "fromPlaybooks"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "groups": {
                       "type": "object",

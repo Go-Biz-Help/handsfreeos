@@ -279,7 +279,7 @@ describe('The person menu on the phone', () => {
       }),
     );
     expect(toast.show).toHaveBeenCalledWith(
-      'Dana Reyes is a client now. Nobody here sends them outreach, and their replies still come to Waiting for you.',
+      'Dana Reyes is a client now. Nobody here sends them outreach, and their replies still come to Needs you.',
     );
     expect(onChanged).toHaveBeenCalled();
   });

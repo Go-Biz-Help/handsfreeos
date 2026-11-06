@@ -199,6 +199,16 @@ describe('the list for today', () => {
       'follow_up: Avery Lane',
       'friend_request: Sam Lee',
     ]);
+
+    // One kind alone, as the Assistant asks for a long day's list: the rest of the answer as it is.
+    const whole = await list();
+    const followUps = await runAs(owner, ws, 'outreach.today', { kind: 'follow_up' });
+    expect(
+      (followUps.items as { kind: string; name: string }[]).map((i) => `${i.kind}: ${i.name}`),
+    ).toEqual(['follow_up: Avery Lane']);
+    expect(followUps.partners).toEqual([]);
+    expect(followUps.limits).toEqual(whole.limits);
+    expect((await runAs(owner, ws, 'outreach.today', { kind: 'birthday' })).items).toEqual([]);
   });
 
   it('puts people from groups that brought demos and replies ahead of others who fit as well', async () => {

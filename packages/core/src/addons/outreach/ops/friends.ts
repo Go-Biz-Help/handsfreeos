@@ -649,6 +649,8 @@ export const friendsList = defineAddonQuery(outreachAddon, {
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_friends',
+    description:
+      'The person’s own friends on a social network as the extension saved them (People → Friends, Good fits, Requests and Sent, and Left alone’s lists), the good fits the AI found among their friends and chats, the friend requests they’ve got (the best fit to the playbooks first) and sent, the friends they keep, and the business’s Don’t pitch and Never contact lists. 100 a page; a smaller pageSize reads a long page in parts, and search finds a name.',
     keywords: ['friends list', 'friend requests', 'good fits'],
   },
   scope: inWorkspace,
@@ -781,12 +783,13 @@ export const friendsList = defineAddonQuery(outreachAddon, {
     // order. Any other view is counted, and its page read, in the database.
     const allRequests = requests ? byFit((await read(REQUESTS_MOST)).map(personOf)) : null;
     const total = allRequests ? allRequests.length : await counted();
-    const pages = Math.max(1, Math.ceil(total / FRIENDS_PAGE));
+    const size = input.pageSize ?? FRIENDS_PAGE;
+    const pages = Math.max(1, Math.ceil(total / size));
     const page = Math.min(input.page, pages);
-    const from = (page - 1) * FRIENDS_PAGE;
+    const from = (page - 1) * size;
     const shownPeople = allRequests
-      ? allRequests.slice(from, from + FRIENDS_PAGE)
-      : (await read(FRIENDS_PAGE, from)).map(personOf);
+      ? allRequests.slice(from, from + size)
+      : (await read(size, from)).map(personOf);
     const facts = await fileFacts(
       ctx,
       me,

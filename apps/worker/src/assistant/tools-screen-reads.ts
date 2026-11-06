@@ -4,6 +4,7 @@
  * the screen would show, cut short when it is too long to read.
  */
 import {
+  ADDON_CATALOG,
   addonToolArguments,
   affiliateCodeLink,
   affiliateLink,
@@ -202,6 +203,22 @@ function boardSummary(board: Board, shown: unknown): unknown {
   };
 }
 
+/** The add-on settings screen's read. */
+const ADDON_SETTINGS = 'addon.settings';
+
+/**
+ * An add-on's settings as its settings page shows them: what is saved, with the add-on's defaults where nothing is
+ * yet, so a part never saved reads as what it is. What was saved, unchanged, when it doesn't read.
+ */
+function withDefaults(got: unknown): unknown {
+  if (typeof got !== 'object' || got === null) return got;
+  const { addonId, settings } = got as { addonId?: unknown; settings?: unknown };
+  if (settings === null || settings === undefined) return got;
+  const schema = ADDON_CATALOG.find((m) => m.id === addonId)?.settings?.workspace;
+  const read = schema?.safeParse(settings);
+  return read?.success ? { ...got, settings: read.data } : got;
+}
+
 export async function runScreenRead(
   db: Db,
   tool: ScreenReadTool,
@@ -233,7 +250,9 @@ export async function runScreenRead(
               : tool.query.name === platformAffiliates.name ||
                   tool.query.name === platformAffiliate.name
                 ? withAffiliateLinks(got, false)
-                : got;
+                : tool.query.name === ADDON_SETTINGS
+                  ? withDefaults(got)
+                  : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

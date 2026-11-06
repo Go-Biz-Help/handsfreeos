@@ -318,6 +318,13 @@ describe('reading the chats brought in', () => {
     expect((await tab({ view: 'waiting' })).chats.map((c: { name: string }) => c.name)).toEqual([
       'Avery Lane',
     ]);
+    // A smaller page, as the Assistant reads a long list in parts: the same chats, in the same order.
+    const read = await tab({ view: 'read' });
+    const parts = await tab({ view: 'read', pageSize: 5 });
+    expect(parts.chats.map((c: { name: string }) => c.name)).toEqual(
+      read.chats.map((c: { name: string }) => c.name),
+    );
+    expect(await refused(tab({ view: 'read', pageSize: 2 }))).toBe('validation');
 
     // A teammate sees none of the owner's chats.
     const teammate = await createTestUser('outc-member', { fullName: 'Lee Member' });

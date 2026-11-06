@@ -1,6 +1,9 @@
 import type { AiToolDefinition } from '@hfos/ai';
 import {
+  ADDON_CATALOG,
   ADDON_SERVER_MODULES,
+  addonPlaces,
+  addonPlacesText,
   allAddonAiTools,
   assistantTools,
   screenPlace,
@@ -141,6 +144,25 @@ describe('Assistant context (PERF-M20)', () => {
     expect(turnText(PROMPT)).toContain('No customer, lead or appointment is on screen.');
     // The place changes per question, so it never reaches the part that's cached.
     expect(lastingText({ ...PROMPT, place: screenPlace('/audit') })).toBe(lastingText(PROMPT));
+  });
+
+  it('says where an add-on’s pages are where it runs, and names the one open', () => {
+    const ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+    const may = ['outreach.use'];
+    const lasting = lastingText({
+      ...PROMPT,
+      addonPlaces: addonPlacesText(ADDON_CATALOG, ['outreach'], may),
+    });
+    expect(lasting).toContain('Social Outreach’s pages, from its row in the side menu:');
+    expect(lasting).toContain('- Team is at Social Outreach → Settings → Team:');
+    expect(lastingText(PROMPT)).not.toContain('Social Outreach → Settings → Team');
+    const places = addonPlaces(ADDON_CATALOG, ['outreach'], may);
+    const on = turnText({
+      ...PROMPT,
+      place: screenPlace(`/a/outreach/settings/team?for=${ID}`, places),
+    });
+    expect(on).toContain('On screen now: Team (Social Outreach → Settings → Team)');
+    expect(on).toContain(`showing user id ${ID}`);
   });
 });
 

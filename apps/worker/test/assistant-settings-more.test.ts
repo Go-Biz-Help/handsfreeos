@@ -10,6 +10,7 @@ import {
   organizationCreate,
   personCreate,
   registry,
+  screenReadName,
   type AssistantCard,
   type CommandDef,
   type HumanActor,
@@ -24,6 +25,7 @@ import {
   moreSettingsConfirmTools,
   moreSettingsStepLabels,
 } from '../src/assistant/tools-settings-more';
+import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
@@ -274,6 +276,66 @@ describe('the last settings by asking', () => {
     await expect(
       prepare('update_addon_settings', { addonId: 'nosuch', settings: { a: 1 } }),
     ).rejects.toThrow('No add-on has that id');
+  });
+
+  it('changes one part of a group of Social Outreach’s settings, keeping the rest, and links to where they are', async () => {
+    // Saved before its defaults were filled in: the Assistant reads them as the settings page shows them.
+    await rows(
+      admin(),
+      sql`update app.addon_installations
+          set settings = ${JSON.stringify({ rules: { dailyLimits: { like: 30 } } })}::jsonb
+          where workspace_id = ${workspaceId} and addon_id = 'outreach'`,
+    );
+    const reader = allScreenReadTools().find((t) => t.name === screenReadName('addon.settings'))!;
+    const shown = (await createToolExecutor(api()).run(
+      reader,
+      reader.input.parse({ addonId: 'outreach' }) as never,
+      ctx(),
+    )) as { result: { data: { settings: Record<string, unknown> } } };
+    expect(shown.result.data.settings).toMatchObject({
+      weeklyReport: true,
+      extensionLink: null,
+      rules: { dailyLimits: { like: 30 }, autopilotAllowed: true },
+    });
+
+    // One daily limit: the others, and the rest of the team's rules, stay as they are.
+    const { card, parsed } = await prepare('update_addon_settings', {
+      addonId: 'outreach',
+      settings: { rules: { dailyLimits: { friend_request: 12 } } },
+    });
+    expect(card.fields).toHaveLength(1);
+    expect(card.fields[0]!.label).toBe('Rules → Daily limits');
+    expect(card.fields[0]!.value).toContain('Friend request: 12');
+    expect(card.fields[0]!.value).toContain('Like: 30');
+    const done = await confirm('update_addon_settings', parsed);
+    expect(done.outcome).toBe('Saved Social Outreach’s settings');
+    // Its settings are on its own Settings page, under Team.
+    expect(done.href).toBe(`/app/w/${workspaceId}/a/outreach/settings/team`);
+    const rulesNow = async () =>
+      (
+        await q<{ settings: { rules: Record<string, unknown> } }>('addon.settings', {
+          addonId: 'outreach',
+        })
+      ).settings.rules;
+    expect(await rulesNow()).toMatchObject({
+      dailyLimits: { friend_request: 12, like: 30 },
+      autopilotAllowed: true,
+    });
+
+    // Null takes one limit off, back to none; the other stays.
+    const off = await prepare('update_addon_settings', {
+      addonId: 'outreach',
+      settings: { rules: { dailyLimits: { like: null } } },
+    });
+    expect(field(off.card, 'Rules → Daily limits')).toBe('Friend request: 12');
+    await confirm('update_addon_settings', off.parsed);
+    expect((await rulesNow())['dailyLimits']).toEqual({ friend_request: 12 });
+    await expect(
+      prepare('update_addon_settings', {
+        addonId: 'outreach',
+        settings: { rules: { dailyLimits: { friend_request: 12 } } },
+      }),
+    ).rejects.toThrow('Nothing would change');
   });
 
   it('brings something back from the Deleted bin on Confirm, never empties it', async () => {

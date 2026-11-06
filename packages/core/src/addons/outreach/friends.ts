@@ -245,6 +245,8 @@ export const FriendsInput = z.object({
   search: z.string().trim().max(100).optional(),
   /** Which page, from 1. One past the end shows the last. */
   page: z.number().int().min(1).max(100_000).default(1),
+  /** How many a page: the tab's 100 when left out (the Assistant reads a long page in smaller ones). */
+  pageSize: z.number().int().min(5).max(FRIENDS_PAGE).optional(),
   /** Only the people on one network, counts too; every network's when left out. */
   platform: z.enum(PLATFORM_KEYS).optional(),
 });

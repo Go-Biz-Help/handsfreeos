@@ -3,6 +3,8 @@ import {
   ADDON_SERVER_MODULES,
   addonAiTools,
   addonDirectory,
+  addonPlaces,
+  addonPlacesText,
   approvalCustomerOf,
   approvalKind,
   approvalPreviewOf,
@@ -18,6 +20,7 @@ import {
   ROLE_LABELS,
   STAFF_ROLE_LABELS,
   type AddonServerModule,
+  type AppPlace,
   type AssistantTool,
   type AttentionKind,
   type Catalog,
@@ -59,6 +62,8 @@ export interface QuestionContext {
   readonly tools: readonly OfferedTool[];
   readonly organizationId: string;
   readonly timezone: string;
+  /** The pages of the add-ons running here that they may open, under the business's address (`addonPlaces`). */
+  readonly places: readonly AppPlace[];
 }
 
 /** The tools a person is offered: only the ones their permissions allow, so the model never sees the rest. */
@@ -443,6 +448,7 @@ export async function questionContext(
   return {
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
+    places: addonPlaces(addons.catalog ?? ADDON_CATALOG, workspace.addons, workspace.permissions),
     tools: [
       ...toolsFor(can),
       // What the person's screens show that the tools above don't read: each screen's query, as a look-up.
@@ -507,6 +513,11 @@ export async function questionContext(
       knowledge,
       attention: attentionFor(attention),
       addons: addonDirectory(addons.catalog ?? ADDON_CATALOG, workspace.addons),
+      addonPlaces: addonPlacesText(
+        addons.catalog ?? ADDON_CATALOG,
+        workspace.addons,
+        workspace.permissions,
+      ),
       staffRole: staff ? STAFF_ROLE_LABELS[staff.role] : null,
     },
   };

@@ -57,6 +57,7 @@ import {
 } from './limits';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, runsOnItsOwn, type Platform } from './networks';
 import type { TodayKind } from './today';
+import { loosened } from './loose';
 import { Voice, VOICE_DEFAULTS } from './voice';
 
 export const SENDING_MODES = {
@@ -903,23 +904,47 @@ export const AutomationOutput = z.object({
 });
 export type AutomationOutput = z.output<typeof AutomationOutput>;
 
-export const AutomationSaveInput = z.object({
-  workspaceId: z.uuid(),
-  /** Someone else's, for an owner or admin; the person's own when left out. */
-  userId: z.uuid().optional(),
-  /**
-   * The voice, the day's report, the accept push and the networks left out (a screen from before them) keep the ones
-   * kept.
-   */
-  settings: AutomationSettings.extend({
-    voice: Voice.optional(),
-    dayReport: z.boolean().optional(),
-    acceptedPush: z.boolean().optional(),
-    networks: NetworksSettings.optional(),
-    // A screen from before Autopilot (decision 151) sends none: it stays as it was.
-    autopilot: z.boolean().optional(),
-  }),
+/**
+ * Only what changes, as the Assistant sends it: every choice left out keeps the one kept, and so does each part of the
+ * voice and of each network's choices. Working hours go whole.
+ */
+export const AutomationChanges = loosened(AutomationSettings).extend({
+  voice: loosened(Voice).optional(),
+  networks: z
+    .object({
+      facebook: loosened(NetworksSettings.shape.facebook.unwrap()).optional(),
+      linkedin: loosened(NetworkChoices).optional(),
+      instagram: loosened(NetworkChoices).optional(),
+      alignable: loosened(NetworkChoices).optional(),
+    })
+    .optional(),
 });
+export type AutomationChanges = z.output<typeof AutomationChanges>;
+
+export const AutomationSaveInput = z
+  .object({
+    workspaceId: z.uuid(),
+    /** Someone else's, for an owner or admin; the person's own when left out. */
+    userId: z.uuid().optional(),
+    /**
+     * Everything, as the screens and the extension send it. The voice, the day's report, the accept push and the
+     * networks left out (a screen from before them) keep the ones kept.
+     */
+    settings: AutomationSettings.extend({
+      voice: Voice.optional(),
+      dayReport: z.boolean().optional(),
+      acceptedPush: z.boolean().optional(),
+      networks: NetworksSettings.optional(),
+      // A screen from before Autopilot (decision 151) sends none: it stays as it was.
+      autopilot: z.boolean().optional(),
+    }).optional(),
+    /** Or only what changes (`AutomationChanges`), put on what's kept. */
+    changes: AutomationChanges.optional(),
+  })
+  .refine((i) => i.settings !== undefined || i.changes !== undefined, {
+    error: 'Say what changes.',
+    path: ['changes'],
+  });
 export type AutomationSaveInput = z.input<typeof AutomationSaveInput>;
 
 export const AutomationSaveOutput = AutomationOutput;
