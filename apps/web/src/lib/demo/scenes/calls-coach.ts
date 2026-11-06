@@ -188,6 +188,7 @@ const MEETING = s47(0x22);
  * method's stage it's for, so the stage bar shows. The words are made up for the scene.
  */
 const PLAYBOOK: NonNullable<Ok<'/v1/queries/salescoach.live'>['call']>['playbook'] = {
+  id: s47(0x23),
   name: 'Going over an estimate',
   details: {
     steps: [

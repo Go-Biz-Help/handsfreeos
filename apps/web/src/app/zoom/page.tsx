@@ -41,9 +41,9 @@ export default async function ZoomHomePage() {
         <Card className="space-y-2 p-4 text-[14px]">
           <p>Nothing in HandsFreeOS listens to your Zoom meetings yet.</p>
           <p className="text-[13px] text-text-2">
-            An owner of your business can turn on an add-on that does, like AI Sales Coach, under
-            Settings → Add-ons, and give you its permission. Then open HandsFreeOS from Zoom’s Apps
-            button again.
+            An owner of your business can turn on an add-on that does, like AI Sales Coach, in
+            Add-ons, at the bottom of the side menu, and give you its permission. Then open
+            HandsFreeOS from Zoom’s Apps button again.
           </p>
         </Card>
       ) : (

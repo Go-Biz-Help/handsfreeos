@@ -6,6 +6,7 @@
  * nothing is saved here, the owner edits it and saves. Each counts against the business's daily AI limit like any
  * other use.
  */
+import { draftAnswer } from '@hfos/core/addons/salescoach/ai-answers';
 import {
   BRIEF_GUESS_SCHEMA,
   BRIEF_GUESS_SYSTEM,
@@ -75,9 +76,11 @@ export const playbookDraft: AddonWorkerAction<PlaybookDraftInput> = {
   ai: {
     tool: 'salescoach_draft_playbook',
     description:
-      "A Sales Coach playbook to start from: the AI writes one from what the business says about itself, or tidies the business's own call script, pasted (script) or read from one of its files (fileId). Nothing is saved: the owner edits it and saves.",
+      "A Sales Coach playbook to start from: the AI writes one in the question-led way (calm questions that let the customer say what's wrong, what they want and why it matters, before showing how the business helps) from what the business says about itself and the answers to the script builder's questions (brief), or tidies the business's own call script, pasted (script) or read from one of its files (fileId), keeping its words. Nothing is saved, and it isn't on the Playbooks tab: show it to them, and once they're happy save it with salescoach_playbook_save (name, kind and details as they came back).",
     autonomy: 'auto',
-    keywords: ['draft a playbook', 'call script', 'sales playbook'],
+    keywords: ['draft a playbook', 'call script', 'sales playbook', 'build my scripts'],
+    answer: draftAnswer,
+    whole: true,
   },
   input: PlaybookDraftInput,
   async run(ctx, raw): Promise<PlaybookDraftOutput> {

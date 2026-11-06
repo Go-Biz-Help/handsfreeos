@@ -536,7 +536,10 @@ go out as its body, whole (a line is cut short), and a warning for what reaches 
 the model gave, a line for each part. The manifest's `ai.places` says
 where its pages are, the way core's places are said, and `ai.lookAlikes` the words it shares with core's pages: both
 are told only where it runs, to people who may open it, and name the page a question is asked from (`addonPlaces`,
-with `queryIds` for what an id in a page's query holds there). `ui.settingsPath` is where its business settings are
+with `queryIds` for what an id in a page's query holds there, and `view` for a tab one page keeps at `?view=`, as AI
+Sales Coach's are). A worker action's `ai` can reshape what the model reads the same way (`answer`), and say an answer
+is only any use whole (`whole`, a draft to save as it is), read up to 40,000 characters rather than cut at 16,000.
+`ui.settingsPath` is where its business settings are
 when that isn't its page keyed `settings`, for the card that saves them. `find_capabilities` answers "can
 this business do X" from the capability sets. It suggests an add-on only to people who manage add-ons, at most two,
 only `available` ones, and only when nothing the business already has matches as well; it names a planned one only

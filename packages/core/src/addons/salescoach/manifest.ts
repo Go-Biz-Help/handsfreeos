@@ -11,6 +11,7 @@
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
 import { defineAddon } from '../manifest';
+import { SALESCOACH_LOOK_ALIKES, SALESCOACH_PLACES } from './ai-places';
 
 export const salescoachAddon = defineAddon({
   id: 'salescoach',
@@ -154,8 +155,11 @@ export const salescoachAddon = defineAddon({
     // On the phone: the live call (a cell call can't show a bar), from the push or under More.
     phone: [{ path: '', query: ['view'], web: { view: ['calls', 'trends', 'playbooks'] } }],
   },
+  // What the Assistant is told while it runs here: what its tools cover, and where its tabs are (./ai-places.ts).
   ai: {
     directory:
-      'live sales coaching on calls: the business’s sales playbooks (scripts, objection answers, talking points) and coached calls with their notes and scores',
+      'live sales coaching on calls (the coach’s cards, stopping and starting it), the business’s sales playbooks (scripts, objection answers, talking points) and writing them, coached calls and written conversations with their write-ups and scores, each rep’s trends, what’s working (lessons from wins) and suggested replies in conversations',
+    places: SALESCOACH_PLACES,
+    lookAlikes: SALESCOACH_LOOK_ALIKES,
   },
 });

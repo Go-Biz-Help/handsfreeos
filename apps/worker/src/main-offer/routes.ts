@@ -143,7 +143,7 @@ async function preparing(
     throw HfosError.rule(
       'main_offer_not_in_use',
       409,
-      `Your main offer comes with ${offer.comesWith.join(' or ') || 'an add-on'}, which isn’t on in this business. An owner or admin can turn it on in Settings → Add-ons.`,
+      `Your main offer comes with ${offer.comesWith.join(' or ') || 'an add-on'}, which isn’t on in this business. An owner or admin can turn it on in Add-ons, at the bottom of the side menu.`,
     );
   const scope = { workspaceId: id, organizationId: workspace.organizationId };
   const grounding = await asWorker(deps.httpDb, scope, (tx) => loadGrounding(tx, id));

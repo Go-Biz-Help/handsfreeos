@@ -76,7 +76,7 @@ export async function requirePartnersInUse(ctx: CommandContext): Promise<void> {
   throw HfosError.rule(
     'partners_not_in_use',
     409,
-    `Partners come with ${comesWithWords()}, which isn’t on in this business. An owner or admin can turn it on in Settings → Add-ons. Your partners and what they earned are kept until then.`,
+    `Partners come with ${comesWithWords()}, which isn’t on in this business. An owner or admin can turn it on in Add-ons, at the bottom of the side menu. Your partners and what they earned are kept until then.`,
   );
 }
 

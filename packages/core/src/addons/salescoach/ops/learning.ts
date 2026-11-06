@@ -11,6 +11,7 @@ import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { lessonCard, lessonOutcome } from '../ai-answers';
 import { LESSON_KINDS, WIN_KINDS, WIN_WINDOW_MS } from '../learn';
 import { salescoachAddon } from '../manifest';
 import { PLAYBOOK_LIMITS, PlaybookDetails, renumberPlaybook } from '../playbooks';
@@ -196,9 +197,23 @@ export const lessonDecide = defineAddonCommand(salescoachAddon, {
     'Use a lesson the coach learned from wins, which changes the playbook (a better answer replaces the objection’s, a new objection is added), or dismiss it.',
   risk: 1,
   input: z.object({ workspaceId: uuid, lessonId: uuid, use: z.boolean() }),
-  output: z.object({ state: z.enum(['used', 'dismissed']) }),
+  output: z.object({
+    state: z.enum(['used', 'dismissed']),
+    /** What it was, so the card says which playbook and objection: the screen shows them beside Use it. */
+    playbookName: z.string(),
+    kind: z.enum(LESSON_KINDS),
+    objection: z.string(),
+    /** What the playbook said before, for a better answer. */
+    current: z.string().nullable(),
+    answer: z.string(),
+  }),
   permission: 'salescoach.manage',
-  ai: { tool: 'salescoach_lesson_decide', autonomy: 'confirm' },
+  ai: {
+    tool: 'salescoach_lesson_decide',
+    autonomy: 'confirm',
+    card: lessonCard,
+    outcome: lessonOutcome,
+  },
   scope: inWorkspace,
   emits: ['salescoach.lesson.decided', 'salescoach.playbook.saved'],
   async handler(ctx, input) {
@@ -213,8 +228,13 @@ export const lessonDecide = defineAddonCommand(salescoachAddon, {
       );
     const me = userIdOf(ctx.actor);
     const at = changeMoment(ctx.meta);
+    const [p] = await ctx.tx.select().from(playbooks).where(eq(playbooks.id, l.playbookId));
+    const was = p ? PlaybookDetails.safeParse(p.details) : null;
+    const current =
+      l.objectionId && was?.success
+        ? (was.data.objections.find((o) => o.id === l.objectionId)?.answer ?? null)
+        : null;
     if (input.use) {
-      const [p] = await ctx.tx.select().from(playbooks).where(eq(playbooks.id, l.playbookId));
       if (!p || p.archivedAt)
         throw HfosError.rule(
           'salescoach_playbook_archived',
@@ -270,7 +290,14 @@ export const lessonDecide = defineAddonCommand(salescoachAddon, {
       entityId: l.playbookId,
       payload: { lessonId: l.id, kind: l.kind, used: input.use },
     });
-    return { state };
+    return {
+      state,
+      playbookName: p?.name ?? '',
+      kind: l.kind,
+      objection: l.objection,
+      current,
+      answer: l.answer,
+    };
   },
 });
 

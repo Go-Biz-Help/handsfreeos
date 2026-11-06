@@ -14267,7 +14267,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. The first one, or one marked usual, is the one calls use.
+         * Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold call), else the usual one; the first one saved is the usual one until another is marked. On a change, whatever is left out stays as it is: pass only the name, the kind, or the lists of details that change (a list given replaces that list whole), or only isDefault to make it the usual one.
          * @description Risk level 1. Requires salescoach.manage. Emits salescoach.playbook.saved.
          */
         post: operations["command_salescoach_playbook_save"];
@@ -22787,7 +22787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s sales playbooks (script steps, objections with their answers, talking points): the usual one first, then the rest in use, then any archived.
+         * The business’s sales playbooks (script steps, objections with their answers, talking points): the usual one first, then the rest in use, then any archived; or one by its id.
          * @description Requires salescoach.use.
          */
         post: operations["query_salescoach_playbook_list"];
@@ -57833,6 +57833,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        person: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        startedAt: string;
                         /** @enum {string} */
                         state: "live" | "writing" | "done" | "failed" | "stopped";
                     };
@@ -57865,6 +57871,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        person: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        startedAt: string;
                         /** @enum {string} */
                         state: "live" | "writing" | "done" | "failed" | "stopped";
                     };
@@ -57930,6 +57942,12 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        answer: string;
+                        current: string | null;
+                        /** @enum {string} */
+                        kind: "better_answer" | "new_objection";
+                        objection: string;
+                        playbookName: string;
                         /** @enum {string} */
                         state: "used" | "dismissed";
                     };
@@ -58012,20 +58030,17 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    details: {
-                        /** @default [] */
+                    details?: {
                         objections?: {
                             answer: string;
                             id: string;
                             objection: string;
                         }[];
-                        /** @default [] */
                         points?: {
                             fact: string;
                             id: string;
                             topic: string;
                         }[];
-                        /** @default [] */
                         steps?: {
                             id: string;
                             /** @default  */
@@ -58038,12 +58053,9 @@ export interface operations {
                         }[];
                     };
                     isDefault?: boolean;
-                    /**
-                     * @default any
-                     * @enum {string}
-                     */
+                    /** @enum {string} */
                     kind?: "new_lead" | "booked_call" | "aged_lead" | "cold_call" | "first_call" | "estimate" | "follow_up" | "any";
-                    name: string;
+                    name?: string;
                     /** Format: uuid */
                     playbookId?: string;
                     /** Format: uuid */
@@ -88887,6 +88899,10 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     coachedCallId: string;
+                    /** @default 0 */
+                    linesFrom?: number;
+                    /** @default true */
+                    withLines?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -89166,6 +89182,8 @@ export interface operations {
                                         title: string;
                                     }[];
                                 };
+                                /** Format: uuid */
+                                id: string;
                                 name: string;
                             } | null;
                             startedAt: string;
@@ -89188,6 +89206,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    playbookId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };

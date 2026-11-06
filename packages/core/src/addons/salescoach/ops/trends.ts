@@ -8,6 +8,7 @@ import { and, eq, gte, inArray, isNotNull } from 'drizzle-orm';
 import { z } from 'zod';
 import { users, workspaces } from '@hfos/db/schema';
 import { defineAddonQuery } from '../../server';
+import { trendsAnswer } from '../ai-answers';
 import { salescoachAddon } from '../manifest';
 import { PlaybookDetails } from '../playbooks';
 import { coachedCalls, playbooks } from '../tables';
@@ -49,7 +50,8 @@ export const trends = defineAddonQuery(salescoachAddon, {
   ai: {
     tool: 'salescoach_trends',
     description:
-      'How each sales rep’s coached calls are trending: average score, talk time, objections answered, script steps done, wins and the steps they skip most, against the weeks before.',
+      'How each sales rep’s coached calls are trending: average score, talk time (35 to 60% of the talking is the sweet spot), objections answered, script steps done, wins (a job booked, an estimate accepted, a payment or a deal won within a week of the call) and the steps they skip most (once a step has been on at least 3 calls), against the same number of weeks before. The team comes first; with several reps, each rep’s week-by-week scores are left out: pass userId for one rep’s weeks.',
+    answer: trendsAnswer,
   },
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;

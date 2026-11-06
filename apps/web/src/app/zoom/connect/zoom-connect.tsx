@@ -77,8 +77,8 @@ export function ZoomConnect({
       )}
       {nobodyCoaches ? (
         <p className="text-[12.5px] text-text-3">
-          Nothing in this business coaches meetings yet. An owner can turn on AI Sales Coach under
-          Settings → Add-ons; your Zoom stays connected for when they do.
+          Nothing in this business coaches meetings yet. An owner can turn on AI Sales Coach in
+          Add-ons, at the bottom of the side menu; your Zoom stays connected for when they do.
         </p>
       ) : null}
       {error ? (

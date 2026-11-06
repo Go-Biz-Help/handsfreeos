@@ -72,7 +72,7 @@ export async function requireMainOfferInUse(ctx: CommandContext): Promise<void> 
   throw HfosError.rule(
     'main_offer_not_in_use',
     409,
-    `Your main offer comes with ${comesWithWords()}, which isn’t on in this business. An owner or admin can turn it on in Settings → Add-ons; your offer is kept until then.`,
+    `Your main offer comes with ${comesWithWords()}, which isn’t on in this business. An owner or admin can turn it on in Add-ons, at the bottom of the side menu; your offer is kept until then.`,
   );
 }
 
