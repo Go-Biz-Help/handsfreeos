@@ -2,8 +2,9 @@
  * The Assistant on a customer's, company's, record's and lead's pages, against the real database: a call or a visit
  * logged after the fact on a pet; a lead opened for a company in a second pipeline, with its next step, expected
  * close and source; a lead renamed and its follow-up moved; a lead read in full with its qualifying answers; tasks
- * on a company and a pet, listed by the record they're on; one lead's money; and a text to another of a customer's
- * numbers. Every change shows its card first, changes nothing until Confirm, and runs as the person "via Assistant".
+ * on a company and a pet, listed by the record they're on, and a task's notes, all-day and lead changed; one lead's
+ * money; and a text or an email to another of a customer's numbers or addresses. Every change shows its card first,
+ * changes nothing until Confirm, and runs as the person "via Assistant".
  */
 import { randomUUID } from 'node:crypto';
 import {
@@ -117,6 +118,8 @@ beforeAll(async () => {
         lastName: 'Park',
         phone: '512-555-0170',
         otherPhones: [{ phone: '512-555-0177', label: 'Work' }],
+        email: 'jo@park.test',
+        otherEmails: [{ email: 'jo@work.test', label: 'Work' }],
       },
       dale,
     )
@@ -351,6 +354,55 @@ describe('tasks on a company or a record', () => {
       expect.objectContaining({ id: rexTask, done: expect.any(String) }),
     ]);
   });
+
+  it('gives one notes, makes it all day and ties it to a lead, then takes the lead off', async () => {
+    const made = await tools().run(
+      tool('create_task'),
+      argsOf('create_task', {
+        title: 'Call Jo about the heater',
+        personId: jo,
+        dueAt: '2026-11-24T09:00:00-06:00',
+      }),
+      ctx(),
+    );
+    const taskId = (made.record as { taskId: string }).taskId;
+    const out = await tools().run(
+      tool('update_task'),
+      argsOf('update_task', {
+        taskId,
+        notes: 'Ask about the warranty',
+        allDay: true,
+        leadId: joLead,
+      }),
+      ctx(),
+    );
+    expect((out.result as { changed: string[] }).changed).toEqual(
+      expect.arrayContaining(['notes', 'due time', 'lead']),
+    );
+    const row = () =>
+      one<{ notes: string | null; all_day: boolean; lead_id: string | null }>(
+        sql`select notes, all_day, lead_id from app.tasks where id = ${taskId}`,
+      );
+    expect(await row()).toEqual({
+      notes: 'Ask about the warranty',
+      all_day: true,
+      lead_id: joLead,
+    });
+    expect((await read('list_tasks', { leadId: joLead })).tasks).toEqual([
+      expect.objectContaining({
+        id: taskId,
+        notes: 'Ask about the warranty',
+        lead: { id: joLead, title: 'Tankless water heater' },
+      }),
+    ]);
+
+    await tools().run(
+      tool('update_task'),
+      argsOf('update_task', { taskId, notes: null, leadId: null }),
+      ctx(),
+    );
+    expect(await row()).toEqual({ notes: null, all_day: true, lead_id: null });
+  });
 });
 
 describe('one lead’s money', () => {
@@ -402,5 +454,40 @@ describe('texting another of their numbers', () => {
     await expect(
       prepare('send_text', { personId: jo, to: '512-555-0999', body: 'Hi' }),
     ).rejects.toThrow('isn’t one of Jo’s numbers');
+  });
+
+  it('emails another of their addresses on file the same way, and never one they don’t have', async () => {
+    const { card } = await prepare('send_email', {
+      personId: jo,
+      to: 'Jo@Work.test',
+      subject: 'Your heater',
+      body: 'It’s in.',
+    });
+    expect(card.title).toBe('Email Jo?');
+    expect(field(card, 'To')).toBe('Jo Park · jo@work.test · Work');
+    expect(card.warnings).toEqual([]);
+    // Their main email is the usual one.
+    const main = await prepare('send_email', {
+      personId: jo,
+      to: 'JO@park.test',
+      subject: 'Hi',
+      body: 'Hi',
+    });
+    expect(field(main.card, 'To')).toBe('Jo Park · jo@park.test');
+    await expect(
+      prepare('send_email', { personId: jo, to: 'jo@else.test', subject: 'Hi', body: 'Hi' }),
+    ).rejects.toThrow('isn’t one of Jo’s emails');
+    // Another address goes with the customer it belongs to.
+    await expect(
+      prepare('send_email', {
+        conversationId: randomUUID(),
+        to: 'jo@work.test',
+        subject: 'Hi',
+        body: 'Hi',
+      }),
+    ).rejects.toThrow('to goes with personId');
+    expect(
+      await rows(admin(), sql`select id from app.messages where workspace_id = ${workspaceId}`),
+    ).toEqual([]);
   });
 });

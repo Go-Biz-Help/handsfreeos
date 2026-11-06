@@ -1169,8 +1169,8 @@
       "path": "Record page → Files tab: delete a file",
       "kind": "do",
       "file": "apps/web/src/components/relationships/custom-record-page.tsx:374",
-      "covered": "yes",
-      "by": "delete_file"
+      "covered": "never",
+      "by": "Never: removing a file deletes it for good, past the Deleted bin (file.delete in NEVER_FOR_THE_ASSISTANT); the person presses it"
     },
     {
       "path": "Record page → Details: added, by",

@@ -170,7 +170,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Open a lead for them: their page, press Lead',
       'Add a task for them: their page, press Task, then New task',
       'Upload a photo or file: their page, press File, then Choose file',
-      'Remove a file: their page, Files tab, ⋯ beside the file, then Remove (for whoever may delete files); it’s gone for good, and a signed one can’t be removed',
+      'Remove a file: their page, Files tab, ⋯ beside the file, then Remove (for whoever may delete files); it’s gone for good, so they press it themselves, and a signed one can’t be removed',
       'Send them a document to sign: their page, press Document',
       'Start a video call with them: their page, press Video call; the link goes by text or email',
       'Write them an estimate or invoice: their page, Money tab, New estimate or New invoice',
@@ -190,9 +190,6 @@ export const APP_PLACES: readonly AppPlace[] = [
       'text or email another of their numbers or emails on file',
       'add their pets, vehicles or properties, change them, and relate records',
       'put them on a maintenance plan',
-    ],
-    notHere: [
-      'removing a file through the Assistant (it’s gone for good, so it stays the person’s)',
     ],
     path: '/customers/people/[personId]',
   },
