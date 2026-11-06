@@ -1,0 +1,2204 @@
+{
+  "area": "money",
+  "title": "Money: estimates, invoices, payments and plans",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "f903866463b2",
+    "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
+    "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx": "9f2cdb1aa7e9",
+    "apps/mobile/src/components/money/document.tsx": "7c5c0a412ed0",
+    "apps/mobile/src/components/money/money-rows.tsx": "e84e9da12251",
+    "apps/mobile/src/components/money/record-cash.tsx": "4da029adf47b",
+    "apps/mobile/src/components/money/send-sheet.tsx": "bcf45fc4f992",
+    "apps/mobile/src/money/actions.ts": "f1232739ac75",
+    "apps/mobile/src/money/outbox.ts": "dd8b9341ca64",
+    "apps/mobile/src/money/queries.ts": "f6eaf98eb9c8",
+    "apps/mobile/src/money/use-money.ts": "7d76c20eb80a",
+    "apps/web/src/app/app/w/[workspaceId]/money/estimates/[estimateId]/page.tsx": "1906f7713b32",
+    "apps/web/src/app/app/w/[workspaceId]/money/estimates/new/page.tsx": "c32170efaf1a",
+    "apps/web/src/app/app/w/[workspaceId]/money/estimates/page.tsx": "3b13f014ac9e",
+    "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "be0c4a7f1965",
+    "apps/web/src/app/app/w/[workspaceId]/money/invoices/new/page.tsx": "e59893d795bb",
+    "apps/web/src/app/app/w/[workspaceId]/money/invoices/page.tsx": "90f9f3d0801d",
+    "apps/web/src/app/app/w/[workspaceId]/money/load.ts": "815e1c127c77",
+    "apps/web/src/app/app/w/[workspaceId]/money/page.tsx": "3aeca4c2854c",
+    "apps/web/src/app/app/w/[workspaceId]/money/payments/page.tsx": "5e67d1accc7e",
+    "apps/web/src/app/app/w/[workspaceId]/money/plans/[subscriptionId]/page.tsx": "7154f14b99f3",
+    "apps/web/src/app/app/w/[workspaceId]/money/plans/page.tsx": "9b1158f8192b",
+    "apps/web/src/app/app/w/[workspaceId]/money/seed.ts": "fd64a6e29f19",
+    "apps/web/src/components/money/copy-link.tsx": "c2ae31b0b2a4",
+    "apps/web/src/components/money/document-actions.tsx": "36009bf40f1a",
+    "apps/web/src/components/money/document-editor.tsx": "9b1e092e2ffd",
+    "apps/web/src/components/money/document-page.tsx": "3a9f79c18181",
+    "apps/web/src/components/money/document-view.tsx": "ba91d03682a3",
+    "apps/web/src/components/money/draft.ts": "c6ae885a6a21",
+    "apps/web/src/components/money/estimates-list.tsx": "4afdda3a637b",
+    "apps/web/src/components/money/filters.tsx": "6225123dd9b3",
+    "apps/web/src/components/money/headline-strip.tsx": "226908723348",
+    "apps/web/src/components/money/invoices-list.tsx": "5757e2f08f48",
+    "apps/web/src/components/money/line-sheet.tsx": "d83841948b14",
+    "apps/web/src/components/money/list-bits.tsx": "9fd32e374651",
+    "apps/web/src/components/money/list-options.ts": "30e1321f06c5",
+    "apps/web/src/components/money/money-input.tsx": "297d3a23947d",
+    "apps/web/src/components/money/payments-list.tsx": "144c3070c541",
+    "apps/web/src/components/money/person-picker.tsx": "8aeb51e81ba0",
+    "apps/web/src/components/money/plan-editor.tsx": "aa7bbeebe0db",
+    "apps/web/src/components/money/plan-page.tsx": "bcf38a673f72",
+    "apps/web/src/components/money/plan-start.tsx": "569c1c7f1dc9",
+    "apps/web/src/components/money/plan-visits.tsx": "cca43a62ad16",
+    "apps/web/src/components/money/plans-list.tsx": "69bbce72216d",
+    "apps/web/src/components/money/product-picker.tsx": "b9dd9fb90b95",
+    "apps/web/src/components/money/products-page.tsx": "bec9b813582c",
+    "apps/web/src/components/money/public-estimate.tsx": "64dcaab82276",
+    "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
+    "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
+    "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
+    "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
+    "apps/web/src/components/money/status-badge.tsx": "d8e7c772f63d",
+    "apps/web/src/components/money/subnav.tsx": "711ebdb6f088",
+    "apps/web/src/components/money/totals.tsx": "65a9d913bff7"
+  },
+  "items": [
+    {
+      "path": "Money → header → New estimate",
+      "kind": "do",
+      "file": "apps/web/src/components/money/subnav.tsx:103",
+      "covered": "yes",
+      "by": "write_estimate (new: personId, lines)"
+    },
+    {
+      "path": "Money → header → New invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/money/subnav.tsx:112",
+      "covered": "yes",
+      "by": "write_invoice (new: personId, lines)"
+    },
+    {
+      "path": "Money → New estimate/invoice opened from a lead or person (customer, title, lead filled in)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/money/seed.ts:21",
+      "covered": "yes",
+      "by": "write_estimate/write_invoice personId, leadId, title"
+    },
+    {
+      "path": "Money → headline → Outstanding: total, invoices waiting, $ on its way",
+      "kind": "see",
+      "file": "apps/web/src/components/money/headline-strip.tsx:52",
+      "covered": "yes",
+      "by": "money_owed → owed, settling; card counts invoices"
+    },
+    {
+      "path": "Money → headline → Overdue: total and invoices past the due date",
+      "kind": "see",
+      "file": "apps/web/src/components/money/headline-strip.tsx:52",
+      "covered": "yes",
+      "by": "money_owed → overdue; card stat ‘overdue · N’"
+    },
+    {
+      "path": "Money → headline → Collected in 30 days: total, date range, after $ refunded",
+      "kind": "see",
+      "file": "apps/web/src/components/money/headline-strip.tsx:52",
+      "covered": "yes",
+      "by": "money_collected days=30 → collected, refunded"
+    },
+    {
+      "path": "Money → tabs → Invoices, Estimates, Payments, Plans",
+      "kind": "do",
+      "file": "apps/web/src/components/money/subnav.tsx:38",
+      "covered": "partly",
+      "by": "each tab has a read below; none lists a whole tab"
+    },
+    {
+      "path": "Money → breadcrumb → Money › tab › number links",
+      "kind": "do",
+      "file": "apps/web/src/components/money/subnav.tsx:80",
+      "covered": "yes",
+      "by": "money cards link to the same pages (href)"
+    },
+    {
+      "path": "Money → list → ‘N shown’ / ‘Updating…’ count",
+      "kind": "see",
+      "file": "apps/web/src/components/money/filters.tsx:120",
+      "covered": "partly",
+      "by": "money_owed / estimates_waiting counts, open ones only"
+    },
+    {
+      "path": "Money → Invoices → Search invoices box",
+      "kind": "do",
+      "file": "apps/web/src/components/money/filters.tsx:61",
+      "covered": "partly",
+      "by": "read_search_everything finds bills by number, amount, title, customer, note; not this list"
+    },
+    {
+      "path": "Money → Invoices → status filter: All, Waiting to be paid, Overdue, Paid, Drafts, Voided",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-options.ts:112",
+      "covered": "partly",
+      "by": "money_owed (overdueOnly) = Waiting, Overdue; no list of paid, drafts, voided"
+    },
+    {
+      "path": "Money → Invoices → account filter: Every account, each account, No account",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-options.ts:70",
+      "covered": "no",
+      "by": "no money read filters by or returns the account"
+    },
+    {
+      "path": "Money → Invoices → each row: number, customer, status, balance",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:98",
+      "covered": "partly",
+      "by": "money_owed → number, customer, state, balance; open invoices only"
+    },
+    {
+      "path": "Money → Invoices → each row: What (title) and purpose pill (Deposit, Plan, Setup fee)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:112",
+      "covered": "partly",
+      "by": "get_money_document → for; purpose never returned"
+    },
+    {
+      "path": "Money → Invoices → each row: Total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:131",
+      "covered": "partly",
+      "by": "get_money_document → total, one at a time"
+    },
+    {
+      "path": "Money → Invoices → each row: Due (due wording, Paid <day>, payment on its way, Not sent, Voided, Refunded)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:125",
+      "covered": "partly",
+      "by": "state and dueOn; paid date not returned"
+    },
+    {
+      "path": "Money → Invoices → each row: Paid into (account)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:128",
+      "covered": "no",
+      "by": "no tool returns an invoice’s account"
+    },
+    {
+      "path": "Money → Invoices → open a row",
+      "kind": "do",
+      "file": "apps/web/src/components/money/invoices-list.tsx:103",
+      "covered": "yes",
+      "by": "get_money_document invoiceId; card links to the page"
+    },
+    {
+      "path": "Money → Invoices → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-bits.tsx:123",
+      "covered": "partly",
+      "by": "money_owed limit 20, open only"
+    },
+    {
+      "path": "Money → Invoices → empty: No invoices yet / No invoices match, New invoice",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:64",
+      "covered": "yes",
+      "by": "money_owed ‘Every invoice has been paid.’; write_invoice"
+    },
+    {
+      "path": "Money → Invoices → note: members see only invoices for jobs they are on",
+      "kind": "see",
+      "file": "apps/web/src/components/money/invoices-list.tsx:197",
+      "covered": "yes",
+      "by": "money_owed note ‘Only the jobs you are on are counted here.’"
+    },
+    {
+      "path": "Money → Estimates → Search estimates box",
+      "kind": "do",
+      "file": "apps/web/src/components/money/filters.tsx:61",
+      "covered": "partly",
+      "by": "read_search_everything finds estimates by number, amount, title, customer"
+    },
+    {
+      "path": "Money → Estimates → status filter: All, Out and unanswered, Approved, Declined, Expired, Drafts, Voided",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-options.ts:121",
+      "covered": "partly",
+      "by": "estimates_waiting = Out and unanswered; the rest only per customer (customer_money)"
+    },
+    {
+      "path": "Money → Estimates → each row: number, customer, status, total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/estimates-list.tsx:83",
+      "covered": "partly",
+      "by": "estimates_waiting (open only); customer_money (one customer)"
+    },
+    {
+      "path": "Money → Estimates → each row: What (title)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/estimates-list.tsx:96",
+      "covered": "partly",
+      "by": "get_money_document → for, one at a time"
+    },
+    {
+      "path": "Money → Estimates → each row: Where it stands (out N days, opened, good until, approved, declined, voided)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/estimates-list.tsx:107",
+      "covered": "partly",
+      "by": "estimates_waiting → out, opened, expiresOn; get_money_document → approved, declined"
+    },
+    {
+      "path": "Money → Estimates → open a row",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimates-list.tsx:88",
+      "covered": "yes",
+      "by": "get_money_document estimateId"
+    },
+    {
+      "path": "Money → Estimates → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimates-list.tsx:147",
+      "covered": "partly",
+      "by": "estimates_waiting limit 20, open only"
+    },
+    {
+      "path": "Money → Estimates → empty: No estimates yet / No estimates match, New estimate",
+      "kind": "see",
+      "file": "apps/web/src/components/money/estimates-list.tsx:52",
+      "covered": "yes",
+      "by": "estimates_waiting ‘Every estimate has been answered.’; write_estimate"
+    },
+    {
+      "path": "Money → Estimates → note: an estimate stays good for N days, then expires",
+      "kind": "see",
+      "file": "apps/web/src/components/money/estimates-list.tsx:163",
+      "covered": "yes",
+      "by": "get_settings payments → estimateGoodForDays"
+    },
+    {
+      "path": "Money → Payments → status filter: Every payment, Collected, On its way, Failed",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-options.ts:131",
+      "covered": "partly",
+      "by": "money_collected counts collected; on its way and failed only per invoice (get_money_document)"
+    },
+    {
+      "path": "Money → Payments → method filter: Any way, Card, Bank transfer, Cash, Check, Other",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-options.ts:138",
+      "covered": "no",
+      "by": "no tool lists payments by how they were paid"
+    },
+    {
+      "path": "Money → Payments → account filter",
+      "kind": "do",
+      "file": "apps/web/src/components/money/filters.tsx:106",
+      "covered": "no",
+      "by": "no tool splits payments by account"
+    },
+    {
+      "path": "Money → Payments → each row: when, customer, how (method · account), invoice, status, amount, refunded",
+      "kind": "see",
+      "file": "apps/web/src/components/money/payments-list.tsx:116",
+      "covered": "partly",
+      "by": "money_collected gives the model totals and a count (rows only on its card); get_money_document → one invoice’s payments; account never"
+    },
+    {
+      "path": "Money → Payments → each row → invoice number link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/payments-list.tsx:121",
+      "covered": "yes",
+      "by": "get_money_document invoiceId"
+    },
+    {
+      "path": "Money → Payments → total row: Collected in 30 days (every account)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/payments-list.tsx:152",
+      "covered": "yes",
+      "by": "money_collected days=30 → collected"
+    },
+    {
+      "path": "Money → Payments → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/money/payments-list.tsx:191",
+      "covered": "partly",
+      "by": "money_collected reads 100 payments, shows 8"
+    },
+    {
+      "path": "Money → Payments → empty: No payments yet / No payments match",
+      "kind": "see",
+      "file": "apps/web/src/components/money/payments-list.tsx:90",
+      "covered": "yes",
+      "by": "money_collected ‘Nothing has come in…’"
+    },
+    {
+      "path": "Money → Payments → note: every payment belongs to an invoice",
+      "kind": "see",
+      "file": "apps/web/src/components/money/payments-list.tsx:208",
+      "covered": "yes",
+      "by": "get_money_document lists payments under their invoice"
+    },
+    {
+      "path": "Money → Plans → status filter: Every plan, Billing, Payment failed, Paused, Cancelled",
+      "kind": "do",
+      "file": "apps/web/src/components/money/list-options.ts:147",
+      "covered": "partly",
+      "by": "list_plans → each customer’s status; ended ones only when narrowed to a plan or customer"
+    },
+    {
+      "path": "Money → Plans → account filter",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/money/plans/page.tsx:68",
+      "covered": "no",
+      "by": "list_plans returns no account"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-start.tsx:107",
+      "covered": "yes",
+      "by": "manage_customer_plan action start"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → Customer picker (type a name, phone or email; Change)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-start.tsx:130",
+      "covered": "yes",
+      "by": "search_customers → personId"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → Plan (name — price)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-start.tsx:148",
+      "covered": "yes",
+      "by": "manage_customer_plan planId (list_plans)"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → ‘No plans in the catalogue yet’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-start.tsx:155",
+      "covered": "yes",
+      "by": "list_plans (empty)"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → Paid into (accounts, default; none yours / none connected)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-start.tsx:164",
+      "covered": "yes",
+      "by": "manage_customer_plan connectionId; get_settings payments accounts"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → summary: price, how often, what it includes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-start.tsx:188",
+      "covered": "yes",
+      "by": "list_plans → price, includes"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → notes: bills itself at the provider, lives in one account, Square card-only / period-end cancel, Stripe retries",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-start.tsx:198",
+      "covered": "partly",
+      "by": "start card warns of Square’s limits; not the rest"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → Start the plan / Not yet",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-start.tsx:221",
+      "covered": "yes",
+      "by": "manage_customer_plan start (Confirm card); sendBy also emails or texts the card link"
+    },
+    {
+      "path": "Money → Plans → Put someone on a plan → ‘Connect an account in Settings → Payments first’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-start.tsx:226",
+      "covered": "yes",
+      "by": "start card can’t be confirmed with nowhere to bill"
+    },
+    {
+      "path": "Money → Plans → New plan",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:46",
+      "covered": "yes",
+      "by": "manage_plan action create"
+    },
+    {
+      "path": "Money → Plans → plan dialog → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:202",
+      "covered": "yes",
+      "by": "manage_plan name"
+    },
+    {
+      "path": "Money → Plans → plan dialog → Price",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:214",
+      "covered": "yes",
+      "by": "manage_plan priceDollars"
+    },
+    {
+      "path": "Money → Plans → plan dialog → Bills: every month, 3 months, 6 months, year",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:226",
+      "covered": "yes",
+      "by": "manage_plan interval, intervalCount"
+    },
+    {
+      "path": "Money → Plans → plan dialog → What it includes (one a line)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:242",
+      "covered": "yes",
+      "by": "manage_plan includes"
+    },
+    {
+      "path": "Money → Plans → plan dialog → Charge sales tax on it",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:256",
+      "covered": "yes",
+      "by": "manage_plan taxable"
+    },
+    {
+      "path": "Money → Plans → plan dialog → Add plan / Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:279",
+      "covered": "yes",
+      "by": "manage_plan create / change"
+    },
+    {
+      "path": "Money → Plans → plan dialog → note: a new price is for people who join from now on",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-editor.tsx:195",
+      "covered": "yes",
+      "by": "manage_plan description says the same"
+    },
+    {
+      "path": "Money → Plans → plan dialog → Stop selling it",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:264",
+      "covered": "yes",
+      "by": "manage_plan action stop_selling"
+    },
+    {
+      "path": "Money → Plans → each plan row: name (opens the plan dialog for managers)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-editor.tsx:83",
+      "covered": "yes",
+      "by": "list_plans → planId, name; manage_plan change"
+    },
+    {
+      "path": "Money → Plans → each plan row: Price",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:85",
+      "covered": "yes",
+      "by": "list_plans → price"
+    },
+    {
+      "path": "Money → Plans → each plan row: Members",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:88",
+      "covered": "yes",
+      "by": "list_plans → customersOnIt"
+    },
+    {
+      "path": "Money → Plans → each plan row: What it includes (or its description)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:89",
+      "covered": "partly",
+      "by": "list_plans → includes; description not returned"
+    },
+    {
+      "path": "Money → Plans → each plan row: Visits (‘AC tune-up every 6 months’)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-visits.tsx:81",
+      "covered": "yes",
+      "by": "list_plans → visits"
+    },
+    {
+      "path": "Money → Plans → each plan row: Set visits / visits button",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-visits.tsx:77",
+      "covered": "yes",
+      "by": "manage_plan change serviceId, visitEveryMonths"
+    },
+    {
+      "path": "Money → Plans → visits dialog → Service the plan covers (Pick a service…)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-visits.tsx:90",
+      "covered": "yes",
+      "by": "manage_plan serviceId (get_settings services)"
+    },
+    {
+      "path": "Money → Plans → visits dialog → Every N months",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-visits.tsx:106",
+      "covered": "yes",
+      "by": "manage_plan visitEveryMonths"
+    },
+    {
+      "path": "Money → Plans → visits dialog → No visits / Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-visits.tsx:119",
+      "covered": "yes",
+      "by": "manage_plan serviceId null"
+    },
+    {
+      "path": "Money → Plans → each plan row: A month (price × members)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:102",
+      "covered": "partly",
+      "by": "worked out from list_plans price and customersOnIt"
+    },
+    {
+      "path": "Money → Plans → Recurring: $ a month",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:107",
+      "covered": "no",
+      "by": "money.summary monthlyRecurringCents read but never returned"
+    },
+    {
+      "path": "Money → Plans → Plans that bill once a year: $ a year",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:118",
+      "covered": "partly",
+      "by": "worked out from list_plans price and customersOnIt"
+    },
+    {
+      "path": "Money → Plans → empty: No plans yet (press New plan / someone who manages money adds them)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:55",
+      "covered": "yes",
+      "by": "list_plans (empty)"
+    },
+    {
+      "path": "Money → Plans → Who is on a plan → each row: customer, plan, status, next bill, price",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:217",
+      "covered": "yes",
+      "by": "list_plans → customers: customer, plan, status, nextBilling, price"
+    },
+    {
+      "path": "Money → Plans → Who is on a plan → each row: Paid into",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:234",
+      "covered": "no",
+      "by": "list_plans returns no account"
+    },
+    {
+      "path": "Money → Plans → Who is on a plan → open a row",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plans-list.tsx:221",
+      "covered": "yes",
+      "by": "list_plans personId/planId; rows link to the plan page"
+    },
+    {
+      "path": "Money → Plans → Who is on a plan → empty: Nobody matches / Nobody is on a plan yet",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:194",
+      "covered": "yes",
+      "by": "list_plans (no customers)"
+    },
+    {
+      "path": "Money → Plans → note: plans bill through Stripe or Square; a failed cycle shows as Payment failed",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plans-list.tsx:282",
+      "covered": "yes",
+      "by": "list_plans status ‘Card refused, retrying’"
+    },
+    {
+      "path": "Money → a plan → header: price, status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:268",
+      "covered": "yes",
+      "by": "list_plans customers → price, status"
+    },
+    {
+      "path": "Money → a plan → header: customer link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:275",
+      "covered": "yes",
+      "by": "get_customer personId (list_plans)"
+    },
+    {
+      "path": "Money → a plan → header: plan name · since <date>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:281",
+      "covered": "partly",
+      "by": "list_plans → plan; start date not returned"
+    },
+    {
+      "path": "Money → a plan → standing line (next charge, refused N times, paused since, ended — reason, not managed here)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:284",
+      "covered": "partly",
+      "by": "list_plans status, nextBilling; no failed count, pause date, end date or reason"
+    },
+    {
+      "path": "Money → a plan → Ask for a new card",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:297",
+      "covered": "yes",
+      "by": "manage_customer_plan ask_for_card (email, else text)"
+    },
+    {
+      "path": "Money → a plan → Copy link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:303",
+      "covered": "no",
+      "by": "no tool hands back the customer’s link"
+    },
+    {
+      "path": "Money → a plan → Pause",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:317",
+      "covered": "yes",
+      "by": "manage_customer_plan pause"
+    },
+    {
+      "path": "Money → a plan → Start it again",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:328",
+      "covered": "yes",
+      "by": "manage_customer_plan resume"
+    },
+    {
+      "path": "Money → a plan → Cancel the plan / Cancel at the end of the period",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:339",
+      "covered": "yes",
+      "by": "manage_customer_plan cancel (reason)"
+    },
+    {
+      "path": "Money → a plan → cancel dialog: title, what happens, unmanaged warning",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:622",
+      "covered": "yes",
+      "by": "manage_customer_plan cancel card warnings say the same"
+    },
+    {
+      "path": "Money → a plan → cancel dialog → Keep it running / Cancel the plan",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:638",
+      "covered": "yes",
+      "by": "Confirm card"
+    },
+    {
+      "path": "Money → a plan → waiting on a card: heading and explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:348",
+      "covered": "yes",
+      "by": "list_plans status ‘Waiting on a card’"
+    },
+    {
+      "path": "Money → a plan → waiting on a card: Last asked <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:361",
+      "covered": "partly",
+      "by": "list_plans card ‘asked for, not added yet’; no time"
+    },
+    {
+      "path": "Money → a plan → waiting on a card: It goes to <email or mobile>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:367",
+      "covered": "yes",
+      "by": "get_customer email, phone"
+    },
+    {
+      "path": "Money → a plan → waiting on a card → Email them the link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:380",
+      "covered": "yes",
+      "by": "manage_customer_plan ask_for_card sendBy email"
+    },
+    {
+      "path": "Money → a plan → waiting on a card → Text it instead",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:391",
+      "covered": "yes",
+      "by": "manage_customer_plan ask_for_card sendBy sms"
+    },
+    {
+      "path": "Money → a plan → waiting on a card → Copy link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:397",
+      "covered": "no",
+      "by": "no tool hands back the customer’s link"
+    },
+    {
+      "path": "Money → a plan → still billing at the provider: account disconnected, its error, the two ways out",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:410",
+      "covered": "partly",
+      "by": "list_plans status ‘not managed here’; error not returned"
+    },
+    {
+      "path": "Money → a plan → still billing → reconnect that account in Settings → Payments",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:423",
+      "covered": "never",
+      "by": "payment_connection.connect: signing in to Stripe or Square"
+    },
+    {
+      "path": "Money → a plan → The last charge failed: reason, retries, N cycles failed, customer told",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:435",
+      "covered": "partly",
+      "by": "list_plans status ‘Card refused, retrying’; reason and count not returned"
+    },
+    {
+      "path": "Money → a plan → schedule: Bills on (‘the 22nd, every month’)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:455",
+      "covered": "partly",
+      "by": "list_plans price interval and nextBilling only"
+    },
+    {
+      "path": "Money → a plan → schedule: Next charge",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:456",
+      "covered": "yes",
+      "by": "list_plans → nextBilling, status"
+    },
+    {
+      "path": "Money → a plan → schedule: Paid into (account link, needs reconnecting)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:463",
+      "covered": "no",
+      "by": "list_plans returns no account"
+    },
+    {
+      "path": "Money → a plan → schedule: Card on file (brand •••• last4, expiry; held by provider; none yet)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:481",
+      "covered": "partly",
+      "by": "list_plans → card brand and last 4; no expiry"
+    },
+    {
+      "path": "Money → a plan → schedule: Charged by (Stripe Billing / Square Subscriptions, its id)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:505",
+      "covered": "no",
+      "by": "provider and its subscription id not returned"
+    },
+    {
+      "path": "Money → a plan → schedule: What it includes (their copy)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:514",
+      "covered": "partly",
+      "by": "list_plans → the plan’s includes, not the customer’s copy"
+    },
+    {
+      "path": "Money → a plan → schedule note: the card never touches HandsFreeOS",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:519",
+      "covered": "yes",
+      "by": "manage_customer_plan description: card goes on their own page"
+    },
+    {
+      "path": "Money → a plan → Change the account",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:530",
+      "covered": "yes",
+      "by": "do_subscription_set_connection"
+    },
+    {
+      "path": "Money → a plan → account dialog → Paid into (No account, each account, default)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:697",
+      "covered": "yes",
+      "by": "do_subscription_set_connection connectionId"
+    },
+    {
+      "path": "Money → a plan → account dialog → provider notes; Leave it / Save",
+      "kind": "do",
+      "file": "apps/web/src/components/money/plan-page.tsx:711",
+      "covered": "yes",
+      "by": "do_subscription_set_connection (Confirm card)"
+    },
+    {
+      "path": "Money → a plan → note: a plan lives inside one account, cancel and start another",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:537",
+      "covered": "yes",
+      "by": "the command’s own refusal on do_subscription_set_connection"
+    },
+    {
+      "path": "Money → a plan → What it has billed: N invoices · N paid · N refunded",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:546",
+      "covered": "no",
+      "by": "no tool lists a plan’s cycles"
+    },
+    {
+      "path": "Money → a plan → What it has billed → each cycle: date, number, status, total (opens the invoice)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:567",
+      "covered": "partly",
+      "by": "customer_money lists their open invoices only; get_money_document one at a time"
+    },
+    {
+      "path": "Money → a plan → note: pausing keeps them on it; cancelling ends it; billed stays on the ledger",
+      "kind": "see",
+      "file": "apps/web/src/components/money/plan-page.tsx:599",
+      "covered": "yes",
+      "by": "manage_customer_plan card warnings"
+    },
+    {
+      "path": "Money → an estimate → header: number, status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:114",
+      "covered": "yes",
+      "by": "get_money_document → number, state"
+    },
+    {
+      "path": "Money → an estimate → header: customer link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:121",
+      "covered": "yes",
+      "by": "get_customer (customer.personId)"
+    },
+    {
+      "path": "Money → an estimate → header: title · Sent <day> · good until / expired",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:231",
+      "covered": "yes",
+      "by": "get_money_document → for, sentAt, goodUntil"
+    },
+    {
+      "path": "Money → an estimate → Turn into an invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:241",
+      "covered": "yes",
+      "by": "manage_estimate make_invoice"
+    },
+    {
+      "path": "Money → an estimate → convert dialog → What to bill: whole job (deposit first) / only the deposit",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:169",
+      "covered": "yes",
+      "by": "manage_estimate bill whole_job / deposit_only"
+    },
+    {
+      "path": "Money → an estimate → convert dialog → Paid into",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:183",
+      "covered": "partly",
+      "by": "make_invoice takes no account; set it after with write_invoice connectionId"
+    },
+    {
+      "path": "Money → an estimate → convert dialog → Make the invoice / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:204",
+      "covered": "yes",
+      "by": "manage_estimate make_invoice (Confirm card)"
+    },
+    {
+      "path": "Money → an estimate → They said yes",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:252",
+      "covered": "yes",
+      "by": "manage_estimate record_yes"
+    },
+    {
+      "path": "Money → an estimate → They said yes dialog → Who said yes",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:257",
+      "covered": "yes",
+      "by": "manage_estimate name"
+    },
+    {
+      "path": "Money → an estimate → They said yes dialog → Anything worth noting",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:265",
+      "covered": "yes",
+      "by": "manage_estimate note"
+    },
+    {
+      "path": "Money → an estimate → They said yes dialog → Mark approved / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:283",
+      "covered": "yes",
+      "by": "Confirm card"
+    },
+    {
+      "path": "Money → an estimate → Copy link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:261",
+      "covered": "no",
+      "by": "no tool hands back the customer’s link"
+    },
+    {
+      "path": "Money → Copy link → toast ‘Link copied’ + what the link lets anyone do; fallback Copy this link field",
+      "kind": "see",
+      "file": "apps/web/src/components/money/copy-link.tsx:113",
+      "covered": "no",
+      "by": "no tool returns the link"
+    },
+    {
+      "path": "Money → an estimate → Void",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:274",
+      "covered": "yes",
+      "by": "manage_estimate void"
+    },
+    {
+      "path": "Money → void dialog → Why",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:525",
+      "covered": "yes",
+      "by": "manage_estimate / manage_invoice reason"
+    },
+    {
+      "path": "Money → void dialog → keeps its number, never reused; Void it / Keep it",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:536",
+      "covered": "yes",
+      "by": "Confirm card says it keeps its number and can’t be undone"
+    },
+    {
+      "path": "Money → an estimate → each line: name, qty and unit, price, amount, money off, no tax",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-view.tsx:57",
+      "covered": "yes",
+      "by": "get_money_document → lines"
+    },
+    {
+      "path": "Money → an estimate/invoice → each line: description",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-view.tsx:64",
+      "covered": "no",
+      "by": "get_money_document lines leave out description"
+    },
+    {
+      "path": "Money → an estimate → totals: subtotal, discount (%), tax (name · rate on base), total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/totals.tsx:81",
+      "covered": "partly",
+      "by": "get_money_document → discount, tax and rate, total; no subtotal, tax name or base"
+    },
+    {
+      "path": "Money → an estimate → Deposit asked for up front; Balance when the work is done",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:292",
+      "covered": "yes",
+      "by": "get_money_document → deposit, total"
+    },
+    {
+      "path": "Money → an estimate/invoice → Notes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-view.tsx:106",
+      "covered": "yes",
+      "by": "get_money_document → note"
+    },
+    {
+      "path": "Money → an estimate → What has happened: Written <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:166",
+      "covered": "no",
+      "by": "creation time not returned"
+    },
+    {
+      "path": "Money → an estimate → What has happened: Sent to <customer> <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:173",
+      "covered": "yes",
+      "by": "get_money_document → sentAt"
+    },
+    {
+      "path": "Money → an estimate → What has happened: They opened it <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:182",
+      "covered": "partly",
+      "by": "estimates_waiting → opened yes/no, open ones only; no time"
+    },
+    {
+      "path": "Money → an estimate → What has happened: Approved by <name> · taken by phone / on their own page",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:188",
+      "covered": "yes",
+      "by": "get_money_document → approved at, how, name"
+    },
+    {
+      "path": "Money → an estimate → What has happened: Declined — reason",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:200",
+      "covered": "yes",
+      "by": "get_money_document → declined at, why"
+    },
+    {
+      "path": "Money → an estimate/invoice → What has happened: Voided — reason <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:215",
+      "covered": "partly",
+      "by": "get_money_document → voidReason; no time"
+    },
+    {
+      "path": "Money → an estimate → Invoices from this: each number, status, total (opens it)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:307",
+      "covered": "yes",
+      "by": "get_money_document → invoices (id, number, state, total, owed)"
+    },
+    {
+      "path": "Money → an invoice → header: number, status, customer link, title, standing (due / paid / refunded)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:474",
+      "covered": "yes",
+      "by": "get_money_document → number, state, customer, for, dueOn, paid, refunded"
+    },
+    {
+      "path": "Money → an invoice → Record a payment",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:488",
+      "covered": "partly",
+      "by": "record_payment, offered only with money.manage; the screen lets anyone who bills"
+    },
+    {
+      "path": "Money → record a payment → ‘$X is owed’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-actions.tsx:335",
+      "covered": "yes",
+      "by": "get_money_document → owed"
+    },
+    {
+      "path": "Money → record a payment → How much (more than owed refused)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:340",
+      "covered": "yes",
+      "by": "record_payment amount (left out = whole balance)"
+    },
+    {
+      "path": "Money → record a payment → How it was paid: Cash, Check, Other",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:352",
+      "covered": "yes",
+      "by": "record_payment method cash/check/other"
+    },
+    {
+      "path": "Money → record a payment → Reference",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:364",
+      "covered": "yes",
+      "by": "record_payment reference"
+    },
+    {
+      "path": "Money → record a payment → Record it / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:380",
+      "covered": "yes",
+      "by": "Confirm card"
+    },
+    {
+      "path": "Money → an invoice → Copy link",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:497",
+      "covered": "no",
+      "by": "no tool hands back the customer’s link"
+    },
+    {
+      "path": "Money → an invoice → Void (only when nothing paid is left on it)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:510",
+      "covered": "yes",
+      "by": "manage_invoice void (refund_payment first)"
+    },
+    {
+      "path": "Money → an invoice → totals: subtotal, discount, tax, total, paid, refunded, amount due",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-view.tsx:96",
+      "covered": "partly",
+      "by": "get_money_document → discount, tax, total, paid, refunded, owed; no subtotal"
+    },
+    {
+      "path": "Money → an invoice → What has happened: Raised <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:411",
+      "covered": "no",
+      "by": "creation time not returned"
+    },
+    {
+      "path": "Money → an invoice → What has happened: Sent to <customer> <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:418",
+      "covered": "yes",
+      "by": "get_money_document → sentAt"
+    },
+    {
+      "path": "Money → an invoice → What has happened: They opened it <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:427",
+      "covered": "no",
+      "by": "invoice’s opened time not returned"
+    },
+    {
+      "path": "Money → an invoice → What has happened: each payment (paid by …, on its way, failed)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:432",
+      "covered": "yes",
+      "by": "get_money_document → payments amount, by, status, when"
+    },
+    {
+      "path": "Money → an invoice → What has happened: each refund (refunded, on its way back, failed)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:453",
+      "covered": "yes",
+      "by": "get_money_document → refunds amount, status, when, reason"
+    },
+    {
+      "path": "Money → an invoice → Payments: each amount, method, status, $ refunded",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:532",
+      "covered": "yes",
+      "by": "get_money_document → payments"
+    },
+    {
+      "path": "Money → an invoice → Payments → Refund",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:554",
+      "covered": "yes",
+      "by": "refund_payment paymentId"
+    },
+    {
+      "path": "Money → refund dialog → ‘$X of the $Y can still be given back’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-actions.tsx:431",
+      "covered": "yes",
+      "by": "get_money_document → payments refundable"
+    },
+    {
+      "path": "Money → refund dialog → How much",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:439",
+      "covered": "yes",
+      "by": "refund_payment amount (left out = all)"
+    },
+    {
+      "path": "Money → refund dialog → Why",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:451",
+      "covered": "yes",
+      "by": "refund_payment reason"
+    },
+    {
+      "path": "Money → refund dialog → Refund / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:469",
+      "covered": "yes",
+      "by": "Confirm card"
+    },
+    {
+      "path": "Money → draft editor → title ‘Estimate/Invoice for <customer>’, Draft badge",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:302",
+      "covered": "yes",
+      "by": "get_money_document → customer, state Draft, canChange"
+    },
+    {
+      "path": "Money → draft editor → Started by <name> · <day>",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:309",
+      "covered": "no",
+      "by": "who started it and when not returned"
+    },
+    {
+      "path": "Money → draft editor → ‘not saved yet’ / ‘all changes saved’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:311",
+      "covered": "yes",
+      "by": "write_* saves whole on Confirm; outcome ‘Saved the draft’"
+    },
+    {
+      "path": "Money → draft editor → Save draft",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:320",
+      "covered": "yes",
+      "by": "write_estimate / write_invoice"
+    },
+    {
+      "path": "Money → draft editor → Send (an estimate)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:328",
+      "covered": "partly",
+      "by": "send_estimate, offered only with money.manage; the screen lets anyone who bills"
+    },
+    {
+      "path": "Money → draft editor → Send (an invoice)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:328",
+      "covered": "yes",
+      "by": "manage_invoice send"
+    },
+    {
+      "path": "Money → draft editor → Void",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:333",
+      "covered": "yes",
+      "by": "manage_estimate / manage_invoice void"
+    },
+    {
+      "path": "Money → draft editor → ‘Someone saved this while you were editing’ → Load their version",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:344",
+      "covered": "yes",
+      "by": "write_* re-reads the draft at commit; get_money_document reads the saved one"
+    },
+    {
+      "path": "Money → draft editor → Customer: name, email · phone",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:364",
+      "covered": "yes",
+      "by": "get_money_document customer; get_customer email, phone"
+    },
+    {
+      "path": "Money → draft editor → Customer → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:377",
+      "covered": "partly",
+      "by": "personId on a new one only; a saved draft stays with its customer"
+    },
+    {
+      "path": "Money → draft editor → customer picker: type a name, phone or email; results; ‘Nobody matches. Add them from Contacts first.’",
+      "kind": "do",
+      "file": "apps/web/src/components/money/person-picker.tsx:89",
+      "covered": "yes",
+      "by": "search_customers → personId"
+    },
+    {
+      "path": "Money → draft editor → What it is for",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:397",
+      "covered": "yes",
+      "by": "write_* title"
+    },
+    {
+      "path": "Money → draft editor → Open the lead",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:404",
+      "covered": "yes",
+      "by": "get_lead (leadId)"
+    },
+    {
+      "path": "Money → draft editor → Paid into (invoice): each account, default, not yours, not connected",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:415",
+      "covered": "yes",
+      "by": "write_invoice connectionId; get_settings payments accounts"
+    },
+    {
+      "path": "Money → draft editor → Paid into (estimate): ‘Chosen when you turn this into an invoice’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:430",
+      "covered": "partly",
+      "by": "make_invoice takes no account; write_invoice connectionId after"
+    },
+    {
+      "path": "Money → draft editor → no account yours → See who uses them",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:439",
+      "covered": "yes",
+      "by": "get_settings payments accounts (usableByMe); do_payment_connection_set_access"
+    },
+    {
+      "path": "Money → draft editor → no account connected → Connect one",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:449",
+      "covered": "never",
+      "by": "payment_connection.connect: signing in to Stripe or Square"
+    },
+    {
+      "path": "Money → draft editor → Lines note: prices come from Products, changing one changes only this",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:462",
+      "covered": "yes",
+      "by": "write_* Line: catalogue fills in unless given"
+    },
+    {
+      "path": "Money → draft editor → each line: What it is",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:493",
+      "covered": "yes",
+      "by": "write_* lines[].name"
+    },
+    {
+      "path": "Money → draft editor → each line: Description",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:502",
+      "covered": "yes",
+      "by": "write_* lines[].description"
+    },
+    {
+      "path": "Money → draft editor → each line: How many",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:522",
+      "covered": "yes",
+      "by": "write_* lines[].quantity"
+    },
+    {
+      "path": "Money → draft editor → each line: Price",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:528",
+      "covered": "yes",
+      "by": "write_* lines[].unitPrice"
+    },
+    {
+      "path": "Money → draft editor → each line: Sales tax switch / Taxable · No tax",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:534",
+      "covered": "yes",
+      "by": "write_* lines[].taxable"
+    },
+    {
+      "path": "Money → draft editor → each line: Amount",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:540",
+      "covered": "yes",
+      "by": "write_* card works totals out with core"
+    },
+    {
+      "path": "Money → draft editor → each line: −$X off this line → undo",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:515",
+      "covered": "yes",
+      "by": "write_* lines[].discountDollars (0 takes it off)"
+    },
+    {
+      "path": "Money → draft editor → each line: Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:546",
+      "covered": "yes",
+      "by": "write_* removeLines"
+    },
+    {
+      "path": "Money → draft editor → line sheet (phone width): What it is, Description, How many, Per, Price, Money off this line, Sales tax applies, Amount",
+      "kind": "do",
+      "file": "apps/web/src/components/money/line-sheet.tsx:73",
+      "covered": "yes",
+      "by": "write_* lines fields incl. unitLabel"
+    },
+    {
+      "path": "Money → draft editor → line sheet → Remove / Cancel / Done",
+      "kind": "do",
+      "file": "apps/web/src/components/money/line-sheet.tsx:155",
+      "covered": "yes",
+      "by": "write_* lines / removeLines"
+    },
+    {
+      "path": "Money → draft editor → empty lines: ‘Nothing on it yet…’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:622",
+      "covered": "yes",
+      "by": "write_* refuses a document with no lines"
+    },
+    {
+      "path": "Money → draft editor → Add a line",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:632",
+      "covered": "yes",
+      "by": "write_* addLines (name, unitPrice)"
+    },
+    {
+      "path": "Money → draft editor → Add from the catalogue",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:643",
+      "covered": "yes",
+      "by": "write_* addLines productId"
+    },
+    {
+      "path": "Money → catalogue picker → Search the catalogue",
+      "kind": "do",
+      "file": "apps/web/src/components/money/product-picker.tsx:122",
+      "covered": "yes",
+      "by": "get_settings products"
+    },
+    {
+      "path": "Money → catalogue picker → each item: name, code, taxable, price",
+      "kind": "see",
+      "file": "apps/web/src/components/money/product-picker.tsx:147",
+      "covered": "yes",
+      "by": "get_settings products → name, sku, taxable, unitPriceCents"
+    },
+    {
+      "path": "Money → catalogue picker → ‘A one-off line “…”’ / ‘A line of your own’",
+      "kind": "do",
+      "file": "apps/web/src/components/money/product-picker.tsx:177",
+      "covered": "yes",
+      "by": "write_* lines name + unitPrice"
+    },
+    {
+      "path": "Money → catalogue picker → empty: nothing matches / catalogue is empty",
+      "kind": "see",
+      "file": "apps/web/src/components/money/product-picker.tsx:133",
+      "covered": "yes",
+      "by": "get_settings products (empty)"
+    },
+    {
+      "path": "Money → draft editor → Take off: Nothing / A % / An amount",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:866",
+      "covered": "yes",
+      "by": "write_* discountPercent / discountDollars (0 takes it off)"
+    },
+    {
+      "path": "Money → draft editor → ‘= −$X, spread over the lines before tax’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:894",
+      "covered": "yes",
+      "by": "write_* card shows the discount"
+    },
+    {
+      "path": "Money → draft editor → Notes for <customer>",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:677",
+      "covered": "partly",
+      "by": "write_* note; can’t be emptied"
+    },
+    {
+      "path": "Money → draft editor → note: from Settings → Payments, edit for this one only",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:682",
+      "covered": "yes",
+      "by": "get_settings payments → invoiceNote, estimateNote"
+    },
+    {
+      "path": "Money → draft editor → Totals: Subtotal, discount, tax (name · rate on base), Total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:268",
+      "covered": "yes",
+      "by": "write_* card totals (computeTotals)"
+    },
+    {
+      "path": "Money → draft editor → note: tax is worked out once over discounted taxable lines",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:694",
+      "covered": "yes",
+      "by": "write_* uses core’s computeTotals"
+    },
+    {
+      "path": "Money → draft editor → phone totals bar: subtotal · discount · tax toggle, Total, Save draft, Send",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:751",
+      "covered": "yes",
+      "by": "write_* card totals; send tools"
+    },
+    {
+      "path": "Money → draft editor → Deposit → Ask for a deposit switch",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:921",
+      "covered": "yes",
+      "by": "write_estimate depositPercent / depositDollars (0 asks for none)"
+    },
+    {
+      "path": "Money → draft editor → Deposit → percent or amount; ‘Ask for an amount / a % instead’",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:936",
+      "covered": "yes",
+      "by": "write_estimate depositPercent / depositDollars"
+    },
+    {
+      "path": "Money → draft editor → Deposit → deposit $, Balance when the work is done",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:954",
+      "covered": "yes",
+      "by": "write_estimate card; get_money_document deposit"
+    },
+    {
+      "path": "Money → draft editor → Deposit → problem (bigger than the total, set to nothing)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:973",
+      "covered": "yes",
+      "by": "write_estimate refuses with the same depositProblem"
+    },
+    {
+      "path": "Money → draft editor → Deposit → ‘pays the deposit on their own page’ / ‘Nothing is asked for up front’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:978",
+      "covered": "yes",
+      "by": "write_estimate description"
+    },
+    {
+      "path": "Money → draft editor → When it is due: business’s terms, Due on receipt, Net 7, 14, 30, A date I pick",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:1009",
+      "covered": "partly",
+      "by": "write_invoice dueOn (a date, or null for the business’s terms); no named terms per invoice"
+    },
+    {
+      "path": "Money → draft editor → Due date",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-editor.tsx:1037",
+      "covered": "yes",
+      "by": "write_invoice dueOn"
+    },
+    {
+      "path": "Money → draft editor → due line (‘Due N days after you send it’ …)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:1045",
+      "covered": "yes",
+      "by": "manage_invoice send card: Due <day> · terms"
+    },
+    {
+      "path": "Money → draft editor → When you send: Goes by Text and email",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:715",
+      "covered": "yes",
+      "by": "send tools channels email, sms"
+    },
+    {
+      "path": "Money → draft editor → When you send: Good until <day> · N days",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:718",
+      "covered": "yes",
+      "by": "write_estimate goodUntil; get_settings estimateGoodForDays"
+    },
+    {
+      "path": "Money → draft editor → When you send: Number (next number), taken on Send",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:723",
+      "covered": "yes",
+      "by": "get_settings payments → next numbers; send card shows Number"
+    },
+    {
+      "path": "Money → draft editor → problems: pick who it’s for, add a line, every line needs a name and a quantity",
+      "kind": "see",
+      "file": "apps/web/src/components/money/draft.ts:310",
+      "covered": "yes",
+      "by": "write_* validation says the same"
+    },
+    {
+      "path": "Money → send dialog → Email · <address> (or no address on file)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:78",
+      "covered": "yes",
+      "by": "channels email; card blocked when none on file"
+    },
+    {
+      "path": "Money → send dialog → Text · <mobile> (or no mobile on file)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:84",
+      "covered": "yes",
+      "by": "channels sms; card blocked when none on file"
+    },
+    {
+      "path": "Money → send dialog → A line to go with it",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:89",
+      "covered": "yes",
+      "by": "send_estimate / manage_invoice message"
+    },
+    {
+      "path": "Money → send dialog → gets a link, number taken on send; Send / Not yet",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:107",
+      "covered": "yes",
+      "by": "Confirm card warns it takes its number and freezes"
+    },
+    {
+      "path": "Settings → Products → New product",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:110",
+      "covered": "yes",
+      "by": "manage_product create"
+    },
+    {
+      "path": "Settings → Products → each item: name, code, kind, price, unit, sales tax, customers can book it as",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:148",
+      "covered": "yes",
+      "by": "get_settings products → name, sku, kind, price, unit, taxable, serviceId"
+    },
+    {
+      "path": "Settings → Products → Archived badge, ‘N archived items…’, Show archived items",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:258",
+      "covered": "no",
+      "by": "get_settings products leaves archived items out"
+    },
+    {
+      "path": "Settings → Products → open an item",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:159",
+      "covered": "yes",
+      "by": "get_settings products; manage_product change"
+    },
+    {
+      "path": "Settings → Products → editor → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:421",
+      "covered": "yes",
+      "by": "manage_product name"
+    },
+    {
+      "path": "Settings → Products → editor → Code",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:431",
+      "covered": "no",
+      "by": "manage_product has no code (sku)"
+    },
+    {
+      "path": "Settings → Products → editor → Kind: Product, Service, Fee",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:449",
+      "covered": "no",
+      "by": "manage_product has no kind"
+    },
+    {
+      "path": "Settings → Products → editor → Price",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:466",
+      "covered": "yes",
+      "by": "manage_product priceDollars"
+    },
+    {
+      "path": "Settings → Products → editor → Per (unit)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:479",
+      "covered": "yes",
+      "by": "manage_product unitLabel"
+    },
+    {
+      "path": "Settings → Products → editor → Charge sales tax on it (at N%, the rate in Settings → Payments)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:499",
+      "covered": "yes",
+      "by": "manage_product taxable; get_settings payments tax"
+    },
+    {
+      "path": "Settings → Products → editor → Customers can book it (service, Not bookable)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:515",
+      "covered": "yes",
+      "by": "manage_product serviceId (null)"
+    },
+    {
+      "path": "Settings → Products → editor → Archive (with its warning)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:542",
+      "covered": "yes",
+      "by": "manage_product archive"
+    },
+    {
+      "path": "Settings → Products → editor → Put it back",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:544",
+      "covered": "no",
+      "by": "manage_product can’t unarchive"
+    },
+    {
+      "path": "Settings → Products → editor → Save / Cancel / Close",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:555",
+      "covered": "yes",
+      "by": "manage_product (Confirm card)"
+    },
+    {
+      "path": "Settings → Products → empty: Nothing to sell yet",
+      "kind": "see",
+      "file": "apps/web/src/components/money/products-page.tsx:121",
+      "covered": "yes",
+      "by": "get_settings products (empty)"
+    },
+    {
+      "path": "Settings → Products → Maintenance plans → Open Plans",
+      "kind": "do",
+      "file": "apps/web/src/components/money/products-page.tsx:284",
+      "covered": "yes",
+      "by": "list_plans"
+    },
+    {
+      "path": "Customer’s estimate page → amount, title, good until, lines, totals, deposit to start, balance, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:315",
+      "covered": "yes",
+      "by": "get_money_document reads the same estimate"
+    },
+    {
+      "path": "Customer’s estimate page → Approve this estimate (their name, the words they agree to)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-estimate.tsx:262",
+      "covered": "person",
+      "by": "the customer’s own approval; record_yes records one taken by phone"
+    },
+    {
+      "path": "Customer’s estimate page → Decline (reason, optional)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-estimate.tsx:275",
+      "covered": "person",
+      "by": "the customer’s own answer"
+    },
+    {
+      "path": "Customer’s estimate page → Approved / Declined / can’t be answered boxes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:297",
+      "covered": "yes",
+      "by": "get_money_document → approved, declined, state"
+    },
+    {
+      "path": "Customer’s money pages → withdrawn, out-of-date link, link doesn’t work",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:170",
+      "covered": "partly",
+      "by": "Voided state yes; link states not"
+    },
+    {
+      "path": "Customer’s invoice page → amount due, paid, on its way, refunded to you, lines, totals, notes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:397",
+      "covered": "yes",
+      "by": "get_money_document → owed, payments, refunds"
+    },
+    {
+      "path": "Customer’s invoice page → How would you like to pay? (card, bank transfer) → Pay",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:565",
+      "covered": "person",
+      "by": "paying on the provider’s page"
+    },
+    {
+      "path": "Customer’s invoice page → declined, cancelled, can’t take a payment right now",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:502",
+      "covered": "partly",
+      "by": "get_money_document payment status failed; no account reason"
+    },
+    {
+      "path": "Customer’s invoice page → receipt: payments, paid for this job, refunded, reference",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:532",
+      "covered": "yes",
+      "by": "get_money_document → payments, refunds, number"
+    },
+    {
+      "path": "Customer’s plan page → plan, price, first charge, then, card on file, note",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:315",
+      "covered": "partly",
+      "by": "list_plans price, card, nextBilling; not first charge wording"
+    },
+    {
+      "path": "Customer’s plan page → Add a card",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-plan.tsx:270",
+      "covered": "person",
+      "by": "typing a card on the provider’s page"
+    },
+    {
+      "path": "Customer’s money pages → Print, Call the business",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-shell.tsx:352",
+      "covered": "person",
+      "by": "the customer’s own"
+    },
+    {
+      "path": "Phone → Money → headline: Outstanding, Overdue, Collected",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:111",
+      "covered": "yes",
+      "by": "money_owed, money_collected"
+    },
+    {
+      "path": "Phone → Money → headline sentence (waiting, on its way, collected range)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:141",
+      "covered": "yes",
+      "by": "money_owed settling; money_collected"
+    },
+    {
+      "path": "Phone → Money → member note: you see your own jobs’ estimates and invoices",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx:80",
+      "covered": "yes",
+      "by": "money_owed note for members"
+    },
+    {
+      "path": "Phone → Money → tabs: Invoices, Estimates (+ Payments, Plans for the whole business)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx:87",
+      "covered": "partly",
+      "by": "as the web tabs"
+    },
+    {
+      "path": "Phone → Money → each invoice: number, status, purpose, customer, total, title, due",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:212",
+      "covered": "partly",
+      "by": "money_owed open ones; purpose not returned"
+    },
+    {
+      "path": "Phone → Money → each invoice: Waiting to send chip",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:174",
+      "covered": "no",
+      "by": "the phone’s own unsent change"
+    },
+    {
+      "path": "Phone → Money → each estimate: number, status, customer, total, where it stands",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:266",
+      "covered": "partly",
+      "by": "estimates_waiting open ones; customer_money per customer"
+    },
+    {
+      "path": "Phone → Money → each payment: customer, amount, how, invoice, day, refunded",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:325",
+      "covered": "partly",
+      "by": "money_collected totals; rows only per invoice"
+    },
+    {
+      "path": "Phone → Money → each plan: customer, price, status, plan, next charge (opens it on the web)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/money-rows.tsx:363",
+      "covered": "yes",
+      "by": "list_plans customers"
+    },
+    {
+      "path": "Phone → Money → open an invoice / estimate / payment’s invoice",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx:62",
+      "covered": "yes",
+      "by": "get_money_document"
+    },
+    {
+      "path": "Phone → Money → New invoice / New estimate on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx:131",
+      "covered": "yes",
+      "by": "write_invoice / write_estimate"
+    },
+    {
+      "path": "Phone → Money → empty states and list notes",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx:211",
+      "covered": "yes",
+      "by": "the money reads’ nothing lines"
+    },
+    {
+      "path": "Phone → an invoice → Amount due / Paid / Total",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:107",
+      "covered": "yes",
+      "by": "get_money_document → owed, total"
+    },
+    {
+      "path": "Phone → an invoice → status · number · standing · terms",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:113",
+      "covered": "yes",
+      "by": "get_money_document → state, number, dueOn, terms"
+    },
+    {
+      "path": "Phone → an invoice → ‘Recorded on this phone…’ / ‘Waiting on this phone…’",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:119",
+      "covered": "no",
+      "by": "the phone’s own unsent change"
+    },
+    {
+      "path": "Phone → an invoice → Record cash or a check",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:130",
+      "covered": "partly",
+      "by": "record_payment, offered only with money.manage"
+    },
+    {
+      "path": "Phone → record cash sheet → amount (USD), problem, How it was paid (Cash, Check, Other), Reference",
+      "kind": "do",
+      "file": "apps/mobile/src/components/money/record-cash.tsx:116",
+      "covered": "yes",
+      "by": "record_payment amount, method, reference"
+    },
+    {
+      "path": "Phone → an invoice → Send a payment link (needs signal)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:140",
+      "covered": "no",
+      "by": "no tool hands back the customer’s link"
+    },
+    {
+      "path": "Phone → payment link sheet → the link, Send it (share), Done",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:251",
+      "covered": "no",
+      "by": "no tool returns the link"
+    },
+    {
+      "path": "Phone → an invoice → Send (a draft)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:149",
+      "covered": "yes",
+      "by": "manage_invoice send"
+    },
+    {
+      "path": "Phone → an invoice → Send it again (already sent)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:151",
+      "covered": "no",
+      "by": "manage_invoice send refuses one already out"
+    },
+    {
+      "path": "Phone → send sheet → Email · <address>, Text · <mobile>, Not yet",
+      "kind": "do",
+      "file": "apps/mobile/src/components/money/send-sheet.tsx:43",
+      "covered": "yes",
+      "by": "channels email / sms"
+    },
+    {
+      "path": "Phone → an invoice/estimate → lines (name, description, rate, money off, no tax, amount) and totals",
+      "kind": "see",
+      "file": "apps/mobile/src/components/money/document.tsx:51",
+      "covered": "partly",
+      "by": "get_money_document lines and totals; no description or subtotal"
+    },
+    {
+      "path": "Phone → an invoice → What has happened: payments, refunds, Sent, Written",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:171",
+      "covered": "partly",
+      "by": "payments, refunds, sentAt; written date not returned"
+    },
+    {
+      "path": "Phone → an invoice/estimate → Notes",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:200",
+      "covered": "yes",
+      "by": "get_money_document → note"
+    },
+    {
+      "path": "Phone → an invoice/estimate → Open this on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/invoices/[invoiceId].tsx:213",
+      "covered": "yes",
+      "by": "money cards link to the page (href)"
+    },
+    {
+      "path": "Phone → an estimate → Quoted amount, status, where it stands",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx:82",
+      "covered": "partly",
+      "by": "get_money_document total, state, sentAt, goodUntil; opened only in estimates_waiting"
+    },
+    {
+      "path": "Phone → an estimate → Send / Send it again",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx:108",
+      "covered": "partly",
+      "by": "send_estimate (warns if already out), offered only with money.manage"
+    },
+    {
+      "path": "Phone → an estimate → Send their link (needs signal) → link sheet, Send it, Done",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx:117",
+      "covered": "no",
+      "by": "no tool hands back the customer’s link"
+    },
+    {
+      "path": "Phone → an estimate → deposit and balance after",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx:127",
+      "covered": "yes",
+      "by": "get_money_document → deposit, total"
+    },
+    {
+      "path": "Phone → an estimate → Written <day>",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx:148",
+      "covered": "no",
+      "by": "creation time not returned"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "money-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Invoice page and estimate page → Copy link; plan page → Copy link (beside Ask for a new card, and under Waiting on … to add a card); phone invoice → Send a payment link, phone estimate → Send their link",
+      "gap": "No Assistant tool returns the customer's own link (/i/…, /e/…, /p/… on the business's address) for an invoice, estimate or plan. ToolContext has no moneyLinks. get_money_document, list_plans, customer_money and money_owed return ids and /app/w/… staff paths only, so a question like “what’s the pay link for INV-1042?” can only get a guessed URL or the staff page. The places-map tells people to press Copy link to send the pay link or get a PDF, and the Assistant can’t do that step for them.",
+      "fix": "Add `moneyLinks: MoneyLinks` to ToolContext (apps/worker/src/assistant/runtime.ts:91), filled from deps.moneyLinks (services.ts:117). Then add one auto tool, `get_customer_link {kind: 'invoice'|'estimate'|'plan', id}`, with permission money.bill. It should run what link-routes.ts:91-115 runs (statusOf, then the same `unusable` refusals for a draft, a void or an ended plan, then estimateUrlFor/invoiceUrlFor/planUrlFor under asWorker) and return the full https `link`. Alternatively, put that `customerLink` on the get_money_document result (sent, not void) and on each list_plans customer (not cancelled). Update places-map.ts:335-336 to say the Assistant can give the link.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "Money → Invoices/Estimates/Plans, any open invoice, estimate or customer plan page (“refund this”, “what’s the link for this one”, “void this estimate”)",
+      "gap": "On /money/invoices/<id>, /money/estimates/<id> and /money/plans/<subscriptionId>, assistantPageRecord returns null. AssistantPageRecord only allows person, company, lead, conversation, appointment, workflow and workflow_run, and pageLabel has no money case. So on an open invoice, estimate or customer plan, “refund this”, “void this estimate” or “send the link for this one” has no record behind it, and the Assistant has to search or ask.",
+      "fix": "Add 'invoice', 'estimate' and 'subscription' to AssistantPageRecord.type (packages/core/src/schemas/assistant.ts:319). Add ['invoice','money/invoices'], ['estimate','money/estimates'] and ['subscription','money/plans'] to RECORD_ROUTES (packages/core/src/assistant/words.ts:413). Add pageLabel cases in apps/worker/src/assistant/context.ts:175 using invoice.get, estimate.get and subscription.get, giving text like “INV-1042 for Maria Lopez, $1,284.50, Overdue (invoice id …)” or “Comfort Club for Maria Lopez, Payment failed (subscription id …)”. The web and phone both call assistantPageRecord (apps/web/src/lib/assistant/page-record.ts:18, apps/mobile/src/assistant/page-record.ts:18), so both pick the change up.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-3",
+      "severity": "high",
+      "kind": "do",
+      "where": "Estimate draft → Send; invoice page → Record a payment (web) and Record cash or a check / Send (phone), for someone who bills but doesn’t manage money",
+      "gap": "estimate.send and invoice.record_cash_payment need money.bill, and the role setting for money.bill reads “Send estimates and invoices, start plans … Take a payment by hand”. The screens offer Send and Record a payment to anyone with canBill. The Assistant's send_estimate and record_payment are declared money.manage, and toolsFor drops any tool the person lacks the permission for, so someone who bills but doesn't manage money is never offered either one. manage_invoice send, write_estimate and manage_estimate are money.bill, so that person can send an invoice through the Assistant but not an estimate, and can't record cash they took.",
+      "fix": "In packages/core/src/assistant/tools.ts, change `permission: 'money.manage'` to `'money.bill'` on send_estimate (line 281) and record_payment (line 299). Reword the comment at tools.ts:218-225 to say the two that move money are money.bill, the same as their commands.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "Money headline: Outstanding (“N invoices waiting”), Overdue (“N invoices past the due date”); Money → Invoices filtered to Overdue",
+      "gap": "money_owed reads one page of invoice.list with openOnly and limit max(limit,25). invoice.list sorts newest created first, and money_owed then filters overdue on the worker. With more than 25 open invoices, the oldest open invoices (the most overdue) never reach “what’s overdue?”. The card's “N invoices” and “overdue · N invoices” are counted from that capped list, even for owners, whose summary has outstandingCount and overdueCount. The result the model reads has no count at all and no sign it was cut. For a member, the overdue total itself comes from the capped list.",
+      "fix": "In apps/worker/src/assistant/tools-money.ts money_owed: when overdueOnly, call invoice.list with `status: ['overdue']` (as the screen's Overdue filter does, list-options.ts:112-118) and follow nextCursor up to a cap, then sort by dueOn ascending. Add `count` and `overdueCount` to the result, taken from summary.outstandingCount and summary.overdueCount when allowed and counted otherwise, plus `more: true` when list.nextCursor is set. Use the same counts in the card's detail and its overdue stat label (lines 232 and 256).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-5",
+      "severity": "high",
+      "kind": "read",
+      "where": "Money → Invoices (status: All, Waiting to be paid, Overdue, Paid, Drafts, Voided; Search invoices; Paid into account filter; columns Invoice, Customer, What + Deposit pill, Status, Due, Paid into, Total, Balance), Money → Estimates (Out and unanswered, Approved, Declined, Expired, Drafts, Voided; search), Money → Payments (Collected, On its way, Failed; Any way/Card/Bank transfer/Cash/Check/Other; account)",
+      "gap": "invoice.list, estimate.list and payment.list are not in SCREEN_READS. The only list reads are money_owed (open invoices), estimates_waiting (status sent) and money_collected (succeeded payments, as a total). Questions like “which invoices are drafts or voided?”, “which estimates were approved or declined?”, “did any payment fail?” or “what went into the Square account?” have no tool that takes the screens' filters (status, connectionId, method, search). search.everything and search.kind can find a document by its words, but they have no status, method or account filter. Rows also lack What, Total, Deposit and Paid into.",
+      "fix": "Add 'invoice.list', 'estimate.list' and 'payment.list' to SCREEN_READS in packages/core/src/assistant/screen-reads.ts. That gives read_invoice_list, read_estimate_list and read_payment_list, which take status[], openOnly, search, connectionId, method[], since and cursor, and return the rows with nextCursor.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-6",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Money → Payments rows (When, Customer, How, Invoice, Status, Amount, refunded) and the Collected in 30 days total",
+      "gap": "money_collected gives the model only collected, refunded, the payment count and days. Who paid, which invoice, how and when appear only on the card's items, which the model never reads, so “who paid us today?” can't be answered in words. It also reads at most 100 payments, and for a member, whose total is summed from those rows, it doesn't say when the cap was hit.",
+      "fix": "In tools-money.ts money_collected, add `paymentsList: paid.slice(0, 20).map(p => ({ customer: p.person?.fullName, invoice: p.invoiceNumber, invoiceId: p.invoiceId, amount: money(p.amountCents), how: card brand/last4 or method word, when: p.receivedAt ?? p.createdAt, refunded: money(p.refundedCents) }))` to the result. Add `more: true` when list.nextCursor is set.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-7",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Invoice page and estimate page: What has happened (Written/Raised, Sent, They opened it, Voided with date), the lines’ descriptions, Deposit pill/purpose, Paid into, Open the lead, Invoices from this",
+      "gap": "Saying “has she opened the invoice?” can't be answered for invoices at all is overstated. invoice.state is 'viewed', shown as Opened in get_money_document (INVOICE_WORDS) and money_owed, while a sent invoice is unpaid and not overdue. Once it is overdue, partly paid or paid, the opened fact is gone, and firstViewedAt itself is never returned. The rest is real. get_money_document leaves out createdAt (Written or Raised), firstViewedAt, voidedAt and paidAt from What has happened, each line's description, the invoice's purpose (deposit or whole job), connectionId (Paid into), leadId, and the estimateId or subscriptionId an invoice came from. For estimates it also leaves out firstViewedAt, voidedAt, createdAt and leadId.",
+      "fix": "In apps/worker/src/assistant/tools-billing.ts estimateDocument (around :2295) and invoiceDocument (around :2352), add: writtenAt (createdAt), openedAt (firstViewedAt), voidedAt, and for invoices paidAt, purpose ('deposit' → “Deposit”), paidInto (accountLabel of connectionId via connectionsOf), leadId, estimateId and subscriptionId. For estimates add leadId. In linesResult (:2258) add `description`.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-8",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Draft estimate/invoice editor: change one line in place (What it is, Description, How many, Price, Sales tax switch, line discount)",
+      "gap": "write_estimate and write_invoice can only replace every line (`lines`), append (`addLines`) or remove by number (`removeLines`). Changing one line's price means resending the whole list, or removing and re-adding the line, which moves it to the end. get_money_document doesn't return line descriptions, so a resent list loses each one-off line's description, and catalogue lines go back to the catalogue's description (lineFrom: l.description ?? p.description). The editor changes one line in place.",
+      "fix": "Return `description` in linesResult (tools-billing.ts:2258). Add `changeLines: z.array(z.object({ n: z.int().min(1), name?, description?, quantity?, unitPrice?, unitLabel?, taxable?, discountDollars? }))` to documentFields in packages/core/src/assistant/tools-billing.ts:46-81. In linesAfter (worker tools-billing.ts:426-450), patch existing[n-1] from lineIn and keep its place and every other line as it is.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-9",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Money → Plans → a customer’s plan: status line (card refused N times, paused since, ended on — reason), since, The schedule (Bills on, Next charge, Paid into, Card on file with Expires MM/YY, Charged by), The last charge failed, Last asked, What it has billed (cycles, N paid · N refunded); Who is on a plan → Paid into",
+      "gap": "For a customer's plan, list_plans returns only the status sentence, nextBilling and card brand/last4 (or 'asked for, not added yet'). It never returns lastError, failedCycles, cardExpiryMonth/Year, pausedAt, endedOn, cancelReason, startedOn, connectionId (Paid into), provider (Charged by), the time of cardRequestedAt, or the invoices its cycles raised. The plan page shows all of these. subscription.get and subscription.list are not screen reads, so “why did the Hendersons’ plan payment fail?”, “when does her card expire?” or “what has it billed?” can't be answered.",
+      "fix": "Add 'subscription.get' (it returns the subscription plus the cycle invoices) and 'subscription.list' to SCREEN_READS in packages/core/src/assistant/screen-reads.ts. Or, in list_plans when narrowed (tools-billing.ts:2520-2535), add lastError, failedCycles, cardExpires ('MM/YY'), pausedAt, endedOn, cancelReason, startedOn, paidInto (account label), chargedBy (provider) and lastAskedForCard (cardRequestedAt), and for one customer the cycle invoices from subscription.get.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-10",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Money → Plans table: Members column, A month column, Recurring $X a month, Plans that bill once a year",
+      "gap": "No tool returns the monthly recurring figure: money.summary's monthlyRecurringCents and activePlans are read into the Summary type but never passed on. list_plans counts customersOnIt as every non-cancelled subscription (draft, active, past_due, paused, unmanaged). The Plans table's Members counts only Billing and Payment failed (active + past_due), so the Assistant can give a bigger number than the screen. The yearly line (“Plans that bill once a year”) has no counterpart either.",
+      "fix": "In list_plans (apps/worker/src/assistant/tools-billing.ts:2474-2475), count members as status in ['active','past_due'] to match plans-list.tsx:16, and return waitingOnCard and paused separately if useful. Add `monthlyRecurring: money(summary.monthlyRecurringCents)` from ifAllowed(query('money.summary')) and `yearly` (the sum over yearly plans of price × members / intervalCount, as plans-list.tsx:46-49 works it out).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-11",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Money → Estimates → Out and unanswered (and the quoted total)",
+      "gap": "estimates_waiting reads one page of estimate.list with openOnly and limit max(limit,25), sorted newest created first, and only then re-sorts oldest first. With more than 25 out, the oldest estimates, the ones to chase, are dropped. quotedOut and waiting are summed from that capped list instead of money.summary's quotedCents and quotedCount, and nothing says the list was cut.",
+      "fix": "In apps/worker/src/assistant/tools-money.ts estimates_waiting, follow nextCursor with limit 100 up to a cap of about 300, then sort by sentAt ascending. Take quotedOut and waiting from ifAllowed(query('money.summary')).quotedCents/quotedCount when allowed, and add `more: true` when it stopped at the cap.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-12",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Estimate draft → Send dialog (Email · address / Text · number, greyed when none on file; Send disabled with neither)",
+      "gap": "send_estimate's prepare never uses reachable(). It passes the channels the model asked for (default email) and keeps Confirm (“Send it”) live with only a no_email/no_phone warning. estimate.send doesn't check contact details, so an estimate for someone with no email takes its number and freezes with nothing reaching them. A non-draft also gets a live Confirm with an 'already_sent' warning, and assertMove then refuses it after the press. manage_invoice send blocks both cases before the card.",
+      "fix": "In apps/worker/src/assistant/tools-money.ts sendEstimate.prepare: throw HfosError.rule('estimate_not_open', 409, '<number> has already gone out…') when estimate.status !== 'draft', and refuse an estimate with no lines, as manageInvoice does (tools-billing.ts:1042-1053). Use reachable(person, asked): when to.can is empty, set confirmLabel '' with a 'blocked' warning saying “<name> has no email address on file. Add one on their customer page first.” Show to.words in the How field. In commit, send only reachable(...).can.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-13",
+      "severity": "low",
+      "kind": "do",
+      "where": "Estimate page → Turn into an invoice → Paid into",
+      "gap": "manage_estimate make_invoice can't name the account, and estimate.convert is called without connectionId, while the screen's Turn into an invoice dialog has a Paid into picker. The person can still get the same result: make_invoice, then write_invoice {invoiceId, connectionId} on the new draft, since connectionId is an INVOICE_CHANGES key and is passed to invoice.update. That is two Confirm cards instead of one, and the first card never shows Paid into.",
+      "fix": "Add `connectionId: uuid.optional()` (make_invoice) to manage_estimate in packages/core/src/assistant/tools-billing.ts:150-168. In the worker's make_invoice prepare, check it against usableAccounts(connectionsOf(...)) as write_invoice does, and show a 'Paid into' field. Pass connectionId to estimate.convert at apps/worker/src/assistant/tools-billing.ts:993-1001.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-14",
+      "severity": "low",
+      "kind": "words",
+      "where": "send_estimate and manage_invoice tool descriptions (where a draft’s id comes from)",
+      "gap": "Each description names at least one source that does hold drafts. customer_money returns every estimate for the person, drafts included, and its openInvoices keeps drafts too: balance_cents = total for a draft, filtered only by > 0 and not void. The write_* commit also returns the new draft's href. What's wrong is the other sources named: send_estimate points to estimates_waiting, which only lists status 'sent', and manage_invoice points first to money_owed, which only lists sent, partly paid or overdue invoices. Neither can ever hold the draft being sent.",
+      "fix": "send_estimate (packages/core/src/assistant/tools.ts:269): “a draft — its id is in customer_money (its estimates, state Draft) or came back from write_estimate”. Drop estimates_waiting. manage_invoice (packages/core/src/assistant/tools-billing.ts:193): “A draft’s id is in customer_money or came back from write_invoice; sent invoices are also in money_owed; get_money_document shows either.” If money-5 lands, add “or read_invoice_list / read_estimate_list with status draft”.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-15",
+      "severity": "low",
+      "kind": "do",
+      "where": "Invoice page → Record a payment dialog (How much, never more than owed; Record it disabled otherwise; only shown while something is owed)",
+      "gap": "record_payment's prepare shows Confirm (“Record it”) live with only a warning when the invoice is already paid in full or the amount is over the balance, and doesn't check draft or void at all. invoice.record_cash_payment's assertPayable then refuses after the press. The screen's dialog only shows while something is owed and disables Record it when the amount is too much or under a cent.",
+      "fix": "In apps/worker/src/assistant/tools-money.ts recordPayment.prepare, refuse before the card with the command's own reasons: draft → “This invoice is still a draft. Send it before recording a payment on it.”, void → “That invoice was voided…”. When balance <= 0 or amountCents > balance or amountCents < 1, return a blocked card (confirmLabel '') with that reason, as manage_invoice and manage_customer_plan do.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-16",
+      "severity": "low",
+      "kind": "do",
+      "where": "Invoice editor → When it is due (The business's own terms, Due on receipt, Net 7, Net 14, Net 30, A date I pick)",
+      "gap": "write_invoice takes only dueOn, a fixed date. The editor's When it is due also offers Due on receipt, Net 7, Net 14 and Net 30, which it saves as the invoice's own `terms` with dueOn null, so the due date is worked out from them when it is sent. invoice.create and invoice.update accept `terms`, but the Assistant can't set or clear them.",
+      "fix": "Add `terms: z.enum(['due_on_receipt','net_7','net_14','net_30']).nullable().optional()` to write_invoice (packages/core/src/assistant/tools-billing.ts:170-190), with the description 'The invoice’s own terms; the due date is worked out from them when sent. null goes back to the business’s terms'. In the worker's draft and commit (tools-billing.ts:560-620 and :781-799), send `terms: TERMS_WORDS[terms]` with dueOn null, add 'terms' to INVOICE_CHANGES, and show it on the card's Due field.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-17",
+      "severity": "low",
+      "kind": "do",
+      "where": "Estimate/invoice editor → Notes for the customer (cleared to nothing)",
+      "gap": "The real part is that a draft's note can't be cleared. The `note` input is text(5000), which needs at least one character, and on a change the worker uses `str(args.note) ?? doc.notes`, so leaving it out or sending it empty keeps the old note. The screen sends notes: null on save. The claim that a new document always gets the business's default note is not Assistant-only: estimate.create and invoice.create use `input.notes ?? settings default`, so a first save from the screen with notes null gets the default too.",
+      "fix": "Make `note` in documentFields (packages/core/src/assistant/tools-billing.ts:77) `text(5000).nullable().optional()` with the description 'null takes the note off'. In the worker's change branch (apps/worker/src/assistant/tools-billing.ts:615-616), use `args.note === null ? null : (str(args.note) ?? doc.notes)` and set noteChanged when it is null, so update sends notes: null.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-18",
+      "severity": "low",
+      "kind": "do",
+      "where": "New estimate / New invoice opened from a lead (the lead’s owner becomes who it’s with, shown as Started by)",
+      "gap": "A New estimate or New invoice opened from a lead is seeded with assigneeUserId = the lead's assignee, shown as Started by. The Assistant's write_estimate and write_invoice never send assigneeUserId, so the command falls back to the person asking. The lead's owner still sees the document, because members see documents for leads they own, so the visible difference is who it's with and Started by.",
+      "fix": "In the worker's new-document branch (apps/worker/src/assistant/tools-billing.ts:560-572), when leadId is given, read lead.get and add `assigneeUserId: lead.assignee?.id ?? null` to the header sent to estimate.create and invoice.create (:768-799), as seedFrom does.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-19",
+      "severity": "low",
+      "kind": "words",
+      "where": "Status badges and filters: plans Draft / Billing / Payment failed / Paused / Cancelled / Not managed here; invoices Partly paid, Void; payment methods Check, Other",
+      "gap": "Some of the claimed mismatches aren't real. The plan words (“Waiting on a card”, “Card refused, retrying”, “Ended”, “…not managed here”) follow the plan page's own status sentences (standingOf: “Waiting on Maria to put a card on it”, “The card was refused… keeps retrying”, “Ended …”, “no longer managed here”). “Voided” is the Invoices and Estimates filter label. get_money_document already uses core's INVOICE_WORDS and ESTIMATE_WORDS. The real mismatches are elsewhere. tools-money's STATE_WORDS says “Part paid” (screen: Partly paid) in money_owed, customer_money and estimates_waiting. Both METHOD_WORDS say “cheque” (core: check) and “recorded by hand” / “taken another way” (core: Other / another way). list_plans never gives the badge and filter words (Draft, Payment failed, Cancelled, Not managed here), so “show the ones with Payment failed” doesn't line up.",
+      "fix": "In apps/worker/src/assistant/tools-money.ts, replace STATE_WORDS (:124-140) with core's INVOICE_WORDS and ESTIMATE_WORDS. Replace METHOD_WORDS in tools-money.ts:453-459 and tools-billing.ts:318-325 with core's PAYMENT_METHOD_WORDS. In list_plans (tools-billing.ts:2528), add `badge: SUBSCRIPTION_WORDS[s.status]` beside the sentence `status`, and say in the tool description that the screen's filter uses the badge words.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "money-20",
+      "severity": "low",
+      "kind": "words",
+      "where": "Places map: Plans, An invoice, the phone app",
+      "gap": "The places-map's Plans entry names only Pause and Cancel the plan. For a Square plan the button reads “Cancel at the end of the period”, and Change the account and Email them the link / Text it instead are never named. An invoice's canChange leaves out recording a payment, though its howTo describes it and record_payment exists. PHONE_APP has no line about Money: on the phone, Money reads documents, records cash or a check, sends, and shares the customer's link, while New invoice and New estimate open the web.",
+      "fix": "In packages/core/src/assistant/places-map.ts: in Plans onScreen (:382) and howTo (:383), add “Cancel the plan (Cancel at the end of the period for a Square plan)”, “Change the account” and, while it waits on a card, “Email them the link or Text it instead”. Add 'record cash, a check or another payment taken by hand' to An invoice's canChange (:343-347). Add a PHONE_APP line (:625-632): 'Money (More → Money): invoices, estimates, payments and plans; record cash or a check, send a draft, and send the customer their link; writing a new estimate or invoice opens the web'.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

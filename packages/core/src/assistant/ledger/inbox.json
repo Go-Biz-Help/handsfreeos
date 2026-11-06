@@ -1,0 +1,2146 @@
+{
+  "area": "inbox",
+  "title": "Inbox, a conversation, phone calls and video calls",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "777a736bc2c5",
+    "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
+    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "87187632b631",
+    "apps/mobile/src/components/inbox/call-sheet.tsx": "80613ce5fecf",
+    "apps/mobile/src/components/inbox/composer.tsx": "bac1d11d4cf7",
+    "apps/mobile/src/components/inbox/conversation-parts.tsx": "e30e42afb568",
+    "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
+    "apps/mobile/src/components/inbox/pending-reply.tsx": "aaf7f03fba24",
+    "apps/mobile/src/inbox/actions.ts": "50d7b1cb5a4b",
+    "apps/mobile/src/inbox/calls.ts": "4ecefb579b2c",
+    "apps/mobile/src/inbox/cell.ts": "a6c92858a696",
+    "apps/mobile/src/inbox/contact-card.ts": "a7d21deead69",
+    "apps/mobile/src/inbox/fixers.ts": "1667a9ef260a",
+    "apps/mobile/src/inbox/outbox.ts": "3882e6442c7d",
+    "apps/mobile/src/inbox/queries.ts": "47039fc0b498",
+    "apps/mobile/src/inbox/send.ts": "ccda1bc9e8b8",
+    "apps/mobile/src/inbox/storage.ts": "3283e09712d4",
+    "apps/mobile/src/inbox/thread-entries.ts": "e3dc464a9723",
+    "apps/mobile/src/inbox/use-conversation.ts": "c67133e71c09",
+    "apps/mobile/src/inbox/use-email.ts": "e6a732688797",
+    "apps/mobile/src/inbox/use-inbox.ts": "7206a2137221",
+    "apps/mobile/src/inbox/use-sender.ts": "201fd753bcd9",
+    "apps/mobile/src/video-call/phone-call.tsx": "50f4c5dc00ff",
+    "apps/web/src/app/app/w/[workspaceId]/call/[callId]/page.tsx": "8897698aa30f",
+    "apps/web/src/app/app/w/[workspaceId]/inbox/[conversationId]/page.tsx": "16bc42fae91a",
+    "apps/web/src/app/app/w/[workspaceId]/inbox/layout.tsx": "4327d780b481",
+    "apps/web/src/app/app/w/[workspaceId]/inbox/page.tsx": "78fca14b2238",
+    "apps/web/src/components/ai-team/reply-feedback.tsx": "661ebf8bbc3e",
+    "apps/web/src/components/attention/bits.tsx": "782802130a33",
+    "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
+    "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
+    "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
+    "apps/web/src/components/calls/active-call-bar.tsx": "14856343b4f3",
+    "apps/web/src/components/calls/call-card.tsx": "43066603d3b5",
+    "apps/web/src/components/calls/call-notes.tsx": "a707b593aa5c",
+    "apps/web/src/components/calls/call-overlays.tsx": "ed7854570ad7",
+    "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
+    "apps/web/src/components/calls/dialer-dialog.tsx": "8aab2edb63cb",
+    "apps/web/src/components/calls/incoming-call-card.tsx": "f0fdd5fb55af",
+    "apps/web/src/components/calls/voicemail-player.tsx": "c3c5c9735f2a",
+    "apps/web/src/components/crm/attribution-card.tsx": "3600f25774e2",
+    "apps/web/src/components/crm/lead-dialog.tsx": "228bdf162fa0",
+    "apps/web/src/components/crm/next-action-dialog.tsx": "da25b96eb9d0",
+    "apps/web/src/components/crm/person-dialog.tsx": "c9d492d7b457",
+    "apps/web/src/components/crm/record-money.tsx": "a55e39f309ec",
+    "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
+    "apps/web/src/components/inbox/ai-bits.tsx": "b096a99a8984",
+    "apps/web/src/components/inbox/ai-handling.tsx": "87c4927f9809",
+    "apps/web/src/components/inbox/attachment-chip.tsx": "ebcdf73e5026",
+    "apps/web/src/components/inbox/bits.tsx": "531002310df2",
+    "apps/web/src/components/inbox/composer.tsx": "f8c80ff6917e",
+    "apps/web/src/components/inbox/contact-fields.tsx": "7d30c27cd9bb",
+    "apps/web/src/components/inbox/context-panel.tsx": "eb2bcff29f71",
+    "apps/web/src/components/inbox/conversation-row.tsx": "33b21b25e11a",
+    "apps/web/src/components/inbox/conversation-view.tsx": "1bd5e82dac90",
+    "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
+    "apps/web/src/components/inbox/draft-card.tsx": "3a7f8fe6afad",
+    "apps/web/src/components/inbox/hooks.ts": "2b26dcbaa3cd",
+    "apps/web/src/components/inbox/inbox-shell.tsx": "e3b7842b0f75",
+    "apps/web/src/components/inbox/lane-switcher.tsx": "22d907e03a2f",
+    "apps/web/src/components/inbox/link-person-dialog.tsx": "7aa948d8ee72",
+    "apps/web/src/components/inbox/mail-body.tsx": "20c0903ff378",
+    "apps/web/src/components/inbox/mail-boxes.tsx": "d4326cddf378",
+    "apps/web/src/components/inbox/mail-card.tsx": "58e4e0c6c664",
+    "apps/web/src/components/inbox/media-viewer.tsx": "eea9b3e6a2d4",
+    "apps/web/src/components/inbox/message-log.tsx": "dc5c93220d39",
+    "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
+    "apps/web/src/components/inbox/new-message-dialog.tsx": "78cc4578cab4",
+    "apps/web/src/components/inbox/rich-editor.tsx": "c594a4e0ed14",
+    "apps/web/src/components/inbox/rich-message.tsx": "2197f796284c",
+    "apps/web/src/components/inbox/social-bits.tsx": "6aa8eafe26c4",
+    "apps/web/src/components/inbox/template-picker.tsx": "2624a76622ae",
+    "apps/web/src/components/tasks/task-dialog.tsx": "1714eecb5a55",
+    "apps/web/src/components/timeline/describe.tsx": "9cc0387828b6",
+    "apps/web/src/components/timeline/log-activity-sheet.tsx": "7f502a2a0c95",
+    "apps/web/src/components/timeline/timeline.tsx": "f3bb029639b3",
+    "apps/web/src/components/video-call/call-chat-log.tsx": "f5b02e51b3c9",
+    "apps/web/src/components/video-call/call-coach.tsx": "350fc005d02a",
+    "apps/web/src/components/video-call/call-frame.tsx": "7b091210e351",
+    "apps/web/src/components/video-call/call-notes.tsx": "571d64d4cdef",
+    "apps/web/src/components/video-call/call-panels.tsx": "1aae71877cf4",
+    "apps/web/src/components/video-call/call-room.tsx": "e8cbe7e4dec2",
+    "apps/web/src/components/video-call/call-stage.tsx": "e9fc079a3b0c",
+    "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
+    "apps/web/src/components/video-call/link-call.tsx": "463d1bf669c9",
+    "apps/web/src/components/video-call/poll-panel.tsx": "e0c0aae73199",
+    "apps/web/src/components/video-call/poll-popup.tsx": "e772074533b3",
+    "apps/web/src/components/video-call/pre-join.tsx": "d79b98a9e2b0",
+    "apps/web/src/components/video-call/screen-marks.tsx": "e383c8990504",
+    "apps/web/src/components/video-call/slides.tsx": "9123d85f0cfd",
+    "apps/web/src/components/video-call/start-call.tsx": "fda198cba6fb",
+    "apps/web/src/components/video-link/upload-page.tsx": "98f2f05c3ef5",
+    "apps/web/src/components/voice/voice-bar.tsx": "5d48700c1dc3"
+  },
+  "items": [
+    {
+      "path": "Inbox → New message → button",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:280",
+      "covered": "yes",
+      "by": "do_conversation_open"
+    },
+    {
+      "path": "Inbox → New message → To (pick a person)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:59",
+      "covered": "yes",
+      "by": "search_customers, personId"
+    },
+    {
+      "path": "Inbox → New message → no-person refusal",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:69",
+      "covered": "yes",
+      "by": "do_conversation_open refusal"
+    },
+    {
+      "path": "Inbox → New message → Open conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/new-message-dialog.tsx:80",
+      "covered": "yes",
+      "by": "do_conversation_open"
+    },
+    {
+      "path": "Inbox → Whose: Mine / Unassigned / All",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:324",
+      "covered": "yes",
+      "by": "find_conversations box"
+    },
+    {
+      "path": "Inbox → Whose → counts",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:324",
+      "covered": "yes",
+      "by": "read_inbox_summary"
+    },
+    {
+      "path": "Inbox → Needs a person box",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:344",
+      "covered": "yes",
+      "by": "find_conversations box needs_person"
+    },
+    {
+      "path": "Inbox → AI is answering box",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:344",
+      "covered": "yes",
+      "by": "find_conversations box ai"
+    },
+    {
+      "path": "Inbox → Needs a person / AI boxes → counts",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-bits.tsx:1",
+      "covered": "yes",
+      "by": "read_inbox_summary"
+    },
+    {
+      "path": "Inbox → My mail box → open",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:353",
+      "covered": "no",
+      "by": "find_conversations has no mailbox filter"
+    },
+    {
+      "path": "Inbox → My mail → Inbox / Other / Spam tabs, Back",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:310",
+      "covered": "no",
+      "by": "no mail folder filter"
+    },
+    {
+      "path": "Inbox → Other mail / Spam boxes → open",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:268",
+      "covered": "no",
+      "by": "no folder filter in find_conversations"
+    },
+    {
+      "path": "Inbox → My mail / Other / Spam → counts",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/mail-boxes.tsx:1",
+      "covered": "yes",
+      "by": "read_inbox_summary mail"
+    },
+    {
+      "path": "Inbox → Unread only",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:365",
+      "covered": "partly",
+      "by": "unread returned, no filter"
+    },
+    {
+      "path": "Inbox → Search",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:395",
+      "covered": "yes",
+      "by": "find_conversations query"
+    },
+    {
+      "path": "Inbox → Status: Open / Snoozed / Closed / Archived",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:403",
+      "covered": "yes",
+      "by": "find_conversations status, box archived"
+    },
+    {
+      "path": "Inbox → Select → Delete (several)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:447",
+      "covered": "yes",
+      "by": "move_to_bin conversation, each"
+    },
+    {
+      "path": "Inbox → Delete dialog → what goes, Keep",
+      "kind": "see",
+      "file": "apps/web/src/components/bin/delete-dialog.tsx:1",
+      "covered": "yes",
+      "by": "move_to_bin confirm"
+    },
+    {
+      "path": "Inbox → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:488",
+      "covered": "partly",
+      "by": "limit 20, no cursor"
+    },
+    {
+      "path": "Inbox → empty words",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:462",
+      "covered": "yes",
+      "by": "find_conversations empty"
+    },
+    {
+      "path": "Inbox → didn't load, Try again",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:460",
+      "covered": "yes",
+      "by": "tool error text"
+    },
+    {
+      "path": "Phone Inbox → Search everything row",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:299",
+      "covered": "yes",
+      "by": "read_search_everything"
+    },
+    {
+      "path": "Inbox → row → name and channel",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:97",
+      "covered": "yes",
+      "by": "find_conversations with, channel"
+    },
+    {
+      "path": "Inbox → row → time of last message",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:128",
+      "covered": "partly",
+      "by": "waitingMinutes; no lastMessageAt"
+    },
+    {
+      "path": "Inbox → row → preview and who wrote it",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:137",
+      "covered": "partly",
+      "by": "lastMessage text, no sender"
+    },
+    {
+      "path": "Inbox → row → Needs person / AI / draft waiting chips",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:140",
+      "covered": "yes",
+      "by": "answeredBy, list_teammate_drafts"
+    },
+    {
+      "path": "Inbox → row → waiting time",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:140",
+      "covered": "yes",
+      "by": "waitingMinutes"
+    },
+    {
+      "path": "Inbox → row → On the site now",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:140",
+      "covered": "no",
+      "by": "chat presence not read"
+    },
+    {
+      "path": "Inbox → row → lead stage chip",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:140",
+      "covered": "partly",
+      "by": "get_customer openLeads, per person"
+    },
+    {
+      "path": "Inbox → row → New number chip",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:140",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Inbox → row → Same as (looks like)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:97",
+      "covered": "yes",
+      "by": "find_conversations looksLike"
+    },
+    {
+      "path": "Inbox → row → several lines",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:97",
+      "covered": "partly",
+      "by": "one row per conversation"
+    },
+    {
+      "path": "Inbox → row → Snoozed / Closed",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:140",
+      "covered": "yes",
+      "by": "status, snoozedUntil"
+    },
+    {
+      "path": "Inbox → row → assignee",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:145",
+      "covered": "yes",
+      "by": "assignee"
+    },
+    {
+      "path": "Inbox → row → unread count",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:149",
+      "covered": "yes",
+      "by": "unread"
+    },
+    {
+      "path": "Inbox → row → open (marks read)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-row.tsx:164",
+      "covered": "yes",
+      "by": "get_conversation; mark_read"
+    },
+    {
+      "path": "Conversation → header → name",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:683",
+      "covered": "yes",
+      "by": "get_conversation"
+    },
+    {
+      "path": "Conversation → lane switcher → Answer on",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/lane-switcher.tsx:90",
+      "covered": "partly",
+      "by": "send_text/send_email; chat lanes no"
+    },
+    {
+      "path": "Conversation → lane switcher → Reading only",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/lane-switcher.tsx:107",
+      "covered": "partly",
+      "by": "send refusals only"
+    },
+    {
+      "path": "Conversation → All lines view",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:521",
+      "covered": "partly",
+      "by": "get_conversation, one at a time"
+    },
+    {
+      "path": "Conversation → channel line (number, address)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:683",
+      "covered": "partly",
+      "by": "channel; no line number"
+    },
+    {
+      "path": "Conversation → On Home chip",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:689",
+      "covered": "yes",
+      "by": "read_attention_for_record"
+    },
+    {
+      "path": "Conversation → On the site tag",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:691",
+      "covered": "no",
+      "by": "chat presence not read"
+    },
+    {
+      "path": "Conversation → Private badge",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:695",
+      "covered": "no",
+      "by": "private not returned"
+    },
+    {
+      "path": "Conversation → Assign menu (people, Nobody)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:708",
+      "covered": "yes",
+      "by": "manage_conversation assign"
+    },
+    {
+      "path": "Conversation → Snooze options",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:763",
+      "covered": "yes",
+      "by": "manage_conversation snooze until"
+    },
+    {
+      "path": "Conversation → Close",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:775",
+      "covered": "yes",
+      "by": "manage_conversation close"
+    },
+    {
+      "path": "Conversation → Reopen",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:786",
+      "covered": "yes",
+      "by": "manage_conversation reopen"
+    },
+    {
+      "path": "Conversation → Customer details",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:796",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Conversation → More → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:818",
+      "covered": "never",
+      "by": "call.start on NEVER list"
+    },
+    {
+      "path": "Conversation → More → Video call",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:828",
+      "covered": "no",
+      "by": "video_call.start not covered"
+    },
+    {
+      "path": "Conversation → More → Open customer",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:837",
+      "covered": "yes",
+      "by": "get_customer href"
+    },
+    {
+      "path": "Conversation → More → Share with a teammate",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:841",
+      "covered": "yes",
+      "by": "do_conversation_share"
+    },
+    {
+      "path": "Conversation → More → Add as a new person",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:849",
+      "covered": "partly",
+      "by": "create_customer + link_customer"
+    },
+    {
+      "path": "Conversation → More → Link to a person (dialog)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/link-person-dialog.tsx:67",
+      "covered": "yes",
+      "by": "manage_conversation link_customer"
+    },
+    {
+      "path": "Conversation → More → Hand to the AI",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:864",
+      "covered": "yes",
+      "by": "manage_conversation hand_to_ai"
+    },
+    {
+      "path": "Conversation → More → Mark unread",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:871",
+      "covered": "yes",
+      "by": "manage_conversation mark_unread"
+    },
+    {
+      "path": "Conversation → More → Close every line",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:882",
+      "covered": "yes",
+      "by": "do_conversation_close_all"
+    },
+    {
+      "path": "Conversation → More → Copy phone / email",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:889",
+      "covered": "yes",
+      "by": "get_customer phone, email"
+    },
+    {
+      "path": "Conversation → More → Move to Inbox / Other / Spam, Not spam",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:900",
+      "covered": "yes",
+      "by": "do_conversation_move folder"
+    },
+    {
+      "path": "Conversation → More → Always put their mail there",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:900",
+      "covered": "yes",
+      "by": "do_conversation_move remember"
+    },
+    {
+      "path": "Conversation → More → Archive",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:924",
+      "covered": "yes",
+      "by": "archive_or_restore"
+    },
+    {
+      "path": "Conversation → More → Bring it back",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:915",
+      "covered": "yes",
+      "by": "archive_or_restore"
+    },
+    {
+      "path": "Conversation → More → Delete (to the bin) + dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:934",
+      "covered": "yes",
+      "by": "move_to_bin conversation"
+    },
+    {
+      "path": "Conversation → details sheet (name, since, lead)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1180",
+      "covered": "partly",
+      "by": "get_customer; no customer since"
+    },
+    {
+      "path": "Conversation → details sheet → assign / snooze / close",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1260",
+      "covered": "yes",
+      "by": "manage_conversation"
+    },
+    {
+      "path": "Conversation → Assign sheet",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1336",
+      "covered": "yes",
+      "by": "manage_conversation assign"
+    },
+    {
+      "path": "Phone conversation → Actions sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx:1036",
+      "covered": "yes",
+      "by": "manage_conversation, archive_or_restore"
+    },
+    {
+      "path": "Phone conversation → Ask HandsFreeOS",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx:879",
+      "covered": "yes",
+      "by": "context.ts page record"
+    },
+    {
+      "path": "Phone conversation → edit details, tags, note, add/link person sheets",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx:1104",
+      "covered": "yes",
+      "by": "update_customer, tag_customers, add_note, link_customer"
+    },
+    {
+      "path": "Phone conversation → next action sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx:1151",
+      "covered": "yes",
+      "by": "update_lead nextAction"
+    },
+    {
+      "path": "Phone conversation → not on this phone notice",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx:370",
+      "covered": "yes",
+      "by": "get_conversation online"
+    },
+    {
+      "path": "Conversation → not-a-customer / add-person banners",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1038",
+      "covered": "partly",
+      "by": "personId null"
+    },
+    {
+      "path": "Conversation → known sender link",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:436",
+      "covered": "yes",
+      "by": "find_conversations looksLike"
+    },
+    {
+      "path": "Conversation → shared-with-you banner",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1018",
+      "covered": "partly",
+      "by": "assignee only, share not read back"
+    },
+    {
+      "path": "Conversation → AI is handling banner",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:153",
+      "covered": "partly",
+      "by": "answeredBy ai"
+    },
+    {
+      "path": "Conversation → AI handling → Take over",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:170",
+      "covered": "yes",
+      "by": "manage_conversation take_over"
+    },
+    {
+      "path": "Conversation → person took over banner",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:182",
+      "covered": "partly",
+      "by": "answeredBy person"
+    },
+    {
+      "path": "Conversation → Hand back to AI + confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:196",
+      "covered": "yes",
+      "by": "manage_conversation hand_to_ai"
+    },
+    {
+      "path": "Conversation → Needs a person line",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:209",
+      "covered": "partly",
+      "by": "box needs_person, no reason"
+    },
+    {
+      "path": "Conversation → Needs a person → Why",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:234",
+      "covered": "no",
+      "by": "handoff reason not read"
+    },
+    {
+      "path": "Conversation → Needs a person → AI's note",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:242",
+      "covered": "no",
+      "by": "handoff note not read"
+    },
+    {
+      "path": "Conversation → Needs a person → Take it",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:253",
+      "covered": "yes",
+      "by": "manage_conversation assign, take_over"
+    },
+    {
+      "path": "Conversation → chat visitor strip (page, device)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:367",
+      "covered": "no",
+      "by": "chat visitor not read"
+    },
+    {
+      "path": "Conversation → snoozed banner",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1071",
+      "covered": "yes",
+      "by": "snoozedUntil; reopen"
+    },
+    {
+      "path": "Conversation → closed banner",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1086",
+      "covered": "yes",
+      "by": "status; reopen"
+    },
+    {
+      "path": "Conversation → quiet hours strip",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1097",
+      "covered": "yes",
+      "by": "send_text quiet hours refusal"
+    },
+    {
+      "path": "Conversation → no texting number notice",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:1103",
+      "covered": "yes",
+      "by": "get_settings texting, manage_phone_number"
+    },
+    {
+      "path": "Thread → Show earlier",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/message-log.tsx:112",
+      "covered": "partly",
+      "by": "get_conversation latest 20"
+    },
+    {
+      "path": "Thread → empty",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:117",
+      "covered": "yes",
+      "by": "get_conversation"
+    },
+    {
+      "path": "Thread → customer and business messages",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:200",
+      "covered": "yes",
+      "by": "get_conversation at, from, text"
+    },
+    {
+      "path": "Thread → which line it came on (all lines)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:200",
+      "covered": "no",
+      "by": "no line per message"
+    },
+    {
+      "path": "Thread → team notes",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:236",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Thread → sending bubble",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:157",
+      "covered": "partly",
+      "by": "outbound status"
+    },
+    {
+      "path": "Thread → AI-written label",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:442",
+      "covered": "partly",
+      "by": "answeredBy per conversation"
+    },
+    {
+      "path": "Thread → delivery status",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:455",
+      "covered": "yes",
+      "by": "get_conversation status"
+    },
+    {
+      "path": "Thread → transport tag (SMS, RCS, iMessage)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:454",
+      "covered": "no",
+      "by": "transport not returned"
+    },
+    {
+      "path": "Thread → failure help",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:482",
+      "covered": "yes",
+      "by": "unsent_messages why"
+    },
+    {
+      "path": "Thread → Retry a failed message",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/message-log.tsx:466",
+      "covered": "yes",
+      "by": "manage_conversation send_again"
+    },
+    {
+      "path": "Thread → held message line",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:281",
+      "covered": "yes",
+      "by": "unsent_messages"
+    },
+    {
+      "path": "Thread → held → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/message-log.tsx:287",
+      "covered": "yes",
+      "by": "manage_conversation cancel_held_text"
+    },
+    {
+      "path": "Thread → photos and videos",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:266",
+      "covered": "no",
+      "by": "no media in get_conversation"
+    },
+    {
+      "path": "Thread → media viewer → Download / Share",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/media-viewer.tsx:54",
+      "covered": "person",
+      "by": "saves to own device"
+    },
+    {
+      "path": "Thread → media can't play",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/media-viewer.tsx:77",
+      "covered": "no",
+      "by": "media not read"
+    },
+    {
+      "path": "Thread → attachment chips",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/attachment-chip.tsx:32",
+      "covered": "no",
+      "by": "attachments not returned"
+    },
+    {
+      "path": "Thread → reply-to quote",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:343",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Thread → edited mark",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:475",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Thread → came by video link",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:372",
+      "covered": "no",
+      "by": "video link uploads not read"
+    },
+    {
+      "path": "Thread → STOP / START keyword line",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/message-log.tsx:488",
+      "covered": "partly",
+      "by": "send_text opt-out refusal"
+    },
+    {
+      "path": "Thread → Messenger / Instagram bits (story reply, reactions, shared)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/social-bits.tsx:1",
+      "covered": "no",
+      "by": "social extras not returned"
+    },
+    {
+      "path": "Thread → rich content (cards, buttons, button reply)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/rich-message.tsx:1",
+      "covered": "no",
+      "by": "rich parts not returned"
+    },
+    {
+      "path": "Thread → reply feedback thumbs",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:1",
+      "covered": "yes",
+      "by": "do_ai_teammate_give_feedback"
+    },
+    {
+      "path": "Thread → feedback → better reply, why",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:1",
+      "covered": "yes",
+      "by": "do_ai_teammate_give_feedback"
+    },
+    {
+      "path": "Thread → feedback → AI's question, answer",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:1",
+      "covered": "yes",
+      "by": "do_ai_teammate_answer_feedback"
+    },
+    {
+      "path": "Thread → feedback → Save rule / Edit / Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:1",
+      "covered": "yes",
+      "by": "do_teammate_lesson_apply, _dismiss"
+    },
+    {
+      "path": "Thread → feedback given before",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:1",
+      "covered": "yes",
+      "by": "read_ai_teammate_feedback"
+    },
+    {
+      "path": "Thread → call card → title, direction, length",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/call-card.tsx:111",
+      "covered": "yes",
+      "by": "get_conversation calls"
+    },
+    {
+      "path": "Thread → call card → recording player",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/call-card.tsx:42",
+      "covered": "no",
+      "by": "audio not available"
+    },
+    {
+      "path": "Thread → call card → transcript",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/call-card.tsx:51",
+      "covered": "yes",
+      "by": "get_conversation transcript"
+    },
+    {
+      "path": "Thread → call card → notes",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/call-card.tsx:55",
+      "covered": "yes",
+      "by": "recent_calls notes"
+    },
+    {
+      "path": "Thread → voicemail player",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/voicemail-player.tsx:77",
+      "covered": "partly",
+      "by": "transcript only, no audio"
+    },
+    {
+      "path": "Thread → email → subject and body",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/mail-card.tsx:74",
+      "covered": "yes",
+      "by": "get_conversation subject, text"
+    },
+    {
+      "path": "Thread → email → from / to line",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/mail-card.tsx:77",
+      "covered": "partly",
+      "by": "from only, no to or cc"
+    },
+    {
+      "path": "Thread → email → Load images",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/mail-body.tsx:107",
+      "covered": "no",
+      "by": "images not read"
+    },
+    {
+      "path": "Thread → email → attachments",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/mail-card.tsx:106",
+      "covered": "no",
+      "by": "attachments not returned"
+    },
+    {
+      "path": "Thread → email → status, Retry",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/mail-card.tsx:132",
+      "covered": "yes",
+      "by": "unsent_messages, send_again"
+    },
+    {
+      "path": "Draft card → title, waiting, expires",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:407",
+      "covered": "yes",
+      "by": "list_teammate_drafts"
+    },
+    {
+      "path": "Draft card → add-on's ask",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:415",
+      "covered": "partly",
+      "by": "ask summary not mapped"
+    },
+    {
+      "path": "Draft card → drafted words and subject",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:464",
+      "covered": "yes",
+      "by": "list_teammate_drafts"
+    },
+    {
+      "path": "Draft card → approving also, discount, call",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:464",
+      "covered": "yes",
+      "by": "approvingAlso, discount, call"
+    },
+    {
+      "path": "Draft card → held flags",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:475",
+      "covered": "no",
+      "by": "flags not returned"
+    },
+    {
+      "path": "Draft card → safety and knowledge notes",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:487",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Draft card → who decides",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:502",
+      "covered": "yes",
+      "by": "canDecide"
+    },
+    {
+      "path": "Draft card → text segment count",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:510",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Draft card → Approve",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:310",
+      "covered": "yes",
+      "by": "decide_teammate_draft approve"
+    },
+    {
+      "path": "Draft card → Edit, Send my version",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:323",
+      "covered": "yes",
+      "by": "decide_teammate_draft message, subject"
+    },
+    {
+      "path": "Draft card → Reject, reason, confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:335",
+      "covered": "yes",
+      "by": "decide_teammate_draft reject, reason"
+    },
+    {
+      "path": "Draft card → training progress",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:341",
+      "covered": "yes",
+      "by": "get_settings ai_teammate"
+    },
+    {
+      "path": "Draft card → sending bubble",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:596",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Draft card → rejected → I'll reply",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:648",
+      "covered": "yes",
+      "by": "manage_conversation take_over"
+    },
+    {
+      "path": "Draft card → rejected → Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/draft-card.tsx:656",
+      "covered": "yes",
+      "by": "do_ai_teammate_retry"
+    },
+    {
+      "path": "Draft card → expired / dropped notes",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversation-view.tsx:642",
+      "covered": "no",
+      "by": "only waiting drafts listed"
+    },
+    {
+      "path": "Composer → Text / Email switch",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:916",
+      "covered": "yes",
+      "by": "send_text or send_email"
+    },
+    {
+      "path": "Composer → Send as (texting number)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:1043",
+      "covered": "yes",
+      "by": "send_text from line"
+    },
+    {
+      "path": "Composer → text from another line",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:1063",
+      "covered": "yes",
+      "by": "send_text"
+    },
+    {
+      "path": "Composer → email From picker",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:970",
+      "covered": "no",
+      "by": "send_email default address only"
+    },
+    {
+      "path": "Composer → To",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:1084",
+      "covered": "yes",
+      "by": "send_email to customer"
+    },
+    {
+      "path": "Composer → Add cc, cc field",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:1092",
+      "covered": "no",
+      "by": "send_email has no cc"
+    },
+    {
+      "path": "Composer → Subject",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:991",
+      "covered": "yes",
+      "by": "send_email subject"
+    },
+    {
+      "path": "Composer → message and Send",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:924",
+      "covered": "yes",
+      "by": "send_text, send_email"
+    },
+    {
+      "path": "Composer → reply in website chat",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:916",
+      "covered": "no",
+      "by": "send_text refuses chat"
+    },
+    {
+      "path": "Composer → reply in customer portal",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:916",
+      "covered": "no",
+      "by": "send_text refuses portal"
+    },
+    {
+      "path": "Composer → reply on Messenger / Instagram",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:1026",
+      "covered": "no",
+      "by": "send_text refuses social"
+    },
+    {
+      "path": "Composer → social reply window and counter",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/composer.tsx:1234",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Composer → can't text / can't email notes",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/composer.tsx:1069",
+      "covered": "yes",
+      "by": "send refusals"
+    },
+    {
+      "path": "Composer → handover note",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/composer.tsx:772",
+      "covered": "no",
+      "by": "handoff note not read"
+    },
+    {
+      "path": "Composer → Sales Coach suggestions",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/composer.tsx:800",
+      "covered": "yes",
+      "by": "salescoach_suggestions"
+    },
+    {
+      "path": "Composer → Note",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:851",
+      "covered": "yes",
+      "by": "add_note"
+    },
+    {
+      "path": "Composer → Attach file or photo (web, phone camera, library)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:882",
+      "covered": "never",
+      "by": "file.begin_upload on NEVER list"
+    },
+    {
+      "path": "Composer → Templates → search, pick",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/template-picker.tsx:115",
+      "covered": "yes",
+      "by": "get_settings templates"
+    },
+    {
+      "path": "Composer → Templates → none yet",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/template-picker.tsx:129",
+      "covered": "yes",
+      "by": "get_settings templates"
+    },
+    {
+      "path": "Composer → Ask for a video",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:903",
+      "covered": "yes",
+      "by": "do_video_link_create: the whole link shows on its card once, after Confirm (texting it in the same step is inbox-3)"
+    },
+    {
+      "path": "Composer → rich editor (buttons, picture, card, carousel)",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/rich-editor.tsx:71",
+      "covered": "no",
+      "by": "send_text plain only"
+    },
+    {
+      "path": "Composer → rich → Set up RCS",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/rich-editor.tsx:357",
+      "covered": "partly",
+      "by": "get_settings texting"
+    },
+    {
+      "path": "Composer → segment counter",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/composer.tsx:1241",
+      "covered": "no",
+      "by": "not returned"
+    },
+    {
+      "path": "Composer → quiet hours → Send now / Keep",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:1272",
+      "covered": "yes",
+      "by": "send_text acknowledgeQuietHours"
+    },
+    {
+      "path": "Composer → quiet hours → Send later",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/composer.tsx:942",
+      "covered": "no",
+      "by": "no send-later"
+    },
+    {
+      "path": "Phone composer → offline reply (waiting, Still send?, Edit, Discard, Retry)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/pending-reply.tsx:1",
+      "covered": "no",
+      "by": "phone outbox only"
+    },
+    {
+      "path": "Context → unknown sender → who, first wrote",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:266",
+      "covered": "partly",
+      "by": "get_conversation; no first date"
+    },
+    {
+      "path": "Context → known sender → Link",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:297",
+      "covered": "yes",
+      "by": "manage_conversation link_customer"
+    },
+    {
+      "path": "Context → Add as a customer",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:313",
+      "covered": "yes",
+      "by": "create_customer + link_customer"
+    },
+    {
+      "path": "Context → Add → duplicate found, Link instead",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/contact-fields.tsx:271",
+      "covered": "yes",
+      "by": "search_customers, link_customer"
+    },
+    {
+      "path": "Context → Add → more details fields",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/contact-fields.tsx:314",
+      "covered": "yes",
+      "by": "update_customer"
+    },
+    {
+      "path": "Context → ads that brought them",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:339",
+      "covered": "yes",
+      "by": "read_attribution_list"
+    },
+    {
+      "path": "Context → name, phone, email, address",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:390",
+      "covered": "yes",
+      "by": "get_customer"
+    },
+    {
+      "path": "Context → customer since",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:399",
+      "covered": "no",
+      "by": "get_customer lacks it"
+    },
+    {
+      "path": "Context → tags, add and remove",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:430",
+      "covered": "yes",
+      "by": "tag_customers, do_record_add_tag"
+    },
+    {
+      "path": "Context → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:443",
+      "covered": "never",
+      "by": "call.start on NEVER list"
+    },
+    {
+      "path": "Context → Open customer",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:463",
+      "covered": "yes",
+      "by": "get_customer href"
+    },
+    {
+      "path": "Context → Edit all details (person dialog)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/person-dialog.tsx:1",
+      "covered": "yes",
+      "by": "update_customer"
+    },
+    {
+      "path": "Context → what they owe",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:482",
+      "covered": "yes",
+      "by": "customer_money"
+    },
+    {
+      "path": "Context → funnel line, add / pause / remove",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:1",
+      "covered": "yes",
+      "by": "read_funnel_of_person, do_funnel_*"
+    },
+    {
+      "path": "Context → open lead, stage select",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:507",
+      "covered": "yes",
+      "by": "get_customer, move_lead"
+    },
+    {
+      "path": "Context → next action, Set next action dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/next-action-dialog.tsx:1",
+      "covered": "yes",
+      "by": "update_lead nextAction, nextActionAt"
+    },
+    {
+      "path": "Context → Start a lead (lead dialog)",
+      "kind": "do",
+      "file": "apps/web/src/components/crm/lead-dialog.tsx:1",
+      "covered": "partly",
+      "by": "create_lead; no source, close date"
+    },
+    {
+      "path": "Context → Add a note",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:554",
+      "covered": "yes",
+      "by": "add_note"
+    },
+    {
+      "path": "Context → open tasks, complete",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:567",
+      "covered": "yes",
+      "by": "get_customer, complete_task"
+    },
+    {
+      "path": "Context → Add a task (task dialog)",
+      "kind": "do",
+      "file": "apps/web/src/components/tasks/task-dialog.tsx:1",
+      "covered": "yes",
+      "by": "create_task"
+    },
+    {
+      "path": "Context → next visits",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:602",
+      "covered": "yes",
+      "by": "get_customer upcomingAppointments"
+    },
+    {
+      "path": "Context → Book a visit (appointment dialog)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:1",
+      "covered": "partly",
+      "by": "book_appointment, some fields"
+    },
+    {
+      "path": "Context → New estimate / invoice",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/context-panel.tsx:651",
+      "covered": "yes",
+      "by": "write_estimate, write_invoice"
+    },
+    {
+      "path": "Context → AI in this conversation",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:327",
+      "covered": "partly",
+      "by": "answeredBy"
+    },
+    {
+      "path": "Context → handed off by AI (when, emailed, reminder)",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:319",
+      "covered": "no",
+      "by": "handoff details not read"
+    },
+    {
+      "path": "Context → See the AI's runs",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/ai-handling.tsx:337",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity"
+    },
+    {
+      "path": "Context → conversations card",
+      "kind": "see",
+      "file": "apps/web/src/components/inbox/conversations-card.tsx:52",
+      "covered": "yes",
+      "by": "get_customer conversations"
+    },
+    {
+      "path": "Context → conversations card empty → Text / email them",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/conversations-card.tsx:98",
+      "covered": "yes",
+      "by": "send_text, send_email"
+    },
+    {
+      "path": "Context → message sheet, Open whole conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/message-sheet.tsx:231",
+      "covered": "yes",
+      "by": "get_conversation"
+    },
+    {
+      "path": "Calls → live calls pill",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/calls-pill.tsx:18",
+      "covered": "person",
+      "by": "live call on own device"
+    },
+    {
+      "path": "Calls → incoming call → Answer / Decline",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/incoming-call-card.tsx:43",
+      "covered": "person",
+      "by": "own microphone"
+    },
+    {
+      "path": "Calls → dialer → number, caller ID, Call",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/dialer-dialog.tsx:35",
+      "covered": "never",
+      "by": "call.start on NEVER list"
+    },
+    {
+      "path": "Calls → microphone blocked",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/dialer-dialog.tsx:54",
+      "covered": "person",
+      "by": "browser permission"
+    },
+    {
+      "path": "Calls → live bar → status, Mute, Keypad, Hang up",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/active-call-bar.tsx:174",
+      "covered": "person",
+      "by": "live call controls"
+    },
+    {
+      "path": "Calls → live bar → Switch to video",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/active-call-bar.tsx:199",
+      "covered": "no",
+      "by": "video_call.start not covered"
+    },
+    {
+      "path": "Calls → live bar → Add a note",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/active-call-bar.tsx:205",
+      "covered": "yes",
+      "by": "add_note"
+    },
+    {
+      "path": "Calls → Sales Coach live panel",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/active-call-bar.tsx:152",
+      "covered": "yes",
+      "by": "salescoach_live"
+    },
+    {
+      "path": "Calls → after-call notes",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/call-notes.tsx:33",
+      "covered": "yes",
+      "by": "recent_calls notes, add_note"
+    },
+    {
+      "path": "Calls → Log activity sheet (kind, when, lead, next action)",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:145",
+      "covered": "partly",
+      "by": "add_note; no kind or when"
+    },
+    {
+      "path": "Phone → call sheet (call through own cell)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/call-sheet.tsx:272",
+      "covered": "partly",
+      "by": "call_customer card; call.connect_me not covered"
+    },
+    {
+      "path": "Phone → My cell card (confirm cell)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/inbox/my-cell-card.tsx:106",
+      "covered": "never",
+      "by": "user_phone.start_verification NEVER"
+    },
+    {
+      "path": "Phone → call screen",
+      "kind": "do",
+      "file": "apps/mobile/src/video-call/phone-call.tsx:53",
+      "covered": "person",
+      "by": "live call on own phone"
+    },
+    {
+      "path": "Timeline → entries",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:144",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Timeline → approval entry → See the run",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:154",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity"
+    },
+    {
+      "path": "Timeline → voicemail",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:195",
+      "covered": "partly",
+      "by": "recent_calls transcript"
+    },
+    {
+      "path": "Timeline → email attachments",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:232",
+      "covered": "no",
+      "by": "attachments not returned"
+    },
+    {
+      "path": "Timeline → phone call notes, suggestions approve / dismiss",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/call-review.tsx:1",
+      "covered": "yes",
+      "by": "read_call_suggestion_list, do_call_suggestion_decide"
+    },
+    {
+      "path": "Timeline → video call notes, transcript",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:225",
+      "covered": "yes",
+      "by": "read_appointment_transcripts"
+    },
+    {
+      "path": "Timeline → Delete an entry",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:183",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Timeline → Show older",
+      "kind": "do",
+      "file": "apps/web/src/components/timeline/timeline.tsx:249",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Timeline → empty",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:113",
+      "covered": "yes",
+      "by": "read_timeline_list"
+    },
+    {
+      "path": "Timeline → opened entry",
+      "kind": "see",
+      "file": "apps/web/src/components/timeline/timeline.tsx:263",
+      "covered": "yes",
+      "by": "read_activity_get"
+    },
+    {
+      "path": "Video → Start a video call (text / email link, quiet hours, Join)",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/start-call.tsx:114",
+      "covered": "no",
+      "by": "video_call.start not covered"
+    },
+    {
+      "path": "Video → link page → Join / Ask to join",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/link-call.tsx:182",
+      "covered": "person",
+      "by": "joins on own device"
+    },
+    {
+      "path": "Video → pre-join (mic, camera, blur, pick microphone)",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:204",
+      "covered": "person",
+      "by": "own devices"
+    },
+    {
+      "path": "Video → webinar join",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:358",
+      "covered": "person",
+      "by": "joins on own device"
+    },
+    {
+      "path": "Video → asking to join → Let in",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:415",
+      "covered": "yes",
+      "by": "do_video_call_admit"
+    },
+    {
+      "path": "Video → watching count",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:525",
+      "covered": "yes",
+      "by": "read_video_call_get"
+    },
+    {
+      "path": "Video → attendee cameras on / off",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:559",
+      "covered": "yes",
+      "by": "do_video_call_set_attendee_video"
+    },
+    {
+      "path": "Video → AI notes menu, turn off confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:584",
+      "covered": "yes",
+      "by": "do_video_call_set_ai"
+    },
+    {
+      "path": "Video → joining / reconnecting / alone",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:615",
+      "covered": "person",
+      "by": "own connection"
+    },
+    {
+      "path": "Video → mic, camera, share screen, blur, reactions, hand",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:684",
+      "covered": "person",
+      "by": "own devices"
+    },
+    {
+      "path": "Video → captions",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:762",
+      "covered": "no",
+      "by": "live captions not read"
+    },
+    {
+      "path": "Video → People → waiting → Let in / Turn away",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:246",
+      "covered": "yes",
+      "by": "do_video_call_admit, _turn_away"
+    },
+    {
+      "path": "Video → People → rows (presenting, hand up)",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:266",
+      "covered": "partly",
+      "by": "read_video_call_get"
+    },
+    {
+      "path": "Video → People → Put on stage",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:372",
+      "covered": "yes",
+      "by": "do_video_call_stage"
+    },
+    {
+      "path": "Video → People → Mute",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:382",
+      "covered": "yes",
+      "by": "do_video_call_mute"
+    },
+    {
+      "path": "Video → People → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:392",
+      "covered": "yes",
+      "by": "do_video_call_remove"
+    },
+    {
+      "path": "Video → Chat → read",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:102",
+      "covered": "yes",
+      "by": "read_video_call_chat"
+    },
+    {
+      "path": "Video → Chat → send",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:131",
+      "covered": "no",
+      "by": "no chat send tool"
+    },
+    {
+      "path": "Video → Polls → pick, None, unpublished",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:479",
+      "covered": "yes",
+      "by": "do_video_call_set_poll"
+    },
+    {
+      "path": "Video → Polls → AI mode",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:176",
+      "covered": "yes",
+      "by": "do_video_call_set_poll_ai"
+    },
+    {
+      "path": "Video → Polls → Ask now / Skip",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:248",
+      "covered": "yes",
+      "by": "do_video_call_poll_open, _skip"
+    },
+    {
+      "path": "Video → Polls → up now → Close",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:558",
+      "covered": "yes",
+      "by": "do_video_call_poll_close"
+    },
+    {
+      "path": "Video → Polls → answers, average",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:634",
+      "covered": "yes",
+      "by": "read_video_call_polls"
+    },
+    {
+      "path": "Video → Polls → AI suggests asking",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:412",
+      "covered": "partly",
+      "by": "read_video_call_polls"
+    },
+    {
+      "path": "Video → Slides → show / stop",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/slides.tsx:51",
+      "covered": "yes",
+      "by": "do_video_call_slide"
+    },
+    {
+      "path": "Video → screen marks (draw, let them mark)",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/screen-marks.tsx:523",
+      "covered": "person",
+      "by": "drawing on own screen"
+    },
+    {
+      "path": "Video → Leave",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:813",
+      "covered": "person",
+      "by": "own session"
+    },
+    {
+      "path": "Video → End for everyone, confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:839",
+      "covered": "yes",
+      "by": "do_video_call_end"
+    },
+    {
+      "path": "Video → after-call pages (join again, removed)",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-frame.tsx:73",
+      "covered": "person",
+      "by": "own session"
+    },
+    {
+      "path": "Video → Sales Coach beside the call",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-coach.tsx:19",
+      "covered": "yes",
+      "by": "salescoach_live"
+    },
+    {
+      "path": "Video → AI notes and transcript after",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-notes.tsx:39",
+      "covered": "yes",
+      "by": "read_appointment_transcripts"
+    },
+    {
+      "path": "Video → chat log after the call",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-chat-log.tsx:54",
+      "covered": "yes",
+      "by": "read_video_call_chat"
+    },
+    {
+      "path": "Video → customer's join page",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/customer-call.tsx:180",
+      "covered": "person",
+      "by": "customer's own page"
+    },
+    {
+      "path": "Video → customer's poll popup",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-popup.tsx:237",
+      "covered": "person",
+      "by": "customer answers"
+    },
+    {
+      "path": "Video link → customer's upload page",
+      "kind": "do",
+      "file": "apps/web/src/components/video-link/upload-page.tsx:1",
+      "covered": "person",
+      "by": "customer uploads from device"
+    },
+    {
+      "path": "Voice bar → talk to the Assistant",
+      "kind": "do",
+      "file": "apps/web/src/components/voice/voice-bar.tsx:1",
+      "covered": "person",
+      "by": "own microphone"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "inbox-1",
+      "severity": "high",
+      "kind": "do",
+      "where": "Inbox → a conversation → the composer in a website chat, client portal, Messenger or Instagram conversation (the reply box and Send)",
+      "gap": "The Assistant has no general way to reply in a website chat, client portal, Messenger or Instagram conversation. send_text forces channel 'sms' (tools-write.ts:401) and send_email forces 'email' (tools-write.ts:496). For a chat or portal thread, cannotText tells the model to 'Reply in the chat instead' (tools-write.ts:350-353), which leads nowhere. Two narrow routes do exist. handle_attention_item with action 'reply' sends on the conversation's own channel (chat/portal/messenger/instagram, tools-attention.ts:255, 353-399, 495-525, 604-610), but only for a Home item of kind hot_lead, unanswered_lead or customer_waiting (attention/reach.ts:10-14). decide_teammate_draft can approve an AI draft with the person's own words. Any other 'answer her chat' or 'reply on Instagram' request is refused.",
+      "fix": "Add a reply_in_conversation confirm tool (conversationId, body). Its prepare reads conversation.get and refuses sms/email threads (pointing to send_text/send_email). It rehearses message.send with channel = conversation.channel so the composer's own refusals show on the card: Meta's reply window from conversation.get.social, a blocked chat visitor. Title the card 'Reply to {first} in the chat / in their portal / on Messenger / on Instagram?' as tools-attention.ts:500-506 does, with confirmLabel 'Send reply'. Its commit runs message.send {conversationId, channel, body, clientId} without quiet-hours flags. Change cannotText's chat_channel and portal_channel words to name the new tool.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-2",
+      "severity": "high",
+      "kind": "do",
+      "where": "Conversation ⋯ menu → Video call; the phone sheet's Video call; the active call bar's Switch to video",
+      "gap": "No tool starts a HandsFreeOS video call with a customer. video_call.start (risk 2, appointments.write) runs only through the worker route /v1/video-calls/start. It is in neither SCREEN_ACTIONS nor NEVER_FOR_THE_ASSISTANT. The coverage test misses it because it only scans for '/v1/commands/<name>'. The command texts or emails the customer their own link itself. That link is /j/<random key>, and only its hash is stored, so the Assistant could never quote it. What it lacks is a way to start the call and hand the person their Join.",
+      "fix": "Add a start_video_call confirm tool (personId or conversationId, optional channel 'sms'|'email'). Its prepare rehearses video_call.start and shows a quiet_hours warning; the confirm sets acknowledgeQuietHours, as send_text does. Its commit works out origin the way routes.ts:186-192 does (publicOrigin(tx, workspaceId, webUrl)), runs videoCallStart, and returns outcome '{name}’s link is on its way by text/email' with href `${extra.webUrl}/call/${callId}` (the team's Join, as start-call.tsx:61 opens it). Its words must say the customer's own link went to them and is never shown. Also extend assistant-coverage.test.ts to scan workerPost('/v1/…') routes (apps/web/src/lib/api/worker.ts:437, apps/mobile/src/video-call/start-call.tsx:47) and map each one to its command.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-3",
+      "severity": "high",
+      "kind": "do",
+      "where": "Composer → Ask for a video (sends the customer a link to record and upload a video)",
+      "gap": "do_video_link_create exists (SCREEN_ACTIONS, risk 1, so it waits for Confirm), but commitScreenAction throws the command's output away and returns {outcome:'Done', href:null}. The one-time /v/<token> path never reaches the model. The Assistant can make a video-request link and then has nothing to send, and the token is shown only once. The link only works in an SMS conversation (video-link.ts:160-165). Its base is the web app's own address, not the business's public origin: the web uses window.location.origin and the phone config.webUrl.",
+      "fix": "Left open: the general part is fixed in the foundations step (a screen action’s answer is kept, and the video link shows whole on its card once, after Confirm); the send_text askForVideo option that texts it in the conversation is the inbox step’s. Give send_text an askForVideo boolean. When it is set, the card says 'Adds a link for them to send a video' and the commit runs video_link.create {conversationId} first, then appends VIDEO_LINK_WORDS.ask(`${extra.webUrl}${out.path}`) to the body before message.send. Refuse it for a non-SMS conversation with the command's notByText words. More generally, have commitScreenAction (tools-screen-actions.ts:128-136) return the command's output, with any `path` made absolute using extra.webUrl, so a screen action's result is never lost.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "Phone app → a conversation → the header's Ask HandsFreeOS button",
+      "gap": "On the phone's conversation screen, the AppBar is rendered with ask={false}, so its own record-carrying Ask button is hidden. The screen draws its own 'Ask HandsFreeOS' HeaderButton that pushes businessHref(business.id, 'ask') with no ?type=&id=. The ask screen reads the record only from those params (pageRecordOf), so the Assistant never learns which conversation was open. The AppBar's own button passes it through askHref(record), and core's assistantPageRecord supports type 'conversation'.",
+      "fix": "In apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx:880, replace router.push(businessHref(business.id, 'ask')) with router.push(askHref(business.id, { type: 'conversation', id: conversationId }) as Href), importing askHref from '@/assistant/page-record'. Or use usePhonePageRecord(business.id).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A conversation's header: the customer, the number or address the thread is with, our line, and the lane switcher (Texts · Email · Chat with unread dots); the ⋯ menu's Copy phone number / Copy email address",
+      "gap": "find_conversations already returns personId per row, plus looksLike for an unlinked thread, and get_customer returns the person's phone, email, otherPhones/otherEmails and their conversations with ids and channels. So 'did they also email' and going from a found conversation to the customer are covered. What is still missing is in get_conversation itself and the page context. get_conversation returns only 'with' (a name for a known customer) and no personId. It gives no counterpart (which of their numbers or addresses the thread is with), no line (lineDisplay, our end), and no lanes. context.ts gives only 'Texts with Dana' (and mislabels social, see inbox-21). From the conversation page, 'book her', 'which number did they text' or 'which of our lines' needs a name search or can't be answered, and the number the ⋯ Copy button copies isn't given for a known customer.",
+      "fix": "In get_conversation (tools-read.ts:552-560) add personId: conversation.person?.id ?? null, counterpart: conversation.counterpartDisplay, line: conversation.lanes.find(l => l.id === conversationId)?.lineDisplay ?? null, and lanes: conversation.lanes.map(l => ({conversationId: l.id, channel: l.channel, line: l.lineDisplay, unread: l.unreadCount, status: l.status})). All of these are already in conversation.get's ConversationSummary. Add counterpart and line to find_conversations rows. In context.ts's conversation case, add the personId (or the person's name and id) to the page line.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-6",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A conversation's messages: photo, video and file thumbnails, email attachments, and 'came by video link'",
+      "gap": "get_conversation maps only from/subject/text/status and drops ThreadItem.media. A text, chat or social message that is only a photo or video comes back with no text at all, and 'Sent with your video link' is lost. The only partial route is read_timeline_list on the customer: an email entry's meta.attachments carries the attachment names, as the timeline renders them. That covers email attachments for known customers, not MMS photos, chat/social files or video-link uploads.",
+      "fix": "In get_conversation's message mapping (tools-read.ts:568-580), add attachments: i.media.map(m => ({ name: m.name, kind: m.contentType.split('/')[0], cameBy: m.via === 'video_link' ? 'video link' : m.via === 'file_link' ? 'file link' : 'message' })) when media is non-empty. Add media to the conversation.thread type there, and note 'sent N photos/videos' when body is null.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-7",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Inbox boxes: My mail (with its Inbox / Other mail / Spam), the Unread toggle, Show more; on the phone, the same chips plus Needs a person and AI",
+      "gap": "Counts are reachable through read_inbox_summary (inbox.summary is a screen read): unread per box, waiting, needsPerson, ai, and mail.mine/other/spam. So 'how many are unread' and 'is anything in spam' get a number. find_conversations already covers needs_person and ai, the phone's extra chips. Listing threads is still missing. find_conversations' box enum lacks 'other' and 'spam', though inboxBox has both. It has no mailbox:'mine' (My mail), no unread filter, and no cursor or 'more' flag (max 20). So 'what's in spam', 'show my own Gmail inbox' or 'list the unread ones' can't be answered.",
+      "fix": "In packages/core/src/assistant/tools-inbox-crm.ts:39, widen box to z.enum(['mine','unassigned','all','needs_person','ai','archived','other','spam']) and add mailbox: z.enum(['team','mine']).default('team'), unread: z.boolean().optional() and cursor: z.string().optional(). Pass all of them to inbox.list in findConversations (apps/worker/src/assistant/tools-inbox-crm.ts:194-205). Return more: !!nextCursor and nextCursor. Add a 'folder' (Inbox/Other mail/Spam) and 'private' flag to each row.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-8",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Each message in a conversation: sent by the AI teammate / approved by, the failure line with its help, Held until…, email From/To/Cc/via, Delivered/Read, RCS buttons and the button the customer tapped, Messenger/Instagram shared post, reply, edited and unsent",
+      "gap": "unsent_messages already covers the failure line and Held until: each failed or held message's messageId, why (errorMessage) and goesAt (scheduledFor). read_ai_teammate_review returns runId, messageId and conversationId for the teammate's own sends, which do_ai_teammate_give_feedback accepts (runId or messageId), so feedback on a particular AI reply is possible. Missing from get_conversation: message ids, the AI teammate who sent a message and who approved it (a teammate message reads as from sentBy?.fullName ?? 'the business'), the email from/to/cc addresses and via (own Gmail/Outlook), deliveredAt/readAt, RCS buttons and the customer's buttonReply, social extras, and editedAt/unsentAt. 'Who was it copied to', 'did the AI send that' and 'did she read it' go unanswered.",
+      "fix": "In get_conversation's outbound/inbound mapping (tools-read.ts:571-580) add id: i.id, sentBy: i.teammate ? `${i.teammate.name} (AI teammate)` : (i.sentBy?.fullName ?? 'the business'), approvedBy: i.approvedBy?.fullName ?? null, and for email fromAddress/toAddresses/ccAddresses/via. Also add deliveredAt, readAt, buttons (rich labels), buttonReply, social?.kind, editedAt and unsentAt, reading the ThreadItem fields already there. Mention in the tool description that unsent_messages gives why a message failed.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-9",
+      "severity": "low",
+      "kind": "read",
+      "where": "A conversation's thread: the latest 30 plus Show earlier",
+      "gap": "get_conversation reads conversation.thread with limit 20 and ignores nextCursor, so it gives no sign that more exist and no way to page back (the screen shows 30 plus Show earlier). The channel enum ['sms','email'] only limits the personId shortcut. A chat, portal or social thread opens fine by conversationId, which find_conversations(personId, channel) and get_customer both return, so that part is a two-step route, not a gap. The description 'texts or email' may still put the model off reading chat or social threads.",
+      "fix": "Add before: z.string().optional() (the cursor) and limit (max 50) to get_conversation's input. Pass them to conversation.thread and return more: !!thread.nextCursor and before: thread.nextCursor. Widen channel to z.enum(['sms','email','chat','portal','messenger','instagram']) and change the description to 'one conversation on any channel'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-10",
+      "severity": "low",
+      "kind": "read",
+      "where": "Inbox list (status, waiting, Show more)",
+      "gap": "list_inbox asks inbox.list for 20 open rows sorted by last_message_at and then filters waitingOnly in memory. A customer still waiting behind 20 newer threads is missed, and it never says the list was cut. inbox.list has no 'waiting' filter, so the auditor's fix of passing it to inbox.list doesn't exist. box needs_person is a different thing (handed over by the AI). what_needs_attention (customer_waiting) and read_inbox_summary.waiting do give the waiting customers or their count, which softens this.",
+      "fix": "In list_inbox (tools-read.ts:644-650), when waitingOnly is set, follow nextCursor (up to, say, 5 pages) until 20 rows with awaitingReplySince are found. Or add waiting: z.boolean().optional() to InboxListInput and filter on awaiting_reply_since in packages/core/src/queries/inbox.ts. Return more: true when cut, and say so in the card title.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-11",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Composer → texting in quiet hours: the choice between Send later (held until quiet hours end) and Send anyway",
+      "gap": "send_text always commits with acknowledgeQuietHours: true, and its card's confirm reads 'Send anyway' in quiet hours. It can't use message.send's sendAfterQuietHours, which the composer offers as 'Send at <time>'. handle_attention_item's reply also forces acknowledgeQuietHours. manage_conversation can only cancel a held text, not hold one.",
+      "fix": "Add whenQuiet: z.enum(['send_later','send_anyway']).default('send_later') to send_text (packages/core/src/assistant/tools.ts:1322-1332). In sendText.prepare, when t.quiet.quiet, show a field 'Goes' with 'when quiet hours end' or 'now, in quiet hours', and set confirmLabel to 'Send at {end}' or 'Send anyway'. In commit, pass sendAfterQuietHours: true for send_later and acknowledgeQuietHours: true for send_anyway, and report out.scheduledFor in the outcome.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-12",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Composer → email: the From choice (a business address or the person's own connected Gmail/Outlook) and Add Cc",
+      "gap": "send_email takes only personId/conversationId/subject/body. It sends from the conversation's address or the default (emailTarget picks opts.fromAddressId or the isDefault address), never from one of email.compose_options' other addresses (including the person's own, 'mine') or a connected mailbox (mailboxes[]). It can't add Cc. message.send takes cc (max 10), emailAddressId and mailboxConnectionId, as the composer sends them.",
+      "fix": "Add from: z.string().optional() (an addresses[].id or a mailboxes[].id from email.compose_options) and cc: z.array(z.email()).max(10).optional() to send_email. In emailTarget, check from against opts.addresses (usable) and opts.mailboxes and refuse an unknown one with the choices listed. Show 'From' (address, or '{accountEmail} (your Gmail/Outlook)') and 'Cc' on the card. Pass emailAddressId or mailboxConnectionId and cc to message.send in commit (tools-write.ts:494-500).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-13",
+      "severity": "medium",
+      "kind": "do",
+      "where": "New message / message sheet → texting another of the customer's numbers; the card's To line",
+      "gap": "Choosing another of the customer's numbers can be done in two steps. do_conversation_open (conversation.open is in SCREEN_ACTIONS) takes personId, channel and to, which must be one of their numbers on file, and opens that lane. find_conversations then gives its id for send_text(conversationId). The confirm-card bug is real: textTarget shows To as c.person?.phone (the customer's MAIN phone from conversation.get) ?? counterpartDisplay. When the lane is another number, or when textTarget picks the newest SMS lane for a personId, the card shows a number the text doesn't go to.",
+      "fix": "In textTarget (apps/worker/src/assistant/tools-write.ts:283-301), set phone to c.conversation.counterpartDisplay, the lane's actual number, not c.person?.phone. Add the line too: 'From' should use the lane's lineDisplay instead of the business's main fromNumber when they differ. Optionally add to: z.string().optional() to send_text that runs conversation.open {personId, channel:'sms', to} in commit and uses the returned conversationId.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-14",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Phone app → Call a customer (call sheet → Call me first / connect me), and the call_customer card",
+      "gap": "On the phone, the Assistant's call card has no button. It only shows the name and number, while call_customer's result tells the model 'A Call button is shown; the person places the call.' call.connect_me (risk 2: rings the person's verified cell, they press 1, then the customer) is the phone's only way to call. It is in neither SCREEN_ACTIONS nor NEVER_FOR_THE_ASSISTANT, and the coverage test misses it because the phone runs it through change('call.connect_me'), not '/v1/commands/'. call_customer also takes only personId, so it can't call a conversation's own number or an unknown caller, as the screen's callTarget does.",
+      "fix": "Give apps/mobile/src/components/assistant/cards.tsx's CallCard a 'Call' button that runs the phone's startCall({ name, phone, personId }), the same as the conversation header's thread-call at [conversationId].tsx:870-876. Or offer call.connect_me as a confirm screen action (add 'call.connect_me': {} to SCREEN_ACTIONS). Let call_customer take conversationId (using conversation.counterpart for an sms lane) or a phone. Word the result's note by client, e.g. 'A Call button is shown' only where one is. Extend assistant-coverage.test.ts to also scan the phone's change('<command>') calls.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-15",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Call cards in a conversation and on the timeline: the recording player, the transcript, the AI summary and suggestions (Notes from the call / CallReview), voicemail",
+      "gap": "recent_calls already returns answeredBy and answered, so 'who answered' is covered there. A callId can be reached for a known customer's answered or outbound calls through read_timeline_list (meta.callId, which the timeline uses for PhoneCallNotes), then read_call_suggestion_list(callId). That is a hidden two-step route no tool describes. Still missing: recent_calls drops c.id, personId and conversationId (only an href), and get_conversation's call items have no id, answeredBy or hasRecording. recent_calls says 'Nothing was recorded' whenever transcriptStatus is null, which only means no transcript was asked for. Its fallback href is /app/w/<ws>/calls, a page that doesn't exist (only /call/[callId], a video-call redirect).",
+      "fix": "In recent_calls (tools-read.ts:616-639), add callId: c.id, conversationId: c.conversationId and personId from call.log. Base the note on recordingPath: if it's null say 'Nothing was recorded'; else if transcriptStatus is null say 'It was recorded but not written out'. Replace p.calls() with null, or the person's page when conversationId is null, and delete paths().calls (tools-read.ts:27). In get_conversation's call items (tools-read.ts:563-570), add callId: i.id, answeredBy: i.answeredBy?.fullName ?? null and recorded: i.hasRecording. Mention read_call_suggestion_list(callId) in recent_calls' description.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-16",
+      "severity": "low",
+      "kind": "read",
+      "where": "Video call pre-join → Copy the link; a video call card on the timeline",
+      "gap": "pre-join's 'Copy the link' appears only in the in-app-browser warning (prejoin-in-app). It copies window.location.href so the person can open it in a real browser; it isn't a share feature. The customer's own link for an inbox call is /j/<key>, stored only as a hash, so no tool could ever return it. What's real: read_video_call_get returns no team Join address (`${webUrl}/call/<id>`). An inbox-started call (no appointment) is found only via read_timeline_list meta.videoCallId (video-call.ts:1057-1068), and only once it has been logged; no tool describes that route.",
+      "fix": "In the screen-read executor, add joinUrl: `${webUrl}/call/${call.id}` to read_video_call_get's result when call is not null, and say in the description that the customer's own link went to them and can't be shown. Add recentVideoCalls [{callId, at, host}] to get_customer, from read_timeline_list entries with subtype 'video'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-17",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A conversation the AI teammate handed off: why it handed off, the teammate's note, who took it over",
+      "gap": "find_conversations' answeredBy already says 'Waiting for a person' or the name of whoever took it over (takenOverBy). Neither get_conversation nor find_conversations returns why the teammate handed it over (handoffReason) or its note (handoffNote), though conversation.get and inbox.list carry both. 'Why did the AI pass this to me?' can't be answered.",
+      "fix": "Add handoff: c.handoffReason || c.handoffNote ? { why: <the same words ai-handling.tsx shows for handoffReason>, note: quoted(c.handoffNote), since: c.needsPersonSince, takenOverBy: c.takenOverBy?.fullName ?? null } : null to get_conversation's result (tools-read.ts:552-560), and the why to find_conversations rows. Reuse the reason labels from the web's ai-handling so the words match.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-18",
+      "severity": "low",
+      "kind": "read",
+      "where": "The AI teammate's draft card in a conversation: an Ask (the teammate asks the person a question) and the add-on flags on a draft",
+      "gap": "The auditor misread what an ask is. It is an add-on's action the teammate wants a person to OK on a customer's record (DraftAsk: addonName, operation, summary such as 'Add 412 Oak St to Dana’s homes', recordId), not a question with choices. Who may decide it is anyone who can see that record (canDecide = sees_record), not 'anyone on the conversation'. The rest stands. list_teammate_drafts' kind enum lacks 'ask' (TEAMMATE_DRAFT_KINDS has it), so it can't filter to asks. An unfiltered list shows an ask with no summary, titled as a reply by draftTitle. Add-on flags (fair-housing checks on a reply) aren't returned. A blocked ask gets 'onlyOwnersAndAdminsDecide' and 'Only owners and admins decide…', which is wrong for an ask.",
+      "fix": "In packages/core/src/assistant/tools-content.ts:349 use z.enum(TEAMMATE_DRAFT_KINDS). In apps/worker/src/assistant/tools-content.ts, add ask and flags to the Draft preview type. In draftTitle, return `${name} asks: ${d.preview.ask.summary}` for kind 'ask'. Add ask: {addon: addonName, does: summary} and flags: flags.map(f => `${f.addonName}: ${f.message}`) to each listed draft. For an ask with !canDecide, say 'Only someone who can see {record} decides this.' in both the list (replacing onlyOwnersAndAdminsDecide) and decide_teammate_draft's blocked words (tools-content.ts:2755).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-19",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Timeline → Log activity: Note / Call / Visit, When, Related lead, Next action",
+      "gap": "Two parts are covered already. add_note's input allows personId and leadId together, and the worker passes all of them to activity.log, so a note can be tied to a lead. A lead's next action is set with update_lead (nextAction, nextActionAt), though as a separate confirm step. Missing: add_note always logs kind 'note' with no occurredAt, so 'I called her yesterday at 3' can't be logged as a Call or Visit at that time. It can't attach to a custom record (customRecordId), though ActivityLogInput takes it.",
+      "fix": "Add kind: z.enum(['note','call','visit']).default('note'), occurredAt: when.optional() (not in the future) and recordId: uuid.optional() (sent as customRecordId) to add_note (packages/core/src/assistant/tools.ts:1162-1172), and pass them to activity.log (apps/worker/src/assistant/tools-write.ts:202-206). Title the done card 'Call logged on {name}', 'Visit logged…' or 'Note on…' by kind. Point the description at update_lead for a next action.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-20",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Inbox and conversation entries the Assistant may name: My mail, Other mail, Spam, Unread, ⋯ → Video call, Move to… / Always put their mail…, Share with the team, Copy email address, Close every line, Ask for a video, Notes from the call, Switch to video",
+      "gap": "'Close every line' and 'Copy phone number' are already in the conversation entry's onScreen (places-map.ts:85). Missing from places-map: My mail, Other mail, Spam, the Unread toggle, ⋯ → Video call, Move to… / Always put their mail…, Share with the team, Copy email address, Ask for a video, Notes from the call, and Switch to video. grep -i finds no 'video', 'spam', 'messenger', 'instagram' or 'portal' anywhere in places-map.ts. The Inbox entry's 'what' says only 'texts, calls, email and website chat'. canChange omits move, share and close-every-line, though do_conversation_move/share/close_all exist. The prompt (prompt.ts:38) tells the model never to name a place that isn't in the map.",
+      "fix": "In packages/core/src/assistant/places-map.ts, Inbox entry (59-77): change what to 'texts, calls, email, website chat, client portal, Messenger and Instagram'. Add onScreen 'My mail (your own Gmail or Outlook) with Inbox, Other mail and Spam' and 'Unread'. Conversation entry (79-117): add to the ⋯ list 'Video call, Move to… / Always put their mail…, Share with the team, Copy email address'. Add to the reply box 'Ask for a video (texts only)', and add 'Notes from the call on a call card' and 'Switch to video on the call bar' with the exact labels from conversation-view.tsx, composer.tsx:903 and active-call-bar.tsx:194/205. Add to canChange: 'move an email to Other mail or Spam, or always put their mail there; share your own mail with the team; close every line with them'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-21",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Messenger and Instagram conversations: page label, cards, Send again, Hand to AI",
+      "gap": "context.ts labels any channel other than email, chat or portal as 'Texts', so Messenger and Instagram threads read 'Texts with…'. tools-inbox-crm's CHANNEL map lacks messenger and instagram. find_conversations' card filters the undefined out, but manage_conversation's card line '{who} · {CHANNEL[c.channel]}' reads '· undefined' (lines 293, 494, 860). send_again's title and field say 'text' for any non-email message. hand_to_ai treats a missing channels.messenger switch as on (?? true), so it prepares a card for a social thread that the screen hides (canHandToAi requires !social) and the command refuses (assertAnswers allows only sms/email/chat).",
+      "fix": "Add messenger: 'Messenger' and instagram: 'Instagram' to CHANNEL (apps/worker/src/assistant/tools-inbox-crm.ts:157-162), and the same two branches in context.ts:208-215 ('Messenger messages', 'Instagram messages'). In send_again, use `Send this ${email ? 'email' : social ? 'message' : 'text'}` and label the field by channel. In hand_to_ai's prepare, before the channels check: if (c.channel === 'messenger' || c.channel === 'instagram') return stop(title, `${teammate.name} can’t answer ${CHANNEL[c.channel]} messages yet, so someone on the team has to.`) (the command's words).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-22",
+      "severity": "low",
+      "kind": "words",
+      "where": "hand_to_ai refusal when the AI teammate isn't set up",
+      "gap": "hand_to_ai's refusals say 'Set one up in Settings → AI teammate' and 'in Settings → AI teammate', but the AI teammate is its own side-menu place (settings-map where: ['AI teammate'], route /ai-team). There is no settings/ai-team route. The command's own words say 'on the AI teammate page' and 'under Status on the AI teammate page'.",
+      "fix": "In apps/worker/src/assistant/tools-inbox-crm.ts:418, use 'There’s no AI teammate yet. Set one up under AI teammate in the side menu.'. At 420, use `Turn ${teammate.name} on first: AI teammate in the side menu, then Status.`. At 431, change 'in its settings' to 'under Channels on the AI teammate page'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-23",
+      "severity": "low",
+      "kind": "read",
+      "where": "Website chat visitor strip (said name, on the site now, the page they're on, Blocked), and the Messenger/Instagram reply window and account",
+      "gap": "conversation.get returns chat (said name, phone and email typed, matchedOn, site, pagePath, lastSeenAt, onSiteNow, blocked) and social (the account and Meta's reply window). get_conversation maps none of it, and no other Assistant tool reads them (grep finds no onSiteNow, pagePath or replyWindow in the assistant folders). 'Is she still on the site?', 'which page is he on?' and 'can I still reply on Instagram?' go unanswered.",
+      "fix": "In get_conversation (tools-read.ts:552-560), add visitor: got.chat ? { saidName: got.chat.name, site: got.chat.site, page: got.chat.pagePath, onSiteNow: got.chat.onSiteNow, lastSeen: got.chat.lastSeenAt, blocked: got.chat.blocked } : undefined. Add social: got.social ? { account: <the Page or Instagram account>, canReply, replyWindowEndsAt: got.social.window.endsAt } : undefined. Read both from the conversation.get call already made.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-24",
+      "severity": "low",
+      "kind": "do",
+      "where": "Composer → Add buttons or a card (rich text)",
+      "gap": "The composer's Add buttons or a card sends rich (reply buttons, a card) with message.send. send_text's input is only personId/conversationId/body, so the Assistant can't add buttons or a card.",
+      "fix": "Add rich: RichInput.optional() (the message.send schema from packages/core/src/schemas/message.ts) to send_text. Check it with the same checkRich rules the composer uses (body, no attachments limit) at prepare, list the buttons and card title on the confirm card, and pass rich to message.send in commit (tools-write.ts:399-405).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "inbox-25",
+      "severity": "low",
+      "kind": "words",
+      "where": "find_capabilities answer to 'can you message on Instagram / do video calls'",
+      "gap": "The settings map's facebook_instagram entry tells the model that Facebook and Instagram direct messages come to the inbox (settings-map.ts:617-631), so it isn't blind to them. But find_capabilities, which the description says to call 'before saying you can’t do something', lists inbox.messaging as only 'texts, email and website chat'. Nothing in capabilities.ts, places-map.ts or settings-map.ts mentions the client portal or HandsFreeOS video calls (grep -i video/portal finds nothing). 'Can you do video calls with customers?' can get a wrong no.",
+      "fix": "In packages/core/src/addons/capabilities.ts:75-80, change inbox.messaging's label to 'Texting, email, website chat, Messenger and Instagram' and its description to 'One shared inbox for texts, email, website chat, a client’s portal messages, and Messenger and Instagram direct messages, on the business’s own number.' Add { id: 'inbox.video_calls', label: 'Video calls', description: 'Start a HandsFreeOS video call with a customer from their conversation (⋯ → Video call) or their page; their link goes by text or email.', permission: 'appointments.write' }.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

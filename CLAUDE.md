@@ -56,7 +56,7 @@ Don't route around these. The tests hold most of them.
 - **The web talks to Supabase Auth and the API only**, never to the database.
 - **Providers talk to the worker, never the API.** Provider keys belong to the worker, and the API refuses to start with one in its environment.
 - **Screens ask for a permission** (from `workspace.get`), never a role.
-- **The Assistant can do what a screen does.** A new screen command or setting row fails `packages/core/test/assistant-coverage.test.ts` until `packages/core/src/assistant/coverage.ts` covers it or says why not. See "Keeping the Assistant able to do everything" in `docs/operations.md`.
+- **The Assistant can do what a screen does.** A new screen command or setting row fails `packages/core/test/assistant-coverage.test.ts` until `packages/core/src/assistant/coverage.ts` covers it or says why not. See "Keeping the Assistant able to do everything" in `docs/operations.md`. Every item on every screen is in a checklist, `packages/core/src/assistant/ledger`: when you change what a screen shows or does, update its items there too.
 - **Side effects come from events**, which the worker takes from the outbox.
 - **One copy of shared logic.** What the web and the phone both show or decide lives once, in `@hfos/core`. Money is worked out in `packages/core/src/money`, the push categories are in `push.ts`, and the Add-ons page's words are in `addons/words.ts`.
 
@@ -128,6 +128,7 @@ pnpm --filter @hfos/core exec vitest run test/addons   # one package's tests, or
 pnpm test:e2e                     # the browser tests (Playwright)
 pnpm openapi                      # after changing a command or query: CI checks packages/api-client is fresh
 node scripts/migrations-check.mjs
+pnpm assistant:ledger status         # what the Assistant's checklist hasn't marked off, by area
 ```
 
 If `turbo` can't run where you are, run a package's script directly: `pnpm --filter @hfos/<package> run <script>`.

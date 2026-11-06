@@ -9,6 +9,7 @@ import * as React from 'react';
 import { ScrollView, Share, View } from 'react-native';
 
 import { DESK_BUSINESS_PHONE_WORDS } from '@/admin/business-words';
+import { AssistantLedgerSection } from '@/components/admin/assistant-ledger';
 import { Empty, Section } from '@/components/admin/bits';
 import { deskHref, useDeskCan } from '@/components/admin/staff-context';
 import { Screen } from '@/components/shell/screen';
@@ -21,8 +22,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * Assistant coverage (the web's /admin/assistant): what Ask HandsFreeOS can't do yet, page by page in menu order,
- * shared for Claude (as the web's Copy gaps puts it) into a message or a note. It's read from the code, so it needs no
- * signal.
+ * shared for Claude (as the web's Copy gaps puts it) into a message or a note, read from the code; and the checklist of
+ * every item on every screen, which the API holds, so it needs a signal.
  */
 export default function AssistantCoverageScreen() {
   const canRead = useDeskCan('platform.health.read');
@@ -79,6 +80,8 @@ function CoveragePage() {
             </Card>
           ))}
         </View>
+
+        <AssistantLedgerSection />
 
         <Section title={DESK_COVERAGE_WORDS.notYetTitle} testID="coverage-not-yet">
           {c.notYet.length === 0 ? (

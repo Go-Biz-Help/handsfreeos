@@ -83,5 +83,6 @@ export * from './look';
 export * from './teammate-view';
 // What our own tools saw when something didn't go (20261027008100).
 export * from './problem-report';
+export * from './assistant-ledger';
 // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md).
 export * from './search';

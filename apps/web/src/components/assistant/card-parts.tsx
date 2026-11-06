@@ -112,7 +112,8 @@ export function Result({
       )}
     >
       <Icon className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
-      <span className="min-w-0 flex-1">{children}</span>
+      {/* A link shown once after Confirm (a claim link) wraps, and can be selected to copy. */}
+      <span className="min-w-0 flex-1 select-text [overflow-wrap:anywhere]">{children}</span>
       {action}
     </div>
   );

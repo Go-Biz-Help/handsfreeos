@@ -1,0 +1,209 @@
+{
+  "area": "onboarding",
+  "title": "Onboarding and getting set up",
+  "checkedOn": "2026-11-06",
+  "files": {},
+  "items": [],
+  "gaps": [
+    {
+      "id": "onb-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Set up your business → \"A simple page for your business\" (Your page is at … with Copy the link / Open it) and \"Your booking page is ready\" (Customers book at … with Copy the link / Open it); phone: Share the link",
+      "gap": "The setup screens show and copy the full link `${usePublicOrigin(brandedOrigin)}/book/<slug>`. No Assistant read returns one: read_onboarding_setup_get gives only state.page.slug and state.booking.site.slug; get_settings booking_site (booking_site.get) gives only `path: /book/<slug>`; and update_booking_site's outcome says \"Your booking page is at /book/<slug>\". Neither the prompt nor the context names the default origin. The worker knows it (env.webUrl), and tools-forms.ts already builds full links from it, but only for the form it sends.",
+      "fix": "Add a full https `url` in the worker, using the same rule as tools-forms.ts:384-389: `https://<branded domain>` when status is 'verified' and certificateReady, else env.webUrl. Put it on state.page.url and state.booking.site.url in read_onboarding_setup_get, through a per-query shape in tools-screen-reads.ts. Put it on get_settings booking_site as bookingSite.site.url, with a shape in the QUERIES entry at tools-settings.ts:130. Use it in update_booking_site's outcome and card (tools-settings-calendar.ts:939, :968). Then add a prompt line telling the model to quote `url` exactly and never build a link from a slug or path.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-5",
+      "severity": "high",
+      "kind": "words",
+      "where": "Every link the setup screens show (booking page, simple page, chat) and the Assistant's own words about the default address",
+      "gap": "The prompt's only link example is https://handsfreeos.com/book/acme. The settings map and tool description both say links are served \"instead of handsfreeos.com\". The branded-domain cards and outcomes tell the person their links are \"on handsfreeos.com\". Public links actually live on https://app.handsfreeos.com, and the marketing site at handsfreeos.com has no /book or /f route or redirect, so a guessed handsfreeos.com/book/<slug> link is a dead link.",
+      "fix": "In prompt.ts:49, replace the example with words like \"exactly as a tool gives it (https://…)\" and give no domain. Change settings-map.ts:141 and tools-setup.ts:244 to \"instead of HandsFreeOS's own address (app.handsfreeos.com)\". Change the person-facing texts at apps/worker/src/assistant/tools-setup.ts:1747, :1797 and :1842 to \"app.handsfreeos.com\", or better, to the env.webUrl host.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-2",
+      "severity": "high",
+      "kind": "do",
+      "where": "Every setup screen's Next (each screen saves the whole answers object, changing only that screen's fields)",
+      "gap": "do_onboarding_setup_save takes the whole `answers` object, and every field has a default. The handler stores `draft: answers` as sent (except on 'business', where it is still built from input.answers) and acts on it: 'paid' saves or removes the review link, 'customers' rewrites goal, customersIn and teamSize and sets as-you-go, and 'page' with the default usePage=true puts the page live. The worker's executor passes the model's arguments straight through, with no merge over the stored answers. The model sees only the command description and schema, and nothing tells it to resend every answer it read. The Confirm card shows `Answers` clipped to 300 characters, so the reset is not visible either.",
+      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts inputOf(), for onboarding_setup.save, onboarding_setup.finish and the ai_setup.save/finish pair: read onboarding_setup.get (or ai_setup.get), then deep-merge the model's partial `answers`/`answers.ai` over the read `answers` before parsing. Override the tool description to say \"pass only the answers this screen changes\". Doing the merge in the command (merge input over record.draft) is an alternative, but then the screens must keep sending full answers.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-6",
+      "severity": "high",
+      "kind": "do",
+      "where": "\"Stay in the loop\" → \"What will change\" list, then Save changes (a business that already has a teammate); \"Your booking page is ready\" list of what was made",
+      "gap": "For a business that already has a teammate, Stay in the loop lists planOnboardingSetup(state, answers).changes before Save changes. The Assistant's card for do_onboarding_setup_finish (and do_onboarding_setup_save, do_ai_setup_finish) shows only `What: <description clipped to 300>`, then the input keys with JSON clipped to 300. The rehearsal's output is thrown away, and the model gets only {waiting:true, what}. So neither the person nor the model sees the changes, or the hand-over role (owner or admin).",
+      "fix": "In prepareScreenAction, keep rehearseCommand's output. When it has `changes: string[]` (onboarding_setup.save/finish and ai_setup.finish all return one), draw the card from those lines instead of cardFields. Add `Invites <email> as the owner/an admin` from handOverAs. Return the lines to the model in `result.willChange`.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-4",
+      "severity": "medium",
+      "kind": "do",
+      "where": "\"Your business number\": the list of free numbers near the address, toll-free numbers, Area code + Search, Show numbers anywhere, then Get <number>",
+      "gap": "Number search (near the address, by area code, local or toll-free, or anywhere) is a worker HTTP route, not a command or query. So no screen-read, screen action or tool covers it. manage_phone_number can only buy a number the person types out, and says so. Nothing on a NEVER list excludes the search. Lowered to medium: the Assistant routes correctly to the screen and says nothing wrong; it just can't do the look-up.",
+      "fix": "Add a look-up tool find_phone_numbers (numberType local|toll_free, areaCode, contains, city+state, withinMiles; with none given, default to state.address from onboarding_setup.get). It calls deps.telephony.searchNumbers the way server.ts:440-452 does, under channels.manage, and returns e164 and display. Then change manage_phone_number's description to \"pick one from find_phone_numbers or one the person gives\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-3",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Set up your business: where it opens (Carry on where you left off), the answers on every screen, the hand-over state",
+      "gap": "runScreenRead cuts any answer over 16,000 characters of JSON and returns a string. onboarding_setup.get puts `state` first, and it holds the fully parsed teammate config (16 modules with every default), the profile, the facts with their bodies, and `found`. Then come `answers` and a full duplicate in `starting`; reached, started, handedOver, handOverAs, finished and templates come last. The query takes only workspaceId, so \"ask for less\" can't be followed. This is conditional: it bites mainly once a teammate exists, which includes the owner checking an agency's hand-over, where handedOver and handOverAs are what matter. Lowered to medium.",
+      "fix": "Give read_onboarding_setup_get a worker shape in tools-screen-reads.ts, keyed by query name. Put reached, finished, handedOver, handOverAs, templateId and answers first. Drop `starting`. Reduce state.teammate to {name, status, revision}. Cut state.found to url, at and counts, and state.facts to titles.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-7",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Set up your business (/onboarding/<business>): its screens and buttons (Next, Back, Finish later, Carry on where you left off + Start over, Save and hand it over, Check what <agency> set up with Change something / Finish my part, Go to Home), and the setup wizard (/onboarding/<business>/setup/<step>: steps down the side, Skip for now, Continue, Finish later)",
+      "gap": "No APP_PLACES entry, settings area or prompt line names the guided setup (/onboarding/<business>), its screens (Your business, Your goal … Stay in the loop / Hand it over), its buttons, or the setup wizard. Home's Getting started line leaves out the banner that opens it: Set up your business → Start, Finish setting up your business → Carry on, or <agency> set up your business → Check it and finish. The prompt forbids naming unlisted places, so the Assistant can't direct anyone back into the setup. Lowered to medium because Home's Getting started is described.",
+      "fix": "Add an APP_PLACES entry 'Set up your business' (where: [], then: \"Home, Getting started, press Start, Carry on, or Check it and finish\"). Give it its stops in order from ONBOARDING_SETUP_STOP_NAMES, with the skip rules: Your page only with no website, Your booking page only when customers book a time. List its buttons: Next, Back, Finish later, Carry on where you left off / Start over, Save and hand it over, Change something / Finish my part. Add the banner to Home's onScreen at places-map.ts:42.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-9",
+      "severity": "medium",
+      "kind": "do",
+      "where": "\"Stay in the loop\" Save for a business with no website: the AI teammate's chat goes on the simple page's address",
+      "gap": "do_onboarding_setup_finish (and do_ai_setup_finish) takes `pageOrigin` from the model. Its explanation is a JSDoc comment, not .describe(), so the model sees only an optional string. No tool gives the origin. If it is left out, a business with only the simple page gets no chat, and the note saying so is dropped (onb-8). If it is guessed as https://handsfreeos.com (onb-5), the widget is created with the wrong allowedOrigins.",
+      "fix": "In tools-screen-actions.ts inputOf(), for onboarding_setup.finish and ai_setup.finish, fill pageOrigin as the business ids are filled: the branded domain when verified and certificateReady, else env.webUrl (as in tools-forms.ts:384-389). Remove pageOrigin from the tool's model-facing input (scopedInput view).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-8",
+      "severity": "medium",
+      "kind": "read",
+      "where": "After a setup screen saves: notes in a toast (\"Sam is already in this business.\"), the booking screen's list of what it made and its warnings (calendar couldn't be turned on), the hand-over banner (\"<email> has an email…\"), and \"Your page’s chat wasn’t added this time…\"",
+      "gap": "commitScreenAction ignores executeCommand's output and returns outcome 'Done'. routes.ts stores only {outcome, href, command}. The notes (already a member, invitation pending, the calendar couldn't be turned on, the page's chat wasn't added), `changes`, `invited` and `handedOver` are lost. A later read_onboarding_setup_get shows some results (booking.on, chat, team.invited) but not why.",
+      "fix": "In commitScreenAction (tools-screen-actions.ts:125-133), take `done.output`. When it has changes/notes arrays, build outcome as \"Done. <changes joined>. <notes joined>\" (notes first if any). The store at routes.ts:351-358 then keeps it for the next turn.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-10",
+      "severity": "medium",
+      "kind": "read",
+      "where": "\"Your setup so far\" summary beside every screen (\"See the summary\" on the phone), the counter \"3 of 15 · About your business\", the done screen \"It’s already working for you\", and the owner's check screen with \"Your part\"",
+      "gap": "onboarding_setup.get returns only the raw state and answers. Core already works out the summary sentences, the opening screen, the ordered screens with skips, \"3 of 15\" progress, titles and the owner's part, but these are only rendered on the screens. The Assistant would have to re-derive the skip rules to say what's left.",
+      "fix": "In the read_onboarding_setup_get worker shape (see onb-3), or in the query output, add: summary (onboardingSetupSummary), opensAt (onboardingSetupFirstScreen), screens ([{screen, title: onboardingSetupTitle, stop: onboardingSetupStopName}] from onboardingSetupScreens), progress (onboardingSetupProgress), and ownerPart (onboardingSetupOwnerPart) when handedOver.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-11",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Phone: Home's Getting started → Set up your business / Carry on (the whole guided setup on the phone, with Email me a link for parts easier on a computer)",
+      "gap": "The prompt says \"the business is set up on the web\". PHONE_APP lists \"the business's settings\" as only on the web, and has no line for the guided setup. Yet the phone runs the same Set up your business at /app/w/<id>/setup, opened from Home's Getting started, and core's own words say \"here or in the phone app\".",
+      "fix": "Change prompt.ts:38 to: \"…holds only the person's own things…, and the business's settings are on the web, except Set up your business, which the phone app runs too.\" Add a PHONE_APP line: \"Home's Getting started opens Set up your business, the same setup as the web, carrying on where it was left; Email me a link sends the parts easier on a computer\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-12",
+      "severity": "medium",
+      "kind": "read",
+      "where": "\"Get the phone app\" dialog: App Store and Google Play links with QR codes (customers stop \"My phone’s contacts\", Stay in the loop, Getting started's app and notifications steps)",
+      "gap": "PHONE_APP_LINKS holds the App Store and Google Play URLs the Get the phone app dialog shows. No Assistant tool, prompt line, places-map line or settings handover carries them, and get_settings my_account has none either.",
+      "fix": "Add the two URLs to PHONE_APP in places-map.ts, built from PHONE_APP_LINKS.links in placesText so they stay one copy: \"Get the app: iPhone https://apps.apple.com/…, Android https://play.google.com/…\". Or add a my_account handover 'get the phone app' whose steps carry them.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-13",
+      "severity": "medium",
+      "kind": "words",
+      "where": "\"Where are your customers now?\" → GoHighLevel (\"Paste a private integration token from GoHighLevel. The move runs while you carry on.\")",
+      "gap": "settings_help(migrations) tells the person to \"pick the system and sign in there\", but no source offers sign-in now (SIGN_IN_SOURCES is []). GoHighLevel takes a pasted private integration token plus the sub-account's Location ID. migrations.canChange is [], and get_settings and settings_help return it as such, even though migration.create/scan/select/map_scopes/start/pause/resume/retry/resolve_merge are screen actions. The prompt also lists \"moving in from another system\" as wholly the person's. The token itself rightly stays with the person.",
+      "fix": "settings-map.ts:1062-1070: why → \"you give HandsFreeOS read access to the old system yourself\"; steps → \"Open Settings → Migrations and press Connect a CRM.\", \"Pick GoHighLevel, make a read-only private integration token there, and paste it with the sub-account's Location ID.\", \"Then I can scan it, pick what comes over and start the move.\" Fill canChange with \"start a move once connected: scan, choose what comes over, where each sub-account lands, start, pause, resume, retry\". Reword coverage.ts:368-369 to \"signing in, or pasting a private token, at the CRM the business is leaving\". In prompt.ts:34, change \"moving in from another system\" to \"connecting the system they're moving from\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-15",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Workspace cards the setup points to: \"Logo and colour\", \"Your page\" (\"Turn your page on any time in Settings → Workspace\"), \"Getting started guide\"",
+      "gap": "Partly covered: Home's howTo already names \"Settings → Workspace, Getting started guide\", and the website_chat area says the logo is \"as on Settings → Workspace\". The real gap: the business area's onScreen and canChange list only the Workspace form, Your own web address and Delete. They don't list the Logo and colour card or the Your page card (link, Copy the link, on/off), which the setup's own words send people to. SETTING_TOOLS already maps them (do_look_set, do_booking_site_set_page, do_onboarding_set_enabled).",
+      "fix": "In settings-map.ts:129-136 (business), add to onScreen: 'Logo and colour', 'Your page: its link, Copy the link, and the switch that turns it on or off', 'Getting started guide (on or off for everyone)'. Add to canChange: 'the logo’s colour, or taking the logo off (adding one is an upload, theirs)', 'turn your page on or off', 'turn Getting started on or off for everyone'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-16",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Home → Getting started: each step's title, its line (\"Skipped for now…\", \"Waiting on the carriers…\"), its button and where it goes",
+      "gap": "read_onboarding_status returns each step as key, group, mustDo, state, since and raw note only. The step titles (stepTitle in core onboarding/words.ts, e.g. 'Email & website chat', 'Sign in faster'), the line and button, and where each goes (stepPath in core onboarding/paths.ts, which depends on note.phase) are all in core but not returned. No other Assistant tool covers Getting started.",
+      "fix": "Shape read_onboarding_status in tools-screen-reads.ts: add each step's title (stepTitle(key, note.name)) and where (a click-path built from stepPath(workspaceId, key, {phase: note.phase}), turned into the settings-map trail), plus next's title. Or add these to OnboardingStepOut.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-17",
+      "severity": "low",
+      "kind": "read",
+      "where": "Home → Getting started: \"Sign in faster\" shows done for someone who signs in with Google or a passkey; the count \"N of M done\" and \"You’re set up\" follow it",
+      "gap": "'Sign in faster' is done only when device.signIn===true. The web asks again with signIn from the browser, but the worker never fills `device`. The model could pass device.signIn itself (it's in the screen-read input), but no read tells it the person's sign-in methods; get_settings my_account's meShape has only name, email, settings and alerts. So read_onboarding_status counts differ from the card, and do_onboarding_finish is refused with onboarding_not_finished.",
+      "fix": "In the worker, for read_onboarding_status and do_onboarding_finish, set device.signIn from the person's auth identities (a google identity) or registered passkeys, as signsInFaster does on the web, and drop `device` from the model-facing input. Separately, the web's own finish at getting-started.tsx:448-455 also omits device.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-14",
+      "severity": "low",
+      "kind": "do",
+      "where": "Next on each screen is refused until the screen is right: Your business needs a name and what you do, a started address must be whole, About with \"Do customers book a time?\" Yes needs a service, and the AI screens' own checks",
+      "gap": "The real part: onboarding_setup.save never runs onboardingSetupScreenProblems. So on 'about' (books a time but no service) and the AI screens (facts, meet, voice, qualify, chat and so on), the Assistant can save and move `reached` past answers the screen would refuse, and finish refuses later with that earlier screen's message. The 'business' part is mostly not real: the save input validates an address with the full BusinessAddress schema, and name and industry are optional (left out means unchanged), so a half address can't be saved. Lowered to low, because finish does refuse with a clear path and message.",
+      "fix": "In onboarding_setup.save (commands/onboarding-setup.ts, before saveRecord), run onboardingSetupScreenProblems(input.screen, answers, state) and refuse with paths `answers.<path>`, as finish does at :523-534.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-18",
+      "severity": "low",
+      "kind": "words",
+      "where": "Confirm card warning for do_onboarding_setup_save",
+      "gap": "The card warning names \"the team screen\", but there is no such screen. Invitations go from 'goal' (stop 'Your goal', under How many people work with you?). The warning also leaves out the first screen's business changes and website read, 'customers' setting add-them-as-you-go and Home's order, and 'paid' saving or removing the review link. The command description mentions these, but the card clips it at 300 characters.",
+      "fix": "coverage.ts:235-238 warning: \"Some screens act as they’re saved: Your business changes the business’s name, kind, address, time zone and website and starts reading the website; Your goal sends its invitations; Your page goes live or off; Your customers can switch on ‘add them as you go’; Your booking page makes and turns on booking; Payments and reviews saves or takes away the review link.\"",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-19",
+      "severity": "low",
+      "kind": "words",
+      "where": "Get help menu while Getting started isn't finished: Getting started, Take the tour, Ask us for help; and \"New here? … Take the tour\" on the card",
+      "gap": "The Get help → Getting started item is already known (places-map.ts:47). The real gap is that Take the tour, in the Get help menu and on the Getting started card, appears in no Assistant source, so \"show me the tour again\" can't be answered. EVERY_PAGE also still describes Get help only as the message form.",
+      "fix": "Change EVERY_PAGE's Get help part (places-map.ts:607) to: \"Get help (while Getting started isn’t finished, a menu: Getting started, Take the tour, Ask us for help; otherwise straight to In a few words…)\". Add a Home howTo: \"Take the tour of the menu again: Get help at the foot of the menu, then Take the tour, or Take the tour on the Getting started card\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "onb-20",
+      "severity": "low",
+      "kind": "do",
+      "where": "\"Your business\" → Your address (optional): Street address, Suite or unit, City, State, ZIP code (sets the time zone shown to confirm)",
+      "gap": "The address on estimates and invoices is already covered: Settings → Payments → Your address, through update_money_settings.businessAddress, which settings-map lists. The real gap is the setup's structured address (workspace settings.address). The setup screen shows it and it sets the time zone; documents fall back to it, and the number search, the texting registration and postal campaigns use it. The Assistant can change it only through do_onboarding_setup_save with screen 'business' and business.address, which carries onb-2's answers risk, and no map or update_business line routes \"change our business address\" there. A person asking will likely get only the invoice header changed.",
+      "fix": "Add an optional `address` (BusinessAddress: line1, line2, city, state, postalCode) to update_business. Save it to workspaces.settings.address through workspace.update, and offer the matching time zone, as the setup's first screen does. Say in its description that it is the business's own address and Payments' Your address only overrides it on documents. Add 'the business address' to the business area's canChange.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

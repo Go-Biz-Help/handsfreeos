@@ -1,0 +1,2614 @@
+{
+  "area": "ai-team",
+  "title": "The AI teammate: setup, instructions, approvals, review, activity, funnels, AI setup and test chat",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/ai-setup/calls.ts": "881c51c1a351",
+    "apps/mobile/src/ai-setup/use-ai-setup.ts": "4bec8c37baf1",
+    "apps/mobile/src/ai-setup/words.ts": "d94db5e1219e",
+    "apps/mobile/src/ai-team/feedback.ts": "baee5393b8e6",
+    "apps/mobile/src/ai-team/test-console.ts": "3fbdfb6af37e",
+    "apps/mobile/src/ai-team/test-stream.ts": "49aa3f1c852d",
+    "apps/mobile/src/ai-team/use-test-console.ts": "ef7ba3a3850d",
+    "apps/mobile/src/ai-team/use-voice-pick.ts": "80fd1f633d83",
+    "apps/mobile/src/app/app/w/[workspaceId]/ai-setup.tsx": "4c73d7ec6456",
+    "apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx": "ededeedab152",
+    "apps/mobile/src/components/ai-setup/quick-setup.tsx": "103c594bd22f",
+    "apps/mobile/src/components/ai-setup/screens.tsx": "612a5fe08cdc",
+    "apps/mobile/src/components/ai-setup/try-ava.tsx": "98bce89daa16",
+    "apps/mobile/src/components/ai-team/test-console.tsx": "a64f2a178854",
+    "apps/mobile/src/components/ai-team/voice-picker.tsx": "bfeb32de022e",
+    "apps/mobile/src/components/customers/funnel-card.tsx": "83638a313ac2",
+    "apps/mobile/src/funnels/calls.ts": "bcb88ba94d41",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/activity/page.tsx": "f7533fe7b92f",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/approvals/page.tsx": "4e3ed0a47061",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/funnels/[funnelId]/page.tsx": "61fa2efa614d",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/funnels/new/page.tsx": "0701cb5e81df",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/funnels/page.tsx": "020cc06cfe4b",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/instructions/page.tsx": "4c61613357de",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/layout.tsx": "e3bba22f029b",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/page.tsx": "3d5d300207ef",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/review/page.tsx": "eab33b9bfd44",
+    "apps/web/src/app/app/w/[workspaceId]/ai-team/setup/page.tsx": "7efffb94b250",
+    "apps/web/src/components/ai-setup/fields.tsx": "5f6c5ac8a1ea",
+    "apps/web/src/components/ai-setup/quick-setup.tsx": "402a7cb0604b",
+    "apps/web/src/components/ai-setup/screens.tsx": "0aa6364fdcde",
+    "apps/web/src/components/ai-setup/try-ava.tsx": "3fe517fdd2f6",
+    "apps/web/src/components/ai-team/activity.tsx": "4a4b99ffd06a",
+    "apps/web/src/components/ai-team/approvals-tab.tsx": "f4e12aa525a5",
+    "apps/web/src/components/ai-team/builder.tsx": "d897948da23e",
+    "apps/web/src/components/ai-team/header.tsx": "cb364091d6bd",
+    "apps/web/src/components/ai-team/history.tsx": "442221e6d917",
+    "apps/web/src/components/ai-team/instructions-tab.tsx": "d8cac98535bb",
+    "apps/web/src/components/ai-team/modules.tsx": "d4f2612fbd72",
+    "apps/web/src/components/ai-team/preset-picker.tsx": "10b8ce6d8c58",
+    "apps/web/src/components/ai-team/qualify-module.tsx": "e577c68ec855",
+    "apps/web/src/components/ai-team/rail.tsx": "31ba00f7e88a",
+    "apps/web/src/components/ai-team/reply-feedback.tsx": "661ebf8bbc3e",
+    "apps/web/src/components/ai-team/review-tab.tsx": "434afa7aad39",
+    "apps/web/src/components/ai-team/tab-shell.tsx": "64934961326e",
+    "apps/web/src/components/ai-team/teammate-tab.tsx": "b615137a6e7f",
+    "apps/web/src/components/ai-team/test-console.tsx": "e227c0eac66b",
+    "apps/web/src/components/ai-team/voice-picker.tsx": "d3245dd75746",
+    "apps/web/src/components/funnels/builder.tsx": "5cd9094b0b4b",
+    "apps/web/src/components/funnels/editors.tsx": "42945dc1d7b3",
+    "apps/web/src/components/funnels/funnel-map.tsx": "4089a8cb9d27",
+    "apps/web/src/components/funnels/funnels-tab.tsx": "73056974103b",
+    "apps/web/src/components/funnels/issues.tsx": "0a2b5800cc1c",
+    "apps/web/src/components/funnels/new-funnel.tsx": "2adfbf8a4334",
+    "apps/web/src/components/funnels/person-funnel.tsx": "6d463f0e6e10",
+    "apps/web/src/components/funnels/suggestions.tsx": "4137767fc330",
+    "apps/web/src/components/funnels/try-it.tsx": "18912132fa9a",
+    "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
+    "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
+    "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
+    "packages/core/src/assistant/coverage.ts": "bcd7e0bb1843",
+    "packages/core/src/assistant/screen-reads.ts": "ab9c0ef02734",
+    "packages/core/src/assistant/settings-map.ts": "f9711991ae20",
+    "packages/core/src/assistant/tools-content.ts": "0d085b953ed0",
+    "packages/core/src/assistant/tools-extra.ts": "e5fe009ee8f3",
+    "packages/core/src/assistant/tools.ts": "dbf798ced613"
+  },
+  "items": [
+    {
+      "path": "AI team → no teammate → redirect to setup, or “No AI teammate yet” note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/teammate-tab.tsx:74",
+      "covered": "yes",
+      "by": "get_settings ai_teammate: teammate null, canManage"
+    },
+    {
+      "path": "AI team → intro heading and explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/teammate-tab.tsx:10",
+      "covered": "partly",
+      "by": "manage_ai_teammate description explains it; the screen’s words aren’t returned"
+    },
+    {
+      "path": "AI team → Quick setup instead link",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/teammate-tab.tsx:25",
+      "covered": "yes",
+      "by": "do_ai_setup_save / do_ai_setup_finish run quick setup"
+    },
+    {
+      "path": "AI team → other tabs → “Set up your AI teammate first” → Set it up / See the AI teammate",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/tab-shell.tsx:146",
+      "covered": "yes",
+      "by": "manage_ai_teammate action create"
+    },
+    {
+      "path": "AI team → subnav → Teammate, Instructions, Funnels, Review, Activity, Approvals",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/header.tsx:138",
+      "covered": "yes",
+      "by": "each tab has its own read (rows below)"
+    },
+    {
+      "path": "Teammate → header → name",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/header.tsx:64",
+      "covered": "yes",
+      "by": "get_settings ai_teammate teammate.name"
+    },
+    {
+      "path": "Teammate → header → status badge (Off / Training wheels / Automatic)",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/header.tsx:80",
+      "covered": "yes",
+      "by": "get_settings ai_teammate teammate.status"
+    },
+    {
+      "path": "Teammate → header → “Revision N · saved by X”",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/header.tsx:95",
+      "covered": "yes",
+      "by": "get_settings ai_teammate revision, revisions[].changedBy"
+    },
+    {
+      "path": "Teammate → header → Test console button",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/header.tsx:110",
+      "covered": "no",
+      "by": "no tool runs a teammate test (see Test console rows)"
+    },
+    {
+      "path": "Teammate → header → History button",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/header.tsx:118",
+      "covered": "yes",
+      "by": "get_settings ai_teammate revisions"
+    },
+    {
+      "path": "Teammate → More → Website chat settings",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:283",
+      "covered": "yes",
+      "by": "read_chat_widget_get, settings_help website chat"
+    },
+    {
+      "path": "Teammate → More → Knowledge",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:290",
+      "covered": "yes",
+      "by": "knowledge tools (add_knowledge_item, manage_knowledge_item)"
+    },
+    {
+      "path": "Teammate → More → Turn on with training wheels / Turn off {name}",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:295",
+      "covered": "yes",
+      "by": "manage_ai_teammate action set_status"
+    },
+    {
+      "path": "Teammate → save indicator: Saved / Saving… / Couldn’t save → Try again / Not saved",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/header.tsx:19",
+      "covered": "partly",
+      "by": "the screen’s draft state; the Assistant’s own saves report done or the refusal"
+    },
+    {
+      "path": "Teammate → stale banner “Someone saved…” → Load their version",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:333",
+      "covered": "partly",
+      "by": "saves carry baseRevision and are refused when stale; re-read get_settings"
+    },
+    {
+      "path": "Teammate → read-only note for people who can’t manage it",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/builder.tsx:347",
+      "covered": "yes",
+      "by": "get_settings ai_teammate canManage"
+    },
+    {
+      "path": "Teammate → module list → each module’s summary line",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/builder.tsx:445",
+      "covered": "partly",
+      "by": "config is readable in get_settings; the composed summaries aren’t"
+    },
+    {
+      "path": "Teammate → module list → red / yellow flags",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/builder.tsx:470",
+      "covered": "yes",
+      "by": "get_settings ai_teammate issues"
+    },
+    {
+      "path": "Teammate → Run quick setup again",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:513",
+      "covered": "yes",
+      "by": "do_ai_setup_save / do_ai_setup_finish"
+    },
+    {
+      "path": "Teammate (phone width) → History row",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:407",
+      "covered": "yes",
+      "by": "get_settings ai_teammate revisions"
+    },
+    {
+      "path": "Teammate (phone width) → full-screen module → Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:553",
+      "covered": "partly",
+      "by": "do_ai_teammate_restore to an earlier revision"
+    },
+    {
+      "path": "Teammate (phone width) → status sheet",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:583",
+      "covered": "yes",
+      "by": "manage_ai_teammate set_status"
+    },
+    {
+      "path": "Teammate → automatic note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/builder.tsx:192",
+      "covered": "yes",
+      "by": "get_settings teammate.status, automaticSince"
+    },
+    {
+      "path": "History sheet → each revision: number, change lines, labels, date, by",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/history.tsx:60",
+      "covered": "yes",
+      "by": "get_settings ai_teammate revisions (diffSummary, changedBy, createdAt)"
+    },
+    {
+      "path": "History sheet → Restore",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/history.tsx:90",
+      "covered": "yes",
+      "by": "do_ai_teammate_restore revision, baseRevision"
+    },
+    {
+      "path": "History sheet → Restore → confirm when there are unsaved changes",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/builder.tsx:226",
+      "covered": "yes",
+      "by": "do_ai_teammate_restore shows a Confirm card"
+    },
+    {
+      "path": "History sheet → notice: training progress never changes",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/history.tsx:40",
+      "covered": "partly",
+      "by": "progress readable; the notice’s words aren’t"
+    },
+    {
+      "path": "History sheet → footer: on/off isn’t a revision; in training wheels since",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/history.tsx:120",
+      "covered": "yes",
+      "by": "get_settings trainingStartedAt, automaticSince"
+    },
+    {
+      "path": "Rail → progress: “17 of 20 approved”, to go, rejected, bar",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:40",
+      "covered": "yes",
+      "by": "get_settings ai_teammate progress"
+    },
+    {
+      "path": "Rail → status card → Off / Training wheels / Automatic radios",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:78",
+      "covered": "yes",
+      "by": "manage_ai_teammate set_status status"
+    },
+    {
+      "path": "Rail → status card → status line",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:110",
+      "covered": "yes",
+      "by": "get_settings status, progress, automaticSince"
+    },
+    {
+      "path": "Rail → status card → Switch to automatic now",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:140",
+      "covered": "yes",
+      "by": "manage_ai_teammate set_status automatic"
+    },
+    {
+      "path": "Rail → status card → Back to training (count starts again at 0 of N)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:155",
+      "covered": "yes",
+      "by": "manage_ai_teammate set_status training"
+    },
+    {
+      "path": "Rail → status card → off note, “Fix the red items…”",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:170",
+      "covered": "yes",
+      "by": "get_settings issues"
+    },
+    {
+      "path": "Rail → status confirm dialog → Switch / Back to training / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:187",
+      "covered": "yes",
+      "by": "Confirm card on manage_ai_teammate"
+    },
+    {
+      "path": "Rail → How it works card → labels and lines",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:229",
+      "covered": "partly",
+      "by": "labels and config in get_settings; the composed lines aren’t"
+    },
+    {
+      "path": "Rail → Things to check → N items / All clear",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:383",
+      "covered": "yes",
+      "by": "get_settings issues"
+    },
+    {
+      "path": "Rail → issue → message and Blocks turning it on / Needs fixing / Doesn’t block saving",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:300",
+      "covered": "yes",
+      "by": "get_settings issues (severity, message)"
+    },
+    {
+      "path": "Rail → issue → Fix button (a patch)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:330",
+      "covered": "partly",
+      "by": "sees fixes; applies them only through the matching tool field"
+    },
+    {
+      "path": "Rail → issue → fix link to another screen",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:345",
+      "covered": "partly",
+      "by": "sees the link path; does the fix with that screen’s tool"
+    },
+    {
+      "path": "Rail → issue → “Done: …” → Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:270",
+      "covered": "partly",
+      "by": "do_ai_teammate_restore"
+    },
+    {
+      "path": "Rail → issues → Nothing to fix",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:375",
+      "covered": "yes",
+      "by": "get_settings issues empty"
+    },
+    {
+      "path": "Rail → save card → “All changes saved · revision N”",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:396",
+      "covered": "yes",
+      "by": "get_settings revision"
+    },
+    {
+      "path": "Rail → save card → See history",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:420",
+      "covered": "yes",
+      "by": "get_settings revisions"
+    },
+    {
+      "path": "Rail → save card → Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:430",
+      "covered": "partly",
+      "by": "do_ai_teammate_restore"
+    },
+    {
+      "path": "Rail (phone width) → Automatic now / Back to training / Turn on",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/rail.tsx:451",
+      "covered": "yes",
+      "by": "manage_ai_teammate set_status"
+    },
+    {
+      "path": "Rail (phone width) → N things to check row",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/rail.tsx:540",
+      "covered": "yes",
+      "by": "get_settings issues"
+    },
+    {
+      "path": "Identity → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:141",
+      "covered": "yes",
+      "by": "manage_ai_teammate change name"
+    },
+    {
+      "path": "Identity → Email signature",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:150",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules emailSignature"
+    },
+    {
+      "path": "Identity → says it’s an AI: first message / when asked",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:173",
+      "covered": "yes",
+      "by": "manage_ai_teammate disclosure"
+    },
+    {
+      "path": "Identity → California warning",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:193",
+      "covered": "partly",
+      "by": "disclosure readable; the warning isn’t in any tool"
+    },
+    {
+      "path": "Identity → Always-on callout",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:205",
+      "covered": "partly",
+      "by": "config readable; the callout words aren’t"
+    },
+    {
+      "path": "Identity → Tone",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:212",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules tone"
+    },
+    {
+      "path": "Identity → first-text preview",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:225",
+      "covered": "no",
+      "by": "composed on the screen only"
+    },
+    {
+      "path": "Channels → Texts switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:270",
+      "covered": "yes",
+      "by": "manage_ai_teammate answersTexts"
+    },
+    {
+      "path": "Channels → Texts → not ready → Set up texting link",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:275",
+      "covered": "yes",
+      "by": "get_settings catalogs.textingReady; settings_help"
+    },
+    {
+      "path": "Channels → Email switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:315",
+      "covered": "yes",
+      "by": "manage_ai_teammate answersEmail"
+    },
+    {
+      "path": "Channels → Email → which address",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:286",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules emailsFromAddressId; catalogs.emailAddresses"
+    },
+    {
+      "path": "Channels → Email → Add an email address link",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:300",
+      "covered": "partly",
+      "by": "link only; adding a sending address is another area’s tool"
+    },
+    {
+      "path": "Channels → Website chat switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:369",
+      "covered": "yes",
+      "by": "manage_ai_teammate answersWebsiteChat"
+    },
+    {
+      "path": "Channels → Website chat → which chat",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:343",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules chatWidgetId; catalogs.chatWidgets"
+    },
+    {
+      "path": "Channels → Website chat → Set up website chat link",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:355",
+      "covered": "partly",
+      "by": "link only; the chat’s own tools set it up"
+    },
+    {
+      "path": "Channels → Phone calls switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:411",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules answersPhoneCalls"
+    },
+    {
+      "path": "Channels → Phone calls → Set it up link",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:415",
+      "covered": "partly",
+      "by": "link only"
+    },
+    {
+      "path": "Channels → quiet-hours note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:400",
+      "covered": "yes",
+      "by": "get_settings catalogs.quietHours"
+    },
+    {
+      "path": "Phone → when it answers: nobody picks up / closed / every call",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:449",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules phonePicksUp"
+    },
+    {
+      "path": "Phone → voice select (grouped by model)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:467",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules phoneVoice"
+    },
+    {
+      "path": "Phone → each voice’s name and sound",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/voice-picker.tsx:30",
+      "covered": "yes",
+      "by": "phoneVoice description lists name, provider, sound"
+    },
+    {
+      "path": "Phone → voice “(not ready)” and not-ready note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/voice-picker.tsx:60",
+      "covered": "no",
+      "by": "voice readiness isn’t read by any tool"
+    },
+    {
+      "path": "Phone → Hear it / Stop",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:476",
+      "covered": "no",
+      "by": "no tool plays a voice sample"
+    },
+    {
+      "path": "Phone → greeting",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:497",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules phoneGreeting"
+    },
+    {
+      "path": "Respond → skill switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:520",
+      "covered": "yes",
+      "by": "manage_ai_teammate repliesToLeads"
+    },
+    {
+      "path": "Respond → Message new leads first",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:539",
+      "covered": "yes",
+      "by": "update_automations new_lead_greeting"
+    },
+    {
+      "path": "Respond → first message by Text / Email",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:555",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules firstMessageBy"
+    },
+    {
+      "path": "Respond → wait before the first message",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:570",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules firstMessageAfterMinutes"
+    },
+    {
+      "path": "Respond → warning: workflows also text new leads",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:585",
+      "covered": "yes",
+      "by": "get_settings catalogs.newLeadTextWorkflows"
+    },
+    {
+      "path": "Answer → skill switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:605",
+      "covered": "yes",
+      "by": "manage_ai_teammate answersQuestions"
+    },
+    {
+      "path": "Answer → “N published answers” → Open Knowledge",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:615",
+      "covered": "yes",
+      "by": "get_settings catalogs.knowledge.published; knowledge tools"
+    },
+    {
+      "path": "Answer → when unsure: hand off / take a message",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:633",
+      "covered": "yes",
+      "by": "manage_ai_teammate handOffWhenUnsure"
+    },
+    {
+      "path": "Answer → looks at photos",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:655",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules looksAtPhotos"
+    },
+    {
+      "path": "Answer → price ranges from photos, and prices-off note",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:672",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules priceRangesFromPhotos; catalogs.pricesAllowed"
+    },
+    {
+      "path": "Book → skill switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:800",
+      "covered": "yes",
+      "by": "manage_ai_teammate booksVisits"
+    },
+    {
+      "path": "Book → calendar checkboxes",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:830",
+      "covered": "yes",
+      "by": "manage_ai_teammate bookableCalendarIds"
+    },
+    {
+      "path": "Book → each calendar’s lengths, Books online / Can’t be booked online / Archived",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:840",
+      "covered": "yes",
+      "by": "get_settings catalogs.calendars"
+    },
+    {
+      "path": "Book → Let customers book it",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:860",
+      "covered": "yes",
+      "by": "manage_calendar (whether customers see it)"
+    },
+    {
+      "path": "Book → No calendars yet → Create a calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:822",
+      "covered": "yes",
+      "by": "manage_calendar action create"
+    },
+    {
+      "path": "Book → calendar → what it’s for (text)",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:776",
+      "covered": "yes",
+      "by": "get_settings catalogs.calendars description"
+    },
+    {
+      "path": "Book → calendar → Say what it’s for → Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:743",
+      "covered": "partly",
+      "by": "manage_calendar description, max 500 against 2000 on the screen"
+    },
+    {
+      "path": "Book → reschedules",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:904",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules reschedules"
+    },
+    {
+      "path": "Book → cancels",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:916",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules cancels"
+    },
+    {
+      "path": "Book → waitlist",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:928",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules usesWaitlist"
+    },
+    {
+      "path": "Book → repeat visits",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:940",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules booksRepeatVisits"
+    },
+    {
+      "path": "Book → checks the service area",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:952",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules checksServiceArea"
+    },
+    {
+      "path": "Book → website-chat callout, training-wheels note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:960",
+      "covered": "partly",
+      "by": "state readable; the notes’ words aren’t"
+    },
+    {
+      "path": "Follow up → skill switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:975",
+      "covered": "yes",
+      "by": "manage_ai_teammate followsUp"
+    },
+    {
+      "path": "Follow up → months stepper 0–12",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1003",
+      "covered": "yes",
+      "by": "manage_ai_teammate followUpMonths"
+    },
+    {
+      "path": "Follow up → ladder words",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1010",
+      "covered": "partly",
+      "by": "followUpMonths readable; the ladder isn’t"
+    },
+    {
+      "path": "Follow up → Settings → Automations link",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1019",
+      "covered": "yes",
+      "by": "update_automations"
+    },
+    {
+      "path": "Hours → Always / After hours only / Custom",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1048",
+      "covered": "yes",
+      "by": "manage_ai_teammate hoursMode"
+    },
+    {
+      "path": "Hours → custom weekly hours",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1070",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules ownHours"
+    },
+    {
+      "path": "Hours → quiet-hours warning, open hours line",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1085",
+      "covered": "yes",
+      "by": "get_settings catalogs.quietHours, businessHours"
+    },
+    {
+      "path": "Autonomy → approvals before automatic",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1123",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules approvalsBeforeAutomatic"
+    },
+    {
+      "path": "Autonomy → progress with rejected count",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1135",
+      "covered": "yes",
+      "by": "get_settings progress"
+    },
+    {
+      "path": "Autonomy → drafts expire after",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1147",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules draftsExpireAfterMinutes"
+    },
+    {
+      "path": "Autonomy → what waits for an OK",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1160",
+      "covered": "partly",
+      "by": "tool descriptions; the screen’s explanation isn’t returned"
+    },
+    {
+      "path": "Limits → replies per customer per day",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1219",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules repliesPerCustomerPerDay"
+    },
+    {
+      "path": "Limits → look-ups per reply",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1237",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules lookUpsPerReply"
+    },
+    {
+      "path": "Limits → share of the daily AI limit 40 / 60 / 80",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1255",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules shareOfDailyAiLimitPercent"
+    },
+    {
+      "path": "Limits → usage bar “Today so far”",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1274",
+      "covered": "yes",
+      "by": "get_settings catalogs.aiUsage"
+    },
+    {
+      "path": "Limits → discounts Never / With your OK",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1290",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules discounts"
+    },
+    {
+      "path": "Limits → largest discount",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1309",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules largestDiscountPercent"
+    },
+    {
+      "path": "Limits → bills and payments",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1338",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules billsAndPayments"
+    },
+    {
+      "path": "Limits → new bills",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1350",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules newBills"
+    },
+    {
+      "path": "Limits → quotes Off / Send / Build",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1363",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules quotes"
+    },
+    {
+      "path": "Limits → maintenance plans",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1388",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules maintenancePlans"
+    },
+    {
+      "path": "Limits → Quoting prices badge → Knowledge link",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1411",
+      "covered": "yes",
+      "by": "get_settings catalogs.pricesAllowed"
+    },
+    {
+      "path": "Limits → Refunds and Bots locked rows",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1420",
+      "covered": "partly",
+      "by": "settled limits; no tool field, words not returned"
+    },
+    {
+      "path": "Hand-off → locked rows: asks for a person, can’t answer, limit reached",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1470",
+      "covered": "partly",
+      "by": "settled; words not returned"
+    },
+    {
+      "path": "Hand-off → when frustrated",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1489",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules handOffWhenFrustrated"
+    },
+    {
+      "path": "Hand-off → built-in sensitive topics (locked)",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1505",
+      "covered": "partly",
+      "by": "custom topics readable; built-in list isn’t returned"
+    },
+    {
+      "path": "Hand-off → own topics → remove / Add a topic",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1515",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules addSensitiveTopics, removeSensitiveTopics"
+    },
+    {
+      "path": "Hand-off → emergencies callout",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1550",
+      "covered": "partly",
+      "by": "words not returned"
+    },
+    {
+      "path": "Hand-off → who gets told chips → Add: Owners and admins / a member, remove",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1559",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules handOffTell, handOffTellUserIds; catalogs.members"
+    },
+    {
+      "path": "Hand-off → alerts: push / text / email",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1633",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules handOffPhoneAlert, handOffText, handOffEmail"
+    },
+    {
+      "path": "Hand-off → 15-minute note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1665",
+      "covered": "partly",
+      "by": "words not returned"
+    },
+    {
+      "path": "Hand-off → what it tells the customer ({expectation})",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1675",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules handOffMessage"
+    },
+    {
+      "path": "Hand-off → open-hours and other-times previews",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1683",
+      "covered": "no",
+      "by": "composed on the screen only"
+    },
+    {
+      "path": "Add-ons → Use {add-on} switches",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/modules.tsx:1737",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules useAddons, stopUsingAddons"
+    },
+    {
+      "path": "Qualify → skill switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:150",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules qualifies"
+    },
+    {
+      "path": "Qualify → Deals switch",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:168",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules opensAndClosesDeals"
+    },
+    {
+      "path": "Qualify → question → text",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:230",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules addQuestions / changeQuestions question"
+    },
+    {
+      "path": "Qualify → question → kind: Choice / Yes or no / Number / Text / File",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:240",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules question kind"
+    },
+    {
+      "path": "Qualify → question → move up / down",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:248",
+      "covered": "partly",
+      "by": "no reorder; remove and re-add puts it last"
+    },
+    {
+      "path": "Qualify → question → remove",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:266",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules removeQuestionIds"
+    },
+    {
+      "path": "Qualify → question → choices: edit / remove / Add a choice",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:290",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules choices"
+    },
+    {
+      "path": "Qualify → question → Required",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:320",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules required"
+    },
+    {
+      "path": "Qualify → file question → Tell when it arrives",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:340",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules fileTell, fileTellUserIds"
+    },
+    {
+      "path": "Qualify → question → Not a fit: pick answers",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:370",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules notAFitAnswers"
+    },
+    {
+      "path": "Qualify → number question → Not a fit below / above",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:400",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules notAFitBelow, notAFitAbove"
+    },
+    {
+      "path": "Qualify → No questions yet / Add a question (max 10)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:440",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules addQuestions"
+    },
+    {
+      "path": "Qualify → When qualified → move the lead to stage",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:510",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules qualifiedLeadStageId; catalogs.pipelines"
+    },
+    {
+      "path": "Qualify → When qualified → Tell: No one / Owners and admins / lead’s assignee / customer’s owner / members",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:535",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules qualifiedTell, qualifiedTellUserIds"
+    },
+    {
+      "path": "Qualify → When qualified → offer times",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:560",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules offerTimesWhenQualified"
+    },
+    {
+      "path": "Qualify → When qualified → workflows note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:575",
+      "covered": "partly",
+      "by": "words not returned"
+    },
+    {
+      "path": "Qualify → When not a fit → Tell the team",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/qualify-module.tsx:653",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules tellTeamWhenNotAFit"
+    },
+    {
+      "path": "Setup (preset picker) → 4 preset cards with “Turns on:”",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/preset-picker.tsx:40",
+      "covered": "yes",
+      "by": "manage_ai_teammate create preset"
+    },
+    {
+      "path": "Setup (preset picker) → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/preset-picker.tsx:90",
+      "covered": "yes",
+      "by": "manage_ai_teammate create name"
+    },
+    {
+      "path": "Setup (preset picker) → “It starts out as” labels, approvals note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/preset-picker.tsx:110",
+      "covered": "partly",
+      "by": "tool description explains presets; labels not returned"
+    },
+    {
+      "path": "Setup (preset picker) → disclosure choices with California callout",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/preset-picker.tsx:130",
+      "covered": "yes",
+      "by": "manage_ai_teammate disclosure"
+    },
+    {
+      "path": "Setup (preset picker) → Create {name}",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/preset-picker.tsx:170",
+      "covered": "yes",
+      "by": "manage_ai_teammate action create"
+    },
+    {
+      "path": "Test console → header, explanation, Close",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:820",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → Test as (customer)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:840",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → By channel: Text / Chat / Email / Phone",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:853",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → At: Now / Pick a time",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:866",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:893",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → call: Incoming / Outgoing, why, goal",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:908",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → call → Live over the phone line / this browser",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:962",
+      "covered": "person",
+      "by": "the person’s own phone or microphone, like call.start"
+    },
+    {
+      "path": "Test console → call → voice select, Hear it",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:984",
+      "covered": "no",
+      "by": "no test tool or voice sample"
+    },
+    {
+      "path": "Test console → Use this voice",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1004",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules phoneVoice"
+    },
+    {
+      "path": "Test console → Talk out loud",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1023",
+      "covered": "person",
+      "by": "the person’s own microphone"
+    },
+    {
+      "path": "Test console → test chat not ready on this server",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1040",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → bubbles and tags: Draft, Handed to a person, Hung up, Talked over, Would have…",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1092",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → Call live",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1182",
+      "covered": "person",
+      "by": "the person’s own microphone"
+    },
+    {
+      "path": "Test console → Type the call",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1200",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → call ended → Call again",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1229",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → live call bar: status, timer, Mute, Hang up",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1240",
+      "covered": "person",
+      "by": "the person’s own call"
+    },
+    {
+      "path": "Test console → sample chips",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1274",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → message box → Send / Say it",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1287",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → What {name} did: per turn, look-ups, timings, where the time went, log rows",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1325",
+      "covered": "no",
+      "by": "test runs aren’t read by any tool"
+    },
+    {
+      "path": "Test console → Chat/Call vs What {name} did switch (narrow)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1057",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → reply → thumbs / better reply / lesson",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:113",
+      "covered": "no",
+      "by": "test run ids never reach the Assistant"
+    },
+    {
+      "path": "Test console → Retry with the fix",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:175",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Test console → footer note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/test-console.tsx:1377",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Instructions → explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:70",
+      "covered": "partly",
+      "by": "tool descriptions; words not returned"
+    },
+    {
+      "path": "Instructions → New instruction (300) → Add instruction",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:87",
+      "covered": "yes",
+      "by": "do_teammate_instruction_create"
+    },
+    {
+      "path": "Instructions → “N of max” / full message",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:115",
+      "covered": "yes",
+      "by": "read_teammate_instruction_list max"
+    },
+    {
+      "path": "Instructions → read-only note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:125",
+      "covered": "yes",
+      "by": "read_teammate_instruction_list canManage"
+    },
+    {
+      "path": "Instructions → empty state → Review its replies",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:129",
+      "covered": "yes",
+      "by": "read_teammate_instruction_list; read_ai_teammate_review"
+    },
+    {
+      "path": "Instructions → row: number, words, where it came from, by",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:167",
+      "covered": "yes",
+      "by": "read_teammate_instruction_list (source, by)"
+    },
+    {
+      "path": "Instructions → row → Edit → Save / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:200",
+      "covered": "yes",
+      "by": "do_teammate_instruction_update"
+    },
+    {
+      "path": "Instructions → row → Delete → confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/instructions-tab.tsx:250",
+      "covered": "yes",
+      "by": "do_teammate_instruction_delete"
+    },
+    {
+      "path": "Review → no inbox access empty state",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:63",
+      "covered": "yes",
+      "by": "read_ai_teammate_review runs as the person"
+    },
+    {
+      "path": "Review → Not rated yet · N / All",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:119",
+      "covered": "yes",
+      "by": "read_ai_teammate_review show, unrated count"
+    },
+    {
+      "path": "Review → All caught up / Nothing sent on its own yet",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:135",
+      "covered": "yes",
+      "by": "read_ai_teammate_review items empty"
+    },
+    {
+      "path": "Review → item: person, why badge, channel, date",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:142",
+      "covered": "yes",
+      "by": "read_ai_teammate_review items"
+    },
+    {
+      "path": "Review → item: They said / {name} replied",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:160",
+      "covered": "yes",
+      "by": "read_ai_teammate_review items"
+    },
+    {
+      "path": "Review → item → Open the conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:185",
+      "covered": "yes",
+      "by": "get_conversation by conversationId"
+    },
+    {
+      "path": "Review → Show more",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/review-tab.tsx:194",
+      "covered": "yes",
+      "by": "read_ai_teammate_review cursor"
+    },
+    {
+      "path": "Reply feedback → thumbs up / down",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:113",
+      "covered": "yes",
+      "by": "do_ai_teammate_give_feedback rating"
+    },
+    {
+      "path": "Reply feedback → others’ feedback words, thanks",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:130",
+      "covered": "yes",
+      "by": "read_ai_teammate_feedback"
+    },
+    {
+      "path": "Reply feedback → better reply (2000), why (500) → Send / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:190",
+      "covered": "yes",
+      "by": "do_ai_teammate_give_feedback betterReply, note"
+    },
+    {
+      "path": "Reply feedback → reading / taking long / couldn’t → Try again",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:255",
+      "covered": "partly",
+      "by": "read_ai_teammate_feedback shows where it got to; no retry of the lesson"
+    },
+    {
+      "path": "Reply feedback → nothing to learn / dropped / saved → see instructions",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:300",
+      "covered": "yes",
+      "by": "read_ai_teammate_feedback; read_teammate_instruction_list"
+    },
+    {
+      "path": "Reply feedback → question → choices or own answer",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:357",
+      "covered": "yes",
+      "by": "do_ai_teammate_answer_feedback"
+    },
+    {
+      "path": "Reply feedback → suggested rule → Edit → Save / Use new",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:434",
+      "covered": "yes",
+      "by": "do_teammate_lesson_apply line, replace"
+    },
+    {
+      "path": "Reply feedback → suggested rule → Not now / Keep old",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:500",
+      "covered": "yes",
+      "by": "do_teammate_lesson_dismiss"
+    },
+    {
+      "path": "Reply feedback → clash with an instruction explained; only managers save note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/reply-feedback.tsx:470",
+      "covered": "yes",
+      "by": "read_ai_teammate_feedback; canManage"
+    },
+    {
+      "path": "Activity → Conversations handled tile",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:263",
+      "covered": "partly",
+      "by": "worked out from read_ai_teammate_activity runs"
+    },
+    {
+      "path": "Activity → Replies sent (+ drafts held), Booked tiles",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:270",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity counters"
+    },
+    {
+      "path": "Activity → Handed to a person (+ names), Drafts waiting tiles",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:280",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity counters"
+    },
+    {
+      "path": "Activity → period Today / 7 days / 30 days",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/activity.tsx:293",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity since"
+    },
+    {
+      "path": "Activity → filter Everything / Hand-offs / Drafts with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/activity.tsx:303",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity outcome"
+    },
+    {
+      "path": "Activity → AI used today %, teammate’s share",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:328",
+      "covered": "yes",
+      "by": "get_settings catalogs.aiUsage"
+    },
+    {
+      "path": "Activity → runs table: When, Customer, Channel, What it did, Result",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:346",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity runs"
+    },
+    {
+      "path": "Activity → empty states",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:380",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity"
+    },
+    {
+      "path": "Activity → Load more",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/activity.tsx:394",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity cursor"
+    },
+    {
+      "path": "Activity → note: test console chats aren’t counted",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:400",
+      "covered": "partly",
+      "by": "words not returned"
+    },
+    {
+      "path": "Activity → run sheet → title, channel, started, took, result",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:461",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity run fields"
+    },
+    {
+      "path": "Activity → run sheet → What started it (excerpt, N messages) or trigger",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:490",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity run fields"
+    },
+    {
+      "path": "Activity → run sheet → Tools: each call’s time, state, summary",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:520",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity run fields"
+    },
+    {
+      "path": "Activity → run sheet → Knowledge used, Safety check",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:545",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity run fields"
+    },
+    {
+      "path": "Activity → run sheet → Result: summary, reply, feedback, error",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:565",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity run fields"
+    },
+    {
+      "path": "Activity → run sheet → model, tokens, look-ups",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-team/activity.tsx:590",
+      "covered": "yes",
+      "by": "read_ai_teammate_activity run fields"
+    },
+    {
+      "path": "Activity → run sheet → Open the conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-team/activity.tsx:600",
+      "covered": "yes",
+      "by": "get_conversation by conversationId"
+    },
+    {
+      "path": "Approvals → Funnel suggestions → explanation and rows: person, funnel, why, when",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/suggestions.tsx:30",
+      "covered": "yes",
+      "by": "read_funnel_suggestions"
+    },
+    {
+      "path": "Approvals → Funnel suggestions → No / Yes, put them in",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/suggestions.tsx:80",
+      "covered": "yes",
+      "by": "do_funnel_decide_suggestion"
+    },
+    {
+      "path": "Approvals → Waiting for you tab with count",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:161",
+      "covered": "yes",
+      "by": "list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → Decided lately tab with count",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:170",
+      "covered": "no",
+      "by": "list_teammate_drafts returns pending only; ai_teammate.draft_list isn’t a screen read"
+    },
+    {
+      "path": "Approvals → training note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:183",
+      "covered": "yes",
+      "by": "get_settings progress"
+    },
+    {
+      "path": "Approvals → empty state",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:218",
+      "covered": "yes",
+      "by": "list_teammate_drafts empty"
+    },
+    {
+      "path": "Approvals → draft → title, AI name, channel, waiting since",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:80",
+      "covered": "yes",
+      "by": "list_teammate_drafts what, teammate, kind, waitingSince"
+    },
+    {
+      "path": "Approvals → draft → byline funnel name and stage",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:95",
+      "covered": "no",
+      "by": "not in list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → draft → “in the inbox too”",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:100",
+      "covered": "partly",
+      "by": "conversationId given; the note isn’t"
+    },
+    {
+      "path": "Approvals → draft → Review (open)",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:110",
+      "covered": "yes",
+      "by": "list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → draft → expires chip",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:130",
+      "covered": "yes",
+      "by": "list_teammate_drafts expires"
+    },
+    {
+      "path": "Approvals → draft → The conversation (last 4 messages)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:145",
+      "covered": "yes",
+      "by": "get_conversation; decide card shows They wrote"
+    },
+    {
+      "path": "Approvals → draft → safety check passed",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:160",
+      "covered": "no",
+      "by": "not in list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → draft → edit subject and words",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:175",
+      "covered": "yes",
+      "by": "decide_teammate_draft subject, message"
+    },
+    {
+      "path": "Approvals → draft → text segments, edited note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:195",
+      "covered": "partly",
+      "by": "words given; segments not counted"
+    },
+    {
+      "path": "Approvals → draft → call preview",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:210",
+      "covered": "yes",
+      "by": "list_teammate_drafts call"
+    },
+    {
+      "path": "Approvals → draft → add-on ask summary",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:225",
+      "covered": "no",
+      "by": "not in list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → draft → why it was held (flags)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:235",
+      "covered": "no",
+      "by": "preview.flags not in list_teammate_drafts"
+    },
+    {
+      "path": "Approvals → draft → approving also does (actions), discount",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:245",
+      "covered": "yes",
+      "by": "list_teammate_drafts approvingAlso, discount"
+    },
+    {
+      "path": "Approvals → draft → Approve / Approve the call / Send as it is / Approve and send",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:270",
+      "covered": "yes",
+      "by": "decide_teammate_draft approve"
+    },
+    {
+      "path": "Approvals → draft → Reject… → reason (1000) → Keep it / Reject",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:290",
+      "covered": "yes",
+      "by": "decide_teammate_draft reject, reason"
+    },
+    {
+      "path": "Approvals → draft → “Waiting for an owner or admin”",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:310",
+      "covered": "yes",
+      "by": "list_teammate_drafts canDecide"
+    },
+    {
+      "path": "Approvals → draft → Open the conversation",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:320",
+      "covered": "yes",
+      "by": "get_conversation by conversationId"
+    },
+    {
+      "path": "Approvals → rejected → I’ll reply",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:340",
+      "covered": "yes",
+      "by": "manage_conversation take_over"
+    },
+    {
+      "path": "Approvals → rejected → Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:350",
+      "covered": "yes",
+      "by": "do_ai_teammate_retry"
+    },
+    {
+      "path": "Approvals → decided row: person, AI name, decided by, when, link",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx:380",
+      "covered": "no",
+      "by": "decided drafts aren’t read"
+    },
+    {
+      "path": "Funnels → header → New funnel",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:76",
+      "covered": "yes",
+      "by": "do_funnel_create"
+    },
+    {
+      "path": "Funnels → suggestions banner → Review on Approvals",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:91",
+      "covered": "yes",
+      "by": "read_funnel_suggestions"
+    },
+    {
+      "path": "Funnels → No funnels yet → Make your first funnel",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:106",
+      "covered": "yes",
+      "by": "read_funnel_list; do_funnel_create"
+    },
+    {
+      "path": "Funnels → card → name, status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:131",
+      "covered": "yes",
+      "by": "read_funnel_list"
+    },
+    {
+      "path": "Funnels → card → on / pause switch",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:150",
+      "covered": "yes",
+      "by": "do_funnel_turn_on / do_funnel_pause"
+    },
+    {
+      "path": "Funnels → card → Open map / Finish setting it up",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:165",
+      "covered": "yes",
+      "by": "read_funnel_get"
+    },
+    {
+      "path": "Funnels → card → pipeline, N stages, N people, N paused, or draft’s next step",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:180",
+      "covered": "yes",
+      "by": "read_funnel_list"
+    },
+    {
+      "path": "Funnels → card → stage chips with counts, changed by",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/funnels-tab.tsx:200",
+      "covered": "yes",
+      "by": "read_funnel_list"
+    },
+    {
+      "path": "New funnel → How it should go (4000)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:205",
+      "covered": "yes",
+      "by": "do_funnel_create description"
+    },
+    {
+      "path": "New funnel → What to call it",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:220",
+      "covered": "yes",
+      "by": "do_funnel_create name"
+    },
+    {
+      "path": "New funnel → Use one I have / Make a new pipeline, pipeline select with stage count",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:240",
+      "covered": "yes",
+      "by": "do_funnel_create pipelineId / newPipeline"
+    },
+    {
+      "path": "New funnel → new pipeline stages: name, Open/Won/Lost, up/down, remove, Add a stage, N of 12",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:277",
+      "covered": "yes",
+      "by": "do_funnel_create newPipeline stages (in order)"
+    },
+    {
+      "path": "New funnel → Draft it with {name}",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:440",
+      "covered": "partly",
+      "by": "no worker drafter; the Assistant writes its own draft"
+    },
+    {
+      "path": "New funnel → {name}’s draft: counts, stale warning, Draft it again, map, Who gets in",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:370",
+      "covered": "partly",
+      "by": "the Assistant sees its own draft only"
+    },
+    {
+      "path": "New funnel → Use this draft",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:430",
+      "covered": "yes",
+      "by": "do_funnel_create draft, stageMap"
+    },
+    {
+      "path": "New funnel → Set it up myself",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/new-funnel.tsx:435",
+      "covered": "yes",
+      "by": "do_funnel_create without draft"
+    },
+    {
+      "path": "Funnel builder → name",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:230",
+      "covered": "yes",
+      "by": "do_funnel_save name"
+    },
+    {
+      "path": "Funnel builder → status badge, saved by / not saved",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/builder.tsx:245",
+      "covered": "yes",
+      "by": "read_funnel_get"
+    },
+    {
+      "path": "Funnel builder → Save / Save and close",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:260",
+      "covered": "yes",
+      "by": "do_funnel_save"
+    },
+    {
+      "path": "Funnel builder → steps with done checks",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/builder.tsx:277",
+      "covered": "partly",
+      "by": "read_funnel_get issues; the checks aren’t"
+    },
+    {
+      "path": "Funnel builder → Describe",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:315",
+      "covered": "yes",
+      "by": "do_funnel_save description"
+    },
+    {
+      "path": "Funnel builder → Pipeline → stage checkboxes with N here now",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:331",
+      "covered": "yes",
+      "by": "do_funnel_save definition.stages; read_funnel_get counts"
+    },
+    {
+      "path": "Funnel builder → Pipeline → people go to (when a stage is dropped)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:380",
+      "covered": "yes",
+      "by": "do_funnel_save moveFrom"
+    },
+    {
+      "path": "Funnel builder → Pipeline → Settings → Pipelines hint",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/builder.tsx:420",
+      "covered": "partly",
+      "by": "words not returned"
+    },
+    {
+      "path": "Funnel builder → Who → rule kind: new lead / came in (kinds) / form / booking (calendar)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:104",
+      "covered": "yes",
+      "by": "do_funnel_save definition.entry"
+    },
+    {
+      "path": "Funnel builder → Who → remove rule / Add a rule",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:200",
+      "covered": "yes",
+      "by": "do_funnel_save definition.entry"
+    },
+    {
+      "path": "Funnel builder → Who → added by hand, AI suggests",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:230",
+      "covered": "yes",
+      "by": "do_funnel_save definition.entry"
+    },
+    {
+      "path": "Funnel builder → Who → where people start",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:260",
+      "covered": "yes",
+      "by": "do_funnel_save definition.entry"
+    },
+    {
+      "path": "Funnel builder → Stages → stage picker prev / next",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:444",
+      "covered": "yes",
+      "by": "read_funnel_get definition"
+    },
+    {
+      "path": "Funnel builder → Stages → goal (300), what it knows (1000)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:460",
+      "covered": "yes",
+      "by": "do_funnel_save stages goal, knows"
+    },
+    {
+      "path": "Funnel builder → Stages → move: when (event), they write something like, quiet for, form/calendar, to stage",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:294",
+      "covered": "yes",
+      "by": "do_funnel_save stages moves"
+    },
+    {
+      "path": "Funnel builder → Stages → move remove / Add a move / empty note",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:440",
+      "covered": "yes",
+      "by": "do_funnel_save stages moves"
+    },
+    {
+      "path": "Funnel builder → Stages → hand off here",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:495",
+      "covered": "yes",
+      "by": "do_funnel_save stages handOff"
+    },
+    {
+      "path": "Funnel builder → Stages → closed-stage note",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/builder.tsx:510",
+      "covered": "partly",
+      "by": "words not returned"
+    },
+    {
+      "path": "Funnel builder → Messages → goal line, list, Add a message, empty note",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:516",
+      "covered": "yes",
+      "by": "do_funnel_save stages messages"
+    },
+    {
+      "path": "Funnel builder → message → when: arrive / booking / booking day, duration, before/after, day, time",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:520",
+      "covered": "yes",
+      "by": "do_funnel_save messages when"
+    },
+    {
+      "path": "Funnel builder → message → only if: always / has / hasn’t (event)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:600",
+      "covered": "yes",
+      "by": "do_funnel_save messages"
+    },
+    {
+      "path": "Funnel builder → message → how: best / text / email",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:630",
+      "covered": "yes",
+      "by": "do_funnel_save messages"
+    },
+    {
+      "path": "Funnel builder → message → wording, text (1000) with fill chips",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:650",
+      "covered": "yes",
+      "by": "do_funnel_save messages text"
+    },
+    {
+      "path": "Funnel builder → message → Good until (duration)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:700",
+      "covered": "yes",
+      "by": "do_funnel_save messages"
+    },
+    {
+      "path": "Funnel builder → message → remove",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/editors.tsx:500",
+      "covered": "yes",
+      "by": "do_funnel_save messages"
+    },
+    {
+      "path": "Funnel builder → Wording → who writes: AI / exact words",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:573",
+      "covered": "yes",
+      "by": "do_funnel_save wording"
+    },
+    {
+      "path": "Funnel builder → Wording → before a message goes out: teammate / ask / send",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:600",
+      "covered": "yes",
+      "by": "do_funnel_save approval"
+    },
+    {
+      "path": "Funnel builder → Try it → start stage, pretend booking time, Back one, Start over, steps, forks",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/try-it.tsx:40",
+      "covered": "no",
+      "by": "no tool runs the try-it walk-through"
+    },
+    {
+      "path": "Funnel builder → On → things to fix",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/builder.tsx:644",
+      "covered": "yes",
+      "by": "read_funnel_get issues"
+    },
+    {
+      "path": "Funnel builder → On → Also add the N leads already in…",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:660",
+      "covered": "yes",
+      "by": "do_funnel_turn_on addExisting"
+    },
+    {
+      "path": "Funnel builder → On → Turn on / Pause",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:675",
+      "covered": "yes",
+      "by": "do_funnel_turn_on / do_funnel_pause"
+    },
+    {
+      "path": "Funnel builder → On → Archive it → confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:685",
+      "covered": "yes",
+      "by": "do_funnel_archive"
+    },
+    {
+      "path": "Funnel builder → map: stage boxes, won/lost, people, goal, messages, arrows with causes",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/funnel-map.tsx:30",
+      "covered": "partly",
+      "by": "read_funnel_get definition and counts; not the drawn map"
+    },
+    {
+      "path": "Funnel builder → map → click a box to change it",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/builder.tsx:722",
+      "covered": "yes",
+      "by": "do_funnel_save"
+    },
+    {
+      "path": "Customer’s funnel → funnel, where they are, paused, next message and time",
+      "kind": "see",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:40",
+      "covered": "yes",
+      "by": "read_funnel_of_person"
+    },
+    {
+      "path": "Customer’s funnel → Pause / Resume",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:90",
+      "covered": "yes",
+      "by": "do_funnel_pause_person"
+    },
+    {
+      "path": "Customer’s funnel → Move to… stage (web)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:100",
+      "covered": "yes",
+      "by": "move_lead"
+    },
+    {
+      "path": "Customer’s funnel → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:115",
+      "covered": "yes",
+      "by": "do_funnel_remove_person"
+    },
+    {
+      "path": "Customer’s funnel → suggestion → No / Yes",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:130",
+      "covered": "yes",
+      "by": "do_funnel_decide_suggestion"
+    },
+    {
+      "path": "Customer’s funnel → Add to funnel menu (web)",
+      "kind": "do",
+      "file": "apps/web/src/components/funnels/person-funnel.tsx:150",
+      "covered": "yes",
+      "by": "do_funnel_add_person; read_funnel_of_person canJoin"
+    },
+    {
+      "path": "Quick setup → carry on banner → Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:339",
+      "covered": "partly",
+      "by": "read_ai_setup_get; do_ai_setup_save step, no reset"
+    },
+    {
+      "path": "Quick setup → N of M, title, hint",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:351",
+      "covered": "yes",
+      "by": "read_ai_setup_get step"
+    },
+    {
+      "path": "Quick setup → What will change list",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:361",
+      "covered": "partly",
+      "by": "do_ai_setup_finish returns changes after; no plan before"
+    },
+    {
+      "path": "Quick setup → Back / Next / Save / Save changes",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:418",
+      "covered": "yes",
+      "by": "do_ai_setup_save; do_ai_setup_finish"
+    },
+    {
+      "path": "Quick setup → More settings / Set it up myself",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:430",
+      "covered": "yes",
+      "by": "manage_ai_teammate, update_ai_teammate_rules"
+    },
+    {
+      "path": "Quick setup → errors on a screen",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:410",
+      "covered": "yes",
+      "by": "do_ai_setup_save refusal problems"
+    },
+    {
+      "path": "Quick setup → What {name} will do summary",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/quick-setup.tsx:452",
+      "covered": "partly",
+      "by": "answers readable; summary lines aren’t"
+    },
+    {
+      "path": "Quick setup → Business → name, kind of business",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:125",
+      "covered": "yes",
+      "by": "do_ai_setup_save business.name, industry"
+    },
+    {
+      "path": "Quick setup → Business → website / no website",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/fields.tsx:274",
+      "covered": "yes",
+      "by": "do_ai_setup_save business.website, answers"
+    },
+    {
+      "path": "Quick setup → Business → start from a template (our picks)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:175",
+      "covered": "yes",
+      "by": "read_ai_setup_template_list; do_ai_setup_save templateId"
+    },
+    {
+      "path": "Quick setup → Jobs → ticks",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:218",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → reading your website banner",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:245",
+      "covered": "partly",
+      "by": "knowledge_scan.get isn’t a screen read; list_knowledge_suggestions shows results"
+    },
+    {
+      "path": "Quick setup → About → description (2000), area",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:258",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → About → services: name, description, price, length, remove, add",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/fields.tsx:379",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers services"
+    },
+    {
+      "path": "Quick setup → Hours → open hours, when it answers, custom hours",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:294",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → Facts → yes / no per fact, from-website note",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:337",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → Meet → name, disclosure, California warning",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:363",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → Voice → tone (or keep), quote prices pills",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:411",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → Learned → findings ticks, Keep all",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:452",
+      "covered": "partly",
+      "by": "list_knowledge_suggestions; dropFindings in answers"
+    },
+    {
+      "path": "Quick setup → Learned → scan running / failed / none notes",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:480",
+      "covered": "partly",
+      "by": "knowledge_scan.get isn’t read"
+    },
+    {
+      "path": "Quick setup → Learned → top questions: question, answer, remove, add",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/fields.tsx:479",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → Learned → upload a PDF",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:520",
+      "covered": "never",
+      "by": "knowledge_document.begin_upload / add on the NEVER list (person’s own file)"
+    },
+    {
+      "path": "Quick setup → Qualify → question, answer kind, choices, remove, add",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/fields.tsx:545",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers questions"
+    },
+    {
+      "path": "Quick setup → Stay in the loop → get the phone app (web) / turn on this phone’s alerts (phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:571",
+      "covered": "person",
+      "by": "installing the app, the phone’s own notification permission"
+    },
+    {
+      "path": "Quick setup → Stay in the loop → confirm your cell",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:590",
+      "covered": "person",
+      "by": "user_phone.start_verification on NEVER: answering a call on it"
+    },
+    {
+      "path": "Quick setup → Stay in the loop → no number / email off notes",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:605",
+      "covered": "partly",
+      "by": "get_settings catalogs.textingReady; words not returned"
+    },
+    {
+      "path": "Quick setup → Chat → yes / no",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:619",
+      "covered": "yes",
+      "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → try → notes: what Save couldn’t finish",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:187",
+      "covered": "yes",
+      "by": "do_ai_setup_finish output notes"
+    },
+    {
+      "path": "Quick setup → try → chat on your page → open it",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:505",
+      "covered": "yes",
+      "by": "read_chat_widget_get"
+    },
+    {
+      "path": "Quick setup → try → chat code → Copy (phone: Share), more ways link",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:527",
+      "covered": "yes",
+      "by": "read_chat_widget_get; settings_help gives the snippet"
+    },
+    {
+      "path": "Quick setup → try → Ask these questions",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:209",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Quick setup → try → each question: reply, outcome badge, error",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:425",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Quick setup → try → report: gaps / knows it all",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:239",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Quick setup → try → Add the answer → save to Knowledge and ask again",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:444",
+      "covered": "partly",
+      "by": "add_knowledge_item saves it; asking again has no tool"
+    },
+    {
+      "path": "Quick setup → try → ask your own question → Ask",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:253",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Quick setup → try → texting tip",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:266",
+      "covered": "no",
+      "by": "test words only"
+    },
+    {
+      "path": "Quick setup → try → Save these answers for your other businesses → name → Save / Cancel (web)",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:353",
+      "covered": "yes",
+      "by": "do_ai_setup_template_save (agency, offered with workspace.update)"
+    },
+    {
+      "path": "Quick setup → try → saved for others callout",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:344",
+      "covered": "yes",
+      "by": "do_ai_setup_template_save result"
+    },
+    {
+      "path": "Quick setup → try → Turn on with training wheels",
+      "kind": "do",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:287",
+      "covered": "yes",
+      "by": "manage_ai_teammate set_status training"
+    },
+    {
+      "path": "Quick setup → try → it’s on / approvals before automatic note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/try-ava.tsx:274",
+      "covered": "yes",
+      "by": "get_settings status, progress.approvalsNeeded"
+    },
+    {
+      "path": "Phone → quick setup → only managers / needs signal / Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/ai-setup.tsx:44",
+      "covered": "yes",
+      "by": "the Assistant runs as the person; tools refuse without ai_team.manage"
+    },
+    {
+      "path": "Phone → quick setup → PDF is added on the computer note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/ai-setup/screens.tsx:535",
+      "covered": "never",
+      "by": "knowledge document upload is on the NEVER list"
+    },
+    {
+      "path": "Phone → quick setup → More settings opens the web",
+      "kind": "do",
+      "file": "apps/mobile/src/components/ai-setup/quick-setup.tsx:464",
+      "covered": "yes",
+      "by": "manage_ai_teammate, update_ai_teammate_rules"
+    },
+    {
+      "path": "Phone → test console → only managers / set up first → Set it up",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx:69",
+      "covered": "yes",
+      "by": "get_settings ai_teammate; do_ai_setup_save"
+    },
+    {
+      "path": "Phone → test console → Change who, how and when",
+      "kind": "do",
+      "file": "apps/mobile/src/components/ai-team/test-console.tsx:177",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Phone → test console → Start over, Chat/Call vs What {name} did",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx:52",
+      "covered": "no",
+      "by": "no test tool"
+    },
+    {
+      "path": "Phone → test console → voice picker → Use this voice",
+      "kind": "do",
+      "file": "apps/mobile/src/components/ai-team/voice-picker.tsx:77",
+      "covered": "yes",
+      "by": "update_ai_teammate_rules phoneVoice"
+    },
+    {
+      "path": "Phone → customer’s funnel card → pause, resume, remove, suggestion yes / no (no Move to or Add)",
+      "kind": "do",
+      "file": "apps/mobile/src/components/customers/funnel-card.tsx:85",
+      "covered": "yes",
+      "by": "do_funnel_pause_person, remove_person, decide_suggestion"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "tm-1",
+      "severity": "high",
+      "kind": "words",
+      "where": "AI teammate (web): the tabs Teammate · Instructions · Funnels · Review · Activity · Approvals. The Teammate tab's left-hand list sits in three groups: Basics (Identity, Channels, Hours), What it does (Respond, Answer, Qualify, Book, Follow up, Add-ons) and Rules and safety (Hand-off, Autonomy, Limits). Run quick setup again sits under the list.",
+      "gap": "The AI teammate screen has six tabs: Teammate, Instructions, Funnels, Review, Activity and Approvals. Its sections sit in three groups (Basics; What it does, which includes Add-ons; Rules and safety), with Run quick setup again under them. The settings map's ai_teammate entry says 'Tabs: Teammate, Activity, Approvals'. TEAMMATE_SECTIONS lists 11 sections in an old flat order, with no groups and no Add-ons section. Nothing in settings-map.ts, places-map.ts, prompt.ts or context.ts mentions funnels, the Instructions or Review tabs, or Run quick setup again. prompt.ts:38 tells the model never to name a place or tab that isn't listed. So for 'where do I build a funnel / teach it a rule / see what it learned?' the Assistant either says it isn't sure or gives the wrong tab list, even though the do_funnel_*, do_teammate_instruction_*, do_teammate_lesson_* and read_ai_teammate_review / read_teammate_instruction_list / read_funnel_* tools exist.",
+      "fix": "In packages/core/src/assistant/settings-map.ts:\n- Change onScreen[0] (line 859) to 'Tabs: Teammate, Instructions, Funnels, Review, Activity, Approvals'.\n- Rebuild TEAMMATE_SECTIONS (line 106) from apps/web/src/lib/ai-team/describe.ts MODULE_GROUPS: 'Basics: Identity, Channels, Hours; What it does: Respond, Answer, Qualify, Book, Follow up, Add-ons (when an add-on offers it); Rules and safety: Hand-off, Autonomy, Limits'. Then add 'Under them: Run quick setup again'.\n- Add canChange lines for its instructions, its funnels, and applying or dismissing what Review suggests.\n- Add howTo lines: 'Teach it a rule: AI teammate → Instructions'; 'Build a funnel: AI teammate → Funnels, New funnel; Turn on, Pause or Archive on the funnel'; 'See what it sent on its own and what it learned: AI teammate → Review, Apply or Dismiss'; 'Run quick setup again: AI teammate, under the sections'.\n- In places-map.ts, add the funnel line on a customer's page (Pause or Resume, Remove, Yes or No on a suggestion).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "AI teammate → Approvals (and Workflows → Approvals). A draft card shows: an add-on's ask ('<name> asks …'); the add-on's flag box (such as Real Estate's fair-housing check) with Send as it is; the funnel byline '· <funnel>, <stage>'; and who to ask when the person can't decide an ask.",
+      "gap": "The worker's Draft interface and list_teammate_drafts drop preview.ask, preview.flags, preview.funnel and record. Core's draft schema and the screen card all carry them.\n- An 'ask' draft gets draftTitle's fallthrough title ('<name>'s reply/text to …') with no ask summary or add-on name.\n- The kind enum (reply, approval, call) can't filter asks.\n- When canDecide is false, decide_teammate_draft says 'Only owners and admins decide…' even for an ask, which the screen sends to whoever may see the record.\n- A reply an add-on flagged (Real Estate's fair-housing check) is listed and confirmed with no flag. The card's button reads 'Approve and send', not the screen's 'Send as it is', so the person can approve a flagged message without seeing the warning.\n- A funnel message isn't said to come from its funnel and stage.",
+      "fix": "In apps/worker/src/assistant/tools-content.ts:\n- Extend `interface Draft` (line 2590) with `kind: 'reply'|'approval'|'call'|'ask'`, `record: {id; name: string|null}|null` and, in preview, `ask: {addonName; summary}|null`, `flags: {addonName; message}[]` and `funnel: {name; stageName}|null`.\n- In listTeammateDrafts, add `asks: DRAFT_WORDS.askFrom(name, ask.addonName) + summary`, `heldBecause: flags.map(f => f.message)`, `fromFunnel: '<name>, <stageName>'` and, for an ask nobody here can decide, `whoDecides: DRAFT_WORDS.askWho(record?.name)`. DRAFT_WORDS lives at packages/core/src/inbox/teammate.ts:419.\n- In draftTitle, add an 'ask' branch.\n- In decideTeammateDraft.prepare, add each flag as a 'caution' warning headed by DRAFT_WORDS.heldWhy(name), use DRAFT_WORDS.sendAsItIs as the confirm label when flags exist, and use askWho as the blocked words for an ask.\n- In packages/core/src/assistant/tools-content.ts:349, change the kind enum to TEAMMATE_DRAFT_KINDS, and say in the description that asks come from add-ons.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-3",
+      "severity": "medium",
+      "kind": "do",
+      "where": "AI teammate → Funnels, a funnel's builder: the Stages, Messages, Wording and Who steps, then Save (or Save and close).",
+      "gap": "Changing a funnel through do_funnel_save means sending the revision and the whole FunnelDefinition. That is how the screen's save works too, so re-sending every stage is not a gap by itself. The real part: read_funnel_get answers through runScreenRead, which cuts any answer over 16,000 characters of JSON into a string with cutShort. funnel.get takes only funnelId, so there is no way to ask for less. Its answer holds the whole definition (up to 12 stages, each with a 1,000-character 'knows' and up to 8 messages of 1,000 characters) plus counts, issues and the business's forms and calendars. So for a medium-to-large funnel, the Assistant can't see the whole definition, and can't safely change one message or stage without dropping the rest. Small funnels work.",
+      "fix": "Add a worker tool, change_funnel (confirm, ai_team.manage), in a new section of apps/worker/src/assistant/tools-content.ts:\n- It takes funnelId plus one targeted change: rename, a stage's goal or knows, add/change/remove one message by id, add/remove a move, an entry rule, or byHand/aiSuggests.\n- It reads funnel.get itself for the current definition and revision, applies the change, and runs funnel.save.\n- Its card names the funnel and the stage or message that changes.\n\nOr give funnel.get an optional stageId (FunnelGetInput, packages/core/src/schemas/funnel.ts:212) that returns only that stage's definition, so a stage always reads whole.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-4",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Run quick setup again (web: under the teammate's sections; phone: More → Set up your AI teammate). On the last step, Turn on adds the website chat to the business's simple booking page.",
+      "gap": "Quick setup on the screen sends pageOrigin, the booking page's branded or public origin. Then a business with no website of its own gets its website chat on its simple page. do_ai_setup_finish (and do_onboarding_setup_finish) expose pageOrigin as an optional model argument, but the model has no source for it: read_ai_setup_get returns no origin, and nothing in the prompt names one. Without it the command skips the chat and only pushes a note, which the confirmed path then throws away (tm-5). The worker already knows how to work out this origin elsewhere. This lowers severity: it hits only businesses with a page and no website, and the chat can be added later.",
+      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts inputOf (line 44), for tool.command.name 'ai_setup.finish' and 'onboarding_setup.finish', fill pageOrigin when it isn't given. Work it out the way apps/worker/src/assistant/tools-forms.ts:382-388 does: query branded_domain.get, use https://<domain> when it is verified and certificateReady, else extra.webUrl. That matches apps/web/src/lib/ai-setup/load.ts brandedOriginFor. Also drop pageOrigin from the model's view of those two tools.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Quick setup's last screen (what was made and its notes; Add it to your website with the chat code to copy). A funnel's Turn on with 'Also add the N leads'. Archive, and a lesson's Apply on Review.",
+      "gap": "After Confirm, commitScreenAction runs the command and returns only {outcome:'Done'}. routes.ts stores only outcome, href and command, so the command's output never reaches the model. The risk-0 path keeps it through answerOf. Lost in the confirmed path:\n- quick setup's changes and notes (what was made, and what couldn't be finished and how to fix it);\n- funnel.turn_on's `adding` count;\n- funnel.archive's `left` count;\n- any other screen command's answer.\n\nNot a gap: handing over the new chat's code to paste on their website. prompt.ts:34 lists 'the chat snippet on their website' as a settings_help handover by design.",
+      "fix": "Give CommittedAction (apps/worker/src/assistant/runtime.ts:129) an optional `data` field. Have commitScreenAction (tools-screen-actions.ts:124-132) return `{ outcome: 'Done', href: null, command, ...answerOf(done.output) }`. In routes.ts confirm (line 351-359), store `result: { outcome, href, command, data }` so the model reads it on its next turn. For ai_setup.finish, also turn `notes` into the outcome words, so the panel shows them.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-6",
+      "severity": "medium",
+      "kind": "words",
+      "where": "The Assistant's 'Do this?' card for saving or creating a funnel, for quick setup's finish, and for other screen commands with nested input.",
+      "gap": "Every do_* screen action draws its 'Do this?' card with cardFields/valueOf: one line per input key, labelled from the key.\n- An object becomes clipped JSON, and an array of objects becomes 'N items'.\n- uuids and revisions show as they are.\n\nSo do_funnel_save shows 'Funnel id: <uuid>', 'Revision: 4', 'Definition: {\"description\":…' clipped at 300 characters, and 'Move from: {…}'. do_funnel_create shows 'Draft: {…}', and do_ai_setup_finish shows 'Answers: {…}' and 'Base revision'. The person can't see which stages or messages change, and the card shows ids, which the house rules forbid.",
+      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts prepareScreenAction (line 90), add per-command card builders for funnel.save, funnel.create, funnel.turn_on/pause/archive and ai_setup.finish/onboarding_setup.finish:\n- Name the funnel (from funnel.get) and list the stages and messages added, changed or removed against the saved definition.\n- Name the 'move people from' stages.\n- For quick setup, list the answers in words.\n\nIn cardFields (apps/worker/src/assistant/tools-addons.ts:146-160), skip keys that end in Id/Ids and revision/baseRevision instead of printing them, and keep valueOf only for flat values.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-7",
+      "severity": "medium",
+      "kind": "read",
+      "where": "AI teammate → Approvals: every waiting draft (the page loads up to 100) and the Decided view of drafts decided lately.",
+      "gap": "The Approvals tab loads up to 100 waiting drafts and the last 30 decided ones. list_teammate_drafts always asks for status 'pending', at most 20, with no cursor, no nextCursor and no 'more are waiting' note. ai_teammate.draft_list is not a screen read, and no other Assistant tool reads decided drafts (who decided, edits, reason, decidedAt). So 'what did Ava send yesterday that Sam approved?' and 'why was that one rejected?' can't be answered. With more than 20 waiting, the Assistant believes it saw them all. The query already supports status 'decided'/'all' and a cursor.",
+      "fix": "In packages/core/src/assistant/tools-content.ts:347-352, add `status: z.enum(['pending','decided']).optional()` and `cursor: z.string().max(400).optional()` to list_teammate_drafts.\n\nIn apps/worker/src/assistant/tools-content.ts listTeammateDrafts (2648-2700):\n- Pass status and cursor through, and return nextCursor with a note 'More are waiting: ask for the next page' when it is set.\n- For decided drafts, add decidedBy, decidedAt, status (approved/rejected/expired), reason and whether it was edited (edits). Add those fields to the Draft interface.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-8",
+      "severity": "medium",
+      "kind": "do",
+      "where": "AI teammate → Test console (Test as a customer; By text, chat, email or phone; At now or a picked time; Start over). Also quick setup's test questions, and the phone's More → Test your AI teammate.",
+      "gap": "No Assistant tool can put a test question to the teammate and report its reply and the actions it would take. The test console (web, quick setup's try step, and the phone) runs through the worker's POST /v1/ai-team/test with ai_team.manage. Test runs send nothing to customers, and the Activity screen marks them isTest. The settings map only hands it back to the person ('Try it as a customer: AI teammate, Test console'). Nothing in NEVER_FOR_THE_ASSISTANT or SETTINGS_NEVER says why not. One thing to note: a test does use the business's AI share (the route returns 429 at the limit).",
+      "fix": "Add a worker tool, test_ai_teammate: autonomy auto, permission ai_team.manage, spec in packages/core/src/assistant/tools-extra.ts.\n- Inputs: messages (the customer's words, up to TEST_MESSAGES_MAX turns), channel ('sms'|'email'|'chat'; leave out 'phone', which is a live call), optional at (ISO time), optional personId.\n- It calls prepareTest/runTest from apps/worker/src/ai-team/console.ts with config null (the saved settings), collects the ConsoleEvent stream, and returns the reply text, the tools it would call with their summaries, and any hand-off.\n- Its description says it sends nothing and counts toward the AI limit.\n\nThen change settings-map.ts:894's howTo to 'Try it as a customer: AI teammate, Test console (or ask me to try a question)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-9",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Phone app, More: Set up your AI teammate (when there's no teammate yet), Test your AI teammate, Run quick setup again. A customer's page: the funnel card with Pause or Resume, Remove, and Yes or No on a suggestion.",
+      "gap": "Two things the phone does that the Assistant doesn't know about:\n- The phone's More shows 'Set up your AI teammate' (when there's none yet) and 'Run quick setup again', beside 'Test your AI teammate'. PHONE_APP's More line lists only Test your AI teammate. The web-only line says 'the AI teammate’s settings' are only on the web, and prompt.ts:38 adds that 'the business is set up on the web'. So the Assistant sends a phone user to the web to set the teammate up or rerun quick setup, which the phone does itself.\n- A customer's page on the phone shows their funnel card (Pause or Resume, Remove, Yes or No on a suggestion). Nothing in places-map mentions it.",
+      "fix": "In packages/core/src/assistant/places-map.ts:\n- Line 625: make it 'More: Contacts, Tasks, Money, Forms, Approvals, Set up your AI teammate (before there is one), Test your AI teammate, Run quick setup again, Settings, Ideas, Get help, and Open on the web'.\n- Line 627: change 'the AI teammate’s settings' to 'the AI teammate’s full settings, its instructions and funnels (quick setup and its test are on the phone too)'.\n- Add a PHONE_APP line: 'A customer: their funnel, with Pause or Resume and Remove, or the AI teammate’s suggestion with Yes or No'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-11",
+      "severity": "low",
+      "kind": "do",
+      "where": "AI teammate → Qualify: the up and down arrows on each question, which set the order it asks them in.",
+      "gap": "Qualify's questions have up and down arrows that set the order. update_ai_teammate_rules can add (always at the end), change or remove questions, but can't move one. 'Ask about budget first' can only be done by removing and re-adding questions, which gives them new ids. Rewriting their contents in place with changeQuestions keeps the ids but swaps what each id means.",
+      "fix": "Add `questionOrder: z.array(questionId).max(20).optional().describe('Every question id, in the order it asks them')` to update_ai_teammate_rules (packages/core/src/assistant/tools-extra.ts, the Qualify block near line 157). In apps/worker/src/assistant/tools-extra.ts nextQuestions (line 218), sort `out` by that order after the changes. Refuse it unless it names each current question once. On the card, show 'Order: 1. … 2. …'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-12",
+      "severity": "low",
+      "kind": "do",
+      "where": "AI teammate → Book: 'What <calendar> is for' under each calendar (up to 2,000 characters, and it can be emptied).",
+      "gap": "The Book section's 'What <calendar> is for' saves the calendar's description through calendar.save. It allows up to 2,000 characters, and an empty box saves null. manage_calendar's description is text(500): trimmed, at least 1 and at most 500 characters. The worker passes it only through str(). So the Assistant can't write a purpose over 500 characters, and can't clear one. calendar.save is not a screen action either.",
+      "fix": "In packages/core/src/assistant/tools.ts:379, make manage_calendar's description `z.string().trim().max(2000).nullable().optional().describe('What the calendar is for, which the AI teammate reads; null clears it')`. In apps/worker/src/assistant/tools-settings-calendar.ts:338-342, pass `description: args['description'] === null ? null : str(args['description'])`, and make `defined()` keep null.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-13",
+      "severity": "low",
+      "kind": "words",
+      "where": "AI teammate → Qualify (its switch) and Limits.",
+      "gap": "Two tool descriptions disagree about who owns Qualify and Limits.\n- manage_ai_teammate's description says it changes 'what it may do (respond, answer questions, qualify, book, follow up) and its limits'. It has no qualify or limits inputs.\n- update_ai_teammate_rules' description holds the Qualify switch (qualifies) and every limit. Yet it says 'its skills on or off are manage_ai_teammate'.\n\nSo the model can pick the wrong tool for 'turn off qualifying' or 'cap replies a day', or tell the person it can't.",
+      "fix": "In packages/core/src/assistant/tools.ts:1020, change '(respond, answer questions, qualify, book, follow up) and its limits' to '(respond, answer questions, book, follow up); the Qualify skill, its questions and its limits are update_ai_teammate_rules'. In packages/core/src/assistant/tools-extra.ts:103, change 'its skills on or off are manage_ai_teammate' to 'its other skills on or off (all but Qualify) are manage_ai_teammate'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "tm-16",
+      "severity": "low",
+      "kind": "read",
+      "where": "Teammate tab, the rail's list of things to check: each issue's Fix button (Set up texting, Add an email address, Create a calendar, Add answers…).",
+      "gap": "get_settings area ai_teammate returns ai_teammate.get unshaped, so each issue's link fix carries a workspace-relative href ('settings/texting', 'knowledge/items/new', 'settings/calendars/<id>'). It has no screen name and no full path. This is mitigated: each fix has a label ('Set up texting'), each target has a full way in places/settings-map, and prompt.ts:38 tells the model to give the whole way ('Settings → Texting') rather than paths. The remaining risk is the model quoting the bare relative path as a link.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts:205, give the ai_teammate query a `shape` that maps each issue's link fix to `{ label, where: 'Settings → Texting' (from settingsWhere for the matching area), href: '/app/w/<workspaceId>/<href>' }`. Use the TEAMMATE_LINKS keys (packages/core/src/ai-team/rules.ts:67-77) to pick the area.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

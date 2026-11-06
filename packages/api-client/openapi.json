@@ -120906,6 +120906,430 @@
         }
       }
     },
+    "/v1/queries/platform.assistant_ledger": {
+      "post": {
+        "operationId": "query_platform_assistant_ledger",
+        "summary": "Support: every item on every HandsFreeOS screen and how Ask HandsFreeOS covers it, the audit’s gaps, and the screens not checked yet, filtered by area and state, a page at a time.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires platform.health.read.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "view": {
+                    "default": "items",
+                    "type": "string",
+                    "enum": [
+                      "items",
+                      "gaps",
+                      "screens"
+                    ]
+                  },
+                  "area": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9-]{0,39}$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "itemState": {
+                    "default": "unmarked",
+                    "type": "string",
+                    "enum": [
+                      "unmarked",
+                      "changed",
+                      "yes",
+                      "partly",
+                      "no",
+                      "never",
+                      "person",
+                      "all"
+                    ]
+                  },
+                  "gapState": {
+                    "default": "open",
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "fixed",
+                      "never",
+                      "all"
+                    ]
+                  },
+                  "q": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "offset": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  "limit": {
+                    "default": 50,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totals": {
+                      "type": "object",
+                      "properties": {
+                        "items": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "yes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "partly": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "no": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "never": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "person": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "changed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "unmarked": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "gapsOpen": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "gapsFixed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "newScreens": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "goneFiles": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "items",
+                        "yes",
+                        "partly",
+                        "no",
+                        "never",
+                        "person",
+                        "changed",
+                        "unmarked",
+                        "gapsOpen",
+                        "gapsFixed",
+                        "newScreens",
+                        "goneFiles"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "areas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "yes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "partly": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "no": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "never": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "person": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "changed": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "unmarked": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "gapsOpen": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "gapsFixed": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "key": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "checkedOn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "items",
+                          "yes",
+                          "partly",
+                          "no",
+                          "never",
+                          "person",
+                          "changed",
+                          "unmarked",
+                          "gapsOpen",
+                          "gapsFixed",
+                          "key",
+                          "title",
+                          "checkedOn"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "area": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "see",
+                              "do"
+                            ]
+                          },
+                          "file": {
+                            "type": "string"
+                          },
+                          "covered": {
+                            "type": "string",
+                            "enum": [
+                              "yes",
+                              "partly",
+                              "no",
+                              "never",
+                              "person"
+                            ]
+                          },
+                          "by": {
+                            "type": "string"
+                          },
+                          "changed": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "area",
+                          "path",
+                          "kind",
+                          "file",
+                          "covered",
+                          "by",
+                          "changed"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "gaps": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "area": {
+                            "type": "string"
+                          },
+                          "id": {
+                            "type": "string"
+                          },
+                          "severity": {
+                            "type": "string",
+                            "enum": [
+                              "high",
+                              "medium",
+                              "low"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "where": {
+                            "type": "string"
+                          },
+                          "gap": {
+                            "type": "string"
+                          },
+                          "fix": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "open",
+                              "fixed",
+                              "never"
+                            ]
+                          },
+                          "pr": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "area",
+                          "id",
+                          "severity",
+                          "kind",
+                          "where",
+                          "gap",
+                          "fix",
+                          "status",
+                          "pr"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "screens": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string"
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "new",
+                              "gone"
+                            ]
+                          },
+                          "area": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "file",
+                          "state",
+                          "area"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "totals",
+                    "areas",
+                    "total",
+                    "items",
+                    "gaps",
+                    "screens"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/teammate_view.current": {
       "post": {
         "operationId": "query_teammate_view_current",

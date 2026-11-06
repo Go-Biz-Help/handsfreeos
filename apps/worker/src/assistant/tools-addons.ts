@@ -35,6 +35,7 @@ import { asUser, type Db } from '@hfos/db/client';
 import { runAddonAction } from '../addons/actions';
 import type { AddonWorkerAction, AddonWorkerModule } from '../addons/types';
 import { workerMeta, type WorkerServices } from '../services';
+import { keptAnswer } from './committed';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { query } from './tools-read';
 import { settingsCard } from './tools-settings-calendar';
@@ -208,12 +209,25 @@ export async function commitAddonTool(
 ): Promise<CommittedAction> {
   const op = tool.op;
   if (op.kind !== 'command') throw new Error(`${tool.name} is a look-up`);
+  let output: unknown;
   try {
-    await executeCommand(db, op, addonOperationInput(tool, args, ctx), ctx.actor, meta(ctx));
+    ({ output } = await executeCommand(
+      db,
+      op,
+      addonOperationInput(tool, args, ctx),
+      ctx.actor,
+      meta(ctx),
+    ));
   } catch (e) {
     throw saidPlainly(tool, e);
   }
-  return { outcome: `Done in ${tool.addonName}`, href: null, command: op.name };
+  // What it answered stays with the tool call for the model's later questions (a listing page's link, say).
+  return {
+    outcome: `Done in ${tool.addonName}`,
+    href: null,
+    command: op.name,
+    answer: keptAnswer(output, op.shownOnce),
+  };
 }
 
 // ---------- worker actions ----------
@@ -397,12 +411,18 @@ export async function commitAddonActionTool(
   args: Args,
   ctx: ToolContext,
 ): Promise<CommittedAction> {
+  let output: unknown;
   try {
-    await runAddonAction(actionsReady(deps).services, db, callOf(tool, args, ctx));
+    output = await runAddonAction(actionsReady(deps).services, db, callOf(tool, args, ctx));
   } catch (e) {
     throw saidPlainly(tool, e);
   }
-  return { outcome: `Done in ${tool.addonName}`, href: null, command: tool.actionName };
+  return {
+    outcome: `Done in ${tool.addonName}`,
+    href: null,
+    command: tool.actionName,
+    answer: keptAnswer(output),
+  };
 }
 
 /** find_capabilities, over the add-on catalogue the worker ships with (tests hand it their own). */

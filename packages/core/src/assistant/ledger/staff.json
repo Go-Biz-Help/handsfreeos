@@ -1,0 +1,159 @@
+{
+  "area": "staff",
+  "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
+  "checkedOn": "2026-11-06",
+  "files": {},
+  "items": [],
+  "gaps": [
+    {
+      "id": "adm-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Every Admin area page (web /admin/*, phone More → Support desk) and the Sell HandsFreeOS page (/affiliate): there is no Ask HandsFreeOS on them at all",
+      "gap": "Real: the Ask HandsFreeOS panel is mounted only in the business layout (apps/web/src/app/app/w/[workspaceId]/layout.tsx:134). AdminShell, the phone's /app/admin screens and /affiliate have no panel. Every Assistant route needs a workspaceId with assistant.use (routes.ts:129, 235, 286). So a support person who isn't in any business gets no Assistant. The phone sends that person straight to the desk (apps/mobile/src/app/app/index.tsx:50); the web sends them to /onboarding (apps/web/src/app/app/page.tsx:8). The same goes for an affiliate who isn't a customer, even though affiliate.apply, make_code and turn_code are offered to everyone (coverage.ts:331-341). Overstated: 'from inside a business it can't know which ticket is on screen'. Inside a business no Admin record is ever on screen, so the missing page types only matter once the panel is mounted in the Admin area. Inside any business they belong to, staff already get every staff read_ and do_ tool (context.ts:339-341) and the staff line (prompt.ts:279). They can name a ticket or business and find its id with read_support_ticket_list or read_platform_business_list. That workaround and the small audience make this medium, not high.",
+      "fix": "Mount AssistantPanel/AssistantProvider in apps/web/src/components/admin/admin-shell.tsx, in the phone's app/admin/_layout.tsx, and on apps/web/src/app/affiliate/page.tsx. In routes.ts, make workspaceId optional on AssistantAskInput. When it's absent, check platform.me (staff) or allow the affiliate tools only. questionContext then builds a context with no business: the staff tools (isStaffPermission) plus do_affiliate_apply/make_code/turn_code and read_affiliate_mine. Wallet charging for that context needs its own decision, since no business pays. Then extend AssistantPageRecord (schemas/assistant.ts:319) with 'ticket', 'admin_business', 'affiliate', 'idea', 'problem_report' and 'founding_application'. Give each a pageLines label in context.ts.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-2",
+      "severity": "high",
+      "kind": "read",
+      "where": "Admin area → Founding, Waiting for a decision: Approve on a paid offer, then the 'Copy the link' dialog (the claim link, shown once)",
+      "gap": "founding.approve is offered to staff as do_founding_approve (coverage.ts:303). For a paid offer it returns claimToken once and stores only its hash (founding.ts:628, 713-744). Nothing emails it: no worker handler sends the link. The screen's dialog tells staff to copy it into an email (founding-words.ts:142-143). commitScreenAction throws the command's output away and returns { outcome: 'Done', href: null } (tools-screen-actions.ts:131-136). The confirm route returns and stores only outcome and href (routes.ts:351-358). So after an approval through the Assistant the link is gone for good. The application is now 'approved', so approving again is refused with founding_application_decided (founding.ts:637-642), and the seat stays reserved until it lapses. The card's warning 'A free seat goes on their business at once.' is wrong for a paid offer. The command's own description promises 'the claim link … is returned once'.",
+      "fix": "In tools-write.ts:912, pass extra and webUrl to commitScreenAction, as confirmTools get them. In commitScreenAction, keep executeCommand's output. For founding.approve, when output.claimToken is set, return outcome 'Approved. Their seat is held until <expiresAt as a date>. Send them this claim link now: it isn’t shown again.' Return the link `${webUrl}${foundingClaimPath(claimToken)}` in a new CommittedAction field (e.g. `shownOnce: { label: 'Claim link', value }`). routes.ts:357 returns that field in out() but never passes it to store.updateToolCall, so it stays out of the stored record like the command receipt. Change coverage.ts:303's warning to: 'A free seat goes on their business at once. A paid one is held for them, and its claim link shows on this card once, after you confirm: copy it into an email to them.'",
+      "status": "fixed",
+      "pr": null
+    },
+    {
+      "id": "adm-3",
+      "severity": "high",
+      "kind": "read",
+      "where": "Sell HandsFreeOS (/affiliate): 'Your link' copy field and each code's 'Copy link'; Admin area → Affiliates: each row's link, and an affiliate's page Link card and code links",
+      "gap": "The screens show full links: affiliateLink(code) = `${AFFILIATE_SITE}/?ref=<code>` (affiliates/words.ts:23) and affiliateCodeLink(code) with the code parameter (affiliates/codes.ts:20). They appear at affiliate-self.tsx:154, affiliates-page.tsx:289, affiliate-detail.tsx:135 and affiliate-codes.tsx:90. read_affiliate_mine, read_platform_affiliates and read_platform_affiliate return the queries' output unchanged (tools-screen-reads.ts has no link handling). That output carries only `code`: rowOut at queries/affiliates.ts:92-115, affiliate.mine at :368-384, and AffiliateCodeRow at schemas/affiliates.ts:151-167. The '?ref=' shape is only in a code comment (schemas/affiliates.ts:53), which the model never sees. Nothing in the prompt or places-map gives the link's form. The prompt's only link example is https://handsfreeos.com/book/acme (prompt.ts:49), which invites a guessed path.",
+      "fix": "In packages/core/src/queries/affiliates.ts, add `link: affiliateLink(r.code)` in rowOut and in affiliate.mine's affiliate object. In codesWhere's mapping, add `link: c.status === 'on' ? affiliateCodeLink(c.code) : null`. Add `link: z.string()` to AffiliateRow and to affiliate.mine's output schema, and `link: z.string().nullable()` to AffiliateCodeRow (all strictObject, so the schema has to change too). Every read then returns the full https link.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-4",
+      "severity": "high",
+      "kind": "words",
+      "where": "Confirm cards for every Admin area action: Put a credit on <business>, Move <business> to…, Give <business> a founding seat, Revoke, an affiliate's share, Send it on a ticket, and others",
+      "gap": "Staff screen actions keep their ids in the input on purpose (screen-actions.ts:42: staff gives { input, scope: [] }). prepareScreenAction draws the card with cardFields(tool, args) (tools-screen-actions.ts:118). cardFields labels each key with labelOf ('workspaceId' becomes 'Workspace id', 'amountCents' becomes 'Amount cents', 'maxDiscountBp' becomes 'Max discount bp') and prints the value raw: a UUID, a number of cents or basis points, or an enum like 'enforce' (tools-addons.ts:118-156). Nothing resolves a name. So the Confirm card for risk-4 wallet.adjust, wallet.set_stage, founding.approve/give/revoke and affiliate.set_rate/set_max_discount shows a UUID and raw units, not the business or person, an amount in dollars, or a percentage. These risk-4 actions are offered deliberately (owner 2026-10-27, coverage.ts:261; the test requires a warning on each, assistant-coverage.test.ts:136), so the settled risk-4 rule doesn't refute this.",
+      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts, when tool.staff is true, map fields before cardFields: workspaceId → the business name from read query platform.business.glance (or platform.business.get); organizationId → the business name; affiliateId → the name from platform.affiliate; userId → the displayName from support.staff.list; ticketId → the ticket number and subject from support.ticket.get; applicationId and grantId → the businessName from platform.founding. Replace each '<X> id' line with 'Business', 'Affiliate', 'Person' or 'Ticket'. Show keys ending in Cents with money() from packages/core/src/money/format.ts:29 (signed: 'Credit $25.00' / 'Take back $25.00'). Show keys ending in Bp with affiliateRateWords(). Show stage with DESK_WALLET_STAGES[stage].label and ticket status with TICKET_STATUS_WORDS.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-5",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Admin area → Businesses → a business → Their balance → Put a credit on (How much, Why?)",
+      "gap": "WalletAdjustInput.reference is required and has no .describe() (the explanation is only a JSDoc comment, invisible to the model), so do_wallet_adjust makes the model invent one (schemas/wallet.ts:150-152). The screen makes a fresh one per dialog with deskCreditReference(workspaceId) = admin:<workspaceId>:<now> (business-words.ts:260; wallet-block.tsx:111). private.staff_credit_wallet writes idempotency_key 'credit:'||reference with on conflict do nothing and returns recorded=false (20260930001200_support_can_credit_a_balance.sql). commitScreenAction ignores the output and says 'Done' (tools-screen-actions.ts:135). So a second credit with a reused reference like 'goodwill' is silently not recorded.",
+      "fix": "Take reference out of the do_wallet_adjust input: in screenActionTools, omit it for wallet.adjust, or add an action-level 'fill' in SCREEN_ACTIONS. Set it in the worker as `assistant:${workspaceId}:${toolCallId}` at both prepare and commit. commit already receives extra.toolCallId at tools-write.ts:912, so pass it through. In commitScreenAction for wallet.adjust, read output.recorded. When it's false, return outcome 'That credit was already on their statement, so nothing new went on.' Otherwise return 'Done. Their balance is now <money(balanceCents)>.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-6",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Admin area → Ideas → an idea → Comments: each comment's Take down / Put back, with the author's name and the Taken down tag",
+      "gap": "do_idea_set_comment_hidden is offered to everyone (coverage.ts:117) and needs commentId. The only read of comments is find_ideas with ideaId, which calls idea.get. idea.get returns each comment's id, author name and hidden flag, and includes hidden comments for moderators (queries/ideas.ts:243-255, 314-325). findIdeas drops hidden comments, keeps only .slice(-10) without saying so, drops id and hidden, and labels authors 'HandsFreeOS team', 'You' or 'Someone' (tools-extra.ts:1471-1478). idea.get isn't in SCREEN_READS, and idea.triage and idea.team_view have no comments. So no tool yields a commentId: neither a person taking down their own comment nor staff moderating can do it, and staff can't see what was taken down, although the team screen shows it (idea-team-view.tsx:304-314).",
+      "fix": "In apps/worker/src/assistant/tools-extra.ts findIdeas, return each comment's `id`. Return `hidden: true` and include hidden comments when the reader has platform.ideas.moderate: check ctx's staff permissions, or keep the ones idea.get returned, since it already filters by moderator. Use c.author.name for staff, and keep 'You' for the reader's own. Add `cutShort: true, total: comments.length` when there are more than 10, or take an `allComments` boolean input.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-7",
+      "severity": "medium",
+      "kind": "never",
+      "where": "Admin area → Support people → 'How you sign off' (Your name to customers, Sign-off, Save)",
+      "gap": "The 'How you sign off' card loads displayName and signature from platform.me (apps/web/src/app/admin/staff/page.tsx:11-21). platform.me is kept from the Assistant (screen-reads.ts:146) because it 'already knows' staff status. But the context reads only role and permissions from it (context.ts:120-123, 337), and nothing passes the signature on. support.staff.list's StaffMember has displayName but no signature (schemas/support.ts:198-207). StaffProfileInput.signature defaults to '' (schemas/support.ts:240-243), and the handler writes both fields (support-staff.ts:297-300). So do_support_staff_save_profile with only a new displayName wipes the sign-off, and the Assistant can't read the current one to keep it.",
+      "fix": "Add `signature: z.string()` to StaffMember and fill it only for the reader's own row (empty for others), in the support.staff.list query. Or move platform.me from NOT_FOR_THE_ASSISTANT into SCREEN_READS, where it's offered to staff only since its data is only theirs. Then make StaffProfileInput.signature `.optional()` and, in support-staff.ts:299, set signature only when it's given (`...(input.signature !== undefined ? { signature: input.signature } : {})`), so leaving it out keeps it.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-8",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Getting to the Admin area (press the business name at the top of the side menu, then Admin area; on the phone, More → Support desk) and its menu: Tickets, Ideas, Add-on votes, Businesses, Getting started, Health, Problem reports, Assistant coverage, Rates, Founding, Affiliates, Saved replies, Support people, Demo player",
+      "gap": "The staff line (prompt.ts:279) lists only 'support tickets, saved replies, the team, businesses, founding seats, ideas and What’s new'. DESK_SECTIONS also has Add-on votes, Getting started, Health, Problem reports, Assistant coverage, Rates, Affiliates and Support people (desk-words.ts:13-31), and the web has Demo player (apps/web/src/app/admin/demo). The line calls Support people 'the team' and gives no way in. places-map has no Admin area: EVERY_PAGE's business-name line lists only switching, Create workspace and the Agency area (places-map.ts:604). LOOK_ALIKES says 'Team, teammates, staff: the side menu calls it Members.' (places-map.ts:656), which sends a support person asking about staff to Members. The way in is the business-name menu → Admin area link (workspace-switcher.tsx:160-175), or More → Support desk on the phone (more.tsx:195).",
+      "fix": "In apps/worker/src/assistant/prompt.ts:279, build the list from deskSectionsFor(staff.permissions).map(s => s.label), adding 'Demo player (web)'. This needs the staff permissions passed into PromptContext next to staffRole. Add to that staff-only line: 'The way in: press the business name at the top of the side menu, then Admin area; on the phone, More → Support desk. HandsFreeOS’s own support people are Admin area → Support people, not Members.' Keep all of this in the staff-only line, never in EVERY_PAGE or LOOK_ALIKES, so nobody else hears of it.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-9",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Account menu at the foot of the side menu (press your name) → Sell HandsFreeOS (/affiliate)",
+      "gap": "The account menu (press your name at the foot of the side menu) has 'Sell HandsFreeOS' and Sign out (user-menu.tsx:46-58; AFFILIATE_PAGE_WORDS.menuItem at affiliates/words.ts:209). EVERY_PAGE's bottom-of-menu line names Turn on calls, Get help and Sign out only (places-map.ts:607). No APP_PLACES entry, prompt line or settings-map row mentions Sell HandsFreeOS or /affiliate (grep finds none). do_affiliate_apply's warning says 'on your affiliate page' with no way there (coverage.ts:335). This isn't staff-only: the affiliate tools are offered to everyone (offeredTo 'assistant.use', coverage.ts:331-341), so naming the page to everyone is right.",
+      "fix": "In packages/core/src/assistant/places-map.ts EVERY_PAGE, change the bottom-of-menu line to add: 'press your own name there for the account menu: Sell HandsFreeOS (apply to sell HandsFreeOS, your link and codes, getting paid, and agreeing to the affiliate terms) and Sign out'. Change the coverage.ts:335 warning's end to '…You agree to the affiliate terms yourself, on Sell HandsFreeOS: press your name at the foot of the side menu.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-10",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Admin area → Ideas → Areas: each area's description and open count, the Archived tag, Archive / Bring back, and Add an area",
+      "gap": "The Areas screen resends id, name, description, sort and archived from what it read (idea-areas-admin.tsx:92-99). idea_area.save upserts every column, setting description and sort from the input (commands/ideas.ts:632-640). IdeaAreaSaveInput defaults description to '' and sort to 500 (schemas/ideas.ts:294-301). The Assistant's only read of areas is find_ideas, which keeps archived=false areas and returns only { id, name } (tools-extra.ts:1500-1502). idea.areas already returns description, sort, archived and openCount (queries/ideas.ts:472-506), but it isn't in SCREEN_READS. So archiving or renaming through do_idea_area_save wipes the description and moves the area to 500, and an archived area can't be found to bring back.",
+      "fix": "Add 'idea.areas' to SCREEN_READS in packages/core/src/assistant/screen-reads.ts (permission null, so it's assistant.use, which is fine because the ideas board is for everyone). read_idea_areas then returns every area with description, sort, archived and openCount. Also add to idea_area.save's command description (commands/ideas.ts:617-618): 'Send its description and sort as they are now (read_idea_areas) or they reset.' Or make description and sort optional in IdeaAreaSaveInput and use coalesce on update.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-11",
+      "severity": "low",
+      "kind": "read",
+      "where": "Admin area → Businesses → a business → Add-ons in testing: each add-on still being built, with 'they can add it' / 'not handed out' and Let them try it / Take back",
+      "gap": "The Add-ons in testing block lists ADDON_CATALOG filtered to development, beta and built (addon-testing-block.tsx:9-11). platform.business.get returns only the grants already given, as addonGrants (queries/platform.ts:227-241). get_settings add_ons shows only 'available' add-ons, without ids (tools-settings.ts:45-66). addon_pick.overview's comingSoon covers only add-ons picked by vote. So the Assistant can't say which add-ons can be handed out. do_addon_grant_give takes a bare addonId regex (schemas/addon.ts:11), so the model has to guess. Lowered to low because a wrong guess fails safely: it's refused with addon_unknown 'HandsFreeOS has no add-on by that name. Pick one from the list.' (addon-grant.ts:24-30), and ids are usually the lowercased name.",
+      "fix": "In platform.business.get (packages/core/src/queries/platform.ts:237), add `grantable: catalog.filter(m => ['development','beta','built'].includes(effectiveStatus(m, overrides))).map(m => ({ addonId: m.id, name: m.name, status: effectiveStatus(m, overrides), granted: grants.some(g => g.addon_id === m.id) }))` and its schema in BusinessGetOutput. Then change addon-grant.ts:29's words to 'Pick one from Add-ons in testing on their page under Admin area → Businesses.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-12",
+      "severity": "low",
+      "kind": "words",
+      "where": "Admin area → a business → Their balance: Move to warned / Move to stopped at zero / Move to paid by the agency, with the dialog's write-off line and the enforce warning",
+      "gap": "wallet.set_stage's description, which is the tool's description, says 'silent, warned, or stopped when the balance runs out' (commands/wallet.ts:695). Silent can't be chosen (WalletMoveStageValue = warn, enforce, agency at schemas/support.ts:491-492), and 'Paid by the agency' isn't mentioned. The card's fixed warning, 'This changes what happens when their balance runs out.' (coverage.ts:314), leaves out what the screen's dialog says. Leaving agency with a negative balance shows DESK_WALLET_WORDS.writtenOff(-balance), and moving to enforce shows enforceWarning (wallet-block.tsx:196-206).",
+      "fix": "Rewrite commands/wallet.ts:695 description as 'Support: move one business to Warned, Stopped at zero, or Paid by the agency (DESK_WALLET_STAGES labels) for when their balance runs out.' In tools-screen-actions.ts prepareScreenAction, for wallet.set_stage read platform.wallet.get for args.workspaceId. Add a caution with DESK_WALLET_WORDS.writtenOff(-balanceCents) when the current stage is 'agency' and balanceCents < 0, and DESK_WALLET_WORDS.enforceWarning when args.stage === 'enforce'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-13",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Account → Notifications: 'New support tickets' is shown only to HandsFreeOS support people",
+      "gap": "update_my_alerts is offered to everyone (permission 'assistant.use'). Its description includes PUSH_WORDS, which names 'supportTickets: a new HandsFreeOS support ticket (HandsFreeOS support people only)', and its enum is all of PUSH_SWITCHES, supportTickets included (tools-extra.ts:95-96, 406-418). Nothing in context.ts or tools-write.ts filters it for people who aren't staff. That tells every business user about a staff-only switch, which goes against the owner's rule (prompt.ts:146-147) that nobody else is told staff tools exist.",
+      "fix": "In packages/core/src/assistant/tools-extra.ts, drop the supportTickets clause from PUSH_WORDS, and use z.enum(PUSH_SWITCHES.filter(s => s !== 'supportTickets')) for update_my_alerts. Add a staff-only twin (e.g. permission 'support.read', name update_my_support_alerts, or a staff variant swapped in by the context when staff is set) whose description and enum include supportTickets.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-14",
+      "severity": "low",
+      "kind": "read",
+      "where": "Admin area → Getting started → 'How far people get through it' → Open Matomo",
+      "gap": "The Getting started page builds the 'Open Matomo' link itself with deskMatomoPagesUrl(window) (getting-started/page.tsx:114-120; helper at support/health-words.ts:174). read_platform_onboarding_counts returns counts only ('Counts only.', queries/onboarding.ts:117-119). Nothing in the Assistant mentions Matomo.",
+      "fix": "Add `matomoUrl: deskMatomoPagesUrl(input days or the page's default window)` to platform.onboarding.counts' output and its OnboardingCountsOutput schema. Change its description to end 'Counts, and the Matomo link for how far people get.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "adm-15",
+      "severity": "low",
+      "kind": "read",
+      "where": "Admin area → Assistant coverage: the counts, what it can't do yet by page, the settings to check, and 'What it never does, and why'",
+      "gap": "The Assistant coverage page is computed in the browser from code with assistantCoverage() and coverageCards (assistant-coverage.tsx:3-20). It runs no query, so no read_ tool exists for it. Nothing outside coverage.ts in the assistant dirs reads NEVER_FOR_THE_ASSISTANT, SETTINGS_NEVER or assistantCoverage. A support person asking what it never does, and why, gets an answer from memory.",
+      "fix": "Add a staff-only tool in packages/core/src/assistant/tools-extra.ts (e.g. 'read_assistant_coverage', permission 'platform.health.read', autonomy auto) with a worker run in apps/worker/src/assistant/tools-extra.ts. It returns assistantCoverage(): its cards counts, notYet by page, settingsToCheck, and never as [{ what, why }] from NEVER_FOR_THE_ASSISTANT and SETTINGS_NEVER.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

@@ -93,6 +93,12 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@1.6
         if: steps.check.outputs.ready == 'true'
 
+      # Admin → Assistant coverage compares each screen file with its fingerprint when its items were checked. The
+      # images carry packages/core, not the screens, so the fingerprints of the code being deployed go in now.
+      - name: Fingerprint the screens for the Assistant's checklist
+        if: steps.check.outputs.ready == 'true'
+        run: node scripts/assistant-ledger.mjs
+
       # Both images build from the repository root (they copy the shared packages); Fly's builders do the work.
       - name: Deploy the worker (webhooks first, so providers never hit a half-deployed pair)
         if: steps.check.outputs.ready == 'true'

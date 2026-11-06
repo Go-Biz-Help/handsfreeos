@@ -1,0 +1,1337 @@
+{
+  "area": "documents",
+  "title": "Documents to sign and their templates",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/documents.tsx": "a753a5248fa6",
+    "apps/mobile/src/app/app/w/[workspaceId]/documents/[documentId]/index.tsx": "358731e8544c",
+    "apps/mobile/src/app/app/w/[workspaceId]/documents/[documentId]/pages.tsx": "479b3e94d7fc",
+    "apps/mobile/src/app/app/w/[workspaceId]/documents/send.tsx": "3b8885aa8367",
+    "apps/mobile/src/app/app/w/[workspaceId]/documents/templates/[templateId].tsx": "933b17d9e541",
+    "apps/mobile/src/documents/calls.ts": "8555e95f90a8",
+    "apps/mobile/src/documents/card.tsx": "2ea0060711b9",
+    "apps/mobile/src/documents/editor.tsx": "086c39869286",
+    "apps/mobile/src/documents/pages.tsx": "38ac54017de1",
+    "apps/mobile/src/documents/screens.tsx": "8ffb2bcd816e",
+    "apps/mobile/src/documents/send.tsx": "d055d08b5a3e",
+    "apps/mobile/src/documents/templates.tsx": "f90dd322dcd3",
+    "apps/web/src/app/app/w/[workspaceId]/documents/[documentId]/page.tsx": "fc900cb8d456",
+    "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx": "d285d601a218",
+    "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx": "893bb7b94aac",
+    "apps/web/src/app/app/w/[workspaceId]/documents/templates/[templateId]/page.tsx": "78e692276a93",
+    "apps/web/src/components/documents/document-page.tsx": "875203dce955",
+    "apps/web/src/components/documents/documents-home.tsx": "c373697bffcb",
+    "apps/web/src/components/documents/editor-canvas.tsx": "553d9bfc4f1c",
+    "apps/web/src/components/documents/editor-panels.tsx": "5f93a935643c",
+    "apps/web/src/components/documents/new-template.tsx": "7fd28efd617a",
+    "apps/web/src/components/documents/pdf-pages.tsx": "842a48651faa",
+    "apps/web/src/components/documents/send-document.tsx": "8c27d9c1bbef",
+    "apps/web/src/components/documents/signature-input.tsx": "ff97f138117c",
+    "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
+    "apps/web/src/components/documents/template-editor.tsx": "5db1cfcdb477"
+  },
+  "items": [
+    {
+      "path": "Documents → header: title and Contracts and agreements your customers sign online…",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx:34",
+      "covered": "yes",
+      "by": "do_document_send and do_document_template_* descriptions"
+    },
+    {
+      "path": "Documents → New template (owners and admins; phone: on the Templates tab)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx:39",
+      "covered": "yes",
+      "by": "do_document_template_create"
+    },
+    {
+      "path": "Documents → Send a document (when you can send and a template is ready)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/page.tsx:40",
+      "covered": "yes",
+      "by": "do_document_send; ready from read_document_template_list"
+    },
+    {
+      "path": "Documents → Sent / Templates tabs (web: Templates with its count)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:53",
+      "covered": "yes",
+      "by": "read_document_list; read_document_template_list → templates (count)"
+    },
+    {
+      "path": "Documents → Sent → filter: All, Out for signing, Signed, Declined, Voided, Out of time",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:133",
+      "covered": "yes",
+      "by": "read_document_list input status"
+    },
+    {
+      "path": "Documents → Sent → each row: name, who it’s about, each signer: their status",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/documents-home.tsx:204",
+      "covered": "yes",
+      "by": "read_document_list → name, about.name, signers[] status/position/inPerson"
+    },
+    {
+      "path": "Documents → Sent → each row: badge (incl. Making the signed copy) and date sent",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/documents-home.tsx:220",
+      "covered": "yes",
+      "by": "read_document_list → status, finishing, sentAt"
+    },
+    {
+      "path": "Documents → Sent → a row opens its document",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:199",
+      "covered": "yes",
+      "by": "read_document_get documentId"
+    },
+    {
+      "path": "Documents → Sent → Show older ones",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:179",
+      "covered": "yes",
+      "by": "read_document_list input before, limit; output more"
+    },
+    {
+      "path": "Documents → Sent → empty: Nothing sent yet / None here, with their explanations",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/documents-home.tsx:149",
+      "covered": "yes",
+      "by": "read_document_list → documents empty"
+    },
+    {
+      "path": "Documents → Sent → empty → Send a document / Make a template first",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:154",
+      "covered": "yes",
+      "by": "do_document_send; do_document_template_create"
+    },
+    {
+      "path": "Documents (phone) → Sent → No template is ready to send yet… (in place of Send)",
+      "kind": "see",
+      "file": "apps/mobile/src/documents/screens.tsx:212",
+      "covered": "yes",
+      "by": "read_document_template_list → ready"
+    },
+    {
+      "path": "Documents (phone) → Documents need signal / Templates need signal",
+      "kind": "see",
+      "file": "apps/mobile/src/documents/screens.tsx:167",
+      "covered": "yes",
+      "by": "not needed: its reads run on the server"
+    },
+    {
+      "path": "Documents → Templates → In use / Archived",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:275",
+      "covered": "yes",
+      "by": "read_document_template_list input archived"
+    },
+    {
+      "path": "Documents → Templates → empty: No templates yet (make one / ask an owner) / Nothing archived",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/documents-home.tsx:284",
+      "covered": "yes",
+      "by": "read_document_template_list → templates empty"
+    },
+    {
+      "path": "Documents → Templates → each template: name, pages or No PDF yet, who signs, fields",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/documents-home.tsx:301",
+      "covered": "yes",
+      "by": "read_document_template_list → name, pageCount, hasPdf, roles, fieldCount"
+    },
+    {
+      "path": "Documents → Templates → each template: Archived / Ready to send / Not ready yet, N out for signing",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/documents-home.tsx:316",
+      "covered": "yes",
+      "by": "read_document_template_list → archivedAt, ready, documentsOut"
+    },
+    {
+      "path": "Documents → Templates → each template → Send",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:329",
+      "covered": "yes",
+      "by": "do_document_send input templateId"
+    },
+    {
+      "path": "Documents → Templates → each template → Edit / Open (and its name)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:339",
+      "covered": "yes",
+      "by": "read_document_template_get"
+    },
+    {
+      "path": "Documents → Templates → each template → Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/documents-home.tsx:342",
+      "covered": "yes",
+      "by": "do_document_template_duplicate (name optional)"
+    },
+    {
+      "path": "New template → title and Start from the PDF of your contract…",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/new-template.tsx:71",
+      "covered": "yes",
+      "by": "do_document_template_create description"
+    },
+    {
+      "path": "New template → Choose the PDF (its name names the template)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/new-template.tsx:89",
+      "covered": "person",
+      "by": "a file from their own device; NEVER document_template.begin_upload"
+    },
+    {
+      "path": "New template → Up to 25 MB. You can also add it later.",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/new-template.tsx:93",
+      "covered": "person",
+      "by": "about their own upload"
+    },
+    {
+      "path": "New template (phone) → PDF problems: not a PDF, over 25 MB, no pages, over 100 pages, didn’t upload",
+      "kind": "see",
+      "file": "apps/mobile/src/documents/calls.ts:300",
+      "covered": "person",
+      "by": "about their own upload"
+    },
+    {
+      "path": "New template → Name (Service agreement); Name the template.",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/new-template.tsx:97",
+      "covered": "yes",
+      "by": "do_document_template_create input name"
+    },
+    {
+      "path": "New template → Make the template",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/new-template.tsx:112",
+      "covered": "yes",
+      "by": "do_document_template_create; the PDF stays the person’s"
+    },
+    {
+      "path": "New template → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/new-template.tsx:109",
+      "covered": "yes",
+      "by": "the Confirm card’s No"
+    },
+    {
+      "path": "Back links: ← Documents, ← Templates",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:431",
+      "covered": "yes",
+      "by": "navigation; read_document_list / read_document_template_list"
+    },
+    {
+      "path": "Template → not there (404; phone: the refusal)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/templates/[templateId]/page.tsx:21",
+      "covered": "yes",
+      "by": "read_document_template_get refusal"
+    },
+    {
+      "path": "Template → its name",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:744",
+      "covered": "yes",
+      "by": "read_document_template_get → name"
+    },
+    {
+      "path": "Template → Rename (name, Save the name; phone: More → Rename sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:719",
+      "covered": "yes",
+      "by": "do_document_template_rename input name"
+    },
+    {
+      "path": "Template → badge: Archived / Ready to send / Not ready yet",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:445",
+      "covered": "yes",
+      "by": "read_document_template_get → archivedAt, issues, source"
+    },
+    {
+      "path": "Template → N out for signing",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:452",
+      "covered": "yes",
+      "by": "read_document_template_get → documentsOut"
+    },
+    {
+      "path": "Template → save state: Saving / Saved / Unsaved changes / what needs attention",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:457",
+      "covered": "yes",
+      "by": "do_document_template_save result (revision, changed) or refusal"
+    },
+    {
+      "path": "Template → Place fields for me (Placing fields)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:475",
+      "covered": "partly",
+      "by": "do_document_template_save adds fields, but nothing reads the PDF for spots"
+    },
+    {
+      "path": "Template → Place fields for me → Placed N fields… Undo / nothing looks like a field / already there / none found",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:280",
+      "covered": "partly",
+      "by": "no PDF spot finder; save’s result only"
+    },
+    {
+      "path": "Template → Undo (and Ctrl/Cmd-Z)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:491",
+      "covered": "partly",
+      "by": "do_document_template_save can save back what it read; no undo history"
+    },
+    {
+      "path": "Template → More → Swap the PDF (Swap the PDF for this one? …come off.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:517",
+      "covered": "person",
+      "by": "a file from their own device; NEVER document_template.begin_upload"
+    },
+    {
+      "path": "Template → More → Make a copy (Copied. You’re in the copy now.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:522",
+      "covered": "yes",
+      "by": "do_document_template_duplicate"
+    },
+    {
+      "path": "Template → More → Archive (Archived. Documents already sent aren’t touched.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:532",
+      "covered": "yes",
+      "by": "do_document_template_archive"
+    },
+    {
+      "path": "Template → More → Restore (Restored.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:527",
+      "covered": "yes",
+      "by": "do_document_template_restore"
+    },
+    {
+      "path": "Template → Send it (when ready and saved; else greyed with the first issue)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:543",
+      "covered": "yes",
+      "by": "do_document_send templateId; issues from read_document_template_get"
+    },
+    {
+      "path": "Template → Someone saved this template in the meantime…",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:561",
+      "covered": "yes",
+      "by": "do_document_template_save refusal rule revision_conflict"
+    },
+    {
+      "path": "Template → Load their changes",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:564",
+      "covered": "yes",
+      "by": "read_document_template_get → revision, definition"
+    },
+    {
+      "path": "Template → no PDF: Add the PDF this template is made from, and its explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:665",
+      "covered": "person",
+      "by": "about their own upload"
+    },
+    {
+      "path": "Template → no PDF → Choose a PDF, or drop one on the box",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:671",
+      "covered": "person",
+      "by": "a file from their own device; NEVER document_template.begin_upload"
+    },
+    {
+      "path": "Template → The PDF didn’t open. Refresh the page to try again.",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/pdf-pages.tsx:114",
+      "covered": "no",
+      "by": "nothing reads the PDF itself"
+    },
+    {
+      "path": "Template → the PDF’s pages, Page N of M",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/pdf-pages.tsx:224",
+      "covered": "partly",
+      "by": "read_document_template_get → definition.pages (count, sizes), not the PDF"
+    },
+    {
+      "path": "Template → Before it can go out: each issue, or Nothing. It’s ready to send.",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:391",
+      "covered": "yes",
+      "by": "read_document_template_get → issues; save output issues"
+    },
+    {
+      "path": "Template → When it’s sent → Owners and admins change templates. (read-only)",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/template-editor.tsx:422",
+      "covered": "yes",
+      "by": "template tools need documents.manage"
+    },
+    {
+      "path": "Template → When it’s sent → Who signs when: One after another / All at once",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:656",
+      "covered": "yes",
+      "by": "do_document_template_save definition.settings.order"
+    },
+    {
+      "path": "Template → When it’s sent → Ask for a code (6-digit code by text or email)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:671",
+      "covered": "yes",
+      "by": "do_document_template_save definition.settings.askCode"
+    },
+    {
+      "path": "Template → When it’s sent → Send reminders; First after (days); Then every (days)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:683",
+      "covered": "yes",
+      "by": "do_document_template_save settings.remindAfterDays, remindEveryDays"
+    },
+    {
+      "path": "Template → When it’s sent → Out of time after (days)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:738",
+      "covered": "yes",
+      "by": "do_document_template_save settings.expireDays"
+    },
+    {
+      "path": "Template → When it’s sent → Note with the link (web only)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:753",
+      "covered": "yes",
+      "by": "do_document_template_save settings.message"
+    },
+    {
+      "path": "Template (phone) → When it’s sent button and sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/templates.tsx:588",
+      "covered": "yes",
+      "by": "do_document_template_save definition.settings"
+    },
+    {
+      "path": "Template (phone) → Nothing’s placed yet. Add fields… or let the AI place them.",
+      "kind": "see",
+      "file": "apps/mobile/src/documents/templates.tsx:553",
+      "covered": "yes",
+      "by": "read_document_template_get → definition.fields"
+    },
+    {
+      "path": "Template → Who signs → each role: name, field count; You, before sending with its count",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:141",
+      "covered": "yes",
+      "by": "read_document_template_get → definition.roles, fields[].role"
+    },
+    {
+      "path": "Template → Who signs → pick who the next field is for (phone: Who fills it in chips)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:150",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].role"
+    },
+    {
+      "path": "Template → Who signs → What they’re called",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:165",
+      "covered": "yes",
+      "by": "do_document_template_save roles[].label"
+    },
+    {
+      "path": "Template → Who signs → Who they are: A customer / Someone on your team",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:174",
+      "covered": "yes",
+      "by": "do_document_template_save roles[].kind"
+    },
+    {
+      "path": "Template → Who signs → Signs earlier / Signs later",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:183",
+      "covered": "yes",
+      "by": "do_document_template_save roles order"
+    },
+    {
+      "path": "Template → Who signs → Take <role> off (Take X off? Their N fields go too.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:201",
+      "covered": "yes",
+      "by": "do_document_template_save without the role and its fields"
+    },
+    {
+      "path": "Template → Who signs → + Customer / + Someone on your team",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:231",
+      "covered": "yes",
+      "by": "do_document_template_save roles[]"
+    },
+    {
+      "path": "Template (phone) → Who signs button opens the roles sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/editor.tsx:366",
+      "covered": "yes",
+      "by": "do_document_template_save definition.roles"
+    },
+    {
+      "path": "Template → Add for <role> (phone: Add a field): Signature, Initials, Date signed, Name, Email, Phone, Text, Long text, Number, Date, Checkbox, Choice",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:285",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].type"
+    },
+    {
+      "path": "Template → The PDF’s words → Change words (click the words; Type over “…”)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-canvas.tsx:215",
+      "covered": "partly",
+      "by": "save edits[] with original, but it can’t read the PDF’s words or where they sit"
+    },
+    {
+      "path": "Template → The PDF’s words → Add words (click where they go)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:330",
+      "covered": "yes",
+      "by": "do_document_template_save edits[] page, x, y, w, h, text"
+    },
+    {
+      "path": "Template → hint: Click on the page where the … goes. Press Esc to stop. (phone: Tap…, Stop)",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:347",
+      "covered": "yes",
+      "by": "not needed: save takes the position"
+    },
+    {
+      "path": "Template → page → click to place the picked field or text box",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-canvas.tsx:141",
+      "covered": "yes",
+      "by": "do_document_template_save fields[]/edits[] page, x, y (without seeing it)"
+    },
+    {
+      "path": "Template → page → each field box: what it asks for, * when required, whose",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-canvas.tsx:290",
+      "covered": "yes",
+      "by": "read_document_template_get → fields[] label, required, role"
+    },
+    {
+      "path": "Template → page → each word box: changed or added words",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-canvas.tsx:250",
+      "covered": "yes",
+      "by": "read_document_template_get → edits[] text, original"
+    },
+    {
+      "path": "Template → page → pick an item, drag to move, drag its corner to resize",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-canvas.tsx:89",
+      "covered": "yes",
+      "by": "do_document_template_save x, y, w, h (by numbers)"
+    },
+    {
+      "path": "Template → keys: arrows nudge (Shift more), Delete takes it off, Esc stops",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/template-editor.tsx:176",
+      "covered": "yes",
+      "by": "do_document_template_save x, y; without the item"
+    },
+    {
+      "path": "Template (phone) → picked bar: Drag it to move it…; Settings; take off; Done",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/editor.tsx:325",
+      "covered": "yes",
+      "by": "do_document_template_save definition"
+    },
+    {
+      "path": "Template (phone) → picked → Move it: Up, Down, Left, Right; Size: Wider, Narrower, Taller, Shorter",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/editor.tsx:818",
+      "covered": "yes",
+      "by": "do_document_template_save x, y, w, h"
+    },
+    {
+      "path": "Template → field → its kind as title",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:387",
+      "covered": "yes",
+      "by": "read_document_template_get → fields[].type"
+    },
+    {
+      "path": "Template → field → Who fills it in",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:389",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].role"
+    },
+    {
+      "path": "Template → field → Kind",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:408",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].type"
+    },
+    {
+      "path": "Template → field → What it asks for",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:423",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].label"
+    },
+    {
+      "path": "Template → field → Fills itself in with the day they sign. (Date signed)",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:434",
+      "covered": "yes",
+      "by": "fields[].type date_signed"
+    },
+    {
+      "path": "Template → field → Has to be filled in",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:437",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].required"
+    },
+    {
+      "path": "Template → field → Fill in from HandsFreeOS: Nothing, they type it, or a source",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:446",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].fillFrom"
+    },
+    {
+      "path": "Template → field → They can change it before they sign.",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:467",
+      "covered": "yes",
+      "by": "fields[].fillFrom and role"
+    },
+    {
+      "path": "Template → field → Choices, one to a line",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:472",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].options"
+    },
+    {
+      "path": "Template → field → Text size",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:491",
+      "covered": "yes",
+      "by": "do_document_template_save fields[].fontSize"
+    },
+    {
+      "path": "Template → field → Take it off",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:510",
+      "covered": "yes",
+      "by": "do_document_template_save without the field"
+    },
+    {
+      "path": "Template → words → Changed words / Added words; Was: the original",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:541",
+      "covered": "yes",
+      "by": "read_document_template_get → edits[].original"
+    },
+    {
+      "path": "Template → words → Now says / Words (Left empty, the words are taken out.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:548",
+      "covered": "yes",
+      "by": "do_document_template_save edits[].text"
+    },
+    {
+      "path": "Template → words → Font: Plain, Serif, Typewriter",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:563",
+      "covered": "yes",
+      "by": "do_document_template_save edits[].font"
+    },
+    {
+      "path": "Template → words → Size",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:579",
+      "covered": "yes",
+      "by": "do_document_template_save edits[].size"
+    },
+    {
+      "path": "Template → words → Bold",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:596",
+      "covered": "yes",
+      "by": "do_document_template_save edits[].bold"
+    },
+    {
+      "path": "Template → words → Words colour, Behind colour (phone: #RRGGBB)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:600",
+      "covered": "yes",
+      "by": "do_document_template_save edits[].color, background"
+    },
+    {
+      "path": "Template → words → Put the original words back / Take it off",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/editor-panels.tsx:620",
+      "covered": "yes",
+      "by": "do_document_template_save without the edit"
+    },
+    {
+      "path": "Send a document → can’t send: Ask an owner of this business to let you send documents…",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx:29",
+      "covered": "yes",
+      "by": "do_document_send offered only with documents.send"
+    },
+    {
+      "path": "Send a document → Pick the template and who it’s for… Each signer gets their own private link.",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx:64",
+      "covered": "yes",
+      "by": "do_document_send description"
+    },
+    {
+      "path": "Send → Template: Pick one (phone: Pick a template sheet with pages and who signs)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:105",
+      "covered": "yes",
+      "by": "do_document_send templateId; read_document_template_list"
+    },
+    {
+      "path": "Send → No template is ready to send yet…",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:121",
+      "covered": "yes",
+      "by": "read_document_template_list → ready"
+    },
+    {
+      "path": "Send → Who it’s for: pick a customer (phone: Search by name, number or street; Nobody here matches)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:144",
+      "covered": "yes",
+      "by": "search_customers; do_document_send about.personId"
+    },
+    {
+      "path": "Send → Who it’s for set from a company, lead or record (its page, or Send it again)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/send/page.tsx:41",
+      "covered": "yes",
+      "by": "do_document_send about.companyId / leadId / customRecordId"
+    },
+    {
+      "path": "Send → Who it’s for → Change (not when correcting one)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:134",
+      "covered": "yes",
+      "by": "do_document_send about"
+    },
+    {
+      "path": "Send → Filling it in…, or why it can’t start",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:152",
+      "covered": "yes",
+      "by": "read_document_prefill output or refusal"
+    },
+    {
+      "path": "Send → warnings that stop it going (Send it greyed out)",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:318",
+      "covered": "yes",
+      "by": "read_document_prefill → issues"
+    },
+    {
+      "path": "Send → What it’s called (On their email and text, and on their Files.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:332",
+      "covered": "yes",
+      "by": "do_document_send input name"
+    },
+    {
+      "path": "Send → Who signs → each role (numbered in order) with who’s suggested: name, email or phone",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:344",
+      "covered": "yes",
+      "by": "read_document_prefill → signers[]"
+    },
+    {
+      "path": "Send → Who signs → customer’s role: pick a customer; Change",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:389",
+      "covered": "yes",
+      "by": "search_customers; do_document_send signers[].personId"
+    },
+    {
+      "path": "Send → Who signs → team role: Pick someone on your team",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:368",
+      "covered": "yes",
+      "by": "list_team; do_document_send signers[].userId"
+    },
+    {
+      "path": "Send → Who signs → With you now. No link goes to them…",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:405",
+      "covered": "yes",
+      "by": "do_document_send signers[].inPerson"
+    },
+    {
+      "path": "Send → Gets a signed copy: each one, Take X off the copies",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:424",
+      "covered": "yes",
+      "by": "read_document_prefill → copies; do_document_send copies"
+    },
+    {
+      "path": "Send → Gets a signed copy → + A customer / + Someone on your team",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:475",
+      "covered": "yes",
+      "by": "do_document_send copies[].personId / userId"
+    },
+    {
+      "path": "Send → Filled in before it goes: each field, whose it is, * when yours and needed",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:489",
+      "covered": "yes",
+      "by": "read_document_prefill → definition.fields, presets"
+    },
+    {
+      "path": "Send → Filled in → each value: text, long text, number, email, phone, date, choice, checkbox; its problem",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:584",
+      "covered": "yes",
+      "by": "do_document_send values"
+    },
+    {
+      "path": "Send → Change the words for <name> only; The template stays as it is. N changes so far.",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:545",
+      "covered": "yes",
+      "by": "do_document_send edits"
+    },
+    {
+      "path": "Send → Change the words → Change words (type over the PDF’s words)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:555",
+      "covered": "partly",
+      "by": "do_document_send edits with original; can’t read the PDF’s words"
+    },
+    {
+      "path": "Send → Change the words → Add words and their settings (words, font, size, bold, colours, take off)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:556",
+      "covered": "yes",
+      "by": "do_document_send edits[]"
+    },
+    {
+      "path": "Send (phone) → Change the words opens the pages full screen; Done",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/send.tsx:617",
+      "covered": "yes",
+      "by": "do_document_send edits"
+    },
+    {
+      "path": "Send → the pages, with what’s filled in and words changed",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:567",
+      "covered": "partly",
+      "by": "read_document_prefill → definition, presets; not the PDF itself"
+    },
+    {
+      "path": "Send → Note with the link",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:509",
+      "covered": "yes",
+      "by": "do_document_send message"
+    },
+    {
+      "path": "Send → Who signs when, Ask for a code, Send reminders, First after, Then every, Out of time after",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:519",
+      "covered": "yes",
+      "by": "do_document_send settings"
+    },
+    {
+      "path": "Send → errors: Pick who signs as X., a value’s problem, or the refusal",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/send-document.tsx:527",
+      "covered": "yes",
+      "by": "do_document_send refusal"
+    },
+    {
+      "path": "Send → Send it (Sent. Their link is on its way. / Each signer gets their own link.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/send-document.tsx:532",
+      "covered": "yes",
+      "by": "do_document_send (Confirm card)"
+    },
+    {
+      "path": "Document → not there (404; phone: the refusal)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/documents/[documentId]/page.tsx:17",
+      "covered": "yes",
+      "by": "read_document_get refusal"
+    },
+    {
+      "path": "Document → name and badge: Out for signing, Making the signed copy, Signed, Declined, Voided, Out of time",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:177",
+      "covered": "yes",
+      "by": "read_document_get → name, status, finishing"
+    },
+    {
+      "path": "Document → About <name> (opens their page)",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:240",
+      "covered": "yes",
+      "by": "read_document_get → about kind, id, name"
+    },
+    {
+      "path": "Document → Sent <when> by <who> · Out of time <day> · Everyone signed <when>",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:252",
+      "covered": "yes",
+      "by": "read_document_get → sentAt, sentBy, expiresAt, completedAt"
+    },
+    {
+      "path": "Document → note: Voided <when>: reason / X declined <when>: reason / Ran out of time / signed copy is on their Files",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:258",
+      "covered": "yes",
+      "by": "read_document_get → voidedAt, voidReason, declinedAt, signers[].declineReason, expiredAt"
+    },
+    {
+      "path": "Document → Remind (Reminder on its way.)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:189",
+      "covered": "yes",
+      "by": "do_document_remind"
+    },
+    {
+      "path": "Document → Void → Void “name”? and what happens",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:406",
+      "covered": "yes",
+      "by": "do_document_void description, on its Confirm card"
+    },
+    {
+      "path": "Document → Void → Why (they see this)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:408",
+      "covered": "yes",
+      "by": "do_document_void input reason"
+    },
+    {
+      "path": "Document → Void → Void it (Voided. Its links don’t open it anymore…) / Keep it out",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:419",
+      "covered": "yes",
+      "by": "do_document_void; the card’s No"
+    },
+    {
+      "path": "Document → Open the signed copy",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:212",
+      "covered": "partly",
+      "by": "read_document_get → signed fileId, name, path only; no link"
+    },
+    {
+      "path": "Document → Download (phone: Share the signed copy: Files, Mail, Messages)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:216",
+      "covered": "partly",
+      "by": "read_document_get → signed fileId, name, path only; no file"
+    },
+    {
+      "path": "Document → Send it again (voided, declined or out of time)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:226",
+      "covered": "yes",
+      "by": "read_document_prefill fromDocumentId; do_document_send replacesDocumentId"
+    },
+    {
+      "path": "Document → its pages as they stand (phone: See the pages, N pages)",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:280",
+      "covered": "partly",
+      "by": "read_document_get → definition, values; not the PDF itself"
+    },
+    {
+      "path": "Document → Who signs → each signer: name and status (Not their turn yet, Link on its way, Signs with you in person, Sent, Opened, Signed, Declined) or Gets a copy",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:319",
+      "covered": "yes",
+      "by": "read_document_get → signers[] name, kind, status, position, inPerson"
+    },
+    {
+      "path": "Document → Who signs → each signer: role · email · phone; Signed / Opened / Sent <when>, N reminders",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:333",
+      "covered": "yes",
+      "by": "read_document_get → signers[] roleLabel, email, phone, signedAt, openedAt, lastSentAt, reminders"
+    },
+    {
+      "path": "Document → Who signs → Sign now (their turn)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:351",
+      "covered": "never",
+      "by": "NEVER: document.sign_now, their own device in a customer’s hands"
+    },
+    {
+      "path": "Document (phone) → Sign now sheet: Hand your phone to X?, it locks again, Open it for them",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/screens.tsx:651",
+      "covered": "never",
+      "by": "NEVER: document.sign_now"
+    },
+    {
+      "path": "Document → Who signs → Copy their link (X’s link is copied. It opens the document as them…)",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/document-page.tsx:364",
+      "covered": "no",
+      "by": "no tool gives a signer’s link (worker /v1/documents/link)"
+    },
+    {
+      "path": "Document (phone) → Who signs → Send their link (share sheet)",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/screens.tsx:563",
+      "covered": "no",
+      "by": "no tool gives a signer’s link"
+    },
+    {
+      "path": "Document → What happened → each step in words (sent by email/text, reminded, handed over by X, opened from portal, code, agreed, signed…): signer",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:384",
+      "covered": "yes",
+      "by": "read_document_get → steps[] kind, channel, detail, signerId"
+    },
+    {
+      "path": "Document → What happened → each step’s time and IP",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/document-page.tsx:394",
+      "covered": "yes",
+      "by": "read_document_get → steps[] at, ip"
+    },
+    {
+      "path": "Document pages (phone) → The pages didn’t load. Check your signal and try again. / Try again",
+      "kind": "do",
+      "file": "apps/mobile/src/documents/pages.tsx:195",
+      "covered": "no",
+      "by": "nothing reads the PDF itself"
+    },
+    {
+      "path": "Customer’s page (phone) → Documents: latest 5 sent to them (name, signers, date, badge), each opens",
+      "kind": "see",
+      "file": "apps/mobile/src/documents/card.tsx:45",
+      "covered": "yes",
+      "by": "read_document_list input personId, limit"
+    },
+    {
+      "path": "Signing page → This link is out of date / doesn’t work / couldn’t open; Opening your document…",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:346",
+      "covered": "person",
+      "by": "the signer’s own page"
+    },
+    {
+      "path": "Signing page → closed: You declined / taken back / ran out of time / declined; Call <business>",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:384",
+      "covered": "person",
+      "by": "the signer’s own page"
+    },
+    {
+      "path": "Signing page → code: we’ll send a 6-digit code to…; Send the code; Enter the code; Open the document; Send a new code",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:418",
+      "covered": "person",
+      "by": "the signer’s own code"
+    },
+    {
+      "path": "Signing page → handed over: Hand this to X; I’m X. Start",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:515",
+      "covered": "never",
+      "by": "the Sign now hand-over; NEVER document.sign_now"
+    },
+    {
+      "path": "Signing page → Your copy / Signing as <role> / To sign; name; Please sign by <day>",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:570",
+      "covered": "person",
+      "by": "the signer’s own page"
+    },
+    {
+      "path": "Signing page → Back to the document / Back to your portal; Hand it back",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:500",
+      "covered": "person",
+      "by": "the signer’s own page"
+    },
+    {
+      "path": "Signing page → Everyone has signed it / You’ve signed it / copy only / not your turn yet",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:599",
+      "covered": "person",
+      "by": "the signer’s own page"
+    },
+    {
+      "path": "Signing page → Download the signed copy",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:619",
+      "covered": "person",
+      "by": "the signer’s own copy"
+    },
+    {
+      "path": "Signing page → From <business>: the note",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:630",
+      "covered": "person",
+      "by": "the signer’s own page"
+    },
+    {
+      "path": "Signing page → I agree to sign electronically, with the consent words",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:645",
+      "covered": "person",
+      "by": "the signer’s own agreement"
+    },
+    {
+      "path": "Signing page → pages: tap your own fields; others’ as they filled them",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:678",
+      "covered": "person",
+      "by": "the signer’s own fields"
+    },
+    {
+      "path": "Signing page → Tick the box above / N fields left / All filled in; Start, Next, Finish and sign",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:545",
+      "covered": "person",
+      "by": "the signer’s own signature"
+    },
+    {
+      "path": "Signing page → field sheet: type or pick the value, Done, Clear it; a checkbox ticks on tap",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:938",
+      "covered": "person",
+      "by": "the signer’s own fields"
+    },
+    {
+      "path": "Signing page → signature or initials: Keep it, Sign again, Take it off",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:890",
+      "covered": "person",
+      "by": "the signer’s own signature"
+    },
+    {
+      "path": "Signing page → signature: Type / Draw, your name or initials, handwriting, Clear, Use this signature",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signature-input.tsx:206",
+      "covered": "person",
+      "by": "the signer’s own signature"
+    },
+    {
+      "path": "Signing page → Decline to sign: <business> will be told…; Tell them why; Decline; Keep it open",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:706",
+      "covered": "person",
+      "by": "the signer’s own decision"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "doc-1",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A sent document → Who signs, each signer's Copy their link (web) / Send their link (phone)",
+      "gap": "Real part: no Assistant tool returns a signer's private link. Nothing in packages/core/src/assistant or apps/worker/src/assistant mentions signers, signerUrlFor or moneyLinks, and the assistant executor gets only webUrl, not the link-signing keys. So \"what's Dana's signing link?\" can't be answered without guessing. Not a gap: \"text her the link again\". do_document_remind (document.remind, risk 2) sends the link again by email and text to whoever's turn it is, so re-sending is covered.",
+      "fix": "Add a look-up `document_signer_link {signerId}` (autonomy auto, permission documents.send). Put its spec in packages/core/src/assistant/tools-extra.ts and its worker in apps/worker/src/assistant/tools-extra.ts. Pass the worker's MoneyLinks (deps.moneyLinks) into the assistant executor the way webUrl is passed (tools-write.ts:255/917). Repeat the checks from POST /v1/documents/link (routes.ts:337-357): documents.send, a signer row seen as the person, and the document out or completed. Then return signerUrlFor(tx, links, signerId) run inside asWorker, as a full https URL. Its description should repeat DOCUMENT_SCREEN_WORDS.linkCopied ('It opens the document as them, so only send it to them') and say that do_document_remind sends it to them again.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-2",
+      "severity": "high",
+      "kind": "words",
+      "where": "find_capabilities: \"can customers sign contracts / can I send an agreement to sign?\"",
+      "gap": "CORE_CAPABILITIES has no entry for Documents to sign. find_capabilities returns sets.current, built from core capabilities plus add-ons, so documents never appear. The planned 'esignature' entry still says 'Customers already approve estimates by typing their name. This adds signing for any document.' That overlap note is now stale, and anyone with addons.manage who passes includePlanned sees it.",
+      "fix": "In packages/core/src/addons/capabilities.ts, after money.plans, add {id:'documents.signing', label:'Documents to sign', description:'Contracts and agreements customers sign online: make a template from your PDF, fill it in from HandsFreeOS, and send it to sign one after another or all at once, with reminders, a 6-digit code, voiding, and the signed copy filed on their Files.', permission:'documents.send'}. Without the permission it then lands in `restricted` (ask an admin). In packages/core/src/addons/planned.ts, rewrite the esignature overlap (around :869) and add a contracts overlap (around :853), so both say core Documents already makes PDF templates filled from HandsFreeOS, signer order, reminders and a filed signed copy.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-3",
+      "severity": "high",
+      "kind": "words",
+      "where": "Documents (side menu): tabs Sent and Templates; a sent document; a template's editor; Send a document",
+      "gap": "APP_PLACES has no Documents, document, template or Send entry, although the side menu has Documents (nav-links.tsx:113). The prompt says never to name a place that isn't listed, so the Assistant can't give the way to anything in Documents. The page paths exist: /documents, /documents/[documentId], /documents/templates/[templateId] and /documents/send.",
+      "fix": "In packages/core/src/assistant/places-map.ts add APP_PLACES entries 'Documents' (where ['Documents'], path '/documents'), 'A document' (where ['Documents'], then 'press the document', path '/documents/[documentId]'), 'A document template' (where ['Documents'], then 'the Templates tab, then press the template', path '/documents/templates/[templateId]') and 'Send a document' (path '/documents/send'), worded from DOCUMENT_SCREEN_WORDS. Add howTo lines for remind, void then send it again, copy a signer's link, and make and fill a template. Add notHere lines: changing a sent document (void it, then Send it again), sending one document to many customers at once, and deleting a template (archive it). If a way is written 'Documents → Templates', also add `Documents: new Set([DOCUMENT_SCREEN_WORDS.sent, DOCUMENT_SCREEN_WORDS.templates])` to MENUS in packages/core/test/settings-map.test.ts. The tab labels come from W, so labelsIn won't find them and expectRealWay would fail.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-4",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A sent document: the Voided, Declined and Out-of-time notes, What happened (the proof trail), Open the signed copy, and the filled-in pages",
+      "gap": "Real part: the kernel parses output in schema key order (execute.ts:937), so DocumentGetOutput reads id, name, status, finishing, templateId, about, sentAt, expiresAt, completedAt, sentBy, signers (from the base shape), then definition, values, valuesBy, message, signingOrder, remind*, source, signed, hashes, voidedAt, voidReason, declinedAt, expiredAt, steps, canSend. A drawn signature's PNG data URL (up to 300,000 characters) in `values`, or a long definition, pushes past the 16,000-character cut. After that the Assistant loses the document-level void reason and dates, signing order, message, the signed copy, the proof trail (steps) and canSend. Overstated: status, finishing, and each signer's status, contact details, signedAt, declineReason, openedAt and ip come before the cut, so 'is it signed / who hasn't signed' still works. document.get has no option for less, so the note 'ask it for less' can't be followed.",
+      "fix": "In packages/core/src/schemas/document.ts:361, move `definition`, `values`, `valuesBy`, `sourceSha256` and `signedSha256` to the end of the DocumentGetOutput.extend object, after steps and canSend. Extension keys keep their written order, so the cut then falls only on them. Better: in apps/worker/src/assistant/tools-screen-reads.ts runScreenRead, special-case document.get (or add a per-query 'lean' hook in screen-reads.ts) to replace each signature value's `image` with a mark like 'drawn signature' (keep kind, how, name) and drop field and edit geometry. Add a test that a document with a drawn signature reads whole.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-5",
+      "severity": "high",
+      "kind": "do",
+      "where": "Template editor: changing one thing (a When it's sent setting, one field's Who fills it in, Has to be filled in, Fill in from HandsFreeOS, Choices or Text size, or a role in Who signs)",
+      "gap": "do_document_template_save is the only way to change a template, and it replaces the whole definition. The handler parses `{...input.definition, pages, presets:{}}` with DocumentDefinition, where fields and edits default to [], so a call that leaves them out removes every field and word change. It is risk 1, but every screen action above risk 0 waits for Confirm, so a card is shown. That card prints the definition through valueOf → clip(JSON, 300), so the loss isn't visible. read_document_template_get puts definition first and cuts at 16,000 characters, so a long template can't be copied back whole.",
+      "fix": "Add a hand-written `manage_document_template` (spec in packages/core/src/assistant/tools-extra.ts, worker in apps/worker/src/assistant/tools-extra.ts, permission documents.manage, autonomy confirm). It reads the template at commit and applies a patch: settings fields, roles through core's withRoleAdded/withRoleChanged/withRoleMoved/withoutRole (documents/edit.ts:255-290), and change or remove one field or edit by id. It saves with baseRevision = the revision it read. Its card says the change in words ('Turn off reminders on “Service agreement”'). Then drop 'document_template.save' from SCREEN_ACTIONS (coverage.ts:102), or keep it with a warning. At the least, give DocumentTemplateSaveInput a definition schema whose fields and edits are optional without defaults, and have the handler keep current.definition.fields and edits when they're absent.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-6",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A sent document: Open the signed copy, Download (web); Open the signed copy, Share the signed copy (phone)",
+      "gap": "The screens open the signed PDF (and the source PDF) through a short-lived Supabase Storage signed URL made as the person. read_document_get returns only {fileId, name, bucket, objectPath}, and no Assistant tool makes a Storage link: grep finds no createSignedUrl, bucket or objectPath under assistant/. Nothing tells the Assistant that the signed copy is filed, locked, on the customer's Files tab either.",
+      "fix": "Add a look-up `document_file_link {documentId, which:'signed'|'source'}` (permission records.read, auto) in apps/worker/src/assistant/tools-extra.ts, spec in packages/core/src/assistant/tools-extra.ts. It reads document.get as the person and creates a Storage signed URL for that bucket and objectPath with the person's own token, as apps/web/src/lib/documents/files.ts documentFileUrl does (300 seconds, like the screen), and returns the full https URL. Its description should say the signed copy is also on the customer's page, Files tab ('The signed copy is on their Files, locked', documents/words.ts:282).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-7",
+      "severity": "medium",
+      "kind": "words",
+      "where": "The Confirm card for sending, voiding or reminding a document",
+      "gap": "Screen-action cards come from cardFields over the raw arguments. For do_document_send that gives 'Template id: <uuid>', 'About: {\"personId\":…}', 'Signers: N items', and 'Values: {}' and 'Settings: {}' once defaults apply. Void shows 'Document id: <uuid>' and 'Reason', and remind shows only 'Document id: <uuid>'. A risk-2 send to customers is confirmed without the template's name or who gets it. The screen shows names, for example 'Void “Service agreement”?'.",
+      "fix": "Add an optional `card` hook to ScreenAction in packages/core/src/assistant/coverage.ts, or special-case these in apps/worker/src/assistant/tools-screen-actions.ts prepareScreenAction (:93-121), for document.send, document.void and document.remind. For send, read document_template.get for the name and the about record and signers (document.prefill gives names, emails and phones), and draw 'Send “Service agreement” to Dana Smith (dana@…, text 555-…) and you, about Dana Smith'. For void, use DOCUMENT_SCREEN_WORDS.voidTitle(name) with the reason under 'Why (they see this)'. For remind, '“Name”: a reminder goes to <the signers whose turn it is>'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-8",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A sent document's page and a template's page: \"remind them\", \"void this\", \"what's her link?\" asked from that page",
+      "gap": "AssistantPageRecord.type has only person, company, lead, conversation, appointment, workflow and workflow_run, and RECORD_ROUTES has no 'documents'. On /documents/<id> or /documents/templates/<id>, on web or phone (same addresses), the page is null and the prompt says 'No customer, lead or appointment is on screen.'",
+      "fix": "Add 'document' and 'document_template' to the enum in packages/core/src/schemas/assistant.ts:320. In packages/core/src/assistant/words.ts RECORD_ROUTES (:413-420), add ['document_template','documents/templates'] and ['document','documents']; 'documents/send' and 'documents/templates' aren't UUIDs, so they never match. Add pageLabel cases in apps/worker/src/assistant/context.ts:175, reading document.get or document_template.get for the name. Add a pageLines line in apps/worker/src/assistant/prompt.ts so 'it' or 'this' means that document or template.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-9",
+      "severity": "medium",
+      "kind": "words",
+      "where": "\"Where are my contract templates?\" / \"Where do I upload a contract?\"",
+      "gap": "The Templates look-alike names only Settings → Templates and the Agency area's workflow templates. The Knowledge area's howTo sends 'add a document' to Knowledge → Documents. With no Documents place (doc-3), questions about contract templates or uploading a contract are sent to the wrong screen.",
+      "fix": "Edit packages/core/src/assistant/places-map.ts:655 to 'Templates: saved texts and emails are Settings → Templates; contracts and agreements to send for signing are Documents, the Templates tab; workflow templates for many businesses are the Agency area.' Add a look-alike: 'Documents: contracts and agreements customers sign are Documents in the side menu; files the AI teammate reads are Knowledge → Documents; estimates and invoices are Money.' Avoid 'Documents → Templates' unless MENUS gets a Documents entry (see doc-3).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-10",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Send a document: the warnings at the top (what stops it going out) and who each role suggests; Template editor: Before it can go out",
+      "gap": "DocumentPrefillOutput reads templateId, name, definition, presets, then signers, copies, message, source, issues. DocumentTemplateGetOutput reads id, name, revision, definition, then source and issues. A template with many fields or word changes (up to 300 each, `original` up to 2,000 characters) is cut at 16,000 characters before the Assistant sees who each role suggests or what stops it going out.",
+      "fix": "In packages/core/src/schemas/document.ts, reorder DocumentPrefillOutput (:243) to templateId, name, issues, signers, copies, message, source, then definition and presets. Reorder DocumentTemplateGetOutput (:160) to id, name, revision, issues, documentsOut, updatedAt, archivedAt, source, then definition. The kernel's output parse follows schema order. Optionally trim the definition in runScreenRead for these two queries to {roles, settings, fields:[id,type,role,label,required,fillFrom,options]}.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-11",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Template editor: Place fields for me (web header button; phone too)",
+      "gap": "Place fields for me is a worker route (/v1/documents/place-fields), not a command. The web finds spots and posts them; the phone posts none and the worker finds them on the stored PDF. The result goes on with addPlacedFields and is saved with document_template.save. No Assistant tool calls it, and it is in neither SCREEN_ACTIONS nor NEVER_FOR_THE_ASSISTANT, because the coverage test checks only commands.",
+      "fix": "Add `place_template_fields {templateId}` (permission documents.manage, autonomy confirm because it saves the template; usage counts as 'documents' against the AI limit, as the route does). It calls the same placeFields(deps, actor, {workspaceId, templateId, roles: current roles}) with no spots, so the worker finds them on the stored PDF (place.ts header). It applies addPlacedFields (packages/core/src/documents/place.ts:559) to the template read at prepare time and saves with that baseRevision. The card says 'Place N fields on “Name” (M already there are kept)'. Or list it with a reason in coverage.ts. Separately, extend packages/core/test/assistant-coverage.test.ts to list the worker routes the documents screens call (place-fields, link, pages).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-12",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Template editor: Change words and Add words (The PDF's words); Send screen: Change the words for <customer> only; reading what the contract says",
+      "gap": "Real part: the Assistant can't read a template's PDF words or each line's box. Only POST /v1/documents/pages returns them, so it can't build a document_send `edits` entry or a template edit over the right line, and it can't quote a template's clauses. Overstated: read_search_everything ('search.everything' is a screen read) searches the words inside files filed on records, with page snippets. That finds clause words in signed copies on customers' Files, though not the template's own PDF.",
+      "fix": "Add a look-up `read_document_pages {templateId | documentId, from?, count?}` (permission documents.send or documents.manage, auto) in apps/worker/src/assistant/tools-extra.ts, backed by the same reader as apps/worker/src/documents/pages.ts:464. It returns each page's lines as {text, x, y, w, h} with no pictures, a page at a time, so the Assistant can quote the contract and pass `original` and the box exactly in an edit.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-13",
+      "severity": "medium",
+      "kind": "words",
+      "where": "What customers see: the signing page a signer's link opens, and their portal's documents",
+      "gap": "CUSTOMER_PAGES lists booking, booking-confirmation link, estimate, invoice, plan and form pages, but not the signing page (/d/<link>) or the portal's documents. The Assistant has no words for what a signer sees.",
+      "fix": "Add a CUSTOMER_PAGES line in packages/core/src/assistant/places-map.ts (after :639), using SIGNING_WORDS: 'A document to sign: each signer's own private link, in their email or text (or Copy their link on the document); when the template asks, they get a 6-digit code first; they tick I agree to sign electronically, draw or type their signature, then Finish and sign, or Decline to sign; works on a phone; everyone gets the signed copy (Download the signed copy); their portal lists their documents too'. Keep it free of '→'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-14",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Ways into Documents: a customer's page Document button (web and phone), Documents in the phone's More, Documents hidden without the send permission",
+      "gap": "Three omissions. The web customer page shows Document, for a person, to holders of documents.send, opening /documents/send?person=<id>; the phone has it in its actions too. Neither is in the top-row list at places-map.ts:160. The phone's More shows Documents to whoever can send them, and PHONE_APP's More line leaves it out. MENU_NEEDS hides Documents without documents.send, but EVERY_PAGE says only Inbox, Money and Audit log need their own permission.",
+      "fix": "In packages/core/src/assistant/places-map.ts: at :160, add 'Document (whoever sends documents)' before 'and Add to workflow…', plus a howTo 'Send them a document to sign: their page, press Document'. At :625, add 'Documents (for whoever sends them)' after Forms. At :610, change to 'Inbox, Money, Documents and Audit log need their own permission'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-15",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → Permissions: the Documents card (Send documents to sign, Make document templates)",
+      "gap": "Settings → Permissions draws a card for each PERMISSION_GROUPS entry, including 'Documents' (Send documents to sign, Make document templates). The settings map's onScreen list leaves Documents out. manage_permissions can already set these permissions (its enum is PERMISSION_KEYS), so only the words are missing.",
+      "fix": "In packages/core/src/assistant/settings-map.ts:221, change the list to 'Contacts, Inbox and calls, Calendar, Money, Documents, Automations and AI, and Business and team'. Optionally add a howTo: 'Who can send documents or make templates: Settings → Permissions, the Documents card (Send documents to sign, Make document templates)'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-16",
+      "severity": "low",
+      "kind": "read",
+      "where": "Send it (after Confirm): the screen opens the new document's page",
+      "gap": "commitScreenAction ignores executeCommand's output and returns {outcome:'Done', href:null}. CommittedAction has no field for output at all. After a confirmed do_document_send, the panel has no link to the new document, and the model doesn't get documentId, signer ids or expiresAt.",
+      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts:125-133, keep the output. For document.send, set href to `/app/w/${ctx.workspaceId}/documents/${output.documentId}`; a per-command href hook on ScreenAction would cover others. To give the model the ids, add an optional `result` field to CommittedAction (apps/worker/src/assistant/runtime.ts:129) and pass it back on the next turn.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-17",
+      "severity": "low",
+      "kind": "words",
+      "where": "Sent filters and signer badges: All, Out for signing, Signed, Declined, Voided, Out of time; Not their turn yet, Link on its way, Signs with you in person, Gets a copy, Making the signed copy",
+      "gap": "Overstated: read_document_list's input schema carries the enum (out, completed, declined, voided, expired), so the model sees the valid values, and a wrong one returns a validation error it can correct. Real part: the description words ('signed', 'out of time') don't match the enum. Signer status comes back as raw 'waiting', with nothing telling the model the screen's rule (Not their turn yet / Link on its way / Signs with you in person). `finishing` and kind 'copy' are bare fields, while the screen says 'Making the signed copy' and 'Gets a copy'.",
+      "fix": "In packages/core/src/queries/document.ts:202, word the description as '…only those in one state: out (Out for signing), completed (Signed), declined, voided, expired (Out of time)…'. Then add a `label` to each signer (signerStatusLabel, words.ts:60) and to each document (documentBadge(status, finishing).label, words.ts:22) in the list and get outputs. Or, at the least, explain these rules in the document.list and document.get descriptions.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "doc-18",
+      "severity": "low",
+      "kind": "words",
+      "where": "Void dialog: Why (they see this)",
+      "gap": "The void dialog labels the reason 'Why (they see this)', and the voided notice to signers carries it (jobs.ts:376-395). DocumentVoidInput.reason has no description, and the command says only 'anyone who had their link is told', so the Assistant isn't told the reason is shown to customers.",
+      "fix": "In packages/core/src/schemas/document.ts:281, add .describe('Why, in a sentence the signers read in their notice, like “The start date was wrong. A corrected copy is on its way.”'), which is DOCUMENT_SCREEN_WORDS.voidReasonExample. Optionally add to the document.void description (commands/document.ts:574) 'The reason goes to them.'",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

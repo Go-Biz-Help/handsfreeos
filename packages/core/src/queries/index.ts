@@ -20,6 +20,7 @@ import { safetyQueries } from './safety';
 import { templateQueries } from './template';
 import { platformQueries } from './platform';
 import { problemReportQueries } from './problem-reports';
+import { assistantLedgerQueries } from './assistant-ledger';
 import { teammateViewQueries } from './teammate-view';
 import { foundingQueries } from './founding';
 import { affiliateQueries } from './affiliates';
@@ -283,6 +284,8 @@ export const queries: readonly QueryDef[] = [
   ...platformQueries,
   // What our own tools saw when something didn't go (20261027008100).
   ...problemReportQueries,
+  // Every item on every screen and how the Assistant covers it (assistant/ledger).
+  ...assistantLedgerQueries,
   // Viewing the app as a teammate (20261018000100).
   ...teammateViewQueries,
   ...foundingQueries,
@@ -526,6 +529,7 @@ export * from './social';
 export * from './support';
 export * from './platform';
 export * from './problem-reports';
+export * from './assistant-ledger';
 export * from './teammate-view';
 export * from './wallet';
 export * from './port';

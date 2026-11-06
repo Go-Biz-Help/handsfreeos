@@ -1,0 +1,2092 @@
+{
+  "area": "calendar",
+  "title": "Calendar, appointments, My calendar and booking links",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
+    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "7a7a367c0039",
+    "apps/mobile/src/calendar/actions.ts": "f893cebae555",
+    "apps/mobile/src/calendar/outbox.ts": "73e8c8f98bf3",
+    "apps/mobile/src/calendar/queries.ts": "10675bcf4b4f",
+    "apps/mobile/src/calendar/use-calendar.ts": "836aec94e9a7",
+    "apps/mobile/src/components/calendar/agenda-row.tsx": "c76bdd395ae8",
+    "apps/mobile/src/components/calendar/calendar-header.tsx": "ebc11c76fd43",
+    "apps/mobile/src/components/calendar/chips.tsx": "269d98ff254a",
+    "apps/mobile/src/components/calendar/day-strip.tsx": "67bc148904b9",
+    "apps/mobile/src/components/calendar/meeting.tsx": "7e27ce36c5fe",
+    "apps/mobile/src/components/calendar/month-grid.tsx": "ba9c859f8c55",
+    "apps/mobile/src/components/calendar/new-appointment.tsx": "5ac5d024710c",
+    "apps/mobile/src/components/calendar/visit-job.tsx": "b1d467dbf225",
+    "apps/mobile/src/components/calendar/zone-chips.tsx": "df1b3ae5b12a",
+    "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
+    "apps/web/src/app/app/w/[workspaceId]/calendar/page.tsx": "6713bd1eb1f4",
+    "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx": "c8b1891de1c2",
+    "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
+    "apps/web/src/components/booking/booked-panel.tsx": "ba7140c83423",
+    "apps/web/src/components/booking/booking-flow.tsx": "6dc887f5bc67",
+    "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
+    "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
+    "apps/web/src/components/booking/deposit-pay.tsx": "83a3d97bd2b1",
+    "apps/web/src/components/booking/format.ts": "8f0f03320e49",
+    "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
+    "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
+    "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
+    "apps/web/src/components/booking/public-shell.tsx": "aad974c4e588",
+    "apps/web/src/components/booking/site-byline.tsx": "ada5d6664c04",
+    "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
+    "apps/web/src/components/booking/turnstile.tsx": "71d6ad4df878",
+    "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
+    "apps/web/src/components/booking/waitlist-offer.tsx": "6d0890441564",
+    "apps/web/src/components/booking/webinar-door.tsx": "aa74fac075b5",
+    "apps/web/src/components/calendar/add-attendee-dialog.tsx": "502e321ab7da",
+    "apps/web/src/components/calendar/agenda.tsx": "5a875937bc8b",
+    "apps/web/src/components/calendar/appointment-dialog.tsx": "58903c5b87de",
+    "apps/web/src/components/calendar/appointment-sheet.tsx": "9e0c61e626f9",
+    "apps/web/src/components/calendar/appt.ts": "762bf72583c0",
+    "apps/web/src/components/calendar/calendar-page.tsx": "ec13031132fb",
+    "apps/web/src/components/calendar/call-review.tsx": "f69afb7ea4c8",
+    "apps/web/src/components/calendar/cancel-dialog.tsx": "05f18f021f01",
+    "apps/web/src/components/calendar/config-cache.ts": "8e3ca8370dff",
+    "apps/web/src/components/calendar/customer-picker.tsx": "54cca5817168",
+    "apps/web/src/components/calendar/job-block.tsx": "9993c8084277",
+    "apps/web/src/components/calendar/month-grid.tsx": "4cc9835eca64",
+    "apps/web/src/components/calendar/move-dialog.tsx": "6249cf7ee953",
+    "apps/web/src/components/calendar/reassign-dialog.tsx": "b06001a23547",
+    "apps/web/src/components/calendar/tell-field.tsx": "c1f789643f81",
+    "apps/web/src/components/calendar/time-grid.tsx": "76f63ac0f34f",
+    "apps/web/src/components/calendar/upcoming-card.tsx": "300a62a1d8c8",
+    "apps/web/src/components/calendar/video-call-block.tsx": "eff91b25e285",
+    "apps/web/src/components/calendar/visit-money.tsx": "7aac006838a5",
+    "apps/web/src/components/calendar/webinar-dialog.tsx": "c23373431120",
+    "apps/web/src/components/calendar/webinar-leads.tsx": "606978ae90be",
+    "apps/web/src/components/calendar/zone-field.tsx": "bb70cbad3575",
+    "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
+    "apps/web/src/components/settings/calendar-connection-card.tsx": "fb70eee130ed",
+    "apps/web/src/components/settings/meeting-connection-card.tsx": "a7a95b16bd67",
+    "apps/web/src/components/settings/my-calendar.tsx": "a22d9ea4da17",
+    "apps/web/src/components/settings/zoom-coach-card.tsx": "53c1cd48f3f4",
+    "apps/web/src/components/video-call/call-chat-log.tsx": "f5b02e51b3c9"
+  },
+  "items": [
+    {
+      "path": "Calendar → header → Manage calendars",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:551",
+      "covered": "yes",
+      "by": "get_calendar_settings; manage_calendar"
+    },
+    {
+      "path": "Calendar → header → New webinar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:557",
+      "covered": "yes",
+      "by": "do_webinar_schedule"
+    },
+    {
+      "path": "Calendar → header → New appointment (and phone FAB)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:566",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Calendar → header → Today, Prev, Next (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:575",
+      "covered": "yes",
+      "by": "todays_schedule; list_appointments from/to"
+    },
+    {
+      "path": "Calendar → header → date range title",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:598",
+      "covered": "yes",
+      "by": "list_appointments from/to"
+    },
+    {
+      "path": "Calendar → header → time zone chip (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:601",
+      "covered": "yes",
+      "by": "context business zone; times carry offsets"
+    },
+    {
+      "path": "Calendar → header → view switch Day/Week/Month/Team/Agenda (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:612",
+      "covered": "yes",
+      "by": "list_appointments from/to, userId"
+    },
+    {
+      "path": "Calendar → filters → person picker",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:624",
+      "covered": "yes",
+      "by": "list_team; list_appointments userId"
+    },
+    {
+      "path": "Calendar → filters → calendar toggles",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:660",
+      "covered": "yes",
+      "by": "list_appointments calendarId"
+    },
+    {
+      "path": "Calendar → filters → calendars None yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:658",
+      "covered": "yes",
+      "by": "context calendars; get_calendar_settings"
+    },
+    {
+      "path": "Calendar → filters → people toggles",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:691",
+      "covered": "yes",
+      "by": "list_appointments userId"
+    },
+    {
+      "path": "Calendar → notice → calendar needs reconnecting",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:721",
+      "covered": "yes",
+      "by": "get_settings my_calendar connectedCalendars"
+    },
+    {
+      "path": "Calendar → notice → Reconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:741",
+      "covered": "person",
+      "by": "connecting an account by signing in"
+    },
+    {
+      "path": "Calendar → notice → no calendars yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:759",
+      "covered": "yes",
+      "by": "context calendars"
+    },
+    {
+      "path": "Calendar → notice → Set up a calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:772",
+      "covered": "yes",
+      "by": "manage_calendar create"
+    },
+    {
+      "path": "Calendar → Your week connection line",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:783",
+      "covered": "yes",
+      "by": "get_settings my_calendar connectedCalendars"
+    },
+    {
+      "path": "Calendar → Month → Nobody to show",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:813",
+      "covered": "yes",
+      "by": "list_appointments with filters"
+    },
+    {
+      "path": "Calendar → Team → person column head (name, today’s hours)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:218",
+      "covered": "partly",
+      "by": "list_team names; hours unreadable (schedules null)"
+    },
+    {
+      "path": "Calendar → busy times from connected calendars, private and other businesses (grid, month, agenda)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:178",
+      "covered": "partly",
+      "by": "find_availability leaves them out; never listed"
+    },
+    {
+      "path": "Calendar → time off blocks and markers (grid, month)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:207",
+      "covered": "no",
+      "by": "no read of time off; my_calendar schedules null"
+    },
+    {
+      "path": "Calendar → Team → nobody assigned column",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:266",
+      "covered": "yes",
+      "by": "list_appointments with (empty)"
+    },
+    {
+      "path": "Calendar → Resources view → bookings per equipment column",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:307",
+      "covered": "no",
+      "by": "list_appointments has no resources field or filter"
+    },
+    {
+      "path": "Calendar → Resources view → No resources yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:840",
+      "covered": "yes",
+      "by": "get_calendar_settings resources"
+    },
+    {
+      "path": "Calendar → Week → day heads with counts",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:339",
+      "covered": "yes",
+      "by": "list_appointments"
+    },
+    {
+      "path": "Calendar → Time grid → click an empty slot to book",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:832",
+      "covered": "yes",
+      "by": "book_appointment startsAt, userIds"
+    },
+    {
+      "path": "Calendar → Time grid → drag to move (time or person)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:140",
+      "covered": "partly",
+      "by": "reschedule_appointment startsAt, userIds; always tells"
+    },
+    {
+      "path": "Calendar → Time grid → drag edge to change length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:565",
+      "covered": "no",
+      "by": "reschedule_appointment has no duration"
+    },
+    {
+      "path": "Calendar → Time grid → open-hours shading",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:285",
+      "covered": "partly",
+      "by": "find_availability free times; weekly hours unreadable"
+    },
+    {
+      "path": "Calendar → appointment block (title, customer, time, status)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:518",
+      "covered": "yes",
+      "by": "list_appointments what, customers, when, status"
+    },
+    {
+      "path": "Calendar → block chips (seats, repeat, confirmed, video)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:448",
+      "covered": "yes",
+      "by": "list_appointments seats, repeatVisit; get_appointment"
+    },
+    {
+      "path": "Calendar → Time grid → travel time before and after",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:486",
+      "covered": "no",
+      "by": "buffers and travel not returned"
+    },
+    {
+      "path": "Calendar → held, not paid yet chip (grid, agenda)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:548",
+      "covered": "no",
+      "by": "heldUntil not returned; list says Booked"
+    },
+    {
+      "path": "Calendar → booked online mark (grid, agenda)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/time-grid.tsx:551",
+      "covered": "no",
+      "by": "source not returned"
+    },
+    {
+      "path": "Calendar → open an appointment",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/calendar-page.tsx:835",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Calendar → Month → day cell events (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/month-grid.tsx:144",
+      "covered": "yes",
+      "by": "list_appointments"
+    },
+    {
+      "path": "Calendar → Month → open a day",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/month-grid.tsx:202",
+      "covered": "yes",
+      "by": "list_appointments from/to"
+    },
+    {
+      "path": "Calendar → Month → New appointment on a day",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/month-grid.tsx:211",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Calendar → Month → event chip",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/month-grid.tsx:230",
+      "covered": "yes",
+      "by": "list_appointments"
+    },
+    {
+      "path": "Calendar → Month → +N more",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/month-grid.tsx:257",
+      "covered": "yes",
+      "by": "list_appointments"
+    },
+    {
+      "path": "Calendar → Agenda → appointment row and sub line (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/agenda.tsx:100",
+      "covered": "yes",
+      "by": "list_appointments; get_appointment where"
+    },
+    {
+      "path": "Calendar → Agenda → equipment on a row",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/agenda.tsx:176",
+      "covered": "no",
+      "by": "resources not returned"
+    },
+    {
+      "path": "Calendar → Agenda → date strip (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/agenda.tsx:368",
+      "covered": "yes",
+      "by": "list_appointments from/to"
+    },
+    {
+      "path": "Calendar → Everyone / Just me (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/agenda.tsx:410",
+      "covered": "yes",
+      "by": "list_appointments userId"
+    },
+    {
+      "path": "Calendar → Agenda → day heading with count (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/agenda.tsx:469",
+      "covered": "yes",
+      "by": "list_appointments"
+    },
+    {
+      "path": "Calendar → Agenda → nothing booked (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/agenda.tsx:474",
+      "covered": "yes",
+      "by": "list_appointments empty"
+    },
+    {
+      "path": "Calendar → phone → Not booked yet (sent offline)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/calendar/agenda-row.tsx:91",
+      "covered": "no",
+      "by": "only on the phone until it syncs"
+    },
+    {
+      "path": "Calendar → phone → private to the record line",
+      "kind": "see",
+      "file": "apps/mobile/src/components/calendar/agenda-row.tsx:103",
+      "covered": "partly",
+      "by": "get_appointment forRecord; privacy not said"
+    },
+    {
+      "path": "New appointment → open times suggested",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:69",
+      "covered": "yes",
+      "by": "find_availability"
+    },
+    {
+      "path": "New appointment → no calendars",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:529",
+      "covered": "yes",
+      "by": "context calendars"
+    },
+    {
+      "path": "New appointment → session name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:537",
+      "covered": "yes",
+      "by": "do_session_publish title"
+    },
+    {
+      "path": "New appointment → Customer → search by name or phone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/customer-picker.tsx:117",
+      "covered": "yes",
+      "by": "search_customers; book_appointment personId"
+    },
+    {
+      "path": "New appointment → Customer → results, Change customer",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/customer-picker.tsx:133",
+      "covered": "yes",
+      "by": "search_customers"
+    },
+    {
+      "path": "New appointment → Customer → nobody found, add new (person dialog)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/customer-picker.tsx:157",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "New appointment → Calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:566",
+      "covered": "yes",
+      "by": "book_appointment calendarId"
+    },
+    {
+      "path": "New appointment → Service",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:587",
+      "covered": "yes",
+      "by": "book_appointment serviceId"
+    },
+    {
+      "path": "New appointment → Uses (equipment)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:601",
+      "covered": "partly",
+      "by": "server picks it; card doesn’t show it"
+    },
+    {
+      "path": "New appointment → With",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:614",
+      "covered": "yes",
+      "by": "book_appointment userIds"
+    },
+    {
+      "path": "New appointment → Date and Start",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:640",
+      "covered": "yes",
+      "by": "book_appointment startsAt"
+    },
+    {
+      "path": "New appointment → Length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:661",
+      "covered": "yes",
+      "by": "book_appointment durationMinutes"
+    },
+    {
+      "path": "New appointment → Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/zone-field.tsx:65",
+      "covered": "partly",
+      "by": "startsAt offset only; no timezone input"
+    },
+    {
+      "path": "New appointment → Seats and its explanation",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:685",
+      "covered": "yes",
+      "by": "do_session_publish capacity"
+    },
+    {
+      "path": "New appointment → Repeats, How many visits",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:709",
+      "covered": "yes",
+      "by": "manage_repeat_visits repeats, visits"
+    },
+    {
+      "path": "New appointment → Location",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:741",
+      "covered": "partly",
+      "by": "only customer address auto-fill; update_appointment location after"
+    },
+    {
+      "path": "New appointment → travel note",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:779",
+      "covered": "no",
+      "by": "travel not returned"
+    },
+    {
+      "path": "New appointment → warnings",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:784",
+      "covered": "yes",
+      "by": "book_appointment card warnings"
+    },
+    {
+      "path": "New appointment → full, error",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:797",
+      "covered": "yes",
+      "by": "refusal words"
+    },
+    {
+      "path": "New appointment → Tell the customer",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/tell-field.tsx:47",
+      "covered": "yes",
+      "by": "book_appointment notify"
+    },
+    {
+      "path": "New appointment → Book, Book anyway, Publish",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:845",
+      "covered": "yes",
+      "by": "book_appointment; do_session_publish"
+    },
+    {
+      "path": "New appointment → dates that didn’t fit",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-dialog.tsx:500",
+      "covered": "yes",
+      "by": "manage_repeat_visits skipped"
+    },
+    {
+      "path": "New webinar → name, calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-dialog.tsx:202",
+      "covered": "yes",
+      "by": "do_webinar_schedule title, calendarId"
+    },
+    {
+      "path": "New webinar → date, start, length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-dialog.tsx:232",
+      "covered": "yes",
+      "by": "do_webinar_schedule startsAt, durationMinutes"
+    },
+    {
+      "path": "New webinar → presenter",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-dialog.tsx:276",
+      "covered": "yes",
+      "by": "do_webinar_schedule userIds"
+    },
+    {
+      "path": "New webinar → seats",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-dialog.tsx:297",
+      "covered": "yes",
+      "by": "do_webinar_schedule seats"
+    },
+    {
+      "path": "New webinar → repeats, how many, explanation",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-dialog.tsx:314",
+      "covered": "yes",
+      "by": "do_webinar_schedule repeat, times"
+    },
+    {
+      "path": "New webinar → Schedule",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-dialog.tsx:375",
+      "covered": "yes",
+      "by": "do_webinar_schedule"
+    },
+    {
+      "path": "Move appointment → Date and Start",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:195",
+      "covered": "yes",
+      "by": "reschedule_appointment startsAt"
+    },
+    {
+      "path": "Move appointment → Length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:222",
+      "covered": "no",
+      "by": "reschedule_appointment has no duration"
+    },
+    {
+      "path": "Move appointment → Zone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:244",
+      "covered": "partly",
+      "by": "startsAt offset only"
+    },
+    {
+      "path": "Move appointment → Was, Now, With summary",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:257",
+      "covered": "yes",
+      "by": "reschedule_appointment card"
+    },
+    {
+      "path": "Move appointment → warnings, full, error",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:287",
+      "covered": "yes",
+      "by": "card warnings; refusal words"
+    },
+    {
+      "path": "Move appointment → Tell the customer",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:333",
+      "covered": "partly",
+      "by": "always tells; can’t move quietly"
+    },
+    {
+      "path": "Move appointment → Move, Move anyway",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/move-dialog.tsx:353",
+      "covered": "yes",
+      "by": "reschedule_appointment"
+    },
+    {
+      "path": "Who’s going → people checkboxes",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/reassign-dialog.tsx:73",
+      "covered": "yes",
+      "by": "reschedule_appointment userIds"
+    },
+    {
+      "path": "Who’s going → warnings",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/reassign-dialog.tsx:95",
+      "covered": "yes",
+      "by": "card warnings"
+    },
+    {
+      "path": "Who’s going → Tell",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/reassign-dialog.tsx:116",
+      "covered": "partly",
+      "by": "can’t choose not to tell"
+    },
+    {
+      "path": "Who’s going → Change, Change anyway",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/reassign-dialog.tsx:129",
+      "covered": "yes",
+      "by": "reschedule_appointment userIds"
+    },
+    {
+      "path": "Add someone → Customer",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/add-attendee-dialog.tsx:95",
+      "covered": "yes",
+      "by": "manage_attendees add personId"
+    },
+    {
+      "path": "Add someone → Seats",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/add-attendee-dialog.tsx:106",
+      "covered": "yes",
+      "by": "manage_attendees seats"
+    },
+    {
+      "path": "Add someone → Tell",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/add-attendee-dialog.tsx:135",
+      "covered": "yes",
+      "by": "manage_attendees tellCustomer"
+    },
+    {
+      "path": "Add someone → Add",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/add-attendee-dialog.tsx:150",
+      "covered": "yes",
+      "by": "manage_attendees add"
+    },
+    {
+      "path": "Cancel appointment → Tell checkbox and explanation",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/cancel-dialog.tsx:87",
+      "covered": "yes",
+      "by": "cancel_appointment notify"
+    },
+    {
+      "path": "Cancel appointment → Reason",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/cancel-dialog.tsx:101",
+      "covered": "yes",
+      "by": "cancel_appointment reason"
+    },
+    {
+      "path": "Cancel appointment → Cancel appointment",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/cancel-dialog.tsx:118",
+      "covered": "yes",
+      "by": "cancel_appointment"
+    },
+    {
+      "path": "Appointment (phone) → Cancel sheet → tell or don’t",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:597",
+      "covered": "yes",
+      "by": "cancel_appointment notify"
+    },
+    {
+      "path": "Appointment → not found, loading",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:562",
+      "covered": "yes",
+      "by": "get_appointment refusal"
+    },
+    {
+      "path": "Appointment → status (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:572",
+      "covered": "yes",
+      "by": "get_appointment status"
+    },
+    {
+      "path": "Appointment → calendar chip",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:575",
+      "covered": "yes",
+      "by": "get_appointment calendar"
+    },
+    {
+      "path": "Appointment → booked-by source chip",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:582",
+      "covered": "no",
+      "by": "source not returned"
+    },
+    {
+      "path": "Appointment → title",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:596",
+      "covered": "yes",
+      "by": "get_appointment title"
+    },
+    {
+      "path": "Appointment → when and zone (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:600",
+      "covered": "yes",
+      "by": "get_appointment when, zone"
+    },
+    {
+      "path": "Appointment → when note (moved, held until)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:604",
+      "covered": "no",
+      "by": "rescheduleCount, heldUntil not returned"
+    },
+    {
+      "path": "Appointment → Customer → name link",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:611",
+      "covered": "yes",
+      "by": "get_appointment customers name, personId"
+    },
+    {
+      "path": "Appointment → Customer → phone and email line",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:617",
+      "covered": "partly",
+      "by": "get_customer has it; get_appointment doesn’t"
+    },
+    {
+      "path": "Appointment → Customer → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:626",
+      "covered": "person",
+      "by": "call_customer offers a Call button; call.start is never"
+    },
+    {
+      "path": "Appointment → Customer → Text, Email (message sheet)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:652",
+      "covered": "yes",
+      "by": "send_text; send_email"
+    },
+    {
+      "path": "Appointment → Customer → confirmed, how and when",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:668",
+      "covered": "partly",
+      "by": "how only; no time or who"
+    },
+    {
+      "path": "Appointment → Customer → Take back confirmation (web, phone per seat)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:680",
+      "covered": "partly",
+      "by": "update_appointment confirmed; one-customer visits only"
+    },
+    {
+      "path": "Appointment → Customer → not confirmed yet, asked at",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:700",
+      "covered": "partly",
+      "by": "confirmAskedAt not returned"
+    },
+    {
+      "path": "Appointment → Customer → Mark confirmed (web, phone per seat)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:712",
+      "covered": "partly",
+      "by": "update_appointment confirmed; one-customer visits only"
+    },
+    {
+      "path": "Appointment → Customer → can’t reach them warnings",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:724",
+      "covered": "yes",
+      "by": "get_appointment customers hearsBy"
+    },
+    {
+      "path": "Appointment → visit money: held, deposit due or paid (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/visit-money.tsx:215",
+      "covered": "partly",
+      "by": "customer_money; deposit not in get_appointment"
+    },
+    {
+      "path": "Appointment → deposit and job invoice links (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/visit-money.tsx:248",
+      "covered": "partly",
+      "by": "get_money_document by number; tie to visit not given"
+    },
+    {
+      "path": "Appointment → Invoice this visit",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:432",
+      "covered": "partly",
+      "by": "write_invoice; visit price not returned"
+    },
+    {
+      "path": "Appointment → Seats → X of Y taken",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:812",
+      "covered": "yes",
+      "by": "get_appointment seats"
+    },
+    {
+      "path": "Appointment → Seats → Add",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:794",
+      "covered": "yes",
+      "by": "manage_attendees add"
+    },
+    {
+      "path": "Appointment → Seats → attendee rows",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:823",
+      "covered": "yes",
+      "by": "get_appointment customers"
+    },
+    {
+      "path": "Appointment → Seats → Attended, No-show per person (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:848",
+      "covered": "partly",
+      "by": "do_attendee_set_attendance needs attendee id, not returned"
+    },
+    {
+      "path": "Appointment → Waitlist → entries",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:881",
+      "covered": "yes",
+      "by": "get_appointment waitlist; get_waitlist"
+    },
+    {
+      "path": "Appointment → Waitlist → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:913",
+      "covered": "yes",
+      "by": "manage_waitlist remove"
+    },
+    {
+      "path": "Appointment → Video call → Join call (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/video-call-block.tsx:99",
+      "covered": "person",
+      "by": "joining a call is the person’s"
+    },
+    {
+      "path": "Appointment → Video call → started, making the call",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/video-call-block.tsx:110",
+      "covered": "yes",
+      "by": "read_video_call_get"
+    },
+    {
+      "path": "Appointment → Video call → customer’s link and Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/video-call-block.tsx:121",
+      "covered": "partly",
+      "by": "doorKey only, no full link"
+    },
+    {
+      "path": "Appointment → Video call → who joined, more",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/video-call-block.tsx:146",
+      "covered": "yes",
+      "by": "read_video_call_get"
+    },
+    {
+      "path": "Appointment → Video call → nobody joined",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/video-call-block.tsx:167",
+      "covered": "yes",
+      "by": "read_video_call_get"
+    },
+    {
+      "path": "Appointment → Video call → chat log (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-chat-log.tsx:58",
+      "covered": "yes",
+      "by": "read_video_call_chat"
+    },
+    {
+      "path": "Appointment (phone) → call is recorded note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/calendar/meeting.tsx:121",
+      "covered": "no",
+      "by": "record flag not returned"
+    },
+    {
+      "path": "Appointment (phone) → link on its way to the customer",
+      "kind": "see",
+      "file": "apps/mobile/src/components/calendar/meeting.tsx:134",
+      "covered": "partly",
+      "by": "doorKey; sent state not returned"
+    },
+    {
+      "path": "Appointment → Webinar leads → counts",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/webinar-leads.tsx:74",
+      "covered": "yes",
+      "by": "read_video_call_leads"
+    },
+    {
+      "path": "Appointment → Webinar leads → lead rows",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/webinar-leads.tsx:80",
+      "covered": "yes",
+      "by": "read_video_call_leads"
+    },
+    {
+      "path": "Appointment → Webinar leads → Show all",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/webinar-leads.tsx:116",
+      "covered": "yes",
+      "by": "read_video_call_leads"
+    },
+    {
+      "path": "Appointment → Webinar leads → none yet, waiting",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/webinar-leads.tsx:127",
+      "covered": "yes",
+      "by": "read_video_call_leads"
+    },
+    {
+      "path": "Appointment → Zoom link",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:939",
+      "covered": "yes",
+      "by": "get_appointment where meetingUrl"
+    },
+    {
+      "path": "Appointment → Zoom link → Make link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:947",
+      "covered": "yes",
+      "by": "do_appointment_make_meeting_link"
+    },
+    {
+      "path": "Appointment → Zoom link → couldn’t make it",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:939",
+      "covered": "no",
+      "by": "meetingError not returned"
+    },
+    {
+      "path": "Appointment → After the call → summary and label",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/call-review.tsx:105",
+      "covered": "yes",
+      "by": "read_call_suggestion_list"
+    },
+    {
+      "path": "Appointment → After the call → open the task made",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/call-review.tsx:121",
+      "covered": "yes",
+      "by": "list_tasks"
+    },
+    {
+      "path": "Appointment → After the call → suggested change, task, message fields",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/call-review.tsx:130",
+      "covered": "yes",
+      "by": "do_call_suggestion_decide"
+    },
+    {
+      "path": "Appointment → After the call → Approve",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/call-review.tsx:177",
+      "covered": "yes",
+      "by": "do_call_suggestion_decide"
+    },
+    {
+      "path": "Appointment → After the call → Dismiss",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/call-review.tsx:184",
+      "covered": "yes",
+      "by": "do_call_suggestion_decide"
+    },
+    {
+      "path": "Appointment → Transcript (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:967",
+      "covered": "yes",
+      "by": "read_appointment_transcripts"
+    },
+    {
+      "path": "Appointment → Where (address, video, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:992",
+      "covered": "yes",
+      "by": "get_appointment where"
+    },
+    {
+      "path": "Appointment → Where → Directions (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1003",
+      "covered": "partly",
+      "by": "address given; no map link"
+    },
+    {
+      "path": "Appointment → People and equipment → people and roles",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1041",
+      "covered": "partly",
+      "by": "get_appointment with names only, no roles"
+    },
+    {
+      "path": "Appointment → People and equipment → equipment",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1054",
+      "covered": "no",
+      "by": "resources not returned"
+    },
+    {
+      "path": "Appointment → People and equipment → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1021",
+      "covered": "yes",
+      "by": "reschedule_appointment userIds"
+    },
+    {
+      "path": "Appointment → Reminders → this visit’s sent and due",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1060",
+      "covered": "partly",
+      "by": "calendar’s reminders readable; this visit’s not"
+    },
+    {
+      "path": "Appointment (phone) → Reminders the calendar sends",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:332",
+      "covered": "yes",
+      "by": "get_calendar_settings reminders"
+    },
+    {
+      "path": "Appointment → Also on this visit (extra services)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1096",
+      "covered": "no",
+      "by": "extraServices not returned"
+    },
+    {
+      "path": "Appointment → Job → status, cancelled (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/job-block.tsx:95",
+      "covered": "yes",
+      "by": "get_appointment job status"
+    },
+    {
+      "path": "Appointment → Job → On my way, Started, Waiting on parts, Job done",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/visit-job.tsx:73",
+      "covered": "yes",
+      "by": "update_job_status status"
+    },
+    {
+      "path": "Appointment → Job → arrival time (ETA)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/job-block.tsx:106",
+      "covered": "no",
+      "by": "etaAt not returned"
+    },
+    {
+      "path": "Appointment (phone) → Job → On my way with an ETA from here",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/visit-job.tsx:63",
+      "covered": "partly",
+      "by": "update_job_status has no origin, so no ETA"
+    },
+    {
+      "path": "Appointment → Job → note for the customer, Save note",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/job-block.tsx:112",
+      "covered": "yes",
+      "by": "update_job_status note; job noteForCustomer"
+    },
+    {
+      "path": "Appointment → Job → visits",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/job-block.tsx:137",
+      "covered": "partly",
+      "by": "visit count only"
+    },
+    {
+      "path": "Appointment → Job → add a visit",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/job-block.tsx:155",
+      "covered": "partly",
+      "by": "do_job_add_visit needs job id, not returned"
+    },
+    {
+      "path": "Appointment → Notes (web, phone)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1132",
+      "covered": "yes",
+      "by": "get_appointment notes; update_appointment notes"
+    },
+    {
+      "path": "Appointment → Reschedule",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1142",
+      "covered": "yes",
+      "by": "reschedule_appointment"
+    },
+    {
+      "path": "Appointment → Complete (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1152",
+      "covered": "yes",
+      "by": "update_appointment outcome done"
+    },
+    {
+      "path": "Appointment → No-show (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1163",
+      "covered": "yes",
+      "by": "update_appointment outcome no_show"
+    },
+    {
+      "path": "Appointment → Cancel (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1176",
+      "covered": "yes",
+      "by": "cancel_appointment"
+    },
+    {
+      "path": "Appointment → done or no-show instead",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1190",
+      "covered": "yes",
+      "by": "update_appointment outcome"
+    },
+    {
+      "path": "Appointment → was cancelled, stays in history",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1215",
+      "covered": "yes",
+      "by": "get_appointment status Cancelled"
+    },
+    {
+      "path": "Appointment → Delete to the Deleted bin, tell customers (web, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1266",
+      "covered": "yes",
+      "by": "move_to_bin kind appointment, tellCustomers"
+    },
+    {
+      "path": "Appointment (phone) → Check in",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:360",
+      "covered": "no",
+      "by": "safety.check_in has no tool"
+    },
+    {
+      "path": "Check in → Where, Check out by, Other time",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:120",
+      "covered": "no",
+      "by": "safety.check_in has no tool"
+    },
+    {
+      "path": "Check in → Share where I am",
+      "kind": "do",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:160",
+      "covered": "person",
+      "by": "the phone’s own location"
+    },
+    {
+      "path": "Check in → who gets told",
+      "kind": "see",
+      "file": "apps/mobile/src/components/safety/check-in-sheet.tsx:179",
+      "covered": "no",
+      "by": "no tool reads safety settings here"
+    },
+    {
+      "path": "New appointment (phone) → Who it’s for search and chips",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:188",
+      "covered": "yes",
+      "by": "search_customers; book_appointment personId"
+    },
+    {
+      "path": "New appointment (phone) → add a contact",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:421",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "New appointment (phone) → Calendar, What service",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:256",
+      "covered": "yes",
+      "by": "book_appointment calendarId, serviceId"
+    },
+    {
+      "path": "New appointment (phone) → What, as free text",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:280",
+      "covered": "partly",
+      "by": "no title input; update_appointment title after"
+    },
+    {
+      "path": "New appointment (phone) → Day, Time",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:291",
+      "covered": "yes",
+      "by": "book_appointment startsAt"
+    },
+    {
+      "path": "New appointment (phone) → Time zone chips, Somewhere else",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/zone-chips.tsx:43",
+      "covered": "partly",
+      "by": "startsAt offset only"
+    },
+    {
+      "path": "New appointment (phone) → With",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:325",
+      "covered": "yes",
+      "by": "book_appointment userIds"
+    },
+    {
+      "path": "New appointment (phone) → Tell switch and explanation",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:341",
+      "covered": "yes",
+      "by": "book_appointment notify"
+    },
+    {
+      "path": "New appointment (phone) → Ask for this time",
+      "kind": "do",
+      "file": "apps/mobile/src/components/calendar/new-appointment.tsx:359",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Customer page → Upcoming → appointment rows",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:19",
+      "covered": "yes",
+      "by": "list_appointments personId"
+    },
+    {
+      "path": "Customer page → Upcoming → Book",
+      "kind": "do",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:100",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Customer page → Upcoming → nothing coming up",
+      "kind": "see",
+      "file": "apps/web/src/components/calendar/upcoming-card.tsx:107",
+      "covered": "yes",
+      "by": "list_appointments personId"
+    },
+    {
+      "path": "My calendar → my zone chip",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:190",
+      "covered": "no",
+      "by": "own zone unreadable; my_calendar schedules null"
+    },
+    {
+      "path": "My calendar → Weekly hours by day",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:200",
+      "covered": "no",
+      "by": "get_settings my_calendar schedules always null"
+    },
+    {
+      "path": "My calendar → Weekly hours → day switch, start, end, add, remove, copy to all days",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/weekly-hours.tsx:85",
+      "covered": "yes",
+      "by": "update_my_hours set_hours weekly"
+    },
+    {
+      "path": "My calendar → Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:208",
+      "covered": "yes",
+      "by": "update_my_hours timeZone"
+    },
+    {
+      "path": "My calendar → no hours saved, 9 to 5 apply",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:233",
+      "covered": "no",
+      "by": "defaultHours unreadable"
+    },
+    {
+      "path": "My calendar → Undo, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:239",
+      "covered": "yes",
+      "by": "update_my_hours set_hours"
+    },
+    {
+      "path": "My calendar → Time off rows, none yet",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:276",
+      "covered": "no",
+      "by": "my_calendar schedules null"
+    },
+    {
+      "path": "My calendar → Add time off → All day, From, To, times, Note",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:407",
+      "covered": "yes",
+      "by": "update_my_hours add_time_off"
+    },
+    {
+      "path": "My calendar → remove time off",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:290",
+      "covered": "partly",
+      "by": "remove_time_off needs exceptionId, unreadable"
+    },
+    {
+      "path": "My calendar → a teammate’s hours and time off (owners, admins)",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx:28",
+      "covered": "no",
+      "by": "update_my_hours sets own hours only"
+    },
+    {
+      "path": "My calendar → connected or failed notes after signing in",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-calendar.tsx:36",
+      "covered": "person",
+      "by": "comes back from signing in"
+    },
+    {
+      "path": "My calendar → Calendar connection → not connected, teammate’s note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:129",
+      "covered": "yes",
+      "by": "get_settings my_calendar connectedCalendars"
+    },
+    {
+      "path": "My calendar → Calendar connection → Connect Google, Outlook",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:147",
+      "covered": "person",
+      "by": "connecting an account by signing in"
+    },
+    {
+      "path": "My calendar → Calendar connection → what syncs",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:173",
+      "covered": "yes",
+      "by": "settings_help"
+    },
+    {
+      "path": "My calendar → Calendar connection → Disconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:193",
+      "covered": "yes",
+      "by": "do_calendar_connection_disconnect"
+    },
+    {
+      "path": "My calendar → Calendar connection → Google Meet, Allow",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:214",
+      "covered": "person",
+      "by": "granted by signing in"
+    },
+    {
+      "path": "My calendar → Calendar connection → account, last synced",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:232",
+      "covered": "yes",
+      "by": "read_calendar_connection_list"
+    },
+    {
+      "path": "My calendar → Calendar connection → Sync now",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:250",
+      "covered": "yes",
+      "by": "do_calendar_connection_sync_now"
+    },
+    {
+      "path": "My calendar → Calendar connection → needs reconnecting, error",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:268",
+      "covered": "yes",
+      "by": "read_calendar_connection_list"
+    },
+    {
+      "path": "My calendar → Calendar connection → Reconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/calendar-connection-card.tsx:285",
+      "covered": "person",
+      "by": "connecting an account by signing in"
+    },
+    {
+      "path": "My calendar → Zoom → connected or not, not working",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/meeting-connection-card.tsx:186",
+      "covered": "yes",
+      "by": "get_settings my_calendar meetingAccounts"
+    },
+    {
+      "path": "My calendar → Zoom → Connect Zoom, Reconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/meeting-connection-card.tsx:142",
+      "covered": "person",
+      "by": "connecting an account by signing in"
+    },
+    {
+      "path": "My calendar → Zoom → Disconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/meeting-connection-card.tsx:166",
+      "covered": "yes",
+      "by": "do_meeting_connection_disconnect"
+    },
+    {
+      "path": "My calendar → Zoom → Check again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/meeting-connection-card.tsx:198",
+      "covered": "yes",
+      "by": "do_meeting_connection_check_settings"
+    },
+    {
+      "path": "My calendar → Zoom → settings to change in Zoom",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/meeting-connection-card.tsx:212",
+      "covered": "partly",
+      "by": "settingsProblems as codes only"
+    },
+    {
+      "path": "My calendar → Zoom for the coach → connected",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/zoom-coach-card.tsx:57",
+      "covered": "yes",
+      "by": "read_live_meeting_account_mine"
+    },
+    {
+      "path": "My calendar → Zoom for the coach → Disconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/zoom-coach-card.tsx:61",
+      "covered": "yes",
+      "by": "do_live_meeting_account_disconnect"
+    },
+    {
+      "path": "My calendar → Zoom for the coach → Connect Zoom",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/zoom-coach-card.tsx:75",
+      "covered": "person",
+      "by": "connecting an account by signing in"
+    },
+    {
+      "path": "Booking site → business page → header, call and text buttons, phone",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:80",
+      "covered": "yes",
+      "by": "get_settings booking site, business"
+    },
+    {
+      "path": "Booking site → business page → services",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:118",
+      "covered": "yes",
+      "by": "get_calendar_settings services"
+    },
+    {
+      "path": "Booking site → business page → Book links per calendar",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:138",
+      "covered": "partly",
+      "by": "get_settings calendars bookingPath, no domain"
+    },
+    {
+      "path": "Booking site → business page → hours, area",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:161",
+      "covered": "yes",
+      "by": "get_settings booking site; do_booking_site_set_page"
+    },
+    {
+      "path": "Booking site → Online booking is off",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/public-shell.tsx:169",
+      "covered": "yes",
+      "by": "get_calendar_settings; update_booking_site"
+    },
+    {
+      "path": "Booking link → pick a calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1029",
+      "covered": "yes",
+      "by": "find_availability calendarId"
+    },
+    {
+      "path": "Booking link → street address, ZIP, not covered",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1050",
+      "covered": "partly",
+      "by": "territories readable; no ZIP check tool"
+    },
+    {
+      "path": "Booking link → service, length",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1087",
+      "covered": "yes",
+      "by": "find_availability serviceId, durationMinutes"
+    },
+    {
+      "path": "Booking link → who",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1131",
+      "covered": "yes",
+      "by": "find_availability userId"
+    },
+    {
+      "path": "Booking link → where (place options, video notice)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1149",
+      "covered": "partly",
+      "by": "book_appointment has no location input"
+    },
+    {
+      "path": "Booking link → time picker: days, month, Earlier, Later, Morning, Afternoon, slots",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/time-picker.tsx:185",
+      "covered": "yes",
+      "by": "find_availability from/to"
+    },
+    {
+      "path": "Booking link → viewer’s time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/viewer-zone.tsx:74",
+      "covered": "partly",
+      "by": "times in calendar zone with offset"
+    },
+    {
+      "path": "Booking link → sessions with seats left",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1263",
+      "covered": "yes",
+      "by": "list_appointments seats"
+    },
+    {
+      "path": "Booking link → how many seats, Book N seats",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:205",
+      "covered": "yes",
+      "by": "manage_attendees add seats"
+    },
+    {
+      "path": "Booking link → no sessions, Show later dates",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1329",
+      "covered": "yes",
+      "by": "list_appointments from/to"
+    },
+    {
+      "path": "Booking link → no times, Join the waitlist and note",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:912",
+      "covered": "yes",
+      "by": "manage_waitlist add"
+    },
+    {
+      "path": "Booking link → waitlist form, on the waitlist",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1382",
+      "covered": "yes",
+      "by": "manage_waitlist add; get_waitlist"
+    },
+    {
+      "path": "Booking link → Name, Mobile, Email",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:949",
+      "covered": "yes",
+      "by": "create_customer"
+    },
+    {
+      "path": "Booking link → consent to texts, offers, calls",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:282",
+      "covered": "partly",
+      "by": "record_consent; the customer ticks it themselves"
+    },
+    {
+      "path": "Booking link → intake questions",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:397",
+      "covered": "no",
+      "by": "intake answers not readable or settable"
+    },
+    {
+      "path": "Booking link → deposit note",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1430",
+      "covered": "partly",
+      "by": "deposit settings readable; per booking not"
+    },
+    {
+      "path": "Booking link → that time was just taken",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1443",
+      "covered": "yes",
+      "by": "refusal words"
+    },
+    {
+      "path": "Booking link → address, notes",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1483",
+      "covered": "partly",
+      "by": "book_appointment notes; no location input"
+    },
+    {
+      "path": "Booking link → cancellation policy",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1518",
+      "covered": "yes",
+      "by": "get_calendar_settings"
+    },
+    {
+      "path": "Booking link → Book, Continue to payment",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1524",
+      "covered": "partly",
+      "by": "book_appointment books without a deposit or hold"
+    },
+    {
+      "path": "Booking link → human check",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/turnstile.tsx:1",
+      "covered": "person",
+      "by": "a check only a person passes"
+    },
+    {
+      "path": "Deposit → summary and amount, card held note",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:114",
+      "covered": "partly",
+      "by": "customer_money; hold not returned"
+    },
+    {
+      "path": "Deposit → How to pay (card, bank), Pay",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:245",
+      "covered": "person",
+      "by": "paying on a provider’s page"
+    },
+    {
+      "path": "Deposit → time went, other times, pick another",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:343",
+      "covered": "yes",
+      "by": "find_availability"
+    },
+    {
+      "path": "Held time page → held, expired, paid states",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/hold-page.tsx:102",
+      "covered": "no",
+      "by": "heldUntil not returned"
+    },
+    {
+      "path": "Booked → What, When, Where, Who, you’re booked",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:110",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Booked → deposit lines",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:34",
+      "covered": "partly",
+      "by": "customer_money; not per visit"
+    },
+    {
+      "path": "Booked → we told you by text or email",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:99",
+      "covered": "yes",
+      "by": "get_appointment customers hearsBy"
+    },
+    {
+      "path": "Booked → change policy",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:106",
+      "covered": "yes",
+      "by": "get_calendar_settings"
+    },
+    {
+      "path": "Booked → Add to calendar (Google, Outlook, Apple)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/add-to-calendar.tsx:58",
+      "covered": "person",
+      "by": "the customer’s own calendar"
+    },
+    {
+      "path": "Booked → link to change or cancel",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:163",
+      "covered": "no",
+      "by": "manage link not returned"
+    },
+    {
+      "path": "Manage booking → cancelled, passed, can’t change reasons",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:47",
+      "covered": "yes",
+      "by": "get_appointment status; refusal words"
+    },
+    {
+      "path": "Manage booking → Will this time work? yes, change, cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:370",
+      "covered": "partly",
+      "by": "update_appointment confirmed; one-customer only"
+    },
+    {
+      "path": "Manage booking → cancel with a reason",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:447",
+      "covered": "yes",
+      "by": "cancel_appointment reason"
+    },
+    {
+      "path": "Manage booking → pick a new time",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:486",
+      "covered": "yes",
+      "by": "find_availability; reschedule_appointment"
+    },
+    {
+      "path": "Manage booking → book again",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:279",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Waitlist offer → open, taken, expired, claim",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/waitlist-offer.tsx:303",
+      "covered": "partly",
+      "by": "book_appointment; the offer and its hold unreadable"
+    },
+    {
+      "path": "Join session page → open, early, over, cancelled, no link",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/join-session.tsx:63",
+      "covered": "yes",
+      "by": "get_appointment; read_video_call_get"
+    },
+    {
+      "path": "Join session page → join the call",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/join-session.tsx:90",
+      "covered": "person",
+      "by": "joining a call is the person’s"
+    },
+    {
+      "path": "Webinar door → title, when, open now, over",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:45",
+      "covered": "yes",
+      "by": "read_video_call_get; get_appointment"
+    },
+    {
+      "path": "Webinar door → sign-up form",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:214",
+      "covered": "partly",
+      "by": "manage_attendees add; no door link"
+    },
+    {
+      "path": "Webinar door → your own Join link",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:107",
+      "covered": "person",
+      "by": "joining a call is the person’s"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "cal-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Settings → Calendars, each calendar row's link with the copy icon; a calendar's Booking link card (Copy); Settings → Calendars → Booking site, the link with Copy",
+      "gap": "The screens copy the whole link: origin plus bookingPath or permanentPath. The Assistant only ever gets paths. get_settings calendars returns calendar.list as is (bookingPath '/book/<site>/<cal>', permanentPath '/book/c/<id>'). get_settings booking_site returns site.path '/book/<slug>'. get_calendar_settings returns no link at all. The context's calendar lines have no link either. Read tools are run without webUrl, and nothing the model reads names app.handsfreeos.com. The only full-URL logic (branded domain when verified and the certificate is ready, else webUrl) lives in send_form, a commit. With no branded domain the model can't know the address. With one, it has to build the URL itself.",
+      "fix": "Factor tools-forms.ts:381-388 into a helper publicOrigin(db, ctx, webUrl). Pass webUrl through createToolExecutor.run to settingsReadTools and calendarReadTools (tools-write.ts:886-899). In tools-settings.ts:130 give calendars a shape that adds bookingUrl and permanentUrl. In tools-settings.ts:134 give booking_site one that adds site.url. Add bookingUrl to get_calendar_settings' calendar block (tools-scheduling.ts:452). Put each calendar's bookingUrl on its context line (context.ts:291-316, prompt.ts:238-251).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-2",
+      "severity": "high",
+      "kind": "words",
+      "where": "The Assistant's own instructions on writing links, and its words about Your own web address",
+      "gap": "The SYSTEM prompt's only link example is https://handsfreeos.com/book/acme. handsfreeos.com is the marketing site (urls.site), and the app is https://app.handsfreeos.com (urls.app, WEB_URL). Several other places teach the same wrong default domain: settings-map.ts:141 ('instead of handsfreeos.com'), the manage_branded_domain description (core tools-setup.ts:244), and the worker's branded-domain cards and outcomes (tools-setup.ts:1747, 1797, 1842). update_booking_site shows 'Address: /book/<slug>' on its card and returns 'Your booking page is at /book/<slug>', paths only.",
+      "fix": "prompt.ts:49: use https://app.handsfreeos.com/book/acme as the example. Add one rule under 'How to write': a customer-facing link is copied whole from a tool result (bookingUrl, permanentUrl, site.url) and never built from a path or a guessed domain. Change 'handsfreeos.com' to 'app.handsfreeos.com' in settings-map.ts:141, core tools-setup.ts:244 and worker tools-setup.ts:1747, 1797 and 1842. In tools-settings-calendar.ts:939 and :968, show and return `${publicOrigin}/book/${slug}`; commit already has extra.webUrl (tools-write.ts:917), and prepare needs it passed.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-3",
+      "severity": "high",
+      "kind": "read",
+      "where": "Settings → My calendar: Weekly hours, Time zone, Time off (each row with its trash button), 'No hours saved yet, so weekdays 9 to 5 apply'",
+      "gap": "get_settings my_calendar runs schedule.team with no input. ScheduleTeamInput requires from and to, so the query fails validation every time. readArea catches the failure as null, and the answer says 'Not this person's to see: schedules. An owner or admin can.' So the person's own weekly hours, ownTimezone, defaultHours and time off (with ids) are never readable. Because no tool returns an exception id, remove_time_off can't be used. A set_hours change to one day ('Fridays off') has to resend the whole week blind. The worker already makes this call correctly in savedWeek (tools-settings-me.ts) and busyText (tools-calendar.ts). The area test only checks result.area, so the failure goes unnoticed.",
+      "fix": "tools-settings.ts:224: add input: (ctx) => ({ from: iso(now - 1 day), to: iso(now + 60 days), userIds: [ctx.actor.userId] }), as my-calendar/page.tsx:39-45 does. Add a shape returning { timezone, ownTimezone, weekly, defaultHours (as 'No hours saved yet, so weekdays 9 to 5 apply'), timeOff: [{ exceptionId: id, startsAt, endsAt, allDay, note, kind }] }. Describe update_my_hours.exceptionId (tools.ts:1121) as 'from get_settings (my_calendar) timeOff'. In assistant-settings.test.ts, assert that get_settings my_calendar has a non-null schedules and no note.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "Phone app: a visit's screen (Calendar → press an appointment), with Ask HandsFreeOS in its top bar",
+      "gap": "The phone opens a visit at /app/w/<ws>/calendar/<appointmentId>, and its Screen shows Ask HandsFreeOS (ask defaults to true). usePhonePageRecord passes that pathname to assistantPageRecord, which only knows calendar?appt=<id>. RECORD_ROUTES has no calendar prefix, so the record is null. The turn then says 'No customer, lead or appointment is on screen.'",
+      "fix": "In assistantPageRecord (words.ts:437), add a match for /^calendar\\/(UUID)(?:\\/|$)/i returning { type: 'appointment', id }. Add at(`calendar/${ID}`) to packages/core/test/assistant-words.test.ts:208-217. Update the doc comment at words.ts:422-427.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-5",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Calendar → an appointment: Reminders (Confirmation and each reminder: Scheduled, Sent by text or email at a time, Skipped and why, Replaced); Customer: 'Confirmed by text 4:12 PM', 'Confirmed by Priya', 'Not confirmed · Asked Tue 4:00 PM, no answer yet' or 'Not asked yet'",
+      "gap": "Real: get_appointment drops each attendee's reminders (ReminderState: confirmation and each reminder, scheduled, sent or skipped, the channel, dueAt, the reason) and confirmAskedAt. It also turns confirmedAt and confirmedBy into 'yes, by someone on the team', with no time and no name. So 'Did we ask Mike to confirm?', 'Why didn't her reminder go?' and 'When is it due?' can't be answered. Overstated: a reminder that was sent is a real message (ReminderEntry.messageId), so get_conversation can show it went out. Scheduled and skipped reminders, and why, are still invisible.",
+      "fix": "In get_appointment's customers (tools-scheduling.ts:400-409), add attendeeId: s.id; askedToConfirmAt: s.confirmAskedAt; confirmedAt; confirmedBy: s.confirmedBy?.fullName; and reminders: [confirmation, ...Object.entries(s.reminders.reminders)] mapped with core's reminderLabel and reminderWhy to { label, state, channel, at or dueAt, why }. Drop entries whose startsAt isn't the visit's current start, as the sheet does. A wider one-line alternative: add 'appointment.get' to SCREEN_READS so read_appointment_get returns AppointmentGetOutput whole.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-6",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Calendar and the visit sheet: status badge 'Not booked yet' and 'Waiting on a deposit. Held until 3:10 PM · 12 minutes left to pay it'; 'Happening now'; Scheduled / Completed",
+      "gap": "Real: statusWords and todays_schedule ignore heldUntil. A time held while the customer pays a deposit comes back as 'Booked' from list_appointments and get_appointment, and as 'scheduled' from todays_schedule and upcomingFor. Every screen says 'Not booked yet' or 'Waiting on a deposit… Held until 3:10 PM'. The words also differ from the badges: 'Booked' and 'Done' against 'Scheduled' and 'Completed'. Overstated: todays_schedule does return happeningNow, so 'Happening now' isn't lost there, only in list_appointments and get_appointment. update_appointment already refuses to confirm a held seat.",
+      "fix": "Replace statusWords (tools-scheduling.ts:180-190) with core's statusOf, holdOf and holdWords (calendar/agenda.ts:126-186), using the calendar's zone. Return status as the label ('Not booked yet', 'Happening now', 'Scheduled', 'Completed', 'No-show', 'Cancelled'), and add held: holdWords(...) when holdOf is non-null. Do the same in appointmentResult and todaysAppointments (tools-calendar.ts:197-206, 242-246).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-7",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Calendar → Team, Week, Day and Month: each person's hours ('8 AM–6 PM' or 'Off'), time off blocks with their note, 'Busy in Google Calendar'/'Busy'/'Busy in another business' blocks, 'No calendar linked', and the reconnect notice",
+      "gap": "No Assistant tool reads teammates' hours, time off with notes, or busy spans. schedule.team is not in SCREEN_READS. The only places it's read are get_settings my_calendar (self-only and broken, see cal-3), savedWeek (self) and busyText (one span, inside a booking card). list_team returns only names and roles, and find_availability only open slots. 'Who's off next week?' or 'Why is Priya blocked at 2?' can't be answered, though the Calendar's Team, Week and Day views show it to anyone with workspace.read.",
+      "fix": "Add 'schedule.team' to SCREEN_READS (screen-reads.ts). This makes read_schedule_team with from, to (62 days or less) and userIds. Overlap with own reads is allowed, as calendar_connection.list shows. A worker list_team_schedule shaped to { name, userId, hoursToday or weekly, timeOff [{ startsAt, endsAt, allDay, note }], busy, busyElsewhere, privateBusy, connection status } would read better.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-8",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Reschedule dialog (and drag or resize on the grid): Date, Start, Length, Time zone, the 'Tell Maria' tick box; 'Who's going?' (Change) with 'Tell Maria'",
+      "gap": "reschedule_appointment takes only appointmentId, startsAt and userIds. It can't change the length, though appointment.reschedule takes durationMinutes and the Move dialog has Length (and resize). It always sends notify: true to appointment.reschedule. It sends notify true to appointment.reassign when the time is unchanged, with no way to untick Tell. Changing only who goes needs startsAt resent, and the card always says the customer is told.",
+      "fix": "In tools.ts:1364-1371, add durationMinutes: minutes.optional() and tellCustomer: z.boolean().default(true). Make startsAt optional, with a refine that requires startsAt, durationMinutes or userIds. In tools-calendar.ts move() (:752-779), skip appointment.reschedule when neither startsAt nor durationMinutes is given. Pass durationMinutes, and notify: tellCustomer, to reschedule; pass reassign notify: tellCustomer && sameStart. Use tellRow(..., tellCustomer, ...) on the card (:804) and in same_time, comparing length too.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-9",
+      "severity": "medium",
+      "kind": "do",
+      "where": "New appointment: Location (the calendar's places, editable customer address), Time zone pick ('a customer's 2 PM Pacific'), Customer (optional)",
+      "gap": "Real: book_appointment has no timezone. A customer's '2 PM Pacific' books on the calendar's clock, and the confirmation and reminders tell it in the calendar's zone (appointment.create takes timezone, and manage_repeat_visits already has timeZone). personId is required, but the dialog books with no customer. There is no location at booking: only the customer's own address is filled, and only when the first place is customer_address. Overstated: the place and title can be changed after booking with update_appointment (location: Place, title). Even then, the confirmation has already gone out with the default place.",
+      "fix": "In tools.ts:1345-1361, add timeZone: timezone.optional() (described as in manage_repeat_visits), location: Place.optional() (import Place from tools-scheduling.ts:26), and make personId optional. In bookingInput (tools-calendar.ts:589-607), pass timezone: args.timeZone, and prefer args.location (mapped meetingLink→meetingUrl, as update_appointment does) over the customer address. When personId is missing, skip person.get and the Tell row (:612-616).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-10",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Members → ⋯ → Edit hours, and Settings → My calendar?user=… for a teammate: their Weekly hours, Time zone, Add time off, remove time off",
+      "gap": "Owners and admins (calendars.manage) set a teammate's weekly hours, time zone and time off from Members → ⋯ → Edit hours (my-calendar?user=…). schedule.set and time_off.add take ownerKind and ownerId, and the kernel allows it with calendars.manage. update_my_hours says 'Theirs alone', and the worker always acts on the asker. No other tool calls schedule.set, so 'Dale works 7 to 3 now' can't be done, while the settings map points people to the screen.",
+      "fix": "Add userId: uuid.optional().describe('A teammate (list_team); owners and admins only') to update_my_hours (tools.ts:1095-1125). In tools-settings-me.ts, when userId isn't ctx.actor.userId, pass ownerKind 'user' and ownerId to schedule.set and time_off.add. Have savedWeek read that user's schedule. Title the card with their name and change the outcome words ('Dale’s hours are saved'). Leave the permission check to the kernel (assertMayEditHours).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-11",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A group session's Seats: Attended and No-show beside each person (and the phone's same buttons)",
+      "gap": "do_attendee_set_attendance needs attendeeId (the seat id). get_appointment returns each customer's personId, name, status and seats, but not s.id, and no other read returns an attendee id. 'Mark Sam attended the class' can't run, though the Seats section has Attended and No-show beside each person.",
+      "fix": "In get_appointment's customers (tools-scheduling.ts:400), add attendeeId: s.id and joinedAt: s.joinedAt. Mention 'attendee ids for do_attendee_set_attendance' in get_appointment's description (core tools-scheduling.ts:58).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-12",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Visit sheet → Job: 'Visits in this job' (date, title, status) and 'Add another of their visits' (+ each other visit)",
+      "gap": "get_appointment's job returns only status, the customer note and a count of visits. It has no job id, no list of visits and no otherVisits (all in JobOut), and no etaAt. do_job_add_visit needs jobId and appointmentId, so 'add Tuesday's visit to this job' can't run, and 'what other visits are in this job?' can't be answered.",
+      "fix": "In tools-scheduling.ts:410-416, return job: { jobId: a.job.id, title, status, noteForCustomer, eta (etaAt), visits: a.job.visits.map(v => ({ appointmentId, when, title, status })), couldAdd: a.job.otherVisits.map(v => ({ appointmentId, when, title })) }.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-13",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Visit sheet: the deposit block (Deposit paid, Due after the visit, Open the invoice), the job invoice (Invoiced, Paid, Balance), and Invoice this visit",
+      "gap": "get_appointment drops priceCents and reads no money for the visit. The sheet reads money.for_record with recordType 'appointment': deposit paid and when, due after the visit, and the job invoice with its balance. customer_money reads only per person and lists only open invoices, so a paid deposit isn't there. write_invoice has no attendeeId or purpose, so it can't do Invoice this visit (a draft tied to the seat, 'balance' less the paid deposit). The sheet's billable check is !money.jobInvoice, so an Assistant-written invoice leaves Invoice this visit showing, and the visit can be billed twice.",
+      "fix": "Add 'money.for_record' to SCREEN_READS, or in get_appointment also query money.for_record { recordType: 'appointment', recordId } and return priceCents plus { deposit: depositWords(...), dueAfter: dueAfterCents(...), jobInvoice: jobInvoiceWords(...) } with core's helpers (visit-money.tsx:17-27). Add appointmentId to write_invoice (core tools-billing.ts:170-186). For a one-customer visit, the worker then sets attendeeId (seat id), leadId and purpose 'balance' when the deposit is paid ('standard' otherwise), with the line less the deposit, as invoiceThisVisit does.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-14",
+      "severity": "low",
+      "kind": "read",
+      "where": "Calendar page with no appointment open: the view (Day, Week, Month, Team, Resources), the date in the title, the Person picker, the calendar chips (all in the URL)",
+      "gap": "On /calendar with no ?appt, the page record is null. The view, date, Person and calendar chips in the URL never reach the turn, which says 'No customer, lead or appointment is on screen.' This is a design limit of the record-only page context, not wrong behaviour. The person can name the day or the teammate, and list_appointments and find_availability then answer. So it's lower than medium.",
+      "fix": "Extend PageRecord with an optional calendar view: in the web's usePageRecord (apps/web/src/lib/assistant/page-record.ts:14-20), send parseCalendarQuery's view, date and userId. Add a pageLines case (prompt.ts:190-212): 'On screen: the Calendar, Week of Nov 9–15, Dale Ortiz (user id …). “This day” or “this week” means that.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-15",
+      "severity": "medium",
+      "kind": "read",
+      "where": "Visit sheet: 'Booked online' / 'Booked by AI' chip, People and equipment (roles Lead/Crew/Host, each resource with 'N reserved'), 'Also on this visit' (extra services with length, price, 'added by the AI teammate'), the line under the time ('30 min travel before and after')",
+      "gap": "appointment.get has source, resources (with quantity), staff roles, extraServices (minutes, price, source), and bufferBefore and bufferAfter. get_appointment and its card return none of them, so 'Did the AI book this?', 'Which truck is on it?' and 'What else did they add?' go unanswered. Correction: createdBy isn't shown on the sheet, so it isn't part of the gap.",
+      "fix": "In get_appointment (tools-scheduling.ts:384-428), add bookedBy: sourceLabel(a.source) (or 'Booked online' or 'Booked by AI'), with: a.staff.map(s => ({ name, role: host→'Lead' or 'Host', crew→'Crew' })), equipment: a.resources.map(r => ({ name, quantity })), alsoOnThisVisit: a.extraServices.map(x => ({ name, minutes: x.durationMinutes, price: money(x.priceCents), byAi: x.source === 'ai_teammate' })), and buffers: { before, after } (marked travel when the calendar's travelMinutes applies).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-16",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A webinar date's Video call section: 'Link anyone can use' with Copy",
+      "gap": "For a webinar, the screen shows and copies `${window.location.origin}/live/<doorKey>`. read_video_call_get returns only the raw doorKey, and nothing in the Assistant maps it to /live/<key> or names the domain. do_webinar_schedule's output has only ids. get_appointment's where gives the meetingUrl or 'Video call'.",
+      "fix": "Shape video_call.get for the Assistant, or add to get_appointment when location.video is 'handsfree' and the call format is 'webinar', a doorUrl: `${webUrl}${webinarDoorPath(doorKey)}` (core meetings/video-calls.ts:89). webUrl must reach read tools (see cal-1). Describe it as 'Link anyone can use'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-17",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → My calendar: Video meetings (Zoom: Connect Zoom, Connected, Transcripts off, Disconnect), Time zone, Time off rows with remove, 'Extra open time' rows",
+      "gap": "Zoom is not mentioned in settings-map.ts, places-map.ts, the tool specs or the prompt. meeting_connection.connect is NEVER (only the person signs in), but there is no handover with steps, so 'how do I connect Zoom?' has no answer. The prompt's sign-in list (prompt.ts:34) names only Google, Outlook, Stripe and Square. my_calendar onScreen leaves out Time zone, Video meetings, and the connected state (Sync now, ⋯ → Disconnect, Allow Meet transcripts). canChange claims 'extra hours you are available', but update_my_hours always sends kind 'unavailable', and the screen only adds unavailable time; 'Extra open time' rows are only displayed. get_settings my_calendar does read meeting_connection.list, so the connection state is visible; only the words and the way there are missing.",
+      "fix": "settings-map.ts:990-1003: set onScreen to 'Weekly hours', 'Time zone', 'Time off: Add time off, and remove beside each', 'Calendar connection: Google or Outlook; once connected Sync now, ⋯ → Disconnect, Allow Meet transcripts', 'Video meetings: Connect Zoom; once connected Disconnect'. Set canChange to 'your working hours and the time zone they are in', 'add or remove time off', 'sync or disconnect your Google or Outlook calendar', 'disconnect Zoom', and drop 'extra hours you are available'. Add a CONNECT_ZOOM handover (steps: Open Settings → My calendar. In Video meetings, press Connect Zoom. Sign in to Zoom and allow HandsFreeOS.) to handovers. Add Zoom to the sign-in list in prompt.ts:34.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-18",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Phone app, a visit's screen: Check in (showing safety: where, planned end, who is told)",
+      "gap": "safety.check_in (risk 1, workspace.read, actors human) is in no tool, SCREEN_ACTIONS or NEVER entry. The Assistant can extend, check out of and resolve a check-in, but can't start one. It only tells people to press Check in on the phone. The coverage test misses this because it scans only '/v1/commands/<name>'. The phone runs offline commands through change('<name>', …), registered in apps/mobile/src/changes/commands.ts. Other phone-only commands also go unchecked and appear in no Assistant source, for example safety.where, safety.help, safety_contact.save and remove, appointment.still_going (a push button), call.connect_me and lead.record_answers.",
+      "fix": "Add 'safety.check_in': {} to SCREEN_ACTIONS (coverage.ts:149-152). The model gives place and plannedEndAt; the executor must supply id (a new uuid) because the input requires it. Pass appointmentId from the page's appointment record. If check-ins must carry the phone's location, add a NEVER_FOR_THE_ASSISTANT entry with that reason instead. In assistant-coverage.test.ts:47-54, also scan apps/mobile/src/changes/commands.ts for /^\\s*'([a-z_]+\\.[a-z_.]+)':\\s*command\\(/m, so phone-only commands must be covered or listed.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-19",
+      "severity": "low",
+      "kind": "words",
+      "where": "Settings → My calendar → Calendar connection when it needs reconnecting or isn't syncing: Reconnect (and Sync now); Calendar page notice 'Reconnect Google Calendar'; 'Allow Meet transcripts'",
+      "gap": "The CONNECT_CALENDAR steps only say 'In Calendar connection, press Google or Outlook.' Once a calendar has been connected, the card shows Needs reconnecting or Not syncing with Reconnect, or Sync now and Disconnect, so those buttons aren't there. Allow Meet transcripts isn't mentioned. get_settings my_calendar does return connectedCalendars with status, so the model can tell the state but has no steps for it.",
+      "fix": "Add to CONNECT_CALENDAR.steps (settings-map.ts:117-121), or as a RECONNECT_CALENDAR handover in my_calendar.handovers: 'If it says Needs reconnecting or Not syncing, press Reconnect beside it and sign in again.' and 'For Google Meet transcripts, press Allow Meet transcripts under your Google calendar.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-20",
+      "severity": "low",
+      "kind": "read",
+      "where": "Calendar page: a chip for every calendar; New appointment: Calendar list",
+      "gap": "calendarsFor keeps only the first 8 calendars and says nothing when it cuts. The prompt says 'the context lists each calendar', so with 9 or more the model treats the rest as missing.",
+      "fix": "Return the total from calendarsFor (context.ts:291-316). When items.length > 8, add a line under 'Calendars' in prompt.ts:236-251: 'The first 8 of N; get_settings (calendars) lists them all.' Change prompt.ts:22 to 'the context lists the calendars'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-21",
+      "severity": "low",
+      "kind": "read",
+      "where": "Calendar → Resources view: a column per room, truck or chair with its bookings; 'No staff' columns",
+      "gap": "list_appointments can't filter by resource (appointment.list takes resourceIds), and its rows don't say what each booking reserves. 'What's booked in Bay 2 tomorrow?' can't be answered, though the Calendar has a Resources view.",
+      "fix": "Add resourceId: uuid.optional().describe('Only bookings that reserve this room, truck or chair (get_settings resources)') to list_appointments (core tools-scheduling.ts:37-53). Pass it as resourceIds: [id] in the worker, and add equipment: a.resources.map(r => r.name) to each row (tools-scheduling.ts:338-351).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-22",
+      "severity": "low",
+      "kind": "words",
+      "where": "Calendar: New webinar button (and on the phone layout); a webinar's Video call section with 'Link anyone can use'",
+      "gap": "Webinars aren't in places-map, settings-map or the prompt. The Calendar's onScreen lists only 'New appointment, and Manage calendars'. 'Where do I schedule a webinar?' and 'Where is the webinar link?' can't be answered without guessing. The Assistant can schedule one itself (do_webinar_schedule), so only the way there is missing.",
+      "fix": "places-map.ts:243-247 Calendar onScreen: add 'New webinar (when HandsFreeOS video calls are on)'. Add these howTo lines: 'Schedule a webinar: Calendar, press New webinar, then pick the date and whether it repeats' and 'Share a webinar: Calendar, press its date, then under Video call press Copy beside Link anyone can use'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-23",
+      "severity": "low",
+      "kind": "words",
+      "where": "Visit sheet: per-seat Attended / No-show, Waitlist with Remove, Zoom link with Make link, After the call, Transcript",
+      "gap": "The 'An appointment' entry in places-map lists Seats only as 'Add'. It leaves out Attended and No-show beside each seat, Waitlist with Remove (the waitlist is only in canChange), the Zoom link section with Make link (and its error), After the call, and Transcript. 'How do I mark who came to the class?' and 'Where's the call transcript?' have no way there. The Assistant can do or read several of these (do_attendee_set_attendance, do_appointment_make_meeting_link, read_appointment_transcripts), so this is the words only.",
+      "fix": "places-map.ts:266-275 onScreen: change 'Seats, for group sessions: Add' to 'Seats, for group sessions: Add, and once it starts Attended or No-show beside each person'. Add 'Waitlist: Remove beside each', 'Zoom link: Make link, when the link didn’t make itself', and 'After the call and Transcript, for recorded calls'. Add matching howTo lines, such as 'Mark who came to a class: open it, press Attended or No-show beside each person under Seats'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-24",
+      "severity": "low",
+      "kind": "do",
+      "where": "Settings → Calendars → a calendar → More: Pause, Back to draft, Archive, Bring back as a draft; Resume",
+      "gap": "manage_calendar's actions are create, change, turn_on and turn_off (active or paused). The builder's More menu also has Back to draft, Archive and Bring back as a draft, all through calendar.set_status. The Assistant can't archive or restore a calendar, though settings-map.ts:361 tells people Archive is under More.",
+      "fix": "Extend manage_calendar.action (tools.ts:373-375) with 'archive', 'back_to_draft' and 'unarchive' (to draft). Map them in tools-settings-calendar.ts:256-300 to calendar.set_status with 'archived' or 'draft'. Give archive the screen's warning, 'It stops taking bookings and leaves the calendar. Its history stays.'",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

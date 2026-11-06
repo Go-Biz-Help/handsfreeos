@@ -200,7 +200,10 @@ export function Result({
       )}
     >
       <Icon as={icon} className={cn('size-4 shrink-0', text)} />
-      <Text className={cn('min-w-0 flex-1 text-[13px] leading-[18px]', text)}>{children}</Text>
+      {/* Selectable, so a link shown once after Confirm (a link asking for a video) can be copied. */}
+      <Text selectable className={cn('min-w-0 flex-1 text-[13px] leading-[18px]', text)}>
+        {children}
+      </Text>
       {action}
     </View>
   );

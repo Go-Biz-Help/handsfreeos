@@ -300,7 +300,10 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'problem_report.set_handled': {},
   'learned_way.set_removed': { warning: 'Set aside, no computer tries it again.' },
   'video_calls.set': {},
-  'founding.approve': { warning: 'A free seat goes on their business at once.' },
+  'founding.approve': {
+    warning:
+      'A free seat goes on their business at once. A paid one is held for them, and its claim link shows on this card once, after you confirm: copy it into an email to them.',
+  },
   'founding.decline': {},
   'founding.give': { warning: 'Their business is on the founding plan at once, with its credit.' },
   'founding.revoke': { warning: 'The seat is free for somebody else at once.' },

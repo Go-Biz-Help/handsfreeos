@@ -1,0 +1,2153 @@
+{
+  "area": "settings-calendars",
+  "title": "Settings: calendars, services, resources, territories and the booking site",
+  "checkedOn": "2026-11-06",
+  "files": {
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/[calendarId]/page.tsx": "934a5a7804cf",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx": "616f1f3e4d68",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/new/page.tsx": "1b37fdd5533a",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/page.tsx": "8092237794c5",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/resources/page.tsx": "1b12cf5f93c3",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/services/page.tsx": "4a39947c02a0",
+    "apps/web/src/app/app/w/[workspaceId]/settings/calendars/territories/page.tsx": "4022e3a92693",
+    "apps/web/src/components/calendar/zone-field.tsx": "bb70cbad3575",
+    "apps/web/src/components/calendars/address-input.tsx": "9a72d8346951",
+    "apps/web/src/components/calendars/area-map.tsx": "e71af06c083d",
+    "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
+    "apps/web/src/components/calendars/builder.tsx": "366917e10240",
+    "apps/web/src/components/calendars/calendars-list.tsx": "8897d35761c2",
+    "apps/web/src/components/calendars/chips.tsx": "e12df0c43d2b",
+    "apps/web/src/components/calendars/history-sheet.tsx": "84f5900a0942",
+    "apps/web/src/components/calendars/impact-dialog.tsx": "a4f8fffc6f1b",
+    "apps/web/src/components/calendars/modules.tsx": "44384e36854d",
+    "apps/web/src/components/calendars/preset-picker.tsx": "d94ea6b44ddb",
+    "apps/web/src/components/calendars/resources-page.tsx": "2be3dc659304",
+    "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
+    "apps/web/src/components/calendars/subnav.tsx": "06ee0e5186ec",
+    "apps/web/src/components/calendars/territories-page.tsx": "26ca9cad2de8",
+    "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
+    "apps/web/src/components/calendars/zip-map.tsx": "c5f9f09dbb84",
+    "apps/web/src/components/settings/my-calendar.tsx": "a22d9ea4da17",
+    "apps/web/src/components/workflows/calendar-automations.tsx": "a7fbdece9780",
+    "apps/web/src/components/workflows/publish.tsx": "a8f1ae2114f8"
+  },
+  "items": [
+    {
+      "path": "Settings → Calendars → tabs: Calendars, Services, Resources, Territories, Booking site",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/subnav.tsx:10",
+      "covered": "yes",
+      "by": "reads each directly: get_settings calendars, services, resources, territories, booking_site"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → heading and explanation (settings change without changing the link)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:41",
+      "covered": "partly",
+      "by": "get_settings calendars → what/where; link-stays rule said only on a restore card"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → New calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:47",
+      "covered": "yes",
+      "by": "manage_calendar action create"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → banner: no booking site → Set up the booking site",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:53",
+      "covered": "yes",
+      "by": "get_settings calendars → site null; update_booking_site sets it up"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → banner: online booking is off, links say not taking bookings",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:60",
+      "covered": "yes",
+      "by": "get_settings calendars → site.enabled"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → empty state: No calendars yet, New calendar",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:68",
+      "covered": "yes",
+      "by": "get_settings calendars → items empty; manage_calendar create"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → each calendar row: name (opens it), label chips",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:92",
+      "covered": "yes",
+      "by": "get_settings calendars → name, labels.tags; context calendars"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → each row: booking link (domain + path)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:101",
+      "covered": "partly",
+      "by": "get_settings calendars → bookingPath/permanentPath: path only, no domain"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → each row: Copy the link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:105",
+      "covered": "partly",
+      "by": "only the path (bookingPath) to give; no full link"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → each row: N in the next 7 days",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:116",
+      "covered": "yes",
+      "by": "get_settings calendars → upcomingCount"
+    },
+    {
+      "path": "Settings → Calendars → Calendars → each row: status (Active, Draft, Paused, Archived), archived last",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/calendars-list.tsx:118",
+      "covered": "partly",
+      "by": "get_settings calendars → status; archived calendars left out (no includeArchived)"
+    },
+    {
+      "path": "New calendar → breadcrumb: Settings, Calendars",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/calendars/new/page.tsx:32",
+      "covered": "yes",
+      "by": "reads the destination: get_settings calendars"
+    },
+    {
+      "path": "New calendar → How do you want this calendar to work? → each preset card: title, description, Fills in",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:265",
+      "covered": "no",
+      "by": "no tool lists the presets"
+    },
+    {
+      "path": "New calendar → pick a preset: Personal, Round Robin, Service, Group/Class, Event, Webinar (with video calls), Resource, Collective, Dispatch, Start from scratch",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:276",
+      "covered": "partly",
+      "by": "manage_calendar create has no preset (always scratch); seats, waitlist, ZIP set after; turns, sessions, travel can't"
+    },
+    {
+      "path": "New calendar → Who takes turns? → each teammate checkbox",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:311",
+      "covered": "partly",
+      "by": "manage_calendar teammates; round-robin assignment not set"
+    },
+    {
+      "path": "New calendar → Who goes with you? select, Nobody else yet hint",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:333",
+      "covered": "partly",
+      "by": "manage_calendar teammates; collective assignment not set"
+    },
+    {
+      "path": "New calendar → Which services? → each service checkbox; No services yet hint",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:354",
+      "covered": "yes",
+      "by": "manage_calendar create services; get_settings services"
+    },
+    {
+      "path": "New calendar → What does each booking reserve? → One you have / A new one",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:382",
+      "covered": "yes",
+      "by": "manage_resource create, then manage_calendar create resources"
+    },
+    {
+      "path": "New calendar → Resource → Which resource? select",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:436",
+      "covered": "yes",
+      "by": "manage_calendar create resources (ids from get_settings resources)"
+    },
+    {
+      "path": "New calendar → Resource → A new one: Resource name, Kind, How many",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:395",
+      "covered": "yes",
+      "by": "manage_resource create name, kind, quantity"
+    },
+    {
+      "path": "New calendar → Resource → hint: how many decides same-time bookings",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:450",
+      "covered": "yes",
+      "by": "manage_resource quantity: how many at once"
+    },
+    {
+      "path": "New calendar → Name (link made from it)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:464",
+      "covered": "yes",
+      "by": "manage_calendar create name (up to 80; screen 120)"
+    },
+    {
+      "path": "New calendar → It starts out as: labels preview",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:477",
+      "covered": "no",
+      "by": "no preview; labels only after create (get_settings calendars)"
+    },
+    {
+      "path": "New calendar → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:485",
+      "covered": "yes",
+      "by": "nothing is made until Confirm on the card"
+    },
+    {
+      "path": "New calendar → Create calendar (starts as a draft)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/preset-picker.tsx:491",
+      "covered": "yes",
+      "by": "manage_calendar create → calendar.create"
+    },
+    {
+      "path": "Calendar → breadcrumb: Settings, Calendars, name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:423",
+      "covered": "yes",
+      "by": "reads the destination: get_settings calendars"
+    },
+    {
+      "path": "Calendar → header: name",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:440",
+      "covered": "yes",
+      "by": "get_calendar_settings calendar.name"
+    },
+    {
+      "path": "Calendar → header: status badge",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:442",
+      "covered": "yes",
+      "by": "get_calendar_settings calendar.status"
+    },
+    {
+      "path": "Calendar → header: its own time zone chip",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:443",
+      "covered": "partly",
+      "by": "get_calendar_settings calendar.timeZone is the zone in use, not whether it's its own"
+    },
+    {
+      "path": "Calendar → header: Revision N · saved by X today at …",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:444",
+      "covered": "partly",
+      "by": "get_calendar_settings version; who and when of the current one not returned"
+    },
+    {
+      "path": "Calendar → Turn on (draft) / Resume (paused)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:451",
+      "covered": "yes",
+      "by": "manage_calendar action turn_on"
+    },
+    {
+      "path": "Calendar → History",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:460",
+      "covered": "partly",
+      "by": "get_calendar_settings earlierVersions (8 newest, current left out)"
+    },
+    {
+      "path": "Calendar → Preview booking page",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:464",
+      "covered": "partly",
+      "by": "get_settings calendars → bookingPath (path only)"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone…",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:486",
+      "covered": "partly",
+      "by": "manage_calendar name, description, timezone; no colour"
+    },
+    {
+      "path": "Calendar → More → Change link… (with a booking site)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:490",
+      "covered": "yes",
+      "by": "manage_calendar bookingLink → calendar.set_slug"
+    },
+    {
+      "path": "Calendar → More → Pause",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:494",
+      "covered": "yes",
+      "by": "manage_calendar action turn_off"
+    },
+    {
+      "path": "Calendar → More → Back to draft",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:497",
+      "covered": "no",
+      "by": "manage_calendar has no draft status"
+    },
+    {
+      "path": "Calendar → More → Bring back as a draft (archived)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:502",
+      "covered": "no",
+      "by": "no tool sets status draft"
+    },
+    {
+      "path": "Calendar → More → Archive (confirm: stops bookings, history stays)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:506",
+      "covered": "no",
+      "by": "manage_calendar only turn_on/turn_off; nothing archives a calendar"
+    },
+    {
+      "path": "Calendar → banner: someone saved while you were editing → Load their version",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:526",
+      "covered": "yes",
+      "by": "each tool reads the current revision before it saves"
+    },
+    {
+      "path": "Calendar → Settings on this calendar → each section: name, one-line summary (list, or phone select)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:557",
+      "covered": "partly",
+      "by": "no section summaries; parts in get_calendar_settings"
+    },
+    {
+      "path": "Calendar → Settings on this calendar → pick a section",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:561",
+      "covered": "partly",
+      "by": "get_calendar_settings reads only some sections"
+    },
+    {
+      "path": "Calendar → Settings on this calendar → section's red/amber check dot",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:583",
+      "covered": "partly",
+      "by": "get_calendar_settings needsFixing, not tied to a section"
+    },
+    {
+      "path": "Calendar → Team & assignment → each member: name, role, No longer on the team",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:283",
+      "covered": "yes",
+      "by": "get_settings calendars → memberIds; list_team names, roles"
+    },
+    {
+      "path": "Calendar → Team & assignment → each member: territories, or No territory yet (ZIP routing)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:293",
+      "covered": "yes",
+      "by": "get_settings territories → userIds"
+    },
+    {
+      "path": "Calendar → Team & assignment → No staff needed note",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:266",
+      "covered": "yes",
+      "by": "context calendars → assignment none"
+    },
+    {
+      "path": "Calendar → Team & assignment → each member: Must go (Collective)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:297",
+      "covered": "no",
+      "by": "no tool sets a member's required"
+    },
+    {
+      "path": "Calendar → Team & assignment → each member: Move up / Move down (First available)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:309",
+      "covered": "partly",
+      "by": "manage_calendar teammates in order; resets weights and Must go"
+    },
+    {
+      "path": "Calendar → Team & assignment → each member: Weight",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:335",
+      "covered": "no",
+      "by": "no tool reads or sets weight; manage_calendar resets it to 1"
+    },
+    {
+      "path": "Calendar → Team & assignment → each member: Take off this calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:346",
+      "covered": "partly",
+      "by": "manage_calendar teammates; booked visits kept only; resets others' weights"
+    },
+    {
+      "path": "Calendar → Team & assignment → Add a teammate menu (Everyone is on this calendar)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:360",
+      "covered": "partly",
+      "by": "manage_calendar teammates (list_team ids); resets weights and Must go"
+    },
+    {
+      "path": "Calendar → Team & assignment → N people",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:390",
+      "covered": "yes",
+      "by": "get_settings calendars → memberIds"
+    },
+    {
+      "path": "Calendar → Team & assignment → How a booking picks a person: Fixed, Customer's choice, Round robin, Weighted, First available, Collective, No staff needed",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:403",
+      "covered": "no",
+      "by": "no tool sets team.assignment (context shows the current one)"
+    },
+    {
+      "path": "Calendar → Team & assignment → People per booking",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:427",
+      "covered": "no",
+      "by": "no tool reads or sets team.crewSize"
+    },
+    {
+      "path": "Calendar → Team & assignment → how-it-picks sentence",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:435",
+      "covered": "partly",
+      "by": "context calendars → assignment; no sentence or crew size"
+    },
+    {
+      "path": "Calendar → Services & lengths → Services: Off / One service / Customer picks",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:468",
+      "covered": "partly",
+      "by": "manage_calendar services sets the mode by count only"
+    },
+    {
+      "path": "Calendar → Services & lengths → No services yet, Add services",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:482",
+      "covered": "yes",
+      "by": "get_settings services; manage_service create"
+    },
+    {
+      "path": "Calendar → Services & lengths → each service checkbox: name, (archived), lengths, Needs",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:509",
+      "covered": "yes",
+      "by": "manage_calendar services; details from get_settings services (resets per-service video)"
+    },
+    {
+      "path": "Calendar → Services & lengths → each picked service: online video link (same as place, none, Meet, Zoom, HandsFreeOS)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:540",
+      "covered": "no",
+      "by": "no tool reads or sets a service's video override"
+    },
+    {
+      "path": "Calendar → Services & lengths → each picked service: Record and transcribe",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:564",
+      "covered": "no",
+      "by": "no tool sets the record override"
+    },
+    {
+      "path": "Calendar → Services & lengths → Lengths: each length, Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:595",
+      "covered": "no",
+      "by": "no tool reads or sets durations.minutes"
+    },
+    {
+      "path": "Calendar → Services & lengths → Lengths: Add a length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:608",
+      "covered": "no",
+      "by": "no tool sets durations.minutes"
+    },
+    {
+      "path": "Calendar → Services & lengths → Customers pick the length",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:634",
+      "covered": "no",
+      "by": "no tool sets durations.customerChooses"
+    },
+    {
+      "path": "Calendar → Services & lengths → Start times every",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:641",
+      "covered": "no",
+      "by": "no tool sets durations.step"
+    },
+    {
+      "path": "Calendar → Availability → Open hours / Fixed sessions",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:674",
+      "covered": "partly",
+      "by": "get_calendar_settings calendar.books reads it; no tool sets schedule.mode"
+    },
+    {
+      "path": "Calendar → Availability → Calendar hours switch",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:700",
+      "covered": "partly",
+      "by": "manage_calendar hours (null = off); no tool reads it"
+    },
+    {
+      "path": "Calendar → Availability → weekly hours: each day on/off, start, end, + second stretch, remove, copy to all days",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/weekly-hours.tsx:382",
+      "covered": "partly",
+      "by": "manage_calendar hours (whole week); current hours unread"
+    },
+    {
+      "path": "Calendar → Availability → weekly hours: a day's problem message",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/weekly-hours.tsx:444",
+      "covered": "partly",
+      "by": "the tool refuses bad hours with its message"
+    },
+    {
+      "path": "Calendar → Capacity → Seats per time",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:730",
+      "covered": "yes",
+      "by": "get/update_calendar_settings capacity.seatsPerTime"
+    },
+    {
+      "path": "Calendar → Capacity → Largest group",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:740",
+      "covered": "yes",
+      "by": "update_calendar_settings capacity.largestGroup"
+    },
+    {
+      "path": "Calendar → Capacity → Show seats left",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:750",
+      "covered": "yes",
+      "by": "update_calendar_settings capacity.showSeatsLeft"
+    },
+    {
+      "path": "Calendar → Locations → No place set",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:781",
+      "covered": "yes",
+      "by": "get_calendar_settings locations.places"
+    },
+    {
+      "path": "Calendar → Locations → each place: kind (customer's address, business, online, phone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:787",
+      "covered": "yes",
+      "by": "update_calendar_settings locations.places kind"
+    },
+    {
+      "path": "Calendar → Locations → business place: Address",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:803",
+      "covered": "yes",
+      "by": "locations.places address"
+    },
+    {
+      "path": "Calendar → Locations → online place: video link (Use my link, Meet, Zoom, HandsFreeOS call)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:814",
+      "covered": "no",
+      "by": "places take no video choice; a new list resets it"
+    },
+    {
+      "path": "Calendar → Locations → online place: Record and transcribe calls (+ Zoom/Google needs)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:847",
+      "covered": "no",
+      "by": "no tool reads or sets record"
+    },
+    {
+      "path": "Calendar → Locations → online place: Meeting link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:882",
+      "covered": "yes",
+      "by": "locations.places meetingLink"
+    },
+    {
+      "path": "Calendar → Locations → place explanations (own link per visit, customer gives address, you call, no link makes a call)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:876",
+      "covered": "partly",
+      "by": "get_calendar_settings places kind/address/link; no video facts"
+    },
+    {
+      "path": "Calendar → Locations → each place: Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:904",
+      "covered": "yes",
+      "by": "locations.places (whole list)"
+    },
+    {
+      "path": "Calendar → Locations → Add a place",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:921",
+      "covered": "yes",
+      "by": "locations.places (whole list)"
+    },
+    {
+      "path": "Calendar → Locations → Customers pick the place",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:946",
+      "covered": "yes",
+      "by": "locations.customerPicks"
+    },
+    {
+      "path": "Calendar → Locations → Webinar → Attendees' video",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:994",
+      "covered": "no",
+      "by": "no tool reads or sets locations.webinar"
+    },
+    {
+      "path": "Calendar → Locations → Webinar → Starting now message",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1012",
+      "covered": "no",
+      "by": "no tool sets webinar.startingNow"
+    },
+    {
+      "path": "Calendar → Locations → Webinar → Missed follow-up",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1023",
+      "covered": "no",
+      "by": "no tool sets webinar.missedFollowUp"
+    },
+    {
+      "path": "Calendar → Locations → Webinar → Live poll (polls, A poll that's gone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1030",
+      "covered": "no",
+      "by": "no tool sets webinar.pollFormId (video_call.set_poll is a live call)"
+    },
+    {
+      "path": "Calendar → Locations → Webinar → poll AI mode",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1053",
+      "covered": "no",
+      "by": "no tool sets webinar.pollAi"
+    },
+    {
+      "path": "Calendar → Resources → each resource: name, (archived), N in all",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1094",
+      "covered": "no",
+      "by": "no tool reads a calendar's resources.required"
+    },
+    {
+      "path": "Calendar → Resources → each resource: How many",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1100",
+      "covered": "no",
+      "by": "manage_calendar takes no quantity"
+    },
+    {
+      "path": "Calendar → Resources → each resource: Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1109",
+      "covered": "no",
+      "by": "manage_calendar change patches resources.items, which the config drops"
+    },
+    {
+      "path": "Calendar → Resources → Add a resource",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1133",
+      "covered": "partly",
+      "by": "manage_calendar resources works on create only"
+    },
+    {
+      "path": "Calendar → Resources → No resources yet, Add one / Every resource is on this calendar",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1121",
+      "covered": "partly",
+      "by": "get_settings resources; the calendar's own list unread"
+    },
+    {
+      "path": "Calendar → Buffers & travel → Before each booking",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1197",
+      "covered": "partly",
+      "by": "manage_calendar bufferBeforeMinutes; no tool reads it"
+    },
+    {
+      "path": "Calendar → Buffers & travel → After each booking",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1205",
+      "covered": "partly",
+      "by": "manage_calendar bufferAfterMinutes; no tool reads it"
+    },
+    {
+      "path": "Calendar → Buffers & travel → Travel time",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1217",
+      "covered": "no",
+      "by": "no tool reads or sets buffers.travelMinutes"
+    },
+    {
+      "path": "Calendar → Territories → Route by ZIP code",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1246",
+      "covered": "yes",
+      "by": "get/update_calendar_settings zipRouting.on"
+    },
+    {
+      "path": "Calendar → Territories → each territory checkbox: name, N ZIP codes, people",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1259",
+      "covered": "yes",
+      "by": "zipRouting.territoryIds; get_settings territories"
+    },
+    {
+      "path": "Calendar → Territories → None ticked means every territory counts / No territories yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1284",
+      "covered": "yes",
+      "by": "update_calendar_settings: empty means every one; get_settings territories"
+    },
+    {
+      "path": "Calendar → Territories → Edit territories",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1291",
+      "covered": "yes",
+      "by": "manage_territory"
+    },
+    {
+      "path": "Calendar → Booking window → Minimum notice",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1319",
+      "covered": "partly",
+      "by": "manage_calendar minNoticeHours (whole hours; screen has 30 min); unread"
+    },
+    {
+      "path": "Calendar → Booking window → Books up to N days ahead",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1334",
+      "covered": "partly",
+      "by": "manage_calendar maxDaysAhead; no tool reads it"
+    },
+    {
+      "path": "Calendar → Booking window → Only between: from date, to date, Clear",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1348",
+      "covered": "no",
+      "by": "no tool reads or sets window.dateFrom/dateTo"
+    },
+    {
+      "path": "Calendar → Booking window → Daily limit per person",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1382",
+      "covered": "no",
+      "by": "no tool reads or sets window.dailyLimitPerPerson"
+    },
+    {
+      "path": "Calendar → Repeats → Staff can repeat visits",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1409",
+      "covered": "yes",
+      "by": "get/update_calendar_settings repeats.staffCanRepeat"
+    },
+    {
+      "path": "Calendar → Repeats → Customers can repeat",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1420",
+      "covered": "yes",
+      "by": "repeats.customersCanRepeat"
+    },
+    {
+      "path": "Calendar → Repeats → Most visits in a series",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1427",
+      "covered": "yes",
+      "by": "repeats.mostVisits"
+    },
+    {
+      "path": "Calendar → Waitlist → Waitlist on/off",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1570",
+      "covered": "yes",
+      "by": "get/update_calendar_settings waitlist.on"
+    },
+    {
+      "path": "Calendar → Waitlist → Offers last",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1581",
+      "covered": "yes",
+      "by": "waitlist.offersLastMinutes"
+    },
+    {
+      "path": "Calendar → Waitlist → Waiting for a time → each person: name, seats, window, offered until",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1523",
+      "covered": "yes",
+      "by": "get_waitlist → name, seats, waitingFor, offer"
+    },
+    {
+      "path": "Calendar → Waitlist → Waiting for a time → Remove (confirm)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1541",
+      "covered": "yes",
+      "by": "manage_waitlist remove entryId"
+    },
+    {
+      "path": "Calendar → Waitlist → Waiting for a time → Loading / Nobody is waiting for a time",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1519",
+      "covered": "yes",
+      "by": "get_waitlist note"
+    },
+    {
+      "path": "Calendar → Intake questions → each question: wording",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1626",
+      "covered": "yes",
+      "by": "get/update_calendar_settings questions label"
+    },
+    {
+      "path": "Calendar → Intake questions → each question: answer kind (Short, Long, Pick one, Pick any, Yes or no, Number, Date)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1632",
+      "covered": "yes",
+      "by": "questions kind"
+    },
+    {
+      "path": "Calendar → Intake questions → each question: Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1652",
+      "covered": "yes",
+      "by": "questions (whole list)"
+    },
+    {
+      "path": "Calendar → Intake questions → each question: choices",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1662",
+      "covered": "yes",
+      "by": "questions choices"
+    },
+    {
+      "path": "Calendar → Intake questions → each question: Required",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1676",
+      "covered": "yes",
+      "by": "questions required"
+    },
+    {
+      "path": "Calendar → Intake questions → Add a question",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1686",
+      "covered": "yes",
+      "by": "questions (whole list)"
+    },
+    {
+      "path": "Calendar → Cancel & reschedule rules → Customers can cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1721",
+      "covered": "yes",
+      "by": "get/update_calendar_settings changeRules.customersCanCancel"
+    },
+    {
+      "path": "Calendar → Cancel & reschedule rules → Cancel up to N hours before",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1728",
+      "covered": "yes",
+      "by": "changeRules.cancelUpToHoursBefore"
+    },
+    {
+      "path": "Calendar → Cancel & reschedule rules → Customers can reschedule",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1740",
+      "covered": "yes",
+      "by": "changeRules.customersCanReschedule"
+    },
+    {
+      "path": "Calendar → Cancel & reschedule rules → Reschedule up to N hours before",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1748",
+      "covered": "yes",
+      "by": "changeRules.rescheduleUpToHoursBefore"
+    },
+    {
+      "path": "Calendar → Cancel & reschedule rules → Most reschedules",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1760",
+      "covered": "yes",
+      "by": "changeRules.mostReschedules"
+    },
+    {
+      "path": "Calendar → Cancel & reschedule rules → Policy",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1777",
+      "covered": "yes",
+      "by": "changeRules.policyText"
+    },
+    {
+      "path": "Calendar → Notifications → Confirmation: Text, Email",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1822",
+      "covered": "yes",
+      "by": "get/update_calendar_settings notifications.confirmationByText/Email"
+    },
+    {
+      "path": "Calendar → Notifications → Reminders: each one's kind (The day before / Hours before)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1846",
+      "covered": "yes",
+      "by": "notifications.reminders kind"
+    },
+    {
+      "path": "Calendar → Notifications → Reminders: the day before, at time",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1867",
+      "covered": "yes",
+      "by": "notifications.reminders at"
+    },
+    {
+      "path": "Calendar → Notifications → Reminders: hours before, lead time",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1889",
+      "covered": "yes",
+      "by": "notifications.reminders minutes"
+    },
+    {
+      "path": "Calendar → Notifications → Reminders: Remove, Add a reminder",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1900",
+      "covered": "yes",
+      "by": "notifications.reminders (whole list)"
+    },
+    {
+      "path": "Calendar → Notifications → Send reminders by: Text, Email",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1929",
+      "covered": "yes",
+      "by": "notifications.remindersByText/Email"
+    },
+    {
+      "path": "Calendar → Notifications → Email the team about new bookings",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1951",
+      "covered": "yes",
+      "by": "notifications.emailTeamOnNewBooking"
+    },
+    {
+      "path": "Calendar → Notifications → quiet-hours explanation (late 2-hour text, email instead)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1957",
+      "covered": "partly",
+      "by": "get_settings texting quiet hours; the reminder rule isn't stated"
+    },
+    {
+      "path": "Calendar → Calendar connections → explanation: each person connects theirs in My calendar",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:1974",
+      "covered": "yes",
+      "by": "settings_help calendars (connect calendar handover)"
+    },
+    {
+      "path": "Calendar → Calendar connections → Check people's calendars",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1982",
+      "covered": "no",
+      "by": "no tool reads or sets integrations.checkStaffCalendars"
+    },
+    {
+      "path": "Calendar → Calendar connections → Add appointments to their calendars",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:1993",
+      "covered": "no",
+      "by": "no tool reads or sets integrations.writeEvents"
+    },
+    {
+      "path": "Calendar → CRM → Customer's owner",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2019",
+      "covered": "yes",
+      "by": "get/update_calendar_settings crm.customerOwner"
+    },
+    {
+      "path": "Calendar → CRM → Set the customer's owner",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2038",
+      "covered": "yes",
+      "by": "crm.setOwnerWhenNone"
+    },
+    {
+      "path": "Calendar → CRM → Create a lead",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2049",
+      "covered": "yes",
+      "by": "crm.createLead (null off)"
+    },
+    {
+      "path": "Calendar → CRM → Pipeline",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2066",
+      "covered": "yes",
+      "by": "crm.createLead.pipelineId"
+    },
+    {
+      "path": "Calendar → CRM → Stage",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2084",
+      "covered": "yes",
+      "by": "crm.createLead.stageId"
+    },
+    {
+      "path": "Calendar → Payments → no account connected callout, Connect one in Settings → Payments",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:2139",
+      "covered": "person",
+      "by": "connecting Stripe/Square is signing in (payment_connection.connect NEVER); settings_help"
+    },
+    {
+      "path": "Calendar → Payments → No payment / A deposit / The full price",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2148",
+      "covered": "yes",
+      "by": "get/update_calendar_settings payments.take"
+    },
+    {
+      "path": "Calendar → Payments → How much (full price): Deposits link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2179",
+      "covered": "yes",
+      "by": "get_settings payments; update_money_settings"
+    },
+    {
+      "path": "Calendar → Payments → How much: What the business asks for / A share / A set amount",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2234",
+      "covered": "yes",
+      "by": "payments.useBusinessDeposit / depositPercent / depositDollars"
+    },
+    {
+      "path": "Calendar → Payments → share of the price (%)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2200",
+      "covered": "yes",
+      "by": "payments.depositPercent"
+    },
+    {
+      "path": "Calendar → Payments → deposit amount (dollars)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2217",
+      "covered": "yes",
+      "by": "payments.depositDollars"
+    },
+    {
+      "path": "Calendar → Payments → what the business / this calendar asks for",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:2187",
+      "covered": "yes",
+      "by": "get_calendar_settings payments.deposit; get_settings payments"
+    },
+    {
+      "path": "Calendar → Payments → Change what the business asks for",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2196",
+      "covered": "yes",
+      "by": "update_money_settings depositKind/depositPercent/depositDollars"
+    },
+    {
+      "path": "Calendar → Payments → Paid into: The business's account or an account",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2270",
+      "covered": "yes",
+      "by": "payments.accountId (null = the business's)"
+    },
+    {
+      "path": "Calendar → Payments → Paid into: provider · name, the account everything is paid into",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:2260",
+      "covered": "yes",
+      "by": "get_settings payments accounts; get_calendar_settings accountId"
+    },
+    {
+      "path": "Calendar → Payments → Paid into: Connect one (no account)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/modules.tsx:2283",
+      "covered": "person",
+      "by": "signing in to Stripe/Square (payment_connection.connect NEVER)"
+    },
+    {
+      "path": "Calendar → Payments → card held, bank transfer refunded explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/modules.tsx:2288",
+      "covered": "partly",
+      "by": "card warns the time is held while they pay; hold/refund not said"
+    },
+    {
+      "path": "Calendar → Automations → each workflow: name (opens it), what starts it, every calendar",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:157",
+      "covered": "partly",
+      "by": "list_workflows → name, startsWhen; no calendar filter or every-calendar flag"
+    },
+    {
+      "path": "Calendar → Automations → each workflow: On / Paused switch",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:173",
+      "covered": "yes",
+      "by": "pause_workflow / resume_workflow"
+    },
+    {
+      "path": "Calendar → Automations → pause/resume dialog: what happens lines, Cancel, confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/publish.tsx:123",
+      "covered": "yes",
+      "by": "pause_workflow / resume_workflow card"
+    },
+    {
+      "path": "Calendar → Automations → each workflow: status badge (draft, archived)",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:184",
+      "covered": "yes",
+      "by": "list_workflows → status"
+    },
+    {
+      "path": "Calendar → Automations → each workflow: could text customers twice warning",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:188",
+      "covered": "partly",
+      "by": "get_workflow steps + get_calendar_settings reminders; no flag"
+    },
+    {
+      "path": "Calendar → Automations → No workflows start from this calendar yet",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:143",
+      "covered": "partly",
+      "by": "list_workflows has no calendar filter"
+    },
+    {
+      "path": "Calendar → Automations → Add automation: Follow-up and review request / No-show rebook",
+      "kind": "do",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:202",
+      "covered": "yes",
+      "by": "do_workflow_create from recipe, recipeKey, mapping (this calendar)"
+    },
+    {
+      "path": "Calendar → Automations → Reminders already go out from Notifications note",
+      "kind": "see",
+      "file": "apps/web/src/components/workflows/calendar-automations.tsx:226",
+      "covered": "partly",
+      "by": "get_calendar_settings reminders; the twice rule isn't stated"
+    },
+    {
+      "path": "Calendar → How this calendar works (sentences)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:624",
+      "covered": "partly",
+      "by": "no sentences; parts from get_calendar_settings and context"
+    },
+    {
+      "path": "Calendar → Labels",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:636",
+      "covered": "yes",
+      "by": "get_settings calendars → labels.tags"
+    },
+    {
+      "path": "Calendar → Booking link (full link)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:644",
+      "covered": "partly",
+      "by": "get_settings calendars → bookingPath/permanentPath (path only)"
+    },
+    {
+      "path": "Calendar → Booking link → Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:651",
+      "covered": "partly",
+      "by": "path only to give"
+    },
+    {
+      "path": "Calendar → Booking link → Open",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:659",
+      "covered": "partly",
+      "by": "path only to give"
+    },
+    {
+      "path": "Calendar → Booking link → note: stays the same on rename / never changes",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:669",
+      "covered": "partly",
+      "by": "said only on a restore card"
+    },
+    {
+      "path": "Calendar → Booking link → Set up the booking site (no site)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:675",
+      "covered": "yes",
+      "by": "update_booking_site"
+    },
+    {
+      "path": "Calendar → Booking link → Customers can book it online",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:684",
+      "covered": "yes",
+      "by": "manage_calendar listedOnBookingSite; get_calendar_settings onTheBookingSite"
+    },
+    {
+      "path": "Calendar → Things to check → count badge, each issue's message",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:695",
+      "covered": "yes",
+      "by": "get_calendar_settings needsFixing"
+    },
+    {
+      "path": "Calendar → Things to check → each issue: Blocks saving while active / Blocks turning it on / Doesn't block saving",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:758",
+      "covered": "partly",
+      "by": "needsFixing says Must fix / Worth a look only"
+    },
+    {
+      "path": "Calendar → Things to check → each issue: Fix buttons",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:768",
+      "covered": "partly",
+      "by": "no fix tool; same change via update_calendar_settings/manage_calendar where they reach"
+    },
+    {
+      "path": "Calendar → Things to check → Connect an account (payment unavailable)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:781",
+      "covered": "person",
+      "by": "signing in to Stripe/Square (payment_connection.connect NEVER)"
+    },
+    {
+      "path": "Calendar → Things to check → Done: fix, Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:714",
+      "covered": "partly",
+      "by": "no draft; update_calendar_settings restore puts back a version"
+    },
+    {
+      "path": "Calendar → Things to check → Nothing to fix. Ready to save.",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:797",
+      "covered": "yes",
+      "by": "get_calendar_settings needsFixing empty"
+    },
+    {
+      "path": "Calendar → save bar: Fix the red item / Unsaved changes / All changes saved · revision N",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:810",
+      "covered": "yes",
+      "by": "get_calendar_settings version; blocked card when it can't save"
+    },
+    {
+      "path": "Calendar → save bar: See history",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:816",
+      "covered": "partly",
+      "by": "get_calendar_settings earlierVersions"
+    },
+    {
+      "path": "Calendar → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:824",
+      "covered": "yes",
+      "by": "each change saves on Confirm (calendar.save)"
+    },
+    {
+      "path": "Calendar → Save → revision conflict, Reload",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:308",
+      "covered": "yes",
+      "by": "tools read the current revision each time"
+    },
+    {
+      "path": "Calendar → Save → toast: saved as revision N, N moved, N cancelled",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:288",
+      "covered": "partly",
+      "by": "outcome says changed; revision number not said"
+    },
+    {
+      "path": "Calendar → History → each save: number, Current badge",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/history-sheet.tsx:268",
+      "covered": "partly",
+      "by": "get_calendar_settings version, earlierVersions (8, current left out)"
+    },
+    {
+      "path": "Calendar → History → each save: what changed (3 lines, and N more)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/history-sheet.tsx:271",
+      "covered": "partly",
+      "by": "earlierVersions changes (first 4)"
+    },
+    {
+      "path": "Calendar → History → each save: when, who",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/history-sheet.tsx:279",
+      "covered": "partly",
+      "by": "earlierVersions saved, by; not for the current one"
+    },
+    {
+      "path": "Calendar → History → each save: Labels was → now",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/history-sheet.tsx:282",
+      "covered": "no",
+      "by": "revision labels not returned"
+    },
+    {
+      "path": "Calendar → History → Restore",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/history-sheet.tsx:288",
+      "covered": "yes",
+      "by": "update_calendar_settings action restore, revision"
+    },
+    {
+      "path": "Calendar → History → Restore → drops unsaved changes confirm",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:354",
+      "covered": "yes",
+      "by": "no draft; the card asks before restoring"
+    },
+    {
+      "path": "Calendar → Before you save → who was taken off",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:421",
+      "covered": "partly",
+      "by": "card notes booked visits stay; no names or counts"
+    },
+    {
+      "path": "Calendar → Before you save → each impact's warning",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:442",
+      "covered": "partly",
+      "by": "card: visits already booked keep their settings"
+    },
+    {
+      "path": "Calendar → Before you save → seats below booked note",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:445",
+      "covered": "partly",
+      "by": "card: visits already booked keep their settings"
+    },
+    {
+      "path": "Calendar → Before you save → Keep them with X / Keep the resource on them",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:460",
+      "covered": "yes",
+      "by": "manage_calendar/update_calendar_settings always keep"
+    },
+    {
+      "path": "Calendar → Before you save → Reassign them",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:460",
+      "covered": "no",
+      "by": "tools only answer keep"
+    },
+    {
+      "path": "Calendar → Before you save → Cancel them and tell the customers",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:460",
+      "covered": "no",
+      "by": "tools only answer keep"
+    },
+    {
+      "path": "Calendar → Before you save → Back / Save changes",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/impact-dialog.tsx:478",
+      "covered": "yes",
+      "by": "the card's Confirm"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:912",
+      "covered": "yes",
+      "by": "manage_calendar name (up to 80; screen 120); get_settings calendars name"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone → Description (optional)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:920",
+      "covered": "partly",
+      "by": "manage_calendar description: up to 500, can't clear; get_settings calendars"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone → Time zone (Same as the business, or a zone)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:941",
+      "covered": "partly",
+      "by": "manage_calendar timezone; can't set back to the business's"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone → time zone hint",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:935",
+      "covered": "partly",
+      "by": "get_calendar_settings calendar.timeZone; own vs business not told"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone → Color (8 swatches)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:959",
+      "covered": "no",
+      "by": "manage_calendar has no colour input (its description says colour); read via get_settings calendars"
+    },
+    {
+      "path": "Calendar → More → Name, color and time zone → Cancel / Apply",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:979",
+      "covered": "yes",
+      "by": "card Confirm saves at once"
+    },
+    {
+      "path": "Calendar → More → Change the link → Link name (with prefix)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:1042",
+      "covered": "yes",
+      "by": "manage_calendar bookingLink"
+    },
+    {
+      "path": "Calendar → More → Change the link → old link keeps working",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/builder.tsx:1039",
+      "covered": "no",
+      "by": "no card or tool says it"
+    },
+    {
+      "path": "Calendar → More → Change the link → Cancel / Change link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/builder.tsx:1055",
+      "covered": "yes",
+      "by": "the card's Confirm"
+    },
+    {
+      "path": "Services → New service",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:101",
+      "covered": "yes",
+      "by": "manage_service action create"
+    },
+    {
+      "path": "Services → empty state: No services yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/services-page.tsx:112",
+      "covered": "yes",
+      "by": "get_settings services"
+    },
+    {
+      "path": "Services → each row: Service, Lengths, Before / after, Who can do it, Needs",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/services-page.tsx:141",
+      "covered": "yes",
+      "by": "get_settings services → name, durations, buffers, staffUserIds, resources"
+    },
+    {
+      "path": "Services → click a row to change it",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:138",
+      "covered": "yes",
+      "by": "manage_service change, serviceId"
+    },
+    {
+      "path": "Services → editor → Close",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:277",
+      "covered": "yes",
+      "by": "nothing saved until Confirm"
+    },
+    {
+      "path": "Services → editor → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:283",
+      "covered": "yes",
+      "by": "manage_service name"
+    },
+    {
+      "path": "Services → editor → Price shown",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:292",
+      "covered": "yes",
+      "by": "manage_service priceDollars (null none)"
+    },
+    {
+      "path": "Services → editor → Repeats every N months (Maintenance due)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:305",
+      "covered": "yes",
+      "by": "manage_service repeatMonths"
+    },
+    {
+      "path": "Services → editor → Lengths customers can pick: each, Remove, Add a length; first is default",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:333",
+      "covered": "yes",
+      "by": "manage_service durationsMinutes"
+    },
+    {
+      "path": "Services → editor → Setup before",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:371",
+      "covered": "yes",
+      "by": "manage_service bufferBeforeMinutes"
+    },
+    {
+      "path": "Services → editor → Cleanup after",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:385",
+      "covered": "yes",
+      "by": "manage_service bufferAfterMinutes"
+    },
+    {
+      "path": "Services → editor → Who can do it: each person; nobody ticked means everyone",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:402",
+      "covered": "yes",
+      "by": "manage_service staffUserIds (empty = everyone)"
+    },
+    {
+      "path": "Services → editor → Needs: each resource × N, Remove, Add a resource",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:425",
+      "covered": "yes",
+      "by": "manage_service resources"
+    },
+    {
+      "path": "Services → editor → Only at certain hours + weekly hours (days, stretches, copy)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:474",
+      "covered": "yes",
+      "by": "manage_service hours; get_settings services hours"
+    },
+    {
+      "path": "Services → editor → Archive (confirm; calendars still offering it)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:492",
+      "covered": "yes",
+      "by": "manage_service action archive"
+    },
+    {
+      "path": "Services → editor → Save service",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/services-page.tsx:496",
+      "covered": "yes",
+      "by": "manage_service create/change"
+    },
+    {
+      "path": "Resources → New",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:84",
+      "covered": "yes",
+      "by": "manage_resource action create"
+    },
+    {
+      "path": "Resources → empty state: No resources yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:95",
+      "covered": "yes",
+      "by": "get_settings resources"
+    },
+    {
+      "path": "Resources → each row: name, kind, hours or any time, where it is",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:114",
+      "covered": "yes",
+      "by": "get_settings resources → name, kind, hours, location"
+    },
+    {
+      "path": "Resources → each row: How many",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:121",
+      "covered": "yes",
+      "by": "manage_resource quantity"
+    },
+    {
+      "path": "Resources → hint: how many can be booked at once",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:132",
+      "covered": "yes",
+      "by": "manage_resource quantity description"
+    },
+    {
+      "path": "Resources → open a resource",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:109",
+      "covered": "yes",
+      "by": "manage_resource change, resourceId"
+    },
+    {
+      "path": "Resources → dialog → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:222",
+      "covered": "yes",
+      "by": "manage_resource name"
+    },
+    {
+      "path": "Resources → dialog → Kind (Room, Equipment, Vehicle, Property, Chair, Other)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:232",
+      "covered": "yes",
+      "by": "manage_resource kind"
+    },
+    {
+      "path": "Resources → dialog → How many",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:250",
+      "covered": "yes",
+      "by": "manage_resource quantity"
+    },
+    {
+      "path": "Resources → dialog → Where it is (optional)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:253",
+      "covered": "yes",
+      "by": "manage_resource location"
+    },
+    {
+      "path": "Resources → dialog → Only at certain hours + weekly hours",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:263",
+      "covered": "yes",
+      "by": "manage_resource hours"
+    },
+    {
+      "path": "Resources → dialog → Archive (confirm; calendars still needing it)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:278",
+      "covered": "yes",
+      "by": "manage_resource action archive"
+    },
+    {
+      "path": "Resources → dialog → Cancel / Save or Add resource",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/resources-page.tsx:282",
+      "covered": "yes",
+      "by": "the card's Confirm"
+    },
+    {
+      "path": "Territories → New",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:99",
+      "covered": "yes",
+      "by": "manage_territory action create"
+    },
+    {
+      "path": "Territories → empty state: No territories yet",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:105",
+      "covered": "yes",
+      "by": "get_settings territories"
+    },
+    {
+      "path": "Territories → each territory: name, who covers it",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:118",
+      "covered": "yes",
+      "by": "get_settings territories → name, userIds"
+    },
+    {
+      "path": "Territories → each distance or drawn area: N miles from address / drawn, N corners",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:144",
+      "covered": "yes",
+      "by": "get_settings territories → radiusMiles, centerAddress, polygon"
+    },
+    {
+      "path": "Territories → each ZIP area: ZIP code chips",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:149",
+      "covered": "yes",
+      "by": "get_settings territories → postalCodes"
+    },
+    {
+      "path": "Territories → each ZIP chip: Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:155",
+      "covered": "yes",
+      "by": "manage_territory postalCodes (whole list)"
+    },
+    {
+      "path": "Territories → + ZIP → ZIP codes to add, Add",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:181",
+      "covered": "yes",
+      "by": "manage_territory postalCodes"
+    },
+    {
+      "path": "Territories → Edit (pencil)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:125",
+      "covered": "yes",
+      "by": "manage_territory action change"
+    },
+    {
+      "path": "Territories → Delete (confirm)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:133",
+      "covered": "yes",
+      "by": "manage_territory action delete"
+    },
+    {
+      "path": "Territories → footnote: a place can be in more than one area; outside every area is asked to call",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:214",
+      "covered": "no",
+      "by": "no tool or prompt says it"
+    },
+    {
+      "path": "Territories → dialog → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:396",
+      "covered": "yes",
+      "by": "manage_territory name"
+    },
+    {
+      "path": "Territories → dialog → Where it covers: ZIP codes / Distance / Draw on map",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:407",
+      "covered": "partly",
+      "by": "manage_territory postalCodes or milesFrom; no drawn area"
+    },
+    {
+      "path": "Territories → dialog → Distance and drawn areas need a Google Maps key",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:423",
+      "covered": "partly",
+      "by": "milesFrom refused when the worker's geocoder is off"
+    },
+    {
+      "path": "Territories → dialog → ZIP codes box, N ZIP codes",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:437",
+      "covered": "yes",
+      "by": "manage_territory postalCodes"
+    },
+    {
+      "path": "Territories → dialog → ZIP map: click a ZIP to add or remove it",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/zip-map.tsx:428",
+      "covered": "yes",
+      "by": "manage_territory postalCodes (by number)"
+    },
+    {
+      "path": "Territories → dialog → ZIP map notes: map didn't load, ZIP codes not on for this map, shades first 300",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/zip-map.tsx:496",
+      "covered": "no",
+      "by": "map only; no tool shows a map"
+    },
+    {
+      "path": "Territories → dialog → ZIP codes: Go to an address, Find (moves the map)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:374",
+      "covered": "no",
+      "by": "map view only; no tool"
+    },
+    {
+      "path": "Territories → dialog → Distance: Measured from (type, pick a suggestion, or Find)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/address-input.tsx:108",
+      "covered": "yes",
+      "by": "manage_territory milesFrom.address (worker geocodes it)"
+    },
+    {
+      "path": "Territories → dialog → Distance: How far, in miles",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:455",
+      "covered": "yes",
+      "by": "manage_territory milesFrom.miles"
+    },
+    {
+      "path": "Territories → dialog → Distance map: drag the pin",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/area-map.tsx:255",
+      "covered": "partly",
+      "by": "milesFrom takes an address, not a point"
+    },
+    {
+      "path": "Territories → dialog → Draw on map: click to add corners, drag a corner",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/area-map.tsx:220",
+      "covered": "no",
+      "by": "settings-map handover; manage_territory takes no corners"
+    },
+    {
+      "path": "Territories → dialog → Draw on map: N corners / add N more, Undo corner, Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:486",
+      "covered": "no",
+      "by": "no drawn-area tool"
+    },
+    {
+      "path": "Territories → dialog → area map didn't load",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/area-map.tsx:303",
+      "covered": "no",
+      "by": "map only"
+    },
+    {
+      "path": "Territories → dialog → Who covers it: each person",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:518",
+      "covered": "yes",
+      "by": "manage_territory userIds"
+    },
+    {
+      "path": "Territories → dialog → Cancel / Save or Add territory",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/territories-page.tsx:534",
+      "covered": "yes",
+      "by": "the card's Confirm"
+    },
+    {
+      "path": "Booking site → heading and explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:79",
+      "covered": "yes",
+      "by": "get_settings booking_site → what, where"
+    },
+    {
+      "path": "Booking site → its link (domain/book/name)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:88",
+      "covered": "partly",
+      "by": "get_settings booking_site → bookingSite.path (path only)"
+    },
+    {
+      "path": "Booking site → Copy the link",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:92",
+      "covered": "partly",
+      "by": "path only to give"
+    },
+    {
+      "path": "Booking site → Open the booking site",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:100",
+      "covered": "partly",
+      "by": "path only to give"
+    },
+    {
+      "path": "Booking site → Business name shown",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:112",
+      "covered": "yes",
+      "by": "update_booking_site name"
+    },
+    {
+      "path": "Booking site → Link name (domain/book/ prefix)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:120",
+      "covered": "yes",
+      "by": "update_booking_site slug"
+    },
+    {
+      "path": "Booking site → hint: changing the link name breaks shared links",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:124",
+      "covered": "no",
+      "by": "the card doesn't warn"
+    },
+    {
+      "path": "Booking site → Intro (optional)",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:138",
+      "covered": "yes",
+      "by": "update_booking_site intro (null clears)"
+    },
+    {
+      "path": "Booking site → Taking bookings online",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:157",
+      "covered": "yes",
+      "by": "update_booking_site enabled"
+    },
+    {
+      "path": "Booking site → Save / Set up booking site",
+      "kind": "do",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:165",
+      "covered": "yes",
+      "by": "update_booking_site → booking_site.update"
+    },
+    {
+      "path": "Booking site → field errors (name, link name taken)",
+      "kind": "see",
+      "file": "apps/web/src/components/calendars/booking-site-form.tsx:112",
+      "covered": "yes",
+      "by": "the tool's refusal, rule slug_taken"
+    },
+    {
+      "path": "Booking site → own web address note → Settings → Workspace",
+      "kind": "do",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/calendars/booking-site/page.tsx:36",
+      "covered": "yes",
+      "by": "manage_web_address add/remove; get_settings branded_domain"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "cal-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "Settings → Calendars: the link under each calendar and its copy icon; a calendar's Booking link card (Copy, Open, Preview booking page); Settings → Calendars → Booking site, the address at the top with Copy and Open",
+      "gap": "The screens show and copy origin + path, where origin is the business's own domain once it is serving, otherwise the app's own (https://app.handsfreeos.com). The Assistant only ever gets the path. get_settings (calendars) returns calendar.list's bookingPath (/book/<site>/<cal>) and permanentPath (/book/c/<id>). get_settings (booking_site) returns site.path (/book/<slug>). get_calendar_settings returns no link at all. Nothing in the prompt, the context or any tool gives the app origin. get_settings (branded_domain) gives the branded domain but not the fallback, so a business with no domain of its own can't get a correct full link.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts, give the `calendars` and `booking_site` AreaQuery entries a shape. It adds bookingUrl = origin + (bookingPath ?? permanentPath) to each calendar and url = origin + path to the site. Work out the origin the way send_form does (tools-forms.ts:382-388): branded_domain.get as the person, `https://<domain>` when status is verified and certificateReady, else webUrl. send_form uses that query, not publicOrigin. ReadTool (tools-read.ts:224) takes no webUrl, and createToolExecutor.run calls settingsReadTools with (db, ctx, args) only (tools-write.ts:886-893), so thread webUrl into that call. Add the same bookingUrl to get_calendar_settings' calendar block (apps/worker/src/assistant/tools-scheduling.ts:448-455); calendar.get already carries bookingPath and permanentPath.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-2",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Every booking link the Assistant writes",
+      "gap": "Real: the fixed prompt's link example is https://handsfreeos.com/book/acme (prompt.ts:49). That is the marketing site's domain, and it has no /book redirect (apps/site/next.config.ts:11-31 only redirects /login, /sign-in, /sign-up and /delete-account), so the link 404s. With only a path in hand (cal-1), the model completes it with that domain. Not a gap: \"instead of handsfreeos.com\" in settings-map.ts:141 and tools-setup.ts:244, and the manage_web_address card and outcome words at tools-setup.ts:1747/1797/1842. They repeat the screen's own wording in branded-domain-card.tsx:182,210,274,281, so changing only the Assistant's copy would make it describe the screen differently from what it says.",
+      "fix": "In apps/worker/src/assistant/prompt.ts:49, change the example to one that isn't a HandsFreeOS domain, e.g. https://go.acme.com/book/acme. Add one rule: \"Never build a link from a path. Give the full link a tool returned, or say where to copy it (Settings → Calendars, the copy icon beside it).\" Leave settings-map.ts:141 and tools-setup.ts as they are, unless branded-domain-card.tsx changes too.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-3",
+      "severity": "high",
+      "kind": "do",
+      "where": "Settings → Calendars → New calendar: How do you want this calendar to work? (Personal, Round Robin, Service, Group/Class, Event, Webinar, Resource, Collective, Dispatch, Start from scratch), Who takes turns?, Which services?, What does each booking reserve?",
+      "gap": "manage_calendar create calls calendar.create with no preset, so the schema default 'scratch' applies (schemas/calendar.ts:125). configFromPreset('scratch') puts nobody on the calendar, not even the creator (presets.ts:146-148), and adds services and resources only for the service and resource presets (presets.ts:167-176). The worker then strips teammates, services and resources from the follow-up patch (tools-settings-calendar.ts:318-323). The card lists \"Who works it\" and \"What it offers\", yet the calendar is created with nobody, no services and no resources. There is no preset input, so Group/Class, Event, Webinar, Collective and Dispatch calendars can't be made as the screen makes them. The outcome \"X is set up\" never says it starts as a draft, which the screen's toast does. The worker test at assistant-settings.test.ts:252-280 checks neither the members nor the status.",
+      "fix": "Add preset: z.enum(PRESET_KEYS) to manage_calendar (packages/core/src/assistant/tools.ts:373-399) and pass it to calendar.create. Stop stripping teammates, services and resources at tools-settings-calendar.ts:318-323. After create, save team.members, services {mode, items} and resources.required through saveConfig. End the outcome with \"It starts as a draft; say turn it on when it’s ready.\" Extend assistant-settings.test.ts:252 to assert memberIds contains owner.id and status is 'draft'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-4",
+      "severity": "high",
+      "kind": "do",
+      "where": "A calendar → Resources: Add a resource, the How many stepper, Remove",
+      "gap": "calendarPatch sends { resources: { items: [...] } }, but the config key is resources.required. mergePatch adds an `items` key, and CalendarConfig.parse strips it (a non-strict zod object), so resources.required never changes. The card shows \"What it needs: Truck 2\" and the outcome says \"is changed\", yet nothing is saved. On create the resources are also stripped and ignored (see cal-3). Quantity is always 1, while the screen has a How many stepper (1–100) for each resource.",
+      "fix": "In apps/worker/src/assistant/tools-settings-calendar.ts:155-157, patch { resources: { required: [{ resourceId, quantity }] } }. Change manage_calendar.resources (tools.ts:383) to [{ resourceId, quantity: z.int().min(1).max(100).default(1) }], as manage_service does at tools.ts:425-433. Dry-run the save for the card as update_calendar_settings does (tools-scheduling.ts:2097), so an unsaved change can't show as done.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-5",
+      "severity": "high",
+      "kind": "read",
+      "where": "A calendar's settings: Team & assignment, Services & lengths, Availability (Calendar hours), Resources, Buffers & travel, Booking window, Calendar connections, and the Online place's video link",
+      "gap": "Already covered: get_settings (calendars) returns calendar.list's memberIds, color, description, labels and timezone (queries/calendar.ts:126-145). The per-turn context gives, for the first 8 calendars only, the assignment mode, people's names and services (context.ts:298-316, prompt.ts:235-251). get_calendar_settings gives Open hours/Fixed sessions as 'books'. Really missing in every tool: crew size, each member's weight, order and must-go, the services mode, lengths, customer-picks-length and start-time step, calendar hours, buffers and travel time, minimum notice, days ahead, the only-between dates, the daily limit, the resources it needs and how many, the two calendar-connection switches, each Online place's video provider and recording, and whether the time zone is its own or the business's (ownTimezone). manage_calendar says \"Read it with get_settings first\", but that read holds none of these.",
+      "fix": "In get_calendar_settings (apps/worker/src/assistant/tools-scheduling.ts:434-551), return c.team {assignment, crewSize, members [{userId, name, weight, priority, mustGo: required}]}, c.services {mode, items [{serviceId, name, overrides}]}, c.durations {minutes, customerPicks, startEvery: step}, c.schedule.hours (as hoursLine), c.buffers {before, after, travelMinutes}, c.window {minNoticeMinutes, maxDaysAhead, dateFrom, dateTo, dailyLimitPerPerson}, c.resources.required with names, c.integrations {checkStaffCalendars, writeEvents}, video and record on each place, and calendar.ownTimezone. In tools.ts:372, change manage_calendar's description to \"Read it with get_calendar_settings first\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-6",
+      "severity": "high",
+      "kind": "do",
+      "where": "A calendar → Team & assignment: How a booking picks a person (Fixed person, Customer’s choice, Round robin, Weighted round robin, First available, Collective, No staff needed), People per booking, Weight, Move up/down, Must go",
+      "gap": "No tool sets team.assignment (the 7 modes), team.crewSize, a member's weight, the First-available priority, or the Collective required (Must go) flag. manage_calendar takes only teammate ids, and update_calendar_settings has no team section. \"Make Estimates round robin\" and \"send two techs per job\" can't be done. Neither can the fixes Switch to fixed person, Set crew to N, Clear weights or Switch to weighted (rules.ts:125,158,173,178,524).",
+      "fix": "Add team {assignment: AssignmentMode, peoplePerBooking: 1–10, members: [{userId, weight 1–100, mustGo}] in order} to update_calendar_settings (packages/core/src/assistant/tools-scheduling.ts:213). In settingsPatch (apps/worker/src/assistant/tools-scheduling.ts:1814), map it to team.assignment, crewSize and members [{userId, weight, priority from list order, required: mustGo}], merging by userId with config.team.members so unspecified fields keep their values. The existing dry-run diff card already shows the change.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-7",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A calendar → Services & lengths: Services (Off / One service / Customer picks), Lengths, Customers pick the length, Start times every",
+      "gap": "durations.minutes, durations.customerChooses and durations.step can't be set by any tool. manage_service sets a service's own lengths, but not the calendar's. The services mode (Off, One service, Customer picks) is only inferred from how many ids are passed (tools-settings-calendar.ts:152), so \"keep both services but always book the first\", or Off with services listed, can't be chosen. The fixes Keep N hr and Shorten to… (rules.ts:253,612) can't be applied.",
+      "fix": "Add lengths {minutes: array of 5–720 (1–6), customerPicks: boolean, startEvery: int 5–240, multiple of 5} and servicesMode: enum(none, one, choice) to update_calendar_settings. Map them in settingsPatch to durations.minutes, durations.customerChooses, durations.step and services.mode.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-8",
+      "severity": "high",
+      "kind": "do",
+      "where": "A calendar → Locations, an Online place: Use my link / Make a Google Meet link / Make a Zoom link / HandsFreeOS video call, and Record and transcribe calls; Services & lengths, each service's Online: … picker and Record and transcribe",
+      "gap": "Place has only kind, address and meetingLink (core tools-scheduling.ts:26-32), so the Assistant can't choose Use my link, Google Meet, Zoom or HandsFreeOS video, or recording. settingsPatch rebuilds every option from kind, address and meetingUrl only (worker tools-scheduling.ts:1831-1837). Arrays replace (config.ts:476-485) and defaults fill in video:'none' and record:false. So re-sending the places to add Phone silently turns an existing Zoom or Meet place back to no video and no recording. The card's diff shows only \"Locations: video call → video call, phone\" (calendar/diff.ts:115-120), so the person can't see it. The per-service Online video and recording override is unreachable, and get_calendar_settings shows neither field. Raised to high because a change nobody asked for breaks future bookings' video links without warning.",
+      "fix": "Add video: VideoProvider (none, google_meet, zoom, handsfree) and record: boolean to Place in packages/core/src/assistant/tools-scheduling.ts:26. In settingsPatch (apps/worker/src/assistant/tools-scheduling.ts:1831-1837), carry over the existing option's video, record and meetingUrl when the kind matches and they aren't given. Return video and record per place in get_calendar_settings (:466-472). Add per-service {serviceId, video, record} overrides, merged into services.items[].overrides.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-9",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A calendar → Buffers & travel: Travel time; Booking window: Minimum notice (30 min), Only between (from, to, Clear), Daily limit per person",
+      "gap": "manage_calendar takes minNoticeHours as a whole number of hours, so the screen's 30 min can't be set. No tool sets buffers.travelMinutes, window.dateFrom/dateTo or window.dailyLimitPerPerson, and get_calendar_settings doesn't show them. The fixes Set travel to 0 (rules.ts:283) and Clear the date range (rules.ts:656) can't be applied.",
+      "fix": "In packages/core/src/assistant/tools.ts:387-390, add travelMinutes (0–240), bookOnlyFrom and bookOnlyTo (nullable YYYY-MM-DD), dailyLimitPerPerson (nullable 1–50), and replace minNoticeHours with minNoticeMinutes (0–129600), or allow halves. Map them in calendarPatch (tools-settings-calendar.ts:160-170) to buffers.travelMinutes, window.dateFrom, window.dateTo, window.dailyLimitPerPerson and window.minNoticeMinutes.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-10",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A calendar → Availability: Open hours / Fixed sessions",
+      "gap": "schedule.mode is readable (get_calendar_settings 'books'), but no tool changes it, so a calendar can't be switched between Open hours and Fixed sessions.",
+      "fix": "Add books: enum(open_hours, fixed_sessions) to update_calendar_settings (core tools-scheduling.ts:213), mapped in settingsPatch to schedule.mode 'hours' or 'sessions'. The dry-run card already shows \"open hours → fixed sessions\" (diff.ts:107-111).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-11",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A calendar → Calendar connections: Check people’s calendars, Add appointments to their calendars",
+      "gap": "No tool reads or changes integrations.checkStaffCalendars (Check people’s calendars) or integrations.writeEvents (Add appointments to their calendars). \"Stop putting bookings on people’s Google calendars\" can't be done.",
+      "fix": "Add calendarConnections {checkPeoplesCalendars, addToTheirCalendars} to update_calendar_settings, mapped to integrations.checkStaffCalendars and integrations.writeEvents. Return both in get_calendar_settings.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-12",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A calendar → More: Back to draft, Archive (with its confirm), Bring back as a draft",
+      "gap": "manage_calendar's actions are create, change, turn_on (active) and turn_off (paused) only. calendar.set_status is risk 1 and also takes draft and archived, and archiving can be undone (Bring back as a draft), yet the Assistant can't archive a calendar, put it back to draft, or bring an archived one back. The settings-map howTo sends people to More for Pause and Archive, but canChange says only \"turn it on or off\".",
+      "fix": "Add archive and to_draft to manage_calendar.action (tools.ts:374-376), mapped in tools-settings-calendar.ts:256-302 to calendar.set_status 'archived' or 'draft'. For archive, use the screen's words on the card: \"It stops taking bookings and leaves the calendar. Its history stays.\" Add \"archive it, or put it back as a draft\" to settings-map.ts:340.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-13",
+      "severity": "medium",
+      "kind": "do",
+      "where": "Before you save (impact review): Keep them with …, Reassign them, Cancel them and tell the customers",
+      "gap": "Both calendar save paths answer every impact with 'keep': saveConfig (tools-settings-calendar.ts:376-387) and keepingBooked (tools-scheduling.ts:1979-1990). The screen's impact review also offers Reassign them and Cancel them and tell the customers (IMPACT_DECISIONS = keep, reassign, cancel_and_notify). \"Take Dale off Estimates and give his visits to someone else\" can't be done in one step as the screen does it. The screenRef line numbers are wrong: impact-dialog.tsx is 143 lines, and the options are at :20-45 and :100-120.",
+      "fix": "Add upcomingVisits: enum(keep, reassign, cancel_and_notify), default keep, to manage_calendar and update_calendar_settings. For each impact, pass it as the decision when impact.decisions includes it, else keep. Resource impacts offer no reassign. Show it on the card, e.g. \"Dale’s 3 visits: reassigned\". calendar.save is risk 2, so it already waits for Confirm.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-14",
+      "severity": "high",
+      "kind": "do",
+      "where": "A calendar → Team & assignment (Weight, order, Must go) and Services & lengths (each service's own Online video and recording)",
+      "gap": "Changing who works a calendar sends team.members as bare {userId}. Arrays replace, so everyone kept on it goes back to weight 1, priority 0 and required false, losing weighted shares, First-available order and Must go. Changing what it offers sends services.items as bare {serviceId}, so each service's overrides (its own lengths, buffers, seats, people, video, recording) are wiped. manage_calendar doesn't dry-run, so the card can't show this. Raised to high because it silently loses settings the person didn't ask to change.",
+      "fix": "In calendarPatch (apps/worker/src/assistant/tools-settings-calendar.ts:147-154), read the calendar first and merge by id: keep config.team.members' {weight, priority, required} and config.services.items' overrides for ids that stay; new ids get defaults. Alternatively offer addTeammates/removeTeammates and addServices/removeServices, and dry-run the save for the card.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-15",
+      "severity": "medium",
+      "kind": "words",
+      "where": "A calendar → More → Name, color and time zone…: Name, Description (optional), Time zone (Same as the business), Color",
+      "gap": "manage_calendar's description and the settings map both say it changes the calendar's colour, but there is no colour input, so it can't. timezone goes through str() and the schema isn't nullable, so a calendar can't be put back to Same as the business (null). description is text(500) with min 1, read through str(), so it can't be cleared. Limits are name 80 and description 500, where calendar.save allows 120 and 2000. The description isn't shown on the card either.",
+      "fix": "In packages/core/src/assistant/tools.ts:376-380: name text(120); description z.string().trim().max(2000).nullable() (null clears); timezone nullable (null = same as the business); add color (hex like #2563eb, or the builder's swatch names). Pass them through in tools-settings-calendar.ts:338-342 and on create, and show colour and description on the card. Until then, drop \"colour\" from tools.ts:372 and settings-map.ts:336.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-16",
+      "severity": "medium",
+      "kind": "read",
+      "where": "A calendar → Things to check: each issue's Fix buttons (Switch to fixed person, Set crew to N, Set travel to 0, Keep 1 hr, Clear the date range, Add Dale, Remove …), Blocks saving while active / Blocks turning it on",
+      "gap": "Covered: needsFixing does say error vs warning (\"Must fix\" / \"Worth a look\"), and some fixes can be done with existing fields: Make it private (listedOnBookingSite), Turn off routing, Turn off customer repeats, Turn off payment, Widen hours (hours null), Raise to N days (maxDaysAhead), Set party size (capacity), Turn off lead creation. Missing: the fixes the screen offers for each issue (ids and labels), and what the issue blocks (\"Blocks saving while active\" / \"Blocks turning it on\"). Many fixes patch fields no tool can set: Switch to fixed person or weighted, Set crew, Clear weights, Set travel to 0, Keep N hr, Shorten to…, Clear the date range, and a resource's Set to N.",
+      "fix": "In get_calendar_settings (apps/worker/src/assistant/tools-scheduling.ts:538-540), return each issue as {code, severity, message, blocks: 'saving' when active, else 'turning it on', fixes: [{id, label}]} from calendar.issues. Add action 'apply_fix' {code, fixId} to update_calendar_settings. It re-runs validateCalendar, applies that fix's patch through the existing dry-run card, and refuses with \"That fix isn’t offered any more\" when the issue is gone.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-17",
+      "severity": "low",
+      "kind": "do",
+      "where": "Settings → Calendars → Territories: the × on a ZIP chip, and + ZIP with Add",
+      "gap": "The Assistant can already add or remove a ZIP code: get_settings (territories) returns each territory's full postalCodes list (queries/calendar.ts:1039), and manage_territory takes the whole new list. The real gap is reliability only. Adding one ZIP to a 300-ZIP territory means re-sending all 300, and the card shows only the first 5 and a count (zipWords, tools-settings-calendar.ts:709-714), so a dropped code is easy to miss.",
+      "fix": "Add addPostalCodes and removePostalCodes (5-digit arrays) to manage_territory (tools.ts:478-487). Merge them with current.postalCodes in territoryChange (tools-settings-calendar.ts:765-781). On the card, name the codes added and removed (\"Adds 75204; removes 75201\") instead of the first five. Keep postalCodes for replacing the list.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-18",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Settings → Calendars → Booking site (the address at the top); a calendar → More → Change link…",
+      "gap": "update_booking_site's card shows \"Address: /book/acme\" and its outcome says \"Your booking page is at /book/acme\": a path, not a link. When it changes the slug, the card doesn't warn what the screen's hint says: \"Changing it later breaks links you’ve shared.\" booking_site.update keeps no alias. manage_calendar's bookingLink shows only the slug, and its outcome neither gives the new link nor says \"The old link keeps working\", as the screen does. The description says it changes \"its web address\", which reads like the domain (Your own web address, under Settings → Workspace), but it changes only the link name.",
+      "fix": "Work out the origin as in cal-1 (branded_domain.get, else webUrl). prepare gets only settingsDeps, not webUrl (tools-write.ts:906), so pass webUrl to prepare as well as commit. Show the full https link in the card's Address and in both outcomes. For a booking-site slug change, add a caution: \"Links you’ve already shared stop working.\" For manage_calendar bookingLink, end the outcome with \"The old link keeps working.\" Reword tools.ts:503 to \"its link name (the last part of /book/<name>); the domain itself is Your own web address, in Settings → Workspace\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-19",
+      "severity": "medium",
+      "kind": "do",
+      "where": "A sessions calendar on HandsFreeOS video → Locations → Webinar: attendee cameras, starting-now message, missed follow-up, live poll, poll AI mode",
+      "gap": "locations.webinar holds attendeeVideo, startingNow, missedFollowUp, pollFormId and pollAi. No tool reads or changes these calendar defaults. The video_call.* screen actions change a live call only, and webinar.schedule takes none of them.",
+      "fix": "Add webinar {attendeeCameras: off|team|everyone, startingNowMessage, missedFollowUp, livePollFormId (nullable, a poll form from list_forms), pollAi: POLL_AI_MODES} under locations in update_calendar_settings. Map it to locations.webinar in settingsPatch and return it in get_calendar_settings when schedule.mode is sessions and a place uses video handsfree.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-20",
+      "severity": "medium",
+      "kind": "words",
+      "where": "A calendar's header: Turn on/Resume, History, Preview booking page, More (Name, color and time zone…, Change link…, Pause, Back to draft, Archive); the right rail: How this calendar works, Labels, Booking link (Copy, Open), Save / See history; Booking site: the address with Copy and Open, and the Settings → Workspace pointer",
+      "gap": "Already there: the own-web-address pointer (places-map.ts:640 \"All of them can be on the business’s own web address (Settings → Workspace)\", and settings-map.ts:140-156); Turn on and More for Pause and Archive (settings-map.ts:361); the calendar list's copy icon (settings-map.ts:362). Missing from the map: the calendar header's History, Preview booking page, More → Name, color and time zone… and More → Change link…, plus Resume and Back to draft; the Booking link card's Copy and Open; and booking_site.onScreen's address at the top with Copy and Open. The prompt forbids naming a button that isn't in the map (prompt.ts:38), so the Assistant can't send people to these.",
+      "fix": "In packages/core/src/assistant/settings-map.ts, calendars.onScreen (:326-331) gets \"At the top of a calendar: Turn on or Resume, History, Preview booking page, and More (Name, color and time zone…, Change link…, Pause, Back to draft, Archive)\" and \"Booking link, with Copy and Open\". calendars.howTo gets \"Change a calendar’s link: press it, then More → Change link…\", \"Rename it, or change its colour or time zone: More → Name, color and time zone…\", \"See or put back an earlier version: History, then Restore\" and \"See its booking page: Preview booking page\". booking_site.onScreen (:431) gets \"At the top: the booking site’s address, with Copy and Open\" and \"Below: Want your own web address? Settings → Workspace\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-21",
+      "severity": "low",
+      "kind": "words",
+      "where": "A calendar → Booking link: Customers can book it online; Booking site: Taking bookings online",
+      "gap": "The calendar's public switch is labelled \"Customers can book it online\" on the screen. The Assistant calls it listedOnBookingSite (no description), labels it \"On the booking site\" on the card, and reads it back as onTheBookingSite. Turning it off also stops online booking, not just the listing (config.ts:386: \"Listed on the booking site and bookable by customers\"). The booking site's switch is \"Taking bookings online\", but the card says \"Booking page: On/Off\".",
+      "fix": "Card labels: \"Customers can book it online\" (tools-settings-calendar.ts:224) and \"Taking bookings online\" (:943). Add .describe('Customers can book it online: listed on the booking site and bookable there') to listedOnBookingSite (tools.ts:398). Rename the read key onTheBookingSite to customersCanBookOnline (tools-scheduling.ts:454).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-22",
+      "severity": "low",
+      "kind": "read",
+      "where": "Settings → Calendars: archived calendars listed last with an Archived badge",
+      "gap": "Settings → Calendars loads calendar.list with includeArchived: true and lists archived calendars last. get_settings (calendars) calls it with no input, so archived calendars are left out and nothing says so. The context's calendar list leaves them out too.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts:130, set input: () => ({ includeArchived: true }) on the calendars AreaQuery. Each item's status already says archived.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-23",
+      "severity": "low",
+      "kind": "read",
+      "where": "A calendar → History: every save (up to 50) with its changes, who and when, and Labels: was → now",
+      "gap": "earlierVersions keeps 8 versions with 4 change lines each, with no note that more exist, and leaves out each version's labels (was → now). calendar.get returns up to 50 revisions with their labels, and the History sheet shows them with \"and N more\". restore takes any revision number, but the Assistant can't list versions past the 8th.",
+      "fix": "In apps/worker/src/assistant/tools-scheduling.ts:542-550, add olderVersions: revisions.length - 1 - 8 when positive, moreChanges: r.diff.length - 4 on each version, and labels: LABEL_NAMES words when they differ from the version before.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-24",
+      "severity": "low",
+      "kind": "read",
+      "where": "A calendar → How this calendar works (the plain-words summary) and Labels",
+      "gap": "Labels are already readable: get_settings (calendars) returns calendar.list's labels {primary, tags} (queries/calendar.ts:118-121,135). The real gap is \"How this calendar works\", the plain-words summary. describeCalendar exists only in apps/web/src/lib/calendar/describe.ts:162, so the Assistant can't give the same summary the screen does.",
+      "fix": "Move describeCalendar (and the catalogs it needs) to @hfos/core, so the web and the worker share one copy. Return its sentences as howItWorks in get_calendar_settings, and the label words there too.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-25",
+      "severity": "low",
+      "kind": "read",
+      "where": "Settings → Calendars: every calendar",
+      "gap": "The per-turn context lists only the first 8 calendars, sorted by name (items.slice(0, 8)), under \"Calendars (their ids look up open times and book)\". Nothing says more exist, so with 9 or more calendars the rest are silently missing.",
+      "fix": "In apps/worker/src/assistant/context.ts:298, keep the total. In prompt.ts:235-251, add a line when the total is over 8: \"…and N more: get_settings (calendars)\".",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "cal-26",
+      "severity": "low",
+      "kind": "read",
+      "where": "A calendar → Automations: workflows that start from this calendar (with \"every calendar\"), their On/Paused switch, the could-hear-from-you-twice warning, Add automation recipes",
+      "gap": "list_workflows takes only status, so it can't list one calendar's automations as workflow.list({calendarId}) does. Its result leaves out calendarIds and allCalendars (shown as \"every calendar\"), and trigger.summary doesn't name the calendar. Nothing flags the screen's warning that a workflow sending a reminder while the calendar's own reminders are on could text customers twice.",
+      "fix": "Add calendarId (uuid, optional) to list_workflows (packages/core/src/assistant/tools.ts:303-310), passed to workflow.list (tools-workflow.ts:145-150). Return allCalendars on each workflow. When calendarId is given and that calendar's reminders are on, add remindsTwice: true to workflows whose steps send a reminder.",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

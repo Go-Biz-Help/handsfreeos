@@ -264,6 +264,8 @@ export function useAssistantChat(
   workspaceId: string,
   userId: string,
   page: PageRecord | null = null,
+  /** The screen the mark was pressed on, inside the business (`assistantScreenPath`). */
+  path: string | null = null,
 ): AssistantChat {
   const { online } = useNetwork();
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -293,6 +295,8 @@ export function useAssistantChat(
   );
   const pageRef = React.useRef(page);
   pageRef.current = page;
+  const pathRef = React.useRef(path);
+  pathRef.current = path;
   const loadRef = React.useRef(0);
 
   const setThread = React.useCallback((id: string | null) => {
@@ -519,6 +523,7 @@ export function useAssistantChat(
               ...(current ? { threadId: current } : {}),
               text,
               page: pageRef.current,
+              path: pathRef.current,
               ...(opts.spoken ? { spoken: true } : {}),
             },
             onEvent,

@@ -9,7 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { businessMark, cn } from '@/lib/utils';
 
-import { askHref, usePhonePageRecord } from '@/assistant/page-record';
+import { askHref, usePhonePageRecord, usePhoneScreenPath } from '@/assistant/page-record';
 import { searchScreenHref } from '@/search/href';
 
 import { BellButton } from './bell';
@@ -50,6 +50,8 @@ export function AppBar({
   const ctx = useOptionalBusiness();
   // Ask HandsFreeOS is asked from somewhere: the customer, lead or conversation on screen goes with the question.
   const record = usePhonePageRecord(ctx?.business.id ?? '');
+  // And the screen itself, so it knows which page or setting is open.
+  const screen = usePhoneScreenPath(ctx?.business.id ?? '');
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else if (back) router.replace(back);
@@ -114,7 +116,7 @@ export function AppBar({
             role="button"
             accessibilityLabel="Ask HandsFreeOS"
             testID="ask-handsfreeos"
-            onPress={() => router.push(askHref(ctx.business.id, record) as Href)}
+            onPress={() => router.push(askHref(ctx.business.id, record, screen) as Href)}
             className="size-11 items-center justify-center rounded-full active:bg-card-2"
           >
             <BrandMark size={24} />

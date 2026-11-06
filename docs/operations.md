@@ -6997,6 +6997,18 @@ When it fails on a new setting row, add the row to `SETTING_TOOLS` (the tool, th
 
 The test can't see a setting that isn't a row in `SETTINGS`. Two places keep many of those: the AI teammate page, and the **Adjust** panels on **Settings** → **Automations**. The follow-up times, for one, sit in the Follow-ups after silence panel but save into the AI teammate's settings. When either gets a new switch or field, check by hand that `manage_ai_teammate`, `update_ai_teammate_rules` or `update_automations` takes it. In November 2026 the Assistant couldn't change the follow-up times, because nothing caught that gap.
 
+#### The checklist of every item
+
+The test sees commands and setting rows. It can't see what a screen shows, a choice inside a dialog, or a link the Assistant hands out whole or only as a path. For those, the owner asked (2026-11-06) for a checklist of everything a person can see or do, every level down, each marked off with how the Assistant covers it, so a later audit only checks what isn't marked.
+
+- **Where it is.** `packages/core/src/assistant/ledger/`, one file per area of the app (`money.json`, `inbox.json` and the rest), listed in `index.ts`. Each item is a place in the screen's own words ("Money → an invoice → Copy link"), whether it shows or does, its file and line, and `covered`: `yes` (a tool sees or does exactly this), `partly`, `no`, `never` (a safety rule keeps it from the Assistant) or `person` (only the person can, such as signing in). `by` names the tool and field, or why not. Each area also keeps the 6 November audit's gaps, `open`, `fixed` (with the pull request) or `never`.
+- **How it knows what changed.** Each area records every file its items live in, with the file's fingerprint (a hash of its content) when they were checked. `fingerprints.json` holds every screen file's fingerprint now. An item whose file's fingerprint differs goes back on the list as changed, and a screen file no area lists is a screen not checked yet.
+- **Keeping it current.** `pnpm assistant:ledger` rewrites `fingerprints.json`. Every deploy runs it before building the API, so **Admin** → **Assistant coverage** always compares with the code that's live, and nobody has to commit it for that. `pnpm assistant:ledger status` lists what isn't marked off, area by area. After checking an area's items again and fixing what's wrong, update their `covered` and `by`, mark the gaps fixed with the pull request, and run `pnpm assistant:ledger stamp <area>` to record its files as checked today.
+- **The table.** **Admin** → **Assistant coverage** → **Every item, marked off**, on the web and the phone, reads `platform.assistant_ledger`. It filters items by area and state (not marked off, changed since its check, not yet, partly, covered, never, the person's own) and finds words in them. It also lists the audit's gaps, serious first, and the screens to check.
+- **The daily routine** works from the same list: the first area with anything not marked off, or an open gap, gets checked and fixed in one pull request.
+
+A new area is a new file in the folder and a line in `index.ts`; `packages/core/test/assistant-ledger.test.ts` fails until both are there, and checks each file's shape.
+
 ### Asking and leaving
 
 Someone can ask and leave straight away: close the panel, the tab or the phone app, or lose signal. The worker finishes every question it's asked and saves the answer in the chat, whether or not anyone is still listening. Only **Stop** ends one early. Leaving never stops a question, and it never undoes one either: anything the Assistant does on its own while they're away (a task, a note) still happens, and anything that needs their OK still waits on its card.

@@ -1,0 +1,139 @@
+{
+  "area": "salescoach",
+  "title": "The AI Sales Coach add-on and any add-on page drawn by the generic add-on route",
+  "checkedOn": "2026-11-06",
+  "files": {},
+  "items": [],
+  "gaps": [
+    {
+      "id": "sc-1",
+      "severity": "high",
+      "kind": "read",
+      "where": "AI Sales Coach → Coached, press a call: the write-up (Score, Stages, Summary, Notes, What you promised, Follow-up to send, Objections, Next time) above What was said",
+      "gap": "salescoach_get_call's output puts the transcript first. The kernel parses query output through the schema (execute.ts:920/939), so the keys come out in shape order: CallSummary, then lines, then result, failure and cards. A transcript over roughly 100 lines, about a 10-minute call, pushes the write-up past the 16,000-character cut. The tool has no input to leave the transcript out. Part of the claim is wrong: the summary and notes also reach the customer's timeline (landWriteUp puts them in the addon_line body, and read_timeline_list returns body), and each promise becomes a task the task tools can read. So 'what did I promise Dana?' can be answered. Still unreadable for long calls: Follow-up to send, Objections (said, answered, answer), Next time (tips), Stages and the score breakdown, and failure.",
+      "fix": "In salescoach.call.get (packages/core/src/addons/salescoach/ops/calls.ts:857-862 and the return at ~889), move `lines` after `result`, `failure` and `cards` in CallSummary.extend({...}). Add an optional input `withLines: z.boolean().default(true)` and return `lines: []` when it's false. Change ai.description (calls.ts:870) to: 'One coached sales call: its summary, notes, promises, follow-up to send, objections, tips and score; pass withLines: false to leave out what was said.'",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-2",
+      "severity": "high",
+      "kind": "words",
+      "where": "The whole AI Sales Coach page: side menu AI Sales Coach, tabs Live call / Coached / Trends / Playbooks, and its buttons (Stop coaching this call, Start coaching again, Got it, See the write-up, Delete → Delete for good, Build my scripts, Use my own script, New playbook, Edit, Make it the usual one, Archive / Bring back, What’s working: Look again now, Use it, Not now, 4 / 12 / 26 weeks); on the phone the AI Sales Coach row at the top of More; Suggested replies above a conversation’s reply box; the cards above the call bar",
+      "gap": "No add-on page appears anywhere in the places text the model gets. APP_PLACES, EVERY_PAGE and PHONE_APP never mention AI Sales Coach, its tabs (Live call, Coached, Trends, Playbooks) or its buttons. PHONE_APP's More list leaves out add-on rows, and nothing mentions Suggested replies above the reply box or the coach cards above the call bar. For a running add-on the model gets only one line: 'AI Sales Coach (salescoach_…): live sales coaching…'. The prompt tells it never to name a place, tab or button that isn't listed. So it can't say where call scores, Make it the usual one or Delete are. It also can't give the handover for deleting a coached call (owners, or whoever holds salescoach.delete), because notForTheAssistant's reason never reaches the model. Nothing in apps/worker/src/assistant or packages/core/src/assistant mentions salescoach at all.",
+      "fix": "Add `ai.places` to the add-on manifest's ai block (AppPlace-shaped: label, where ['AI Sales Coach'] with tabs Live call / Coached / Trends / Playbooks, onScreen, howTo, path '/a/salescoach?view=…', and a phone row under More). Have context.ts:427 add these places for running add-ons next to addonDirectory, and have prompt.ts:274 print them under 'Add-ons on here'. Fill it in for salescoach. Include the handover 'Delete a coached call: Coached, press the call, Delete, then Delete for good (owners, or whoever has Delete coached calls in Settings → Permissions)' and lines for the call bar cards and Suggested replies above a conversation's reply box.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-3",
+      "severity": "medium",
+      "kind": "read",
+      "where": "AI Sales Coach → Coached, one call’s write-up (`?view=calls&call=<id>`), and Trends for one rep (`&rep=`)",
+      "gap": "assistantPageRecord only recognises calendar?appt, customers/people, customers/companies, leads, inbox, workflows and workflows/runs. On /a/salescoach?view=calls&call=<id> or &rep=<id> it returns null, and the prompt says 'No customer, lead or appointment is on screen.' 'This call' or 'how is she doing' then needs the model to list calls or ask. That's a workaround, so medium rather than high. The same gap applies to every add-on page.",
+      "fix": "In packages/core/src/assistant/words.ts assistantPageRecord (line 428), take the search params (not only appt) and return `{ type: 'addon', addonId, view, id }` for `a/<addon>` with `call=` or `rep=` uuids. Pass the params through apps/web/src/lib/assistant/page-record.ts and apps/mobile/src/assistant/page-record.ts. Add 'addon' to PageRecord.type in context.ts:38-41. Have pageLabel label it through salescoach.call.get (customer, rep and date: 'Dana's call with John Smith on Nov 3, coachedCallId …'). Add a pageLines case in prompt.ts:190.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-4",
+      "severity": "high",
+      "kind": "read",
+      "where": "AI Sales Coach → Playbooks: each playbook’s name, kind, Usual / Archived badges, step/objection/talking-point counts, and (for non-managers) its steps and objection answers",
+      "gap": "salescoach_list_playbooks takes only the business. It returns every playbook with full details: in use first, then archived (playbooks.ts:106-119). The builder writes four kinds (new lead, booked call, older lead, cold call), each up to a 6,000-token draft, so the answer passes the 16,000-character cut after one or two playbooks. Nothing else reads one playbook. That leaves later playbooks' objection answers unreadable, and salescoach_playbook_save needs their full details resent.",
+      "fix": "Add `playbookId: uuid.optional()` and `includeArchived: z.boolean().default(false)` to PlaybookListInput (packages/core/src/addons/salescoach/playbooks.ts:151), and filter in playbookList's handler (ops/playbooks.ts:106). Or add a `salescoach.playbook.get` query with ai { tool: 'salescoach_get_playbook' }. Change the list's ai.description to say 'pass playbookId to read one whole'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-5",
+      "severity": "medium",
+      "kind": "do",
+      "where": "AI Sales Coach → Playbooks: Make it the usual one, and Edit (change one step, objection or talking point)",
+      "gap": "The screen's Make it the usual one also resends the whole playbook (name, kind, details, isDefault: true; playbooks-view.tsx:96-111 and 240-247). So the Assistant can do the same: read it, then call salescoach_playbook_save. What's real: (a) on an update, a missing `kind` becomes 'any' and a details object missing a list becomes [], and the handler writes them as given. An omitted field silently turns the playbook into an Any call script or empties it. (b) For a playbook past the list's 16k cut (sc-4), the model doesn't have the details to resend. A one-press 'make usual' that keeps everything doesn't exist for the AI.",
+      "fix": "Make kind and details keep the stored values on an update. In PlaybookSaveInput (playbooks.ts:151-159), make `kind: z.enum(PLAYBOOK_KINDS).optional()` and `details: PlaybookDetails.optional()`. In playbookSave's handler (ops/playbooks.ts:137-149), use `kind: input.kind ?? was.kind` and `details: input.details ? renumberPlaybook(input.details) : was.details` for an existing playbookId, and keep 'any' and blankPlaybook() only for a new one. Alternatively, add a risk-1 `salescoach.playbook.make_usual` command ({ playbookId }) with ai { tool: 'salescoach_playbook_make_usual', autonomy: 'confirm' }.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-6",
+      "severity": "medium",
+      "kind": "do",
+      "where": "The Assistant’s Confirm card for salescoach_playbook_save, salescoach_playbook_archive (Archive / Bring back), salescoach_lesson_decide (Use it / Not now), salescoach_call_stop / _resume",
+      "gap": "Add-on Confirm cards are built only from the raw input: labelOf(key) and valueOf(value), cut to 300 characters. So the person reads 'Playbook id: <uuid>', 'Lesson id: <uuid>, Use: Yes', 'Coached call id: <uuid>', and for a save 'Details: {\"steps\":[…' cut short. A defaulted 'Kind: any' also shows without a label. OperationAi offers no way to describe a card, and the rehearsal's output is thrown away. The person can't see which playbook, lesson or call they're confirming. The screen shows the lesson's now and suggested answers beside Use it, and opens a draft in the editor.",
+      "fix": "Add an optional `card?: (tx, input) => Promise<{label,value}[]>` to OperationAi (packages/core/src/kernel/types.ts:60-72). Have prepareAddonTool (apps/worker/src/assistant/tools-addons.ts:163-200) use it in place of cardFields, or else use rehearseCommand's output. For salescoach: playbook save and archive show the name, kind label (PLAYBOOK_KIND_LABELS) and step/objection/point counts, plus what changes. lesson.decide shows the playbook, objection, Now and Suggested answers, and Use it or Not now. call.stop and resume show the customer's name and when the call started.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-7",
+      "severity": "medium",
+      "kind": "words",
+      "where": "AI Sales Coach → Playbooks: which playbook a call uses (the Usual badge and each playbook’s Kind of call)",
+      "gap": "salescoach_playbook_save has no ai.description, so the model reads the op's description: '…The first one, or one marked usual, is the one calls use.' Since round five, callBegin and the AI caller pick the playbook for how the call started (callKindFor and playbookForKind) and fall back to the usual one only when there isn't one. The playbooks.ts header comment and the isDefault comment ('unless the rep picks another') say the same old thing, but only the description reaches the model.",
+      "fix": "Change salescoach.playbook.save's description (packages/core/src/addons/salescoach/ops/playbooks.ts:125-126) to: 'Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold call), else the usual one; the first one saved is the usual one until another is marked.' Optionally add the same sentence to playbookList's ai.description (line 103-104).",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-8",
+      "severity": "medium",
+      "kind": "words",
+      "where": "Any add-on page while the add-on is off: 'Turn it on again in Add-ons' and Go to Add-ons (Add-ons at the foot of the side menu)",
+      "gap": "The finding is right and the problem is wider than it says. Add-ons is now its own side-menu place (/add-ons). settings/add-ons only redirects there, and settings-map's add_ons entry says where: ['Add-ons'] and 'Open Add-ons, at the bottom of the side menu'. Yet the Assistant's add-on-off refusal, the kernel's addon_inactive, addon_not_installed and add-on busy messages, and lifecycle, plan, addon, main-offer, partners and live-meeting messages all still say 'Settings → Add-ons'.",
+      "fix": "Replace 'Settings → Add-ons' with 'Add-ons, at the bottom of the side menu' in each of these. apps/worker/src/assistant/tools-addons.ts:85 → '…An owner or admin can turn it back on in Add-ons, at the bottom of the side menu.' Also packages/core/src/kernel/pg-errors.ts:435,446,451,504; packages/core/src/addons/lifecycle.ts:80,89,99; addons/plan.ts:66; commands/addon.ts:136,278; commands/main-offer.ts:75; commands/partners.ts:79; commands/live-meeting.ts:103; queries/addon.ts:154,237; apps/worker/src/assistant/tools-main-offer.ts:59; apps/worker/src/main-offer/routes.ts:146.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-9",
+      "severity": "medium",
+      "kind": "read",
+      "where": "AI Sales Coach → Live call (and the cards above the call bar / on the phone): status, Stage n of m, Where you are, and the cards newest first",
+      "gap": "In salescoach_live's output schema, playbook { name, details } comes before step, startedAt, endedAt and cards. The kernel parses output in shape order. A full playbook (~8-25k characters) plus up to 12 cards passes the 16,000-character cut, and the part that gets cut is the cards, the current step and endedAt. Those are what 'what did the coach just tell me?' and 'can I start coaching again?' need. A short playbook still fits.",
+      "fix": "In LiveOutput (packages/core/src/addons/salescoach/ops/calls.ts:741-756), move `playbook` to last, after step, startedAt, endedAt and cards. Better still, make it `playbook: z.object({ id, name, kind })` and leave out details: the AI can read details with salescoach_list_playbooks or a playbook get (sc-4). The live-coach screen uses details for 'Stage n of m', so if it needs them, add a separate `stages` summary ({ covered, of, current }) before cards.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-10",
+      "severity": "low",
+      "kind": "read",
+      "where": "AI Sales Coach → Trends (Your team): tiles, Score by week, the reps table, Steps skipped most; 4 / 12 / 26 weeks",
+      "gap": "salescoach_trends returns reps, each with a weekly series, before team. One rep is about 2.3k characters at 12 weeks and about 4k at 26. So with 7 or more reps at 12 weeks, or 4 or more at 26, the answer passes the 16k cut, and the team totals the screen shows first are lost along with the last reps. The model can shrink the answer with weeks: 4 or userId, but team stays last. Most small businesses have fewer reps than that, so the severity is lowered to low.",
+      "fix": "In salescoach.trends' output (packages/core/src/addons/salescoach/ops/trends.ts:40-46), order it weeks, timeZone, team, reps, and return `{ weeks, timeZone, team: trendOf(records, shape), reps }` at line 143. Add `series: z.boolean().default(true)` to the input and drop each rep's `series` when false. Mention it in ai.description: 'pass series: false for just the totals'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-11",
+      "severity": "medium",
+      "kind": "words",
+      "where": "AI Sales Coach → Playbooks: Build my scripts / Use my own script, whose drafts open in the editor to check, then Save playbook",
+      "gap": "salescoach_draft_playbook's description says 'Nothing is saved: the owner edits it and saves'. Through the Assistant, though, the draft exists only in the chat, so there's nothing on the Playbooks tab to edit. Its output passes through answerFrom's 16k cut. Its maxTokens is 6000, roughly 24k characters, so a draft from a long pasted script or a file can come back cut, and then it can't be passed whole to salescoach_playbook_save.",
+      "fix": "Change the ai.description in apps/worker/src/addons/salescoach/draft.ts:75-76 to: \"…Nothing is saved, and it isn't on the Playbooks tab: show it to them, and save it with salescoach_playbook_save (name, kind, details) once they're happy.\" Then exempt a draft from the cut. Either let a worker action declare `ai.whole: true`, so answerFrom (tools-addons.ts:67) keeps it whole up to a higher ceiling such as 40k, or have runAddonActionTool return compact JSON with empty `say` and `tip` dropped.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-12",
+      "severity": "low",
+      "kind": "words",
+      "where": "AI Sales Coach as a whole: Trends, What’s working, Suggested replies in conversations, Build my scripts",
+      "gap": "The one directory line (salescoach/manifest.ts:158-159) covers only playbooks and coached calls with notes and scores. Add-on tools are always deferred behind tool search (runtime.ts:214-219), so this line is what tells the model to look. It leaves out trends by rep, what's working (lessons from wins), suggested replies, written-conversation write-ups and the script builder.",
+      "fix": "Change ai.directory in packages/core/src/addons/salescoach/manifest.ts:158-159 to: 'live sales coaching on calls (the coach’s cards, stopping and starting it): the business’s sales playbooks (scripts, objection answers, talking points) and writing them, coached calls and written conversations with their write-ups and scores, each rep’s trends, what’s working (lessons from wins) and suggested replies in conversations'.",
+      "status": "open",
+      "pr": null
+    },
+    {
+      "id": "sc-13",
+      "severity": "low",
+      "kind": "read",
+      "where": "AI Sales Coach → Coached: the list of 50 calls and written conversations",
+      "gap": "salescoach_list_calls defaults to 50 rows. Each CallSummary is about 450-480 characters of JSON (id, callId, conversationId, channel, liveMeetingId, rep {id,name}, person {id,name}, playbookName, both dates, score, wonHow, language). So any business with more than about 34 coached calls gets the default answer cut mid-row, and the model has to call again with a smaller limit. The ai.description says 'Coached sales calls', but the list also includes write-ups of texts, emails and chats (channel and conversationId).",
+      "fix": "In salescoach.call.list (packages/core/src/addons/salescoach/ops/calls.ts:825), lower the default to `default(25)`; the screen's page.tsx doesn't pass a limit, so give the web call `limit: 50` explicitly. Change ai.description (line 832-833) to: 'Coached sales calls and written conversations (texts, emails, chats, with their channel), newest first, with the rep, the customer and the score out of 100. Pass limit for more.'",
+      "status": "open",
+      "pr": null
+    }
+  ]
+}

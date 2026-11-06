@@ -152,3 +152,44 @@ export function coverageGapsForClaude(c: AssistantCoverage): string {
     lines.push('', 'There are no gaps: it can do every action and setting a screen has.');
   return lines.join('\n');
 }
+
+/**
+ * The checklist under the counts (platform.assistant_ledger): every item on every screen, every level down, marked
+ * with how the Assistant covers it, the audit's gaps, and the screens to check. The web and the phone filter it the
+ * same way, with these words.
+ */
+export const DESK_LEDGER_WORDS = {
+  title: 'Every item, marked off',
+  intro:
+    'Every value, button, option and field on every screen, every level down, and how the Assistant covers it. An item goes back on the list when its screen’s code changes, and so does a screen nobody has checked yet.',
+  views: { items: 'Items', gaps: 'Audit gaps', screens: 'Screens to check' },
+  anyArea: 'Every area',
+  itemStates: {
+    unmarked: 'Not marked off',
+    changed: 'Changed since its check',
+    no: 'Not yet',
+    partly: 'Partly',
+    yes: 'Covered',
+    never: 'Never, on purpose',
+    person: 'The person’s own step',
+    all: 'Every item',
+  },
+  gapStates: { open: 'Open', fixed: 'Fixed', never: 'Never, on purpose', all: 'Every gap' },
+  severity: { high: 'Serious', medium: 'Medium', low: 'Small' },
+  kind: { see: 'Shows', do: 'Does' },
+  screenStates: { new: 'Not checked yet', gone: 'Gone: its items need a new home' },
+  search: 'Find an item',
+  more: 'Show more',
+  none: 'Nothing here. Every item that fits is marked off.',
+  noGaps: 'No gaps that fit.',
+  noScreens: 'Every screen file has been checked.',
+  checkedOn: (day: string) => `Checked ${day}`,
+  fixedIn: (pr: number) => `Fixed in #${pr}`,
+  showing: (shown: number, total: number) => `${shown} of ${total}`,
+  cards: {
+    unmarked: 'Not marked off',
+    changed: 'Changed since checked',
+    newScreens: 'Screens not checked',
+    gapsOpen: 'Audit gaps open',
+  },
+} as const;
