@@ -1244,17 +1244,20 @@ describe('the business’s own records', () => {
 
 describe('the files on a record', () => {
   it('lists each with its lock and a link to it, and never deletes one', async () => {
-    const insertFile = async (recordId: string, name: string, locked = false) =>
-      (
-        await one<{ id: string }>(
-          sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, size_bytes, status, created_by,
-                locked_at, locked_reason)
-              values (${workspaceId}, 'person', ${recordId}, ${`${workspaceId}/${randomUUID()}`}, ${name},
-                'image/jpeg', 204800, 'ready', ${dale.id},
-                ${locked ? sql`now()` : null}, ${locked ? 'signed' : null})
-              returning id`,
-        )
-      ).id;
+    // A file is locked after it arrives, never as it is added (the database refuses that), as signing locks it.
+    const insertFile = async (recordId: string, name: string, locked = false) => {
+      const { id } = await one<{ id: string }>(
+        sql`insert into app.files (workspace_id, record_type, record_id, object_path, name, mime_type, size_bytes, status, created_by)
+            values (${workspaceId}, 'person', ${recordId}, ${`${workspaceId}/${randomUUID()}`}, ${name},
+              'image/jpeg', 204800, 'ready', ${dale.id})
+            returning id`,
+      );
+      if (locked)
+        await one(
+          sql`update app.files set locked_at = now(), locked_reason = 'signed' where id = ${id} returning id`,
+        );
+      return id;
+    };
     const photo = await insertFile(bob, 'Water heater.jpg');
     const signed = await insertFile(bob, 'Signed estimate.pdf', true);
     const { result, card } = (await tools().run(
