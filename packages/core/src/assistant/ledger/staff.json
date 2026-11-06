@@ -2,8 +2,2502 @@
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
   "checkedOn": "2026-11-06",
-  "files": {},
-  "items": [],
+  "files": {
+    "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
+    "apps/mobile/src/app/app/admin/affiliates.tsx": "59d1ab54b59a",
+    "apps/mobile/src/app/app/admin/assistant.tsx": "071ca5b20f59",
+    "apps/mobile/src/app/app/admin/businesses/[workspaceId].tsx": "c0ee6129b99e",
+    "apps/mobile/src/app/app/admin/demo.tsx": "9bb38f04044e",
+    "apps/mobile/src/app/app/admin/founding.tsx": "2443ab3ceedf",
+    "apps/mobile/src/app/app/admin/index.tsx": "e7adb6dd3284",
+    "apps/mobile/src/app/app/admin/notifications.tsx": "48d40a62959c",
+    "apps/mobile/src/app/app/admin/problems.tsx": "bff09ad49e6d",
+    "apps/mobile/src/app/app/admin/tickets/[ticketId].tsx": "c8b4e574af3b",
+    "apps/mobile/src/components/demo/demo-player.tsx": "e7110fd458f2",
+    "apps/web/src/app/admin/assistant/page.tsx": "6c0985292497",
+    "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx": "9b6cf423558b",
+    "apps/web/src/app/admin/getting-started/page.tsx": "2461d1b5b07a",
+    "apps/web/src/app/admin/health/page.tsx": "43c27011ac4d",
+    "apps/web/src/app/admin/layout.tsx": "58fe5c481a06",
+    "apps/web/src/app/admin/rates/page.tsx": "70c26cb5d1f9",
+    "apps/web/src/app/affiliate/page.tsx": "7ba54efd908d",
+    "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
+    "apps/web/src/components/admin/addon-picks-admin.tsx": "cfbc4b7b5b98",
+    "apps/web/src/components/admin/addon-testing-block.tsx": "a0075b2d3cb4",
+    "apps/web/src/components/admin/admin-shell.tsx": "bb37d7bf4a8d",
+    "apps/web/src/components/admin/affiliate-business-block.tsx": "a2483cdb0c8b",
+    "apps/web/src/components/admin/affiliate-detail.tsx": "bb7d47aaa4e5",
+    "apps/web/src/components/admin/affiliates-page.tsx": "1d832eef262f",
+    "apps/web/src/components/admin/ai-provider-block.tsx": "c786a7b235b0",
+    "apps/web/src/components/admin/assistant-coverage.tsx": "fb823cfe8f14",
+    "apps/web/src/components/admin/assistant-ledger.tsx": "99680e090687",
+    "apps/web/src/components/admin/business-glance.tsx": "8032ac6153f6",
+    "apps/web/src/components/admin/business-quick-look.tsx": "cdf65e921053",
+    "apps/web/src/components/admin/businesses.tsx": "0306d62a896a",
+    "apps/web/src/components/admin/demo-start.tsx": "030f383727b4",
+    "apps/web/src/components/admin/founding-page.tsx": "dab5207a8d85",
+    "apps/web/src/components/admin/founding-seat-block.tsx": "5412f449cb5c",
+    "apps/web/src/components/admin/idea-areas-admin.tsx": "22cde3614d78",
+    "apps/web/src/components/admin/idea-team-view.tsx": "eca7acf1ec16",
+    "apps/web/src/components/admin/ideas-triage.tsx": "3d1ee57514a7",
+    "apps/web/src/components/admin/learned-ways.tsx": "3d6e568f9656",
+    "apps/web/src/components/admin/own-business-block.tsx": "163229a079ed",
+    "apps/web/src/components/admin/partner-payouts-block.tsx": "8998c2ca87eb",
+    "apps/web/src/components/admin/phone-model-block.tsx": "d921a7f10bde",
+    "apps/web/src/components/admin/problem-reports.tsx": "8b5e82405ba2",
+    "apps/web/src/components/admin/rates-table.tsx": "f0fe4af5db43",
+    "apps/web/src/components/admin/registration-review-panel.tsx": "094e7e0a7a42",
+    "apps/web/src/components/admin/saved-replies.tsx": "982fbbfd6749",
+    "apps/web/src/components/admin/staff-page.tsx": "135ba8336d76",
+    "apps/web/src/components/admin/support-access-ask.tsx": "0a512b1d8a74",
+    "apps/web/src/components/admin/ticket-queue.tsx": "52eb7266620e",
+    "apps/web/src/components/admin/ticket-view.tsx": "05a98d9677e7",
+    "apps/web/src/components/admin/video-calls-block.tsx": "df4f418c98d1",
+    "apps/web/src/components/admin/view-as-banner.tsx": "36bf86a4a37f",
+    "apps/web/src/components/admin/view-as.tsx": "375c6cf29e0c",
+    "apps/web/src/components/admin/wallet-block.tsx": "3f912a7b3d95",
+    "apps/web/src/components/admin/whats-new-admin.tsx": "c0c33dfcb728",
+    "apps/web/src/components/affiliate/affiliate-codes.tsx": "e41265060535",
+    "apps/web/src/components/affiliate/affiliate-earnings.tsx": "46700d201d8e",
+    "apps/web/src/components/affiliate/affiliate-payouts.tsx": "2d591c4d73b2",
+    "apps/web/src/components/affiliate/affiliate-self.tsx": "4e23fb68e41b",
+    "apps/web/src/components/demo/demo-director.tsx": "a6858926fb05",
+    "apps/web/src/components/founding/checkout-status.tsx": "dc7886625d47",
+    "apps/web/src/components/founding/claim-seat.tsx": "417ac39b9bb5",
+    "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
+    "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f"
+  },
+  "items": [
+    {
+      "path": "Admin area → access → not staff gets a 404",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/layout.tsx:16",
+      "covered": "yes",
+      "by": "staff tools offered only by staff permissions (context.ts:339)"
+    },
+    {
+      "path": "Admin area → every page → Ask HandsFreeOS panel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/admin-shell.tsx:126",
+      "covered": "no",
+      "by": "no panel in the Admin area or /affiliate; only inside a business (adm-1)"
+    },
+    {
+      "path": "Admin area → banner → HandsFreeOS and your role",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/admin-shell.tsx:126",
+      "covered": "yes",
+      "by": "prompt staff line, staffRole"
+    },
+    {
+      "path": "Admin area → menu → Tickets … Support people sections",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/admin-shell.tsx:64",
+      "covered": "partly",
+      "by": "staff line names 7 of 13 sections; places-map has no Admin area (adm-8)"
+    },
+    {
+      "path": "Admin area → menu → Demo player",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/admin-shell.tsx:89",
+      "covered": "no",
+      "by": "demo player is screen-only"
+    },
+    {
+      "path": "Admin area → menu → Back to the app",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/admin-shell.tsx:138",
+      "covered": "partly",
+      "by": "way in and out not in places-map (adm-8)"
+    },
+    {
+      "path": "Admin area → account menu → Sell HandsFreeOS",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/user-menu.tsx:46",
+      "covered": "partly",
+      "by": "not in places-map (adm-9)"
+    },
+    {
+      "path": "Admin area → account menu → Sign out",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/user-menu.tsx:46",
+      "covered": "person",
+      "by": "sign-in and sign-out are the person's"
+    },
+    {
+      "path": "View-as banner → looking at X, read-only, N minutes left / in X as its owner",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/view-as-banner.tsx:228",
+      "covered": "never",
+      "by": "platform.view_as.current is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "View-as banner → Stop looking / Leave",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/view-as-banner.tsx:242",
+      "covered": "never",
+      "by": "platform.view_as.end is NEVER"
+    },
+    {
+      "path": "Support invitation → Accept and open the desk",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/accept-support-invite.tsx:297",
+      "covered": "never",
+      "by": "support.staff.accept is NEVER"
+    },
+    {
+      "path": "Support invitation → why it can't be accepted",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/accept-support-invite.tsx:260",
+      "covered": "never",
+      "by": "the invitee's own accept page"
+    },
+    {
+      "path": "Tickets → header → solved in the last day, oldest unanswered",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-queue.tsx:63",
+      "covered": "yes",
+      "by": "read_support_queue_summary"
+    },
+    {
+      "path": "Tickets → Search",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-queue.tsx:74",
+      "covered": "yes",
+      "by": "read_support_ticket_list search"
+    },
+    {
+      "path": "Tickets → tabs Needs an answer / Mine / Nobody's / Waiting on them / Everything, with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-queue.tsx:86",
+      "covered": "yes",
+      "by": "read_support_ticket_list status, assignee; counts in read_support_queue_summary"
+    },
+    {
+      "path": "Tickets → empty states",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-queue.tsx:107",
+      "covered": "yes",
+      "by": "empty read_support_ticket_list"
+    },
+    {
+      "path": "Tickets → row → #, subject, updated, requester, business, status, priority, assignee, preview",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-queue.tsx:118",
+      "covered": "yes",
+      "by": "read_support_ticket_list tickets"
+    },
+    {
+      "path": "Tickets → Older tickets",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-queue.tsx:160",
+      "covered": "yes",
+      "by": "read_support_ticket_list cursor"
+    },
+    {
+      "path": "Ticket → subject, #n · channel · requester name and email",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:108",
+      "covered": "yes",
+      "by": "read_support_ticket_get"
+    },
+    {
+      "path": "Ticket → messages → author, Internal note tag, time, body",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:122",
+      "covered": "yes",
+      "by": "read_support_ticket_get messages"
+    },
+    {
+      "path": "Ticket → suggested answer → text, stale tag, From sources / nothing solid",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:147",
+      "covered": "yes",
+      "by": "read_support_ticket_get draft"
+    },
+    {
+      "path": "Ticket → suggested answer → Put it in the box",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:170",
+      "covered": "partly",
+      "by": "do_support_ticket_reply body can carry the draft; no box to fill"
+    },
+    {
+      "path": "Ticket → suggested answer → No thanks",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:177",
+      "covered": "yes",
+      "by": "do_support_ticket_dismiss_draft"
+    },
+    {
+      "path": "Ticket → reply box",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:195",
+      "covered": "yes",
+      "by": "do_support_ticket_reply body"
+    },
+    {
+      "path": "Ticket → saved reply buttons",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:205",
+      "covered": "yes",
+      "by": "read_support_canned_reply_list, then reply body"
+    },
+    {
+      "path": "Ticket → Send it / Save the note",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:218",
+      "covered": "yes",
+      "by": "do_support_ticket_reply (Confirm card shows raw ids, adm-4)"
+    },
+    {
+      "path": "Ticket → Internal note checkbox",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:226",
+      "covered": "yes",
+      "by": "do_support_ticket_reply internal"
+    },
+    {
+      "path": "Ticket → Ask the AI for a draft",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:235",
+      "covered": "yes",
+      "by": "do_support_ticket_request_draft"
+    },
+    {
+      "path": "Ticket → error and where the reply goes out",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:251",
+      "covered": "yes",
+      "by": "refusal words; channel in read_support_ticket_get"
+    },
+    {
+      "path": "Ticket → aside → Status",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:262",
+      "covered": "yes",
+      "by": "do_support_ticket_set_status"
+    },
+    {
+      "path": "Ticket → aside → Priority",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:287",
+      "covered": "yes",
+      "by": "do_support_ticket_set_priority"
+    },
+    {
+      "path": "Ticket → aside → Who has it",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:312",
+      "covered": "yes",
+      "by": "do_support_ticket_assign; names from read_support_staff_list"
+    },
+    {
+      "path": "Ticket → aside → Came in, First answered",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:341",
+      "covered": "yes",
+      "by": "read_support_ticket_get"
+    },
+    {
+      "path": "Ticket → aside → their business: name, org, people, with us since",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:353",
+      "covered": "yes",
+      "by": "read_support_ticket_get business"
+    },
+    {
+      "path": "Ticket → aside → Open their account page",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:364",
+      "covered": "yes",
+      "by": "read_platform_business_get"
+    },
+    {
+      "path": "Ticket → aside → View as / Open as owner",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:371",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "Ticket → aside → business unknown",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:382",
+      "covered": "yes",
+      "by": "read_support_ticket_get without a business"
+    },
+    {
+      "path": "Ticket → aside → Also from them",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:388",
+      "covered": "yes",
+      "by": "read_support_ticket_get"
+    },
+    {
+      "path": "Ticket → aside → What happened",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-view.tsx:406",
+      "covered": "yes",
+      "by": "read_support_ticket_get events"
+    },
+    {
+      "path": "Ticket → registration review → title, kind, status",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:101",
+      "covered": "yes",
+      "by": "read_registration_review_for_staff"
+    },
+    {
+      "path": "Ticket → registration review → what wasn't green, their note",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:121",
+      "covered": "yes",
+      "by": "read_registration_review_for_staff"
+    },
+    {
+      "path": "Ticket → registration review → what would be sent (legal name, EIN, website, contact, opt-in, policies, carrier words, example texts)",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:141",
+      "covered": "yes",
+      "by": "read_registration_review_for_staff"
+    },
+    {
+      "path": "Ticket → registration review → Note to the business",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:172",
+      "covered": "yes",
+      "by": "note on approve / send_back"
+    },
+    {
+      "path": "Ticket → registration review → Approve and send",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:190",
+      "covered": "yes",
+      "by": "do_registration_review_approve"
+    },
+    {
+      "path": "Ticket → registration review → Send back",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:203",
+      "covered": "yes",
+      "by": "do_registration_review_send_back"
+    },
+    {
+      "path": "Ticket → registration review → fine print",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/registration-review-panel.tsx:218",
+      "covered": "yes",
+      "by": "the approve tool's description"
+    },
+    {
+      "path": "View as → Open as owner / View as person (founder)",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/view-as.tsx:99",
+      "covered": "never",
+      "by": "platform.view_as.start, teammate_view.start are NEVER"
+    },
+    {
+      "path": "View as → Look at their account / View as, dialog words",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/view-as.tsx:164",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "View as → dialog → Why are you looking?",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/view-as.tsx:192",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "View as → dialog → For how long? 15 min / An hour / Four hours",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/view-as.tsx:201",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "View as → dialog → Start looking / Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/view-as.tsx:215",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "Business → Support access → explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/support-access-ask.tsx:41",
+      "covered": "yes",
+      "by": "read_platform_business_get supportAccess; tool description"
+    },
+    {
+      "path": "Business → Support access → note",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/support-access-ask.tsx:47",
+      "covered": "yes",
+      "by": "do_support_access_request note"
+    },
+    {
+      "path": "Business → Support access → Ask to see them",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/support-access-ask.tsx:53",
+      "covered": "yes",
+      "by": "do_support_access_request workspaceId"
+    },
+    {
+      "path": "Businesses → totals: on HandsFreeOS, signed up this week, did something",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/businesses.tsx:78",
+      "covered": "yes",
+      "by": "read_platform_business_list totals"
+    },
+    {
+      "path": "Businesses → Search",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/businesses.tsx:92",
+      "covered": "yes",
+      "by": "read_platform_business_list search"
+    },
+    {
+      "path": "Businesses → sort Newest / Most active / Gone quiet / Needs a look / By name",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/businesses.tsx:104",
+      "covered": "yes",
+      "by": "read_platform_business_list sort"
+    },
+    {
+      "path": "Businesses → row → name, people, last active, Needs a look, plan, founding seat, open tickets",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/businesses.tsx:121",
+      "covered": "yes",
+      "by": "read_platform_business_list"
+    },
+    {
+      "path": "Businesses → nothing matches",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/businesses.tsx:167",
+      "covered": "yes",
+      "by": "empty read_platform_business_list"
+    },
+    {
+      "path": "Businesses → More",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/businesses.tsx:174",
+      "covered": "yes",
+      "by": "read_platform_business_list cursor"
+    },
+    {
+      "path": "Businesses → quick look → header: name, org, signed up, last active, plan, founding badge",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:231",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → Previous / Next, n of N",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:278",
+      "covered": "yes",
+      "by": "rows of read_platform_business_list"
+    },
+    {
+      "path": "Businesses → quick look → View as",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:300",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "Businesses → quick look → Full page / Close",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:303",
+      "covered": "yes",
+      "by": "read_platform_business_get"
+    },
+    {
+      "path": "Businesses → quick look → tabs Overview / People / Money / Set up / Tickets, with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:184",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → loading, couldn't load, Try again",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:192",
+      "covered": "yes",
+      "by": "tool error words"
+    },
+    {
+      "path": "Businesses → quick look → Overview → flags with See … buttons",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:338",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → Overview → counts: contacts, leads, conversations, appointments, invoices, collected 30d",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:338",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → Overview → last 30 days bars, texts, calls, emails, AI replies",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:338",
+      "covered": "yes",
+      "by": "read_platform_business_glance activity"
+    },
+    {
+      "path": "Businesses → quick look → Overview → their people, See all",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:338",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → Overview → plan and balance",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:338",
+      "covered": "yes",
+      "by": "read_platform_business_glance, read_platform_wallet_get"
+    },
+    {
+      "path": "Businesses → quick look → Overview → What is set up, score, More about them",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:338",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → People → name, email, role, active ago",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:416",
+      "covered": "yes",
+      "by": "read_platform_business_glance people"
+    },
+    {
+      "path": "Businesses → quick look → Money → what they pay us, what their customers pay them",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:455",
+      "covered": "yes",
+      "by": "read_platform_business_glance, read_platform_wallet_get"
+    },
+    {
+      "path": "Businesses → quick look → Set up rows",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:484",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Businesses → quick look → Tickets → their tickets, never written in, problem reports",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:488",
+      "covered": "yes",
+      "by": "read_platform_business_glance; read_support_ticket_list"
+    },
+    {
+      "path": "Businesses → quick look → Business ID and Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/business-quick-look.tsx:516",
+      "covered": "yes",
+      "by": "workspaceId in read_platform_business_list"
+    },
+    {
+      "path": "Business page → back link",
+      "kind": "do",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:77",
+      "covered": "yes",
+      "by": "read_platform_business_list"
+    },
+    {
+      "path": "Business page → name, headline, plan and founding badges",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:82",
+      "covered": "yes",
+      "by": "read_platform_business_get"
+    },
+    {
+      "path": "Business page → View as / Open as owner, and per person",
+      "kind": "do",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:91",
+      "covered": "never",
+      "by": "platform.view_as.start, teammate_view.start are NEVER"
+    },
+    {
+      "path": "Business page → flags as links",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:101",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Business page → counts and activity",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:113",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Business page → their people",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:119",
+      "covered": "yes",
+      "by": "read_platform_business_get people"
+    },
+    {
+      "path": "Business page → What is set up, with score",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:145",
+      "covered": "yes",
+      "by": "read_platform_business_glance"
+    },
+    {
+      "path": "Business page → their plan, their money",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:154",
+      "covered": "yes",
+      "by": "read_platform_business_get, read_platform_wallet_get"
+    },
+    {
+      "path": "Business page → More about them: industry, time, signed up, came from, add-ons on, main offer, AI on calls, support access, last viewed as",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:209",
+      "covered": "yes",
+      "by": "read_platform_business_get"
+    },
+    {
+      "path": "Business page → their tickets",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx:213",
+      "covered": "yes",
+      "by": "read_platform_business_get tickets"
+    },
+    {
+      "path": "Business page → problem reports: line, ago, Handled / Not handled",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/business-glance.tsx:289",
+      "covered": "yes",
+      "by": "read_platform_business_glance; read_platform_problem_report_list"
+    },
+    {
+      "path": "Business page → Their balance → title, stage badge, not opened",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:124",
+      "covered": "yes",
+      "by": "read_platform_wallet_get stage"
+    },
+    {
+      "path": "Business page → Their balance → balance, card, auto top-up, topped up, charged, cost and margin, declines, escalation",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:139",
+      "covered": "yes",
+      "by": "read_platform_wallet_get"
+    },
+    {
+      "path": "Business page → Their balance → suspended line",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:150",
+      "covered": "yes",
+      "by": "read_platform_wallet_get suspendedAt, suspendedReason"
+    },
+    {
+      "path": "Business page → Their balance → what the stage means",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:159",
+      "covered": "partly",
+      "by": "wallet.set_stage words differ from the screen (adm-12)"
+    },
+    {
+      "path": "Business page → Their balance → Move to … buttons",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:163",
+      "covered": "yes",
+      "by": "do_wallet_set_stage"
+    },
+    {
+      "path": "Business page → Their balance → Move dialog: write-off line, enforce warning",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:191",
+      "covered": "partly",
+      "by": "tool words lack the write-off and enforce lines (adm-12)"
+    },
+    {
+      "path": "Business page → Their balance → Move dialog: Why?, Move them, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:191",
+      "covered": "yes",
+      "by": "do_wallet_set_stage input"
+    },
+    {
+      "path": "Business page → Their balance → Put a credit on → Put it on",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:177",
+      "covered": "partly",
+      "by": "do_wallet_adjust; reference has to be invented (adm-5)"
+    },
+    {
+      "path": "Business page → Their balance → credit dialog: How much",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:233",
+      "covered": "yes",
+      "by": "do_wallet_adjust amountCents"
+    },
+    {
+      "path": "Business page → Their balance → credit dialog: Why?",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/wallet-block.tsx:233",
+      "covered": "yes",
+      "by": "do_wallet_adjust reason"
+    },
+    {
+      "path": "Business page → Partner payouts → title, explanation, Open / Closed, card and payouts line",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/partner-payouts-block.tsx:70",
+      "covered": "yes",
+      "by": "read_platform_partner_payouts_get"
+    },
+    {
+      "path": "Business page → Partner payouts → Open / Close, dialog Why and confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/partner-payouts-block.tsx:81",
+      "covered": "yes",
+      "by": "do_partner_set_payouts_open"
+    },
+    {
+      "path": "Business page → Phone model → Default or a model",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/phone-model-block.tsx:84",
+      "covered": "yes",
+      "by": "do_phone_model_set; current in read_platform_business_get"
+    },
+    {
+      "path": "Business page → Phone listener → choice",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/phone-model-block.tsx:112",
+      "covered": "yes",
+      "by": "do_phone_listener_set"
+    },
+    {
+      "path": "Business page → Phone model → read-only text when not allowed",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/phone-model-block.tsx:84",
+      "covered": "yes",
+      "by": "tool offered only with the permission"
+    },
+    {
+      "path": "Business page → Video calls → On / Off",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/video-calls-block.tsx:56",
+      "covered": "yes",
+      "by": "do_video_calls_set"
+    },
+    {
+      "path": "Business page → Add-ons in testing → each add-on: they can add it / not handed out",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/addon-testing-block.tsx:66",
+      "covered": "partly",
+      "by": "business.get addonGrants lists only granted ones (adm-11)"
+    },
+    {
+      "path": "Business page → Add-ons in testing → Let them try it / Take back",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/addon-testing-block.tsx:75",
+      "covered": "yes",
+      "by": "do_addon_grant_give / do_addon_grant_take_back"
+    },
+    {
+      "path": "Business page → Our own business → Yes / No",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/own-business-block.tsx:55",
+      "covered": "yes",
+      "by": "do_own_business_set; isPlatform in read_platform_business_get"
+    },
+    {
+      "path": "Business page → Founding seat → seat line or none, problem, All founding seats link",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-seat-block.tsx:84",
+      "covered": "yes",
+      "by": "read_platform_founding_business"
+    },
+    {
+      "path": "Business page → Founding seat → Revoke, dialog Why, Revoke the seat",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-seat-block.tsx:102",
+      "covered": "yes",
+      "by": "do_founding_revoke"
+    },
+    {
+      "path": "Business page → Founding seat → Give a founding seat, dialog offer, Why them, Give the seat",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-seat-block.tsx:110",
+      "covered": "yes",
+      "by": "do_founding_give; offers in read_platform_founding"
+    },
+    {
+      "path": "Business page → Founding seat → Undo",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-seat-block.tsx:121",
+      "covered": "yes",
+      "by": "do_founding_restore"
+    },
+    {
+      "path": "Business page → Affiliate → credited to, how, when, or none",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-business-block.tsx:78",
+      "covered": "yes",
+      "by": "read_platform_affiliate_of_business"
+    },
+    {
+      "path": "Business page → Affiliate → Change, pick an affiliate, Save, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-business-block.tsx:64",
+      "covered": "yes",
+      "by": "do_affiliate_set_business; read_platform_affiliates"
+    },
+    {
+      "path": "Getting started → since, window chips",
+      "kind": "do",
+      "file": "apps/web/src/app/admin/getting-started/page.tsx:43",
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts input"
+    },
+    {
+      "path": "Getting started → count cards",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/getting-started/page.tsx:62",
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts"
+    },
+    {
+      "path": "Getting started → skipped table: step, for whom, skipped, brought back",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/getting-started/page.tsx:76",
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts"
+    },
+    {
+      "path": "Getting started → How far people get → Open Matomo",
+      "kind": "do",
+      "file": "apps/web/src/app/admin/getting-started/page.tsx:106",
+      "covered": "no",
+      "by": "link built on screen, never returned (adm-14)"
+    },
+    {
+      "path": "Health → since, oldest pending",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/health/page.tsx:26",
+      "covered": "yes",
+      "by": "read_platform_health_summary"
+    },
+    {
+      "path": "Health → cards",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/health/page.tsx:31",
+      "covered": "yes",
+      "by": "read_platform_health_summary"
+    },
+    {
+      "path": "Health → last failures: kind, business, when, detail",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/health/page.tsx:53",
+      "covered": "yes",
+      "by": "read_platform_health_summary"
+    },
+    {
+      "path": "Health → AI provider → couldn't read, facts, why, overruled",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ai-provider-block.tsx:44",
+      "covered": "yes",
+      "by": "read_platform_ai_provider_get"
+    },
+    {
+      "path": "Health → AI provider → mode",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ai-provider-block.tsx:82",
+      "covered": "yes",
+      "by": "do_ai_provider_set_mode"
+    },
+    {
+      "path": "Health → AI provider → what auto does",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ai-provider-block.tsx:97",
+      "covered": "yes",
+      "by": "read_platform_ai_provider_get"
+    },
+    {
+      "path": "Problem reports → intro, Learned ways link",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:124",
+      "covered": "yes",
+      "by": "read_platform_learned_way_list"
+    },
+    {
+      "path": "Problem reports → state chips",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:136",
+      "covered": "yes",
+      "by": "read_platform_problem_report_list input"
+    },
+    {
+      "path": "Problem reports → area chips with open counts",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:148",
+      "covered": "yes",
+      "by": "read_platform_problem_report_groups / list"
+    },
+    {
+      "path": "Problem reports → Limits: title, counts, said, See newest",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:188",
+      "covered": "yes",
+      "by": "read_platform_problem_report_groups"
+    },
+    {
+      "path": "Problem reports → Fixes: title, counts, note, helper",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:235",
+      "covered": "yes",
+      "by": "read_platform_problem_report_groups"
+    },
+    {
+      "path": "Problem reports → Mark all N handled",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:307",
+      "covered": "yes",
+      "by": "do_problem_report_set_handled reportIds"
+    },
+    {
+      "path": "Problem reports → row: where, business, when, outline, Limit, helper, note, from, cleared",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:331",
+      "covered": "yes",
+      "by": "read_platform_problem_report_list"
+    },
+    {
+      "path": "Problem reports → row → Mark handled / Reopen",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:373",
+      "covered": "yes",
+      "by": "do_problem_report_set_handled handled"
+    },
+    {
+      "path": "Problem reports → none, Newest / Older",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:384",
+      "covered": "yes",
+      "by": "read_platform_problem_report_list cursor"
+    },
+    {
+      "path": "Problem reports → steps card",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:417",
+      "covered": "yes",
+      "by": "read_platform_problem_report_groups"
+    },
+    {
+      "path": "Problem report → title, business, when, from, note, path, shown, limit, handled by",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:488",
+      "covered": "yes",
+      "by": "read_platform_problem_report_get"
+    },
+    {
+      "path": "Problem report → Copy for Claude",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:526",
+      "covered": "partly",
+      "by": "read_platform_problem_report_get has the data, not the copy text"
+    },
+    {
+      "path": "Problem report → Download outline",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:530",
+      "covered": "partly",
+      "by": "outline in read_platform_problem_report_get; no file"
+    },
+    {
+      "path": "Problem report → Mark handled / Reopen",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:534",
+      "covered": "yes",
+      "by": "do_problem_report_set_handled"
+    },
+    {
+      "path": "Problem report → helper found: verdict, result, said, learned, moves, looks",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:443",
+      "covered": "yes",
+      "by": "read_platform_problem_report_get"
+    },
+    {
+      "path": "Problem report → What it found, Outline",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/problem-reports.tsx:563",
+      "covered": "yes",
+      "by": "read_platform_problem_report_get"
+    },
+    {
+      "path": "Learned ways → back link, intro",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/learned-ways.tsx:58",
+      "covered": "yes",
+      "by": "read_platform_learned_way_list"
+    },
+    {
+      "path": "Learned ways → area chips",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/learned-ways.tsx:68",
+      "covered": "yes",
+      "by": "read_platform_learned_way_list"
+    },
+    {
+      "path": "Learned ways → row: area · button, Set aside / Trusted / Learning, way, counts, last worked",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/learned-ways.tsx:90",
+      "covered": "yes",
+      "by": "read_platform_learned_way_list"
+    },
+    {
+      "path": "Learned ways → Set aside / Bring back",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/learned-ways.tsx:122",
+      "covered": "yes",
+      "by": "do_learned_way_set_removed"
+    },
+    {
+      "path": "Learned ways → none",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/learned-ways.tsx:133",
+      "covered": "yes",
+      "by": "empty read_platform_learned_way_list"
+    },
+    {
+      "path": "Assistant coverage → not for your role",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/assistant/page.tsx:12",
+      "covered": "no",
+      "by": "no read tool (adm-15)"
+    },
+    {
+      "path": "Assistant coverage → intro, count cards",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/assistant-coverage.tsx:35",
+      "covered": "no",
+      "by": "computed in the browser; no read tool (adm-15)"
+    },
+    {
+      "path": "Assistant coverage → Copy gaps",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/assistant-coverage.tsx:37",
+      "covered": "no",
+      "by": "no read tool (adm-15)"
+    },
+    {
+      "path": "Assistant coverage → not yet, by page",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/assistant-coverage.tsx:65",
+      "covered": "no",
+      "by": "no read tool (adm-15)"
+    },
+    {
+      "path": "Assistant coverage → settings to check",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/assistant-coverage.tsx:84",
+      "covered": "no",
+      "by": "no read tool (adm-15)"
+    },
+    {
+      "path": "Assistant coverage → What it never does, and why",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/assistant-coverage.tsx:108",
+      "covered": "no",
+      "by": "no read tool (adm-15)"
+    },
+    {
+      "path": "Assistant coverage → ledger → cards",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/assistant-ledger.tsx:109",
+      "covered": "no",
+      "by": "platform.assistant_ledger not in SCREEN_READS"
+    },
+    {
+      "path": "Assistant coverage → ledger → view Items / Gaps / Screens",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/assistant-ledger.tsx:135",
+      "covered": "no",
+      "by": "platform.assistant_ledger not in SCREEN_READS"
+    },
+    {
+      "path": "Assistant coverage → ledger → area, state selects, search",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/assistant-ledger.tsx:145",
+      "covered": "no",
+      "by": "platform.assistant_ledger not in SCREEN_READS"
+    },
+    {
+      "path": "Assistant coverage → ledger → showing count, items, gaps, screens, More",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/assistant-ledger.tsx:196",
+      "covered": "no",
+      "by": "platform.assistant_ledger not in SCREEN_READS"
+    },
+    {
+      "path": "Rates → measured line",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/rates/page.tsx:25",
+      "covered": "yes",
+      "by": "read_platform_rates"
+    },
+    {
+      "path": "Rates → thin warning",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/rates-table.tsx:31",
+      "covered": "yes",
+      "by": "read_platform_rates"
+    },
+    {
+      "path": "Rates → row: key, notes, cost, price, markup, realised",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/rates-table.tsx:43",
+      "covered": "yes",
+      "by": "read_platform_rates"
+    },
+    {
+      "path": "Rates → not editable here",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/rates-table.tsx:66",
+      "covered": "yes",
+      "by": "no rate command exists"
+    },
+    {
+      "path": "Founding → error",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:107",
+      "covered": "yes",
+      "by": "tool error words"
+    },
+    {
+      "path": "Founding → offer card: name, price, left of N, opens, replaced, paid, renews",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:344",
+      "covered": "yes",
+      "by": "read_platform_founding offers"
+    },
+    {
+      "path": "Founding → offer card → Seats and Save",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:390",
+      "covered": "yes",
+      "by": "do_founding_set_cap"
+    },
+    {
+      "path": "Founding → offer card → Open / Close / Open now",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:409",
+      "covered": "yes",
+      "by": "do_founding_set_status"
+    },
+    {
+      "path": "Founding → offer card → cap hint",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:418",
+      "covered": "yes",
+      "by": "read_platform_founding"
+    },
+    {
+      "path": "Founding → Waiting on you: business, waitlisted, application, note",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:130",
+      "covered": "yes",
+      "by": "read_platform_founding"
+    },
+    {
+      "path": "Founding → Waiting on you → Approve",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:150",
+      "covered": "yes",
+      "by": "do_founding_approve"
+    },
+    {
+      "path": "Founding → Waiting on you → Decline",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:153",
+      "covered": "yes",
+      "by": "do_founding_decline"
+    },
+    {
+      "path": "Founding → Seats out: org, seat line, problem",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:179",
+      "covered": "yes",
+      "by": "read_platform_founding"
+    },
+    {
+      "path": "Founding → Seats out → Give a seat",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:182",
+      "covered": "yes",
+      "by": "do_founding_give"
+    },
+    {
+      "path": "Founding → Seats out → Turn it on",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:204",
+      "covered": "yes",
+      "by": "do_founding_give offerId, orgId"
+    },
+    {
+      "path": "Founding → Seats out → Revoke",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:208",
+      "covered": "yes",
+      "by": "do_founding_revoke"
+    },
+    {
+      "path": "Founding → Seats given back → Undo / Turn it on",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:217",
+      "covered": "yes",
+      "by": "do_founding_restore / do_founding_give"
+    },
+    {
+      "path": "Founding → Approve dialog → their business, Search for another",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:460",
+      "covered": "yes",
+      "by": "do_founding_approve workspaceId; read_platform_business_list"
+    },
+    {
+      "path": "Founding → Approve dialog → not theirs hint",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:460",
+      "covered": "yes",
+      "by": "organizationId in read_platform_business_list"
+    },
+    {
+      "path": "Founding → Approve dialog → Why them",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:460",
+      "covered": "yes",
+      "by": "do_founding_approve note"
+    },
+    {
+      "path": "Founding → Approve dialog → Approve and hold a seat / Approve and turn it on",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:460",
+      "covered": "yes",
+      "by": "do_founding_approve"
+    },
+    {
+      "path": "Founding → claim link dialog: link, works until, Copy, I've sent it",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/founding-page.tsx:307",
+      "covered": "no",
+      "by": "approve's claim token is dropped by commitScreenAction (adm-2)"
+    },
+    {
+      "path": "Founding → Give dialog: search, business, offer, Why them, Give the seat",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:605",
+      "covered": "yes",
+      "by": "do_founding_give"
+    },
+    {
+      "path": "Founding → Revoke dialog: Why, Revoke the seat",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/founding-page.tsx:720",
+      "covered": "yes",
+      "by": "do_founding_revoke note"
+    },
+    {
+      "path": "Affiliates → title and intro",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:107",
+      "covered": "yes",
+      "by": "read_platform_affiliates"
+    },
+    {
+      "path": "Affiliates → Everyone's share → Share %",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:115",
+      "covered": "yes",
+      "by": "do_affiliates_save_settings rateBp"
+    },
+    {
+      "path": "Affiliates → Everyone's share → Code limit, help",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:124",
+      "covered": "yes",
+      "by": "do_affiliates_save_settings maxDiscountBp"
+    },
+    {
+      "path": "Affiliates → Everyone's share → Save",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:133",
+      "covered": "yes",
+      "by": "do_affiliates_save_settings"
+    },
+    {
+      "path": "Affiliates → Pay affiliates: On / Off, Turn on / off, confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:156",
+      "covered": "yes",
+      "by": "do_affiliates_save_settings payoutsOn"
+    },
+    {
+      "path": "Affiliates → House codes list",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:179",
+      "covered": "partly",
+      "by": "read_platform_affiliates codes; links only as codes (adm-3)"
+    },
+    {
+      "path": "Affiliates → House codes → make a code",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:198",
+      "covered": "yes",
+      "by": "do_affiliates_make_code affiliateId null"
+    },
+    {
+      "path": "Affiliates → Waiting: name, email, applied, wants code, pitch, links",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:217",
+      "covered": "yes",
+      "by": "read_platform_affiliates applications"
+    },
+    {
+      "path": "Affiliates → Waiting → Approve",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:247",
+      "covered": "yes",
+      "by": "do_affiliate_decide"
+    },
+    {
+      "path": "Affiliates → Waiting → Turn down and confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:255",
+      "covered": "yes",
+      "by": "do_affiliate_decide"
+    },
+    {
+      "path": "Affiliates → row: name, link, share, clicks, businesses, status",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliates-page.tsx:280",
+      "covered": "partly",
+      "by": "read_platform_affiliates; link only as code (adm-3)"
+    },
+    {
+      "path": "Affiliate → back link, name, email, applied, decided by, terms, status",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:106",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → Link copy field",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:133",
+      "covered": "partly",
+      "by": "code only, no link (adm-3)"
+    },
+    {
+      "path": "Affiliate → clicks",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:139",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → code and Save",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:141",
+      "covered": "yes",
+      "by": "do_affiliate_set_code"
+    },
+    {
+      "path": "Affiliate → share line",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:170",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → Set own share and Save, Use everyone's",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:176",
+      "covered": "yes",
+      "by": "do_affiliate_set_rate"
+    },
+    {
+      "path": "Affiliate → Pause / Resume",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:210",
+      "covered": "yes",
+      "by": "do_affiliate_set_status"
+    },
+    {
+      "path": "Affiliate → End and confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:229",
+      "covered": "yes",
+      "by": "do_affiliate_set_status"
+    },
+    {
+      "path": "Affiliate → codes limit line",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:247",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → Set own limit and Save, Use everyone's limit",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:253",
+      "covered": "yes",
+      "by": "do_affiliate_set_max_discount"
+    },
+    {
+      "path": "Affiliate → code list",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:289",
+      "covered": "partly",
+      "by": "read_platform_affiliate codes; links only as codes (adm-3)"
+    },
+    {
+      "path": "Affiliate → Make a code",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:305",
+      "covered": "yes",
+      "by": "do_affiliates_make_code affiliateId"
+    },
+    {
+      "path": "Affiliate → earnings tiles",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:325",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → bank state, test, due",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:335",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → payouts list",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:350",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → pitch and links",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:354",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → their businesses: how, when, marked by, earned",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:375",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → clicks by day",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:403",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Affiliate → shares: kind, business, base, rate, earned, payable, amount",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/affiliate-detail.tsx:425",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Codes → row: code, On / Off / Off by staff, deal, plan, uses",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:65",
+      "covered": "yes",
+      "by": "read_affiliate_mine; read_platform_affiliate"
+    },
+    {
+      "path": "Codes → row → Copy link",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:65",
+      "covered": "partly",
+      "by": "code only, no link (adm-3)"
+    },
+    {
+      "path": "Codes → row → Turn off / Turn on",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:95",
+      "covered": "yes",
+      "by": "do_affiliate_turn_code (own); do_affiliates_turn_code (staff)"
+    },
+    {
+      "path": "Codes → Make a code → Code",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:189",
+      "covered": "yes",
+      "by": "make_code code"
+    },
+    {
+      "path": "Codes → Make a code → Plan",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:202",
+      "covered": "yes",
+      "by": "make_code plan"
+    },
+    {
+      "path": "Codes → Make a code → Percent / Dollars / Trial only",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:218",
+      "covered": "yes",
+      "by": "make_code kind"
+    },
+    {
+      "path": "Codes → Make a code → Amount",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:233",
+      "covered": "yes",
+      "by": "make_code amount"
+    },
+    {
+      "path": "Codes → Make a code → For good / For some months, Months",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:249",
+      "covered": "yes",
+      "by": "make_code duration"
+    },
+    {
+      "path": "Codes → Make a code → Free trial",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:280",
+      "covered": "yes",
+      "by": "make_code trial"
+    },
+    {
+      "path": "Codes → Make a code → Make",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:304",
+      "covered": "yes",
+      "by": "do_affiliate_make_code / do_affiliates_make_code"
+    },
+    {
+      "path": "Earnings → Earned, Waiting, Ready, Paid, on its way, help",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-earnings.tsx:11",
+      "covered": "yes",
+      "by": "read_affiliate_mine; read_platform_affiliate"
+    },
+    {
+      "path": "Getting paid → intro, not on yet, bank state, test",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-payouts.tsx:70",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Getting paid → Set up / Open Stripe",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-payouts.tsx:95",
+      "covered": "person",
+      "by": "bank details on Stripe's own page"
+    },
+    {
+      "path": "Getting paid → US only",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-payouts.tsx:106",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Getting paid → payouts: month, test, status, sent on, amount",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-payouts.tsx:115",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → Ask HandsFreeOS panel",
+      "kind": "do",
+      "file": "apps/web/src/app/affiliate/page.tsx:29",
+      "covered": "no",
+      "by": "no panel on /affiliate (adm-1)"
+    },
+    {
+      "path": "Sell HandsFreeOS → title, standing, apply-again date",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:56",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → intro with the share",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:65",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → Your application",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:87",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → agree to the terms: text, Accept, Read the terms",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:98",
+      "covered": "never",
+      "by": "affiliate.accept_terms is NEVER"
+    },
+    {
+      "path": "Sell HandsFreeOS → approved → Your link",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:147",
+      "covered": "partly",
+      "by": "code only, no link (adm-3)"
+    },
+    {
+      "path": "Sell HandsFreeOS → approved → Your share, Clicks, Sign-ups",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:147",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → Codes → limit intro",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:180",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → Earned → tiles, paying businesses: name, earned, first paid",
+      "kind": "see",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:235",
+      "covered": "yes",
+      "by": "read_affiliate_mine"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → Name",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:315",
+      "covered": "yes",
+      "by": "do_affiliate_apply"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → Code, link hint",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:325",
+      "covered": "yes",
+      "by": "do_affiliate_apply code"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → Pitch",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:343",
+      "covered": "yes",
+      "by": "do_affiliate_apply"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → Links",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:353",
+      "covered": "yes",
+      "by": "do_affiliate_apply"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → I live in the US",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:364",
+      "covered": "yes",
+      "by": "do_affiliate_apply"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → I agree to the terms",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:373",
+      "covered": "never",
+      "by": "acceptTerms ignored on the assistant channel"
+    },
+    {
+      "path": "Sell HandsFreeOS → apply → Apply / Save changes",
+      "kind": "do",
+      "file": "apps/web/src/components/affiliate/affiliate-self.tsx:393",
+      "covered": "yes",
+      "by": "do_affiliate_apply"
+    },
+    {
+      "path": "Founding claim → Carry on paying",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/claim-seat.tsx:48",
+      "covered": "never",
+      "by": "founding.start_checkout is NEVER"
+    },
+    {
+      "path": "Founding claim → which workspace it goes on",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/claim-seat.tsx:86",
+      "covered": "yes",
+      "by": "do_founding_claim workspaceId"
+    },
+    {
+      "path": "Founding claim → Take up my seat",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/claim-seat.tsx:106",
+      "covered": "yes",
+      "by": "do_founding_claim"
+    },
+    {
+      "path": "Founding claim → Pay $X",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/claim-seat.tsx:106",
+      "covered": "never",
+      "by": "founding.start_checkout is NEVER"
+    },
+    {
+      "path": "Founding claim → fine print",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/claim-seat.tsx:116",
+      "covered": "never",
+      "by": "founding.claim_preview is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding claim → Sign out and use another account",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/claim-seat.tsx:131",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Founding checkout → paid, Carry on setting up / Open your workspace",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:117",
+      "covered": "never",
+      "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding checkout → stranded, finishing, expired, failed, Pick your spot",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:157",
+      "covered": "never",
+      "by": "paying is the person's"
+    },
+    {
+      "path": "Founding checkout → slow, preparing, confirming",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:196",
+      "covered": "never",
+      "by": "founding.checkout_status is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding checkout → cancelled → Go back to paying / Pick a different spot",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:218",
+      "covered": "never",
+      "by": "paying is the person's"
+    },
+    {
+      "path": "Founding checkout → leaving → Go now",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/checkout-status.tsx:247",
+      "covered": "never",
+      "by": "paying is the person's"
+    },
+    {
+      "path": "Founding plan → title, not yours, none left",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:134",
+      "covered": "never",
+      "by": "founding.counts is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding plan → plan cards: price, name, left / full, deal, renews",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:153",
+      "covered": "never",
+      "by": "founding.counts is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding plan → Pay / Start trial",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:210",
+      "covered": "never",
+      "by": "founding.buy is NEVER"
+    },
+    {
+      "path": "Founding plan → fine print",
+      "kind": "see",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:226",
+      "covered": "never",
+      "by": "the plan page before a business has an Assistant"
+    },
+    {
+      "path": "Founding plan → Have a code?, code, Apply, Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:240",
+      "covered": "never",
+      "by": "founding.code_preview is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding plan → Sign out",
+      "kind": "do",
+      "file": "apps/web/src/components/founding/pick-plan.tsx:316",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Demo player → intro, phone scenes note",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/demo-start.tsx:77",
+      "covered": "no",
+      "by": "scenes are code; no tool"
+    },
+    {
+      "path": "Demo player → Where it plays, place choice",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/demo-start.tsx:92",
+      "covered": "never",
+      "by": "playing in Bright Path as owner uses platform.view_as.start"
+    },
+    {
+      "path": "Demo player → not in a business",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/demo-start.tsx:122",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Demo player → Open the demo player, keys hint",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/demo-start.tsx:128",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Demo player → Copy every voiceover",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/demo-start.tsx:154",
+      "covered": "no",
+      "by": "scenes are code; no tool"
+    },
+    {
+      "path": "Demo player → scene card: number, kind, title",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/demo-start.tsx:167",
+      "covered": "no",
+      "by": "scenes are code; no tool"
+    },
+    {
+      "path": "Demo player → scene → Copy voiceover, Play",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/demo-start.tsx:176",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Demo player → scene → voiceover steps",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/demo-start.tsx:198",
+      "covered": "no",
+      "by": "scenes are code; no tool"
+    },
+    {
+      "path": "Demo director → header, voiceover toggle, Hide",
+      "kind": "do",
+      "file": "apps/web/src/components/demo/demo-director.tsx:535",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → Exit",
+      "kind": "do",
+      "file": "apps/web/src/components/demo/demo-director.tsx:556",
+      "covered": "no",
+      "by": "screen-only; as owner it ends view-as (NEVER)"
+    },
+    {
+      "path": "Demo director → frame size, Make it 16:9",
+      "kind": "do",
+      "file": "apps/web/src/components/demo/demo-director.tsx:568",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → acting note",
+      "kind": "see",
+      "file": "apps/web/src/components/demo/demo-director.tsx:600",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → All scenes, scene header, Copy the voiceover",
+      "kind": "do",
+      "file": "apps/web/src/components/demo/demo-director.tsx:612",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → steps with voiceover",
+      "kind": "see",
+      "file": "apps/web/src/components/demo/demo-director.tsx:637",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → end of scene, problem",
+      "kind": "see",
+      "file": "apps/web/src/components/demo/demo-director.tsx:687",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → Back to scene, pick a scene, scene list",
+      "kind": "do",
+      "file": "apps/web/src/components/demo/demo-director.tsx:711",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Demo director → Back / Restart / Next, keys hint",
+      "kind": "do",
+      "file": "apps/web/src/components/demo/demo-director.tsx:752",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Ideas → title, Areas and What's new links, summary",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:66",
+      "covered": "yes",
+      "by": "read_idea_triage"
+    },
+    {
+      "path": "Ideas → Search",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:86",
+      "covered": "yes",
+      "by": "read_idea_triage search"
+    },
+    {
+      "path": "Ideas → area",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:95",
+      "covered": "yes",
+      "by": "read_idea_triage area"
+    },
+    {
+      "path": "Ideas → sort Top / Trending / New",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:109",
+      "covered": "yes",
+      "by": "read_idea_triage sort"
+    },
+    {
+      "path": "Ideas → tabs Under review … Merged, with counts",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:121",
+      "covered": "yes",
+      "by": "read_idea_triage status, counts"
+    },
+    {
+      "path": "Ideas → empty states",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:142",
+      "covered": "yes",
+      "by": "empty read_idea_triage"
+    },
+    {
+      "path": "Ideas → row: votes, #, title, status, area, businesses, comments, Taken down, merged into, author, business, ago",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:153",
+      "covered": "yes",
+      "by": "read_idea_triage"
+    },
+    {
+      "path": "Ideas → Next page",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/ideas-triage.tsx:200",
+      "covered": "yes",
+      "by": "read_idea_triage cursor"
+    },
+    {
+      "path": "Idea → Tidy: title, details, area, Save, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:168",
+      "covered": "yes",
+      "by": "do_idea_edit"
+    },
+    {
+      "path": "Idea → header: votes, title, status, area, #, ago, Taken down, merged into, body",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:206",
+      "covered": "yes",
+      "by": "read_idea_team_view; find_ideas ideaId"
+    },
+    {
+      "path": "Idea → Take down / Put back idea",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:247",
+      "covered": "yes",
+      "by": "do_idea_set_hidden"
+    },
+    {
+      "path": "Idea → What happened updates",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:264",
+      "covered": "yes",
+      "by": "find_ideas ideaId story"
+    },
+    {
+      "path": "Idea → Comments: author, team tag, Taken down, ago, body",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:283",
+      "covered": "partly",
+      "by": "find_ideas: last 10 shown only, names masked, no taken-down ones"
+    },
+    {
+      "path": "Idea → comment → Take down / Put back",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:283",
+      "covered": "partly",
+      "by": "do_idea_set_comment_hidden needs a commentId nothing returns (adm-6)"
+    },
+    {
+      "path": "Idea → Answer and Post answer",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:327",
+      "covered": "yes",
+      "by": "manage_idea comment"
+    },
+    {
+      "path": "Idea → Where it stands: status, note, Email N followers, Move to / Post update",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:356",
+      "covered": "yes",
+      "by": "do_idea_set_status note, notify"
+    },
+    {
+      "path": "Idea → Who is behind it: shared by, email, business, support line, voters",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:407",
+      "covered": "yes",
+      "by": "read_idea_team_view"
+    },
+    {
+      "path": "Idea → Duplicate: search, matches, no duplicates",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:448",
+      "covered": "partly",
+      "by": "find_ideas search (idea.similar not read)"
+    },
+    {
+      "path": "Idea → Duplicate → Merge into, merge note",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-team-view.tsx:448",
+      "covered": "yes",
+      "by": "do_idea_merge"
+    },
+    {
+      "path": "Idea areas → title, intro, back link",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/idea-areas-admin.tsx:64",
+      "covered": "yes",
+      "by": "find_ideas areas"
+    },
+    {
+      "path": "Idea areas → row: name, Archived, description, open count",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/idea-areas-admin.tsx:75",
+      "covered": "partly",
+      "by": "find_ideas gives non-archived names only (adm-10)"
+    },
+    {
+      "path": "Idea areas → Archive / Bring back",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-areas-admin.tsx:88",
+      "covered": "partly",
+      "by": "do_idea_area_save needs description, sort it can't read (adm-10)"
+    },
+    {
+      "path": "Idea areas → Add: name, description, Add",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/idea-areas-admin.tsx:108",
+      "covered": "yes",
+      "by": "do_idea_area_save"
+    },
+    {
+      "path": "What's new → title, intro, back link",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:146",
+      "covered": "yes",
+      "by": "read_whats_new_list includeDrafts"
+    },
+    {
+      "path": "What's new → Write",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:156",
+      "covered": "yes",
+      "by": "do_whats_new_save"
+    },
+    {
+      "path": "What's new → editor: Title, Kind New / Improved / Fixed, Area, Body, Save draft, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:165",
+      "covered": "yes",
+      "by": "do_whats_new_save"
+    },
+    {
+      "path": "What's new → editor → Ideas it delivers: find, add, remove",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:165",
+      "covered": "partly",
+      "by": "find_ideas for ids, then do_whats_new_save"
+    },
+    {
+      "path": "What's new → Mark the ideas done",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:293",
+      "covered": "yes",
+      "by": "do_whats_new_publish markIdeasDone"
+    },
+    {
+      "path": "What's new → entry: kind, Published / Draft, area, title, body, delivers with status",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:303",
+      "covered": "yes",
+      "by": "read_whats_new_list"
+    },
+    {
+      "path": "What's new → entry → Edit",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:338",
+      "covered": "yes",
+      "by": "do_whats_new_save"
+    },
+    {
+      "path": "What's new → entry → Unpublish",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:342",
+      "covered": "yes",
+      "by": "do_whats_new_unpublish"
+    },
+    {
+      "path": "What's new → entry → Publish and confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:358",
+      "covered": "yes",
+      "by": "do_whats_new_publish"
+    },
+    {
+      "path": "What's new → entry → Delete and confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/whats-new-admin.tsx:366",
+      "covered": "yes",
+      "by": "do_whats_new_delete"
+    },
+    {
+      "path": "Add-on votes → intro, next pick at",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:62",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Add-on votes → Waiting: week ending, tie or no votes, choice with votes",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:70",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Add-on votes → Waiting → Choose",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:70",
+      "covered": "yes",
+      "by": "do_addon_pick_choose"
+    },
+    {
+      "path": "Add-on votes → Coming soon: name, how, picked",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:131",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Add-on votes → Race: find",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:152",
+      "covered": "yes",
+      "by": "read_addon_pick_overview has the whole race"
+    },
+    {
+      "path": "Add-on votes → Race: add-on, category, votes, Show all",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:167",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Add-on votes → Recent weeks",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/addon-picks-admin.tsx:194",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Saved replies → title, intro",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/saved-replies.tsx:84",
+      "covered": "yes",
+      "by": "read_support_canned_reply_list"
+    },
+    {
+      "path": "Saved replies → New / Edit: What is it for?, The reply, Save, Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/saved-replies.tsx:88",
+      "covered": "yes",
+      "by": "do_support_canned_reply_save"
+    },
+    {
+      "path": "Saved replies → Delete",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/saved-replies.tsx:96",
+      "covered": "yes",
+      "by": "do_support_canned_reply_delete"
+    },
+    {
+      "path": "Saved replies → list: title, body, empty",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/saved-replies.tsx:141",
+      "covered": "yes",
+      "by": "read_support_canned_reply_list"
+    },
+    {
+      "path": "Support people → row: name, you, email, open tickets, suspended",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/staff-page.tsx:87",
+      "covered": "yes",
+      "by": "read_support_staff_list"
+    },
+    {
+      "path": "Support people → row → Role",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:104",
+      "covered": "yes",
+      "by": "do_support_staff_set_role role"
+    },
+    {
+      "path": "Support people → row → Suspend / Let back in",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:123",
+      "covered": "yes",
+      "by": "do_support_staff_set_role status"
+    },
+    {
+      "path": "Support people → row → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:139",
+      "covered": "yes",
+      "by": "do_support_staff_remove"
+    },
+    {
+      "path": "Support people → row → role label when you can't change it",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/staff-page.tsx:152",
+      "covered": "yes",
+      "by": "read_support_staff_list"
+    },
+    {
+      "path": "Support people → Waiting to accept: email, invitation line",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/staff-page.tsx:160",
+      "covered": "yes",
+      "by": "read_support_staff_list"
+    },
+    {
+      "path": "Support people → Waiting → Send again",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:172",
+      "covered": "yes",
+      "by": "do_support_staff_resend_invitation"
+    },
+    {
+      "path": "Support people → Waiting → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:185",
+      "covered": "yes",
+      "by": "do_support_staff_revoke_invitation"
+    },
+    {
+      "path": "Support people → How you sign off: your name, sign-off as saved",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/staff-page.tsx:236",
+      "covered": "no",
+      "by": "platform.me is NOT_FOR_THE_ASSISTANT (adm-7)"
+    },
+    {
+      "path": "Support people → How you sign off → name, Sign-off, Save",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:236",
+      "covered": "partly",
+      "by": "do_support_staff_save_profile; can wipe a sign-off it can't read (adm-7)"
+    },
+    {
+      "path": "Support people → Invite someone: email, role and help, Send the invitation",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/staff-page.tsx:305",
+      "covered": "yes",
+      "by": "do_support_staff_invite"
+    },
+    {
+      "path": "Support people → Invite → Sent to X, seven days, Done",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/staff-page.tsx:309",
+      "covered": "yes",
+      "by": "invite tool outcome"
+    },
+    {
+      "path": "Phone desk → not staff → Back to your business",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/_layout.tsx:102",
+      "covered": "yes",
+      "by": "staff tools offered only to staff"
+    },
+    {
+      "path": "Phone desk → not staff → Sign out",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/_layout.tsx:106",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Phone desk → home → sections",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/index.tsx:71",
+      "covered": "partly",
+      "by": "staff line names 7 of 13; no More → Support desk in places-map (adm-8)"
+    },
+    {
+      "path": "Phone desk → home → Open the desk on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/index.tsx:104",
+      "covered": "partly",
+      "by": "places-map has no Admin area (adm-8)"
+    },
+    {
+      "path": "Phone desk → home → Sign out",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/index.tsx:111",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Phone desk → Notifications → this phone",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/notifications.tsx:70",
+      "covered": "person",
+      "by": "the phone's own permission prompt"
+    },
+    {
+      "path": "Phone desk → Notifications → New support tickets",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/notifications.tsx:83",
+      "covered": "yes",
+      "by": "update_my_alerts supportTickets (also told to non-staff, adm-13)"
+    },
+    {
+      "path": "Phone desk → Notifications → note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/notifications.tsx:97",
+      "covered": "yes",
+      "by": "update_my_alerts description"
+    },
+    {
+      "path": "Phone desk → Demo player → plays in: business list",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/demo.tsx:73",
+      "covered": "no",
+      "by": "phone scenes are code; no tool"
+    },
+    {
+      "path": "Phone desk → Demo player → scene card, Show / Hide script, voiceover",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/demo.tsx:94",
+      "covered": "no",
+      "by": "phone scenes are code; no tool"
+    },
+    {
+      "path": "Phone desk → Demo player → Play",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/demo.tsx:112",
+      "covered": "no",
+      "by": "no tool"
+    },
+    {
+      "path": "Phone desk → demo player → Hide / Show, count, next step, done, problem, Back, Next",
+      "kind": "do",
+      "file": "apps/mobile/src/components/demo/demo-player.tsx:147",
+      "covered": "no",
+      "by": "screen-only player"
+    },
+    {
+      "path": "Phone desk → ticket → Look on the web / Open as owner on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/tickets/[ticketId].tsx:248",
+      "covered": "never",
+      "by": "view-as is NEVER"
+    },
+    {
+      "path": "Phone desk → business → Look on the web / Open as owner on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/businesses/[workspaceId].tsx:143",
+      "covered": "never",
+      "by": "view-as is NEVER"
+    },
+    {
+      "path": "Phone desk → founding → claim link → Share",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/founding.tsx:945",
+      "covered": "no",
+      "by": "claim token dropped (adm-2)"
+    },
+    {
+      "path": "Phone desk → affiliates → affiliate → Share link",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/affiliates.tsx:392",
+      "covered": "partly",
+      "by": "code only, no link (adm-3)"
+    },
+    {
+      "path": "Phone desk → problems → Share for Claude",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/problems.tsx:380",
+      "covered": "partly",
+      "by": "read_platform_problem_report_get has the data, not the text"
+    },
+    {
+      "path": "Phone desk → Assistant coverage → Share gaps",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/assistant.tsx:51",
+      "covered": "no",
+      "by": "no read tool (adm-15)"
+    }
+  ],
   "gaps": [
     {
       "id": "adm-1",

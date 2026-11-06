@@ -2,8 +2,2402 @@
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
   "checkedOn": "2026-11-06",
-  "files": {},
-  "items": [],
+  "files": {
+    "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
+    "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
+    "apps/web/src/addons/realestate/portal/listing.tsx": "f366fc365225",
+    "apps/web/src/addons/realestate/portal/pages.tsx": "ee125e35ca09",
+    "apps/web/src/addons/realestate/public/pages.tsx": "a1f276e85386",
+    "apps/web/src/app/a/[site]/[addonId]/[...path]/page.tsx": "580e89c8734c",
+    "apps/web/src/app/book/[site]/[calendar]/page.tsx": "1292c380ada6",
+    "apps/web/src/app/book/[site]/layout.tsx": "9b0940e45cb3",
+    "apps/web/src/app/book/[site]/page.tsx": "0b2fcf68ec59",
+    "apps/web/src/app/book/c/[id]/page.tsx": "e3a3aab3991b",
+    "apps/web/src/app/book/not-found.tsx": "e0c56c21c68b",
+    "apps/web/src/app/c/[token]/a/[addonId]/[[...path]]/page.tsx": "600fc21dd8c3",
+    "apps/web/src/app/c/[token]/documents/page.tsx": "eb7f06918b07",
+    "apps/web/src/app/c/[token]/files/page.tsx": "52da10949a95",
+    "apps/web/src/app/c/[token]/layout.tsx": "27c42d89f487",
+    "apps/web/src/app/c/[token]/messages/page.tsx": "d5b6a688b44f",
+    "apps/web/src/app/c/[token]/page.tsx": "22712c6311e5",
+    "apps/web/src/app/c/[token]/partner/page.tsx": "a03f4eb6def5",
+    "apps/web/src/app/call/[callId]/page.tsx": "daa4a6b548d6",
+    "apps/web/src/app/chat/[key]/not-found.tsx": "8a6e5f36aa1d",
+    "apps/web/src/app/chat/[key]/page.tsx": "8c826d330d83",
+    "apps/web/src/app/d/[token]/page.tsx": "8a96c39a8600",
+    "apps/web/src/app/e/[token]/page.tsx": "145bcd951eee",
+    "apps/web/src/app/f/[site]/[slug]/page.tsx": "0c0cc45489b0",
+    "apps/web/src/app/hold/[token]/page.tsx": "d5ddbb807f7a",
+    "apps/web/src/app/i/[token]/page.tsx": "f794cf29bcc7",
+    "apps/web/src/app/invite/[token]/page.tsx": "a1abb7862fdb",
+    "apps/web/src/app/j/[token]/page.tsx": "c530e25ac096",
+    "apps/web/src/app/legal/[site]/[kind]/page.tsx": "2bb36d934d2e",
+    "apps/web/src/app/live/[key]/page.tsx": "e673443485cf",
+    "apps/web/src/app/m/[token]/page.tsx": "68038ba6c8e6",
+    "apps/web/src/app/p/[token]/page.tsx": "66191302330a",
+    "apps/web/src/app/s/[token]/page.tsx": "5c53aa507b11",
+    "apps/web/src/app/support-invite/[token]/page.tsx": "dfe03778ec5d",
+    "apps/web/src/app/u/[token]/page.tsx": "174160c5c385",
+    "apps/web/src/app/v/[token]/page.tsx": "658145679449",
+    "apps/web/src/app/w/[token]/page.tsx": "7ac808f82975",
+    "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
+    "apps/web/src/components/booking/add-to-calendar.tsx": "b1fe85e88a23",
+    "apps/web/src/components/booking/booked-panel.tsx": "ba7140c83423",
+    "apps/web/src/components/booking/booking-flow.tsx": "6dc887f5bc67",
+    "apps/web/src/components/booking/business-page.tsx": "2638ffe26ea9",
+    "apps/web/src/components/booking/chat-button.tsx": "2eb031ad5c0b",
+    "apps/web/src/components/booking/deposit-pay.tsx": "83a3d97bd2b1",
+    "apps/web/src/components/booking/hold-page.tsx": "03f38595271e",
+    "apps/web/src/components/booking/join-session.tsx": "5106dc9cc988",
+    "apps/web/src/components/booking/manage-booking.tsx": "8c2bab34c5e9",
+    "apps/web/src/components/booking/public-shell.tsx": "aad974c4e588",
+    "apps/web/src/components/booking/time-picker.tsx": "5f1a28eaa2f5",
+    "apps/web/src/components/booking/viewer-zone.tsx": "f36a65de3bfa",
+    "apps/web/src/components/booking/waitlist-offer.tsx": "6d0890441564",
+    "apps/web/src/components/booking/webinar-door.tsx": "aa74fac075b5",
+    "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
+    "apps/web/src/components/chat-widget/chat-parts.tsx": "9e49cd44afb5",
+    "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
+    "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
+    "apps/web/src/components/documents/signing-page.tsx": "93d3da610fb4",
+    "apps/web/src/components/forms/booking-picker.tsx": "0b81d8526d1a",
+    "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
+    "apps/web/src/components/forms/question-field.tsx": "bbe8e1dd9aab",
+    "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
+    "apps/web/src/components/money/public-estimate.tsx": "64dcaab82276",
+    "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
+    "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
+    "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
+    "apps/web/src/components/portal/partner-page.tsx": "1e5fbe8cd600",
+    "apps/web/src/components/portal/portal-pages.tsx": "6a270ce8937e",
+    "apps/web/src/components/portal/portal-shell.tsx": "d896bce81892",
+    "apps/web/src/components/safety/contact-page.tsx": "94142f097968",
+    "apps/web/src/components/video-call/call-coach.tsx": "350fc005d02a",
+    "apps/web/src/components/video-call/call-frame.tsx": "7b091210e351",
+    "apps/web/src/components/video-call/call-panels.tsx": "1aae71877cf4",
+    "apps/web/src/components/video-call/call-room.tsx": "e8cbe7e4dec2",
+    "apps/web/src/components/video-call/call-stage.tsx": "e9fc079a3b0c",
+    "apps/web/src/components/video-call/customer-call.tsx": "95df1e2ea086",
+    "apps/web/src/components/video-call/link-call.tsx": "463d1bf669c9",
+    "apps/web/src/components/video-call/poll-panel.tsx": "e0c0aae73199",
+    "apps/web/src/components/video-call/poll-popup.tsx": "e772074533b3",
+    "apps/web/src/components/video-call/pre-join.tsx": "d79b98a9e2b0",
+    "apps/web/src/components/video-call/screen-marks.tsx": "e383c8990504",
+    "apps/web/src/components/video-call/slides.tsx": "9123d85f0cfd",
+    "apps/web/src/components/video-link/upload-page.tsx": "98f2f05c3ef5"
+  },
+  "items": [
+    {
+      "path": "Booking site → link /book/<slug>",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/page.tsx:1",
+      "covered": "yes",
+      "by": "get_settings booking_site path, made whole by withWholeLinks"
+    },
+    {
+      "path": "Booking site → not found: 'We couldn’t find that booking page'",
+      "kind": "see",
+      "file": "apps/web/src/app/book/not-found.tsx:1",
+      "covered": "partly",
+      "by": "get_settings booking_site enabled, slug; the page's own 404 isn't read"
+    },
+    {
+      "path": "Booking site → permanent link /book/c/<id> (keeps ?service, ?ref)",
+      "kind": "see",
+      "file": "apps/web/src/app/book/c/[id]/page.tsx:1",
+      "covered": "yes",
+      "by": "get_settings calendars permanentPath (whole link)"
+    },
+    {
+      "path": "Booking site → header: logo, business name, phone",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/public-shell.tsx:17",
+      "covered": "yes",
+      "by": "get_settings business (workspace.get)"
+    },
+    {
+      "path": "Booking site → header: tap the phone to call",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/public-shell.tsx:40",
+      "covered": "person",
+      "by": "the visitor calls the business"
+    },
+    {
+      "path": "Booking site → Call button",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/public-shell.tsx:144",
+      "covered": "person",
+      "by": "the visitor calls the business"
+    },
+    {
+      "path": "Booking site → 'Book with {name}', intro or 'Pick what you’d like to book.'",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/page.tsx:48",
+      "covered": "yes",
+      "by": "get_settings booking_site name, intro"
+    },
+    {
+      "path": "Booking site → each calendar row: name, description, link",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/page.tsx:57",
+      "covered": "yes",
+      "by": "get_settings calendars (calendar.list bookingPath, whole link)"
+    },
+    {
+      "path": "Booking site → empty: 'Nothing to book online right now'",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/page.tsx:76",
+      "covered": "yes",
+      "by": "get_settings calendars and booking_site show nothing bookable"
+    },
+    {
+      "path": "Booking site → website chat script on the page",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/layout.tsx:37",
+      "covered": "partly",
+      "by": "get_settings website_chat publicKey, websites; no snippet"
+    },
+    {
+      "path": "Booking site → 'Times in {zone}'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/viewer-zone.tsx:231",
+      "covered": "yes",
+      "by": "get_settings business timezone"
+    },
+    {
+      "path": "Booking site → Times in · Change → zone select",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/viewer-zone.tsx:250",
+      "covered": "person",
+      "by": "the visitor's own display choice"
+    },
+    {
+      "path": "Booking site → simple page → business name and place",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:65",
+      "covered": "yes",
+      "by": "get_settings business; update_business can't change the address"
+    },
+    {
+      "path": "Booking site → simple page → description",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:72",
+      "covered": "yes",
+      "by": "get_settings knowledge description; update_knowledge_profile"
+    },
+    {
+      "path": "Booking site → simple page → Book",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/business-page.tsx:79",
+      "covered": "yes",
+      "by": "book_appointment on the customer's behalf"
+    },
+    {
+      "path": "Booking site → simple page → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/business-page.tsx:89",
+      "covered": "person",
+      "by": "the visitor calls"
+    },
+    {
+      "path": "Booking site → simple page → Text (once texting is approved)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/business-page.tsx:99",
+      "covered": "person",
+      "by": "the visitor texts the business"
+    },
+    {
+      "path": "Booking site → simple page → Chat button",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/chat-button.tsx:1",
+      "covered": "person",
+      "by": "the visitor opens the website chat"
+    },
+    {
+      "path": "Booking site → simple page → services: name, price, description",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:118",
+      "covered": "partly",
+      "by": "get_settings knowledge profile; update_knowledge_profile has no services list"
+    },
+    {
+      "path": "Booking site → simple page → calendars",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:138",
+      "covered": "yes",
+      "by": "get_settings calendars"
+    },
+    {
+      "path": "Booking site → simple page → hours",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:161",
+      "covered": "yes",
+      "by": "get_settings business openHours; knowledge hours"
+    },
+    {
+      "path": "Booking site → simple page → area served",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:178",
+      "covered": "yes",
+      "by": "get_settings knowledge serviceArea"
+    },
+    {
+      "path": "Booking site → simple page → Privacy and Terms links",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/business-page.tsx:187",
+      "covered": "no",
+      "by": "no tool returns the /legal/ policy or its link"
+    },
+    {
+      "path": "Calendar page → ?service preselect",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/[calendar]/page.tsx:1",
+      "covered": "no",
+      "by": "no tool builds a service-preselected link"
+    },
+    {
+      "path": "Calendar page → ?ref partner credit",
+      "kind": "see",
+      "file": "apps/web/src/app/book/[site]/[calendar]/page.tsx:1",
+      "covered": "yes",
+      "by": "read_partner_get linkPath (whole link)"
+    },
+    {
+      "path": "Calendar page → 'Online booking is off'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/public-shell.tsx:165",
+      "covered": "yes",
+      "by": "get_settings booking_site enabled; calendars"
+    },
+    {
+      "path": "Booking flow → What do you need? → service choice",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1087",
+      "covered": "yes",
+      "by": "book_appointment serviceId"
+    },
+    {
+      "path": "Booking flow → How long → duration choice",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1106",
+      "covered": "yes",
+      "by": "book_appointment durationMinutes"
+    },
+    {
+      "path": "Booking flow → Who would you like? → person or 'Anyone available'",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1131",
+      "covered": "yes",
+      "by": "find_availability userId; book_appointment userIds"
+    },
+    {
+      "path": "Booking flow → Where? → location choice",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1149",
+      "covered": "partly",
+      "by": "book_appointment has no location; update_appointment location after"
+    },
+    {
+      "path": "Booking flow → How many people? → party size",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1161",
+      "covered": "partly",
+      "by": "manage_attendees adds seats; book_appointment has no party size"
+    },
+    {
+      "path": "Booking flow → street address",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1032",
+      "covered": "partly",
+      "by": "update_appointment location; book_appointment has no address"
+    },
+    {
+      "path": "Booking flow → ZIP check: 'We come to' / 'We don’t come to' / outside the area",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1050",
+      "covered": "partly",
+      "by": "get_calendar_settings zipRouting; find_availability takes no ZIP"
+    },
+    {
+      "path": "Booking flow → Pick a time → recorded and AI notes notices",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1205",
+      "covered": "partly",
+      "by": "get_calendar_settings locations; recording notice not read"
+    },
+    {
+      "path": "Booking flow → Change service",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1219",
+      "covered": "yes",
+      "by": "book_appointment serviceId"
+    },
+    {
+      "path": "Booking flow → time picker → week strip, month, Earlier / Later",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/time-picker.tsx:231",
+      "covered": "yes",
+      "by": "find_availability from, to"
+    },
+    {
+      "path": "Booking flow → time picker → Morning / Afternoon open times",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/time-picker.tsx:352",
+      "covered": "yes",
+      "by": "find_availability"
+    },
+    {
+      "path": "Booking flow → Continue with the chosen time",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1240",
+      "covered": "yes",
+      "by": "book_appointment startsAt"
+    },
+    {
+      "path": "Booking flow → no times message",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:898",
+      "covered": "yes",
+      "by": "find_availability returns none"
+    },
+    {
+      "path": "Booking flow → no times → Join the waitlist",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:912",
+      "covered": "yes",
+      "by": "manage_waitlist add wantedFrom, wantedTo"
+    },
+    {
+      "path": "Booking flow → no times → Try something else",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:926",
+      "covered": "yes",
+      "by": "find_availability with another service or person"
+    },
+    {
+      "path": "Booking flow → waitlisted: 'You’re number N in line'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:876",
+      "covered": "yes",
+      "by": "get_waitlist"
+    },
+    {
+      "path": "Booking flow → waitlist form: name, contact, wanted window",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1382",
+      "covered": "yes",
+      "by": "manage_waitlist add"
+    },
+    {
+      "path": "Booking flow → sessions → rows: date, seats left, 'Full · N waiting'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1278",
+      "covered": "partly",
+      "by": "get_appointment seats, waitlist per session; no list of open sessions"
+    },
+    {
+      "path": "Booking flow → sessions → party stepper",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1264",
+      "covered": "partly",
+      "by": "manage_attendees adds one seat per person"
+    },
+    {
+      "path": "Booking flow → sessions → Book N",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1306",
+      "covered": "yes",
+      "by": "manage_attendees add"
+    },
+    {
+      "path": "Booking flow → sessions → Join the waitlist (full)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1314",
+      "covered": "yes",
+      "by": "manage_waitlist add for an appointment"
+    },
+    {
+      "path": "Booking flow → sessions → 'No sessions coming up'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1329",
+      "covered": "partly",
+      "by": "find_availability; no session list read"
+    },
+    {
+      "path": "Booking flow → sessions → Show later dates",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1344",
+      "covered": "yes",
+      "by": "find_availability to"
+    },
+    {
+      "path": "Booking flow → Your details → Name, Mobile, Email",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:949",
+      "covered": "yes",
+      "by": "book_appointment personId (person made first)"
+    },
+    {
+      "path": "Booking flow → Your details → texts consent box",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:263",
+      "covered": "person",
+      "by": "record_consent can't record a texts yes; it comes from the customer"
+    },
+    {
+      "path": "Booking flow → Your details → offers consent box",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:339",
+      "covered": "person",
+      "by": "the customer's own yes; record_consent has no offers"
+    },
+    {
+      "path": "Booking flow → Your details → bot check (Turnstile)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1016",
+      "covered": "person",
+      "by": "the visitor's check"
+    },
+    {
+      "path": "Booking flow → 'Online booking isn’t fully set up'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1019",
+      "covered": "partly",
+      "by": "get_settings booking_site, calendars; the setup cause isn't named"
+    },
+    {
+      "path": "Booking flow → intake questions (seen)",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:394",
+      "covered": "yes",
+      "by": "get_calendar_settings questions"
+    },
+    {
+      "path": "Booking flow → intake questions (answered)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:394",
+      "covered": "no",
+      "by": "book_appointment takes no intake answers; get_appointment shows none"
+    },
+    {
+      "path": "Booking flow → notes box",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1499",
+      "covered": "yes",
+      "by": "book_appointment notes"
+    },
+    {
+      "path": "Booking flow → booking error",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:940",
+      "covered": "yes",
+      "by": "book_appointment refusals carry the rule and words"
+    },
+    {
+      "path": "Booking flow → payment-ahead notice",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1427",
+      "covered": "yes",
+      "by": "get_calendar_settings payments deposit"
+    },
+    {
+      "path": "Booking flow → slot taken → fresh slot offer",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1435",
+      "covered": "yes",
+      "by": "book_appointment refuses; find_availability"
+    },
+    {
+      "path": "Booking flow → policies text",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1518",
+      "covered": "yes",
+      "by": "get_calendar_settings changeRules policyText"
+    },
+    {
+      "path": "Booking flow → Book X",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1531",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Booking flow → Continue to payment",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booking-flow.tsx:1531",
+      "covered": "person",
+      "by": "paying on the provider's page"
+    },
+    {
+      "path": "Booked → What, When, Where, Who",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:108",
+      "covered": "yes",
+      "by": "get_appointment what, when, where, with"
+    },
+    {
+      "path": "Booked → 'We emailed…' / 'We texted…'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:97",
+      "covered": "yes",
+      "by": "get_appointment customers hearsBy"
+    },
+    {
+      "path": "Booked → deposit paid",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:31",
+      "covered": "partly",
+      "by": "get_appointment shows no deposit payment"
+    },
+    {
+      "path": "Booked → change note, refund note",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:105",
+      "covered": "yes",
+      "by": "get_calendar_settings changeRules, payments deposit"
+    },
+    {
+      "path": "Booked → Add to calendar: Google, Outlook, Apple (.ics)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/add-to-calendar.tsx:57",
+      "covered": "no",
+      "by": "no tool makes a calendar file or add link"
+    },
+    {
+      "path": "Booked → Change or cancel link (/m/)",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:162",
+      "covered": "no",
+      "by": "the /m/ link is never returned"
+    },
+    {
+      "path": "Booked → Book something else",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/booked-panel.tsx:183",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Deposit step → '$X is due' / deposit, price, Due now, Due after",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:217",
+      "covered": "yes",
+      "by": "get_calendar_settings payments deposit"
+    },
+    {
+      "path": "Deposit step → visit card",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:111",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Deposit step → pay methods",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:254",
+      "covered": "person",
+      "by": "paying on the provider's page"
+    },
+    {
+      "path": "Deposit step → can't-pay reasons",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:275",
+      "covered": "partly",
+      "by": "get_settings payments shows the payment setup"
+    },
+    {
+      "path": "Deposit step → Hold my time and pay",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:297",
+      "covered": "person",
+      "by": "paying on the provider's page"
+    },
+    {
+      "path": "Deposit step → card note",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:303",
+      "covered": "yes",
+      "by": "get_calendar_settings payments deposit"
+    },
+    {
+      "path": "Deposit step → time went: other time, Pick another time",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/deposit-pay.tsx:335",
+      "covered": "person",
+      "by": "the paying customer's own step"
+    },
+    {
+      "path": "Hold page (/hold/) → link bad, error, loading, gone",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/hold-page.tsx:129",
+      "covered": "person",
+      "by": "a payment hold only the paying customer sees"
+    },
+    {
+      "path": "Hold page → 'Payment cancelled…'",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/hold-page.tsx:101",
+      "covered": "person",
+      "by": "the customer's own payment"
+    },
+    {
+      "path": "Hold link (/hold/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/hold/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "never returned; made in the booking flow"
+    },
+    {
+      "path": "Manage booking (/m/) → link stale / missing",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:247",
+      "covered": "no",
+      "by": "the /m/ link isn't given to the Assistant"
+    },
+    {
+      "path": "Manage booking → cancelled / passed",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:306",
+      "covered": "yes",
+      "by": "get_appointment status"
+    },
+    {
+      "path": "Manage booking → Book again",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:306",
+      "covered": "yes",
+      "by": "book_appointment"
+    },
+    {
+      "path": "Manage booking → booked heading and when",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:330",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Manage booking → confirmed",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:354",
+      "covered": "yes",
+      "by": "get_appointment customers confirmed"
+    },
+    {
+      "path": "Manage booking → Confirm (?confirm=1)",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:380",
+      "covered": "yes",
+      "by": "update_appointment confirmed true"
+    },
+    {
+      "path": "Manage booking → Reschedule → new time, Keep the current time, Move to",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:389",
+      "covered": "yes",
+      "by": "reschedule_appointment"
+    },
+    {
+      "path": "Manage booking → Cancel it → reason, Yes cancel, Keep it",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:402",
+      "covered": "yes",
+      "by": "cancel_appointment reason, notify"
+    },
+    {
+      "path": "Manage booking → rules: cutoffs, most reschedules",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:418",
+      "covered": "yes",
+      "by": "get_calendar_settings changeRules"
+    },
+    {
+      "path": "Manage booking → policy text",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:420",
+      "covered": "yes",
+      "by": "get_calendar_settings changeRules policyText"
+    },
+    {
+      "path": "Manage booking → Add to calendar",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/manage-booking.tsx:430",
+      "covered": "no",
+      "by": "no tool makes a calendar file or add link"
+    },
+    {
+      "path": "Manage booking link (/m/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/m/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "never returned; get_appointment has no link"
+    },
+    {
+      "path": "Waitlist offer (/w/) → link missing, expired, closed, taken",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/waitlist-offer.tsx:159",
+      "covered": "partly",
+      "by": "get_waitlist shows whether a time is offered now"
+    },
+    {
+      "path": "Waitlist offer → open: when, hold time",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/waitlist-offer.tsx:280",
+      "covered": "yes",
+      "by": "get_waitlist"
+    },
+    {
+      "path": "Waitlist offer → Book this time",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/waitlist-offer.tsx:304",
+      "covered": "yes",
+      "by": "book_appointment or manage_attendees"
+    },
+    {
+      "path": "Waitlist offer → See other times",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/waitlist-offer.tsx:181",
+      "covered": "yes",
+      "by": "find_availability"
+    },
+    {
+      "path": "Waitlist offer → booked + Change or cancel",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/waitlist-offer.tsx:199",
+      "covered": "partly",
+      "by": "get_appointment; the /m/ link isn't returned"
+    },
+    {
+      "path": "Waitlist offer link (/w/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/w/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "sent by the worker, never returned"
+    },
+    {
+      "path": "Join session (/j/) → joining, error, early, over, cancelled, no link",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/join-session.tsx:63",
+      "covered": "yes",
+      "by": "get_appointment status, when, where"
+    },
+    {
+      "path": "Join session → meeting link",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/join-session.tsx:88",
+      "covered": "yes",
+      "by": "get_appointment where; get_calendar_settings meetingLink"
+    },
+    {
+      "path": "Join session → Open the meeting",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/join-session.tsx:88",
+      "covered": "person",
+      "by": "the customer joins"
+    },
+    {
+      "path": "Join link (/j/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/j/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "never returned"
+    },
+    {
+      "path": "Join session → call: waiting 'will be right with you', knocking, problem, after",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/customer-call.tsx:1",
+      "covered": "person",
+      "by": "the customer's own call screen"
+    },
+    {
+      "path": "Webinar door (/live/) → cancelled, over, off, full",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:45",
+      "covered": "partly",
+      "by": "read_video_call_get state; get_appointment status, seats"
+    },
+    {
+      "path": "Webinar door → title, when",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:204",
+      "covered": "yes",
+      "by": "get_appointment"
+    },
+    {
+      "path": "Webinar door → paid: Save a seat",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:66",
+      "covered": "person",
+      "by": "paying on the provider's page"
+    },
+    {
+      "path": "Webinar door → name, phone, email: register",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:223",
+      "covered": "yes",
+      "by": "manage_attendees add"
+    },
+    {
+      "path": "Webinar door → consent boxes",
+      "kind": "do",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:254",
+      "covered": "person",
+      "by": "the customer's own yes"
+    },
+    {
+      "path": "Webinar door → registered, join link sent",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:103",
+      "covered": "partly",
+      "by": "get_appointment customers; the join link isn't returned"
+    },
+    {
+      "path": "Webinar door → AI notes notice",
+      "kind": "see",
+      "file": "apps/web/src/components/booking/webinar-door.tsx:296",
+      "covered": "yes",
+      "by": "read_video_call_get aiNotes"
+    },
+    {
+      "path": "Webinar door link (/live/<key>)",
+      "kind": "see",
+      "file": "apps/web/src/app/live/[key]/page.tsx:1",
+      "covered": "partly",
+      "by": "read_video_call_get doorKey only, no whole link"
+    },
+    {
+      "path": "Video call (/call/) → 'Video calls aren’t on for…'",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/link-call.tsx:71",
+      "covered": "partly",
+      "by": "no setting area shows video-call readiness"
+    },
+    {
+      "path": "Video call link (/call/<id>)",
+      "kind": "see",
+      "file": "apps/web/src/app/call/[callId]/page.tsx:1",
+      "covered": "no",
+      "by": "never returned; video_call.start not offered"
+    },
+    {
+      "path": "Video call → pre-join: guest name, Ask to join",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/link-call.tsx:169",
+      "covered": "person",
+      "by": "video_call.join is the person's own camera and mic"
+    },
+    {
+      "path": "Video call → knocking",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/link-call.tsx:192",
+      "covered": "person",
+      "by": "the guest's own wait"
+    },
+    {
+      "path": "Video call → pre-join: camera preview, mic, camera, blur",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:198",
+      "covered": "person",
+      "by": "the person's own devices"
+    },
+    {
+      "path": "Video call → pre-join: device pickers",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:253",
+      "covered": "person",
+      "by": "the person's own devices"
+    },
+    {
+      "path": "Video call → pre-join: media problem, in-app browser, Copy the link",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/pre-join.tsx:283",
+      "covered": "person",
+      "by": "the person's own browser"
+    },
+    {
+      "path": "Video call → room → watching count",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:525",
+      "covered": "yes",
+      "by": "read_video_call_get people connected"
+    },
+    {
+      "path": "Video call → room → attendee video pill",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:539",
+      "covered": "yes",
+      "by": "do_video_call_set_attendee_video"
+    },
+    {
+      "path": "Video call → room → AI notes pill, turn-off confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:574",
+      "covered": "yes",
+      "by": "do_video_call_set_ai"
+    },
+    {
+      "path": "Video call → room → reconnecting, joining",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:615",
+      "covered": "person",
+      "by": "the person's own connection"
+    },
+    {
+      "path": "Video call → room → captions",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:895",
+      "covered": "partly",
+      "by": "read_appointment_transcripts after the call"
+    },
+    {
+      "path": "Video call → room → CC toggle",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:762",
+      "covered": "person",
+      "by": "the person's own view"
+    },
+    {
+      "path": "Video call → room → mic, camera, share screen, blur",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:684",
+      "covered": "person",
+      "by": "the person's own devices"
+    },
+    {
+      "path": "Video call → room → reactions",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:726",
+      "covered": "person",
+      "by": "the person in the call"
+    },
+    {
+      "path": "Video call → room → raise hand",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:754",
+      "covered": "person",
+      "by": "the person in the call"
+    },
+    {
+      "path": "Video call → room → hand-raised toast",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1000",
+      "covered": "no",
+      "by": "read_video_call_get has no hand state"
+    },
+    {
+      "path": "Video call → room → knock toast 'Let in'",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:1191",
+      "covered": "yes",
+      "by": "do_video_call_admit"
+    },
+    {
+      "path": "Video call → room → Leave / Leave only",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:805",
+      "covered": "person",
+      "by": "the person leaves"
+    },
+    {
+      "path": "Video call → room → End for everyone",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-room.tsx:840",
+      "covered": "yes",
+      "by": "do_video_call_end"
+    },
+    {
+      "path": "Video call → People → Let in / Turn away",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:246",
+      "covered": "yes",
+      "by": "do_video_call_admit, do_video_call_turn_away"
+    },
+    {
+      "path": "Video call → People → Presenting, Audience, watching",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:266",
+      "covered": "yes",
+      "by": "read_video_call_get people state, onStage"
+    },
+    {
+      "path": "Video call → People → hand and mic-off marks",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:351",
+      "covered": "no",
+      "by": "read_video_call_get has no hand or mic state"
+    },
+    {
+      "path": "Video call → People → Bring on stage / Back to audience",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:372",
+      "covered": "yes",
+      "by": "do_video_call_stage"
+    },
+    {
+      "path": "Video call → People → Mute",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:382",
+      "covered": "yes",
+      "by": "do_video_call_mute"
+    },
+    {
+      "path": "Video call → People → Remove",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:392",
+      "covered": "yes",
+      "by": "do_video_call_remove"
+    },
+    {
+      "path": "Video call → Chat → messages, 'chat kept'",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:98",
+      "covered": "yes",
+      "by": "read_video_call_chat"
+    },
+    {
+      "path": "Video call → Chat → Send a message to everyone",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-panels.tsx:140",
+      "covered": "no",
+      "by": "no tool posts in the call's chat"
+    },
+    {
+      "path": "Video call → stage → tiles, slide 'n of m', mic off, hand",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-stage.tsx:108",
+      "covered": "partly",
+      "by": "read_video_call_get people; no slide position, mic or hand"
+    },
+    {
+      "path": "Video call → slides → Previous, Next, Stop",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/slides.tsx:137",
+      "covered": "yes",
+      "by": "do_video_call_slide"
+    },
+    {
+      "path": "Video call → screen marks → point, draw, marks off",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/screen-marks.tsx:471",
+      "covered": "person",
+      "by": "the presenter's own pointer"
+    },
+    {
+      "path": "Video call → Poll → form not published",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:170",
+      "covered": "yes",
+      "by": "get_form status"
+    },
+    {
+      "path": "Video call → Poll → AI mode",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:176",
+      "covered": "yes",
+      "by": "do_video_call_set_poll_ai"
+    },
+    {
+      "path": "Video call → Poll → not yet / Ask now",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:214",
+      "covered": "yes",
+      "by": "do_video_call_poll_open"
+    },
+    {
+      "path": "Video call → Poll → up next: Ask now / Skip",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:248",
+      "covered": "yes",
+      "by": "do_video_call_poll_open, do_video_call_poll_skip"
+    },
+    {
+      "path": "Video call → Poll → all asked",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:277",
+      "covered": "yes",
+      "by": "read_video_call_polls"
+    },
+    {
+      "path": "Video call → Poll → slides card",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:317",
+      "covered": "partly",
+      "by": "do_video_call_slide; slide list not read"
+    },
+    {
+      "path": "Video call → Poll → offer a poll",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:412",
+      "covered": "yes",
+      "by": "do_video_call_set_poll"
+    },
+    {
+      "path": "Video call → Poll → pick poll dropdown",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:479",
+      "covered": "yes",
+      "by": "do_video_call_set_poll pollFormId"
+    },
+    {
+      "path": "Video call → Poll → asking now: by AI, seconds left, answered",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:523",
+      "covered": "yes",
+      "by": "read_video_call_polls"
+    },
+    {
+      "path": "Video call → Poll → Close",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:550",
+      "covered": "yes",
+      "by": "do_video_call_poll_close"
+    },
+    {
+      "path": "Video call → Poll → results, Answers",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/poll-panel.tsx:579",
+      "covered": "yes",
+      "by": "read_video_call_polls"
+    },
+    {
+      "path": "Video call → poll popup: question, Send, Hide, results, thanks",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/poll-popup.tsx:1",
+      "covered": "person",
+      "by": "the attendee answers"
+    },
+    {
+      "path": "Video call → after: left, removed, elsewhere, lost, turned away, full",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-frame.tsx:56",
+      "covered": "person",
+      "by": "the person's own session"
+    },
+    {
+      "path": "Video call → after: Ask to come back in, Join here instead, Join again, Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-frame.tsx:80",
+      "covered": "person",
+      "by": "video_call.join is the person's own camera and mic"
+    },
+    {
+      "path": "Video call → after: Start it again for the team",
+      "kind": "do",
+      "file": "apps/web/src/components/video-call/call-frame.tsx:110",
+      "covered": "no",
+      "by": "video_call.start is in neither list"
+    },
+    {
+      "path": "Video call → call problem",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-frame.tsx:165",
+      "covered": "person",
+      "by": "the person's own connection"
+    },
+    {
+      "path": "Video call → Sales Coach panel slot",
+      "kind": "see",
+      "file": "apps/web/src/components/video-call/call-coach.tsx:1",
+      "covered": "partly",
+      "by": "the Sales Coach add-on's own ops"
+    },
+    {
+      "path": "Website chat link (/chat/<key>) and site snippet",
+      "kind": "see",
+      "file": "apps/web/src/app/chat/[key]/page.tsx:1",
+      "covered": "partly",
+      "by": "get_settings website_chat publicKey; no snippet or link"
+    },
+    {
+      "path": "Website chat → not found",
+      "kind": "see",
+      "file": "apps/web/src/app/chat/[key]/not-found.tsx:1",
+      "covered": "partly",
+      "by": "get_settings website_chat"
+    },
+    {
+      "path": "Website chat → unavailable: missing, standalone, refused, unreachable, paused, blocked",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:63",
+      "covered": "partly",
+      "by": "get_settings website_chat on, websites; causes not read"
+    },
+    {
+      "path": "Website chat → header: logo, name, subtitle",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:129",
+      "covered": "yes",
+      "by": "get_settings website_chat; manage_website_chat name, showLogo"
+    },
+    {
+      "path": "Website chat → opening greeting, away message",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-window.tsx:241",
+      "covered": "yes",
+      "by": "manage_website_chat greeting, awayMessage"
+    },
+    {
+      "path": "Website chat → away form",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-window.tsx:339",
+      "covered": "person",
+      "by": "the visitor fills it"
+    },
+    {
+      "path": "Website chat → details first: 'Before we start, how can we reach you?'",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-window.tsx:358",
+      "covered": "yes",
+      "by": "manage_website_chat askFor"
+    },
+    {
+      "path": "Website chat → details form: Name, Mobile, Email, How can we help",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:404",
+      "covered": "person",
+      "by": "the visitor fills it"
+    },
+    {
+      "path": "Website chat → details form: texts, offers, calls boxes, Privacy, Terms",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:480",
+      "covered": "person",
+      "by": "the visitor's own yes"
+    },
+    {
+      "path": "Website chat → log: notes, '{who} joined', messages, 'Not sent.'",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:243",
+      "covered": "yes",
+      "by": "find_conversations channel chat; get_conversation"
+    },
+    {
+      "path": "Website chat → 'Not sent.' Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:310",
+      "covered": "person",
+      "by": "the visitor resends"
+    },
+    {
+      "path": "Website chat → composer: 'Write a message…', Send",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:645",
+      "covered": "person",
+      "by": "the visitor writes"
+    },
+    {
+      "path": "Website chat → a teammate's reply into the chat",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:243",
+      "covered": "no",
+      "by": "send_text refuses website chats"
+    },
+    {
+      "path": "Website chat → preview strip, test missing",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-parts.tsx:195",
+      "covered": "partly",
+      "by": "get_settings website_chat"
+    },
+    {
+      "path": "Website chat → bot check (Turnstile)",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-window.tsx:410",
+      "covered": "person",
+      "by": "the visitor's check"
+    },
+    {
+      "path": "Chat showcase → 'Get texts from…' page, sign-up intro",
+      "kind": "see",
+      "file": "apps/web/src/components/chat-widget/chat-showcase.tsx:27",
+      "covered": "partly",
+      "by": "get_settings website_chat; no /chat link"
+    },
+    {
+      "path": "Chat showcase → sign-up form, done",
+      "kind": "do",
+      "file": "apps/web/src/components/chat-widget/chat-showcase.tsx:150",
+      "covered": "person",
+      "by": "the visitor's own yes to texts"
+    },
+    {
+      "path": "Form link (/f/<site>/<slug>, ?embed=1, personal ?k, ?ref)",
+      "kind": "see",
+      "file": "apps/web/src/app/f/[site]/[slug]/page.tsx:1",
+      "covered": "partly",
+      "by": "list_forms link has a literal …; send_form puts the full link in its text"
+    },
+    {
+      "path": "Form → head: name, intro",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:428",
+      "covered": "yes",
+      "by": "get_form name, asks"
+    },
+    {
+      "path": "Form → closed",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:437",
+      "covered": "yes",
+      "by": "get_form status"
+    },
+    {
+      "path": "Form → progress",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:443",
+      "covered": "person",
+      "by": "the respondent's own place"
+    },
+    {
+      "path": "Form → 'Details changed?' (personal link)",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:460",
+      "covered": "person",
+      "by": "the respondent's own details"
+    },
+    {
+      "path": "Form → questions shown (every kind)",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "yes",
+      "by": "get_form asks, questionIds"
+    },
+    {
+      "path": "Form → answer questions: text, choice, checkboxes, yes/no, rating, number, money, date, time, address, email, phone, video, button",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "person",
+      "by": "the respondent answers"
+    },
+    {
+      "path": "Form → signature question: 'Type your full name'",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "person",
+      "by": "the respondent signs"
+    },
+    {
+      "path": "Form → file question: 'Uploads are coming shortly'",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "person",
+      "by": "uploading from their device"
+    },
+    {
+      "path": "Form → payment question: 'we’ll send a card link'",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/question-field.tsx:1",
+      "covered": "partly",
+      "by": "get_form asks; the card link isn't returned"
+    },
+    {
+      "path": "Form → booking question, no times",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/booking-picker.tsx:76",
+      "covered": "person",
+      "by": "the respondent picks; find_availability for the business"
+    },
+    {
+      "path": "Form → consent box: texts, offers, calls, policy, terms",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/public-form.tsx:340",
+      "covered": "person",
+      "by": "the respondent's own yes"
+    },
+    {
+      "path": "Form → bot check failed, 'isn’t fully set up'",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:407",
+      "covered": "partly",
+      "by": "get_form toFix"
+    },
+    {
+      "path": "Form → totals and score",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:517",
+      "covered": "partly",
+      "by": "get_form answers"
+    },
+    {
+      "path": "Form → Back, Send, anonymous note",
+      "kind": "do",
+      "file": "apps/web/src/components/forms/public-form.tsx:543",
+      "covered": "person",
+      "by": "the respondent sends"
+    },
+    {
+      "path": "Form → sent: body, score %, '$X to pay', button",
+      "kind": "see",
+      "file": "apps/web/src/components/forms/public-form.tsx:302",
+      "covered": "partly",
+      "by": "get_form answers; thank-you words not read"
+    },
+    {
+      "path": "Signing link (/d/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/d/[token]/page.tsx:1",
+      "covered": "partly",
+      "by": "do_document_remind resends it; the link is never returned"
+    },
+    {
+      "path": "Signing → link states",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:352",
+      "covered": "partly",
+      "by": "read_document_get progress"
+    },
+    {
+      "path": "Signing → closed: voided, declined, done",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:394",
+      "covered": "yes",
+      "by": "read_document_get"
+    },
+    {
+      "path": "Signing → code: ask, enter, check, send again",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:430",
+      "covered": "person",
+      "by": "the signer's own code"
+    },
+    {
+      "path": "Signing → error",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:488",
+      "covered": "person",
+      "by": "the signer's own session"
+    },
+    {
+      "path": "Signing → hand the device to the signer: Back, title, start",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:506",
+      "covered": "never",
+      "by": "document.sign_now is on the NEVER list"
+    },
+    {
+      "path": "Signing → fields left, Finish, Next / Start",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:548",
+      "covered": "person",
+      "by": "the signer signs"
+    },
+    {
+      "path": "Signing → 'Your copy', 'Signing as'",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:574",
+      "covered": "yes",
+      "by": "read_document_get signers"
+    },
+    {
+      "path": "Signing → done: hand back, completed, signed, copy only, not your turn",
+      "kind": "see",
+      "file": "apps/web/src/components/documents/signing-page.tsx:595",
+      "covered": "yes",
+      "by": "read_document_get progress"
+    },
+    {
+      "path": "Signing → Download the signed copy",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:624",
+      "covered": "partly",
+      "by": "read_document_get gives the signed copy once filed"
+    },
+    {
+      "path": "Signing → agree to sign electronically",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:656",
+      "covered": "person",
+      "by": "the signer agrees"
+    },
+    {
+      "path": "Signing → Decline with a reason",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:712",
+      "covered": "person",
+      "by": "the signer's own decline; do_document_void for the business"
+    },
+    {
+      "path": "Signing → signature and initials: draw, type, clear, adopt",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:780",
+      "covered": "person",
+      "by": "the signer signs"
+    },
+    {
+      "path": "Signing → fields: date signed, name, email, phone, text, number, date, checkbox, choice",
+      "kind": "do",
+      "file": "apps/web/src/components/documents/signing-page.tsx:850",
+      "covered": "person",
+      "by": "the signer fills them; values seen by read_document_get"
+    },
+    {
+      "path": "Estimate link (/e/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/e/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "signed by the worker only; get_money_document has no link"
+    },
+    {
+      "path": "Estimate → link stale / missing",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:167",
+      "covered": "no",
+      "by": "no tool reads the link"
+    },
+    {
+      "path": "Estimate → withdrawn",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:208",
+      "covered": "yes",
+      "by": "get_money_document state, voidReason"
+    },
+    {
+      "path": "Estimate → card: number, title, lines, subtotal, discount, tax, total",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-shell.tsx:254",
+      "covered": "yes",
+      "by": "get_money_document"
+    },
+    {
+      "path": "Estimate → good until",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:323",
+      "covered": "yes",
+      "by": "get_money_document goodUntil"
+    },
+    {
+      "path": "Estimate → deposit rows",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:223",
+      "covered": "yes",
+      "by": "get_money_document deposit"
+    },
+    {
+      "path": "Estimate → 'What happens next'",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:331",
+      "covered": "partly",
+      "by": "get_money_document; the page's words aren't read"
+    },
+    {
+      "path": "Estimate → notes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-shell.tsx:368",
+      "covered": "yes",
+      "by": "get_money_document note"
+    },
+    {
+      "path": "Estimate → Approve sheet: type name, accept",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-estimate.tsx:357",
+      "covered": "partly",
+      "by": "manage_estimate record_yes, in the person's name"
+    },
+    {
+      "path": "Estimate → Decline sheet: reason, Decline, Keep it open",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-estimate.tsx:413",
+      "covered": "no",
+      "by": "manage_estimate has no decline"
+    },
+    {
+      "path": "Estimate → approved, declined, blocked",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:284",
+      "covered": "yes",
+      "by": "get_money_document approved, declined"
+    },
+    {
+      "path": "Estimate → Print or save a PDF",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-shell.tsx:349",
+      "covered": "no",
+      "by": "no tool makes a PDF"
+    },
+    {
+      "path": "Estimate → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-shell.tsx:360",
+      "covered": "person",
+      "by": "the customer calls"
+    },
+    {
+      "path": "Invoice link (/i/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/i/[token]/page.tsx:1",
+      "covered": "partly",
+      "by": "manage_invoice send emails it (drafts only); link never returned"
+    },
+    {
+      "path": "Invoice → link stale / missing",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:317",
+      "covered": "no",
+      "by": "no tool reads the link"
+    },
+    {
+      "path": "Invoice → void",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:356",
+      "covered": "yes",
+      "by": "get_money_document state; manage_invoice void"
+    },
+    {
+      "path": "Invoice → hero: owed, due date",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:522",
+      "covered": "yes",
+      "by": "get_money_document owed, dueOn"
+    },
+    {
+      "path": "Invoice → paid and settling rows",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:392",
+      "covered": "yes",
+      "by": "get_money_document payments status"
+    },
+    {
+      "path": "Invoice → Pay",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:439",
+      "covered": "person",
+      "by": "paying on the provider's page; record_payment for cash or check"
+    },
+    {
+      "path": "Invoice → pay methods: card or bank",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:567",
+      "covered": "person",
+      "by": "paying on the provider's page"
+    },
+    {
+      "path": "Invoice → refunded, paid in full, settling, declined",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:459",
+      "covered": "yes",
+      "by": "get_money_document paid, refunded, refunds"
+    },
+    {
+      "path": "Invoice → notice / error",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:510",
+      "covered": "person",
+      "by": "the payer's own attempt"
+    },
+    {
+      "path": "Invoice → receipt",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:531",
+      "covered": "yes",
+      "by": "get_money_document payments"
+    },
+    {
+      "path": "Invoice → pay blocked",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:624",
+      "covered": "partly",
+      "by": "get_settings payments"
+    },
+    {
+      "path": "Invoice → card and notes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-invoice.tsx:638",
+      "covered": "yes",
+      "by": "get_money_document lines, totals, note"
+    },
+    {
+      "path": "Invoice → Print or save a PDF",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-invoice.tsx:647",
+      "covered": "no",
+      "by": "no tool makes a PDF"
+    },
+    {
+      "path": "Plan link (/p/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/p/[token]/page.tsx:1",
+      "covered": "partly",
+      "by": "manage_customer_plan ask_for_card sends it; never returned"
+    },
+    {
+      "path": "Plan → link problems, loading",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:231",
+      "covered": "no",
+      "by": "no tool reads the link"
+    },
+    {
+      "path": "Plan → heading by standing: ended, paused, ready, Your plan",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:317",
+      "covered": "yes",
+      "by": "list_plans status"
+    },
+    {
+      "path": "Plan → includes",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:334",
+      "covered": "partly",
+      "by": "list_plans has no included visits or items"
+    },
+    {
+      "path": "Plan → How it bills: Price, First charge, Then, Card",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:352",
+      "covered": "partly",
+      "by": "list_plans nextBilling, card brand and last4"
+    },
+    {
+      "path": "Plan → Add a card / Use a different card",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-plan.tsx:265",
+      "covered": "person",
+      "by": "typing a card on the provider's page"
+    },
+    {
+      "path": "Plan → saved, declined, notice",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:279",
+      "covered": "partly",
+      "by": "list_plans card"
+    },
+    {
+      "path": "Plan → can't take a card",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-plan.tsx:401",
+      "covered": "partly",
+      "by": "get_settings payments"
+    },
+    {
+      "path": "Plan → Print or save a PDF",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-plan.tsx:409",
+      "covered": "no",
+      "by": "no tool makes a PDF"
+    },
+    {
+      "path": "Portal link (/c/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/c/[token]/layout.tsx:1",
+      "covered": "partly",
+      "by": "do_portal_access_give sends it; masked sentTo only"
+    },
+    {
+      "path": "Portal → opening, broken",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-shell.tsx:166",
+      "covered": "partly",
+      "by": "read_portal_access_get access on, revokedAt"
+    },
+    {
+      "path": "Portal → header: business, '{who}’s portal'",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-shell.tsx:143",
+      "covered": "yes",
+      "by": "read_portal_access_get"
+    },
+    {
+      "path": "Portal → Sign out",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/portal-shell.tsx:148",
+      "covered": "person",
+      "by": "the customer's own sign-in"
+    },
+    {
+      "path": "Portal → sign in: Email me a code, 6 digits, tries left, Continue, Send a new code",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/portal-shell.tsx:345",
+      "covered": "person",
+      "by": "the customer's own sign-in"
+    },
+    {
+      "path": "Portal → menu: Home, add-on pages, Documents, Partner, Messages",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-shell.tsx:198",
+      "covered": "partly",
+      "by": "read_portal_access_get; which pages show isn't read"
+    },
+    {
+      "path": "Portal → home: documents to sign",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:87",
+      "covered": "yes",
+      "by": "read_document_get signers, progress"
+    },
+    {
+      "path": "Portal → home: partner card",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:96",
+      "covered": "yes",
+      "by": "read_partner_get"
+    },
+    {
+      "path": "Portal → home: messages, N new, last message",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:100",
+      "covered": "yes",
+      "by": "find_conversations channel portal; get_conversation"
+    },
+    {
+      "path": "Portal → home: shared files",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:129",
+      "covered": "partly",
+      "by": "record files; what is shared to the portal isn't read"
+    },
+    {
+      "path": "Portal → Messages → bubbles, empty",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:138",
+      "covered": "yes",
+      "by": "get_conversation"
+    },
+    {
+      "path": "Portal → Messages → 'Write to…', Send",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:205",
+      "covered": "person",
+      "by": "the customer writes"
+    },
+    {
+      "path": "Portal → Messages → the business's reply",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:205",
+      "covered": "no",
+      "by": "send_text refuses portal conversations"
+    },
+    {
+      "path": "Portal → Files → 'Nothing shared…', name, From you / Shared with you",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:227",
+      "covered": "partly",
+      "by": "record files; the shared split isn't read"
+    },
+    {
+      "path": "Portal → Files → open",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:260",
+      "covered": "person",
+      "by": "the customer opens it"
+    },
+    {
+      "path": "Portal → add-on page",
+      "kind": "see",
+      "file": "apps/web/src/app/c/[token]/a/[addonId]/[[...path]]/page.tsx:1",
+      "covered": "partly",
+      "by": "add-on portal ops have no ai; the add-on's own reads"
+    },
+    {
+      "path": "Portal → Documents → badges, dates",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:321",
+      "covered": "yes",
+      "by": "read_document_get"
+    },
+    {
+      "path": "Portal → Documents → Sign / Open",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/portal-pages.tsx:363",
+      "covered": "person",
+      "by": "the signer signs"
+    },
+    {
+      "path": "Portal → Partner → status",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/partner-page.tsx:110",
+      "covered": "yes",
+      "by": "read_partner_get status"
+    },
+    {
+      "path": "Portal → Partner → terms",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/partner-page.tsx:117",
+      "covered": "partly",
+      "by": "read_partner_get termsAccepted, no date"
+    },
+    {
+      "path": "Portal → Partner → Accept terms",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/partner-page.tsx:131",
+      "covered": "person",
+      "by": "the partner accepts their own terms"
+    },
+    {
+      "path": "Portal → Partner → link and Copy",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/partner-page.tsx:148",
+      "covered": "yes",
+      "by": "read_partner_get linkPath (whole link)"
+    },
+    {
+      "path": "Portal → Partner → earnings",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/partner-page.tsx:168",
+      "covered": "yes",
+      "by": "read_partner_get earnings"
+    },
+    {
+      "path": "Portal → Partner → clients",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/partner-page.tsx:185",
+      "covered": "yes",
+      "by": "read_partner_get clients"
+    },
+    {
+      "path": "Portal → Partner → Getting paid: Open Stripe, country, set up, finish",
+      "kind": "do",
+      "file": "apps/web/src/components/portal/partner-page.tsx:263",
+      "covered": "person",
+      "by": "connecting their own payout account"
+    },
+    {
+      "path": "Portal → Partner → smallest payout, payout lines",
+      "kind": "see",
+      "file": "apps/web/src/components/portal/partner-page.tsx:319",
+      "covered": "yes",
+      "by": "read_partner_get payouts; get_settings partners"
+    },
+    {
+      "path": "Safety link (/s/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/s/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "sent to the contact by the worker, never returned"
+    },
+    {
+      "path": "Safety contact → link missing",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:77",
+      "covered": "no",
+      "by": "no tool reads the link"
+    },
+    {
+      "path": "Safety contact → settled",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:91",
+      "covered": "yes",
+      "by": "read_safety_alert state"
+    },
+    {
+      "path": "Safety contact → hasn't checked out, At place, Planned end, Checked in",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:137",
+      "covered": "yes",
+      "by": "read_safety_alert place, state"
+    },
+    {
+      "path": "Safety contact → where their phone was, their phone",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:148",
+      "covered": "partly",
+      "by": "read_safety_alert located"
+    },
+    {
+      "path": "Safety contact → contact line",
+      "kind": "see",
+      "file": "apps/web/src/components/safety/contact-page.tsx:163",
+      "covered": "no",
+      "by": "get_settings safety has no contacts"
+    },
+    {
+      "path": "Safety contact → Call",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/contact-page.tsx:169",
+      "covered": "person",
+      "by": "the contact calls"
+    },
+    {
+      "path": "Safety contact → 'I reached them, they’re OK'",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/contact-page.tsx:177",
+      "covered": "yes",
+      "by": "do_safety_resolve"
+    },
+    {
+      "path": "Safety contact → 'I couldn’t reach them'",
+      "kind": "do",
+      "file": "apps/web/src/components/safety/contact-page.tsx:187",
+      "covered": "no",
+      "by": "no tool records unreached"
+    },
+    {
+      "path": "Unsubscribe link (/u/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/u/[token]/page.tsx:1",
+      "covered": "no",
+      "by": "never returned"
+    },
+    {
+      "path": "Unsubscribe → link missing",
+      "kind": "see",
+      "file": "apps/web/src/components/campaigns/unsubscribe-page.tsx:63",
+      "covered": "no",
+      "by": "no tool reads the link"
+    },
+    {
+      "path": "Unsubscribe → 'Stop emails from…?' Unsubscribe",
+      "kind": "do",
+      "file": "apps/web/src/components/campaigns/unsubscribe-page.tsx:89",
+      "covered": "partly",
+      "by": "block_email_address blocks all email; email_unsubscribe.record is system only"
+    },
+    {
+      "path": "Unsubscribe → done",
+      "kind": "see",
+      "file": "apps/web/src/components/campaigns/unsubscribe-page.tsx:77",
+      "covered": "no",
+      "by": "no query reads email_unsubscribes"
+    },
+    {
+      "path": "Video upload link (/v/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/v/[token]/page.tsx:1",
+      "covered": "partly",
+      "by": "video_link.create runs, but its link is lost (screen action returns no output)"
+    },
+    {
+      "path": "Video upload → missing, stopped (run out, full)",
+      "kind": "see",
+      "file": "apps/web/src/components/video-link/upload-page.tsx:99",
+      "covered": "no",
+      "by": "no tool reads the link's state"
+    },
+    {
+      "path": "Video upload → heading, intro, note ('Up to 250 MB…')",
+      "kind": "see",
+      "file": "apps/web/src/components/video-link/upload-page.tsx:113",
+      "covered": "partly",
+      "by": "words fixed in core; link's own state not read"
+    },
+    {
+      "path": "Video upload → Choose, Send",
+      "kind": "do",
+      "file": "apps/web/src/components/video-link/upload-page.tsx:146",
+      "covered": "person",
+      "by": "uploading from their device"
+    },
+    {
+      "path": "Video upload → sending %, sent, Send another, Try again",
+      "kind": "do",
+      "file": "apps/web/src/components/video-link/upload-page.tsx:175",
+      "covered": "person",
+      "by": "uploading from their device"
+    },
+    {
+      "path": "Invitation link (/invite/<token>)",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:1",
+      "covered": "partly",
+      "by": "manage_team invite, resend_invitation send it; never returned"
+    },
+    {
+      "path": "Invitation → not found, 'Go to your workspaces'",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:33",
+      "covered": "partly",
+      "by": "get_settings team invitations; invitation.preview not for the Assistant"
+    },
+    {
+      "path": "Invitation → inviter, workspace, role and its description",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:45",
+      "covered": "yes",
+      "by": "get_settings team (workspace.invitations)"
+    },
+    {
+      "path": "Invitation → Accept invitation",
+      "kind": "do",
+      "file": "apps/web/src/components/members/accept-invite.tsx:1",
+      "covered": "never",
+      "by": "invitation.accept is on the NEVER list"
+    },
+    {
+      "path": "Invitation → wrong account: Sign out and switch account",
+      "kind": "do",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:67",
+      "covered": "never",
+      "by": "sign-in is the person's; invitation.accept is NEVER"
+    },
+    {
+      "path": "Invitation → used, expired, revoked",
+      "kind": "see",
+      "file": "apps/web/src/app/invite/[token]/page.tsx:83",
+      "covered": "yes",
+      "by": "get_settings team invitations; manage_team resend or cancel"
+    },
+    {
+      "path": "Support invitation → 'Answer HandsFreeOS support', why-not messages",
+      "kind": "see",
+      "file": "apps/web/src/app/support-invite/[token]/page.tsx:24",
+      "covered": "never",
+      "by": "staff only; support.staff.accept is NEVER"
+    },
+    {
+      "path": "Support invitation → Accept and open the desk",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/accept-support-invite.tsx:8",
+      "covered": "never",
+      "by": "support.staff.accept is on the NEVER list"
+    },
+    {
+      "path": "Legal page (/legal/) → title, intro, sections, updated",
+      "kind": "see",
+      "file": "apps/web/src/app/legal/[site]/[kind]/page.tsx:55",
+      "covered": "no",
+      "by": "no tool reads the worker's policy text"
+    },
+    {
+      "path": "Legal page → link, or redirect to the business's own policy",
+      "kind": "see",
+      "file": "apps/web/src/app/legal/[site]/[kind]/page.tsx:1",
+      "covered": "no",
+      "by": "no tool returns the policy link"
+    },
+    {
+      "path": "Add-on public page link (/a/<site>/<addon>/…)",
+      "kind": "see",
+      "file": "apps/web/src/app/a/[site]/[addonId]/[...path]/page.tsx:1",
+      "covered": "yes",
+      "by": "Real Estate paths made whole by withWholeLinks"
+    },
+    {
+      "path": "Real Estate listing page → photos, thumbnails",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:198",
+      "covered": "yes",
+      "by": "realestate.listing"
+    },
+    {
+      "path": "Real Estate listing page → price, status, facts",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:210",
+      "covered": "yes",
+      "by": "realestate.listing, listing.prices"
+    },
+    {
+      "path": "Real Estate listing page → open houses with Sign in",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:240",
+      "covered": "yes",
+      "by": "realestate.open_houses"
+    },
+    {
+      "path": "Real Estate listing page → description",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:255",
+      "covered": "yes",
+      "by": "realestate.listing.marketing"
+    },
+    {
+      "path": "Real Estate listing page → Listed by, MLS #, Equal Housing Opportunity",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:270",
+      "covered": "yes",
+      "by": "realestate.listing"
+    },
+    {
+      "path": "Real Estate listing page → published, live",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:198",
+      "covered": "yes",
+      "by": "listing.page_publish, listing.mark_live"
+    },
+    {
+      "path": "Real Estate listing page → ask form: name, email or phone, question, consent, Send",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:280",
+      "covered": "person",
+      "by": "the visitor asks; the reply is read in the inbox"
+    },
+    {
+      "path": "Real Estate open house page → sign-in opens / closed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:368",
+      "covered": "yes",
+      "by": "realestate.open_houses"
+    },
+    {
+      "path": "Real Estate open house sign-in → name, email, phone, agent?, brokerage, consent, thanks",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:418",
+      "covered": "never",
+      "by": "realestate.open_house.sign_in is kept from the Assistant"
+    },
+    {
+      "path": "Real Estate showing request → day tabs, times",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:540",
+      "covered": "yes",
+      "by": "realestate.showing.settings, showing.list"
+    },
+    {
+      "path": "Real Estate showing request → name, brokerage, license, email, mobile, Ask for…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:600",
+      "covered": "yes",
+      "by": "realestate.showing.add"
+    },
+    {
+      "path": "Real Estate showing request → confirmed / asked",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:700",
+      "covered": "yes",
+      "by": "showing.list, showing.decide"
+    },
+    {
+      "path": "Real Estate showing feedback → interest, liked, pause, price Low / About right / High",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/public/pages.tsx:725",
+      "covered": "yes",
+      "by": "realestate.showing.feedback"
+    },
+    {
+      "path": "Real Estate portal home → Buying / Selling, next tour, Coming up, Past deals",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/home-panel.tsx:1",
+      "covered": "yes",
+      "by": "realestate.overview, deal.list, tours"
+    },
+    {
+      "path": "Real Estate portal → Your deals",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:96",
+      "covered": "yes",
+      "by": "realestate.deal.list"
+    },
+    {
+      "path": "Real Estate portal → Homes",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:109",
+      "covered": "yes",
+      "by": "realestate.homes"
+    },
+    {
+      "path": "Real Estate portal → Add home: Address, Link, Note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:180",
+      "covered": "yes",
+      "by": "realestate.home.add"
+    },
+    {
+      "path": "Real Estate portal → To do",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:257",
+      "covered": "yes",
+      "by": "realestate.client_tasks"
+    },
+    {
+      "path": "Real Estate portal → deal: What happens next, to-do, Key dates, Shared with you, Your loan",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:306",
+      "covered": "yes",
+      "by": "deal.get, client_tasks, financing, document.list"
+    },
+    {
+      "path": "Real Estate portal → tour feedback: stars, liked, didn't",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:436",
+      "covered": "yes",
+      "by": "realestate.tour.feedback"
+    },
+    {
+      "path": "Real Estate portal → offer page",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/pages.tsx:612",
+      "covered": "yes",
+      "by": "realestate.offers, offer.share_summary"
+    },
+    {
+      "path": "Real Estate portal listing → Your listing, Price, On the MLS",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:85",
+      "covered": "yes",
+      "by": "realestate.listing"
+    },
+    {
+      "path": "Real Estate portal listing → Waiting for you, Open houses, Key dates",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:120",
+      "covered": "yes",
+      "by": "client_tasks, open_houses, deal.get"
+    },
+    {
+      "path": "Real Estate portal listing → questionnaire: facts, updates, loves, save, submit",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:222",
+      "covered": "person",
+      "by": "the seller's answers; listing.request_questionnaire asks"
+    },
+    {
+      "path": "Real Estate portal listing → sign-off: 'I approve these words.'",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:384",
+      "covered": "person",
+      "by": "the seller's own approval"
+    },
+    {
+      "path": "Real Estate portal listing → offers: price, take home, Highest estimate",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:481",
+      "covered": "yes",
+      "by": "offers.compare, net_sheet.save"
+    },
+    {
+      "path": "Real Estate portal listing → offers: What you think, note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:600",
+      "covered": "person",
+      "by": "the seller's own choice"
+    },
+    {
+      "path": "Real Estate portal listing → showings: Confirm / Decline, 'A time that suits you'",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:648",
+      "covered": "yes",
+      "by": "realestate.showing.decide"
+    },
+    {
+      "path": "Real Estate portal listing → showings: Coming up, What buyers said",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/listing.tsx:700",
+      "covered": "yes",
+      "by": "showing.list, showing.share_feedback"
+    },
+    {
+      "path": "Real Estate portal → task row: Read and sign / Open, mark done",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/bits.tsx:62",
+      "covered": "yes",
+      "by": "client_task.mark_done"
+    },
+    {
+      "path": "Real Estate portal → task row: upload",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/bits.tsx:100",
+      "covered": "person",
+      "by": "uploading from their device"
+    },
+    {
+      "path": "Real Estate portal → deal steps",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/bits.tsx:163",
+      "covered": "yes",
+      "by": "realestate.deal.get"
+    },
+    {
+      "path": "Real Estate portal → home card: react",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/portal/bits.tsx:189",
+      "covered": "person",
+      "by": "the buyer's own reaction; seen in realestate.homes"
+    },
+    {
+      "path": "Real Estate portal → contingencies",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/portal/bits.tsx:307",
+      "covered": "yes",
+      "by": "realestate.contingencies"
+    }
+  ],
   "gaps": [
     {
       "id": "links-1",
