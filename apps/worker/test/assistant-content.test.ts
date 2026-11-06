@@ -13,8 +13,6 @@ import {
   AssistantCard,
   aiTeammateCreate,
   assistantToolByName,
-  customRecordCreate,
-  customRecordTypeCreate,
   executeCommand,
   formCreate,
   formPublish,
@@ -31,6 +29,7 @@ import {
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { installRealestate } from '../../../packages/core/test/addons/realestate-fixture';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { toolsFor } from '../src/assistant/context';
@@ -1240,15 +1239,14 @@ describe('the AI teammate’s drafts', () => {
   });
 
   it('lists an add-on’s ask with what it does and its record, and a reply’s flags, and says what approving an ask does', async () => {
-    const { customRecordTypeId } = await run(customRecordTypeCreate, {
-      workspaceId,
-      singular: 'Home',
-    });
-    const { customRecordId } = await run(customRecordCreate, {
-      workspaceId,
-      typeId: customRecordTypeId,
-      name: '412 Oak St',
-    });
+    // An ask is always on a record of an add-on's own kind, with the add-on on (the database holds to both).
+    await installRealestate(workspaceId);
+    const { id: customRecordId } = await one<{ id: string }>(
+      sql`insert into app.custom_records (workspace_id, type_id, name, created_by)
+          select ${workspaceId}, t.id, '412 Oak St', ${owner.id} from app.custom_record_types t
+          where t.workspace_id = ${workspaceId} and t.key = 'realestate_property'
+          returning id`,
+    );
     const ask = {
       addonId: 'realestate',
       addonName: 'Real Estate Agent',

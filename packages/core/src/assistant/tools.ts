@@ -1047,29 +1047,60 @@ export const assistantTools = [
   define({
     name: 'update_money_settings',
     description:
-      'Change how the business gets paid: sales tax, when invoices are due, your address on documents, the notes on estimates and invoices, how long an estimate is good for, deposits, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings first and pass only what changes.',
+      'Change how the business gets paid (Settings → Payments): sales tax, when invoices are due, your address on documents, the notes at the bottom of estimates and invoices, how long an estimate is good for, the deposit an estimate asks for, whether bank transfer is offered, and the reminders that chase an unpaid invoice or an unanswered estimate. Read it with get_settings (area payments) first and pass only what changes. Numbering is update_numbering_and_ways_to_pay; payout accounts are manage_payment_account.',
     input: z.object({
-      taxRatePercent: z.number().min(0).max(20).optional().describe('Like 8.25'),
-      taxName: text(40).optional().describe('What it is called on a document'),
-      newItemsTaxable: z.boolean().optional(),
-      businessAddress: text(300)
+      taxRatePercent: z.number().min(0).max(20).optional().describe('Like 8.25; 0 for none'),
+      taxName: text(40).optional().describe('What it is called on a document: Sales tax, GST'),
+      newItemsTaxable: z
+        .boolean()
         .optional()
-        .describe('As it should read on a document, up to 5 lines'),
+        .describe('Whether a new product or service starts taxable'),
+      businessAddress: text(300)
+        .nullable()
+        .optional()
+        .describe(
+          'As it should read at the top of a document, one line per row, up to 5. null takes it off',
+        ),
       terms: z
         .enum(['due_on_receipt', 'net_7', 'net_14', 'net_30'])
         .optional()
         .describe('When an invoice is due'),
-      estimateNote: text(2000).optional(),
-      invoiceNote: text(2000).optional(),
+      estimateNote: text(2000)
+        .nullable()
+        .optional()
+        .describe('At the bottom of every estimate. null: none'),
+      invoiceNote: text(2000)
+        .nullable()
+        .optional()
+        .describe('At the bottom of every invoice. null: none'),
       estimateGoodForDays: z.int().min(1).max(365).optional(),
-      depositKind: z.enum(['none', 'percent', 'amount']).optional(),
-      depositPercent: z.number().min(0).max(100).optional(),
+      depositKind: z
+        .enum(['none', 'percent', 'amount'])
+        .optional()
+        .describe(
+          'What a new estimate asks for up front. Left out, depositPercent alone asks for a share and depositDollars alone a set amount',
+        ),
+      depositPercent: z.number().min(0).max(100).optional().describe('Like 25'),
       depositDollars: dollars.optional(),
-      offerBankTransfer: z.boolean().optional(),
-      remindBeforeDueDays: z.array(z.int().min(1).max(90)).max(3).optional(),
+      offerBankTransfer: z.boolean().optional().describe('Card is always on'),
+      remindBeforeDueDays: z
+        .array(z.int().min(1).max(90))
+        .max(3)
+        .optional()
+        .describe('The whole list of days before the due date; [] for none'),
       remindOnDueDay: z.boolean().optional(),
-      remindAfterDueDays: z.array(z.int().min(1).max(90)).max(4).optional(),
-      nudgeEstimateAfterDays: z.int().min(1).max(90).nullable().optional(),
+      remindAfterDueDays: z
+        .array(z.int().min(1).max(90))
+        .max(4)
+        .optional()
+        .describe('The whole list of days after the due date; [] for none'),
+      nudgeEstimateAfterDays: z
+        .int()
+        .min(1)
+        .max(90)
+        .nullable()
+        .optional()
+        .describe('One nudge this many days after an estimate goes unanswered; null for none'),
     }),
     autonomy: 'confirm',
     permission: 'money.manage',
@@ -1094,11 +1125,17 @@ export const assistantTools = [
   define({
     name: 'manage_payment_account',
     description:
-      'Change a payout account that is already connected: rename it, make it the one used by default, or disconnect it. Connecting a new one means signing in to Stripe or Square, which only the person can do — use settings_help for that.',
+      'Change a payout account that is already connected (get_settings, area payments): rename it, make it the one new invoices are paid into, or disconnect it. Who may bill into it is do_payment_connection_set_access. Connecting a new one means signing in to Stripe or Square, which only the person can do — use settings_help for that.',
     input: z.object({
       action: z.enum(['rename', 'make_default', 'disconnect']),
       connectionId: uuid,
-      label: text(60).optional(),
+      label: text(60).nullable().optional().describe('rename: null goes back to its own name'),
+      keepPlansBilling: z
+        .boolean()
+        .optional()
+        .describe(
+          'disconnect, when plans still bill through it: true disconnects anyway, and Stripe or Square keeps charging them, no longer managed here. To stop them instead, cancel each first (manage_customer_plan) and disconnect a few minutes later, once the provider has stopped them. Ask the person which',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'money.manage',

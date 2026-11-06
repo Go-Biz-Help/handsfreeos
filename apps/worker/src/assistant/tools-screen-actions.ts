@@ -56,8 +56,15 @@ const meta = (ctx: ToolContext): RequestMeta => ({
   channel: 'assistant',
 });
 
-/** The command's input for one call: the arguments, then the business's ids on top (audit AI-3). */
+/**
+ * The command's input for one call: the arguments, then the business's ids on top (audit AI-3). A staff command
+ * looks across businesses, so the business it acts on is one of its own arguments (screen-actions.ts) and is kept.
+ */
 function inputOf(tool: ScreenActionTool, args: Args, ctx: ToolContext): Args {
+  if (tool.staff) {
+    const declared = new Set(Object.keys(tool.input.shape));
+    return Object.fromEntries(Object.entries(args).filter(([k]) => declared.has(k)));
+  }
   return {
     ...addonToolArguments(tool, args),
     ...(tool.scope.includes('workspaceId') ? { workspaceId: ctx.workspaceId } : {}),

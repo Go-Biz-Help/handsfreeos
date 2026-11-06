@@ -35,6 +35,24 @@ export const moreSettingsTools: readonly AssistantTool[] = [
     permission: 'addons.manage',
   }),
   define({
+    name: 'update_addon_settings',
+    description:
+      'Change an add-on’s own settings for the business, the ones on its settings page, and its switches. Read what is set now with read_addon_settings first, and pass only the settings that change, by the names it shows; everything else stays as it is. A setting that is a list, a set of days or a group of switches is passed whole, as it should end up. Ids are people’s (get_settings, area team) or calendars’ (area calendars). The add-on’s own permission decides who may.',
+    input: z.object({
+      addonId: z.string().trim().min(2).max(16),
+      settings: z
+        .record(z.string(), z.unknown())
+        .optional()
+        .describe('Only the settings that change, each as it should end up'),
+      flags: z
+        .record(z.string(), z.boolean())
+        .optional()
+        .describe('Its switches that change: true on, false off'),
+    }),
+    autonomy: 'confirm',
+    permission: 'workspace.read',
+  }),
+  define({
     name: 'move_to_bin',
     description:
       'Delete through the Deleted bin, as Delete for good… does on the screens: customers with everything only about them, conversations, one booking, leads, companies or records of the business’s own kinds. They wait 30 days in Settings → Deleted bin, where restore_from_bin brings them back, and are gone after that. The card says what goes with them and what stays. Up to 100 at once, a booking one at a time. Ids from search_customers, get_customer, list_leads, list_inbox, find_conversations or find_records. Archiving (archive_or_restore) keeps everything instead: use this only when they ask to delete.',
@@ -70,9 +88,14 @@ export const moreSettingsTools: readonly AssistantTool[] = [
         .trim()
         .max(PARTNER_TERMS_MOST)
         .optional()
-        .describe('The whole terms, as partners read them'),
+        .describe('The whole terms, as partners read them; empty takes them off'),
       smallestPayout: dollars.min(1).max(25).optional().describe('In dollars, $1 to $25'),
-      calendarId: uuid.nullable().optional().describe('The public calendar their links book'),
+      calendarId: uuid
+        .nullable()
+        .optional()
+        .describe(
+          'The calendar their links book, one taking bookings on the booking page (get_settings, area calendars); null for the first one there',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'partners.manage',
