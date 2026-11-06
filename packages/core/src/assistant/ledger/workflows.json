@@ -68,7 +68,7 @@
       "kind": "see",
       "file": "apps/web/src/components/workflows/subnav.tsx:15",
       "covered": "partly",
-      "by": "context lists up to 10 decidable approvals; list_teammate_drafts; no total count"
+      "by": "context lists the newest 10 decidable approvals and says when more wait; list_workflow_approvals pages through them; list_teammate_drafts; no total count"
     },
     {
       "path": "Workflows → Stats → Runs started today, N going now",
@@ -530,7 +530,7 @@
       "kind": "see",
       "file": "apps/web/src/components/workflows/step-list.tsx:527",
       "covered": "yes",
-      "by": "get_workflow startsWhen, checksToFix"
+      "by": "get_workflow startsWhen, checks (step The trigger)"
     },
     {
       "path": "Editor → Steps and Canvas → Step cards: title, detail",
@@ -838,14 +838,14 @@
       "kind": "do",
       "file": "apps/web/src/components/workflows/panels/conditions.tsx:116",
       "covered": "yes",
-      "by": "update_step patch; checksToFix flags bad ones"
+      "by": "update_step patch; get_workflow checks flags bad ones"
     },
     {
       "path": "Editor → Conditions → Errors and hints",
       "kind": "see",
       "file": "apps/web/src/components/workflows/panels/conditions.tsx:82",
       "covered": "partly",
-      "by": "save refusal and checksToFix errors; no hints"
+      "by": "save refusal and get_workflow checks; no hints"
     },
     {
       "path": "Editor → Pickers → Pipeline, stage, people, calendar, task choices",
@@ -1090,7 +1090,7 @@
       "kind": "see",
       "file": "apps/web/src/components/workflows/variable-field.tsx:293",
       "covered": "yes",
-      "by": "get_workflow checksToFix unknown_variable"
+      "by": "get_workflow checks: the message for a detail that isn’t available, with its step"
     },
     {
       "path": "Editor and approvals → Text segment counter",
@@ -1489,7 +1489,7 @@
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:124",
       "covered": "partly",
-      "by": "context (10 max), list_teammate_drafts; decided via read_audit_list"
+      "by": "list_workflow_approvals by status (pending, or approved, rejected or expired for Decided) and list_teammate_drafts; no tab counts"
     },
     {
       "path": "Approvals → Filter All, Workflows, teammate",
@@ -1803,7 +1803,7 @@
       "kind": "read",
       "where": "Workflow editor → Test tab: the test’s outcome (“Test passed, ready to publish.” / “The test didn’t pass. ‘X’ failed: …” / outdated / stopped), its step log, Stop the test; and the header gate “Run a test first” / “Tested, ready to publish”",
       "gap": "After the person confirms do_workflow_test, the model gets back only 'Done'. commitScreenAction returns no command output, so even the eventId never reaches it. list_workflow_runs never passes includeTests or onlyTests, so test runs can't be listed. get_workflow's WorkflowGet type and result leave out tested and testedRevision. So the Assistant can't tell whether the test passed or why it failed, can't tell whether Publish would be allowed, and can't find the test run to stop it with manage_workflow_run.",
-      "fix": "Left open: after Confirm the test’s answer (its eventId, mode, revision) is now kept for the model (foundations step); tested/testedRevision and the publish gate in get_workflow, latestTest, list_workflow_runs tests, and finding the test run by triggerEventId are the workflows step’s. In getWorkflow (apps/worker/src/assistant/tools-content.ts:2390), return tested, testedRevision and a publishGate in the screen's words ('Run a test first' / 'Tested, ready to publish'). Also return latestTest, read from workflow.run_list {workflowId, onlyTests:true, limit:1}: runId, mode (Simulate or Send to me), status label, and for a failure the failed step's title and error message. Give list_workflow_runs a tests:boolean input that maps to onlyTests. Give do_workflow_test its own commit that returns the test's runId (workflow.run_list {triggerEventId}) and says 'The test is running; ask me how it went.'",
+      "fix": "The foundations step kept the test’s answer (its eventId, mode, revision) for the model after Confirm; the workflows step did the rest: tested/testedRevision and the publish gate in get_workflow, latestTest, list_workflow_runs tests, and finding the test run by triggerEventId. In getWorkflow (apps/worker/src/assistant/tools-content.ts:2390), return tested, testedRevision and a publishGate in the screen's words ('Run a test first' / 'Tested, ready to publish'). Also return latestTest, read from workflow.run_list {workflowId, onlyTests:true, limit:1}: runId, mode (Simulate or Send to me), status label, and for a failure the failed step's title and error message. Give list_workflow_runs a tests:boolean input that maps to onlyTests. Give do_workflow_test its own commit that returns the test's runId (workflow.run_list {triggerEventId}) and says 'The test is running; ask me how it went.'",
       "status": "fixed",
       "pr": null
     },

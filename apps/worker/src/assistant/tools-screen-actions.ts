@@ -212,9 +212,11 @@ export async function commitScreenAction(
     ctx.actor,
     meta(ctx),
   );
+  // The command has run by now, so a look-up for its words that fails falls back to the plain answer below, never
+  // to a refusal saying nothing changed.
   const own = workflowScreenCards[tool.command.name];
-  if (own) {
-    const said = await own.done(db, ctx, args, done.output as Args);
+  const said = own ? await own.done(db, ctx, args, done.output as Args).catch(() => null) : null;
+  if (said) {
     return {
       outcome: said.outcome,
       href: said.href,
