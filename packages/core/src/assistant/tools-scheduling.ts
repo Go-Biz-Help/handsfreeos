@@ -6,7 +6,8 @@
  * for the person's OK ("confirm").
  */
 import { z } from 'zod';
-import { IntakeKind, LocationKind } from '../calendar/config';
+import { AssignmentMode, IntakeKind, LocationKind, VideoProvider } from '../calendar/config';
+import { POLL_AI_MODES } from '../meetings/polls';
 import { timezone, uuid } from '../schemas/common';
 import { JOB_SET_STATUSES } from '../schemas/job';
 import {
@@ -16,6 +17,7 @@ import {
   dollars,
   minutes,
   text,
+  UpcomingVisits,
   when,
   type AssistantTool,
 } from './tool-kit';
@@ -29,6 +31,19 @@ const Place = z.object({
   ),
   address: text(300).optional().describe('The street address, for customer_address or business'),
   meetingLink: z.url().max(500).optional().describe('The video call link, for virtual'),
+});
+
+/** A calendar's place: an Online one also says how its link is made, and whether its calls are recorded. */
+const CalendarPlace = Place.extend({
+  video: VideoProvider.optional().describe(
+    'virtual: none (the link in meetingLink), google_meet or zoom (a link made for each appointment in the host’s account), or handsfree (a HandsFreeOS video call). Left out, a place already there keeps its own',
+  ),
+  record: z
+    .boolean()
+    .optional()
+    .describe(
+      'virtual on google_meet or zoom: record and transcribe each call. Left out, a place already there keeps its own',
+    ),
 });
 
 export const schedulingTools: readonly AssistantTool[] = [
@@ -63,7 +78,7 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'get_calendar_settings',
     description:
-      'One calendar’s booking settings as they are now, in the words update_calendar_settings takes: seats, places, routing by ZIP code, repeats, the waitlist, intake questions, cancel and reschedule rules, confirmations and reminders, CRM, payments, anything that needs fixing, and its saved versions (to restore one). Call it before proposing a change to those. Calendar ids are in the context and in get_settings (calendars).',
+      'One calendar’s settings as they are now, in the words manage_calendar and update_calendar_settings take: its link, who works it and how a booking picks a person, services and lengths, hours, seats, places and video, resources, buffers and travel, the booking window, routing by ZIP code, repeats, the waitlist, intake questions, cancel and reschedule rules, confirmations and reminders, calendar connections, CRM, payments, how it works in plain words, what needs fixing (with the fixes offered), and its saved versions (to restore one). Call it before proposing a change to a calendar. Calendar ids are in the context and in get_settings (calendars).',
     input: z.object({ calendarId: uuid }),
     autonomy: 'auto',
     permission: 'workspace.read',
@@ -212,14 +227,119 @@ export const schedulingTools: readonly AssistantTool[] = [
   define({
     name: 'update_calendar_settings',
     description:
-      'Change the parts of a calendar manage_calendar doesn’t: seats per time, the places it happens, routing by ZIP code and which territories, repeat visits, the waitlist, intake questions, the cancel and reschedule rules, the confirmation and reminders customers get, CRM (a lead for each booking, the customer’s owner) and taking payment when they book — or restore an earlier saved version. Read it with get_calendar_settings first and pass only what changes; lists (places, questions, reminders, territories) replace the whole list. The card shows each change as before → after. Territory ids from get_settings (territories), pipelines and stages from get_settings (pipelines), payment accounts from get_settings (payments).',
+      'Change the parts of a calendar manage_calendar doesn’t: how a booking picks a person, people per booking, each person’s weight, order and Must go; whether it books services and each service’s own video link; its lengths and start times; open hours or fixed sessions; seats per time; the places it happens and their video links; a webinar’s settings; routing by ZIP code and which territories; repeat visits; the waitlist; intake questions; the cancel and reschedule rules; the confirmation and reminders customers get; checking and adding to people’s own calendars; CRM (a lead for each booking, the customer’s owner) and taking payment when they book. Or apply one of the fixes Things to check offers, or restore an earlier saved version. Read it with get_calendar_settings first and pass only what changes; lists (people, places, questions, reminders, territories) replace the whole list. The card shows each change as before → after. Territory ids from get_settings (territories), pipelines and stages from get_settings (pipelines), payment accounts from get_settings (payments), live polls from list_forms (mode poll).',
     input: z.object({
       calendarId: uuid,
       action: z
-        .enum(['change', 'restore'])
+        .enum(['change', 'restore', 'apply_fix'])
         .default('change')
-        .describe('restore puts back an earlier saved version, by its revision number'),
+        .describe(
+          'restore puts back an earlier saved version, by its revision number. apply_fix applies one fix Things to check offers',
+        ),
       revision: z.int().min(1).optional().describe('restore: the version to put back'),
+      fix: z
+        .object({
+          issue: z.string().trim().min(1).max(80).describe('The issue’s code'),
+          fixId: z.string().trim().min(1).max(80).describe('The fix’s id'),
+          label: z
+            .string()
+            .trim()
+            .min(1)
+            .max(200)
+            .optional()
+            .describe(
+              'The fix’s label, as listed: needed when two problems offer the same fix, such as Remove Dale and Remove Priya',
+            ),
+        })
+        .optional()
+        .describe('apply_fix: one of the fixes get_calendar_settings lists under needsFixing'),
+      team: z
+        .object({
+          assignment: AssignmentMode.optional().describe(
+            'How a booking picks a person: fixed (one person), customer_choice, round_robin (take turns), weighted (turns, some get more), first_available (the first free person, in list order), collective (everyone goes together) or none (no staff needed)',
+          ),
+          peoplePerBooking: z
+            .int()
+            .min(1)
+            .max(10)
+            .optional()
+            .describe('More than 1 sends a crew, each picked the same way'),
+          members: z
+            .array(
+              z.object({
+                userId: uuid,
+                weight: z.int().min(1).max(100).optional().describe('weighted: their share'),
+                mustGo: z
+                  .boolean()
+                  .optional()
+                  .describe('collective: they must go; when nobody is marked, everyone must'),
+              }),
+            )
+            .max(50)
+            .optional()
+            .describe(
+              'Everyone on it, in order (first_available asks them in this order); people left out come off it. Someone already on it keeps what isn’t given',
+            ),
+        })
+        .optional(),
+      services: z
+        .object({
+          mode: z
+            .enum(['off', 'one', 'customer_picks'])
+            .optional()
+            .describe(
+              'off: plain time, no service. one: every booking is its first service. customer_picks: customers choose',
+            ),
+          online: z
+            .array(
+              z.object({
+                serviceId: uuid,
+                video: z
+                  .enum(['same_as_place', ...VideoProvider.options])
+                  .optional()
+                  .describe('Its own video link, or same_as_place for the Online place’s'),
+                record: z
+                  .boolean()
+                  .nullable()
+                  .optional()
+                  .describe(
+                    'Record and transcribe its Google Meet or Zoom calls; null goes back to the Online place’s',
+                  ),
+              }),
+            )
+            .max(50)
+            .optional()
+            .describe(
+              'A service’s own video link and recording on this calendar, instead of the Online place’s. The service must be on the calendar (manage_calendar services)',
+            ),
+        })
+        .optional(),
+      lengths: z
+        .object({
+          minutes: z
+            .array(minutes)
+            .min(1)
+            .max(6)
+            .optional()
+            .describe(
+              'Every length a booking can be, the first the default; services with lengths of their own use theirs',
+            ),
+          customerPicks: onOff.describe('Customers pick the length; otherwise the first is used'),
+          startEvery: z
+            .int()
+            .min(5)
+            .max(240)
+            .multipleOf(5)
+            .optional()
+            .describe('Start times offered every so many minutes'),
+        })
+        .optional(),
+      books: z
+        .enum(['open_hours', 'fixed_sessions'])
+        .optional()
+        .describe(
+          'open_hours: any free time in its hours. fixed_sessions: only the sessions the team publishes',
+        ),
       capacity: z
         .object({
           seatsPerTime: z.int().min(1).max(500).optional(),
@@ -229,8 +349,43 @@ export const schedulingTools: readonly AssistantTool[] = [
         .optional(),
       locations: z
         .object({
-          places: z.array(Place).max(10).optional().describe('Every place it offers, in order'),
+          places: z
+            .array(CalendarPlace)
+            .max(10)
+            .optional()
+            .describe('Every place it offers, in order'),
           customerPicks: onOff.describe('Customers pick the place; otherwise the first is used'),
+          webinar: z
+            .object({
+              attendeeCameras: z
+                .enum(['off', 'team', 'everyone'])
+                .optional()
+                .describe(
+                  'off, team (on, only the team sees them) or everyone (everyone sees everyone)',
+                ),
+              messageWhenItStarts: onOff.describe(
+                'Everyone booked who isn’t in yet gets their own Join link',
+              ),
+              followUpMissed: onOff.describe(
+                'Anyone who misses it is told when the next session is',
+              ),
+              livePollFormId: uuid
+                .nullable()
+                .optional()
+                .describe(
+                  'The live poll each session starts with (list_forms, mode poll); null for none',
+                ),
+              pollAi: z
+                .enum(POLL_AI_MODES)
+                .optional()
+                .describe(
+                  'ask: the AI pops a question up when it’s sure and offers the rest; suggest: it only offers; off: the team asks',
+                ),
+            })
+            .optional()
+            .describe(
+              'A fixed-sessions calendar on HandsFreeOS video calls runs each session as a webinar: how each one starts',
+            ),
         })
         .optional(),
       zipRouting: z
@@ -321,6 +476,14 @@ export const schedulingTools: readonly AssistantTool[] = [
           emailTeamOnNewBooking: onOff,
         })
         .optional(),
+      calendarConnections: z
+        .object({
+          checkPeoplesCalendars: onOff.describe(
+            'Busy times on the Google or Outlook calendars people connected block bookings',
+          ),
+          addToTheirCalendars: onOff.describe('Each booking goes on the person’s own calendar'),
+        })
+        .optional(),
       crm: z
         .object({
           customerOwner: z
@@ -353,6 +516,7 @@ export const schedulingTools: readonly AssistantTool[] = [
             .describe('The account it’s paid into; null for the business’s own'),
         })
         .optional(),
+      upcomingVisits: UpcomingVisits,
     }),
     autonomy: 'confirm',
     permission: 'calendars.manage',

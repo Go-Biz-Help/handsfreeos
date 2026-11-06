@@ -45,6 +45,7 @@ import { assertTeammateCalendar } from '../ai-team/reach';
 import { aiEmployeeOf } from '../kernel/actor';
 import { openTimes } from '../calendar/booking';
 import { parseConfig } from '../calendar/config';
+import { CALENDAR_SECTIONS, describeCalendar, moduleSummary } from '../calendar/describe';
 import { DEPOSIT_HOLD_MS } from '../calendar/deposit';
 import {
   dbNow,
@@ -221,6 +222,12 @@ export const calendarGet = defineQuery({
         config: calendar.config,
         ownTimezone: calendar.ownTimezone,
         issues,
+        howItWorks: describeCalendar(calendar.config, catalogs),
+        sections: CALENDAR_SECTIONS.map((s) => ({
+          key: s.key,
+          name: s.name,
+          summary: moduleSummary(s.key, calendar.config, catalogs),
+        })),
       },
       revisions: revisions.map((r) => ({
         revision: r.revision,

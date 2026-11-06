@@ -4,12 +4,16 @@
  *
  * Changing a calendar is read-patch-save: the calendar is read for its revision and its settings, the patch is
  * applied with core's own `applyPatch`, and the save goes in on that revision — so two people changing a calendar
- * at once is the same 409 the builder gets, not a silent overwrite. Taking someone off a calendar that has visits
- * booked keeps those visits (`keep`), which is what the impact review calls the safe answer, and the card says so.
+ * at once is the same 409 the builder gets, not a silent overwrite. The card runs the save first in a transaction
+ * that rolls back, so it says what happens to visits already booked: kept, unless the person asked for them to be
+ * reassigned or cancelled (`upcomingVisits`), as the builder's Before you save offers.
  */
 
 import {
   applyPatch,
+  CALENDAR_COLORS,
+  CALENDAR_PRESETS,
+  formatNotice,
   HfosError,
   slugify,
   type AssistantCard,
@@ -106,6 +110,9 @@ interface CalendarGet {
     revision: number;
     timezone: string | null;
     config: CalendarConfig;
+    /** /book/<site>/<calendar>, or null until the business has a booking site. */
+    bookingPath: string | null;
+    issues: { severity: 'error' | 'warning'; message: string }[];
   };
 }
 interface Named {
@@ -144,36 +151,229 @@ const teamNames = async (db: Db, ctx: ToolContext, ids: readonly string[]) => {
   return named.every(Boolean) ? named.join(', ') : `${ids.length} chosen`;
 };
 
-/** The parts of a calendar the Assistant may change, as a patch on its settings. */
-function calendarPatch(args: Args): ConfigPatch {
+// ---------- a calendar's visits already booked, and the save a card is made from ----------
+
+class RolledBack extends Error {}
+/** Runs `fn` in a transaction that always rolls back, so a card shows a command's own answer and nothing is kept. */
+export async function dryRun<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
+  const held: { done: boolean; value?: T } = { done: false };
+  try {
+    await db.transaction(async (tx) => {
+      held.value = await fn(tx as unknown as Db);
+      held.done = true;
+      throw new RolledBack();
+    });
+  } catch (e) {
+    if (!(e instanceof RolledBack)) throw e;
+  }
+  if (!held.done) throw new Error('The dry run did not finish.');
+  return held.value as T;
+}
+
+/** The calendar rules' and the impact review's messages end without a full stop; a card line has one. */
+export const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+
+/** A change that touches visits already booked, as the save command reports it, and the answer it got. */
+export interface DecidedImpact {
+  key: string;
+  code: string;
+  message: string;
+  count: number;
+  decisions: string[];
+  decision: string;
+}
+
+/**
+ * Runs a save; when it touches visits already booked, runs it again with the person's answer for each, as Before
+ * you save takes it: their `upcomingVisits` where that impact offers it, else keep, which is always allowed. So a
+ * change never moves or cancels an appointment unless the person asked for that on the card.
+ */
+export async function answeringImpacts<T>(
+  run: (decisions: Record<string, string>) => Promise<T>,
+  choice: unknown,
+): Promise<{ out: T; impacts: DecidedImpact[] }> {
+  try {
+    return { out: await run({}), impacts: [] };
+  } catch (e) {
+    const impacts = (e as { details?: { impacts?: Omit<DecidedImpact, 'decision'>[] } })?.details
+      ?.impacts;
+    if (!impacts?.length) throw e;
+    const decided = impacts.map((i) => ({
+      ...i,
+      decision: typeof choice === 'string' && i.decisions.includes(choice) ? choice : 'keep',
+    }));
+    return {
+      out: await run(Object.fromEntries(decided.map((i) => [i.key, i.decision]))),
+      impacts: decided,
+    };
+  }
+}
+
+const VISITS_WORDS: Record<string, (code: string) => string> = {
+  keep: (code) =>
+    code === 'resource_removed'
+      ? 'They still hold it; new bookings don’t need it.'
+      : code === 'seats_below_booked'
+        ? 'Everyone already booked keeps their seat.'
+        : 'Those visits stay as they are.',
+  reassign: () =>
+    'Each goes to someone else on this calendar who’s free, and its customer is told who’s coming instead; any that don’t fit stay as they are.',
+  cancel_and_notify: () =>
+    'They’re cancelled, and each customer is told by text, or by email if they don’t get texts.',
+};
+
+/** How much each answer needs seeing: a cancellation most, then a visit handed on, as both message the customer. */
+const VISITS_ORDER: Record<string, number> = { cancel_and_notify: 0, reassign: 1, keep: 2 };
+
+/**
+ * What happens to visits already booked, said on the card before anyone presses Confirm. Cancelling and reassigning
+ * both message the customers, so they are cautions, and come first.
+ */
+export function impactWarnings(
+  impacts: readonly DecidedImpact[],
+): { kind: string; text: string }[] {
+  return [...impacts]
+    .sort((a, b) => (VISITS_ORDER[a.decision] ?? 2) - (VISITS_ORDER[b.decision] ?? 2))
+    .map((i) => ({
+      kind: i.decision === 'keep' ? 'note' : 'caution',
+      text: `${sentence(i.message)} ${(VISITS_WORDS[i.decision] ?? VISITS_WORDS['keep']!)(i.code)}`,
+    }));
+}
+
+/** What a save did to visits already booked, as the builder says it after saving; "" when it left them be. */
+export function visitsDone(actions: { reassigned: string[]; cancelled: string[] } | undefined) {
+  const moved = actions?.reassigned.length ?? 0;
+  const cancelled = actions?.cancelled.length ?? 0;
+  return [
+    moved
+      ? `${moved === 1 ? '1 visit' : `${moved} visits`} went to someone else, and the customers are being told who’s coming.`
+      : '',
+    cancelled
+      ? `${cancelled === 1 ? '1 visit was' : `${cancelled} visits were`} cancelled, and the customers are being told.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** A settings document with a patch on it, or a refusal in plain words when the result can't be saved. */
+export function patched(config: CalendarConfig, patch: ConfigPatch): CalendarConfig {
+  try {
+    return applyPatch(config, patch);
+  } catch (e) {
+    const issues = (e as { issues?: { path: PropertyKey[]; message: string }[] }).issues;
+    if (!issues) throw e;
+    throw HfosError.validation(
+      issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message })),
+      issues[0]?.message ??
+        'Some of those settings can’t be saved as they are. Check them and try again.',
+    );
+  }
+}
+
+/** The errors an active calendar can't be saved with, when that is why a save was refused; else null. */
+export function blockingIssues(e: unknown): { severity: string; message: string }[] | null {
+  const err = e as {
+    rule?: string;
+    details?: { issues?: { severity: string; message: string }[] };
+  };
+  return err.rule === 'calendar_issues'
+    ? (err.details?.issues ?? []).filter((i) => i.severity === 'error')
+    : null;
+}
+
+// ---------- manage_calendar ----------
+
+const whichCalendar = () =>
+  HfosError.validation(
+    [{ path: 'calendarId', message: 'Say which calendar.' }],
+    'Say which calendar to change. Each one’s id is in get_settings (calendars).',
+  );
+
+const resourceList = (v: unknown) =>
+  Array.isArray(v) ? (v as { resourceId: string; quantity?: number }[]) : undefined;
+/** null or "" clears it; a word is the new value; left out, it stays. */
+const clearable = (v: unknown) => (v === null || v === '' ? null : str(v));
+const PRESET_NAMES: Record<string, string> = Object.fromEntries(
+  CALENDAR_PRESETS.map((p) => [p.key, p.name]),
+);
+const colorWords = (hex: string) =>
+  CALENDAR_COLORS.find((c) => c.hex === hex.toLowerCase())?.name ?? hex;
+const SERVICE_MODE_WORDS = { none: 'off', one: 'one service', choice: 'customers pick' } as const;
+const servicesMode = (count: number) => (count > 1 ? 'choice' : count === 1 ? 'one' : 'none');
+
+/** Its name, description, colour and time zone: saved beside its settings, as Name, color and time zone… does. */
+const calendarDetails = (args: Args) =>
+  defined({
+    name: str(args['name']),
+    description: clearable(args['description']),
+    timezone: clearable(args['timezone']),
+    color: str(args['color'])?.toLowerCase(),
+  });
+
+/**
+ * The parts of a calendar manage_calendar changes, as a patch on its settings as they are now. Lists replace, so
+ * someone kept on it is sent with their weight, place in line and Must go, and a service kept with its own settings
+ * here (lengths, seats, video): only the people and services added start from the defaults.
+ */
+function calendarPatch(args: Args, config: CalendarConfig): ConfigPatch {
   const patch: Record<string, unknown> = {};
   const teammates = list(args['teammates']);
-  if (teammates) patch['team'] = { members: teammates.map((userId) => ({ userId })) };
-  const services = list(args['services']);
-  if (services)
-    patch['services'] = {
-      mode: services.length > 1 ? 'choice' : services.length === 1 ? 'one' : 'none',
-      items: services.map((serviceId) => ({ serviceId })),
+  if (teammates) {
+    const had = new Map(config.team.members.map((m) => [m.userId, m]));
+    patch['team'] = {
+      members: [...new Set(teammates)].map((userId) => had.get(userId) ?? { userId }),
     };
-  const resources = list(args['resources']);
-  if (resources)
-    patch['resources'] = { items: resources.map((resourceId) => ({ resourceId, quantity: 1 })) };
+  }
+  const services = list(args['services']);
+  if (services) {
+    const had = new Map(config.services.items.map((i) => [i.serviceId, i]));
+    const ids = [...new Set(services)];
+    patch['services'] = {
+      mode: servicesMode(ids.length),
+      items: ids.map((serviceId) => had.get(serviceId) ?? { serviceId }),
+    };
+  }
+  const resources = resourceList(args['resources']);
+  if (resources) {
+    const seen = new Set<string>();
+    patch['resources'] = {
+      required: resources
+        .filter((r) => !seen.has(r.resourceId) && seen.add(r.resourceId))
+        .map((r) => ({ resourceId: r.resourceId, quantity: r.quantity ?? 1 })),
+    };
+  }
   if (args['hours'] !== undefined)
     patch['schedule'] = { hours: (args['hours'] as Hours | null) ?? null };
-  const before = num(args['bufferBeforeMinutes']);
-  const after = num(args['bufferAfterMinutes']);
-  if (before !== undefined || after !== undefined)
-    patch['buffers'] = defined({ before, after }) as Record<string, number>;
-  const notice = num(args['minNoticeHours']);
-  const ahead = num(args['maxDaysAhead']);
-  if (notice !== undefined || ahead !== undefined)
-    patch['window'] = defined({
-      minNoticeMinutes: notice === undefined ? undefined : notice * 60,
-      maxDaysAhead: ahead,
-    }) as Record<string, number>;
+  const buffers = defined({
+    before: num(args['bufferBeforeMinutes']),
+    after: num(args['bufferAfterMinutes']),
+    travelMinutes: num(args['travelMinutes']),
+  });
+  if (Object.keys(buffers).length) patch['buffers'] = buffers;
+  const window = defined({
+    minNoticeMinutes: num(args['minNoticeMinutes']),
+    maxDaysAhead: num(args['maxDaysAhead']),
+    dateFrom: args['bookOnlyFrom'],
+    dateTo: args['bookOnlyTo'],
+    dailyLimitPerPerson: args['dailyLimitPerPerson'],
+  });
+  if (Object.keys(window).length) patch['window'] = window;
   if (typeof args['listedOnBookingSite'] === 'boolean')
     patch['public'] = args['listedOnBookingSite'];
   return patch as ConfigPatch;
+}
+
+/** A calendar's whole booking link with its link name changed; just the path when the web app's address isn't known. */
+async function newBookingLink(
+  db: Db,
+  ctx: ToolContext,
+  current: CalendarGet['calendar'],
+  slug: string,
+  webUrl = '',
+): Promise<string> {
+  if (!current.bookingPath) return `${slug} (once the booking site is set up)`;
+  return wholeLink(db, ctx, current.bookingPath.replace(/[^/]+$/, slug), webUrl);
 }
 
 /** What the card shows for a change, so someone can see what they are saying yes to. */
@@ -182,24 +382,32 @@ async function calendarFields(
   ctx: ToolContext,
   args: Args,
   current: CalendarGet['calendar'] | null,
+  webUrl?: string,
 ): Promise<Field[]> {
   const fields: Field[] = [];
   const name = str(args['name']);
   if (name) fields.push({ label: 'Name', value: name });
   if (current && name && current.name !== name) fields.push({ label: 'Was', value: current.name });
+  if (!current)
+    fields.push({ label: 'How it works', value: PRESET_NAMES[str(args['preset']) ?? 'scratch']! });
   const teammates = list(args['teammates']);
   if (teammates) fields.push({ label: 'Who works it', value: await teamNames(db, ctx, teammates) });
   const services = list(args['services']);
   if (services)
     fields.push({
       label: 'What it offers',
-      value: await namesOf(db, ctx, 'service.list', services),
+      value: services.length
+        ? `${await namesOf(db, ctx, 'service.list', services)} (${SERVICE_MODE_WORDS[servicesMode(new Set(services).size)]})`
+        : 'No services',
     });
-  const resources = list(args['resources']);
+  const resources = resourceList(args['resources']);
   if (resources)
     fields.push({
-      label: 'What it needs',
-      value: await namesOf(db, ctx, 'resource.list', resources),
+      label: 'What each booking needs',
+      value: needsWords(
+        resources.map((r) => ({ resourceId: r.resourceId, quantity: r.quantity ?? 1 })),
+        resources.length ? await resourcesOf(db, ctx).catch(() => []) : [],
+      ),
     });
   if (args['hours'] !== undefined)
     fields.push({ label: 'Hours', value: hoursLine((args['hours'] as Hours | null) ?? null) });
@@ -215,143 +423,294 @@ async function calendarFields(
         .filter(Boolean)
         .join(', '),
     });
-  const notice = num(args['minNoticeHours']);
+  const travel = num(args['travelMinutes']);
+  if (travel !== undefined)
+    fields.push({ label: 'Travel time', value: travel ? `${travel} min each way` : 'None' });
+  const notice = num(args['minNoticeMinutes']);
   if (notice !== undefined)
-    fields.push({ label: 'Notice to book', value: `${notice} hour${notice === 1 ? '' : 's'}` });
+    fields.push({ label: 'Notice to book', value: notice ? formatNotice(notice) : 'None' });
   const ahead = num(args['maxDaysAhead']);
   if (ahead !== undefined) fields.push({ label: 'Books up to', value: `${ahead} days ahead` });
+  if (args['bookOnlyFrom'] !== undefined || args['bookOnlyTo'] !== undefined) {
+    const from =
+      args['bookOnlyFrom'] === undefined ? current?.config.window.dateFrom : args['bookOnlyFrom'];
+    const to =
+      args['bookOnlyTo'] === undefined ? current?.config.window.dateTo : args['bookOnlyTo'];
+    fields.push({
+      label: 'Only between',
+      value: from || to ? `${String(from ?? 'now')} to ${String(to ?? 'no end')}` : 'Any dates',
+    });
+  }
+  if (args['dailyLimitPerPerson'] !== undefined)
+    fields.push({
+      label: 'Daily limit per person',
+      value:
+        args['dailyLimitPerPerson'] === null ? 'No limit' : String(args['dailyLimitPerPerson']),
+    });
   const link = str(args['bookingLink']);
-  if (link) fields.push({ label: 'Booking link', value: link });
+  if (link)
+    fields.push({
+      label: 'Booking link',
+      value: current ? await newBookingLink(db, ctx, current, link, webUrl) : link,
+    });
   if (typeof args['listedOnBookingSite'] === 'boolean')
     fields.push({
-      label: 'On the booking site',
-      value: args['listedOnBookingSite'] ? 'Yes' : 'No',
+      label: 'Customers can book it online',
+      value: args['listedOnBookingSite'] ? 'Yes' : 'No, only the team books it',
     });
-  const timezone = str(args['timezone']);
-  if (timezone) fields.push({ label: 'Time zone', value: timezone });
+  const description = clearable(args['description']);
+  if (description !== undefined)
+    fields.push({ label: 'Description', value: description ?? 'None' });
+  const color = str(args['color']);
+  if (color) fields.push({ label: 'Colour', value: colorWords(color) });
+  const timezone = clearable(args['timezone']);
+  if (timezone !== undefined)
+    fields.push({ label: 'Time zone', value: timezone ?? 'Same as the business' });
   return fields;
 }
 
-/** Someone taken off a calendar with visits booked keeps them; the card warns rather than surprising anyone. */
-function removalWarning(
-  current: CalendarGet['calendar'] | null,
-  args: Args,
-): { kind: string; text: string }[] {
-  const teammates = list(args['teammates']);
-  if (!current || !teammates) return [];
-  const gone = current.config.team.members.filter((m) => !teammates.includes(m.userId));
-  return gone.length
-    ? [
-        {
-          kind: 'note',
-          text: `Visits already booked with ${gone.length === 1 ? 'them' : 'those people'} stay as they are.`,
-        },
-      ]
-    : [];
-}
+/** Turn on, pause, back to a draft, archive: the status each sets, and the card and outcome words. */
+const STATUS_ACTIONS: Record<
+  string,
+  {
+    status: 'active' | 'paused' | 'draft' | 'archived';
+    title: (name: string, from: string) => string;
+    now: string;
+    confirm: string;
+    warning: (from: string) => { kind: string; text: string } | null;
+    done: (name: string) => string;
+  }
+> = {
+  turn_on: {
+    status: 'active',
+    title: (name, from) => (from === 'paused' ? `Resume ${name}` : `Turn on ${name}`),
+    now: 'Taking bookings',
+    confirm: 'Turn it on',
+    warning: () => null,
+    done: (name) => `${name} is taking bookings`,
+  },
+  turn_off: {
+    status: 'paused',
+    title: (name) => `Pause ${name}`,
+    now: 'Paused',
+    confirm: 'Pause it',
+    warning: () => ({ kind: 'note', text: 'Visits already booked stay; no new ones can be made.' }),
+    done: (name) => `${name} is paused`,
+  },
+  to_draft: {
+    status: 'draft',
+    title: (name, from) =>
+      from === 'archived' ? `Bring ${name} back as a draft` : `Put ${name} back to a draft`,
+    now: 'A draft, not taking bookings',
+    confirm: 'Make it a draft',
+    warning: (from) =>
+      from === 'archived'
+        ? {
+            kind: 'note',
+            text: 'It comes back to the list, and takes bookings once it’s turned on.',
+          }
+        : {
+            kind: 'note',
+            text: 'Visits already booked stay; no new ones can be made until it’s turned on.',
+          },
+    done: (name) => `${name} is back to a draft. Turn it on when it’s ready`,
+  },
+  archive: {
+    status: 'archived',
+    title: (name) => `Archive ${name}`,
+    now: 'Archived',
+    confirm: 'Archive it',
+    warning: () => ({
+      kind: 'caution',
+      text: 'It stops taking bookings and leaves the calendar. Its history stays.',
+    }),
+    done: (name) => `${name} is archived. Its history stays, and it can be brought back as a draft`,
+  },
+};
+const STATUS_WORDS: Record<string, string> = {
+  active: 'taking bookings',
+  paused: 'paused',
+  draft: 'a draft',
+  archived: 'archived',
+};
 
 const manageCalendar: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, args, toolCallId, deps) {
     const act = action(args);
     const current = args['calendarId']
       ? (await calendarOf(db, ctx, args['calendarId'])).calendar
       : null;
-    if (act === 'turn_on' || act === 'turn_off') {
-      const on = act === 'turn_on';
+    if (act !== 'create' && !current) throw whichCalendar();
+    const status = STATUS_ACTIONS[act];
+    if (status) {
+      const name = current?.name ?? 'the calendar';
+      if (current?.status === status.status)
+        throw nothingChanges(`${name} is already ${STATUS_WORDS[status.status]}.`);
+      const warning = status.warning(current?.status ?? '');
+      // What Things to check says blocks turning it on: the card says so rather than a refusal after Confirm.
+      const blocking =
+        status.status === 'active'
+          ? (current?.issues ?? []).filter((i) => i.severity === 'error')
+          : [];
+      if (blocking.length)
+        return {
+          card: settingsCard(toolCallId, 'manage_calendar', {
+            title: status.title(name, current?.status ?? ''),
+            fields: [{ label: 'Calendar', value: name }],
+            confirmLabel: '',
+            warnings: blocking
+              .slice(0, 3)
+              .map((i) => ({ kind: 'blocked', text: sentence(i.message) })),
+          }),
+          result: {
+            blocked: true,
+            why: `${name} can’t be turned on until these are fixed: ${blocking.map((i) => sentence(i.message)).join(' ')} get_calendar_settings lists the fixes Things to check offers.`,
+          },
+        };
       return {
         card: settingsCard(toolCallId, 'manage_calendar', {
-          title: on
-            ? `Turn on ${current?.name ?? 'the calendar'}`
-            : `Pause ${current?.name ?? 'the calendar'}`,
+          title: status.title(name, current?.status ?? ''),
           fields: [
             { label: 'Calendar', value: current?.name ?? '' },
-            { label: 'Now', value: on ? 'Taking bookings' : 'Paused' },
+            { label: 'Now', value: status.now },
           ],
-          confirmLabel: on ? 'Turn it on' : 'Pause it',
-          warnings: on
-            ? []
-            : [{ kind: 'note', text: 'Visits already booked stay; no new ones can be made.' }],
+          confirmLabel: status.confirm,
+          warnings: warning ? [warning] : [],
         }),
-        result: { waiting: true, calendar: current?.name, status: on ? 'active' : 'paused' },
+        result: { waiting: true, calendar: current?.name, status: status.status },
       };
     }
     const creating = act === 'create';
-    const fields = await calendarFields(db, ctx, args, current);
+    if (creating && !str(args['name'])) throw nameIt('calendar');
+    const fields = await calendarFields(db, ctx, args, current, deps?.webUrl);
+    if (creating)
+      return {
+        card: settingsCard(toolCallId, 'manage_calendar', {
+          title: `Set up ${str(args['name']) ?? 'a calendar'}`,
+          fields,
+          confirmLabel: 'Set it up',
+          warnings: [
+            {
+              kind: 'note',
+              text: 'It starts as a draft, not taking bookings until it’s turned on.',
+            },
+          ],
+        }),
+        result: { waiting: true, creating, changes: fields.map((f) => f.label) },
+      };
+    // The save itself, rolled back: what it does to visits already booked, and whether it can be saved at all.
+    const title = `Change ${current!.name}`;
+    let dry: Awaited<ReturnType<typeof changeCalendar>>;
+    try {
+      dry = await dryRun(db, (tx) => changeCalendar(tx, ctx, args));
+    } catch (e) {
+      const blocking = blockingIssues(e);
+      if (!blocking) throw e;
+      return {
+        card: settingsCard(toolCallId, 'manage_calendar', {
+          title,
+          fields: [{ label: 'Calendar', value: current!.name }, ...fields],
+          confirmLabel: '',
+          warnings: blocking
+            .slice(0, 3)
+            .map((i) => ({ kind: 'blocked', text: sentence(i.message) })),
+        }),
+        result: {
+          blocked: true,
+          why: `${current!.name} is taking bookings, and this would leave settings it can’t book with: ${blocking.map((i) => sentence(i.message)).join(' ')}`,
+        },
+      };
+    }
+    if (!dry.saved?.diff.length && !dry.slug)
+      throw nothingChanges(`${current!.name} already has those settings.`);
     return {
       card: settingsCard(toolCallId, 'manage_calendar', {
-        title: creating
-          ? `Set up ${str(args['name']) ?? 'a calendar'}`
-          : `Change ${current?.name ?? 'the calendar'}`,
-        fields: creating ? fields : [{ label: 'Calendar', value: current?.name ?? '' }, ...fields],
-        confirmLabel: creating ? 'Set it up' : 'Save the change',
-        warnings: removalWarning(current, args),
+        title,
+        fields: [{ label: 'Calendar', value: current!.name }, ...fields],
+        confirmLabel: 'Save the change',
+        warnings: [
+          ...impactWarnings(dry.impacts),
+          ...(dry.saved?.issues ?? [])
+            .filter((i) => !current!.issues.some((c) => c.message === i.message))
+            .map((i) => ({
+              kind: i.severity === 'error' ? 'caution' : 'note',
+              text: sentence(i.message),
+            })),
+        ],
       }),
-      result: { waiting: true, creating, changes: fields.map((f) => f.label) },
+      result: {
+        waiting: true,
+        creating,
+        changes: dry.saved?.diff ?? fields.map((f) => f.label),
+      },
     };
   },
 
   async commit(db, ctx, args) {
     const act = action(args);
-    if (act === 'turn_on' || act === 'turn_off') {
-      const status = act === 'turn_on' ? 'active' : 'paused';
+    const status = STATUS_ACTIONS[act];
+    if (status) {
       const { calendar } = await calendarOf(db, ctx, args['calendarId']);
-      await command(db, ctx, 'calendar.set_status', { calendarId: calendar.id, status });
-      return {
-        outcome:
-          act === 'turn_on' ? `${calendar.name} is taking bookings` : `${calendar.name} is paused`,
-        href: null,
-        command: 'calendar.set_status',
-      };
+      await command(db, ctx, 'calendar.set_status', {
+        calendarId: calendar.id,
+        status: status.status,
+      });
+      return { outcome: status.done(calendar.name), href: null, command: 'calendar.set_status' };
     }
     if (act === 'create') {
-      const out = await command<{ calendarId: string }>(
-        db,
-        ctx,
-        'calendar.create',
-        defined({
-          name: args['name'],
-          description: str(args['description']),
-          timezone: str(args['timezone']),
-          teammates: list(args['teammates']) ?? [],
-          services: list(args['services']) ?? [],
-          resources: list(args['resources']) ?? [],
-        }),
-      );
-      // Anything the create command doesn't take (hours, buffers, the booking window) is a save on top.
-      const patch = calendarPatch({
-        ...args,
-        teammates: undefined,
-        services: undefined,
-        resources: undefined,
+      const resources = resourceList(args['resources']);
+      // One unit: when the settings on top can't be saved (a service id that isn't there), no calendar is left
+      // half made, to be made a second time when the person asks again.
+      const calendarId = await db.transaction(async (tx) => {
+        const t = tx as unknown as Db;
+        const out = await command<{ calendarId: string }>(
+          t,
+          ctx,
+          'calendar.create',
+          defined({
+            name: args['name'],
+            preset: str(args['preset']),
+            description: clearable(args['description']) ?? undefined,
+            timezone: clearable(args['timezone']) ?? undefined,
+            color: str(args['color'])?.toLowerCase(),
+            teammates: list(args['teammates']) ?? [],
+            services: list(args['services']) ?? [],
+            resources: resources?.map((r) => r.resourceId) ?? [],
+          }),
+        );
+        // The preset fills in its own people, services and resources; the ones asked for go on as asked, then
+        // anything the create command doesn't take (hours, buffers, the booking window) is a save on top.
+        await saveConfig(
+          t,
+          ctx,
+          out.calendarId,
+          (config) => calendarPatch(args, config),
+          {},
+          'keep',
+        );
+        if (str(args['bookingLink']))
+          await command(t, ctx, 'calendar.set_slug', {
+            calendarId: out.calendarId,
+            slug: args['bookingLink'],
+          });
+        return out.calendarId;
       });
-      if (Object.keys(patch).length) await saveConfig(db, ctx, out.calendarId, patch);
-      if (str(args['bookingLink']))
-        await command(db, ctx, 'calendar.set_slug', {
-          calendarId: out.calendarId,
-          slug: args['bookingLink'],
-        });
       return {
-        outcome: `${str(args['name']) ?? 'The calendar'} is set up`,
-        href: `/app/w/${ctx.workspaceId}/settings/calendars/${out.calendarId}`,
+        outcome: `${str(args['name']) ?? 'The calendar'} is set up as a draft, so it isn’t taking bookings yet. It can be turned on when it’s ready.`,
+        href: `/app/w/${ctx.workspaceId}/settings/calendars/${calendarId}`,
         command: 'calendar.create',
       };
     }
-    const { calendar } = await calendarOf(db, ctx, args['calendarId']);
-    const patch = calendarPatch(args);
-    const named = defined({
-      name: str(args['name']),
-      description: str(args['description']),
-      timezone: str(args['timezone']),
-    });
-    if (Object.keys(patch).length || Object.keys(named).length)
-      await saveConfig(db, ctx, calendar.id, patch, named);
-    if (str(args['bookingLink']))
-      await command(db, ctx, 'calendar.set_slug', {
-        calendarId: calendar.id,
-        slug: args['bookingLink'],
-      });
+    const { calendar, saved, slug } = await changeCalendar(db, ctx, args);
+    const name = str(args['name']) ?? calendar.name;
     return {
-      outcome: `${str(args['name']) ?? calendar.name} is changed`,
+      outcome: [
+        saved ? `${name} is changed, saved as version ${saved.revision}.` : `${name} is changed.`,
+        slug ? `Its booking link is now ${slug}. The old link keeps working.` : '',
+        visitsDone(saved?.actions),
+      ]
+        .filter(Boolean)
+        .join(' '),
       href: `/app/w/${ctx.workspaceId}/settings/calendars/${calendar.id}`,
       command: 'calendar.save',
     };
@@ -359,35 +718,63 @@ const manageCalendar: SettingsConfirmTool = {
 };
 
 /**
- * Read, patch, save on the revision it was read at. Visits already booked keep their terms ("keep"), the answer
- * the impact review always allows, so a change never cancels or moves someone's appointment behind their back.
+ * The change Confirm runs (and the card runs rolled back): the settings and details saved on the revision read now,
+ * then the link name. `slug` is the calendar's new booking path when the link name changed.
+ */
+async function changeCalendar(db: Db, ctx: ToolContext, args: Args) {
+  const { calendar } = await calendarOf(db, ctx, args['calendarId']);
+  const { out: saved, impacts } = await saveConfig(
+    db,
+    ctx,
+    calendar.id,
+    (config) => calendarPatch(args, config),
+    calendarDetails(args),
+    args['upcomingVisits'],
+  );
+  const link = str(args['bookingLink']);
+  let slug: string | null = null;
+  if (link && link !== calendar.slug) {
+    await command(db, ctx, 'calendar.set_slug', { calendarId: calendar.id, slug: link });
+    slug = calendar.bookingPath ? calendar.bookingPath.replace(/[^/]+$/, link) : link;
+  }
+  return { calendar, saved, impacts, slug };
+}
+
+interface SaveOut {
+  revision: number;
+  diff: string[];
+  issues: { severity: 'error' | 'warning'; message: string }[];
+  actions?: { reassigned: string[]; cancelled: string[] };
+}
+
+/**
+ * Read, patch, save on the revision it was read at, so two people changing a calendar at once is the builder's 409,
+ * not a silent overwrite. Visits already booked that it touches get the person's `upcomingVisits` (keep, unless they
+ * asked otherwise on the card). Nothing to save is no save.
  */
 async function saveConfig(
   db: Db,
   ctx: ToolContext,
   calendarId: string,
-  patch: ConfigPatch,
-  named: Record<string, unknown> = {},
-): Promise<void> {
+  patchFor: (config: CalendarConfig) => ConfigPatch,
+  named: Record<string, unknown>,
+  choice: unknown,
+): Promise<{ out: SaveOut | null; impacts: DecidedImpact[] }> {
   const { calendar } = await calendarOf(db, ctx, calendarId);
-  const draft = applyPatch(calendar.config, patch);
-  await command(db, ctx, 'calendar.save', {
-    calendarId,
-    baseRevision: calendar.revision,
-    draft,
-    ...named,
-    impactDecisions: {},
-  }).catch(async (e: unknown) => {
-    const impacts = (e as { details?: { impacts?: { key: string }[] } })?.details?.impacts;
-    if (!impacts?.length) throw e;
-    await command(db, ctx, 'calendar.save', {
-      calendarId,
-      baseRevision: calendar.revision,
-      draft,
-      ...named,
-      impactDecisions: Object.fromEntries(impacts.map((i) => [i.key, 'keep'])),
-    });
-  });
+  const patch = patchFor(calendar.config);
+  if (!Object.keys(patch).length && !Object.keys(named).length) return { out: null, impacts: [] };
+  const draft = patched(calendar.config, patch);
+  return answeringImpacts(
+    (impactDecisions) =>
+      command<SaveOut>(db, ctx, 'calendar.save', {
+        calendarId,
+        baseRevision: calendar.revision,
+        draft,
+        ...named,
+        impactDecisions,
+      }),
+    choice,
+  );
 }
 
 // ---------- services, resources and territories: Settings → Calendars' own pages ----------
@@ -766,21 +1153,28 @@ async function territoryChange(
   if (name && territories.some((t) => t.id !== current?.id && same(t.name, name)))
     throw taken('territory', name);
   const zips = list(args['postalCodes']);
-  if (zips && args['milesFrom'])
+  const adding = list(args['addPostalCodes']);
+  const removing = list(args['removePostalCodes']);
+  const zipsGiven = !!(zips || adding || removing);
+  if (zipsGiven && args['milesFrom'])
     throw HfosError.validation(
       [{ path: 'milesFrom', message: 'Give ZIP codes or a distance, not both.' }],
       'A territory covers ZIP codes or so many miles from an address, not both. Say which.',
     );
   const radius = await milesFrom(args, geocoder);
-  const shape: Shape | undefined = radius ?? (zips || !current ? { kind: 'zip' } : undefined);
+  const shape: Shape | undefined = radius ?? (zipsGiven || !current ? { kind: 'zip' } : undefined);
+  // Adding or taking off a few codes works on the list it has, so nobody re-sends 300 codes to add one.
+  const off = new Set(removing ?? []);
+  const codes = [...new Set([...(zips ?? current?.postalCodes ?? []), ...(adding ?? [])])].filter(
+    (z) => !off.has(z),
+  );
   return {
     act,
     current,
     next: {
       name,
       shape,
-      postalCodes:
-        shape?.kind === 'zip' ? [...new Set(zips ?? current?.postalCodes ?? [])] : undefined,
+      postalCodes: shape?.kind === 'zip' ? codes : undefined,
       userIds: list(args['userIds']),
     },
   };
@@ -831,8 +1225,22 @@ const manageTerritory: SettingsConfirmTool = {
     if (current && next.name && next.name !== current.name)
       fields.push({ label: 'New name', value: next.name });
     if (after !== null && areaChanges(current, next)) {
-      fields.push({ label: 'Covers', value: after });
-      if (before) fields.push({ label: 'Was', value: before });
+      if (current?.kind === 'zip' && next.shape?.kind === 'zip') {
+        // Still a ZIP area: the codes that come and go, not the first few of a long list.
+        const now = new Set(next.postalCodes ?? []);
+        const had = new Set(current.postalCodes);
+        const added = [...now].filter((z) => !had.has(z));
+        const gone = current.postalCodes.filter((z) => !now.has(z));
+        if (added.length) fields.push({ label: 'Adds', value: zipWords(added) });
+        if (gone.length) fields.push({ label: 'Takes off', value: zipWords(gone) });
+        fields.push({
+          label: 'Covers',
+          value: now.size === 1 ? '1 ZIP code' : `${now.size} ZIP codes`,
+        });
+      } else {
+        fields.push({ label: 'Covers', value: after });
+        if (before) fields.push({ label: 'Was', value: before });
+      }
     }
     if (
       next.userIds &&
@@ -930,11 +1338,13 @@ async function bookingSiteInput(db: Db, ctx: ToolContext, args: Args) {
   };
 }
 
-/** The booking page's whole link, as Settings copies it; just its path when the web app's address isn't known. */
-async function bookingPageLink(db: Db, ctx: ToolContext, slug: string, webUrl = '') {
+/** A public page's whole link, as Settings copies it; just its path when the web app's address isn't known. */
+async function wholeLink(db: Db, ctx: ToolContext, path: string, webUrl = '') {
   const origin = webUrl ? await publicOriginFor(db, ctx, webUrl) : '';
-  return `${origin}/book/${slug}`;
+  return `${origin}${path}`;
 }
+const bookingPageLink = (db: Db, ctx: ToolContext, slug: string, webUrl = '') =>
+  wholeLink(db, ctx, `/book/${slug}`, webUrl);
 
 const updateBookingSite: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId, deps) {
@@ -950,10 +1360,16 @@ const updateBookingSite: SettingsConfirmTool = {
           ...(args['intro'] === undefined
             ? []
             : [{ label: 'Intro', value: input.intro ?? 'None' }]),
-          ...(on === undefined ? [] : [{ label: 'Booking page', value: on ? 'On' : 'Off' }]),
+          ...(on === undefined
+            ? []
+            : [{ label: 'Taking bookings online', value: on ? 'Yes' : 'No' }]),
         ],
         confirmLabel: site ? 'Save the change' : 'Set it up',
         warnings: [
+          // booking_site.update keeps no old address, as the screen's hint under Link name says.
+          ...(site && input.slug !== site.slug
+            ? [{ kind: 'caution', text: 'Links you’ve already shared stop working.' }]
+            : []),
           ...(on === false
             ? [
                 {

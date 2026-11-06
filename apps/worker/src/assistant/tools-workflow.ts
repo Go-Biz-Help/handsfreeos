@@ -10,7 +10,9 @@ import {
   describeTrigger,
   HfosError,
   parseDefinition,
+  sendsReminder,
   type AssistantCard,
+  type CalendarConfig,
   type WorkflowCatalogs,
   type WorkflowDefinition,
 } from '@hfos/core/server';
@@ -76,6 +78,9 @@ interface WorkflowItem {
   activeVersion: { id: string; version: number } | null;
   runs30d: number;
   activeRuns: number;
+  calendarIds: string[];
+  /** It starts from every calendar's appointments. */
+  allCalendars: boolean;
 }
 interface WorkflowDetail extends WorkflowItem {
   definition: Record<string, unknown>;
@@ -140,14 +145,44 @@ interface KnowledgeHit {
   sourceUrl: string | null;
 }
 
+/**
+ * The workflows of a calendar's Automations that text or email customers before their appointment while the
+ * calendar sends its own reminders: the warning that customers could hear from the business twice.
+ */
+async function remindsTwice(
+  db: Db,
+  ctx: ToolContext,
+  calendarId: string,
+  items: readonly WorkflowItem[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const calendar = await query<{ calendar: { config: CalendarConfig } }>(db, ctx, 'calendar.get', {
+    calendarId,
+  }).catch(() => null);
+  const n = calendar?.calendar.config.notifications;
+  if (!n?.reminders.length || !(n.reminderChannels.text || n.reminderChannels.email)) return out;
+  const defs = await Promise.all(
+    items.map((w) =>
+      workflowGet(db, ctx, w.id)
+        .then((d) => parseDefinition(d.definition))
+        .catch(() => null),
+    ),
+  );
+  items.forEach((w, i) => {
+    const def = defs[i];
+    if (def && sendsReminder(def)) out.add(w.id);
+  });
+  return out;
+}
+
 export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
   async list_workflows(db, ctx, args) {
-    const { items } = await query<{ items: WorkflowItem[] }>(
-      db,
-      ctx,
-      'workflow.list',
-      str(args['status']) ? { status: [args['status']] } : {},
-    );
+    const calendarId = str(args['calendarId']);
+    const { items } = await query<{ items: WorkflowItem[] }>(db, ctx, 'workflow.list', {
+      ...(str(args['status']) ? { status: [args['status']] } : {}),
+      ...(calendarId ? { calendarId } : {}),
+    });
+    const twice = calendarId ? await remindsTwice(db, ctx, calendarId, items) : new Set<string>();
     const p = workflowPaths(ctx.workspaceId);
     return {
       result: {
@@ -156,6 +191,13 @@ export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
           name: w.name,
           status: w.status,
           startsWhen: w.trigger.summary,
+          ...(w.allCalendars
+            ? { calendars: 'every calendar' }
+            : w.calendarIds.length
+              ? { calendarIds: w.calendarIds }
+              : {}),
+          // As the calendar's Automations warns: its own reminders are on, so customers could hear twice.
+          ...(twice.has(w.id) ? { remindsTwice: true } : {}),
           // start_workflow takes only these.
           canStartForSomeone: w.trigger.kind === 'manual',
           liveVersion: w.activeVersion?.version ?? null,

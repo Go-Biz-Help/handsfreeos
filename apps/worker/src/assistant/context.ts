@@ -287,12 +287,15 @@ async function nextAppointment(
   };
 }
 
-/** The calendars the Assistant can look up and book on, with their services and people. */
+/**
+ * The calendars the Assistant can look up and book on, with their services and people: the first 8 by name, and how
+ * many more there are, so the rest are never silently missing.
+ */
 async function calendarsFor(
   ask: Ask,
   names: ReadonlyMap<string, string>,
   services: ServiceList['items'],
-): Promise<PromptContext['calendars']> {
+): Promise<{ list: PromptContext['calendars']; more: number }> {
   const { items } = await ask<CalendarList>('calendar.list').catch((): CalendarList => ({
     items: [],
   }));
@@ -300,7 +303,7 @@ async function calendarsFor(
   const details = await Promise.all(
     list.map((c) => ask<CalendarGet>('calendar.get', { calendarId: c.id }).catch((): null => null)),
   );
-  return list.map((c, i) => {
+  const shown = list.map((c, i) => {
     const config = details[i]?.calendar.config;
     return {
       id: c.id,
@@ -314,6 +317,7 @@ async function calendarsFor(
       people: c.memberIds.map((u) => names.get(u) ?? 'Someone'),
     };
   });
+  return { list: shown, more: items.length - list.length };
 }
 
 /** Everything the model is told about the business, the person and the page, read as that person. */
@@ -404,7 +408,8 @@ export async function questionContext(
           stages: p.stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
         })),
       team: people,
-      calendars,
+      calendars: calendars.list,
+      ...(calendars.more ? { moreCalendars: calendars.more } : {}),
       services: live.map((s) => ({ id: s.id, name: s.name, minutes: s.durations })),
       page:
         page && shown

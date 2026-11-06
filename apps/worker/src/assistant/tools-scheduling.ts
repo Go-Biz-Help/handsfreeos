@@ -10,19 +10,23 @@
  */
 import {
   addDays,
-  applyPatch,
   automationSettingsOf,
+  CALENDAR_COLORS,
   diffConfigs,
   formatDuration,
   HfosError,
   isLocalDate,
   JOB_STATUS_WORDS,
+  joinWords,
+  LABEL_NAMES,
   localDateOf,
+  moduleOfField,
   startOfLocalDay,
   zonedParts,
   type AppointmentOut,
   type AssistantCard,
   type CalendarConfig,
+  type CalendarLabel,
   type ConfigPatch,
   type JobStatus,
 } from '@hfos/core/server';
@@ -41,7 +45,19 @@ import {
 import type { ToolContext, ToolOutcome } from './runtime';
 import { appointmentCard, calendarPath } from './tools-calendar';
 import { command, query, quoted } from './tools-read';
-import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
+import {
+  answeringImpacts,
+  blockingIssues,
+  dryRun,
+  hoursLine,
+  impactWarnings,
+  patched,
+  sentence,
+  settingsCard,
+  visitsDone,
+  type DecidedImpact,
+  type SettingsConfirmTool,
+} from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
 type Warning = { kind: string; text: string };
@@ -61,8 +77,6 @@ const ordinal = (n: number) => {
   const end = v >= 11 && v <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
   return `${n}${end}`;
 };
-/** The calendar rules' messages end without a full stop; a card line has one. */
-const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
 const clip = (s: string, n = 140) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 
 // ---------- reading ----------
@@ -116,11 +130,29 @@ interface CalendarFull {
     status: string;
     revision: number;
     timezone: string;
+    /** Its own zone; null follows the business's. */
+    ownTimezone: string | null;
+    color: string;
+    description: string | null;
+    labels: { primary: string; tags: string[] };
+    /** "How this calendar works", in the builder's own sentences. */
+    howItWorks: string[];
+    /** Settings on this calendar: each section's name and one-line summary, as the builder lists them. */
+    sections: { key: string; name: string; summary: string }[];
+    bookingPath: string | null;
+    permanentPath: string;
     config: CalendarConfig;
-    issues: { code: string; severity: 'error' | 'warning'; message: string }[];
+    issues: {
+      code: string;
+      severity: 'error' | 'warning';
+      message: string;
+      fields: readonly string[];
+      fixes: { id: string; label: string; patch: Record<string, unknown> }[];
+    }[];
   };
   revisions: {
     revision: number;
+    labels: string[];
     diff: string[];
     changedBy: { id: string; fullName: string } | null;
     createdAt: string;
@@ -237,23 +269,6 @@ function repeatWords(rule: Record<string, unknown>): string {
   const nth = rule['freq'] === 'monthly_nth' ? ' on the same weekday' : '';
   const count = typeof rule['count'] === 'number' ? `, ${plural(rule['count'], 'visit')}` : '';
   return `${every}${nth}${count}`;
-}
-
-/** Runs `fn` inside a transaction that always rolls back: real commands as the person, nothing kept. */
-class RolledBack extends Error {}
-async function dryRun<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
-  const held: { done: boolean; value?: T } = { done: false };
-  try {
-    await db.transaction(async (tx) => {
-      held.value = await fn(tx as unknown as Db);
-      held.done = true;
-      throw new RolledBack();
-    });
-  } catch (e) {
-    if (!(e instanceof RolledBack)) throw e;
-  }
-  if (!held.done) throw new Error('The dry run did not finish.');
-  return held.value as T;
 }
 
 function card(
@@ -435,27 +450,97 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
     const { calendar, revisions } = await calendarOf(db, ctx, args['calendarId']);
     const c = calendar.config;
     const tz = calendar.timezone;
-    const [territories, pipelines] = await Promise.all([
-      c.territory.territoryIds.length
-        ? query<{ items: { id: string; name: string }[] }>(db, ctx, 'territory.list').catch(
-            () => null,
-          )
-        : null,
+    const named = (name: string, wanted: boolean) =>
+      wanted
+        ? query<{ items: { id: string; name: string }[] }>(db, ctx, name).catch(() => null)
+        : null;
+    const [territories, pipelines, team, services, resources] = await Promise.all([
+      named('territory.list', c.territory.territoryIds.length > 0),
       c.crm.createLead ? pipelinesOf(db, ctx) : null,
+      c.team.members.length
+        ? query<{ members: { userId: string; fullName: string }[] }>(
+            db,
+            ctx,
+            'workspace.members',
+          ).catch(() => null)
+        : null,
+      named('service.list', c.services.items.length > 0),
+      named('resource.list', c.resources.required.length > 0),
     ]);
     const lead = c.crm.createLead;
     const pipeline = lead ? pipelines?.find((p) => p.id === lead.pipelineId) : undefined;
     const deposit = c.payments.deposit;
+    const nameIn = (list: { id: string; name: string }[] | undefined, id: string, none: string) =>
+      list?.find((x) => x.id === id)?.name ?? none;
+    const webinar = c.locations.webinar;
+    const runsWebinars =
+      c.schedule.mode === 'sessions' && c.locations.options.some((o) => o.video === 'handsfree');
+    // Older saves are kept up to 50; the model sees the newest 8 and how many more there are to restore.
+    const earlier = revisions.filter((r) => r.revision !== calendar.revision);
+    const saved = revisions.find((r) => r.revision === calendar.revision);
+    // Which section each thing to check sits in, as the builder puts its red or amber dot there.
+    const sectionOf = (fields: readonly string[]) =>
+      calendar.sections.find((s) => fields.some((f) => moduleOfField(f) === s.key))?.name;
     return {
       result: {
         calendar: {
           id: calendar.id,
           name: calendar.name,
           status: calendar.status,
-          books: c.schedule.mode === 'sessions' ? 'fixed sessions' : 'open hours',
-          onTheBookingSite: c.public,
+          // The whole link (the executor writes it out on the business's domain), as Copy on the screen gives it.
+          bookingLink: calendar.bookingPath ?? calendar.permanentPath,
+          linkThatNeverChanges: calendar.permanentPath,
+          customersCanBookOnline: c.public,
+          books: c.schedule.mode === 'sessions' ? 'fixed_sessions' : 'open_hours',
           timeZone: tz,
+          timeZoneIs: calendar.ownTimezone ? 'its own' : 'the business’s',
+          colour: CALENDAR_COLORS.find((x) => x.hex === calendar.color)?.name ?? calendar.color,
+          description: calendar.description,
+          labels: calendar.labels.tags.map((t) => LABEL_NAMES[t as CalendarLabel] ?? t),
         },
+        howItWorks: calendar.howItWorks,
+        // Settings on this calendar, each with the builder's one-line summary and its check dot.
+        sections: calendar.sections.map((s) => {
+          const flagged = calendar.issues.filter((i) =>
+            i.fields.some((f) => moduleOfField(f) === s.key),
+          );
+          return {
+            name: s.name,
+            summary: s.summary,
+            ...(flagged.length
+              ? {
+                  check: flagged.some((i) => i.severity === 'error') ? 'must fix' : 'worth a look',
+                }
+              : {}),
+          };
+        }),
+        team: {
+          assignment: c.team.assignment,
+          peoplePerBooking: c.team.crewSize,
+          members: c.team.members.map((m) => ({
+            userId: m.userId,
+            name:
+              team?.members.find((p) => p.userId === m.userId)?.fullName ??
+              'Someone no longer on the team',
+            weight: m.weight,
+            mustGo: m.required,
+            ...(m.priority ? { priority: m.priority } : {}),
+          })),
+        },
+        services: {
+          mode: SERVICES_MODE_WORDS[c.services.mode],
+          items: c.services.items.map((i) => ({
+            serviceId: i.serviceId,
+            name: nameIn(services?.items, i.serviceId, 'A service that’s gone'),
+            ...(Object.keys(i.overrides).length ? { ownSettingsHere: i.overrides } : {}),
+          })),
+        },
+        lengths: {
+          minutes: c.durations.minutes,
+          customerPicks: c.durations.customerChooses,
+          startEvery: c.durations.step,
+        },
+        hours: hoursLine(c.schedule.hours),
         capacity: {
           seatsPerTime: c.capacity.seats,
           largestGroup: c.capacity.maxPartySize,
@@ -467,17 +552,46 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
               kind: o.kind,
               address: o.address ?? undefined,
               meetingLink: o.meetingUrl ?? undefined,
+              ...(o.kind === 'virtual' ? { video: o.video, record: o.record } : {}),
             }),
           ),
           customerPicks: c.locations.customerChooses,
+          ...(runsWebinars
+            ? {
+                webinar: {
+                  attendeeCameras: webinar.attendeeVideo,
+                  messageWhenItStarts: webinar.startingNow,
+                  followUpMissed: webinar.missedFollowUp,
+                  livePollFormId: webinar.pollFormId,
+                  pollAi: webinar.pollAi,
+                },
+              }
+            : {}),
+        },
+        resources: c.resources.required.map((r) => ({
+          resourceId: r.resourceId,
+          name: nameIn(resources?.items, r.resourceId, 'A resource that’s gone'),
+          quantity: r.quantity,
+        })),
+        buffers: {
+          bufferBeforeMinutes: c.buffers.before,
+          bufferAfterMinutes: c.buffers.after,
+          travelMinutes: c.buffers.travelMinutes,
+        },
+        bookingWindow: {
+          minNoticeMinutes: c.window.minNoticeMinutes,
+          maxDaysAhead: c.window.maxDaysAhead,
+          bookOnlyFrom: c.window.dateFrom,
+          bookOnlyTo: c.window.dateTo,
+          dailyLimitPerPerson: c.window.dailyLimitPerPerson,
         },
         zipRouting: {
           on: c.territory.routing === 'zip',
           territoryIds: c.territory.territoryIds,
           ...(territories
             ? {
-                territories: c.territory.territoryIds.map(
-                  (id) => territories.items.find((t) => t.id === id)?.name ?? 'a territory',
+                territories: c.territory.territoryIds.map((id) =>
+                  nameIn(territories.items, id, 'a territory'),
                 ),
               }
             : {}),
@@ -511,6 +625,10 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
           remindersByEmail: c.notifications.reminderChannels.email,
           emailTeamOnNewBooking: c.notifications.staffEmail,
         },
+        calendarConnections: {
+          checkPeoplesCalendars: c.integrations.checkStaffCalendars,
+          addToTheirCalendars: c.integrations.writeEvents,
+        },
         crm: {
           customerOwner: OWNER_WORDS[c.crm.ownership],
           setOwnerWhenNone: c.crm.assignContactOwner,
@@ -535,19 +653,41 @@ export const schedulingAutoTools: Record<string, ReadTool> = {
               : { depositDollars: (deposit.amountCents ?? 0) / 100 },
           accountId: c.payments.connectionId,
         },
-        needsFixing: calendar.issues.map(
-          (i) => `${i.severity === 'error' ? 'Must fix' : 'Worth a look'}: ${i.message}`,
-        ),
+        // Things to check, as the builder lists them: what each blocks, and the fixes it offers (apply_fix).
+        needsFixing: calendar.issues.map((i) => ({
+          issue: i.code,
+          severity: i.severity === 'error' ? 'must fix' : 'worth a look',
+          message: sentence(i.message),
+          ...defined({ section: sectionOf(i.fields) }),
+          blocks:
+            i.severity !== 'error'
+              ? 'nothing'
+              : calendar.status === 'active'
+                ? 'saving while it’s taking bookings'
+                : 'turning it on',
+          fixes: i.fixes.map((f) => ({ fixId: f.id, label: f.label })),
+        })),
         version: calendar.revision,
-        earlierVersions: revisions
-          .filter((r) => r.revision !== calendar.revision)
-          .slice(0, 8)
-          .map((r) => ({
+        ...(saved
+          ? {
+              versionSaved: atLabel(Date.parse(saved.createdAt), tz),
+              versionSavedBy: saved.changedBy?.fullName ?? 'HandsFreeOS',
+            }
+          : {}),
+        earlierVersions: earlier.slice(0, 8).map((r, n) => {
+          const older = earlier[n + 1];
+          return {
             revision: r.revision,
             saved: atLabel(Date.parse(r.createdAt), tz),
             by: r.changedBy?.fullName ?? 'HandsFreeOS',
             changes: r.diff.slice(0, 4),
-          })),
+            ...(r.diff.length > 4 ? { moreChanges: r.diff.length - 4 } : {}),
+            ...(older && older.labels.join() !== r.labels.join()
+              ? { labels: r.labels.map((t) => LABEL_NAMES[t as CalendarLabel] ?? t).join(' · ') }
+              : {}),
+          };
+        }),
+        ...(earlier.length > 8 ? { olderVersions: earlier.length - 8 } : {}),
       },
     };
   },
@@ -1782,6 +1922,17 @@ const OWNER_WORDS: Record<CalendarConfig['crm']['ownership'], string> = {
   calendar_owner: 'calendar_owner',
   none: 'nobody',
 };
+/** Whether it books services, in update_calendar_settings' words, and back. */
+const SERVICES_MODE_WORDS: Record<CalendarConfig['services']['mode'], string> = {
+  none: 'off',
+  one: 'one',
+  choice: 'customer_picks',
+};
+const SERVICES_MODE: Record<string, CalendarConfig['services']['mode']> = {
+  off: 'none',
+  one: 'one',
+  customer_picks: 'choice',
+};
 const OWNERSHIP: Record<string, CalendarConfig['crm']['ownership']> = {
   who_takes_the_booking: 'assigned_staff',
   calendar_owner: 'calendar_owner',
@@ -1818,6 +1969,74 @@ async function settingsPatch(
   config: CalendarConfig,
 ): Promise<ConfigPatch> {
   const patch: Record<string, unknown> = {};
+  const team = section(args, 'team');
+  if (team) {
+    // The whole list, in order; someone already on it keeps what isn't given (weight, Must go, priority).
+    const had = new Map(config.team.members.map((m) => [m.userId, m]));
+    const seen = new Set<string>();
+    const members = team['members'] as
+      { userId: string; weight?: number; mustGo?: boolean }[] | undefined;
+    patch['team'] = some({
+      assignment: team['assignment'],
+      crewSize: team['peoplePerBooking'],
+      members: members
+        ?.filter((m) => !seen.has(m.userId) && seen.add(m.userId))
+        .map((m) => {
+          const old = had.get(m.userId);
+          return defined({
+            userId: m.userId,
+            weight: m.weight ?? old?.weight,
+            priority: old?.priority,
+            required: m.mustGo ?? old?.required,
+          });
+        }),
+    });
+  }
+  const svc = section(args, 'services');
+  if (svc) {
+    const online = svc['online'] as
+      { serviceId: string; video?: string; record?: boolean | null }[] | undefined;
+    const missing = (online ?? []).filter(
+      (o) => !config.services.items.some((i) => i.serviceId === o.serviceId),
+    );
+    if (missing.length)
+      throw HfosError.validation(
+        [{ path: 'services.online', message: 'That service isn’t on this calendar.' }],
+        'A service gets its own video link only once it’s on the calendar. Add it to what the calendar offers first.',
+      );
+    patch['services'] = some({
+      mode: svc['mode'] ? SERVICES_MODE[String(svc['mode'])] : undefined,
+      // As the screen's picker under each service: its own link, or the Online place's again.
+      items: online?.length
+        ? config.services.items.map((i) => {
+            const o = online.find((x) => x.serviceId === i.serviceId);
+            if (!o) return i;
+            const own: Record<string, unknown> = { ...i.overrides };
+            if (o.video === 'same_as_place') delete own['video'];
+            else if (o.video) own['video'] = o.video;
+            if (o.video === 'none') delete own['record'];
+            if (o.record === null) delete own['record'];
+            else if (typeof o.record === 'boolean') own['record'] = o.record;
+            return { serviceId: i.serviceId, overrides: own };
+          })
+        : undefined,
+    });
+  }
+  const len = section(args, 'lengths');
+  if (len)
+    patch['durations'] = some({
+      minutes: len['minutes'],
+      customerChooses: len['customerPicks'],
+      step: len['startEvery'],
+    });
+  if (args['books'])
+    patch['schedule'] = { mode: args['books'] === 'fixed_sessions' ? 'sessions' : 'hours' };
+  const conn = section(args, 'calendarConnections');
+  if (conn)
+    patch['integrations'] = some({
+      checkStaffCalendars: conn['checkPeoplesCalendars'],
+      writeEvents: conn['addToTheirCalendars'],
+    });
   const cap = section(args, 'capacity');
   if (cap)
     patch['capacity'] = some({
@@ -1826,17 +2045,51 @@ async function settingsPatch(
       showSeatsLeft: cap['showSeatsLeft'],
     });
   const loc = section(args, 'locations');
-  if (loc)
+  if (loc) {
+    // The list replaces the old one, so a place sent again keeps what it isn't told (its address, its link, its
+    // video and recording): matched to the old places of its kind, in order. Choosing another video link drops
+    // the typed link, and only Zoom and Google Meet record, as the screen does.
+    const counted = new Map<unknown, number>();
+    const web = section(loc, 'webinar');
     patch['locations'] = some({
       options: Array.isArray(loc['places'])
-        ? (loc['places'] as Args[]).map((p) => ({
-            kind: p['kind'],
-            address: p['kind'] === 'business' ? (str(p['address']) ?? null) : null,
-            meetingUrl: p['kind'] === 'virtual' ? (str(p['meetingLink']) ?? null) : null,
-          }))
+        ? (loc['places'] as Args[]).map((p) => {
+            const n = counted.get(p['kind']) ?? 0;
+            counted.set(p['kind'], n + 1);
+            const old = config.locations.options.filter((o) => o.kind === p['kind'])[n];
+            if (p['kind'] !== 'virtual')
+              return {
+                kind: p['kind'],
+                address:
+                  p['kind'] === 'business' ? (str(p['address']) ?? old?.address ?? null) : null,
+                meetingUrl: null,
+              };
+            const video = (p['video'] as string | undefined) ?? old?.video ?? 'none';
+            const switched = p['video'] !== undefined && p['video'] !== old?.video;
+            return {
+              kind: 'virtual',
+              address: null,
+              meetingUrl: str(p['meetingLink']) ?? (switched ? null : (old?.meetingUrl ?? null)),
+              video,
+              record:
+                video === 'zoom' || video === 'google_meet'
+                  ? ((p['record'] as boolean | undefined) ?? old?.record ?? false)
+                  : false,
+            };
+          })
         : undefined,
       customerChooses: loc['customerPicks'],
+      webinar: web
+        ? some({
+            attendeeVideo: web['attendeeCameras'],
+            startingNow: web['messageWhenItStarts'],
+            missedFollowUp: web['followUpMissed'],
+            pollFormId: web['livePollFormId'],
+            pollAi: web['pollAi'],
+          })
+        : undefined,
     });
+  }
   const zip = section(args, 'zipRouting');
   if (zip)
     patch['territory'] = some({
@@ -1958,43 +2211,51 @@ async function settingsPatch(
 
 /** The patch applied; a new deposit replaces the old one whole rather than merging into it. */
 function draftOf(config: CalendarConfig, patch: ConfigPatch): CalendarConfig {
-  try {
-    const deposit = (patch as { payments?: { deposit?: unknown } }).payments?.deposit;
-    const base = deposit ? applyPatch(config, { payments: { deposit: null } }) : config;
-    return applyPatch(base, patch);
-  } catch (e) {
-    const issues = (e as { issues?: { path: PropertyKey[]; message: string }[] }).issues;
-    if (!issues) throw e;
-    throw HfosError.validation(
-      issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message })),
-      issues[0]?.message ??
-        'Some of those settings can’t be saved as they are. Check them and try again.',
-    );
-  }
-}
-
-type Decisions = Record<string, 'keep'>;
-/**
- * Runs a save; when it touches visits already booked, runs it again keeping them as they are — the answer the
- * impact review always allows, so a settings change never moves or cancels someone's appointment.
- */
-async function keepingBooked<T>(
-  run: (decisions: Decisions) => Promise<T>,
-): Promise<{ out: T; kept: number }> {
-  try {
-    return { out: await run({}), kept: 0 };
-  } catch (e) {
-    const impacts = (e as { details?: { impacts?: { key: string }[] } })?.details?.impacts;
-    if (!impacts?.length) throw e;
-    const decisions = Object.fromEntries(impacts.map((i) => [i.key, 'keep'])) as Decisions;
-    return { out: await run(decisions), kept: impacts.length };
-  }
+  const deposit = (patch as { payments?: { deposit?: unknown } }).payments?.deposit;
+  const base = deposit ? patched(config, { payments: { deposit: null } }) : config;
+  return patched(base, patch);
 }
 
 interface SaveOut {
   revision: number;
   diff: string[];
   issues: { severity: 'error' | 'warning'; message: string }[];
+  actions?: { reassigned: string[]; cancelled: string[] };
+}
+
+/**
+ * The fix Things to check offers that `args.fix` names, as the calendar is now; refused when it's gone. Two problems
+ * can offer the same fix (two people no longer on the team each offer remove_member), so the label says which.
+ */
+function fixOf(args: Args, calendar: CalendarFull['calendar']) {
+  const want = args['fix'] as { issue: string; fixId: string; label?: string } | undefined;
+  if (!want)
+    throw HfosError.validation(
+      [{ path: 'fix', message: 'Say which fix.' }],
+      'Say which fix to apply: its issue and fixId, as get_calendar_settings lists them under needsFixing.',
+    );
+  const sameLabel = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const offered = calendar.issues
+    .filter((i) => i.code === want.issue)
+    .flatMap((i) => i.fixes.filter((f) => f.id === want.fixId))
+    .filter((f) => !want.label || sameLabel(f.label, want.label));
+  const fix = offered[0];
+  if (!fix)
+    throw HfosError.rule(
+      'fix_not_offered',
+      409,
+      `That fix isn’t offered any more: what ${calendar.name} needs has changed. Read it again to see what Things to check offers now.`,
+    );
+  // Fixes worded alike (two resources gone, each "Remove it") are taken in order: the next stays on the list.
+  if (offered.some((f) => !sameLabel(f.label, fix.label)))
+    throw HfosError.validation(
+      [{ path: 'fix.label', message: 'Say which one.' }],
+      `More than one problem on ${calendar.name} offers that fix: ${joinWords(
+        offered.map((f) => f.label),
+        'or',
+      )}. Say which, with its label.`,
+    );
+  return fix;
 }
 
 /** The save (or restore) Confirm runs, on the revision the calendar is at now. */
@@ -2004,7 +2265,7 @@ async function saveSettings(
   args: Args,
 ): Promise<{
   out: SaveOut;
-  kept: number;
+  impacts: DecidedImpact[];
   calendar: CalendarFull['calendar'];
   draft: CalendarConfig | null;
 }> {
@@ -2016,29 +2277,36 @@ async function saveSettings(
         [],
         `${calendar.name} is already on version ${String(args['revision'])}, so there’s nothing to restore. get_calendar_settings lists its earlier versions.`,
       );
-    const { out, kept } = await keepingBooked((impactDecisions) =>
-      command<SaveOut>(db, ctx, 'calendar.restore_revision', {
-        calendarId: calendar.id,
-        revision: args['revision'],
-        baseRevision: calendar.revision,
-        impactDecisions,
-      }),
+    const { out, impacts } = await answeringImpacts(
+      (impactDecisions) =>
+        command<SaveOut>(db, ctx, 'calendar.restore_revision', {
+          calendarId: calendar.id,
+          revision: args['revision'],
+          baseRevision: calendar.revision,
+          impactDecisions,
+        }),
+      args['upcomingVisits'],
     );
-    return { out, kept, calendar, draft: null };
+    return { out, impacts, calendar, draft: null };
   }
-  const patch = await settingsPatch(db, ctx, args, calendar.config);
+  const patch =
+    args['action'] === 'apply_fix'
+      ? (fixOf(args, calendar).patch as ConfigPatch)
+      : await settingsPatch(db, ctx, args, calendar.config);
   if (!Object.keys(patch).length)
     throw nothingChanges(`${calendar.name} already has those settings.`);
   const draft = draftOf(calendar.config, patch);
-  const { out, kept } = await keepingBooked((impactDecisions) =>
-    command<SaveOut>(db, ctx, 'calendar.save', {
-      calendarId: calendar.id,
-      baseRevision: calendar.revision,
-      draft,
-      impactDecisions,
-    }),
+  const { out, impacts } = await answeringImpacts(
+    (impactDecisions) =>
+      command<SaveOut>(db, ctx, 'calendar.save', {
+        calendarId: calendar.id,
+        baseRevision: calendar.revision,
+        draft,
+        impactDecisions,
+      }),
+    args['upcomingVisits'],
   );
-  return { out, kept, calendar, draft };
+  return { out, impacts, calendar, draft };
 }
 
 /** "Seats: 1 → 10" as a card row; a line with no before and after ("Added question “Gate code”") as a change. */
@@ -2095,24 +2363,26 @@ const updateCalendarSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { calendar: current } = await calendarOf(db, ctx, args['calendarId']);
     const restoring = args['action'] === 'restore';
+    const fixing = args['action'] === 'apply_fix';
+    const fix = fixing ? fixOf(args, current) : null;
     const title = restoring
       ? `Put ${current.name} back to version ${String(args['revision'])}?`
-      : `Change ${current.name}?`;
+      : fix
+        ? `Fix ${current.name}: ${fix.label}?`
+        : `Change ${current.name}?`;
     let dry: Awaited<ReturnType<typeof saveSettings>>;
     try {
       dry = await dryRun(db, (tx) => saveSettings(tx, ctx, args));
     } catch (e) {
       // An active calendar can't be saved with settings that stop it booking: the builder refuses too.
-      const issues =
-        (e as { rule?: string; details?: { issues?: SaveOut['issues'] } }).rule ===
-        'calendar_issues'
-          ? ((e as { details?: { issues?: SaveOut['issues'] } }).details?.issues ?? [])
-          : null;
-      if (!issues) throw e;
-      const blocking = issues.filter((i) => i.severity === 'error');
+      const blocking = blockingIssues(e);
+      if (!blocking) throw e;
       const draft = restoring
         ? null
-        : draftOf(current.config, await settingsPatch(db, ctx, args, current.config));
+        : draftOf(
+            current.config,
+            fix ? (fix.patch as ConfigPatch) : await settingsPatch(db, ctx, args, current.config),
+          );
       const diff = draft ? diffConfigs(current.config, draft) : [];
       return {
         card: card(toolCallId, 'update_calendar_settings', {
@@ -2129,7 +2399,7 @@ const updateCalendarSettings: SettingsConfirmTool = {
         },
       };
     }
-    const { out, kept, draft } = dry;
+    const { out, impacts, draft } = dry;
     const diff = out.diff.filter((l) => !/^Restored revision/.test(l));
     if (!diff.length) throw nothingChanges(`${current.name} already has those settings.`);
     const fields =
@@ -2140,6 +2410,8 @@ const updateCalendarSettings: SettingsConfirmTool = {
           ]
         : diff.map(diffField);
     const warnings: Warning[] = [
+      // Visits already booked first: a card shows three, and a cancellation is the one nobody may miss.
+      ...impactWarnings(impacts),
       ...settingsWarnings(current.config, draft),
       ...out.issues
         .filter((i) => !current.issues.some((c) => c.message === i.message))
@@ -2147,9 +2419,6 @@ const updateCalendarSettings: SettingsConfirmTool = {
           kind: i.severity === 'error' ? 'caution' : 'note',
           text: sentence(i.message),
         })),
-      ...(kept
-        ? [{ kind: 'note', text: 'Visits already booked keep the settings they were booked with.' }]
-        : []),
       ...(restoring
         ? [{ kind: 'note', text: 'The booking link and appointments stay the same.' }]
         : []),
@@ -2158,7 +2427,7 @@ const updateCalendarSettings: SettingsConfirmTool = {
       card: card(toolCallId, 'update_calendar_settings', {
         title,
         fields: [{ label: 'Calendar', value: current.name }, ...fields],
-        confirmLabel: restoring ? 'Restore it' : 'Save the change',
+        confirmLabel: restoring ? 'Restore it' : fixing ? 'Apply the fix' : 'Save the change',
         warnings,
       }),
       result: { waiting: true, calendar: current.name, changes: diff },
@@ -2169,9 +2438,14 @@ const updateCalendarSettings: SettingsConfirmTool = {
     const { out, calendar } = await saveSettings(db, ctx, args);
     const restoring = args['action'] === 'restore';
     return {
-      outcome: restoring
-        ? `${calendar.name} is back to version ${String(args['revision'])}, saved as version ${out.revision}.`
-        : `${calendar.name} is changed.`,
+      outcome: [
+        restoring
+          ? `${calendar.name} is back to version ${String(args['revision'])}, saved as version ${out.revision}.`
+          : `${calendar.name} is changed, saved as version ${out.revision}.`,
+        visitsDone(out.actions),
+      ]
+        .filter(Boolean)
+        .join(' '),
       href: `/app/w/${ctx.workspaceId}/settings/calendars/${calendar.id}`,
       command: restoring ? 'calendar.restore_revision' : 'calendar.save',
     };

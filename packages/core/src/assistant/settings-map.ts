@@ -12,6 +12,7 @@
  * and in the prompt, and test/settings-map.test.ts checks every step against the menus it names.
  */
 
+import { CALENDAR_SECTIONS } from '../calendar/describe';
 import { money } from '../money/format';
 import { RCS_FIRST_YEAR_CENTS } from '../money/rcs-fees';
 import type { Permission } from '../permissions';
@@ -98,9 +99,8 @@ export interface SettingsAreaInfo {
 
 type AreaEntry = Omit<SettingsAreaInfo, 'area'>;
 
-/** The calendar editor's own sections, down its left side, in its order (apps/web/src/lib/calendar/describe.ts). */
-const CALENDAR_SECTIONS =
-  'Team & assignment, Services & lengths, Availability, Capacity, Locations, Resources, Buffers & travel, Territories, Booking window, Repeats, Waitlist, Intake questions, Cancel & reschedule rules, Notifications, Calendar connections, CRM, Payments, Automations';
+/** The calendar editor's own sections, down its left side, in its order. */
+const CALENDAR_SECTION_NAMES = CALENDAR_SECTIONS.map((s) => s.name).join(', ');
 
 /** The AI teammate's own sections, in its order (apps/web/src/lib/ai-team/describe.ts), and what each holds. */
 const TEAMMATE_SECTIONS =
@@ -326,21 +326,26 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     onScreen: [
       'A row of buttons at the top: Calendars, Services, Resources, Territories, Booking site',
       'Calendars: every calendar, and New calendar',
-      `Pressing a calendar opens its own settings, down the left under Settings on this calendar: ${CALENDAR_SECTIONS}`,
-      'Beside them: Booking link, with Customers can book it online, and Things to check',
+      `Pressing a calendar opens its own settings, down the left under Settings on this calendar: ${CALENDAR_SECTION_NAMES}`,
+      'At the top of a calendar: Turn on (Resume when it’s paused), History, Preview booking page, and More (Name, color and time zone…, Change link…, Pause, Back to draft, Archive, or Bring back as a draft once it’s archived)',
+      'Beside its settings: How this calendar works, Labels, Booking link (with Copy and Open, and Customers can book it online), and Things to check, with a Fix button for each problem it can fix',
     ],
     path: '/settings/calendars',
     permission: 'calendars.manage',
     canChange: [
       'create a calendar',
-      'rename it, or change its colour, time zone or booking link',
-      'who works it, and what it offers',
-      'its hours, buffers and booking rules',
-      'turn it on or off',
-      'seats per time, the places it happens, and routing by ZIP code and which territories',
+      'rename it, or change its description, colour, time zone or booking link',
+      'who works it, how a booking picks a person, people per booking, and each person’s weight, order and Must go',
+      'what it offers and what each booking needs, its lengths and start times, and each service’s own video link',
+      'its hours, open hours or fixed sessions, buffers and travel time, and booking rules (notice, how far ahead, only between dates, a daily limit per person)',
+      'turn it on or pause it, put it back to a draft, archive it, or bring an archived one back',
+      'what happens to visits already booked when someone comes off it: keep them, reassign them, or cancel them and tell the customers',
+      'apply a fix Things to check offers',
+      'seats per time, the places it happens and their video links, a webinar’s settings, and routing by ZIP code and which territories',
       'repeat visits, and the waitlist and how long offers last',
       'intake questions, and the cancel and reschedule rules',
       'the confirmation and reminders customers get, and the team’s new-booking email',
+      'whether it checks people’s own Google or Outlook calendars, and adds bookings to them',
       'CRM: a lead for each booking, and the customer’s owner',
       'taking a deposit or the full price when they book, and which account it’s paid into',
       'put back an earlier saved version',
@@ -359,7 +364,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       `Send bookings by ZIP code: ${ON_A_CALENDAR} Territories, and turn on Route by ZIP code`,
       `Send a follow-up and review request after visits: ${ON_A_CALENDAR} Automations`,
       'Turn a calendar on, pause or archive it: press the calendar, then Turn on, or More for Pause and Archive',
-      'Copy one calendar’s booking link: Settings → Calendars, the copy icon beside it',
+      'Put a calendar back to a draft, or bring an archived one back: press the calendar, then More, then Back to draft or Bring back as a draft',
+      'Rename a calendar, or change its colour or time zone: press the calendar, then More, then Name, color and time zone…',
+      'Change a calendar’s link: press the calendar, then More, then Change link…',
+      'See or put back an earlier version of a calendar: press the calendar, then History, then Restore',
+      'See a calendar’s booking page: press the calendar, then Preview booking page',
+      'Copy one calendar’s booking link: Settings → Calendars, the copy icon beside it, or press the calendar and Copy under Booking link',
     ],
   },
   services: {
@@ -428,10 +438,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     label: 'Booking site',
     what: 'the page customers book on: its address, name and intro',
     where: ['Settings', 'Calendars', 'Booking site'],
-    onScreen: ['Booking site: Business name shown, Link name, Intro, and Taking bookings online'],
+    onScreen: [
+      'At the top: the booking site’s address, with a copy icon and an open icon beside it',
+      'Booking site: Business name shown, Link name (changing it breaks links already shared), Intro, and Taking bookings online',
+      'Below: Want your own web address? It’s set up in Settings → Workspace',
+    ],
     path: '/settings/calendars/booking-site',
     permission: 'calendars.manage',
-    canChange: ['the address, name and intro', 'turn the booking site on or off'],
+    canChange: ['its link name, the name and the intro', 'whether it’s taking bookings online'],
     handovers: [],
   },
   team: {

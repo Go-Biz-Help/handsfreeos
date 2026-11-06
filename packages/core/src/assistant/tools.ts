@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ATTENTION_KINDS } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
+import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { timezone, uuid } from '../schemas/common';
 import { IntakeChannelKind } from '../schemas/intake';
@@ -10,8 +11,10 @@ import {
   dayOrWhen,
   define,
   dollars,
+  localDay,
   minutes,
   text,
+  UpcomingVisits,
   WeeklyHoursInput,
   when,
   type AssistantTool,
@@ -33,6 +36,12 @@ import { setupTools } from './tools-setup';
  * look-ups, tasks and notes run on their own ("auto").
  */
 export type { AssistantTool, ToolAutonomy } from './tool-kit';
+
+/** A five-digit ZIP code, as a territory keeps it. */
+const zip5 = z
+  .string()
+  .trim()
+  .regex(/^\d{5}$/, 'Five-digit ZIP codes.');
 
 /** When the website chat asks a visitor for a detail, as Settings → Website chat offers it. */
 const chatAskWhen = z
@@ -303,8 +312,13 @@ export const assistantTools = [
   define({
     name: 'list_workflows',
     description:
-      'The business’s workflows with ids: whether each is on (active), paused or a draft, what starts it, and its runs in the last 30 days.',
-    input: z.object({ status: z.enum(['draft', 'active', 'paused']).optional() }),
+      'The business’s workflows with ids: whether each is on (active), paused or a draft, what starts it, the calendars it watches, and its runs in the last 30 days. With calendarId, only that calendar’s automations, as its Automations section lists them, and which would remind customers a second time.',
+    input: z.object({
+      status: z.enum(['draft', 'active', 'paused']).optional(),
+      calendarId: uuid
+        .optional()
+        .describe('Only the workflows that start from this calendar or from every calendar'),
+    }),
     autonomy: 'auto',
     permission: 'workspace.read',
   }),
@@ -369,33 +383,95 @@ export const assistantTools = [
   define({
     name: 'manage_calendar',
     description:
-      'Set up or change a calendar people book on: create one, change its name, colour, time zone, who works it, what it offers, its hours, buffers, how far ahead and how much notice, its booking link and whether customers see it, or turn it on or off. Read it with get_settings first and pass only what changes. Names must be real ids: teammates from list_team, services and resources from get_settings.',
+      'Set up or change a calendar people book on, as Settings → Calendars does: create one (how it works, who works it, what it offers and needs), change its name, description, colour or time zone, who works it, what it offers, what each booking needs, its hours, buffers and travel time, how much notice, how far ahead, the only dates it books between, the most one person takes a day, its link name and whether customers can book it online; or turn it on, pause it, put it back to a draft, or archive it. Read it with get_calendar_settings first and pass only what changes. Ids must be real: teammates from list_team, services and resources from get_settings. How a booking picks a person, lengths and its other sections are update_calendar_settings.',
     input: z.object({
       action: z
-        .enum(['create', 'change', 'turn_on', 'turn_off'])
-        .describe('turn_on makes it bookable; turn_off pauses it'),
+        .enum(['create', 'change', 'turn_on', 'turn_off', 'to_draft', 'archive'])
+        .describe(
+          'turn_on makes it bookable, or resumes a paused one; turn_off pauses it; to_draft puts it back to a draft, or brings an archived one back as a draft; archive stops its bookings and takes it off the list, keeping its history',
+        ),
       calendarId: uuid.optional().describe('The calendar to change; leave out to create one'),
-      name: text(80).optional(),
-      description: text(500).optional(),
-      timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
-      teammates: z.array(uuid).max(50).optional().describe('Who works it, by user id'),
-      services: z.array(uuid).max(50).optional().describe('What it offers, by service id'),
-      resources: z.array(uuid).max(20).optional().describe('What it needs, by resource id'),
+      preset: z
+        .enum(PRESET_KEYS)
+        .optional()
+        .describe(
+          `create: how it works, as New calendar asks. ${CALENDAR_PRESETS.map((p) => `${p.key}: ${p.description}`).join(' ')} Left out, it starts from scratch`,
+        ),
+      name: text(120).optional(),
+      description: z.string().trim().max(2000).nullable().optional().describe('null clears it'),
+      timezone: timezone
+        .nullable()
+        .optional()
+        .describe('An IANA zone like America/Chicago; null goes back to the business’s own'),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/, 'Use a colour like #2d69d8.')
+        .optional()
+        .describe(
+          `Its colour on the calendar, as hex. The screen’s: ${CALENDAR_COLORS.map((c) => `${c.hex} ${c.name}`).join(', ')}`,
+        ),
+      teammates: z
+        .array(uuid)
+        .max(50)
+        .optional()
+        .describe('Everyone who works it, by user id, in order; people kept keep their settings'),
+      services: z
+        .array(uuid)
+        .max(50)
+        .optional()
+        .describe('Everything it offers, by service id; services kept keep their settings'),
+      resources: z
+        .array(z.object({ resourceId: uuid, quantity: z.int().min(1).max(100).default(1) }))
+        .max(20)
+        .optional()
+        .describe('Everything each booking needs, by resource id, and how many of each'),
       hours: WeeklyHoursInput.nullable()
         .optional()
         .describe('The calendar’s own hours; null to use each person’s own'),
       bufferBeforeMinutes: z.int().min(0).max(240).optional(),
       bufferAfterMinutes: z.int().min(0).max(240).optional(),
-      minNoticeHours: z.int().min(0).max(2160).optional().describe('How much notice to book'),
+      travelMinutes: z
+        .int()
+        .min(0)
+        .max(240)
+        .optional()
+        .describe('Travel time kept before and after each visit at the customer’s address'),
+      minNoticeMinutes: z
+        .int()
+        .min(0)
+        .max(90 * 1440)
+        .optional()
+        .describe('How much notice to book, in minutes: 30, 240 for 4 hours, 1440 for a day'),
       maxDaysAhead: z.int().min(1).max(365).optional().describe('How far ahead customers may book'),
+      bookOnlyFrom: localDay
+        .nullable()
+        .optional()
+        .describe('Books only from this date, YYYY-MM-DD; null clears it'),
+      bookOnlyTo: localDay
+        .nullable()
+        .optional()
+        .describe('Books only up to this date, YYYY-MM-DD; null clears it'),
+      dailyLimitPerPerson: z
+        .int()
+        .min(1)
+        .max(50)
+        .nullable()
+        .optional()
+        .describe('The most bookings one person takes a day; null for no limit'),
       bookingLink: z
         .string()
         .trim()
         .min(1)
         .max(60)
         .optional()
-        .describe('The last part of its booking address, like ac-tune-up'),
-      listedOnBookingSite: z.boolean().optional(),
+        .describe('Its link name: the last part of its booking link, like ac-tune-up'),
+      listedOnBookingSite: z
+        .boolean()
+        .optional()
+        .describe(
+          'Customers can book it online: listed on the booking site and bookable there. Off, only the team books it',
+        ),
+      upcomingVisits: UpcomingVisits,
     }),
     autonomy: 'confirm',
     permission: 'calendars.manage',
@@ -470,21 +546,26 @@ export const assistantTools = [
   define({
     name: 'manage_territory',
     description:
-      'Add, change or delete a territory (a service area), as Settings → Calendars → Territories does: the ZIP codes it covers, or so many miles from an address, and who covers it. An area drawn on the map is drawn there; this can still rename it, change who covers it, or turn it into ZIP codes or miles from an address. territoryId and user ids come from get_settings (areas territories and team).',
+      'Add, change or delete a territory (a service area), as Settings → Calendars → Territories does: the ZIP codes it covers (the whole list, or just the codes to add or take off), or so many miles from an address, and who covers it. An area drawn on the map is drawn there; this can still rename it, change who covers it, or turn it into ZIP codes or miles from an address. territoryId and user ids come from get_settings (areas territories and team).',
     input: z.object({
       action: z.enum(['create', 'change', 'delete']),
       territoryId: uuid.optional(),
       name: text(120).optional(),
       postalCodes: z
-        .array(
-          z
-            .string()
-            .trim()
-            .regex(/^\d{5}$/, 'Five-digit ZIP codes.'),
-        )
+        .array(zip5)
         .max(5000)
         .optional()
-        .describe('A ZIP area’s codes: the whole list it should have'),
+        .describe('A ZIP area’s codes: the whole list it should have, replacing the codes it has'),
+      addPostalCodes: z
+        .array(zip5)
+        .max(5000)
+        .optional()
+        .describe('ZIP codes to add to the ones it has, without listing the rest'),
+      removePostalCodes: z
+        .array(zip5)
+        .max(5000)
+        .optional()
+        .describe('ZIP codes to take off it, without listing the rest'),
       milesFrom: z
         .object({
           address: text(300).describe('The address it is measured from'),
@@ -500,9 +581,15 @@ export const assistantTools = [
   define({
     name: 'update_booking_site',
     description:
-      'Change the page customers book on, as Settings → Calendars → Booking site does: its web address, the name and intro they see, and whether it is on at all.',
+      'Change the page customers book on, as Settings → Calendars → Booking site does: its link name (the last part of /book/<name>), the name and intro they see, and whether it is taking bookings online at all. The domain in front is Your own web address, in Settings → Workspace.',
     input: z.object({
-      slug: z.string().trim().min(1).max(64).optional().describe('The last part of its address'),
+      slug: z
+        .string()
+        .trim()
+        .min(1)
+        .max(64)
+        .optional()
+        .describe('Its link name: the last part of its link. Links already shared stop working'),
       name: text(120).optional(),
       intro: text(2000).nullable().optional(),
       enabled: z.boolean().optional(),
