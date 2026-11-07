@@ -1315,7 +1315,8 @@ describe('the team', () => {
     );
     expect(invite.card.title).toBe('Invite marco@settingshvac.example');
     expect(fieldOf(invite.card, 'Role')).toBe(`Member — ${ROLE_DESCRIPTIONS.member}`);
-    expect(fieldOf(invite.card, 'Business')).toBe(businessName);
+    // The business was renamed earlier in this file (the business itself).
+    expect(fieldOf(invite.card, 'Business')).toBe(`${businessName} & Plumbing`);
     expect(invite.card.warnings[0]!.text).toContain('email');
     expect(invite.card.warnings[0]!.text).toContain('Accept invitation');
     await confirm(invite.tool!, invite.parsed, owner);
@@ -1420,13 +1421,13 @@ describe('the team', () => {
     ).rejects.toMatchObject({ rule: 'team_not_yours' });
 
     const leave = await prepare('manage_team', { action: 'remove', userId: tess.id }, tess);
-    expect(leave.card.title).toBe(`Leave ${businessName}?`);
+    expect(leave.card.title).toBe(`Leave ${businessName} & Plumbing?`);
     expect(leave.card.confirmLabel).toBe('Leave');
     expect(fieldOf(leave.card, 'You')).toBe(tess.email);
     expect(fieldOf(leave.card, 'Role')).toBe(`Member — ${ROLE_DESCRIPTIONS.member}`);
     expect(leave.card.warnings[0]!.text).toContain('You lose access immediately');
     const left = await confirm(leave.tool!, leave.parsed, tess);
-    expect(left.outcome).toBe(`You left ${businessName}`);
+    expect(left.outcome).toBe(`You left ${businessName} & Plumbing`);
     expect(left.href).toBeNull();
     expect((await team()).map((m) => m.userId)).not.toContain(tess.id);
   });
