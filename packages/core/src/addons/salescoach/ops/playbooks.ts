@@ -1,7 +1,7 @@
 /**
  * Sales Coach's playbooks (docs/salescoach.md): everyone it coaches reads them, owners and admins
- * (`salescoach.manage`) write them. One is the usual one, which a call uses; a playbook is archived rather than
- * deleted, and can come back.
+ * (`salescoach.manage`) write them. A call uses the one for how it started, else the usual one; a playbook is archived
+ * rather than deleted, and can come back.
  */
 import { and, asc, eq, isNull, ne } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
@@ -10,15 +10,22 @@ import { changeMoment } from '../../../kernel/moment';
 import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import {
+  playbookArchiveCard,
+  playbookArchiveOutcome,
+  playbookSaveCard,
+  playbookSaveOutcome,
+  playbooksAnswer,
+} from '../ai-answers';
 import { salescoachAddon } from '../manifest';
 import {
+  changedPlaybook,
   Playbook as PlaybookOut,
   PlaybookArchiveInput,
   PlaybookDetails,
   PlaybookListInput,
   PlaybookListOutput,
   PlaybookSaveInput,
-  renumberPlaybook,
 } from '../playbooks';
 import { playbooks } from '../tables';
 
@@ -93,7 +100,7 @@ async function hasDefault(ctx: CommandContext): Promise<boolean> {
 export const playbookList = defineAddonQuery(salescoachAddon, {
   name: 'salescoach.playbook.list',
   description:
-    'The business’s sales playbooks (script steps, objections with their answers, talking points): the usual one first, then the rest in use, then any archived.',
+    'The business’s sales playbooks (script steps, objections with their answers, talking points): the usual one first, then the rest in use, then any archived; or one by its id.',
   input: PlaybookListInput,
   output: PlaybookListOutput,
   permission: 'salescoach.use',
@@ -101,13 +108,19 @@ export const playbookList = defineAddonQuery(salescoachAddon, {
   ai: {
     tool: 'salescoach_list_playbooks',
     description:
-      'The business’s sales playbooks: the steps of a sales call, the objections customers raise with the business’s answers, and talking points.',
+      'The business’s sales playbooks, each with the kind of call it’s for and whether it’s the usual one: the steps of a sales call, the objections customers raise with the business’s answers, and talking points. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold call), else the usual one. When there are too many to read whole, each comes in brief; pass playbookId to read one whole, its steps, objections and talking points each a list of its own.',
+    answer: playbooksAnswer,
   },
-  async handler(ctx) {
+  async handler(ctx, input) {
     const all = await ctx.tx
       .select()
       .from(playbooks)
-      .where(eq(playbooks.workspaceId, ctx.scope.workspaceId!))
+      .where(
+        and(
+          eq(playbooks.workspaceId, ctx.scope.workspaceId!),
+          input.playbookId ? eq(playbooks.id, input.playbookId) : undefined,
+        ),
+      )
       .orderBy(asc(playbooks.createdAt));
     const inUse = all.filter((p) => !p.archivedAt);
     return {
@@ -123,30 +136,42 @@ export const playbookList = defineAddonQuery(salescoachAddon, {
 export const playbookSave = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.playbook.save',
   description:
-    'Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. The first one, or one marked usual, is the one calls use.',
+    'Write a sales playbook, or change one: its name, the kind of call it’s for, its script steps, the objections with their answers and its talking points. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold call), else the usual one; the first one saved is the usual one until another is marked. On a change, whatever is left out stays as it is: pass only the name, the kind, or the lists of details that change (a list given replaces that list whole), or only isDefault to make it the usual one.',
   risk: 1,
   input: PlaybookSaveInput,
   output: PlaybookOut,
   permission: 'salescoach.manage',
-  ai: { tool: 'salescoach_playbook_save', autonomy: 'confirm' },
+  ai: {
+    tool: 'salescoach_playbook_save',
+    autonomy: 'confirm',
+    card: playbookSaveCard,
+    outcome: playbookSaveOutcome,
+  },
   scope: inWorkspace,
   emits: ['salescoach.playbook.saved'],
   async handler(ctx, input) {
     const me = userIdOf(ctx.actor);
     const at = changeMoment(ctx.meta);
-    const details = renumberPlaybook(input.details);
-    const saved = await namedOnce(input.name, async () => {
-      if (input.playbookId) {
-        const was = await loadPlaybook(ctx, input.playbookId);
+    const was = input.playbookId ? await loadPlaybook(ctx, input.playbookId) : null;
+    const name = input.name ?? was?.name ?? '';
+    const saved = await namedOnce(name, async () => {
+      if (was) {
         if (was.archivedAt)
           throw HfosError.rule(
             'salescoach_playbook_archived',
             409,
             `“${was.name}” is archived. Bring it back first, then change it.`,
           );
+        // What isn't given stays as it is: its name, its kind, and each list of its details.
         const [p] = await ctx.tx
           .update(playbooks)
-          .set({ name: input.name, kind: input.kind, details, updatedBy: me, updatedAt: at })
+          .set({
+            name,
+            kind: input.kind ?? was.kind,
+            details: changedPlaybook(PlaybookDetails.parse(was.details), input.details),
+            updatedBy: me,
+            updatedAt: at,
+          })
           .where(eq(playbooks.id, was.id))
           .returning();
         return p!;
@@ -155,9 +180,9 @@ export const playbookSave = defineAddonCommand(salescoachAddon, {
         .insert(playbooks)
         .values({
           workspaceId: ctx.scope.workspaceId!,
-          name: input.name,
-          kind: input.kind,
-          details,
+          name,
+          kind: input.kind ?? 'any',
+          details: changedPlaybook(null, input.details),
           createdBy: me,
           updatedBy: me,
         })
@@ -186,7 +211,12 @@ export const playbookArchive = defineAddonCommand(salescoachAddon, {
   input: PlaybookArchiveInput,
   output: PlaybookOut,
   permission: 'salescoach.manage',
-  ai: { tool: 'salescoach_playbook_archive', autonomy: 'confirm' },
+  ai: {
+    tool: 'salescoach_playbook_archive',
+    autonomy: 'confirm',
+    card: playbookArchiveCard,
+    outcome: playbookArchiveOutcome,
+  },
   scope: inWorkspace,
   emits: ['salescoach.playbook.archived'],
   async handler(ctx, input) {

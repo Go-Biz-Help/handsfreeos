@@ -100,7 +100,7 @@ export const liveMeetingClaim = defineCommand({
       throw HfosError.rule(
         'live_meeting_nobody_listens',
         409,
-        'Nothing in this business listens to meetings for you yet. An owner can turn on an add-on that does (like AI Sales Coach) under Settings → Add-ons, and give you its permission.',
+        'Nothing in this business listens to meetings for you yet. An owner can turn on an add-on that does (like AI Sales Coach) in Add-ons, at the bottom of the side menu, and give you its permission.',
       );
     const [linked] = await ctx.tx
       .select({ id: liveMeetingAccounts.id })

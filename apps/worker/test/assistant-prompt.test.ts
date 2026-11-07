@@ -164,6 +164,23 @@ describe('Assistant context (PERF-M20)', () => {
     expect(on).toContain('On screen now: Team (Social Outreach → Settings → Team)');
     expect(on).toContain(`showing user id ${ID}`);
   });
+
+  it('names the AI Sales Coach tab open, by the address’s view, with the coached call on it', () => {
+    const ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+    const may = ['salescoach.use'];
+    const lasting = lastingText({
+      ...PROMPT,
+      addonPlaces: addonPlacesText(ADDON_CATALOG, ['salescoach'], may),
+    });
+    expect(lasting).toContain('- Playbooks is at AI Sales Coach → Playbooks:');
+    expect(lasting).toContain('Make it the usual one');
+    const places = addonPlaces(ADDON_CATALOG, ['salescoach'], may);
+    const on = (path: string) => turnText({ ...PROMPT, place: screenPlace(path, places) });
+    expect(on(`/a/salescoach?view=calls&call=${ID}`)).toContain(
+      `On screen now: Coached (AI Sales Coach → Coached), showing coached call id ${ID}.`,
+    );
+    expect(on('/a/salescoach')).toContain('On screen now: Live call (AI Sales Coach → Live call)');
+  });
 });
 
 describe('what every question sends (assistantRequest)', () => {

@@ -263,4 +263,14 @@ export interface AddonActionAi {
   readonly autonomy: 'auto' | 'confirm';
   /** Extra words tool search should match on. */
   readonly keywords?: readonly string[];
+  /**
+   * What the model reads of the answer, when it should differ from what the screen gets (an operation's `ai.answer`,
+   * the same way): parts left out that the input fills back in, the short facts ahead of the long lists.
+   */
+  readonly answer?: (output: unknown, input: unknown) => unknown;
+  /**
+   * Its answer is only any use whole (a draft the model saves as it is), so it's read whole up to `WHOLE_MOST`
+   * (assistant/tools-addons.ts) rather than cut at the usual length.
+   */
+  readonly whole?: boolean;
 }

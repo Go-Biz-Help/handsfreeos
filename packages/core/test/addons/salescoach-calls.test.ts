@@ -209,6 +209,47 @@ describe('AI Sales Coach’s playbooks', () => {
     const after = await as(rep, 'salescoach.playbook.list', {});
     expect(after.playbooks[0]).toMatchObject({ name: 'First call', isDefault: true });
     expect(after.playbooks[1]).toMatchObject({ name: 'Estimate', isDefault: false });
+    // One by its id, whole.
+    const one = await as(rep, 'salescoach.playbook.list', { playbookId: second.id });
+    expect(one.playbooks.map((p: { id: string }) => p.id)).toEqual([second.id]);
+  });
+
+  it('keep what a change leaves out: its name, its kind and each list of its details', async () => {
+    const made = await as(owner, 'salescoach.playbook.save', {
+      name: 'Follow-up call',
+      kind: 'follow_up',
+      details: PLAYBOOK,
+    });
+    // Making it the usual one needs nothing else.
+    const usual = await as(owner, 'salescoach.playbook.save', {
+      playbookId: made.id,
+      isDefault: true,
+    });
+    expect(usual).toMatchObject({ name: 'Follow-up call', kind: 'follow_up', isDefault: true });
+    expect(usual.details).toEqual(made.details);
+    // A change to its objections leaves its steps and talking points as they were.
+    const answered = await as(owner, 'salescoach.playbook.save', {
+      playbookId: made.id,
+      details: {
+        objections: [{ id: 'q1', objection: 'Can you come sooner?', answer: 'Tomorrow at 9.' }],
+      },
+    });
+    expect(answered.details.steps).toEqual(made.details.steps);
+    expect(answered.details.points).toEqual(made.details.points);
+    expect(answered.details.objections).toEqual([
+      { id: 'o1', objection: 'Can you come sooner?', answer: 'Tomorrow at 9.' },
+    ]);
+    expect(answered).toMatchObject({ name: 'Follow-up call', kind: 'follow_up' });
+    // A new one still needs its name.
+    expect(await refused(as(owner, 'salescoach.playbook.save', { details: PLAYBOOK }))).toBe(
+      'validation',
+    );
+    // Put back as the tests after this one expect: the first call the usual one, this one away.
+    const first = (await as(owner, 'salescoach.playbook.list', {})).playbooks.find(
+      (p: { name: string }) => p.name === 'First call',
+    );
+    await as(owner, 'salescoach.playbook.save', { playbookId: first.id, isDefault: true });
+    await as(owner, 'salescoach.playbook.archive', { playbookId: made.id, archived: true });
   });
 });
 
@@ -246,6 +287,8 @@ describe('a coached call', () => {
       state: 'live',
       step: 's2',
       person: { name: 'Mike Johnson' },
+      // Its id too, so the Assistant reads its words with salescoach_list_playbooks.
+      playbook: { id: begun.playbook.id, name: 'First call' },
     });
     expect(live.call.cards.map((c: { title: string }) => c.title)).toEqual(['Price worry']);
     expect((await as(other, 'salescoach.live', {})).call).toBeNull();
@@ -347,6 +390,19 @@ describe('a coached call', () => {
     const mine = await as(rep, 'salescoach.call.get', { coachedCallId: begun.coachedCallId });
     expect(mine.call.result.score.steps).toEqual({ covered: 2, of: 3 });
     expect(mine.call.cards).toHaveLength(1);
+    // What was said, from a line on, to read a long call a part at a time; or the write-up alone.
+    expect(mine.call.lines.length).toBeGreaterThan(1);
+    const later = await as(rep, 'salescoach.call.get', {
+      coachedCallId: begun.coachedCallId,
+      linesFrom: 1,
+    });
+    expect(later.call.lines).toEqual(mine.call.lines.slice(1));
+    const writeUp = await as(rep, 'salescoach.call.get', {
+      coachedCallId: begun.coachedCallId,
+      withLines: false,
+    });
+    expect(writeUp.call.lines).toEqual([]);
+    expect(writeUp.call.result).toEqual(mine.call.result);
     const reviewed = await as(owner, 'salescoach.call.get', { coachedCallId: begun.coachedCallId });
     expect(reviewed.call.result.summary).toContain('warm air');
     // A reviewer reads the write-up, not the cards only the rep saw.
@@ -408,8 +464,13 @@ describe('a coached call', () => {
     expect(
       await refused(as(owner, 'salescoach.call.stop', { coachedCallId: begun.coachedCallId })),
     ).toBe('salescoach_not_your_call');
-    expect(await as(rep, 'salescoach.call.stop', { coachedCallId: begun.coachedCallId })).toEqual({
+    // It answers whose call it is too, which the Assistant's card names.
+    expect(
+      await as(rep, 'salescoach.call.stop', { coachedCallId: begun.coachedCallId }),
+    ).toMatchObject({
       state: 'stopped',
+      person: { id: personId, name: 'Mike Johnson' },
+      startedAt: expect.any(String),
     });
     // No more cards, nothing kept at the end, no write-up.
     expect(
@@ -454,11 +515,12 @@ describe('a coached call', () => {
     expect(await refused(as(owner, 'salescoach.call.resume', { coachedCallId: id }))).toBe(
       'salescoach_not_your_call',
     );
-    expect(await as(rep, 'salescoach.call.resume', { coachedCallId: id })).toEqual({
+    expect(await as(rep, 'salescoach.call.resume', { coachedCallId: id })).toMatchObject({
       state: 'live',
+      person: { id: personId, name: 'Mike Johnson' },
     });
     // Asking twice changes nothing.
-    expect(await as(rep, 'salescoach.call.resume', { coachedCallId: id })).toEqual({
+    expect(await as(rep, 'salescoach.call.resume', { coachedCallId: id })).toMatchObject({
       state: 'live',
     });
     // The cards come back, and the end keeps everything that was said.
@@ -882,10 +944,22 @@ describe('learning from wins', () => {
     const better = listed.find((l: { kind: string }) => l.kind === 'better_answer');
     expect(better).toMatchObject({ wins: 6, of: 9, current: book.details.objections[0].answer });
 
-    // Using the better answer changes the playbook; the new one is dismissed and not suggested again soon.
-    await as(owner, 'salescoach.lesson.decide', { lessonId: better.id, use: true });
+    // Using the better answer changes the playbook; the new one is dismissed and not suggested again soon. Each says
+    // what it was, which the Assistant's card names.
+    expect(await as(owner, 'salescoach.lesson.decide', { lessonId: better.id, use: true })).toEqual(
+      {
+        state: 'used',
+        playbookName: book.name,
+        kind: 'better_answer',
+        objection: lesson.objection,
+        current: book.details.objections[0].answer,
+        answer: lesson.answer,
+      },
+    );
     const added = listed.find((l: { kind: string }) => l.kind === 'new_objection');
-    await as(owner, 'salescoach.lesson.decide', { lessonId: added.id, use: false });
+    expect(
+      await as(owner, 'salescoach.lesson.decide', { lessonId: added.id, use: false }),
+    ).toMatchObject({ state: 'dismissed', kind: 'new_objection', current: null });
     const after = (await as(owner, 'salescoach.playbook.list', {})).playbooks.find(
       (p: { id: string }) => p.id === book.id,
     );

@@ -77,7 +77,7 @@ export function moveFor(from: InstallationState | null, action: LifecycleAction)
       if (from === null || from === 'uninstalled' || from === 'purged')
         return refused(
           'addon_not_installed',
-          'That add-on isn’t installed here. Install it from Settings → Add-ons first.',
+          'That add-on isn’t installed here. Install it first from Add-ons, at the bottom of the side menu.',
         );
       return busy;
     case 'disable':
@@ -86,7 +86,7 @@ export function moveFor(from: InstallationState | null, action: LifecycleAction)
       if (from === null || from === 'uninstalled' || from === 'purged')
         return refused(
           'addon_not_installed',
-          'That add-on isn’t installed here, so it’s already off. Refresh Settings → Add-ons to see what’s installed.',
+          'That add-on isn’t installed here, so it’s already off. Refresh Add-ons (at the bottom of the side menu) to see what’s installed.',
         );
       return busy;
     case 'uninstall':
@@ -96,7 +96,7 @@ export function moveFor(from: InstallationState | null, action: LifecycleAction)
       if (from === null || from === 'purged')
         return refused(
           'addon_not_installed',
-          'That add-on isn’t installed here, so there’s nothing to uninstall. Refresh Settings → Add-ons to see what’s installed.',
+          'That add-on isn’t installed here, so there’s nothing to uninstall. Refresh Add-ons (at the bottom of the side menu) to see what’s installed.',
         );
       return busy;
     case 'purge':

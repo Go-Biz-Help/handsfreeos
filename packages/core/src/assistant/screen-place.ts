@@ -52,6 +52,8 @@ interface Candidate {
   readonly exact: boolean;
   /** What an id in the query holds here, by its key, where the place says (`AppPlace.queryIds`). */
   readonly queryIds?: ReadonlyMap<string, string>;
+  /** The tab of its page it is, by the address's `?view=` (`AppPlace.view`). */
+  readonly view?: string;
 }
 
 const segmentsOf = (path: string) => path.split('/').filter(Boolean);
@@ -63,6 +65,7 @@ const placeCandidate = (p: AppPlace): Candidate => ({
   area: null,
   exact: p.path === '',
   ...(p.queryIds ? { queryIds: new Map(Object.entries(p.queryIds)) } : {}),
+  ...(p.view ? { view: p.view } : {}),
 });
 
 let candidates: readonly Candidate[] | null = null;
@@ -116,10 +119,14 @@ function singular(segment: string): string {
   return words;
 }
 
-/** How many parts of the address the place takes, and how many of them are its own words: null when it doesn't fit. */
-function fit(c: Candidate, segments: readonly string[]): number | null {
+/**
+ * How many parts of the address the place takes, and how many of them are its own words, a tab of the page counting
+ * for more than the page: null when it doesn't fit.
+ */
+function fit(c: Candidate, segments: readonly string[], view: string | null): number | null {
   if (c.segments.length > segments.length || (c.exact && c.segments.length !== segments.length))
     return null;
+  if (c.view !== undefined && c.view !== view) return null;
   let words = 0;
   for (const [i, part] of c.segments.entries()) {
     const at = segments[i]!;
@@ -128,8 +135,8 @@ function fit(c: Candidate, segments: readonly string[]): number | null {
     } else if (part === at) words++;
     else return null;
   }
-  // The longest match wins, and among those the one with more of its own words.
-  return c.segments.length * 100 + words;
+  // The longest match wins, and among those a tab of the page, then the one with more of its own words.
+  return c.segments.length * 100 + (c.view !== undefined ? 50 : 0) + words;
 }
 
 /**
@@ -146,11 +153,13 @@ export function screenPlace(
   const segments = segmentsOf(pathPart.split('#')[0]!);
   // Only the app's own route words and ids are ever repeated to the model, never words typed into an address.
   if (!segments.every((s) => WORD.test(s) || UUID.test(s))) return null;
+  // The tab its address keeps, only ever matched against a place's own (never repeated as it is).
+  const askedView = /(?:^|&)view=([^&]*)/.exec(query)?.[1] ?? null;
 
   let best: Candidate | null = null;
   let bestFit = -1;
   for (const c of [...allCandidates(), ...addonPlaces.map(placeCandidate)]) {
-    const f = fit(c, segments);
+    const f = fit(c, segments, askedView);
     if (f !== null && f > bestFit) {
       best = c;
       bestFit = f;

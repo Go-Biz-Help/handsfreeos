@@ -20,6 +20,15 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../server';
 import {
+  callAnswer,
+  callListAnswer,
+  callResumeCard,
+  callResumeOutcome,
+  callStopCard,
+  callStopOutcome,
+  liveAnswer,
+} from '../ai-answers';
+import {
   AfterCall,
   CallLine,
   CARD_KINDS,
@@ -37,6 +46,13 @@ import { inWorkspace } from './playbooks';
 const uuid = z.uuid();
 
 const COACHED_STATES = ['live', 'writing', 'done', 'failed', 'stopped'] as const;
+
+/** What stopping or starting the coach again answers: the call's state now, and whose call it is (the card names them). */
+const RepChange = z.object({
+  state: z.enum(COACHED_STATES),
+  person: z.object({ id: uuid, name: z.string() }).nullable(),
+  startedAt: z.string(),
+});
 
 /** How long a call stays "live" on the rep's screen without ending: a stream that never said stop. */
 export const LIVE_FOR_MS = 4 * 60 * 60_000;
@@ -623,15 +639,30 @@ export const conversationFinish = defineAddonCommand(salescoachAddon, {
 
 // ---------- the rep's ----------
 
+/** The answer to the rep's change on their call: its state, and whose call it is, as row security lets them see it. */
+async function repChange(ctx: CommandContext, c: Row) {
+  const [summary] = await summaries(ctx.tx, [c]);
+  return (state: z.infer<typeof RepChange>['state']): z.infer<typeof RepChange> => ({
+    state,
+    person: summary?.person ?? null,
+    startedAt: c.startedAt.toISOString(),
+  });
+}
+
 export const callStop = defineAddonCommand(salescoachAddon, {
   name: 'salescoach.call.stop',
   description:
     'Stop the coach on the call you’re on now: no more cards, and nothing from this call is kept or written up unless you start it again.',
   risk: 1,
   input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
-  output: z.object({ state: z.enum(COACHED_STATES) }),
+  output: RepChange,
   permission: 'salescoach.use',
-  ai: { tool: 'salescoach_call_stop', autonomy: 'confirm' },
+  ai: {
+    tool: 'salescoach_call_stop',
+    autonomy: 'confirm',
+    card: callStopCard,
+    outcome: callStopOutcome,
+  },
   scope: inWorkspace,
   emits: ['salescoach.call.stopped'],
   async handler(ctx, input) {
@@ -643,7 +674,8 @@ export const callStop = defineAddonCommand(salescoachAddon, {
         403,
         'Only the person on the call can stop the coach on it.',
       );
-    if (c.state !== 'live') return { state: c.state };
+    const said = await repChange(ctx, c);
+    if (c.state !== 'live') return said(c.state);
     // Row security lets the rep stop their own live call and start it again while it goes on, and no other change.
     // It ends when the call does (`salescoach.call.end`), so it can start again until then.
     await ctx.tx
@@ -659,7 +691,7 @@ export const callStop = defineAddonCommand(salescoachAddon, {
       entityId: c.id,
       payload: { callId: c.callId, userId: me },
     });
-    return { state: 'stopped' as const };
+    return said('stopped');
   },
 });
 
@@ -669,9 +701,14 @@ export const callResume = defineAddonCommand(salescoachAddon, {
     'Start the coach again on the call you stopped it on, while the call goes on: the cards come back, and the write-up has the whole call.',
   risk: 1,
   input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
-  output: z.object({ state: z.enum(COACHED_STATES) }),
+  output: RepChange,
   permission: 'salescoach.use',
-  ai: { tool: 'salescoach_call_resume', autonomy: 'confirm' },
+  ai: {
+    tool: 'salescoach_call_resume',
+    autonomy: 'confirm',
+    card: callResumeCard,
+    outcome: callResumeOutcome,
+  },
   scope: inWorkspace,
   emits: ['salescoach.call.resumed'],
   async handler(ctx, input) {
@@ -683,7 +720,8 @@ export const callResume = defineAddonCommand(salescoachAddon, {
         403,
         'Only the person on the call can start the coach on it again.',
       );
-    if (c.state === 'live') return { state: c.state };
+    const said = await repChange(ctx, c);
+    if (c.state === 'live') return said(c.state);
     if (c.state !== 'stopped' || c.endedAt)
       throw HfosError.rule(
         'salescoach_call_over',
@@ -700,7 +738,7 @@ export const callResume = defineAddonCommand(salescoachAddon, {
       entityId: c.id,
       payload: { callId: c.callId, userId: me },
     });
-    return { state: 'live' as const };
+    return said('live');
   },
 });
 
@@ -745,7 +783,7 @@ const LiveOutput = z.object({
       liveMeetingId: uuid.nullable(),
       state: z.enum(COACHED_STATES),
       person: z.object({ id: uuid, name: z.string() }).nullable(),
-      playbook: z.object({ name: z.string(), details: PlaybookDetails }).nullable(),
+      playbook: z.object({ id: uuid, name: z.string(), details: PlaybookDetails }).nullable(),
       /** The script step the call is at. */
       step: z.string().nullable(),
       startedAt: z.string(),
@@ -764,7 +802,12 @@ export const live = defineAddonQuery(salescoachAddon, {
   input: z.object({ workspaceId: uuid }),
   output: LiveOutput,
   permission: 'salescoach.use',
-  ai: { tool: 'salescoach_live' },
+  ai: {
+    tool: 'salescoach_live',
+    description:
+      'Your call the coach is listening to now: its state (live, stopped while the call goes on, being written up, or ended), the customer, the playbook it uses, the stage and step the call is at (n of m, as the screen shows them), and the coach’s cards, newest first, each with what to say, how to say it and what the customer said. Or the call you stopped the coach on while it goes on, or your last one for a few minutes after it ends. call is null when there’s no call: the coach shows above the call bar for calls in the web app, and on AI Sales Coach in the phone app for calls on a cell. The playbook’s words are salescoach_list_playbooks with its playbookId.',
+    answer: liveAnswer,
+  },
   scope: inWorkspace,
   async handler(ctx) {
     const me = requireHuman(ctx).userId;
@@ -802,7 +845,9 @@ export const live = defineAddonQuery(salescoachAddon, {
         liveMeetingId: c.liveMeetingId,
         state: c.state,
         person: summary?.person ?? null,
-        playbook: pb ? { name: pb.name, details: PlaybookDetails.parse(pb.details) } : null,
+        playbook: pb
+          ? { id: pb.id, name: pb.name, details: PlaybookDetails.parse(pb.details) }
+          : null,
         step: c.step,
         startedAt: c.startedAt.toISOString(),
         endedAt: c.endedAt?.toISOString() ?? null,
@@ -830,7 +875,8 @@ export const callList = defineAddonQuery(salescoachAddon, {
   ai: {
     tool: 'salescoach_list_calls',
     description:
-      'Coached sales calls, newest first, with the rep, the customer and the score out of 100.',
+      'Coached sales calls and written conversations (texts, emails, chats, with their channel), newest first, with the rep, the customer, the score out of 100 and how it was won: your own, or everyone’s for people who review calls. A call shows once a coached rep takes one; a written conversation once one they answered goes quiet. Each rep comes once in reps, with their id: pass it as userId, or a customer’s as personId, for one rep’s or one customer’s, and limit for more (up to 100).',
+    answer: callListAnswer,
   },
   async handler(ctx, input) {
     const found = await ctx.tx
@@ -853,7 +899,14 @@ export const callGet = defineAddonQuery(salescoachAddon, {
   name: 'salescoach.call.get',
   description:
     'One coached call: what was said, the cards the coach showed, and the write-up with its notes, promises, follow-up, objections, tips and score.',
-  input: z.object({ workspaceId: uuid, coachedCallId: uuid }),
+  input: z.object({
+    workspaceId: uuid,
+    coachedCallId: uuid,
+    /** False: the write-up without what was said. */
+    withLines: z.boolean().default(true),
+    /** What was said from this line on (from 0), to read a long call a part at a time. */
+    linesFrom: z.number().int().min(0).default(0),
+  }),
   output: z.object({
     call: CallSummary.extend({
       lines: z.array(CallLine),
@@ -867,7 +920,8 @@ export const callGet = defineAddonQuery(salescoachAddon, {
   ai: {
     tool: 'salescoach_get_call',
     description:
-      'One coached sales call: its summary, notes, promises, follow-up, objections, tips and score.',
+      'One coached sales call or written conversation: why there’s no write-up when there isn’t one, then the write-up (summary, notes, what was promised, the follow-up to send, the objections and whether each was answered, the tips for next time, and the score with its steps or stages, objections and talk time), the cards, then what was said. A long call’s lines come back cut, the write-up whole: pass linesFrom (the first line to read, from 0) to read on, or withLines: false for the write-up alone.',
+    answer: callAnswer,
   },
   async handler(ctx, input) {
     const c = await loadCoached(ctx.tx, ctx.scope.workspaceId!, input.coachedCallId);
@@ -888,7 +942,7 @@ export const callGet = defineAddonQuery(salescoachAddon, {
     return {
       call: {
         ...summary!,
-        lines: c.lines,
+        lines: input.withLines ? c.lines.slice(input.linesFrom) : [],
         result: c.result,
         failure: c.failure,
         cards: shown.map(cardOut),

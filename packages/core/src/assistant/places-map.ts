@@ -28,6 +28,12 @@ export interface AppPlace {
   /** The screen, under /app/w/<workspaceId> (under /app/org/<orgId> for the agency area). */
   readonly path: string;
   /**
+   * The `?view=` its address keeps, when one page holds several places as tabs (AI Sales Coach's Coached, Trends and
+   * Playbooks): it is the screen only when the address's view is this one, and the place on the same page without a
+   * view is otherwise.
+   */
+  readonly view?: string;
+  /**
    * What an id in its address's query holds, by the query's key, when the key alone doesn't say and means that only
    * here (an add-on's Settings opening a teammate's at `?for=<their user id>`: `{ for: 'user' }`).
    */

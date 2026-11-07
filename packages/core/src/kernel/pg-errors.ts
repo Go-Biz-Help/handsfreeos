@@ -432,7 +432,7 @@ const RULES: Record<string, { status: number; message: string }> = {
   addon_inactive: {
     status: 403,
     message:
-      'That add-on is turned off for this business. Someone who manages add-ons can turn it back on in Settings → Add-ons.',
+      'That add-on is turned off for this business. Someone who manages add-ons can turn it back on in Add-ons, at the bottom of the side menu.',
   },
   addon_needs_person: { status: 401, message: 'Sign in to change add-ons.' },
   addon_needs_manage: { status: 403, message: missingPermissionMessage('addons.manage', 'member') },
@@ -443,12 +443,13 @@ const RULES: Record<string, { status: number; message: string }> = {
   },
   addon_not_installed: {
     status: 409,
-    message: 'That add-on isn’t installed here. Install it from Settings → Add-ons first.',
+    message:
+      'That add-on isn’t installed here. Install it first from Add-ons, at the bottom of the side menu.',
   },
   addon_bad_move: {
     status: 409,
     message:
-      'That add-on is partway through another change, so it can’t do that yet. Refresh Settings → Add-ons to see where it is, then try again.',
+      'That add-on is partway through another change, so it can’t do that yet. Refresh Add-ons (at the bottom of the side menu) to see where it is, then try again.',
   },
   addon_installation_is_ours: {
     status: 403,
@@ -501,7 +502,7 @@ const RULES: Record<string, { status: number; message: string }> = {
   addon_data_held: {
     status: 409,
     message:
-      'This add-on keeps records your business holds, so its data can’t be deleted yet. Settings → Add-ons says how long, and an owner or admin can lift a legal hold from the record’s page.',
+      'This add-on keeps records your business holds, so its data can’t be deleted yet. Add-ons, at the bottom of the side menu, says how long, and an owner or admin can lift a legal hold from the record’s page.',
   },
   workspace_data_held: {
     status: 409,

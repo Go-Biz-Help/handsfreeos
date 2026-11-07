@@ -60,6 +60,8 @@ const meta = (ctx: ToolContext): RequestMeta => ({
 
 /** The most of an add-on's answer, in characters of JSON, the model reads whole. */
 export const MOST = 16_000;
+/** The most of an answer that is only any use whole (a worker action's `ai.whole`: a draft to save as it is). */
+export const WHOLE_MOST = 40_000;
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -114,11 +116,15 @@ export function fittedAnswer(
  * wrote), and made to fit when it is too long to read: its lists cut to their first rows, everything else whole; only
  * an answer that can't be made to fit that way is cut short as it is.
  */
-export function answerFrom(tool: Pick<AddonAiTool, 'addonName'>, output: unknown): Args {
+export function answerFrom(
+  tool: Pick<AddonAiTool, 'addonName'>,
+  output: unknown,
+  most = MOST,
+): Args {
   const data = output ?? null;
   const json = JSON.stringify(data);
-  if (json.length <= MOST) return { from: tool.addonName, data };
-  const fitted = fittedAnswer(data);
+  if (json.length <= most) return { from: tool.addonName, data };
+  const fitted = fittedAnswer(data, most);
   if (fitted)
     return {
       from: tool.addonName,
@@ -129,7 +135,7 @@ export function answerFrom(tool: Pick<AddonAiTool, 'addonName'>, output: unknown
     };
   return {
     from: tool.addonName,
-    data: `${json.slice(0, MOST)}…`,
+    data: `${json.slice(0, most)}…`,
     cutShort: true,
     note: 'That was too long to read whole: ask it for less (a narrower search or a smaller page).',
   };
@@ -487,6 +493,14 @@ function actionsReady(deps: AddonActionDeps | null): AddonActionDeps {
   return deps;
 }
 
+/** A worker action's answer as the model reads it: reshaped by its own `ai.answer`, whole up to its own length. */
+const actionAnswer = (tool: AddonActionTool, output: unknown, args: Args): Args =>
+  answerFrom(
+    tool,
+    tool.action.ai?.answer ? tool.action.ai.answer(output, args) : output,
+    tool.action.ai?.whole ? WHOLE_MOST : MOST,
+  );
+
 /** One that may run on its own: through the action door, now, for the person. */
 export async function runAddonActionTool(
   deps: AddonActionDeps | null,
@@ -499,7 +513,7 @@ export async function runAddonActionTool(
   try {
     const output = await runAddonAction(actionsReady(deps).services, db, callOf(tool, args, ctx));
     return {
-      result: answerFrom(tool, output),
+      result: actionAnswer(tool, output, args),
       command: tool.actionName,
       record: { outcome: `Done in ${tool.addonName}`, command: tool.actionName },
     };
@@ -554,7 +568,7 @@ export async function commitAddonActionTool(
     outcome: `Done in ${tool.addonName}`,
     href: null,
     command: tool.actionName,
-    answer: keptAnswer(output),
+    answer: keptAnswer(tool.action.ai?.answer ? tool.action.ai.answer(output, args) : output),
   };
 }
 

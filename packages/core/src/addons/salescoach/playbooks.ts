@@ -8,7 +8,8 @@
  * - **Talking points**: facts the rep can lean on (the warranty, what's included, how soon they can come).
  *
  * The coach only ever says what's here and what the business's knowledge base says; it never makes up a price, a
- * promise or a fact. One playbook is the business's usual one; a call uses it unless the rep picks another.
+ * promise or a fact. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold
+ * call: ./method.ts `callKindFor`), else the business's usual one.
  *
  * A step names the stage of the question-led method it belongs to (./method.ts), when it has one: the builder writes
  * every step that way, and a script a business pasted keeps the stages that fit it.
@@ -92,24 +93,47 @@ export const PlaybookPoint = z.object({
 });
 export type PlaybookPoint = z.infer<typeof PlaybookPoint>;
 
+const StepList = z
+  .array(PlaybookStep)
+  .max(PLAYBOOK_LIMITS.steps, `A playbook has ${PLAYBOOK_LIMITS.steps} steps at most.`);
+const ObjectionList = z
+  .array(PlaybookObjection)
+  .max(
+    PLAYBOOK_LIMITS.objections,
+    `A playbook has ${PLAYBOOK_LIMITS.objections} objections at most.`,
+  );
+const PointList = z
+  .array(PlaybookPoint)
+  .max(PLAYBOOK_LIMITS.points, `A playbook has ${PLAYBOOK_LIMITS.points} talking points at most.`);
+
 export const PlaybookDetails = z.object({
-  steps: z
-    .array(PlaybookStep)
-    .max(PLAYBOOK_LIMITS.steps, `A playbook has ${PLAYBOOK_LIMITS.steps} steps at most.`)
-    .default([]),
-  objections: z
-    .array(PlaybookObjection)
-    .max(
-      PLAYBOOK_LIMITS.objections,
-      `A playbook has ${PLAYBOOK_LIMITS.objections} objections at most.`,
-    )
-    .default([]),
-  points: z
-    .array(PlaybookPoint)
-    .max(PLAYBOOK_LIMITS.points, `A playbook has ${PLAYBOOK_LIMITS.points} talking points at most.`)
-    .default([]),
+  steps: StepList.default([]),
+  objections: ObjectionList.default([]),
+  points: PointList.default([]),
 });
 export type PlaybookDetails = z.infer<typeof PlaybookDetails>;
+
+/**
+ * A change to a playbook's details: each list given replaces the playbook's own, and a list left out is kept as it is,
+ * so changing its objections never empties its steps.
+ */
+export const PlaybookDetailsChange = z.object({
+  steps: StepList.optional(),
+  objections: ObjectionList.optional(),
+  points: PointList.optional(),
+});
+export type PlaybookDetailsChange = z.infer<typeof PlaybookDetailsChange>;
+
+/** A playbook's details with a change made: the lists given in place of its own (none for a new one). */
+export const changedPlaybook = (
+  was: PlaybookDetails | null,
+  change: PlaybookDetailsChange | undefined,
+): PlaybookDetails =>
+  renumberPlaybook({
+    steps: change?.steps ?? was?.steps ?? [],
+    objections: change?.objections ?? was?.objections ?? [],
+    points: change?.points ?? was?.points ?? [],
+  });
 
 export const blankPlaybook = (): PlaybookDetails => ({ steps: [], objections: [], points: [] });
 
@@ -144,19 +168,35 @@ export const Playbook = z.object({
 });
 export type Playbook = z.infer<typeof Playbook>;
 
-export const PlaybookListInput = z.object({ workspaceId: uuid });
+export const PlaybookListInput = z.object({
+  workspaceId: uuid,
+  /** Only this one, whole (the Assistant reads a long list briefly, then one playbook at a time). */
+  playbookId: uuid.optional(),
+});
 export const PlaybookListOutput = z.object({ playbooks: z.array(Playbook) });
 
-export const PlaybookSaveInput = z.object({
-  workspaceId: uuid,
-  /** Absent: a new playbook. */
-  playbookId: uuid.optional(),
-  name,
-  kind: z.enum(PLAYBOOK_KINDS).default('any'),
-  /** Make it the one calls use unless the rep picks another. */
-  isDefault: z.boolean().optional(),
-  details: PlaybookDetails,
-});
+/**
+ * A new playbook, or a change to one: on a change, whatever is left out stays as it is (its name, its kind, and each
+ * list of its details), so making it the usual one needs only `isDefault`.
+ */
+export const PlaybookSaveInput = z
+  .object({
+    workspaceId: uuid,
+    /** Absent: a new playbook. */
+    playbookId: uuid.optional(),
+    /** Needed for a new one. */
+    name: name.optional(),
+    /** A new one left without: Any call. */
+    kind: z.enum(PLAYBOOK_KINDS).optional(),
+    /** Make it the usual one: what a call uses when no playbook is for how it started. */
+    isDefault: z.boolean().optional(),
+    details: PlaybookDetailsChange.optional(),
+  })
+  .refine((i) => i.playbookId !== undefined || i.name !== undefined, {
+    message: 'Write the playbook’s name.',
+    path: ['name'],
+  });
+export type PlaybookSaveInput = z.infer<typeof PlaybookSaveInput>;
 
 export const PlaybookArchiveInput = z.object({
   workspaceId: uuid,

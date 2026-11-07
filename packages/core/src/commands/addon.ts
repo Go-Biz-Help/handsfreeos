@@ -133,7 +133,7 @@ const known = (catalog: Catalog, addonId: string): AddonManifest => {
     throw HfosError.rule(
       'addon_unknown',
       404,
-      'HandsFreeOS doesn’t have that add-on. Refresh Settings → Add-ons and pick one from the list.',
+      'HandsFreeOS doesn’t have that add-on. Refresh Add-ons (at the bottom of the side menu) and pick one from the list.',
     );
   return m;
 };
@@ -323,9 +323,9 @@ export function addonLifecycleCommands(catalog: Catalog) {
         throw HfosError.rule(
           'addon_not_installed',
           409,
-          `${m.name} isn’t installed here now, so there’s nothing to start fresh. Its data can be deleted, and it can be installed again, on Settings → Add-ons.`,
+          `${m.name} isn’t installed here now, so there’s nothing to start fresh. Its data can be deleted, and it can be installed again, on Add-ons, at the bottom of the side menu.`,
         );
-      // The moves an owner would make on Settings → Add-ons, one after another: uninstalled now, and marked, so the
+      // The moves an owner would make on Add-ons, one after another: uninstalled now, and marked, so the
       // worker deletes its data and installs it again (apps/worker/src/addons/reconcile.ts).
       const moved = await makeMoves(ctx, catalog, m.id, 'uninstall', [], async () => {
         if (input.confirmName.trim().toLowerCase() !== m.name.trim().toLowerCase())
