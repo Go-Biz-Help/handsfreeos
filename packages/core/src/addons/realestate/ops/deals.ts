@@ -81,12 +81,25 @@ const indexIn = (side: DealSide, stage: DealStage) =>
 const afterClosing = (side: DealSide, stage: DealStage) =>
   indexIn(side, stage) > indexIn(side, 'closing');
 
+/** A side's stages, each with the word a tool takes: "Lead (lead), Onboarding (onboarding), …". */
+const stageKeys = (side: DealSide) =>
+  runOf(side)
+    .map((s) => `${stageWords(s)} (${s})`)
+    .join(', ');
+
 const badStage = (side: DealSide, stage: string) =>
   HfosError.rule(
     'realestate_bad_stage',
     400,
-    `“${stage}” isn’t a stage of a ${sideWords(side)}. Pick one of its stages.`,
+    `“${stage}” isn’t a stage of a ${sideWords(side)}. Pick one of its stages: ${stageKeys(side)}.`,
   );
+
+/** How a listing ends, as the deal page's More menu says it. */
+const LISTING_EXIT_MENU: Readonly<Record<(typeof LISTING_EXITS)[number], string>> = {
+  withdrawn: 'Withdraw the listing…',
+  expired: 'The listing expired…',
+  cancelled: 'Cancel the listing…',
+};
 
 const changed = (w: Work, stage: DealStage) => ({
   dealId: w.deal.recordId,
@@ -386,7 +399,7 @@ export const dealMoveStage = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_move_deal',
-    description: 'Move a deal forward to a later stage. Asks the person first.',
+    description: `Move a deal forward to a later stage, or a listing back on the market (active). Asks the person first. A buyer deal’s stages: ${stageKeys('buyer')}. A listing’s: ${stageKeys('listing')}.`,
     autonomy: 'confirm',
   },
   emits: ['realestate.deal.stage_changed'],
@@ -401,7 +414,7 @@ export const dealMoveStage = defineAddonCommand(realestateAddon, {
       throw HfosError.rule(
         'realestate_stage_needs_event',
         409,
-        `A listing is ${stageWords(to).toLowerCase()} by ending it: use End listing on ${deal.name}’s page.`,
+        `A listing is ${stageWords(to).toLowerCase()} by ending it: on ${deal.name}’s page, use More → ${LISTING_EXIT_MENU[to as (typeof LISTING_EXITS)[number]]}`,
       );
     const how = stageMove(deal.side, deal.stage, to);
     if (how === 'same')
@@ -418,7 +431,7 @@ export const dealMoveStage = defineAddonCommand(realestateAddon, {
       throw HfosError.rule(
         'realestate_close_first',
         409,
-        `Mark ${deal.name} closed first (Close deal on its page), then move it on.`,
+        `Mark ${deal.name} closed first (Close the deal on its page), then move it on.`,
       );
     const passed = stagesBetween(deal.side, deal.stage, to).slice(1);
     const w = await openWork(ctx, deal);

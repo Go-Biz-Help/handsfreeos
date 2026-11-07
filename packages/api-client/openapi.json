@@ -71778,6 +71778,125 @@
         }
       }
     },
+    "/v1/commands/realestate.term.confirm_all": {
+      "post": {
+        "operationId": "command_realestate_term_confirm_all",
+        "summary": "Confirm several key dates or terms someone entered, all at once, as Key dates’ Confirm N values does. Duties resting on the dates they confirm become ready to work.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits realestate.term.confirmed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "entryIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "description": "The entries to confirm"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId",
+                  "entryIds"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dutiesCreated": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "dutiesActivated": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "dutiesRedated": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "dealName": {
+                      "type": "string"
+                    },
+                    "confirmed": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entryId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "entryId",
+                          "label",
+                          "value"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "dutiesCreated",
+                    "dutiesActivated",
+                    "dutiesRedated",
+                    "dealId",
+                    "dealName",
+                    "confirmed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/realestate.term.reject": {
       "post": {
         "operationId": "command_realestate_term_reject",
@@ -82170,11 +82289,22 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "dealName": {
+                      "type": "string"
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
                     "dealId",
-                    "photos"
+                    "photos",
+                    "dealName",
+                    "changes"
                   ],
                   "additionalProperties": false
                 }
@@ -83214,12 +83344,67 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "street": {
+                      "type": "string"
+                    },
+                    "channel": {
+                      "type": "string",
+                      "enum": [
+                        "sms",
+                        "email"
+                      ]
+                    },
+                    "words": {
+                      "type": "object",
+                      "properties": {
+                        "subject": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "body": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "subject",
+                        "body"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "audience": {
+                      "type": "object",
+                      "properties": {
+                        "tags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "stages": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "tags",
+                        "stages"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "campaignId",
                     "recipients",
-                    "skipped"
+                    "skipped",
+                    "street",
+                    "channel",
+                    "words",
+                    "audience"
                   ],
                   "additionalProperties": false
                 }
@@ -88130,6 +88315,217 @@
                   "required": [
                     "dealId",
                     "lockbox"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/realestate.lockbox.describe": {
+      "post": {
+        "operationId": "command_realestate_lockbox_describe",
+        "summary": "Add a lockbox to a listing, or change one’s kind, where it is or its serial, without its code: the code it has is kept.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires realestate.use. Emits .",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "dealId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "id": {
+                    "description": "The lockbox to change; left out, a new one",
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "sentrilock",
+                      "supra",
+                      "combination",
+                      "keypad",
+                      "other"
+                    ]
+                  },
+                  "place": {
+                    "description": "Where it is: \"On the side gate\"",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "serial": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 60
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "dealId",
+                  "kind"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "dealId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "lockbox": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "sentrilock",
+                            "supra",
+                            "combination",
+                            "keypad",
+                            "other"
+                          ]
+                        },
+                        "kindLabel": {
+                          "type": "string"
+                        },
+                        "place": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "serial": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "hasCode": {
+                          "type": "boolean"
+                        },
+                        "codeSetAt": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "kindLabel",
+                        "place",
+                        "serial",
+                        "hasCode",
+                        "codeSetAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "dealName": {
+                      "type": "string"
+                    },
+                    "before": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "sentrilock",
+                                "supra",
+                                "combination",
+                                "keypad",
+                                "other"
+                              ]
+                            },
+                            "kindLabel": {
+                              "type": "string"
+                            },
+                            "place": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "serial": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "kindLabel",
+                            "place",
+                            "serial"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "dealId",
+                    "lockbox",
+                    "dealName",
+                    "before"
                   ],
                   "additionalProperties": false
                 }
@@ -194199,7 +194595,7 @@
     "/v1/queries/realestate.deal.get": {
       "post": {
         "operationId": "query_realestate_deal_get",
-        "summary": "One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties.",
+        "summary": "One deal whole: its stage and facts, team, property, outside parties, linked deals, key dates and terms with any conflicts, checks across its dates, commission and duties (open, done, all or none).",
         "tags": [
           "queries"
         ],
@@ -194220,6 +194616,17 @@
                     "type": "string",
                     "format": "uuid",
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "duties": {
+                    "default": "all",
+                    "description": "Its duties: open, done, all or none",
+                    "type": "string",
+                    "enum": [
+                      "open",
+                      "done",
+                      "all",
+                      "none"
+                    ]
                   }
                 },
                 "required": [
@@ -198061,6 +198468,25 @@
                   "includeRemoved": {
                     "default": false,
                     "type": "boolean"
+                  },
+                  "homeId": {
+                    "description": "One home only",
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "offset": {
+                    "default": 0,
+                    "description": "How many to skip, for the next page",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "limit": {
+                    "description": "How many to read at once (a few at a time on a long list); left out: every one",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
                   }
                 },
                 "required": [
@@ -198633,10 +199059,16 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
-                    "homes"
+                    "homes",
+                    "total"
                   ],
                   "additionalProperties": false
                 }
@@ -202458,6 +202890,12 @@
                                 "null"
                               ]
                             },
+                            "path": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "publishedAt": {
                               "anyOf": [
                                 {
@@ -202474,6 +202912,7 @@
                           "required": [
                             "state",
                             "slug",
+                            "path",
                             "publishedAt"
                           ],
                           "additionalProperties": false
@@ -204010,6 +204449,59 @@
                         "additionalProperties": false
                       }
                     },
+                    "atListPrice": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "priceCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string"
+                                  },
+                                  "cents": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "key",
+                                  "label",
+                                  "cents"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "netCents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "priceCents",
+                            "lines",
+                            "netCents"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "shared": {
                       "anyOf": [
                         {
@@ -204087,6 +204579,7 @@
                     "figures",
                     "figureHistory",
                     "rows",
+                    "atListPrice",
                     "shared",
                     "choices"
                   ],
@@ -208250,6 +208743,19 @@
                       "sent",
                       "dismissed"
                     ]
+                  },
+                  "offset": {
+                    "default": 0,
+                    "description": "How many to skip, for the next page",
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000
+                  },
+                  "limit": {
+                    "description": "How many to read at once (a few at a time on a long list); left out: every one",
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
                   }
                 },
                 "required": [

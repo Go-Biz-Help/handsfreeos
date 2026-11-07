@@ -26,7 +26,7 @@ async function call(
   }
   if (res.status === 401)
     throw new ConnectionRefused(
-      `${words.service} turned the sign-in down. Someone who runs the deal settings can sign in again under Real Estate → Settings → Connections.`,
+      `${words.service} turned the sign-in down. Someone who runs the deal settings can sign in again in Real Estate Agent → Deal settings → Connections.`,
     );
   if (!res.ok) {
     const said = await serviceWords(res);

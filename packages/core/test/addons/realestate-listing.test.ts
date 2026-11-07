@@ -15,6 +15,7 @@ import {
   notOnMlsWords,
   streetOf,
 } from '../../src/addons/realestate/listing';
+import { listingCampaignCard, photosArrangeCard } from '../../src/addons/realestate/ai-answers';
 import { homeFit, suggestsListing } from '../../src/addons/realestate/homes';
 import { netEstimate, shareOf } from '../../src/addons/realestate/net';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
@@ -385,22 +386,29 @@ describe('a listing’s facts', () => {
       year_built: 'pasted',
       hoa_monthly_cents: 'seller',
     };
+    // The AI teammate never confirms a fact; the agent does, on the page or on their own Assistant's card, which runs
+    // as them (Chris, 2026-10-26).
     expect(
       await refused(
         run(
           agent,
           'realestate.listing.confirm_facts',
           { dealId: listing, facts, sources },
-          'assistant',
+          'contact_ai',
         ),
       ),
     ).toBe('forbidden');
-    const done = await run(agent, 'realestate.listing.confirm_facts', {
-      dealId: listing,
-      facts,
-      sources,
-      highlights: 'Kitchen redone in 2021 with quartz and a gas range.',
-    });
+    const done = await run(
+      agent,
+      'realestate.listing.confirm_facts',
+      {
+        dealId: listing,
+        facts,
+        sources,
+        highlights: 'Kitchen redone in 2021 with quartz and a gas range.',
+      },
+      'assistant',
+    );
     expect(done.confirmedAt).toBeTruthy();
     const { listing: l } = await ask(agent, 'realestate.listing', { dealId: listing });
     expect(l.facts).toEqual(facts);
@@ -469,7 +477,7 @@ describe('a listing’s photos', () => {
         }),
       ),
     ).toBe('realestate_photos_changed');
-    await run(agent, 'realestate.listing.photos_arrange', {
+    const arranged = await run(agent, 'realestate.listing.photos_arrange', {
       dealId: listing,
       photos: [
         { id: ids['kitchen.jpg'], caption: 'The 2021 kitchen', public: true },
@@ -477,6 +485,18 @@ describe('a listing’s photos', () => {
         { id: ids['yard.png'], caption: null, public: false },
       ],
     });
+    // What changed, a line for each photo that did, for the Assistant's card: never the photos that stayed.
+    expect(arranged).toEqual({
+      dealId: listing,
+      photos: 3,
+      dealName: 'Alvarez listing',
+      changes: [
+        'Photo 1 (The 2021 kitchen): caption none → “The 2021 kitchen”; moved from 2',
+        'Photo 2 (front.jpg): moved from 1',
+        'Photo 3 (yard.png): off the public page',
+      ],
+    });
+    expect(photosArrangeCard(arranged)?.title).toBe('Change 3 photos on Alvarez listing?');
     await run(agent, 'realestate.listing.photo_remove', {
       dealId: listing,
       photoId: ids['front.jpg'],
@@ -881,6 +901,24 @@ describe('the public page', () => {
     expect(r!.draft).toBe(
       `Just listed: 2207 Juniper Trail. 4 beds, 3 baths. Photos: http://localhost:3000${path}`,
     );
+    // What it made, as Campaigns shows it, for the Assistant's card: the street, the words and who by name.
+    expect(made).toMatchObject({
+      street: '2207 Juniper Trail',
+      channel: 'sms',
+      words: { subject: null, body: r!.draft },
+      audience: { tags: ['Past clients'], stages: [] },
+    });
+    expect(listingCampaignCard(made)).toMatchObject({
+      title: 'Text 1 person about 2207 Juniper Trail?',
+      lines: expect.arrayContaining([{ label: 'Tagged', value: 'Past clients' }]),
+      // Its exact words, whole, link and all.
+      body: r!.draft,
+    });
+  });
+
+  it('shows the page’s address under the business’s site, as Marketing’s link has it', async () => {
+    const { listing: l } = await ask(agent, 'realestate.listing', { dealId: listing });
+    expect(l.page).toMatchObject({ state: 'published', path });
   });
 
   it('comes down when taken down', async () => {
@@ -1354,6 +1392,21 @@ describe('offers on a listing', () => {
     expect(await refused(ask(agent, 'realestate.offers.compare', { dealId: buyerDeal }))).toBe(
       'realestate_listing_only',
     );
+    // Before any offer, what the seller would take home at the list price, as the net sheet's first column has it:
+    // with no figures kept yet, nothing comes off.
+    const { listing: l } = await ask(agent, 'realestate.listing', { dealId: listing });
+    expect(l.listPriceCents).toBeGreaterThan(0);
+    const none = await ask(agent, 'realestate.offers.compare', { dealId: listing });
+    expect(none.rows).toEqual([]);
+    expect(none.atListPrice).toMatchObject({
+      priceCents: l.listPriceCents,
+      netCents: l.listPriceCents,
+    });
+    expect(none.atListPrice.lines[0]).toEqual({
+      key: 'price',
+      label: 'Price',
+      cents: l.listPriceCents,
+    });
     chen = (
       await run(agent, 'realestate.offer.start', {
         dealId: listing,
@@ -1411,6 +1464,8 @@ describe('offers on a listing', () => {
   it('sit side by side with the seller’s estimate from kept figures, the best flagged, as proof for X-04', async () => {
     const before = await ask(agent, 'realestate.offers.compare', { dealId: listing });
     expect(before.figures).toBeNull();
+    // Once there are offers, each is its own column: none at the list price.
+    expect(before.atListPrice).toBeNull();
     // With no figures yet, only the fees the offers name come off.
     expect(before.rows.find((r: Any) => r.offerId === chen).net.netCents).toBe(
       53_500_000 - 1_070_000,

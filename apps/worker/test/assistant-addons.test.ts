@@ -362,9 +362,47 @@ const moveSpaVisit = defineAddonCommand(spa, {
   handler: async (_ctx, input) => ({ visitId: 'v-7', day: input.to }),
 });
 
+/**
+ * A change whose card says what it would do, from what it answered when it was tried and rolled back: who it books,
+ * by name, and a warning that they're told, never the ids it was given.
+ */
+let booked = 0;
+const spaText = (customer: string, day: string) =>
+  `Hi ${customer}, you’re booked for ${day}. ${'Bring comfortable clothes and arrive ten minutes early. '.repeat(6)}Reply STOP to opt out.`;
+const bookSpaVisit = defineAddonCommand(spa, {
+  name: `${SPA}.visit.book`,
+  description: 'Book a spa visit for a customer and text them the time.',
+  risk: 2,
+  input: z.object({ workspaceId: z.uuid(), customerId: z.uuid(), day: z.string().min(1).max(20) }),
+  output: z.object({ visitId: z.string(), customer: z.string(), day: z.string() }),
+  permission: `${SPA}.read`,
+  scope,
+  emits: [],
+  ai: {
+    tool: `${SPA}_book_visit`,
+    card: (output) => {
+      const o = output as { customer: string; day: string };
+      return {
+        title: `Book ${o.customer} for ${o.day}?`,
+        lines: [
+          { label: 'Who', value: o.customer },
+          { label: 'When', value: o.day },
+        ],
+        // The text's exact words, longer than a line holds.
+        body: spaText(o.customer, o.day),
+        warning: `${o.customer} gets a text with the time.`,
+      };
+    },
+  },
+  handler: async (_ctx, input) => {
+    booked++;
+    return { visitId: 'v-9', customer: 'Ann Lee', day: input.day };
+  },
+});
+
 const MODULES: readonly AddonServerModule[] = [
   { manifest: pool, queries: [listVisits], commands: [noteVisit, cancelVisit, wipeVisits] },
-  { manifest: spa, queries: [spaVisits, spaReadings], commands: [moveSpaVisit] },
+  { manifest: spa, queries: [spaVisits, spaReadings], commands: [moveSpaVisit, bookSpaVisit] },
 ];
 
 // ---------- the stand-in model ----------
@@ -446,6 +484,19 @@ const rules: ScriptRule[] = [
       { name: `${SPA}_move_visit`, arguments: { to: /^move the spa visit to (\S+)/i.exec(q)![1] } },
     ],
     reply: said(`${SPA}_move_visit`),
+  },
+  {
+    when: /^book the spa visit for (\S+)/i,
+    calls: (q) => [
+      {
+        name: `${SPA}_book_visit`,
+        arguments: {
+          customerId: '5b2f0c1e-7a3d-4c8e-9f1a-2b3c4d5e6f70',
+          day: /^book the spa visit for (\S+)/i.exec(q)![1],
+        },
+      },
+    ],
+    reply: said(`${SPA}_book_visit`),
   },
   { when: /^how many new leads/i, reply: () => 'Three new leads came in this week.' },
 ];
@@ -1086,6 +1137,45 @@ describe('an add-on’s own words for what it found and did', () => {
       sql`select result from app.assistant_tool_calls where id = ${card.toolCallId}`,
     );
     expect(kept?.result.answer).toEqual({ movedTo: 'Saturday' });
+    await setAddonState(wsA, SPA, 'disabled');
+  });
+
+  it('draws its card from what the change would do, by name, never from the ids it was given', async () => {
+    await setAddonState(wsA, SPA, 'enabled');
+    const before = booked;
+    const asked = await ask(ownerToken, 'Book the spa visit for Tuesday');
+    const card = confirmCard(asked);
+    expect(card).toMatchObject({
+      tool: `${SPA}_book_visit`,
+      title: 'Book Ann Lee for Tuesday?',
+      warnings: [{ kind: 'caution', text: 'Ann Lee gets a text with the time.' }],
+    });
+    expect(card.fields).toEqual([
+      { label: 'What', value: 'Book a spa visit for a customer and text them the time.' },
+      { label: 'Who', value: 'Ann Lee' },
+      { label: 'When', value: 'Tuesday' },
+    ]);
+    // The words the customer gets are its body, whole, never cut short as a line is.
+    expect(spaText('Ann Lee', 'Tuesday').length).toBeGreaterThan(300);
+    expect(card.body).toBe(spaText('Ann Lee', 'Tuesday'));
+    // The id the model gave is on no line: the person reads who, not a number.
+    expect(JSON.stringify(card)).not.toContain('5b2f0c1e');
+    // It was tried once, to draw the card, and rolled back; the model reads what the card says.
+    expect(booked).toBe(before + 1);
+    expect(resultOf(asked)).toMatchObject({
+      waiting: true,
+      card: 'Book Ann Lee for Tuesday?',
+      says: [
+        { label: 'Who', value: 'Ann Lee' },
+        { label: 'When', value: 'Tuesday' },
+      ],
+      words: spaText('Ann Lee', 'Tuesday'),
+    });
+    // Confirmed, it runs through the kernel for real.
+    expect((await decide(card.toolCallId, 'confirm')).json()).toMatchObject({
+      status: 'confirmed',
+    });
+    expect(booked).toBe(before + 2);
     await setAddonState(wsA, SPA, 'disabled');
   });
 });

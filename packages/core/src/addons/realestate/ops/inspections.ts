@@ -760,7 +760,8 @@ export const inspectionsList = defineAddonQuery(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_inspections',
-    description: 'A buyer deal’s inspections, their findings and the repair request.',
+    description:
+      'A deal’s inspections, their findings and the repair request (on a listing, the buyer’s inspection and what they asked to fix).',
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

@@ -299,6 +299,7 @@ export function listingOfCopy(
       photos: photosOfCopy(copy, dealId),
       confirmedByName: l?.factsConfirmedBy ? copy.user(l.factsConfirmedBy) : null,
       listPriceCents: listPriceOfCopy(copy, dealId),
+      site: copy.bookingSlug,
     }),
     description: descriptionShape(descriptionRowsOfCopy(copy, dealId)),
   };

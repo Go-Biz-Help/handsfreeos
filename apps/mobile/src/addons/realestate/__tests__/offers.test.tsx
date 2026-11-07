@@ -174,6 +174,8 @@ const COMPARE: OffersCompareView = {
   figures: null,
   figureHistory: [],
   rows: [row(OKAFOR, 46_124_000, '2026-11-06'), row(BROOKS, 45_898_000, '2026-10-22')],
+  // With offers in, the column at the list price is the board's before any offer only.
+  atListPrice: null,
   shared: null,
   choices: [
     {

@@ -59,7 +59,7 @@ export const noFeed = () =>
   HfosError.rule(
     'realestate_no_feed',
     409,
-    'No listing feed is connected. Someone who runs the deal settings can connect one under Real Estate → Settings → Connections.',
+    'No listing feed is connected. Someone who runs the deal settings can connect one in Real Estate Agent → Deal settings → Connections.',
   );
 
 /** The words a failure to look something up is kept with. */

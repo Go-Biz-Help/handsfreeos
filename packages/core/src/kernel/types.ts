@@ -90,6 +90,23 @@ export interface OperationAi {
     output: unknown,
     input: unknown,
   ) => { readonly words: string; readonly path?: string | null } | null;
+  /**
+   * What the card that waits for the person's OK says, from what the change answered when it was tried and rolled back
+   * (its rehearsal) and the input it was given: its title ("Email 42 people about 12 Oak St?") and its lines, in place
+   * of a line for each part of the input, so the person sees what it would do rather than the ids it was given. Up to
+   * nine short lines; a `body` for the exact words that go out (an email's or a text's), shown whole below them; a
+   * `warning` when it reaches people or can't be taken back. Null, or left out: "Do this in <add-on>?" and the input's
+   * lines.
+   */
+  readonly card?: (
+    output: unknown,
+    input: unknown,
+  ) => {
+    readonly title: string;
+    readonly lines: readonly { readonly label: string; readonly value: string }[];
+    readonly body?: string;
+    readonly warning?: string;
+  } | null;
 }
 
 /**

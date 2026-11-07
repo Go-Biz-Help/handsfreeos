@@ -11,6 +11,7 @@ import type { Permission } from '../../../permissions';
 import { defineAddonQuery } from '../../server';
 import type { ProofRule, ResolvedDuty } from '../catalog/types';
 import { DOCUMENT_KINDS, type DocumentKind } from '../catalog/types';
+import { dutyAnswer } from '../ai-answers';
 import { realestateAddon } from '../manifest';
 import { gapWords, proofGaps, proofItemWords } from '../proof';
 import { dueRuleWords } from '../rule-words';
@@ -42,6 +43,8 @@ export const dutyGet = defineAddonQuery(realestateAddon, {
     tool: 'realestate_get_duty',
     description:
       'Read one duty: what it is, who answers for it, when it’s due and why, what proof finishes it and what’s missing, and its history.',
+    // Its history in the words the duty's drawer shows.
+    answer: dutyAnswer,
   },
   handler: async (ctx, input) => {
     const { duty, deal } = await loadDuty(ctx, input.dutyId);

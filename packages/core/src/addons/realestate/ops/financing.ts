@@ -40,7 +40,7 @@ import {
 import { documents, financing, financingSteps } from '../tables';
 import { moneyOf, termOnSide, termsNow, type TermKey } from '../terms';
 import {
-  actorKind,
+  personDecides,
   actorUserId,
   historyLine,
   inWorkspace,
@@ -253,9 +253,9 @@ export const financingMarkDone = defineAddonCommand(realestateAddon, {
   offline: 'anytime',
   emits: ['realestate.financing.step_done', ...PROOF_EVENTS],
   async handler(ctx, input) {
-    if (actorKind(ctx) !== 'person')
+    if (!personDecides(ctx))
       throw HfosError.forbidden(
-        'Only a person marks a financing step done, with its proof, from the deal’s financing page.',
+        'Only a person marks a financing step done, with its proof: on the deal’s financing page, or on the Assistant’s card they confirm.',
       );
     const deal = await loadDeal(ctx, input.dealId, { lock: true });
     requireNotArchived(deal);

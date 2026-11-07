@@ -124,7 +124,7 @@ export function homesOfCopy(
   ctx: BuyerContext,
 ): HomesView | null {
   if (!copy.deals.has(dealId)) return null;
-  if (!holdsWhole(copy, dealId, ctx.userId)) return { homes: [], full: false };
+  if (!holdsWhole(copy, dealId, ctx.userId)) return { homes: [], total: 0, full: false };
   const profile = fitProfileOf(profileOfCopy(copy, dealId)?.fields ?? null);
   // As on the server: a reaction shows with its client, oldest first.
   const reactions = copy
@@ -177,7 +177,8 @@ export function homesOfCopy(
         addedAt: isoOr(h.created_at) ?? iso(0),
       };
     });
-  return { homes, full: true };
+  // The phone reads the list whole: it never pages it.
+  return { homes, total: homes.length, full: true };
 }
 
 /** What's remembered about the buyer, newest first, and the AI's suggestions waiting for a person. */

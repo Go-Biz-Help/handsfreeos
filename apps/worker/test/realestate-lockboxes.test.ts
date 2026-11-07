@@ -25,6 +25,7 @@ import {
 import { asUser, asWorker, rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { lockboxCard } from '@hfos/core/addons/realestate/ai-answers';
 import { realestateBusiness } from '../../../packages/core/test/addons/realestate-fixture';
 import { addonJobs, withAddons } from '../src/addons/index';
 import { readLockboxEmail } from '../src/addons/realestate/lockbox-emails';
@@ -401,5 +402,73 @@ describe('a lockbox opened', () => {
     );
     await drain();
     expect((await run('realestate.lockbox.list', { dealId: deal })).openings).toHaveLength(before);
+  });
+});
+
+describe('a lockbox described through the Assistant', () => {
+  const codeOf = async (id: string) =>
+    (
+      await rows<{ code: string | null }>(
+        admin(),
+        sql`select code_enc as code from addon_realestate.lockboxes where id = ${id}`,
+      )
+    )[0]!.code;
+
+  it('changes where it is and its serial, keeps its code, and never takes one', async () => {
+    const kept = await codeOf(BOX);
+    expect(kept).not.toBeNull();
+    const changed = await run('realestate.lockbox.describe', {
+      dealId: deal,
+      id: BOX,
+      kind: 'sentrilock',
+      place: 'By the back door',
+      // Its input has no code, so one given is dropped.
+      code: sealed('5168'),
+    });
+    expect(changed).toMatchObject({
+      dealId: deal,
+      dealName: 'Alvarez listing',
+      before: { kind: 'sentrilock', place: 'On the side gate', serial: '12345678' },
+      lockbox: { id: BOX, place: 'By the back door', serial: '12345678', hasCode: true },
+    });
+    expect(await codeOf(BOX)).toBe(kept);
+    expect(JSON.stringify(changed)).not.toMatch(/sealed:/);
+    // The card says whose listing and what changes, and of the code only that it's kept.
+    const card = lockboxCard(changed)!;
+    expect(card.title).toBe('Change a lockbox on Alvarez listing?');
+    expect(card.lines).toEqual([
+      { label: 'Kind', value: 'SentriLock' },
+      { label: 'Where it is', value: 'On the side gate → By the back door' },
+      { label: 'Serial number', value: '12345678' },
+      { label: 'Code', value: 'Kept as it is, locked' },
+    ]);
+    const [line] = await rows<{ after: Record<string, unknown> }>(
+      admin(),
+      sql`select after from addon_realestate.deal_history where deal_record_id = ${deal}
+          and what = 'lockbox_changed' order by at desc limit 1`,
+    );
+    expect(line!.after).toEqual({
+      kind: 'sentrilock',
+      place: 'By the back door',
+      serial: '12345678',
+    });
+  });
+
+  it('adds a new one without a code, for the person to type it', async () => {
+    const added = await run('realestate.lockbox.describe', {
+      dealId: deal,
+      kind: 'supra',
+      place: 'On the front door',
+      serial: '87654321',
+    });
+    expect(added).toMatchObject({
+      before: null,
+      lockbox: { kind: 'supra', serial: '87654321', hasCode: false },
+    });
+    expect(await codeOf(added.lockbox.id)).toBeNull();
+    expect(lockboxCard(added)).toMatchObject({
+      title: 'Add a lockbox to Alvarez listing?',
+      lines: expect.arrayContaining([{ label: 'Code', value: 'None yet' }]),
+    });
   });
 });

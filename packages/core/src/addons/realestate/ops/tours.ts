@@ -60,6 +60,7 @@ import {
 } from '../tours';
 import {
   actorKind,
+  personDecides,
   actorUserId,
   historyLine,
   inWorkspace,
@@ -122,9 +123,9 @@ async function agreementGate(
   const state = agreementState(facts, tourDate);
   if (state.ok) return { documentId: state.documentId, exception: null };
   if (!exception) throw HfosError.rule(state.rule, 409, agreementWords(state, deal.name, tourDate));
-  if (actorKind(ctx) !== 'person')
+  if (!personDecides(ctx))
     throw HfosError.forbidden(
-      'Only an owner or admin can let a tour through without a signed, current buyer agreement, from the deal’s page.',
+      'Only an owner or admin can let a tour through without a signed, current buyer agreement: on the deal’s Tours, or on the Assistant’s card they confirm.',
       'realestate_tour_exception_person',
     );
   if (!scopeCan(ctx.scope, 'realestate.except' as Permission))
@@ -214,8 +215,8 @@ export async function tourCalendar(
     'realestate_tour_calendar',
     409,
     theirs.length
-      ? `${agentName} is on more than one calendar. Pick the one tours go on in Settings → Real Estate.`
-      : `${agentName} isn’t on any calendar yet. Add them to one in Settings → Calendars, then pick it for tours in Settings → Real Estate.`,
+      ? `${agentName} is on more than one calendar. Pick the one tours go on in Real Estate Agent → Deal settings → Alerts & dates.`
+      : `${agentName} isn’t on any calendar yet. Add them to one in Settings → Calendars, then pick it under Tours go on in Real Estate Agent → Deal settings → Alerts & dates.`,
   );
 }
 

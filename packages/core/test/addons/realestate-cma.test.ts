@@ -136,7 +136,10 @@ describe('the range', () => {
 const api = () => testDbs().api.db;
 const worker = () => testDbs().worker.db;
 const admin = () => testDbs().admin.db;
-const meta = (channel: 'test' | 'assistant' = 'test') => ({ correlationId: randomUUID(), channel });
+const meta = (channel: 'test' | 'assistant' | 'contact_ai' = 'test') => ({
+  correlationId: randomUUID(),
+  channel,
+});
 const human = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -152,7 +155,7 @@ const op = (name: string) =>
 const run = (
   name: string,
   input: Record<string, unknown>,
-  channel: 'test' | 'assistant' = 'test',
+  channel: 'test' | 'assistant' | 'contact_ai' = 'test',
 ): Promise<Any> =>
   executeCommand(
     api(),
@@ -363,14 +366,15 @@ describe('a CMA', () => {
     await modelReads();
     const flagged = await refused(run('realestate.cma.share', { cmaId: cma }));
     expect(flagged.rule).toBe('realestate_fair_housing_flags');
-    // The Assistant never keeps flagged words.
+    // The AI teammate never keeps flagged words: only a person does, on the page or on their own Assistant's card,
+    // which runs as them (Chris, 2026-10-26).
     expect(
       (
         await refused(
           run(
             'realestate.cma.acknowledge_flags',
             { cmaId: cma, reason: 'It’s about the yard' },
-            'assistant',
+            'contact_ai',
           ),
         )
       ).rule,

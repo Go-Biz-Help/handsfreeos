@@ -1,7 +1,8 @@
 /**
  * Real Estate Agent, round two, step 8: tours, and the agreement rule. A tour needs a signed buyer agreement that
- * covers its day: refused without one, or after it ends, unless an owner or admin lets it through with a reason
- * (never a member, never the AI). Planned, it's one appointment on the agent's calendar, private to the deal, with the
+ * covers its day: refused without one, or after it ends, unless an owner or admin lets it through with a reason, on
+ * the screens or on their Assistant's card (never a member, never the AI teammate; the owner, 2026-10-26). Planned,
+ * it's one appointment on the agent's calendar, private to the deal, with the
  * client on it and the homes in order; moving, changing or canceling the tour does the same to the appointment.
  * After it, each home is seen or skipped, and what each client thought of the homes they saw is kept.
  */
@@ -82,7 +83,10 @@ describe('the agreement rule', () => {
 
 const api = () => testDbs().api.db;
 const admin = () => testDbs().admin.db;
-const meta = (channel: 'test' | 'assistant' = 'test') => ({ correlationId: randomUUID(), channel });
+const meta = (channel: 'test' | 'assistant' | 'contact_ai' = 'test') => ({
+  correlationId: randomUUID(),
+  channel,
+});
 const human = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -99,7 +103,7 @@ const run = (
   who: TestUser,
   name: string,
   input: Record<string, unknown>,
-  channel: 'test' | 'assistant' = 'test',
+  channel: 'test' | 'assistant' | 'contact_ai' = 'test',
 ): Promise<Any> =>
   executeCommand(
     api(),
@@ -256,8 +260,15 @@ describe('planning a tour', () => {
     expect(view.can.except).toBe(false);
   });
 
-  it('lets only an owner or admin, never a member or the AI, make an exception, and keeps the reason', async () => {
+  it('lets only an owner or admin, never a member or the AI teammate, make an exception, and keeps the reason', async () => {
     const exception = { reason: 'Agreement signed on paper; scanning it tonight' };
+    const plan = {
+      dealId: deal,
+      homeIds: [maple],
+      startsAt: tourAt,
+      agentUserId: agent.id,
+      exception,
+    };
     expect(
       (
         await refused(
@@ -270,25 +281,12 @@ describe('planning a tour', () => {
         )
       ).rule,
     ).toBe('realestate_tour_exception_permission');
-    expect(
-      (
-        await refused(
-          run(
-            owner,
-            'realestate.tour.plan',
-            { dealId: deal, homeIds: [maple], startsAt: tourAt, agentUserId: agent.id, exception },
-            'assistant',
-          ),
-        )
-      ).rule,
-    ).toBe('realestate_tour_exception_person');
-    const out = await run(owner, 'realestate.tour.plan', {
-      dealId: deal,
-      homeIds: [maple],
-      startsAt: tourAt,
-      agentUserId: agent.id,
-      exception,
-    });
+    // The AI teammate never lets one through, even run as an owner who decided its ask.
+    expect((await refused(run(owner, 'realestate.tour.plan', plan, 'contact_ai'))).rule).toBe(
+      'realestate_tour_exception_person',
+    );
+    // An owner does, on the screens or on their own Assistant's card (Chris, 2026-10-26): the card runs as them.
+    const out = await run(owner, 'realestate.tour.plan', plan, 'assistant');
     expect(out).toMatchObject({ exception: true, startsAt: tourAt });
     const [t] = await rows<{ exception_reason: string; exception_by: string }>(
       admin(),

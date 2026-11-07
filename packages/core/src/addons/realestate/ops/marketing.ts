@@ -13,8 +13,8 @@
  * - **Email or text to contacts** starts a core campaign with exact words made from the signed-off description and
  *   read by the fair housing list; the agent approves it in Campaigns as any other.
  */
-import { and, asc, desc, eq, isNull, ne } from 'drizzle-orm';
-import { bookingSites, files } from '@hfos/db/schema';
+import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { bookingSites, files, pipelineStages, pipelines, tags } from '@hfos/db/schema';
 import { ensureBookingSite } from '../../../calendar/site';
 import { campaignCreate } from '../../../commands/campaign';
 import { HfosError } from '../../../errors';
@@ -23,6 +23,7 @@ import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { money } from '../../../money/format';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { listingCampaignCard, listingCampaignOutcome } from '../ai-answers';
 import { checkWords, FAIR_HOUSING_WORDS_VERSION, type FairHousingFlag } from '../fair-housing';
 import {
   cityLineOf,
@@ -316,7 +317,7 @@ export const listingPagePublish = defineAddonCommand(realestateAddon, {
         throw HfosError.rule(
           'realestate_no_public_name',
           409,
-          'The business doesn’t have its public web address yet. Ask an owner or admin to put this page up the first time, or to set the address in Settings → Booking site.',
+          'The business doesn’t have its public web address yet. Ask an owner or admin to put this page up the first time, or to set the address in Settings → Calendars → Booking site.',
         );
       }
     const slug = l.slug ?? (await freeSlug(ctx, deal, address));
@@ -398,7 +399,7 @@ export const listingFlyer = defineAddonQuery(realestateAddon, {
   input: ListingInput,
   output: ListingFlyerOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_listing_flyer' },
+  ai: { tool: 'realestate_listing_flyer', keywords: ['flyer', 'QR code', 'print'] },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
@@ -436,7 +437,12 @@ export const listingCampaign = defineAddonCommand(realestateAddon, {
   input: ListingCampaignInput,
   output: ListingCampaignOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_listing_campaign' },
+  ai: {
+    tool: 'realestate_listing_campaign',
+    // The card says how many it reaches, who by name, and its exact words with the page's link, before Confirm.
+    card: listingCampaignCard,
+    outcome: listingCampaignOutcome,
+  },
   scope: inWorkspace,
   emits: ['realestate.listing.campaign_started', ...PROOF_EVENTS],
   async handler(ctx, input) {
@@ -513,9 +519,43 @@ export const listingCampaign = defineAddonCommand(realestateAddon, {
       entityId: deal.recordId,
       payload: { campaignId: output.campaignId, channel: input.channel },
     });
-    return output;
+    // What it made, as Campaigns will show it: who it reaches by name, and its exact words.
+    return {
+      ...output,
+      street,
+      channel: input.channel,
+      words: 'text' in words ? { subject: null, body: words.text } : words,
+      audience: await audienceNames(ctx, input.audience),
+    };
   },
 });
+
+/** The tags and stages a campaign picks people by, by name ("Past clients", "Qualified (Sales)"). */
+async function audienceNames(
+  ctx: Ctx,
+  a: { readonly tagIds: readonly string[]; readonly stageIds: readonly string[] },
+): Promise<{ tags: string[]; stages: string[] }> {
+  const ws = ctx.scope.workspaceId!;
+  const tagRows = a.tagIds.length
+    ? await ctx.tx
+        .select({ id: tags.id, name: tags.name })
+        .from(tags)
+        .where(and(eq(tags.workspaceId, ws), inArray(tags.id, [...a.tagIds])))
+    : [];
+  const stageRows = a.stageIds.length
+    ? await ctx.tx
+        .select({ id: pipelineStages.id, name: pipelineStages.name, pipeline: pipelines.name })
+        .from(pipelineStages)
+        .innerJoin(pipelines, eq(pipelines.id, pipelineStages.pipelineId))
+        .where(and(eq(pipelineStages.workspaceId, ws), inArray(pipelineStages.id, [...a.stageIds])))
+    : [];
+  return {
+    tags: a.tagIds.flatMap((id) => tagRows.filter((t) => t.id === id).map((t) => String(t.name))),
+    stages: a.stageIds.flatMap((id) =>
+      stageRows.filter((s) => s.id === id).map((s) => `${s.name} (${s.pipeline})`),
+    ),
+  };
+}
 
 // ---------- social posts ----------
 
@@ -782,7 +822,10 @@ export const listingMarketing = defineAddonQuery(realestateAddon, {
   input: ListingInput,
   output: ListingMarketingOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_listing_marketing' },
+  ai: {
+    tool: 'realestate_listing_marketing',
+    keywords: ['listing link', 'public page', 'MLS live', 'social posts'],
+  },
   scope: inWorkspace,
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

@@ -93,7 +93,10 @@ describe('the model’s memory, checked', () => {
 const api = () => testDbs().api.db;
 const worker = () => testDbs().worker.db;
 const admin = () => testDbs().admin.db;
-const meta = (channel: 'test' | 'assistant' = 'test') => ({ correlationId: randomUUID(), channel });
+const meta = (channel: 'test' | 'assistant' | 'contact_ai' = 'test') => ({
+  correlationId: randomUUID(),
+  channel,
+});
 const human = (u: TestUser): HumanActor => ({
   type: 'human',
   userId: u.id,
@@ -110,7 +113,7 @@ type Any = any;
 const run = (
   name: string,
   input: Record<string, unknown>,
-  channel: 'test' | 'assistant' = 'test',
+  channel: 'test' | 'assistant' | 'contact_ai' = 'test',
 ): Promise<Any> =>
   executeCommand(
     api(),
@@ -252,17 +255,19 @@ describe('buyer memory', () => {
       suggestedBy: 'ai',
       quote: 'We need a fenced yard for the dog.',
     });
+    // The AI teammate never decides; the agent does, on the page or on their own Assistant's card, which runs as
+    // them (Chris, 2026-10-26).
     expect(
       await refused(
-        run('realestate.memory.decide', { itemId: yard.id, decision: 'confirm' }, 'assistant'),
+        run('realestate.memory.decide', { itemId: yard.id, decision: 'confirm' }, 'contact_ai'),
       ),
     ).toBe('forbidden');
     expect(
-      await run('realestate.memory.decide', {
-        itemId: yard.id,
-        decision: 'confirm',
-        words: 'A fenced yard (dog)',
-      }),
+      await run(
+        'realestate.memory.decide',
+        { itemId: yard.id, decision: 'confirm', words: 'A fenced yard (dog)' },
+        'assistant',
+      ),
     ).toMatchObject({
       status: 'confirmed',
       waiting: 1,

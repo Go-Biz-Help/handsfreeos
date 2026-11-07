@@ -37,6 +37,7 @@ import {
 import { clientTaskCompletions, clientTasks, documents } from '../tables';
 import {
   actorKind,
+  personDecides,
   actorUserId,
   dealClients,
   dealLine,
@@ -181,7 +182,7 @@ export const clientTaskAdd = defineAddonCommand(realestateAddon, {
   ai: {
     tool: 'realestate_add_client_task',
     description:
-      'Give a buyer something to do in their portal: upload a document, sign off, or do something.',
+      'Give a deal’s client (a buyer or a seller) something to do in their portal: upload a document, sign off, or do something.',
   },
   // A new one reaches the client's portal: with no signal it waits, and asks again after 30 minutes (board 85). The
   // phone's id is the task's.
@@ -310,9 +311,9 @@ export const clientTaskMarkDone = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: ['realestate.client_task.done', ...PROOF_EVENTS],
   async handler(ctx, input) {
-    if (actorKind(ctx) !== 'person')
+    if (!personDecides(ctx))
       throw HfosError.forbidden(
-        'Only a person marks a client’s task done for them, from the deal’s page.',
+        'Only a person marks a client’s task done for them: on the deal’s page, or on the Assistant’s card they confirm.',
       );
     const task = await loadTask(ctx, input.taskId, true);
     const deal = await loadDeal(ctx, task.dealRecordId, { lock: true });

@@ -91,6 +91,25 @@ export function netEstimate(
   return { lines, netCents: lines.reduce((sum, l) => sum + l.cents, 0) };
 }
 
+/**
+ * Before any offer, what the seller would take home at the list price, as the net sheet's "At the list price" column
+ * works it out: no credit and no fee to the buyer's agent. Null once there's an offer, or with no list price.
+ */
+export function atListPrice(
+  listPriceCents: number | null,
+  f: NetFigures,
+  offers: number,
+): { priceCents: number; lines: NetLine[]; netCents: number } | null {
+  if (offers > 0 || listPriceCents === null) return null;
+  const offer = {
+    priceCents: listPriceCents,
+    sellerCreditCents: 0,
+    buyerAgentFeeBp: null,
+    buyerAgentFeeCents: 0,
+  };
+  return { priceCents: listPriceCents, ...netEstimate(offer, f) };
+}
+
 /** The figures before the agent has saved any: nothing owed, no fee, nothing else. */
 export const EMPTY_NET_FIGURES: NetFigures = {
   payoffCents: 0,

@@ -721,7 +721,8 @@ export const offersList = defineAddonQuery(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_offers',
-    description: 'A buyer deal’s offers and counters, their terms and deadlines.',
+    description:
+      'A deal’s offers and counters, their terms and deadlines: sent for a buyer, or received on a listing (realestate_compare_offers puts a listing’s side by side with the seller’s net).',
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);

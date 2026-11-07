@@ -26,6 +26,7 @@ import {
 import { deals, memoryItems } from '../tables';
 import {
   actorKind,
+  personDecides,
   actorUserId,
   historyLine,
   idUnavailable,
@@ -154,8 +155,10 @@ export const memoryDecide = defineAddonCommand(realestateAddon, {
   scope: inWorkspace,
   emits: ['realestate.memory.decided'],
   async handler(ctx, input) {
-    if (ctx.actor.type !== 'human' || actorKind(ctx) === 'ai')
-      throw HfosError.forbidden('Only a person decides what’s remembered about a buyer.');
+    if (!personDecides(ctx))
+      throw HfosError.forbidden(
+        'Only a person decides what’s remembered about a buyer: on What they want, or on the Assistant’s card they confirm.',
+      );
     const [item] = await ctx.tx
       .select()
       .from(memoryItems)

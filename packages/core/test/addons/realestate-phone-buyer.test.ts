@@ -453,7 +453,7 @@ describe('the buyer’s pages on the phone', () => {
       ...(await ask('realestate.buyer_profile.get', { dealId: lopez }, agent)),
       full: true,
     });
-    expect(homesOfCopy(copy, lopez, {}, ctx)).toEqual({ homes: [], full: true });
+    expect(homesOfCopy(copy, lopez, {}, ctx)).toEqual({ homes: [], total: 0, full: true });
     expect(memoryOfCopy(copy, lopez, {}, ctx)).toEqual({
       ...(await ask('realestate.memory', { dealId: lopez }, agent)),
       full: true,
@@ -475,7 +475,7 @@ describe('the buyer’s pages on the phone', () => {
     ).not.toBeNull();
     expect(buyerProfileOfCopy(copy, nguyen, ctx)).toEqual({ profile: null, full: false });
     expect((await ask('realestate.homes', { dealId: nguyen }, owner)).homes.length).toBe(4);
-    expect(homesOfCopy(copy, nguyen, {}, ctx)).toEqual({ homes: [], full: false });
+    expect(homesOfCopy(copy, nguyen, {}, ctx)).toEqual({ homes: [], total: 0, full: false });
     const memory = await ask('realestate.memory', { dealId: nguyen }, owner);
     expect(memory.items.length).toBeGreaterThan(0);
     // How many suggestions fair housing left out is on the deal's own row, which the summary keeps.

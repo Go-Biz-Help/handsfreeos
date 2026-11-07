@@ -297,6 +297,18 @@ export const TermResolveInput = z.object({
   reason,
 });
 export const TermChangeOutput = TermDatesOut.extend({ dealId: uuid, entryId: uuid });
+/** Several entries confirmed at once, as Key dates' Confirm N values does. */
+export const TermConfirmAllInput = z.object({
+  ...inDeal,
+  entryIds: z.array(uuid).min(1).max(50).describe('The entries to confirm'),
+});
+export const TermConfirmAllOutput = TermDatesOut.extend({
+  dealId: uuid,
+  /** The deal, by name, for the card. */
+  dealName: z.string(),
+  /** Each one it confirmed, in words; one confirmed already isn't here. */
+  confirmed: z.array(z.object({ entryId: uuid, label: z.string(), value: z.string() })),
+});
 
 // ---------- reading ----------
 
@@ -342,7 +354,14 @@ const DealRow = z.object({
 });
 export const DealListOutput = z.object({ deals: z.array(DealRow) });
 
-export const DealGetInput = z.object(inDeal);
+export const DealGetInput = z.object({
+  ...inDeal,
+  /** Its duties: the open ones, the done ones, all of them (the deal page's default), or none. */
+  duties: z
+    .enum(['open', 'done', 'all', 'none'])
+    .default('all')
+    .describe('Its duties: open, done, all or none'),
+});
 const Duty = z.object({
   dutyId: uuid,
   key: z.string(),
@@ -1295,8 +1314,28 @@ export const HomeOut = z.object({
   addedByClient: z.object({ id: uuid, name: z.string() }).nullable(),
   addedAt: isoDateTime,
 });
-export const HomesInput = z.object({ ...inDeal, includeRemoved: z.boolean().default(false) });
-export const HomesOutput = z.object({ homes: z.array(HomeOut) });
+/** A page of a long list, for the Assistant: the screens read it whole, with neither. */
+const page = {
+  offset: z.int().min(0).max(10_000).default(0).describe('How many to skip, for the next page'),
+  limit: z
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('How many to read at once (a few at a time on a long list); left out: every one'),
+};
+export const HomesInput = z.object({
+  ...inDeal,
+  includeRemoved: z.boolean().default(false),
+  /** One home, as the Homes page opens it (`?home=`). */
+  homeId: uuid.optional().describe('One home only'),
+  ...page,
+});
+export const HomesOutput = z.object({
+  homes: z.array(HomeOut),
+  /** How many homes there are in all, before the page was cut. */
+  total: z.int(),
+});
 
 // ---------- buyer memory (round two) ----------
 
@@ -2485,6 +2524,12 @@ export const ListingPhotosArrangeInput = z.object({
 });
 export const ListingPhotoRemoveInput = z.object({ ...inDeal, photoId: uuid });
 export const ListingPhotosOutput = z.object({ dealId: uuid, photos: z.number().int() });
+export const ListingPhotosArrangeOutput = ListingPhotosOutput.extend({
+  /** The listing's deal, by name, for the card. */
+  dealName: z.string(),
+  /** What changed, a line for each photo that did ("Photo 3 (Kitchen): moved from 5"). */
+  changes: z.array(z.string()),
+});
 
 export const ListingQuestionnaireRequestInput = z.object({
   ...inDeal,
@@ -2552,6 +2597,8 @@ export const ListingOut = z.object({
   page: z.object({
     state: z.enum(['none', 'published', 'down']),
     slug: z.string().nullable(),
+    /** Its address under the business's site (`/a/<site>/realestate/<slug>`), once it has one. */
+    path: z.string().nullable(),
     publishedAt: isoDateTime.nullable(),
   }),
   /** The deal's list price now, if it has one. */
@@ -2713,6 +2760,12 @@ export const ListingCampaignOutput = z.object({
   campaignId: uuid,
   recipients: z.number().int(),
   skipped: z.number().int(),
+  /** What it made, as Campaigns shows it: the home's street, how it goes, its exact words, and who by name. */
+  street: z.string(),
+  channel: z.enum(['sms', 'email']),
+  /** An email's subject and body, or a text's words (no subject). */
+  words: z.object({ subject: z.string().nullable(), body: z.string() }),
+  audience: z.object({ tags: z.array(z.string()), stages: z.array(z.string()) }),
 });
 
 // ---------- the public page (round three, step 6) ----------
@@ -3018,6 +3071,14 @@ export const OffersCompareOutput = z.object({
   /** The figures before, newest first. */
   figureHistory: z.array(NetFiguresOut),
   rows: z.array(CompareRow),
+  /** Before any offer, the seller's net at the list price (the net sheet's "At the list price"); null after. */
+  atListPrice: z
+    .object({
+      priceCents: z.number().int(),
+      lines: z.array(NetLineOut),
+      netCents: z.number().int(),
+    })
+    .nullable(),
   shared: z.object({ comparisonId: uuid, at: isoDateTime }).nullable(),
   choices: z.array(
     z.object({
@@ -3604,6 +3665,7 @@ export const MatchDismissOutput = z.object({ matchId: uuid, changed: z.boolean()
 export const MatchesInput = z.object({
   ...inDeal,
   state: z.enum(['new', 'sent', 'dismissed']).optional(),
+  ...page,
 });
 export const MatchesOutput = z.object({
   search: z.object({
@@ -4353,6 +4415,36 @@ export const LockboxOut = z.object({
   codeSetAt: isoDateTime.nullable(),
 });
 export const LockboxOutput = z.object({ dealId: uuid, lockbox: LockboxOut });
+
+/** A lockbox without its code, for the Assistant: a code never goes through the AI, so there's no place for one. */
+export const LockboxDescribeInput = z.object({
+  ...inDeal,
+  /** The lockbox to change (realestate_lockbox_list); left out, a new one. */
+  id: uuid.optional().describe('The lockbox to change; left out, a new one'),
+  kind: z.enum(LOCKBOX_KINDS),
+  place: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .nullable()
+    .optional()
+    .describe('Where it is: "On the side gate"'),
+  serial: z.string().trim().min(1).max(60).nullable().optional(),
+});
+export const LockboxDescribeOutput = LockboxOutput.extend({
+  /** The listing's deal, by name, for the card. */
+  dealName: z.string(),
+  /** What it was, when it was there already. */
+  before: z
+    .object({
+      kind: z.enum(LOCKBOX_KINDS),
+      kindLabel: z.string(),
+      place: z.string().nullable(),
+      serial: z.string().nullable(),
+    })
+    .nullable(),
+});
 
 export const LockboxOpeningOut = z.object({
   id: uuid,

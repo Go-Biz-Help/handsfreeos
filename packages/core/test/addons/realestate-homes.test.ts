@@ -9,6 +9,7 @@ import { rows, sql } from '@hfos/db/client';
 import { workspaceMemberships } from '@hfos/db/schema';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { homesAnswer } from '../../src/addons/realestate/ai-answers';
 import { addressKey, homeFit, type FitProfile } from '../../src/addons/realestate/homes';
 import { checkedListingFacts, numbersIn } from '../../src/addons/realestate/prompts';
 import { realestateAddonServer } from '../../src/addons/realestate/server';
@@ -310,5 +311,31 @@ describe('homes', () => {
     expect(history.lines.map((l: { what: string }) => l.what)).toEqual(
       expect.arrayContaining(['buyer_profile', 'home_added', 'home_facts', 'home_status']),
     );
+  });
+
+  it('are read a few at a time, or one by its id, saying how many there are', async () => {
+    const second = (
+      await run(agent, 'realestate.home.add', {
+        dealId: deal,
+        address: '40 Oak Avenue, Austin, TX',
+      })
+    ).homeId;
+    const all = await ask(agent, 'realestate.homes', { dealId: deal });
+    expect(all).toMatchObject({ total: 2 });
+    expect(all.homes.map((h: { id: string }) => h.id)).toEqual([home, second]);
+    const first = await ask(agent, 'realestate.homes', { dealId: deal, limit: 1 });
+    expect(first.total).toBe(2);
+    expect(first.homes.map((h: { id: string }) => h.id)).toEqual([home]);
+    const next = await ask(agent, 'realestate.homes', { dealId: deal, offset: 1, limit: 1 });
+    expect(next.homes.map((h: { id: string }) => h.id)).toEqual([second]);
+    const one = await ask(agent, 'realestate.homes', { dealId: deal, homeId: second });
+    expect(one.total).toBe(1);
+    expect(one.homes.map((h: { id: string }) => h.id)).toEqual([second]);
+    // The model reads how many there are, and how many it was shown.
+    expect(homesAnswer(first, { dealId: deal, limit: 1 })).toMatchObject({ total: 2, shown: 1 });
+    // Another deal's id finds nothing here.
+    expect(
+      (await ask(agent, 'realestate.homes', { dealId: listing, homeId: second })).homes,
+    ).toEqual([]);
   });
 });

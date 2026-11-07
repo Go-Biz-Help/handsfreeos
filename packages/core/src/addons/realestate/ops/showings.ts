@@ -567,7 +567,9 @@ export const showingList = defineAddonQuery(realestateAddon, {
   scope: inWorkspace,
   ai: {
     tool: 'realestate_showings',
-    description: 'A listing’s showings and what buyers said after them.',
+    description:
+      'A listing’s showings and what buyers said after them, with the whole link buyers’ agents use to ask for a showing.',
+    keywords: ['showing request link', 'ShowingTime', 'feedback'],
   },
   async handler(ctx, input) {
     const deal = await loadDeal(ctx, input.dealId);
