@@ -34,9 +34,16 @@ import { cardFields } from './tools-addons';
 import { query } from './tools-read';
 import { ownArguments, scopeIds, staffArguments } from './tools-screen-reads';
 import { settingsCard } from './tools-settings-calendar';
-import { workflowScreenCards } from './tools-workflow';
+import { funnelScreenCards } from './tools-funnels';
+import { workflowScreenCards, type ScreenActionCard } from './tools-workflow';
 
 type Args = Record<string, unknown>;
+
+/** The commands drawn on cards of their own, as their screens say them: a workflow's dialogs, a funnel's builder. */
+const OWN_CARDS: Readonly<Record<string, ScreenActionCard>> = {
+  ...workflowScreenCards,
+  ...funnelScreenCards,
+};
 
 /** The most of an answer, in characters of JSON, the model reads whole. */
 const MOST = 16_000;
@@ -169,8 +176,9 @@ export async function prepareScreenAction(
   const tried = await rehearseCommand(db, tool.command, input, ctx.actor, meta(ctx));
   // Drawn from the answers as the command reads them, so one it would drop (a key it doesn't take) never shows.
   if (setup) return setupCard(toolCallId, tool, { ...setup, input: checked.data as Args }, tried);
-  // A command whose screen says it in a dialog of its own (Publish, Restore, Run test) is drawn the way it says it.
-  const own = workflowScreenCards[tool.command.name];
+  // A command whose screen says it in a dialog of its own (Publish, Restore, Run test, a funnel's Save) is drawn the
+  // way it says it.
+  const own = OWN_CARDS[tool.command.name];
   if (own) return own.prepare(db, ctx, args, { name: tool.name, toolCallId });
   const shown = tool.input.safeParse(args);
   // Which business it's in goes on its own line, by name, never as the id or the door it was asked through. A staff
@@ -289,7 +297,7 @@ export async function commitScreenAction(
   const done = await executeCommand(db, tool.command, setup?.input ?? given, ctx.actor, meta(ctx));
   // The command has run by now, so a look-up for its words that fails falls back to the plain answer below, never
   // to a refusal saying nothing changed.
-  const own = workflowScreenCards[tool.command.name];
+  const own = OWN_CARDS[tool.command.name];
   const said = own ? await own.done(db, ctx, args, done.output as Args).catch(() => null) : null;
   if (said) {
     return {

@@ -244,7 +244,8 @@ function nextQuestions(
   const add = list<QuestionArgs>(args['addQuestions']);
   const change = list<QuestionArgs>(args['changeQuestions']);
   const remove = list<string>(args['removeQuestionIds']);
-  if (!add?.length && !change?.length && !remove?.length) return undefined;
+  const order = list<string>(args['questionOrder']);
+  if (!add?.length && !change?.length && !remove?.length && !order?.length) return undefined;
   const missing = [...(remove ?? []), ...(change ?? []).map((c) => c.questionId ?? '')].filter(
     (id) => !current.some((q) => q.id === id),
   );
@@ -259,6 +260,7 @@ function nextQuestions(
     const base = current.find((q) => q.id === c.questionId);
     if (at >= 0 && base) out[at] = questionFrom(c, base, base.id);
   }
+  if (order?.length) out = inOrder(out, order);
   const taken = new Set(out.map((q) => q.id));
   for (const a of add ?? []) {
     let id: string;
@@ -268,6 +270,29 @@ function nextQuestions(
     out.push(questionFrom(a, null, id));
   }
   return out;
+}
+
+/**
+ * The questions it keeps, in the order given, as the Qualify section's arrows set it (tm-11). Each keeps its id, so
+ * answers already given stay with their question. The order must name every question it keeps, each once.
+ */
+function inOrder(
+  kept: QualifyingQuestionInput[],
+  order: readonly string[],
+): QualifyingQuestionInput[] {
+  const ids = kept.map((q) => q.id);
+  const unknown = order.filter((id) => !ids.includes(id));
+  if (unknown.length)
+    throw HfosError.notFound(
+      `No question with the id ${unknown.join(', ')} is kept. The ids are in get_settings with area ai_teammate.`,
+    );
+  const missing = ids.filter((id) => !order.includes(id));
+  if (missing.length || new Set(order).size !== order.length)
+    throw HfosError.validation(
+      [{ path: 'questionOrder', message: 'Name every question it keeps, each once.' }],
+      'To change the order, name every question it keeps, each once, in the order it should ask them. Questions added in the same change go after them.',
+    );
+  return order.map((id) => kept.find((q) => q.id === id)!);
 }
 
 /** Who hears, from the words the tool takes to the settings' own shape (undefined: unchanged). */
@@ -534,8 +559,13 @@ function ruleFields(a: TeammateConfig, b: TeammateConfig, catalogs: TeammateCata
     'Phone greeting changed',
   ];
   for (const line of diffTeammateConfigs(a, b, catalogs)) {
-    // Questions and the wording get lines of their own below, with what they now say.
-    if (/^(Added|Changed|Removed) the question /.test(line) || TEXT_LINES.includes(line)) continue;
+    // Questions, their order and the wording get lines of their own below, with what they now say.
+    if (
+      /^(Added|Changed|Removed) the question /.test(line) ||
+      line === 'Question order changed' ||
+      TEXT_LINES.includes(line)
+    )
+      continue;
     const colon = line.indexOf(': ');
     const arrow = line.indexOf(' → ');
     fields.push(
@@ -554,6 +584,16 @@ function ruleFields(a: TeammateConfig, b: TeammateConfig, catalogs: TeammateCata
   for (const q of a.qualify.questions)
     if (!b.qualify.questions.some((x) => x.id === q.id))
       fields.push({ label: 'Removed question', value: `“${q.question}”` });
+  // The order it asks them in, as the arrows leave it, when the ones it kept move (tm-11).
+  const kept = (c: TeammateConfig) =>
+    c.qualify.questions
+      .map((q) => q.id)
+      .filter((id) => before.has(id) && b.qualify.questions.some((q) => q.id === id));
+  if (JSON.stringify(kept(a)) !== JSON.stringify(kept(b)))
+    fields.push({
+      label: 'Order',
+      value: b.qualify.questions.map((q, i) => `${i + 1}. ${q.question}`).join(' '),
+    });
   if (a.identity.signature !== b.identity.signature)
     fields.push({ label: 'Email signature', value: b.identity.signature || 'The usual one' });
   if (a.identity.toneNote !== b.identity.toneNote)
@@ -2832,6 +2872,7 @@ export const extraConfirmTools: Record<string, SettingsConfirmTool> = {
 /** What the panel says while each one runs. */
 export const extraStepLabels: Record<string, string> = {
   update_ai_teammate_rules: 'Changing your AI teammate’s rules',
+  test_ai_teammate: 'Trying your AI teammate',
   list_automations: 'Looking at your automations',
   update_automations: 'Changing your automations',
   update_my_alerts: 'Changing your alerts',

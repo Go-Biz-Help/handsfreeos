@@ -37,6 +37,7 @@ import type { z } from 'zod';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
 import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
+import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import {
   contentAutoTools,
   contentConfirmTools,
@@ -1694,5 +1695,176 @@ describe('the AI teammate’s drafts', () => {
     expect(field(flaggedCard.card, 'From funnel')).toBe('Spring tune-up, Day 3');
     // Nothing is decided until Confirm.
     expect((await row(askId)).status).toBe('pending');
+  });
+
+  it('says when more are waiting than one page holds, and reads on from there', async () => {
+    await draft('reply', { message: { channel: 'sms', body: 'One more' }, actions: [] });
+    await draft('reply', { message: { channel: 'sms', body: 'And another' }, actions: [] });
+    const first = (await read('list_teammate_drafts', { limit: 1 })).result;
+    expect(first['drafts']).toHaveLength(1);
+    expect(first['nextCursor']).toEqual(expect.any(String));
+    expect(first['more']).toBe('More are waiting: call again with this nextCursor to read on.');
+    const next = (
+      await read('list_teammate_drafts', { limit: 1, cursor: first['nextCursor'] as string })
+    ).result;
+    const ids = (r: Record<string, unknown>) => (r['drafts'] as { id: string }[]).map((d) => d.id);
+    expect(ids(next)).toHaveLength(1);
+    expect(ids(next)[0]).not.toBe(ids(first)[0]);
+    // Read to the end, every waiting one comes once, and the last page says nothing more.
+    const seen = [...ids(first), ...ids(next)];
+    let page = next;
+    while (typeof page['nextCursor'] === 'string') {
+      page = (
+        await read('list_teammate_drafts', { limit: 20, cursor: page['nextCursor'] as string })
+      ).result;
+      seen.push(...ids(page));
+    }
+    expect(page['more']).toBeUndefined();
+    expect(new Set(seen).size).toBe(seen.length);
+    const all = ids((await read('list_teammate_drafts', { limit: 20 })).result);
+    expect([...seen].sort()).toEqual([...all].sort());
+  });
+});
+
+// ------------------------------------------------------------------------------------------------
+
+describe('funnels, as the builder says them', () => {
+  const screen = (name: string) => screenActionToolByName(name)!;
+  const prepareScreen = async (name: string, args: Record<string, unknown>) => {
+    const out = await tools().prepare(
+      screen(name),
+      screen(name).input.parse(args) as Record<string, unknown>,
+      ctx(),
+      randomUUID(),
+    );
+    expect(AssistantCard.safeParse(out.card).success, `${name} card`).toBe(true);
+    return out as { card: Confirm; result: Record<string, unknown> };
+  };
+  const commitScreen = (name: string, args: Record<string, unknown>) =>
+    tools().commit(screen(name), screen(name).input.parse(args) as Record<string, unknown>, ctx(), {
+      toolCallId: randomUUID(),
+    });
+  const readFunnel = async (funnelId: string, stageId?: string) =>
+    (
+      await tools().run(
+        allScreenReadTools().find((t) => t.name === 'read_funnel_get')!,
+        { funnelId, ...(stageId ? { stageId } : {}) },
+        ctx(),
+      )
+    ).result as { data: Record<string, unknown> & { funnel: Record<string, unknown> } };
+  const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-/;
+
+  it('makes one, saves a change, and archives it on cards that name it and say what changes', async () => {
+    const make = {
+      name: 'Spring tune-ups',
+      newPipeline: {
+        name: 'Spring',
+        stages: [
+          { name: 'New', kind: 'open' },
+          { name: 'Booked', kind: 'open' },
+          { name: 'Won', kind: 'won' },
+          { name: 'Lost', kind: 'lost' },
+        ],
+      },
+    };
+    const made = await prepareScreen('do_funnel_create', make);
+    expect(made.card.title).toBe('Make the funnel “Spring tune-ups”?');
+    expect(field(made.card, 'Pipeline')).toBe('A new one, “Spring”: New, Booked, Won, Lost');
+    expect(made.card.warnings[0]!.text).toContain('It starts as a draft');
+    const done = await commitScreen('do_funnel_create', make);
+    expect(done.outcome).toMatch(/^Made Spring tune-ups as a draft\./);
+    const funnelId = (
+      await one<{ id: string }>(
+        sql`select id from app.funnels where workspace_id = ${workspaceId} and name = 'Spring tune-ups'`,
+      )
+    ).id;
+
+    // It reads whole, with each stage in words, and one stage reads whole by its id.
+    const whole = (await readFunnel(funnelId)).data;
+    const stages = whole.funnel['stages'] as { id: string; name: string }[];
+    const idOf = (name: string) => stages.find((s) => s.name === name)!.id;
+    expect(whole['inWords']).toMatchObject({
+      stages: expect.arrayContaining([expect.objectContaining({ name: 'New', messages: [] })]),
+    });
+    const revision = whole.funnel['revision'] as number;
+    const definition = whole.funnel['definition'] as {
+      stages: { stageId: string; messages: unknown[]; moves: unknown[] }[];
+    };
+
+    // A message and a move on New: the card says them in words, never the ids it is given.
+    const changed = {
+      ...definition,
+      stages: definition.stages.map((s) =>
+        s.stageId === idOf('New')
+          ? {
+              ...s,
+              goal: 'Get them booked',
+              messages: [
+                {
+                  id: 'mfirst01',
+                  when: { kind: 'arrive', minutes: 0 },
+                  text: 'Thanks for asking about a tune-up.',
+                },
+              ],
+              moves: [
+                { id: 'vbook001', kind: 'event', event: 'appointment.booked', to: idOf('Booked') },
+              ],
+            }
+          : s,
+      ),
+    };
+    const save = { funnelId, revision, definition: changed };
+    const saving = await prepareScreen('do_funnel_save', save);
+    expect(saving.card.title).toBe('Save changes to Spring tune-ups?');
+    expect(saving.card.fields.map((f) => f.value)).toEqual([
+      'New: its goal becomes “Get them booked”',
+      'New: adds a message, Right away: “Thanks for asking about a tune-up.”',
+      'New: adds the move “They book → Booked”',
+    ]);
+    for (const f of saving.card.fields) expect(f.value).not.toMatch(UUID);
+    expect(saving.card.warnings[0]).toEqual({
+      kind: 'note',
+      text: 'It’s still a draft, so nothing goes to customers until it’s turned on.',
+    });
+    // Nothing is saved until Confirm.
+    expect((await readFunnel(funnelId)).data.funnel['revision']).toBe(revision);
+    const saved = await commitScreen('do_funnel_save', save);
+    expect(saved.outcome).toBe('Saved Spring tune-ups.');
+    const after = await readFunnel(funnelId, idOf('New'));
+    expect(after.data.funnel['revision']).toBe(revision + 1);
+    expect(after.data['stage']).toMatchObject({
+      name: 'New',
+      goal: 'Get them booked',
+      inWords: {
+        messages: ['mfirst01: Right away: “Thanks for asking about a tune-up.”'],
+        moves: ['vbook001: They book → Booked'],
+      },
+    });
+    // The same steps again change nothing, and the card says so.
+    const same = await prepareScreen('do_funnel_save', {
+      funnelId,
+      revision: revision + 1,
+      definition: changed,
+    });
+    expect(blocked(same.card)).toBe('Nothing changes: these steps are what’s saved now.');
+    expect(same.card.confirmLabel).toBe('');
+
+    // A draft isn't on, so there's nothing to pause.
+    const pause = await prepareScreen('do_funnel_pause', { funnelId });
+    expect(blocked(pause.card)).toBe(
+      'It isn’t on (it’s still a draft), so there’s nothing to pause.',
+    );
+
+    const archive = await prepareScreen('do_funnel_archive', { funnelId });
+    expect(archive.card.title).toBe('Archive Spring tune-ups?');
+    expect(caution(archive.card)).toBe(
+      'Nothing more is sent from it. Archiving it can’t be undone.',
+    );
+    const archived = await commitScreen('do_funnel_archive', { funnelId });
+    expect(archived.outcome).toBe('The funnel is archived.');
+    const status = await one<{ status: string }>(
+      sql`select status::text as status from app.funnels where id = ${funnelId}`,
+    );
+    expect(status.status).toBe('archived');
   });
 });

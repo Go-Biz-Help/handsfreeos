@@ -3132,11 +3132,27 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
   const kind = str(args['kind']);
   // Waiting ones, oldest first; or the Decided list, newest first, as Approvals → Decided shows it.
   const decided = args['status'] === 'decided';
-  const { items } = await query<{ items: Draft[] }>(db, ctx, 'ai_teammate.draft_list', {
-    status: decided ? 'decided' : 'pending',
-    limit: Number(args['limit'] ?? 10),
-    ...(kind ? { kind } : {}),
-  });
+  const cursor = str(args['cursor']);
+  const { items, nextCursor } = await query<{ items: Draft[]; nextCursor: string | null }>(
+    db,
+    ctx,
+    'ai_teammate.draft_list',
+    {
+      status: decided ? 'decided' : 'pending',
+      limit: Number(args['limit'] ?? 10),
+      ...(kind ? { kind } : {}),
+      ...(cursor ? { cursor } : {}),
+    },
+  );
+  // More than this page holds: said, with the way on, so the model never takes one page for all of them (tm-7).
+  const more = nextCursor
+    ? {
+        nextCursor,
+        more: decided
+          ? 'More were decided before these: call again with this nextCursor to read on.'
+          : 'More are waiting: call again with this nextCursor to read on.',
+      }
+    : {};
   const p = contentPaths(ctx.workspaceId);
   if (decided)
     return {
@@ -3164,6 +3180,7 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
             : {}),
         })),
         ...(items.length ? {} : { note: 'Nothing decided lately.' }),
+        ...more,
       },
       card: items.length
         ? {
@@ -3227,7 +3244,10 @@ async function listTeammateDrafts(db: Db, ctx: ToolContext, args: Args): Promise
             : { onlyOwnersAndAdminsDecide: true }
           : {}),
       })),
-      ...(items.length ? {} : { note: 'Nothing is waiting for an OK.' }),
+      ...(items.length
+        ? {}
+        : { note: cursor ? 'No more are waiting.' : 'Nothing is waiting for an OK.' }),
+      ...more,
     },
     card: items.length
       ? {

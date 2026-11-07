@@ -1,7 +1,7 @@
 {
   "area": "ai-team",
   "title": "The AI teammate: setup, instructions, approvals, review, activity, funnels, AI setup and test chat",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/ai-setup/calls.ts": "881c51c1a351",
     "apps/mobile/src/ai-setup/use-ai-setup.ts": "4bec8c37baf1",
@@ -62,12 +62,12 @@
     "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
     "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
     "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
-    "packages/core/src/assistant/coverage.ts": "babf38712a5c",
-    "packages/core/src/assistant/screen-reads.ts": "fda9ec12cf5d",
-    "packages/core/src/assistant/settings-map.ts": "036cfaa9ca4c",
-    "packages/core/src/assistant/tools-content.ts": "c156c69209eb",
-    "packages/core/src/assistant/tools-extra.ts": "e5fe009ee8f3",
-    "packages/core/src/assistant/tools.ts": "4ef464af229e"
+    "packages/core/src/assistant/coverage.ts": "ef2373dbadeb",
+    "packages/core/src/assistant/screen-reads.ts": "d068ffbd4104",
+    "packages/core/src/assistant/settings-map.ts": "df1a6f0130ad",
+    "packages/core/src/assistant/tools-content.ts": "0748b6b1605b",
+    "packages/core/src/assistant/tools-extra.ts": "b974b342c749",
+    "packages/core/src/assistant/tools.ts": "a2354862767b"
   },
   "items": [
     {
@@ -130,8 +130,8 @@
       "path": "Teammate → header → Test console button",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/header.tsx:110",
-      "covered": "no",
-      "by": "no tool runs a teammate test (see Test console rows)"
+      "covered": "yes",
+      "by": "test_ai_teammate: tries it as a customer by text, email or the website chat; nothing is sent"
     },
     {
       "path": "Teammate → header → History button",
@@ -347,8 +347,8 @@
       "path": "Rail → issue → fix link to another screen",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/rail.tsx:345",
-      "covered": "partly",
-      "by": "sees the link path; does the fix with that screen’s tool"
+      "covered": "yes",
+      "by": "get_settings ai_teammate: each link fix says the screen it opens (opens), never a path; that screen’s tool does it"
     },
     {
       "path": "Rail → issue → “Done: …” → Undo",
@@ -683,8 +683,8 @@
       "path": "Book → calendar → Say what it’s for → Save / Cancel",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/modules.tsx:743",
-      "covered": "partly",
-      "by": "manage_calendar description, max 500 against 2000 on the screen"
+      "covered": "yes",
+      "by": "manage_calendar description: up to 2,000 characters, as the screen allows; null clears it"
     },
     {
       "path": "Book → reschedules",
@@ -998,8 +998,8 @@
       "path": "Qualify → question → move up / down",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/qualify-module.tsx:248",
-      "covered": "partly",
-      "by": "no reorder; remove and re-add puts it last"
+      "covered": "yes",
+      "by": "update_ai_teammate_rules questionOrder: every question it keeps, in the new order, ids kept; the card shows Order"
     },
     {
       "path": "Qualify → question → remove",
@@ -1124,43 +1124,43 @@
       "path": "Test console → header, explanation, Close",
       "kind": "see",
       "file": "apps/web/src/components/ai-team/test-console.tsx:820",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate: its answer says who it tried as, how and when, and that nothing was sent"
     },
     {
       "path": "Test console → Test as (customer)",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:840",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate personId (someone in Contacts), or left out for a stranger"
     },
     {
       "path": "Test console → By channel: Text / Chat / Email / Phone",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:853",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "partly",
+      "by": "test_ai_teammate channel sms, email or chat; a test call stays in the console, where it is live"
     },
     {
       "path": "Test console → At: Now / Pick a time",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:866",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate at: a time to pretend it is"
     },
     {
       "path": "Test console → Start over",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:893",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate: one customer message starts a new test; going on passes the conversation so far"
     },
     {
       "path": "Test console → call: Incoming / Outgoing, why, goal",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:908",
       "covered": "no",
-      "by": "no test tool"
+      "by": "a test call stays in the console, where it is live; test_ai_teammate tries the written channels"
     },
     {
       "path": "Test console → call → Live over the phone line / this browser",
@@ -1194,15 +1194,15 @@
       "path": "Test console → test chat not ready on this server",
       "kind": "see",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1040",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate refuses with the console’s own words when the AI isn’t set up"
     },
     {
       "path": "Test console → bubbles and tags: Draft, Handed to a person, Hung up, Talked over, Would have…",
       "kind": "see",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1092",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "partly",
+      "by": "test_ai_teammate: outcome (replied, waits for an OK, handed to a person, no reply) and wouldDo; a call’s tags stay in the console"
     },
     {
       "path": "Test console → Call live",
@@ -1216,14 +1216,14 @@
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1200",
       "covered": "no",
-      "by": "no test tool"
+      "by": "a test call stays in the console; test_ai_teammate tries the written channels"
     },
     {
       "path": "Test console → call ended → Call again",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1229",
       "covered": "no",
-      "by": "no test tool"
+      "by": "a test call stays in the console; test_ai_teammate tries the written channels"
     },
     {
       "path": "Test console → live call bar: status, timer, Mute, Hang up",
@@ -1236,50 +1236,50 @@
       "path": "Test console → sample chips",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1274",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate messages: any words, the sample chips’ among them"
     },
     {
       "path": "Test console → message box → Send / Say it",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1287",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate messages, ending with the customer’s new message"
     },
     {
       "path": "Test console → What {name} did: per turn, look-ups, timings, where the time went, log rows",
       "kind": "see",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1325",
-      "covered": "no",
-      "by": "test runs aren’t read by any tool"
+      "covered": "partly",
+      "by": "test_ai_teammate: lookedUp, usedKnowledge, notes, wouldDo and safetyCheck per turn; not the timings"
     },
     {
       "path": "Test console → Chat/Call vs What {name} did switch (narrow)",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1057",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate answers with the reply and what it did together"
     },
     {
       "path": "Test console → reply → thumbs / better reply / lesson",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/reply-feedback.tsx:113",
-      "covered": "no",
-      "by": "test run ids never reach the Assistant"
+      "covered": "yes",
+      "by": "test_ai_teammate returns the runId, which do_ai_teammate_give_feedback takes"
     },
     {
       "path": "Test console → Retry with the fix",
       "kind": "do",
       "file": "apps/web/src/components/ai-team/reply-feedback.tsx:175",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate retryWithFix: the reply, what it should have said, and why"
     },
     {
       "path": "Test console → footer note",
       "kind": "see",
       "file": "apps/web/src/components/ai-team/test-console.tsx:1377",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate note: nothing sent, booked or changed; it counts toward its share of the AI limit"
     },
     {
       "path": "Instructions → explanation",
@@ -1593,8 +1593,8 @@
       "path": "Approvals → Decided lately tab with count",
       "kind": "see",
       "file": "apps/web/src/components/workflows/approvals/approvals-board.tsx:170",
-      "covered": "partly",
-      "by": "list_teammate_drafts status decided, newest first (up to 20; no paging yet, tm-7)"
+      "covered": "yes",
+      "by": "list_teammate_drafts status decided, newest first, with nextCursor to read on (tm-7)"
     },
     {
       "path": "Approvals → training note",
@@ -2090,8 +2090,8 @@
       "path": "Funnel builder → map: stage boxes, won/lost, people, goal, messages, arrows with causes",
       "kind": "see",
       "file": "apps/web/src/components/funnels/funnel-map.tsx:30",
-      "covered": "partly",
-      "by": "read_funnel_get definition and counts; not the drawn map"
+      "covered": "yes",
+      "by": "read_funnel_get: each stage with its people, and inWords: who gets in, each stage’s messages and moves with their causes and where they go"
     },
     {
       "path": "Funnel builder → map → click a box to change it",
@@ -2356,36 +2356,36 @@
       "path": "Quick setup → try → Ask these questions",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:209",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate, one question at a time"
     },
     {
       "path": "Quick setup → try → each question: reply, outcome badge, error",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:425",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate: the reply and the outcome in words, or the refusal"
     },
     {
       "path": "Quick setup → try → report: gaps / knows it all",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:239",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "partly",
+      "by": "test_ai_teammate per question; the report’s summary of gaps isn’t composed"
     },
     {
       "path": "Quick setup → try → Add the answer → save to Knowledge and ask again",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:444",
-      "covered": "partly",
-      "by": "add_knowledge_item saves it; asking again has no tool"
+      "covered": "yes",
+      "by": "add_knowledge_item saves the answer; test_ai_teammate asks again"
     },
     {
       "path": "Quick setup → try → ask your own question → Ask",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:253",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate messages: the person’s own question"
     },
     {
       "path": "Quick setup → try → texting tip",
@@ -2454,15 +2454,15 @@
       "path": "Phone → test console → Change who, how and when",
       "kind": "do",
       "file": "apps/mobile/src/components/ai-team/test-console.tsx:177",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate personId, channel and at"
     },
     {
       "path": "Phone → test console → Start over, Chat/Call vs What {name} did",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx:52",
-      "covered": "no",
-      "by": "no test tool"
+      "covered": "yes",
+      "by": "test_ai_teammate: a new test is one customer message, and its answer holds the reply and what it did"
     },
     {
       "path": "Phone → test console → voice picker → Use this voice",
@@ -2486,8 +2486,8 @@
       "kind": "words",
       "where": "AI teammate (web): the tabs Teammate · Instructions · Funnels · Review · Activity · Approvals. The Teammate tab's left-hand list sits in three groups: Basics (Identity, Channels, Hours), What it does (Respond, Answer, Qualify, Book, Follow up, Add-ons) and Rules and safety (Hand-off, Autonomy, Limits). Run quick setup again sits under the list.",
       "gap": "The AI teammate screen has six tabs: Teammate, Instructions, Funnels, Review, Activity and Approvals. Its sections sit in three groups (Basics; What it does, which includes Add-ons; Rules and safety), with Run quick setup again under them. The settings map's ai_teammate entry says 'Tabs: Teammate, Activity, Approvals'. TEAMMATE_SECTIONS lists 11 sections in an old flat order, with no groups and no Add-ons section. Nothing in settings-map.ts, places-map.ts, prompt.ts or context.ts mentions funnels, the Instructions or Review tabs, or Run quick setup again. prompt.ts:38 tells the model never to name a place or tab that isn't listed. So for 'where do I build a funnel / teach it a rule / see what it learned?' the Assistant either says it isn't sure or gives the wrong tab list, even though the do_funnel_*, do_teammate_instruction_*, do_teammate_lesson_* and read_ai_teammate_review / read_teammate_instruction_list / read_funnel_* tools exist.",
-      "fix": "In packages/core/src/assistant/settings-map.ts:\n- Change onScreen[0] (line 859) to 'Tabs: Teammate, Instructions, Funnels, Review, Activity, Approvals'.\n- Rebuild TEAMMATE_SECTIONS (line 106) from apps/web/src/lib/ai-team/describe.ts MODULE_GROUPS: 'Basics: Identity, Channels, Hours; What it does: Respond, Answer, Qualify, Book, Follow up, Add-ons (when an add-on offers it); Rules and safety: Hand-off, Autonomy, Limits'. Then add 'Under them: Run quick setup again'.\n- Add canChange lines for its instructions, its funnels, and applying or dismissing what Review suggests.\n- Add howTo lines: 'Teach it a rule: AI teammate → Instructions'; 'Build a funnel: AI teammate → Funnels, New funnel; Turn on, Pause or Archive on the funnel'; 'See what it sent on its own and what it learned: AI teammate → Review, Apply or Dismiss'; 'Run quick setup again: AI teammate, under the sections'.\n- In places-map.ts, add the funnel line on a customer's page (Pause or Resume, Remove, Yes or No on a suggestion).",
-      "status": "open",
+      "fix": "Fixed: the settings map has the six tabs (Teammate, Instructions, Funnels, Review, Activity, Approvals) and each one’s lines; its sections in their three groups with Add-ons and Run quick setup again; can-change and how-to lines for instructions, funnels, Review’s rules, the test, the question order and quick setup. A customer’s page says their funnel line.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2506,8 +2506,8 @@
       "kind": "do",
       "where": "AI teammate → Funnels, a funnel's builder: the Stages, Messages, Wording and Who steps, then Save (or Save and close).",
       "gap": "Changing a funnel through do_funnel_save means sending the revision and the whole FunnelDefinition. That is how the screen's save works too, so re-sending every stage is not a gap by itself. The real part: read_funnel_get answers through runScreenRead, which cuts any answer over 16,000 characters of JSON into a string with cutShort. funnel.get takes only funnelId, so there is no way to ask for less. Its answer holds the whole definition (up to 12 stages, each with a 1,000-character 'knows' and up to 8 messages of 1,000 characters) plus counts, issues and the business's forms and calendars. So for a medium-to-large funnel, the Assistant can't see the whole definition, and can't safely change one message or stage without dropping the rest. Small funnels work.",
-      "fix": "Add a worker tool, change_funnel (confirm, ai_team.manage), in a new section of apps/worker/src/assistant/tools-content.ts:\n- It takes funnelId plus one targeted change: rename, a stage's goal or knows, add/change/remove one message by id, add/remove a move, an entry rule, or byHand/aiSuggests.\n- It reads funnel.get itself for the current definition and revision, applies the change, and runs funnel.save.\n- Its card names the funnel and the stage or message that changes.\n\nOr give funnel.get an optional stageId (FunnelGetInput, packages/core/src/schemas/funnel.ts:212) that returns only that stage's definition, so a stage always reads whole.",
-      "status": "open",
+      "fix": "Fixed: read_funnel_get answers with the funnel whole while it fits, with inWords saying who gets in and each stage’s messages and moves; a funnel too long for that comes as an outline, each message cut short (the longest, 12 stages of 8 messages and 6 moves, as a shorter one that still names every stage), and a stageId (a screen read’s own `more` input, left off the query) reads one stage whole, the longest too (apps/worker/src/assistant/tools-funnels.ts funnelRead).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2516,8 +2516,8 @@
       "kind": "do",
       "where": "Run quick setup again (web: under the teammate's sections; phone: More → Set up your AI teammate). On the last step, Turn on adds the website chat to the business's simple booking page.",
       "gap": "Quick setup on the screen sends pageOrigin, the booking page's branded or public origin. Then a business with no website of its own gets its website chat on its simple page. do_ai_setup_finish (and do_onboarding_setup_finish) expose pageOrigin as an optional model argument, but the model has no source for it: read_ai_setup_get returns no origin, and nothing in the prompt names one. Without it the command skips the chat and only pushes a note, which the confirmed path then throws away (tm-5). The worker already knows how to work out this origin elsewhere. This lowers severity: it hits only businesses with a page and no website, and the chat can be added later.",
-      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts inputOf (line 44), for tool.command.name 'ai_setup.finish' and 'onboarding_setup.finish', fill pageOrigin when it isn't given. Work it out the way apps/worker/src/assistant/tools-forms.ts:382-388 does: query branded_domain.get, use https://<domain> when it is verified and certificateReady, else extra.webUrl. That matches apps/web/src/lib/ai-setup/load.ts brandedOriginFor. Also drop pageOrigin from the model's view of those two tools.",
-      "status": "open",
+      "fix": "Fixed: do_ai_setup_finish and do_onboarding_setup_finish fill pageOrigin themselves (coverage.ts `filled`, setup-screens.ts), the business’s branded origin when it serves, and the model no longer sees it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2526,8 +2526,8 @@
       "kind": "read",
       "where": "Quick setup's last screen (what was made and its notes; Add it to your website with the chat code to copy). A funnel's Turn on with 'Also add the N leads'. Archive, and a lesson's Apply on Review.",
       "gap": "After Confirm, commitScreenAction runs the command and returns only {outcome:'Done'}. routes.ts stores only outcome, href and command, so the command's output never reaches the model. The risk-0 path keeps it through answerOf. Lost in the confirmed path:\n- quick setup's changes and notes (what was made, and what couldn't be finished and how to fix it);\n- funnel.turn_on's `adding` count;\n- funnel.archive's `left` count;\n- any other screen command's answer.\n\nNot a gap: handing over the new chat's code to paste on their website. prompt.ts:34 lists 'the chat snippet on their website' as a settings_help handover by design.",
-      "fix": "Give CommittedAction (apps/worker/src/assistant/runtime.ts:129) an optional `data` field. Have commitScreenAction (tools-screen-actions.ts:124-132) return `{ outcome: 'Done', href: null, command, ...answerOf(done.output) }`. In routes.ts confirm (line 351-359), store `result: { outcome, href, command, data }` so the model reads it on its next turn. For ai_setup.finish, also turn `notes` into the outcome words, so the panel shows them.",
-      "status": "open",
+      "fix": "Fixed: a confirmed screen action keeps the command’s answer for the model (committed.ts keptAnswer), and quick setup’s notes become the card’s words (setup-screens.ts setupOutcome); funnel.turn_on’s adding and funnel.archive’s left are said on their cards.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2536,8 +2536,8 @@
       "kind": "words",
       "where": "The Assistant's 'Do this?' card for saving or creating a funnel, for quick setup's finish, and for other screen commands with nested input.",
       "gap": "Every do_* screen action draws its 'Do this?' card with cardFields/valueOf: one line per input key, labelled from the key.\n- An object becomes clipped JSON, and an array of objects becomes 'N items'.\n- uuids and revisions show as they are.\n\nSo do_funnel_save shows 'Funnel id: <uuid>', 'Revision: 4', 'Definition: {\"description\":…' clipped at 300 characters, and 'Move from: {…}'. do_funnel_create shows 'Draft: {…}', and do_ai_setup_finish shows 'Answers: {…}' and 'Base revision'. The person can't see which stages or messages change, and the card shows ids, which the house rules forbid.",
-      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts prepareScreenAction (line 90), add per-command card builders for funnel.save, funnel.create, funnel.turn_on/pause/archive and ai_setup.finish/onboarding_setup.finish:\n- Name the funnel (from funnel.get) and list the stages and messages added, changed or removed against the saved definition.\n- Name the 'move people from' stages.\n- For quick setup, list the answers in words.\n\nIn cardFields (apps/worker/src/assistant/tools-addons.ts:146-160), skip keys that end in Id/Ids and revision/baseRevision instead of printing them, and keep valueOf only for flat values.",
-      "status": "open",
+      "fix": "Fixed: do_funnel_create, do_funnel_save, do_funnel_turn_on, do_funnel_pause and do_funnel_archive are drawn on cards of their own (tools-funnels.ts funnelScreenCards): the funnel by name, what a save changes stage by stage in the builder’s words, who moves from a stage taken out, and a caution on what reaches customers, never ids. Quick setup’s cards were already in words (setup-screens.ts).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2546,8 +2546,8 @@
       "kind": "read",
       "where": "AI teammate → Approvals: every waiting draft (the page loads up to 100) and the Decided view of drafts decided lately.",
       "gap": "The Approvals tab loads up to 100 waiting drafts and the last 30 decided ones. list_teammate_drafts always asks for status 'pending', at most 20, with no cursor, no nextCursor and no 'more are waiting' note. ai_teammate.draft_list is not a screen read, and no other Assistant tool reads decided drafts (who decided, edits, reason, decidedAt). So 'what did Ava send yesterday that Sam approved?' and 'why was that one rejected?' can't be answered. With more than 20 waiting, the Assistant believes it saw them all. The query already supports status 'decided'/'all' and a cursor.",
-      "fix": "In packages/core/src/assistant/tools-content.ts:347-352, add `status: z.enum(['pending','decided']).optional()` and `cursor: z.string().max(400).optional()` to list_teammate_drafts.\n\nIn apps/worker/src/assistant/tools-content.ts listTeammateDrafts (2648-2700):\n- Pass status and cursor through, and return nextCursor with a note 'More are waiting: ask for the next page' when it is set.\n- For decided drafts, add decidedBy, decidedAt, status (approved/rejected/expired), reason and whether it was edited (edits). Add those fields to the Draft interface.",
-      "status": "open",
+      "fix": "Fixed: list_teammate_drafts takes a cursor and says when more are waiting (or were decided) than the page holds, with nextCursor to read on; status decided reads the Decided list with who decided, when, edits and why.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2556,8 +2556,8 @@
       "kind": "do",
       "where": "AI teammate → Test console (Test as a customer; By text, chat, email or phone; At now or a picked time; Start over). Also quick setup's test questions, and the phone's More → Test your AI teammate.",
       "gap": "No Assistant tool can put a test question to the teammate and report its reply and the actions it would take. The test console (web, quick setup's try step, and the phone) runs through the worker's POST /v1/ai-team/test with ai_team.manage. Test runs send nothing to customers, and the Activity screen marks them isTest. The settings map only hands it back to the person ('Try it as a customer: AI teammate, Test console'). Nothing in NEVER_FOR_THE_ASSISTANT or SETTINGS_NEVER says why not. One thing to note: a test does use the business's AI share (the route returns 429 at the limit).",
-      "fix": "Add a worker tool, test_ai_teammate: autonomy auto, permission ai_team.manage, spec in packages/core/src/assistant/tools-extra.ts.\n- Inputs: messages (the customer's words, up to TEST_MESSAGES_MAX turns), channel ('sms'|'email'|'chat'; leave out 'phone', which is a live call), optional at (ISO time), optional personId.\n- It calls prepareTest/runTest from apps/worker/src/ai-team/console.ts with config null (the saved settings), collects the ConsoleEvent stream, and returns the reply text, the tools it would call with their summaries, and any hand-off.\n- Its description says it sends nothing and counts toward the AI limit.\n\nThen change settings-map.ts:894's howTo to 'Try it as a customer: AI teammate, Test console (or ask me to try a question)'.",
-      "status": "open",
+      "fix": "Fixed: test_ai_teammate (ai_team.manage, runs on its own) tries the teammate as a customer through the console’s own prepareTest and runTest with the saved settings, by text, email or the website chat, as someone in Contacts or a stranger, now or at a time picked, with retryWithFix; it answers with the reply, the outcome, what it looked up and would do, the safety check and the runId. Nothing is sent; the run is marked a test and counts toward the AI limit. A phone call stays in the console.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2566,8 +2566,8 @@
       "kind": "words",
       "where": "Phone app, More: Set up your AI teammate (when there's no teammate yet), Test your AI teammate, Run quick setup again. A customer's page: the funnel card with Pause or Resume, Remove, and Yes or No on a suggestion.",
       "gap": "Two things the phone does that the Assistant doesn't know about:\n- The phone's More shows 'Set up your AI teammate' (when there's none yet) and 'Run quick setup again', beside 'Test your AI teammate'. PHONE_APP's More line lists only Test your AI teammate. The web-only line says 'the AI teammate’s settings' are only on the web, and prompt.ts:38 adds that 'the business is set up on the web'. So the Assistant sends a phone user to the web to set the teammate up or rerun quick setup, which the phone does itself.\n- A customer's page on the phone shows their funnel card (Pause or Resume, Remove, Yes or No on a suggestion). Nothing in places-map mentions it.",
-      "fix": "In packages/core/src/assistant/places-map.ts:\n- Line 625: make it 'More: Contacts, Tasks, Money, Forms, Approvals, Set up your AI teammate (before there is one), Test your AI teammate, Run quick setup again, Settings, Ideas, Get help, and Open on the web'.\n- Line 627: change 'the AI teammate’s settings' to 'the AI teammate’s full settings, its instructions and funnels (quick setup and its test are on the phone too)'.\n- Add a PHONE_APP line: 'A customer: their funnel, with Pause or Resume and Remove, or the AI teammate’s suggestion with Yes or No'.",
-      "status": "open",
+      "fix": "Fixed: PHONE_APP has a customer’s funnel line, and the web-only line says the phone has the teammate’s quick setup, its test and a customer’s funnel line; the prompt says the phone runs quick setup and the test too.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2576,8 +2576,8 @@
       "kind": "do",
       "where": "AI teammate → Qualify: the up and down arrows on each question, which set the order it asks them in.",
       "gap": "Qualify's questions have up and down arrows that set the order. update_ai_teammate_rules can add (always at the end), change or remove questions, but can't move one. 'Ask about budget first' can only be done by removing and re-adding questions, which gives them new ids. Rewriting their contents in place with changeQuestions keeps the ids but swaps what each id means.",
-      "fix": "Add `questionOrder: z.array(questionId).max(20).optional().describe('Every question id, in the order it asks them')` to update_ai_teammate_rules (packages/core/src/assistant/tools-extra.ts, the Qualify block near line 157). In apps/worker/src/assistant/tools-extra.ts nextQuestions (line 218), sort `out` by that order after the changes. Refuse it unless it names each current question once. On the card, show 'Order: 1. … 2. …'.",
-      "status": "open",
+      "fix": "Fixed: update_ai_teammate_rules takes questionOrder (every question it keeps, each once; added ones go after), keeps the ids, refuses an order that leaves one out or names one twice, and the card shows Order: 1. … 2. ….",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2586,8 +2586,8 @@
       "kind": "do",
       "where": "AI teammate → Book: 'What <calendar> is for' under each calendar (up to 2,000 characters, and it can be emptied).",
       "gap": "The Book section's 'What <calendar> is for' saves the calendar's description through calendar.save. It allows up to 2,000 characters, and an empty box saves null. manage_calendar's description is text(500): trimmed, at least 1 and at most 500 characters. The worker passes it only through str(). So the Assistant can't write a purpose over 500 characters, and can't clear one. calendar.save is not a screen action either.",
-      "fix": "In packages/core/src/assistant/tools.ts:379, make manage_calendar's description `z.string().trim().max(2000).nullable().optional().describe('What the calendar is for, which the AI teammate reads; null clears it')`. In apps/worker/src/assistant/tools-settings-calendar.ts:338-342, pass `description: args['description'] === null ? null : str(args['description'])`, and make `defined()` keep null.",
-      "status": "open",
+      "fix": "Fixed: manage_calendar’s description takes up to 2,000 characters, as Book’s box does, and null clears it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2596,8 +2596,8 @@
       "kind": "words",
       "where": "AI teammate → Qualify (its switch) and Limits.",
       "gap": "Two tool descriptions disagree about who owns Qualify and Limits.\n- manage_ai_teammate's description says it changes 'what it may do (respond, answer questions, qualify, book, follow up) and its limits'. It has no qualify or limits inputs.\n- update_ai_teammate_rules' description holds the Qualify switch (qualifies) and every limit. Yet it says 'its skills on or off are manage_ai_teammate'.\n\nSo the model can pick the wrong tool for 'turn off qualifying' or 'cap replies a day', or tell the person it can't.",
-      "fix": "In packages/core/src/assistant/tools.ts:1020, change '(respond, answer questions, qualify, book, follow up) and its limits' to '(respond, answer questions, book, follow up); the Qualify skill, its questions and its limits are update_ai_teammate_rules'. In packages/core/src/assistant/tools-extra.ts:103, change 'its skills on or off are manage_ai_teammate' to 'its other skills on or off (all but Qualify) are manage_ai_teammate'.",
-      "status": "open",
+      "fix": "Fixed: manage_ai_teammate says the Qualify skill, its questions and its limits are update_ai_teammate_rules, and update_ai_teammate_rules says its other skills (all but Qualify) are manage_ai_teammate.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2606,8 +2606,8 @@
       "kind": "read",
       "where": "Teammate tab, the rail's list of things to check: each issue's Fix button (Set up texting, Add an email address, Create a calendar, Add answers…).",
       "gap": "get_settings area ai_teammate returns ai_teammate.get unshaped, so each issue's link fix carries a workspace-relative href ('settings/texting', 'knowledge/items/new', 'settings/calendars/<id>'). It has no screen name and no full path. This is mitigated: each fix has a label ('Set up texting'), each target has a full way in places/settings-map, and prompt.ts:38 tells the model to give the whole way ('Settings → Texting') rather than paths. The remaining risk is the model quoting the bare relative path as a link.",
-      "fix": "In apps/worker/src/assistant/tools-settings.ts:205, give the ai_teammate query a `shape` that maps each issue's link fix to `{ label, where: 'Settings → Texting' (from settingsWhere for the matching area), href: '/app/w/<workspaceId>/<href>' }`. Use the TEAMMATE_LINKS keys (packages/core/src/ai-team/rules.ts:67-77) to pick the area.",
-      "status": "open",
+      "fix": "Fixed: get_settings area ai_teammate shapes each link fix to say the screen it opens (Settings → Texting & calls) in place of the bare path.",
+      "status": "fixed",
       "pr": null
     }
   ]
