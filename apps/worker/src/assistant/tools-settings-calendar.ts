@@ -22,6 +22,7 @@ import {
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { Geocoder } from '../geo/geocoder';
+import type { WorkerServices } from '../services';
 import type { CommittedAction, PreparedAction, ToolContext } from './runtime';
 import { publicOriginFor } from './full-links';
 import { command, query } from './tools-read';
@@ -35,6 +36,8 @@ export interface SettingsDeps {
   readonly geocoder?: Geocoder | null;
   /** The web app's address, which a public page's whole link starts with when the business has no domain of its own. */
   readonly webUrl?: string;
+  /** The worker's services, for what reads its file store or asks its AI (Place fields for me on a template). */
+  readonly services?: WorkerServices | null;
 }
 
 export interface SettingsConfirmTool {

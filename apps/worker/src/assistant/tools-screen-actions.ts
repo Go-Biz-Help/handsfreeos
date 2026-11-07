@@ -35,6 +35,7 @@ import { query } from './tools-read';
 import { ownArguments, scopeIds, staffArguments } from './tools-screen-reads';
 import { settingsCard } from './tools-settings-calendar';
 import { funnelScreenCards } from './tools-funnels';
+import { documentScreenCards } from './tools-documents';
 import { workflowScreenCards, type ScreenActionCard } from './tools-workflow';
 
 type Args = Record<string, unknown>;
@@ -43,6 +44,8 @@ type Args = Record<string, unknown>;
 const OWN_CARDS: Readonly<Record<string, ScreenActionCard>> = {
   ...workflowScreenCards,
   ...funnelScreenCards,
+  // Sending, voiding and reminding a document, naming it and who gets it.
+  ...documentScreenCards,
 };
 
 /** The most of an answer, in characters of JSON, the model reads whole. */

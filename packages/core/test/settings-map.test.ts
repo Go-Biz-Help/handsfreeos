@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import {
   APP_PLACES,
   CUSTOMER_PAGES,
+  DOCUMENT_SCREEN_WORDS,
   EVERY_PAGE,
   IDEAS_WORDS,
   NOT_ANYWHERE,
@@ -54,6 +55,8 @@ const MENUS: Readonly<Record<string, ReadonlySet<string>>> = {
   Money: new Set(Object.values(MONEY_TAB_LABELS)),
   Contacts: labelsIn('components/crm/customers-list.tsx'),
   Ideas: new Set(Object.values(IDEAS_WORDS.tabs)),
+  // Its tabs are core's words (documents-home.tsx draws them from DOCUMENT_SCREEN_WORDS), so no label: '…' names them.
+  Documents: new Set([DOCUMENT_SCREEN_WORDS.sent, DOCUMENT_SCREEN_WORDS.templates]),
 };
 
 /** Every step of the way is in the menu it is reached from. */

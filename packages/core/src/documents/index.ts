@@ -5,3 +5,4 @@ export * from './words';
 export * from './place';
 export * from './read';
 export * from './edit';
+export * from './change';

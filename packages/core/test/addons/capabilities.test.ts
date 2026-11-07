@@ -29,6 +29,7 @@ const OWNER_CORE = [
   'workflows.manage',
   'reviews.manage',
   'forms.manage',
+  'documents.send',
   'assistant.use',
   'ai_team.manage',
   'knowledge.manage',

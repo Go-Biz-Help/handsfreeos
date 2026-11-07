@@ -16,9 +16,11 @@
  */
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto';
 import {
+  AssistantCard,
   assistantToolByName,
   documentRemind,
   documentSend,
+  documentTemplateArchive,
   documentTemplateBeginUpload,
   documentTemplateCreate,
   documentTemplateSave,
@@ -30,6 +32,7 @@ import {
   portalAccessGive,
   portalCheckCode,
   portalSendCode,
+  screenReadName,
   type DocumentDefinitionInput,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
@@ -38,6 +41,8 @@ import { degrees, PDFDocument, StandardFonts } from 'pdf-lib';
 import { extractText, getDocumentProxy } from 'unpdf';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
+import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
+import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import { createToolExecutor } from '../src/assistant/tools-write';
 import { documentsSweep } from '../src/documents/jobs';
 import { resolveSignerToken, signerToken } from '../src/documents/links';
@@ -241,20 +246,19 @@ const sweepCtx = (): JobContext =>
     now: Date.now(),
   }) as JobContext;
 
-beforeAll(async () => {
-  w = await makeWorld('docs');
-  await readyTexting(w);
+/** A template of the lease, with its PDF, its signers, fields and word change. */
+async function lease(name: string): Promise<string> {
   const made = (await run(w, documentTemplateCreate, {
     workspaceId: w.workspaceId,
-    name: 'Lease',
+    name,
   })) as {
     templateId: string;
   };
-  templateId = made.templateId;
+  const id = made.templateId;
   const pdf = await leasePdf();
   const begun = (await run(w, documentTemplateBeginUpload, {
     workspaceId: w.workspaceId,
-    templateId,
+    templateId: id,
     name: 'Lease.pdf',
     mimeType: 'application/pdf',
     sizeBytes: pdf.byteLength,
@@ -263,7 +267,7 @@ beforeAll(async () => {
   await run(w, fileConfirm, { workspaceId: w.workspaceId, fileId: begun.fileId });
   const set = (await run(w, documentTemplateSetSource, {
     workspaceId: w.workspaceId,
-    templateId,
+    templateId: id,
     fileId: begun.fileId,
     pages: [
       { width: 612, height: 792 },
@@ -273,10 +277,17 @@ beforeAll(async () => {
   })) as { revision: number };
   await run(w, documentTemplateSave, {
     workspaceId: w.workspaceId,
-    templateId,
+    templateId: id,
     definition: definition(),
     baseRevision: set.revision,
   });
+  return id;
+}
+
+beforeAll(async () => {
+  w = await makeWorld('docs');
+  await readyTexting(w);
+  templateId = await lease('Lease');
 }, 120_000);
 
 afterAll(async () => {
@@ -733,5 +744,289 @@ describe('in person, and from the portal', () => {
         { kind: 'opened', channel: 'portal' },
       ]),
     );
+  });
+});
+
+describe('the Assistant', () => {
+  type Confirm = Extract<AssistantCard, { type: 'confirm' }>;
+  const ctx = (): ToolContext => ({
+    actor: { type: 'human', userId: w.owner.id, email: w.owner.email, claims: w.owner.claims },
+    workspaceId: w.workspaceId,
+    organizationId: w.organizationId,
+    correlationId: randomUUID(),
+    timezone: 'America/Chicago',
+  });
+  // As the runtime runs them: with the worker's services, for its file store.
+  const tools = () =>
+    createToolExecutor(testDbs().worker.db, null, null, '', undefined, { services: w.s });
+  /** A screen's own command, or one of the Assistant's own tools. */
+  const tool = (name: string) => screenActionToolByName(name) ?? assistantToolByName.get(name)!;
+  /** The arguments as the runtime hands them over: checked against the tool's input, defaults filled. */
+  const argsOf = (name: string, args: Record<string, unknown>) =>
+    tool(name).input.parse(args) as Record<string, unknown>;
+  const prepare = async (name: string, args: Record<string, unknown>) => {
+    const out = await tools().prepare(tool(name), argsOf(name, args), ctx(), randomUUID());
+    expect(AssistantCard.safeParse(out.card).success, `${name} card`).toBe(true);
+    return out as { card: Confirm; result: Record<string, unknown> };
+  };
+  const commit = (name: string, args: Record<string, unknown>) =>
+    tools().commit(tool(name), argsOf(name, args), ctx(), { toolCallId: randomUUID() });
+  const read = async (query: string, args: Record<string, unknown>) =>
+    (
+      (
+        await tools().run(
+          allScreenReadTools().find((t) => t.name === screenReadName(query))!,
+          args,
+          ctx(),
+        )
+      ).result as { data: Record<string, unknown> }
+    ).data;
+  const savedTemplate = async (id: string) => {
+    const [t] = await rows<{
+      revision: number;
+      definition: {
+        fields: { id: string; required: boolean; label: string }[];
+        edits: { id: string }[];
+        settings: { askCode: boolean };
+      };
+    }>(admin(), sql`select revision, definition from app.document_templates where id = ${id}`);
+    return t!;
+  };
+
+  it('changes a template a piece at a time, on a card that says each change', async () => {
+    const id = await lease('Lease to change');
+    const before = await savedTemplate(id);
+    const ask = {
+      templateId: id,
+      settings: { askCode: true },
+      fields: [{ id: 'f_pets', required: true, label: 'Pets' }],
+    };
+    const card = await prepare('change_document_template', ask);
+    expect(card.card).toMatchObject({
+      title: 'Change “Lease to change”?',
+      confirmLabel: 'Save the template',
+      fields: [
+        { label: 'Change', value: 'Ask for a code: on' },
+        {
+          label: 'Then',
+          value: 'Checkbox on page 2: What it asks for: “Pets”; Has to be filled in: yes',
+        },
+      ],
+    });
+    expect(card.card.warnings).toContainEqual({
+      kind: 'note',
+      text: 'Documents already sent aren’t touched.',
+    });
+    // Nothing changes until Confirm.
+    expect((await savedTemplate(id)).revision).toBe(before.revision);
+
+    expect(await commit('change_document_template', ask)).toMatchObject({
+      outcome: 'Saved “Lease to change”. Documents already sent aren’t touched.',
+      href: `/app/w/${w.workspaceId}/documents/templates/${id}`,
+      command: 'document_template.save',
+    });
+    const after = await savedTemplate(id);
+    expect(after.revision).toBe(before.revision + 1);
+    expect(after.definition.settings).toMatchObject({ askCode: true });
+    // Every other field, and the word change, are still there.
+    expect(after.definition.fields.map((f) => f.id)).toEqual(
+      before.definition.fields.map((f) => f.id),
+    );
+    expect(after.definition.edits.map((e) => e.id)).toEqual(['e_rent']);
+    expect(after.definition.fields.find((f) => f.id === 'f_pets')).toMatchObject({
+      required: true,
+      label: 'Pets',
+    });
+
+    // What changes nothing, or isn't on it, is said before any card.
+    await expect(
+      prepare('change_document_template', {
+        templateId: id,
+        fields: [{ id: 'f_pets', required: true }],
+      }),
+    ).rejects.toThrow('leaves “Lease to change” as it is');
+    await expect(
+      prepare('change_document_template', {
+        templateId: id,
+        fields: [{ id: 'f_gone', required: true }],
+      }),
+    ).rejects.toThrow('no field f_gone');
+    await run(w, documentTemplateArchive, { workspaceId: w.workspaceId, templateId: id });
+    await expect(prepare('change_document_template', ask)).rejects.toMatchObject({
+      rule: 'document_template_archived',
+    });
+  });
+
+  it('sends, reminds and voids on cards that name the document and who gets it', async () => {
+    const dee = await customer('Dee');
+    const sendArgs = {
+      templateId,
+      about: { personId: dee.id },
+      signers: [
+        { roleKey: 'customer', personId: dee.id },
+        { roleKey: 'us', userId: w.owner.id },
+      ],
+    };
+    const sending = await prepare('do_document_send', sendArgs);
+    expect(sending.card).toMatchObject({ title: 'Send “Lease” to sign?', confirmLabel: 'Send it' });
+    expect(sending.card.fields).toContainEqual({
+      label: 'Customer',
+      value: 'Dee Renter, link by email and text',
+    });
+    expect(sending.card.fields).toContainEqual({
+      label: 'Us',
+      value: expect.stringContaining(', link by email'),
+    });
+    expect(sending.card.fields).toContainEqual({
+      label: 'Who signs when',
+      value: 'One after another',
+    });
+    expect(sending.card.warnings[0]).toMatchObject({ kind: 'caution' });
+    // Named, never by its id.
+    expect(JSON.stringify(sending.card)).not.toContain(templateId);
+    // Their own words take the template's place whole, so one of the template's left out is said.
+    const without = await prepare('do_document_send', { ...sendArgs, edits: [] });
+    expect(without.card.fields).toContainEqual({
+      label: 'Their own words',
+      value:
+        '1 of the template’s changes to the words is left out for them, so the PDF’s own words show there. The template stays as it is.',
+    });
+
+    const sent = await commit('do_document_send', sendArgs);
+    const documentId = (sent.answer as { documentId: string }).documentId;
+    expect(sent).toMatchObject({
+      outcome: 'Sent. Each signer gets their own link. “Lease” is under Documents → Sent.',
+      href: `/app/w/${w.workspaceId}/documents/${documentId}`,
+      command: 'document.send',
+    });
+    await drain(w);
+
+    // A reminder waits an hour after a link went; then it's whoever's turn it is, by email and text.
+    await backdate(
+      sql`update app.document_signers set last_sent_at = now() - interval '2 hours' where document_id = ${documentId}`,
+    );
+    const reminding = await prepare('do_document_remind', { documentId });
+    expect(reminding.card).toMatchObject({
+      title: 'Remind them to sign “Lease”?',
+      confirmLabel: 'Remind',
+      fields: [{ label: 'Customer', value: 'Dee Renter, their link by email and text again' }],
+    });
+    expect(await commit('do_document_remind', { documentId })).toMatchObject({
+      outcome: 'Reminder on its way.',
+      href: `/app/w/${w.workspaceId}/documents/${documentId}`,
+    });
+
+    const reason = 'The start date was wrong. A corrected copy is on its way.';
+    const voiding = await prepare('do_document_void', { documentId, reason });
+    expect(voiding.card).toMatchObject({ title: 'Void “Lease”?', confirmLabel: 'Void it' });
+    expect(voiding.card.fields).toContainEqual({ label: 'Told it’s voided', value: 'Dee Renter' });
+    expect(voiding.card.fields).toContainEqual({ label: 'Why (they see this)', value: reason });
+    expect(voiding.card.warnings[0]!.text).toContain('Its links stop working');
+    expect(await commit('do_document_void', { documentId, reason })).toMatchObject({
+      outcome: 'Voided. Its links don’t open it anymore, and the signers are told.',
+    });
+    expect((await docRow(documentId)).status).toBe('voided');
+  });
+
+  it('reads a document, a template and the Send screen in the screens’ words', async () => {
+    const eve = await customer('Eve');
+    const { documentId } = await send(eve.id);
+    await drain(w);
+    const doc = await read('document.get', { documentId });
+    expect(doc).toMatchObject({
+      name: 'Lease',
+      state: 'Out for signing',
+      'Who signs when': 'One after another',
+    });
+    // The state comes first, so a long document keeps it when the rest is cut.
+    expect(Object.keys(doc).slice(0, 4)).toEqual(['id', 'name', 'state', 'note']);
+    // The note says its day in the business's zone, never a raw time stamp.
+    expect(doc['note']).toMatch(/^Out of time /);
+    expect(doc['note']).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+    const signers = doc['Who signs'] as { state: string; theirTurn: boolean }[];
+    expect(signers.map((s) => [s.state, s.theirTurn])).toEqual([
+      ['Sent', true],
+      ['Not their turn yet', false],
+    ]);
+    expect((doc['What happened'] as { what: string }[]).map((s) => s.what)).toContain(
+      'Prepared and sent',
+    );
+
+    const list = (await read('document.list', { personId: eve.id })) as {
+      documents: { state: string }[];
+    };
+    expect(list.documents[0]).toMatchObject({ state: 'Out for signing' });
+
+    const template = await read('document_template.get', { templateId });
+    expect(template['Before it can go out']).toBe('Nothing. It’s ready to send.');
+    expect(template['Who signs']).toEqual([
+      { key: 'customer', label: 'Customer', kind: 'A customer', fields: 4 },
+      { key: 'us', label: 'Us', kind: 'Someone on your team', fields: 1 },
+    ]);
+    // One page of it, whole.
+    const second = (await read('document_template.get', { templateId, page: 1 })) as {
+      fields: { id: string }[];
+    };
+    expect(second.fields.map((f) => f.id).sort()).toEqual(['f_date', 'f_ours', 'f_pets', 'f_sign']);
+
+    const prefill = await read('document.prefill', { templateId, about: { personId: eve.id } });
+    expect(prefill['Before it can go out']).toBe('Nothing. It’s ready to send.');
+    expect(prefill['signers']).toContainEqual(
+      expect.objectContaining({ roleKey: 'customer', personId: eve.id, role: 'Customer' }),
+    );
+    expect((prefill['The PDF’s words'] as { id: string }[]).map((e) => e.id)).toEqual(['e_rent']);
+  });
+
+  it('reads a signed document without its signature pictures, and opens its PDFs for the person', async () => {
+    // The one signed start to finish at the top of this file.
+    const [signed] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.documents where workspace_id = ${w.workspaceId} and status = 'completed' limit 1`,
+    );
+    const documentId = signed!.id;
+    const doc = await read('document.get', { documentId });
+    expect(doc['state']).toBe('Signed');
+    expect(JSON.stringify(doc)).not.toContain('data:image');
+    expect(doc['filledIn']).toContainEqual(
+      expect.objectContaining({
+        field: 'Signature',
+        value: expect.stringContaining('signature of'),
+      }),
+    );
+    const opened = await tools().run(
+      tool('get_document_file'),
+      argsOf('get_document_file', { documentId }),
+      ctx(),
+    );
+    expect(opened.result).toMatchObject({
+      for: 'The signed copy of “Lease”',
+      link: expect.stringMatching(/^https?:\/\//),
+      note: expect.stringContaining('only to the person asking'),
+    });
+
+    // Out for signing, there's no signed copy yet, but the original opens.
+    const fay = await customer('Fay');
+    const out = await send(fay.id);
+    await expect(
+      tools().run(
+        tool('get_document_file'),
+        { documentId: out.documentId, which: 'signed' },
+        ctx(),
+      ),
+    ).rejects.toMatchObject({ rule: 'document_not_signed' });
+    const original = await tools().run(
+      tool('get_document_file'),
+      { documentId: out.documentId, which: 'original' },
+      ctx(),
+    );
+    expect(original.result).toMatchObject({ for: 'The original of “Lease”', file: 'Lease.pdf' });
+    // Without the worker's file store, it says where to open it instead.
+    await expect(
+      createToolExecutor(testDbs().worker.db).run(
+        tool('get_document_file'),
+        { documentId: out.documentId, which: 'original' },
+        ctx(),
+      ),
+    ).rejects.toMatchObject({ rule: 'documents_unavailable' });
   });
 });

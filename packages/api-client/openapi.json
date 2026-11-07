@@ -56271,7 +56271,7 @@
     "/v1/commands/document.void": {
       "post": {
         "operationId": "command_document_void",
-        "summary": "Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told. Send a corrected one after.",
+        "summary": "Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told, with the reason. Send a corrected one after.",
         "tags": [
           "commands"
         ],
@@ -56294,6 +56294,7 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "reason": {
+                    "description": "Why, in a sentence the signers read in the notice they’re sent, like “The start date was wrong. A corrected copy is on its way.”",
                     "type": "string",
                     "maxLength": 500
                   }
@@ -178158,7 +178159,7 @@
     "/v1/queries/document.list": {
       "post": {
         "operationId": "query_document_list",
-        "summary": "Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out, signed, declined, voided, out of time), with who signs each and how far they’ve got.",
+        "summary": "Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out: Out for signing; completed: Signed; declined; voided; expired: Out of time), with who signs each and how far they’ve got.",
         "tags": [
           "queries"
         ],
