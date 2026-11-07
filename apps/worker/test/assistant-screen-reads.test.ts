@@ -288,11 +288,13 @@ describe('what the Assistant can see', () => {
     expect(contacts.entries[0]).not.toHaveProperty('actor');
     expect(contacts.entries.every((e) => e['kind'] === 'Contacts')).toBe(true);
     expect(contacts.nextCursor).toEqual(expect.any(String));
-    // Filter by person → a person, and → HandsFreeOS: only what each did.
-    const sam = (await read('audit.list', { actorType: 'human', limit: 50 })).result.data as Page;
+    // Filter by person → a person, and → HandsFreeOS: only what each did (pages short enough to read whole).
+    const sam = (await read('audit.list', { actorType: 'human', limit: 20 })).result.data as Page;
+    expect(sam.entries).toHaveLength(20);
     expect(sam.entries.every((e) => e['who'] === 'Sam Owner')).toBe(true);
-    const system = (await read('audit.list', { actorType: 'system', limit: 50 })).result
+    const system = (await read('audit.list', { actorType: 'system', limit: 10 })).result
       .data as Page;
+    expect(system.entries).toEqual(expect.any(Array));
     expect(system.entries.every((e) => String(e['who']).startsWith('HandsFreeOS'))).toBe(true);
 
     // A page too long to read whole still says where the next one starts.

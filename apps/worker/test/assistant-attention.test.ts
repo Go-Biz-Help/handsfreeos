@@ -4,6 +4,7 @@ import {
   ALWAYS_OPEN_HOURS,
   assistantToolByName,
   attentionList,
+  attentionRecordAuto,
   attentionSaveSettings,
   createTokenVerifier,
   executeCommand,
@@ -512,6 +513,17 @@ describe('the Assistant on the Action Center', () => {
 
   it('reads Home whole: what each item is about, its button and the tool behind it, a page at a time, with what HandsFreeOS did and is about to send', async () => {
     const tools = createToolExecutor(worker());
+    // Kevin's follow-up, asked for above, armed as the worker arms it once the request reaches it (nothing here runs
+    // the worker's queue): it waits out the cancel window before it goes.
+    const kevinItem = (await itemOf(kevinLead, 'stale_opportunity')).id;
+    await sys(attentionRecordAuto, {
+      workspaceId: ws,
+      itemId: kevinItem,
+      action: 'nudge',
+      outcome: 'scheduled',
+      scheduledFor: new Date(Date.now() + 50 * 60_000).toISOString(),
+      requestedBy: owner.id,
+    });
     const home = await list(owner, { scope: 'everyone', includeHandled: true });
     const read = async (args: Record<string, unknown>) =>
       (
@@ -551,7 +563,6 @@ describe('the Assistant on the Action Center', () => {
         how: 'You asked HandsFreeOS',
       }),
     );
-    const kevinItem = (await itemOf(kevinLead, 'stale_opportunity')).id;
     expect(first['comingUp']).toContainEqual(
       expect.objectContaining({ itemId: kevinItem, sends: 'follow-up' }),
     );
