@@ -27,6 +27,11 @@ export interface AppPlace {
   readonly notHere?: readonly string[];
   /** The screen, under /app/w/<workspaceId> (under /app/org/<orgId> for the agency area). */
   readonly path: string;
+  /**
+   * What an id in its address's query holds, by the query's key, when the key alone doesn't say and means that only
+   * here (an add-on's Settings opening a teammate's at `?for=<their user id>`: `{ for: 'user' }`).
+   */
+  readonly queryIds?: Readonly<Record<string, string>>;
 }
 
 export const APP_PLACES: readonly AppPlace[] = [
@@ -824,15 +829,18 @@ const trail = (where: readonly string[]) => where.join(' → ');
 export const placeWay = (p: AppPlace): string =>
   p.where.length ? (p.then ? `${trail(p.where)}, then ${p.then}` : trail(p.where)) : (p.then ?? '');
 
+/** One place as the prompt says it: "- Money is at Money: …. On it: …. How to: …". */
+export function placeLine(p: AppPlace): string {
+  const how = p.howTo.length ? ` How to: ${p.howTo.join('; ')}.` : '';
+  const can = p.canChange?.length ? ` You can: ${p.canChange.join('; ')}.` : '';
+  const not = p.notHere?.length ? ` Not in HandsFreeOS: ${p.notHere.join('; ')}.` : '';
+  return `- ${p.label} is at ${placeWay(p)}: ${p.what}. On it: ${p.onScreen.join('; ')}.${how}${can}${not}`;
+}
+
 /** The places, the page around them, the phone and what customers see, for the fixed part of the prompt. */
 export function placesText(): string {
   return [
-    ...APP_PLACES.map((p) => {
-      const how = p.howTo.length ? ` How to: ${p.howTo.join('; ')}.` : '';
-      const can = p.canChange?.length ? ` You can: ${p.canChange.join('; ')}.` : '';
-      const not = p.notHere?.length ? ` Not in HandsFreeOS: ${p.notHere.join('; ')}.` : '';
-      return `- ${p.label} is at ${placeWay(p)}: ${p.what}. On it: ${p.onScreen.join('; ')}.${how}${can}${not}`;
-    }),
+    ...APP_PLACES.map(placeLine),
     'On every page:',
     ...EVERY_PAGE.map((l) => `- ${l}.`),
     `Not anywhere in HandsFreeOS: ${NOT_ANYWHERE.join('; ')}.`,

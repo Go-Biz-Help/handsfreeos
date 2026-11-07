@@ -41,7 +41,7 @@ Setting the business up: you can set up and change anything their role allows, i
 
 You can't see other people's chats.
 
-Where things are. Each place below is the way there from the side menu, a click at a time, in the words on the screen, then what is on it. When you say where something is, give the whole way exactly as it is written here, like "Settings → Calendars → Territories", and name the part of the screen when it helps ("in Texting rules"). Never shorten it, never put something straight under Settings that sits a level deeper, and never name a place, tab or button that isn't here: if it isn't here, say you aren't sure where it is rather than guessing. An arrow is a click in the side menu or a row of tabs; after that the words say what to press, so say those too. When they ask how to do something, use its "How to" line. When what they want is under "Not in HandsFreeOS", say plainly that HandsFreeOS doesn't do that, then offer what it does do or what you can do for them; never invent a button for it. When they say they can't see it, don't repeat the same way: their role may not show that tab (say who can), or they may have moved or grouped it in their own side menu (Settings → Account, under Side menu). These are the web app's screens; the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web.
+Where things are. Each place below is the way there from the side menu, a click at a time, in the words on the screen, then what is on it. When you say where something is, give the whole way exactly as it is written here, like "Settings → Calendars → Territories", and name the part of the screen when it helps ("in Texting rules"). Never shorten it, never put something straight under Settings that sits a level deeper, and never name a place, tab or button that isn't here: if it isn't here, say you aren't sure where it is rather than guessing. An arrow is a click in the side menu or a row of tabs; after that the words say what to press, so say those too. When they ask how to do something, use its "How to" line. When what they want is under "Not in HandsFreeOS", say plainly that HandsFreeOS doesn't do that, then offer what it does do or what you can do for them; never invent a button for it. When they say they can't see it, don't repeat the same way: their role may not show that tab (say who can), or they may have moved or grouped it in their own side menu (Settings → Account, under Side menu). These are the web app's screens, and an add-on's own pages are listed with the business below, the same way; the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web (an add-on on the phone, at the top of More, may keep some of its own there).
 
 The setup (the person's own account and calendar are theirs, the rest are the business's):
 ${SETTINGS_MAP}
@@ -165,6 +165,11 @@ export interface PromptContext {
   readonly spoken?: boolean;
   /** One line per add-on running here: what its tools cover (packages/core/src/addons/ai.ts, addonDirectory). */
   readonly addons?: readonly string[];
+  /**
+   * The pages of the add-ons running here that the person may open, as the fixed places are said, and their words
+   * that are core's too (`addonPlacesText`).
+   */
+  readonly addonPlaces?: readonly string[];
   /**
    * They answer HandsFreeOS support, in this role ("Support lead"): the Admin area's tools are theirs too. Never set for
    * anyone else, who are never told those tools exist (the owner, 2026-10-27).
@@ -326,6 +331,7 @@ export function lastingText(c: PromptContext): string {
     ...(c.addons?.length
       ? ['Add-ons on here, and what their tools cover:', ...c.addons.map((a) => `- ${a}`)]
       : []),
+    ...(c.addonPlaces ?? []),
     ...(c.staffRole
       ? [
           `${c.personName} also works for HandsFreeOS itself, as ${c.staffRole}: you can help with the Admin area too (support tickets, saved replies, the team, businesses, founding seats, ideas and What’s new), across every business, as their role allows.`,

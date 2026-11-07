@@ -291,6 +291,73 @@ describe('playbooks', () => {
       ['q4', 'Is it doing what you need?'],
     ]);
   });
+
+  it('start from a ready-made one, change a part at a time, and read one alone, as the Assistant does', async () => {
+    const home = PLAYBOOK_TEMPLATES.home_services;
+    // Started from the template with nothing else: it is that template's playbook.
+    const started = await runAs(owner, ws, 'outreach.playbook.save', {
+      name: 'Gutters',
+      template: 'home_services',
+    });
+    expect(started).toMatchObject({ template: 'home_services' });
+    expect(started.details).toMatchObject({ goal: home.details.goal, offer: home.details.offer });
+
+    // One part changes; every other part stays as it was.
+    const changed = await runAs(owner, ws, 'outreach.playbook.save', {
+      playbookId: started.id,
+      name: 'Gutters',
+      changes: { offer: 'A free gutter check' },
+    });
+    expect(changed.details).toMatchObject({
+      offer: 'A free gutter check',
+      goal: started.details.goal,
+      link: started.details.link,
+      questions: started.details.questions,
+      tags: started.details.tags,
+    });
+    // A part that doesn't fit the rest is refused, and nothing changes.
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.playbook.save', {
+          playbookId: started.id,
+          name: 'Gutters',
+          changes: {
+            questions: [
+              {
+                id: 'q1',
+                text: 'Do you clean your own gutters?',
+                answers: [{ label: 'Yes', tag: 'Not one of its tags', next: 'continue' }],
+              },
+            ],
+          },
+        }),
+      ),
+    ).toBe('validation');
+    // Saying neither the playbook nor its changes is refused too.
+    expect(
+      await refused(
+        runAs(owner, ws, 'outreach.playbook.save', { playbookId: started.id, name: 'Gutters' }),
+      ),
+    ).toBe('validation');
+
+    // One alone, those in use, the archived, and where a new one can start.
+    const one = await runAs(member, ws, 'outreach.playbook.list', { playbookId: started.id });
+    expect(one.playbooks.map((p: { id: string }) => p.id)).toEqual([started.id]);
+    expect(one.playbooks[0].details.offer).toBe('A free gutter check');
+    const inUse = await runAs(member, ws, 'outreach.playbook.list', { archived: false });
+    const archived = await runAs(member, ws, 'outreach.playbook.list', { archived: true });
+    expect(inUse.playbooks.every((p: { archivedAt: string | null }) => !p.archivedAt)).toBe(true);
+    expect(archived.playbooks.length).toBeGreaterThan(0);
+    expect(archived.playbooks.every((p: { archivedAt: string | null }) => p.archivedAt)).toBe(true);
+    expect(one.templates.map((t: { key: string }) => t.key)).toEqual(
+      Object.keys(PLAYBOOK_TEMPLATES),
+    );
+    expect(one.templates[0]).toEqual({
+      key: 'crm_demos',
+      name: PLAYBOOK_TEMPLATES.crm_demos.name,
+      summary: PLAYBOOK_TEMPLATES.crm_demos.summary,
+    });
+  });
 });
 
 describe('a playbook’s niche, problem, proof and something useful (data version 3)', () => {

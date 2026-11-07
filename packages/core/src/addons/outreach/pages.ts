@@ -57,3 +57,10 @@ export const OUTREACH_PAGE_PATHS: Readonly<Record<OutreachPage, string>> = {
   playbooks: 'playbooks',
   gear: 'settings',
 };
+
+/**
+ * The way to one of its pages, or a part of one, a click at a time from the side menu, as a refusal says it:
+ * `outreachWay('find', 'Groups')` is "Social Outreach → Find people → Groups".
+ */
+export const outreachWay = (page: OutreachPage, ...parts: readonly string[]): string =>
+  ['Social Outreach', OUTREACH_PAGES[page], ...parts].join(' → ');

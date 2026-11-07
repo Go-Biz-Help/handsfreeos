@@ -37,7 +37,7 @@ export const moreSettingsTools: readonly AssistantTool[] = [
   define({
     name: 'update_addon_settings',
     description:
-      'Change an add-on’s own settings for the business, the ones on its settings page, and its switches. Read what is set now with read_addon_settings first, and pass only the settings that change, by the names it shows; everything else stays as it is. A setting that is a list, a set of days or a group of switches is passed whole, as it should end up. Ids are people’s (get_settings, area team) or calendars’ (area calendars). The add-on’s own permission decides who may.',
+      'Change an add-on’s own settings for the business, the ones on its settings page, and its switches. Read what is set now with read_addon_settings first, and pass only the settings that change, by the names it shows; everything else stays as it is. A setting that is a list or a set of days is passed whole, as it should end up; in a group of settings (an object, deeper down too), pass only the parts that change: the rest of the group stays as it is, and null takes a part out (a daily limit back to none). Ids are people’s (get_settings, area team) or calendars’ (area calendars). The add-on’s own permission decides who may.',
     input: z.object({
       addonId: z.string().trim().min(2).max(16),
       settings: z

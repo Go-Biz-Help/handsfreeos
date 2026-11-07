@@ -41,6 +41,8 @@ import {
   type HelpfulState,
 } from '../helpful';
 import { outreachAddon } from '../manifest';
+import { outreachWay } from '../pages';
+import { OUTREACH_WORDS } from '../words';
 import { engagements, helpful } from '../tables';
 import { automationOf } from './automation';
 import { inWorkspace, keptProfile, notOthers, once, type Ctx } from './common';
@@ -269,7 +271,7 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
         throw HfosError.rule(
           'outreach_helpful_not_in_group',
           409,
-          'You’re not in that group, so a post can’t go there. Join it on Facebook, then press Save my groups on the Groups tab.',
+          `You’re not in that group, so a post can’t go there. Join it on Facebook, then press Save my groups in ${outreachWay('find', OUTREACH_WORDS.findParts.groups)}.`,
         );
       const named = input.groupId ? candidates[0] : undefined;
       if (named?.posted_lately)
@@ -303,8 +305,8 @@ export const helpfulAsk = defineAddonCommand(outreachAddon, {
           ours.length
             ? 'You posted in each of your groups that fit this week. The next helpful post comes when a week has passed in one of them.'
             : candidates.length
-              ? 'Each of your groups that fits is worked by a teammate. Ask an owner of this business to move one to you on its page in Social Outreach → Groups, or join another that fits.'
-              : 'You’re not in a group that fits yet. Press Check my groups on the Groups tab, or join one that fits.',
+              ? `Each of your groups that fits is worked by a teammate. Ask an owner of this business to move one to you on its page in ${outreachWay('find', OUTREACH_WORDS.findParts.groups)}, or join another that fits.`
+              : `You’re not in a group that fits yet. Press Check my groups in ${outreachWay('find', OUTREACH_WORDS.findParts.groups)}, or join one that fits.`,
         );
       const { settings } = await automationOf(ctx, me, now);
       const [row] = await ctx.tx

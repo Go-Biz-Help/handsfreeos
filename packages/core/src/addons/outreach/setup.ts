@@ -27,6 +27,7 @@ import { SENDING_MODE_KEYS, type SendingMode } from './automation';
 import { GROUP_VERDICT_KEYS } from './groups';
 import { PLATFORM_KEYS, PLATFORMS, type Platform } from './networks';
 import type { ReadyItem, ReadyState } from './readiness';
+import { LibraryVideo } from './video-library';
 
 // ------------------------------------------------------------------------------------------------- the steps
 
@@ -640,6 +641,14 @@ export const SetupOutput = z.object({
   noVideo: z.boolean(),
   /** The videos in the business's video library (decision 154), the playbooks' until it's first saved. */
   videos: z.number().int().min(0),
+  /**
+   * The library itself, as Settings → Videos shows it, for owners and admins (whose page that is): the playbooks'
+   * short videos until it's first saved (`fromPlaybooks`). Null for anyone else; left out by servers from before it.
+   */
+  library: z
+    .object({ videos: z.array(LibraryVideo), fromPlaybooks: z.boolean() })
+    .nullable()
+    .optional(),
   /**
    * Groups this person is in, saved from their Facebook, and the business's groups in all; with the ones they're in
    * that the extension saw last (up to `SETUP_GROUPS_SHOWN`), each scored against the playbooks.

@@ -69,6 +69,27 @@ export interface OperationAi {
   readonly autonomy?: 'auto' | 'confirm' | 'never';
   /** Extra words tool search should match on. */
   readonly keywords?: readonly string[];
+  /**
+   * The What line on the card that waits for the person's OK, in the screen's words ("Mark them as a client"), from
+   * the input it was given, when the description says more for the model than the person needs. Left out: the
+   * description's first sentence, without the argument names it gives in brackets.
+   */
+  readonly what?: string | ((input: unknown) => string | null);
+  /**
+   * What the model reads of the answer, when it should differ from what the screens get: a link the screens build
+   * written out whole, the short facts ahead of the long lists. It only reshapes the answer the kernel gave the person,
+   * so it never shows more than they may see. `input` is the operation's own, the business's ids on it.
+   */
+  readonly answer?: (output: unknown, input: unknown) => unknown;
+  /**
+   * The words a confirmed change's card ends with, from its answer and the input it ran with, as its screens' toast
+   * says them ("Ann Lee is in Contacts now."), and a page of the business's to open, under its address
+   * (`customers/people/<id>`). Null, or left out: "Done in <add-on>".
+   */
+  readonly outcome?: (
+    output: unknown,
+    input: unknown,
+  ) => { readonly words: string; readonly path?: string | null } | null;
 }
 
 /**

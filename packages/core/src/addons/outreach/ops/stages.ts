@@ -9,6 +9,7 @@ import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { chatLinksAnswer } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import { NETWORKS, type Platform } from '../networks';
 import {
@@ -283,7 +284,7 @@ export async function stagesOf(
 export const stageMark = defineAddonCommand(outreachAddon, {
   name: 'outreach.stage.mark',
   description:
-    'Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.',
+    'Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Send the link), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.',
   risk: 0,
   input: StageMarkInput,
   output: StageMarkOutput,
@@ -363,6 +364,7 @@ export const stagesList = defineAddonQuery(outreachAddon, {
   ai: {
     tool: 'outreach_pipeline',
     keywords: ['pipeline', 'stages', 'pitched', 'warming up', 'booked', 'clients', 'not a fit'],
+    answer: chatLinksAnswer,
   },
   scope: inWorkspace,
   async handler(ctx, input) {

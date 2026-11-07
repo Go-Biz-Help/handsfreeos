@@ -746,7 +746,7 @@ async function noteOpener(ctx: Ctx, me: string, row: Row, opener: DraftOpener) {
 export const sendDone = defineAddonCommand(outreachAddon, {
   name: 'outreach.send.done',
   description:
-    'The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.',
+    'The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Needs you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.',
   risk: 0,
   input: SendDoneInput,
   output: SendDoneOutput,
@@ -930,7 +930,7 @@ export const sendRetry = defineAddonCommand(outreachAddon, {
       .limit(SENDS_MOST);
     if (input.needIds && !open.length)
       throw HfosError.notFound(
-        'That isn’t waiting for you any more: it was done, let go or tried again. Refresh Waiting for you.',
+        'That isn’t waiting for you any more: it was done, let go or tried again. Refresh Needs you.',
       );
     return sendsAgain(ctx, me, open, at);
   },

@@ -61,7 +61,11 @@ import {
   type AskVia,
 } from '../asks';
 import { isOffline, networkOffWords } from '../live';
+import { contactOutcome, SAME_NAME_FIRST } from '../ai-answers';
 import { outreachAddon } from '../manifest';
+import { outreachWay } from '../pages';
+import { PEOPLE_VIEWS } from '../people-views';
+import { OUTREACH_WORDS } from '../words';
 import { NETWORKS, PLATFORM_KEYS, PLATFORMS, type Platform } from '../networks';
 import { dayNumber, postSearchWords } from '../posts';
 import { EVERY_PART_SINCE } from '../profile-parts';
@@ -202,7 +206,7 @@ async function taskOf(
       const found = await groupsForAsk(ctx, sql`g.id = any (${`{${ids.join(',')}}`}::uuid[])`);
       if (found.length < ids.length)
         throw HfosError.notFound(
-          'That group isn’t saved in Social Outreach any more. Refresh the Groups tab.',
+          `That group isn’t saved in Social Outreach any more. Refresh ${outreachWay('find', OUTREACH_WORDS.findParts.groups)}.`,
         );
       const groups = ids.map((id) => groupOf(found.find((g) => g.id === id)!));
       return {
@@ -250,7 +254,7 @@ async function taskOf(
       const found = await groupsForAsk(ctx, sql`g.id = any (${`{${ids.join(',')}}`}::uuid[])`);
       if (found.length < ids.length)
         throw HfosError.notFound(
-          'That group isn’t saved in Social Outreach any more. Refresh the Groups tab.',
+          `That group isn’t saved in Social Outreach any more. Refresh ${outreachWay('find', OUTREACH_WORDS.findParts.groups)}.`,
         );
       return {
         task: { kind: 'join', groupIds: ids },
@@ -302,7 +306,7 @@ async function taskOf(
           who.off
             ? `${who.name} is on Never contact, so they’re never checked. Turn off Never contact on their row in Social Outreach → People → Friends first if they could be a customer.`
             : who.partner
-              ? `${who.name} is on your Partners list, so they’re asked to partner and never checked as a customer. Mark them Not a partner in Social Outreach → Partners first if they could be a customer.`
+              ? `${who.name} is on your Partners list, so they’re asked to partner and never checked as a customer. Mark them Not a partner in ${outreachWay('people', PEOPLE_VIEWS.partners)} first if they could be a customer.`
               : `${who.name} is on Don’t pitch or tagged Friend or family, so they’re never checked. Turn off Don’t pitch on their row first if they could be a customer.`,
         );
       if (who.verdict === 'good' || who.verdict === 'maybe' || who.verdict === 'not')
@@ -363,7 +367,7 @@ async function taskOf(
 export const askMake = defineAddonCommand(outreachAddon, {
   name: 'outreach.ask.make',
   description:
-    'The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.',
+    'The person asks their computer, from HandsFreeOS, to do something only the browser extension can, on one of the networks they work (Facebook, LinkedIn, Instagram or Alignable; platform says which, Facebook when left out): get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.',
   risk: 1,
   input: AskMakeInput,
   output: AskMakeOutput,
@@ -997,7 +1001,13 @@ export const profileContact = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_add_to_contacts',
     autonomy: 'confirm',
+    what: (input) =>
+      (input as ProfileContactInput).personId
+        ? 'Tie them to the customer picked in Contacts'
+        : 'Add them to Contacts as a customer',
+    description: `Add to Contacts: someone the person reached, kept as a profile, becomes a customer in Contacts with their network as the source, or is tied to the customer the person says they are (personId). ${SAME_NAME_FIRST}`,
     keywords: ['add to contacts', 'make a customer'],
+    outcome: contactOutcome,
   },
   scope: inWorkspace,
   emits: ['outreach.profile.saved'],

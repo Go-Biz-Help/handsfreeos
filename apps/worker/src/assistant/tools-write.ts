@@ -52,7 +52,7 @@ import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-settings-calendar';
 import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-forms';
-import { onPublicOrigin, publicOriginFor, withWholeLinks } from './full-links';
+import { onPublicOrigin, publicOriginFor, withAppFiles, withWholeLinks } from './full-links';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
@@ -1742,8 +1742,9 @@ export function createToolExecutor(
   // A customer's own link is minted with the worker's link key, as Copy link mints it.
   const moneyLinks = addonActions?.services.moneyLinks ?? null;
   // A public page's path in what a tool found goes to the model as a whole link, never a path it must finish.
-  const linked = (ctx: ToolContext) => (value: unknown) =>
-    withWholeLinks(value, () => publicOriginFor(db, ctx, webUrl));
+  // A file the web app hands out (the extension's zip) goes whole on the web app's own address.
+  const linked = (ctx: ToolContext) => async (value: unknown) =>
+    withAppFiles(await withWholeLinks(value, () => publicOriginFor(db, ctx, webUrl)), webUrl);
   // An add-on is given a link to one of the business's public pages on the business's own address, whatever host the
   // model put in front of the path (a listing's page in a campaign, a booking page in a playbook).
   const addressed = (args: Args, ctx: ToolContext) =>

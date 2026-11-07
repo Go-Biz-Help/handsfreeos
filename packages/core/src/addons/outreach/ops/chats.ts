@@ -37,6 +37,7 @@ import {
 } from '../chat-collect';
 import { REPLY_FRESH_MS } from '../alerts';
 import { nameKey, type DownloadMessage } from '../download';
+import { chatLinksAnswer } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, type Platform } from '../playbooks';
 import { fileChats, profiles, sends } from '../tables';
@@ -201,13 +202,16 @@ const VIEW_WHERE: Record<ChatView, ReturnType<typeof sql>> = {
 export const chatsList = defineAddonQuery(outreachAddon, {
   name: 'outreach.chats',
   description:
-    'The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.',
+    'The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first, 50 a page (fewer with pageSize).',
   input: ChatsInput,
   output: ChatsOutput,
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_chats',
-    keywords: ['messenger chats', 'likely prospects', 'chat tags'],
+    description:
+      'The person’s own chats brought in from their download files or read as they opened them (People → Chats), on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step, and each chat’s link to open it on its network (chatUrl, as its Open in Messenger or Open in LinkedIn messaging opens it): the likely prospects, the tagged, all read, or the ones not read yet. The latest first, 50 a page; a smaller pageSize reads a long page in parts.',
+    keywords: ['messenger chats', 'likely prospects', 'chat tags', 'open chat'],
+    answer: chatLinksAnswer,
   },
   scope: inWorkspace,
   async handler(ctx, input) {
@@ -244,7 +248,8 @@ export const chatsList = defineAddonQuery(outreachAddon, {
       sql`select count(*)::int as total from addon_outreach.file_chats c where ${shown}`,
     );
     const total = counted?.total ?? 0;
-    const pages = Math.max(1, Math.ceil(total / CHATS_PAGE));
+    const size = input.pageSize ?? CHATS_PAGE;
+    const pages = Math.max(1, Math.ceil(total / size));
     const page = Math.min(input.page, pages);
     const listed = await rows<{
       id: string;
@@ -278,7 +283,7 @@ export const chatsList = defineAddonQuery(outreachAddon, {
           from addon_outreach.file_chats c left join app.people pp on pp.id = c.person_id
           left join addon_outreach.profiles pr on pr.id = c.profile_id
           where ${shown} order by c.last_at desc, c.id
-          limit ${CHATS_PAGE} offset ${(page - 1) * CHATS_PAGE}`,
+          limit ${size} offset ${(page - 1) * size}`,
     );
     return {
       contactsFromChats: await contactsSetting(ctx),

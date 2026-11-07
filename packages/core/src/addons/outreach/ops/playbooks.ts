@@ -4,13 +4,14 @@
  * network's own words on a customers' playbook once (`outreach.playbook.words`, decision 92), never over the
  * person's.
  */
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
 import { isUniqueViolation } from '../../../kernel/pg-errors';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
+import { givenOnly } from '../loose';
 import { outreachAddon } from '../manifest';
 import {
   blankPlaybook,
@@ -24,6 +25,8 @@ import {
   PlaybookArchiveInput,
   PlaybookListInput,
   PlaybookListOutput,
+  PLAYBOOK_TEMPLATE_KEYS,
+  PLAYBOOK_TEMPLATES,
   PlaybookSaveInput,
   renumberQuestions,
   type PlaybookDetails,
@@ -134,55 +137,108 @@ async function namedOnce<T>(playbookName: string, write: () => Promise<T>): Prom
 export const playbookList = defineAddonQuery(outreachAddon, {
   name: 'outreach.playbook.list',
   description:
-    'The business’s playbooks for social outreach, the ones in use first, then any archived.',
+    'The business’s playbooks for social outreach, the ones in use first, then any archived; one alone, or only those in use or archived; and the ready-made ones a new playbook can start from.',
   input: PlaybookListInput,
   output: PlaybookListOutput,
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_playbooks',
-    keywords: ['playbook', 'niche', 'who to reach', 'offer'],
+    description:
+      'The business’s playbooks for social outreach (Social Outreach → Playbooks), each whole, the ones in use first, then any archived: one alone with playbookId (a long list reads better a playbook at a time), only those in use with archived false. And the ready-made ones New playbook starts from (templates: CRM demos and the others, each with its line).',
+    keywords: ['playbook', 'niche', 'who to reach', 'offer', 'playbook templates'],
   },
   scope: inWorkspace,
-  async handler(ctx) {
+  async handler(ctx, input) {
     const rows = await ctx.tx
       .select()
       .from(playbooks)
-      .where(eq(playbooks.workspaceId, ctx.scope.workspaceId!))
+      .where(
+        and(
+          eq(playbooks.workspaceId, ctx.scope.workspaceId!),
+          input.playbookId ? eq(playbooks.id, input.playbookId) : undefined,
+          input.archived === undefined
+            ? undefined
+            : input.archived
+              ? isNotNull(playbooks.archivedAt)
+              : isNull(playbooks.archivedAt),
+        ),
+      )
       .orderBy(asc(playbooks.createdAt));
     return {
       playbooks: [...rows.filter((p) => !p.archivedAt), ...rows.filter((p) => p.archivedAt)].map(
         playbookOut,
       ),
+      templates: PLAYBOOK_TEMPLATE_KEYS.map((key) => ({
+        key,
+        name: PLAYBOOK_TEMPLATES[key].name,
+        summary: PLAYBOOK_TEMPLATES[key].summary,
+      })),
     };
   },
 });
 
+/**
+ * What a save holds: the whole playbook it was sent, or the parts it was sent put on what's saved (for a new one, on
+ * its template, or a blank playbook), checked whole as the editor's are.
+ */
+function detailsToSave(
+  input: z.output<typeof PlaybookSaveInput>,
+  stored: unknown,
+): z.output<typeof PlaybookDetailsSchema> {
+  if (input.details) return input.details;
+  const base = input.playbookId
+    ? upgradePlaybookDetails(stored)
+    : input.template
+      ? PLAYBOOK_TEMPLATES[input.template].details
+      : blankPlaybook();
+  const checked = PlaybookDetailsSchema.safeParse({
+    ...(base as object),
+    ...givenOnly(input.changes),
+  });
+  if (checked.success) return checked.data;
+  const issues = checked.error.issues.map((i) => ({
+    path: ['details', ...i.path].map(String).join('.'),
+    message: i.message,
+  }));
+  throw HfosError.validation(
+    issues,
+    issues[0]?.message ?? 'Some of that doesn’t fit a playbook. Check the parts and try again.',
+  );
+}
+
 export const playbookSave = defineAddonCommand(outreachAddon, {
   name: 'outreach.playbook.save',
   description:
-    'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook: read it first with its list, and change only what the person asked.',
+    'Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.',
   risk: 1,
   input: PlaybookSaveInput,
   output: PlaybookOut,
   permission: 'outreach.manage',
   ai: {
     tool: 'outreach_save_playbook',
+    what: (input) =>
+      (input as PlaybookSaveInput).playbookId
+        ? 'Change this outreach playbook'
+        : 'Write a new outreach playbook',
+    description:
+      'Write a playbook for social outreach (Social Outreach → Playbooks), or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). To change one, read it with outreach_playbooks (playbookId), then send its id, its name and only the parts that change in changes, by their names there: every part left out stays as it is. A new one can start from a ready-made one (template, from outreach_playbooks’ templates): it starts as that one, with changes laid over it. The booking link (link) is a whole address: for one of the business’s own booking pages, copy that calendar’s booking link from get_settings (area calendars) exactly, never one put together from a name.',
     autonomy: 'confirm',
-    keywords: ['write a playbook', 'change a playbook', 'new playbook'],
+    keywords: ['write a playbook', 'change a playbook', 'new playbook', 'start from a template'],
   },
   scope: inWorkspace,
   emits: ['outreach.playbook.saved'],
   async handler(ctx, input) {
     const me = userIdOf(ctx.actor);
     const at = changeMoment(ctx.meta);
+    const was = input.playbookId ? await loadPlaybook(ctx, input.playbookId) : null;
+    const given = detailsToSave(input, was?.details ?? null);
     // Its questions keep short names however often they come and go, and its hashtags are as people tag them.
     const details = cleanHashtags({
-      ...input.details,
-      questions: renumberQuestions(input.details.questions),
+      ...given,
+      questions: renumberQuestions(given.questions),
     });
     const saved = await namedOnce(input.name, async () => {
-      if (input.playbookId) {
-        const was = await loadPlaybook(ctx, input.playbookId);
+      if (was) {
         const [p] = await ctx.tx
           .update(playbooks)
           .set({

@@ -7,6 +7,7 @@
  */
 import { z } from 'zod';
 import { PLATFORM_KEYS, PLATFORMS, type Platform, WORKING_PLATFORMS } from './networks';
+import { loosened } from './loose';
 import { VideoLink, VideoScript } from './video';
 
 /** The social networks it knows, each with its kit in ./networks.ts. */
@@ -1185,8 +1186,23 @@ export const Playbook = z.object({
 });
 export type Playbook = z.output<typeof Playbook>;
 
-export const PlaybookListInput = z.object({ workspaceId: z.uuid() });
-export const PlaybookListOutput = z.object({ playbooks: z.array(Playbook) });
+export const PlaybookListInput = z.object({
+  workspaceId: z.uuid(),
+  /** Only this one (the Assistant reads one playbook whole). */
+  playbookId: z.uuid().optional(),
+  /** Only the archived ones (true) or only those in use (false); both when left out. */
+  archived: z.boolean().optional(),
+});
+export const PlaybookListOutput = z.object({
+  playbooks: z.array(Playbook),
+  /**
+   * Where a new playbook can start (New playbook's ready-made ones, in their order): each one's key, name and line.
+   * Left out by servers from before it.
+   */
+  templates: z
+    .array(z.object({ key: z.enum(PLAYBOOK_TEMPLATE_KEYS), name: z.string(), summary: z.string() }))
+    .optional(),
+});
 export type PlaybookListOutput = z.output<typeof PlaybookListOutput>;
 
 const playbookName = z
@@ -1195,15 +1211,32 @@ const playbookName = z
   .min(1, 'Give the playbook a name.')
   .max(PLAYBOOK_LIMITS.name, `Keep the name under ${PLAYBOOK_LIMITS.name} characters.`);
 
-export const PlaybookSaveInput = z.object({
-  workspaceId: z.uuid(),
-  /** The playbook to change. Left out: a new one. */
-  playbookId: z.uuid().optional(),
-  name: playbookName,
-  /** For a new one, the template it started from. */
-  template: z.enum(PLAYBOOK_TEMPLATE_KEYS).nullable().optional(),
-  details: PlaybookDetails,
-});
+/**
+ * Only the parts of a playbook that change (the Assistant changing its tone, or one of its lists): each part left out
+ * keeps what's saved, or for a new one what its template (or a blank playbook) has. The whole is checked once they're
+ * put together.
+ */
+export const PlaybookChanges = loosened(z.object(PlaybookDetails.shape));
+export type PlaybookChanges = z.input<typeof PlaybookChanges>;
+
+export const PlaybookSaveInput = z
+  .object({
+    workspaceId: z.uuid(),
+    /** The playbook to change. Left out: a new one. */
+    playbookId: z.uuid().optional(),
+    name: playbookName,
+    /** For a new one, the template it started from: with no details, it starts as that template's. */
+    template: z.enum(PLAYBOOK_TEMPLATE_KEYS).nullable().optional(),
+    /** The whole playbook, as its editor saves it. */
+    details: PlaybookDetails.optional(),
+    /** Or only the parts that change. */
+    changes: PlaybookChanges.optional(),
+  })
+  .refine(
+    (i) =>
+      i.details !== undefined || i.changes !== undefined || (!i.playbookId && Boolean(i.template)),
+    { error: 'Say what the playbook holds, or which of its parts change.', path: ['changes'] },
+  );
 export type PlaybookSaveInput = z.input<typeof PlaybookSaveInput>;
 
 export const PlaybookArchiveInput = z.object({

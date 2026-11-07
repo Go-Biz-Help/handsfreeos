@@ -7,6 +7,7 @@
  * browser extension (apps/extension) connects only to businesses where it runs and the person holds `outreach.use`.
  */
 import { defineAddon } from '../manifest';
+import { OUTREACH_LOOK_ALIKES, OUTREACH_PLACES } from './ai-places';
 import { OutreachSettingsSchema } from './chat-read';
 import { OUTREACH_PAGES } from './pages';
 
@@ -348,6 +349,8 @@ export const outreachAddon = defineAddon({
       // Not `settings`: that key would put the page in Settings search, which opens it on the web.
       { key: 'gear', label: OUTREACH_PAGES.gear, icon: 'settings', path: 'settings' },
     ],
+    // The business's own settings (the team's rules, countries, the extension's link) are on Settings → Team.
+    settingsPath: 'settings/team',
     // A customer's Facebook profile and the chats saved with them; and how the main offer's live version is doing.
     slots: [
       { slot: 'person.panels', permission: 'outreach.use' },
@@ -371,6 +374,9 @@ export const outreachAddon = defineAddon({
   // the worker send in stays theirs (docs/outreach.md, "The Assistant").
   ai: {
     directory:
-      'Facebook, LinkedIn and Instagram outreach with a browser extension: today’s list, messages to OK, friends, chats, groups, the pipeline, helpful posts, partners, playbooks and its settings. A yes to the first message gets the ask for a demo with the booking link; videos from the business’s video library (in its settings) go in follow-ups, another time after a missed demo and replies, where they fit',
+      'Facebook, LinkedIn, Instagram and Alignable outreach with a browser extension: setting it up and getting the extension, today’s list, messages to OK, friends, chats, groups, the pipeline, helpful posts, partners, playbooks and its settings. A yes to the first message gets the ask for a demo with the booking link; videos from the business’s video library (Settings → Videos, which owners and admins change) go in follow-ups, another time after a missed demo and replies, where they fit',
+    // Its pages, said only where it runs (decision 127's side menu), so the Assistant names them and the one open.
+    places: OUTREACH_PLACES,
+    lookAlikes: OUTREACH_LOOK_ALIKES,
   },
 });

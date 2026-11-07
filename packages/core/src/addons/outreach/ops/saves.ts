@@ -19,6 +19,7 @@ import { addonTimelineLine, defineAddonCommand, defineAddonQuery } from '../../s
 import { DONT_PITCH_TAG, type FriendState } from '../limits';
 import { Journey, NO_JOURNEY } from '../journey';
 import { TeamOwner } from '../owners';
+import { SAME_NAME_FIRST } from '../ai-answers';
 import { outreachAddon } from '../manifest';
 import { PLATFORMS, PLATFORM_KEYS } from '../playbooks';
 import {
@@ -60,6 +61,8 @@ export const chatKeep = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_save_chat_to_card',
     autonomy: 'confirm',
+    what: 'Save this chat to their Social card in Contacts',
+    description: `Save to their card: copy a chat brought in from the person’s network onto the customer’s Social card, adding the messages it hadn’t saved before. Finds the customer from the chat or its profile, or takes the one picked (personId), or adds them as someone new (add true). When it can’t find them: ${SAME_NAME_FIRST}`,
     keywords: ['save chat to customer', 'social card'],
   },
   scope: inWorkspace,

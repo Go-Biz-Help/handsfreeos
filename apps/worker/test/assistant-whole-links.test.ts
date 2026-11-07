@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { onPublicOrigin, wholeLinksIn, withWholeLinks } from '../src/assistant/full-links';
+import {
+  onPublicOrigin,
+  wholeLinksIn,
+  withAppFiles,
+  withWholeLinks,
+} from '../src/assistant/full-links';
 
 /**
  * Whole links for the Assistant (assistant/full-links.ts): the setup keeps public pages as paths, and the model is
@@ -114,5 +119,26 @@ describe('a link the model gives an add-on', () => {
   it('is left as it was when it is already on the address the pages are on', async () => {
     const args = { pageUrl: `${ORIGIN}${LISTING}` };
     expect(await onPublicOrigin(args, async () => ORIGIN, ORIGIN)).toEqual(args);
+  });
+});
+
+describe('a file the web app hands out', () => {
+  it('is written out whole on the web app’s own address, as its Download button links to it', () => {
+    const found = { download: { link: '/downloads/hfos-social.zip', steps: ['Unzip it'] } };
+    expect(withAppFiles(found, `${ORIGIN}/`)).toEqual({
+      download: { link: `${ORIGIN}/downloads/hfos-social.zip`, steps: ['Unzip it'] },
+    });
+  });
+
+  it('leaves other paths, whole links and words alone, and everything with no address known', () => {
+    const found = {
+      page: '/book/acme',
+      own: 'https://files.acme.com/downloads/ext.zip',
+      words: 'Get it from /downloads/hfos-social.zip',
+      deeper: '/downloads/a/b.zip',
+    };
+    expect(withAppFiles(found, ORIGIN)).toBe(found);
+    const ours = { link: '/downloads/hfos-social.zip' };
+    expect(withAppFiles(ours, '')).toBe(ours);
   });
 });

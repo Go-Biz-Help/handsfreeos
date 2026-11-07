@@ -112,6 +112,22 @@ export async function onPublicOrigin(
 }
 
 /**
+ * A file the web app hands out to the team, by its path alone: the browser extension's zip (Social Outreach's Download
+ * it). Served only on our own address, never a business's domain.
+ */
+const APP_FILE = /^\/downloads\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/**
+ * What a tool found, with each value that is one of the web app's own files by its path written out whole on the web
+ * app's address, as its Download button links to it. Left as it was with no address known (some tests).
+ */
+export function withAppFiles(value: unknown, webUrl: string): unknown {
+  const base = webUrl.replace(/\/+$/, '');
+  if (!base) return value;
+  return mapStrings(value, (s) => (APP_FILE.test(s) ? `${base}${s}` : null));
+}
+
+/**
  * What a tool found, with each public page's path in it a whole link. The address is only looked up when there is
  * a path to write out, and with no address known (`webUrl` empty, as in some tests) it is left as it was.
  */

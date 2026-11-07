@@ -41,7 +41,10 @@ import {
   FollowBacksNextInput,
   FollowBacksNextOutput,
 } from '../friends';
+import { cancelAllOutcome } from '../ai-answers';
 import { outreachAddon } from '../manifest';
+import { outreachWay } from '../pages';
+import { PEOPLE_VIEWS } from '../people-views';
 import { answersRequests, NETWORKS, type Platform } from '../networks';
 import { friendEnds, warnings } from '../tables';
 import {
@@ -625,6 +628,16 @@ export const friendsCancelAll = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_cancel_all_requests',
     autonomy: 'confirm',
+    what: (input) => {
+      const { on, platform = 'facebook' } = input as CancelAllInput;
+      const where = NETWORKS[platform].name;
+      return on
+        ? `Cancel every sent request on ${where} that waits for an answer, the oldest first, a day’s worth at a time`
+        : `Stop cancelling the sent requests on ${where}`;
+    },
+    description:
+      'The person starts Cancel all on a social network (People → Friends, Sent): every sent friend request (LinkedIn’s invitations, Alignable’s connection requests) waiting for an answer there, however new, is cancelled by the browser extension on its own, the oldest first, at the day’s limit, leaving out the ones the extension sent unless they say (leaveOutOwn false). Or they stop it (on false), and the ones left wait as usual. Not on Instagram, whose follows wait for nobody. Once it’s confirmed, its answer’s first are the oldest few: the screen asks their computer to start on those at once (outreach_ask_computer, kind cancel, those as profileIds), else the once-a-day jobs take them, so offer that.',
+    outcome: cancelAllOutcome,
     keywords: [
       'cancel all friend requests',
       'remove unanswered friend requests',
@@ -645,7 +658,7 @@ export const friendsCancelAll = defineAddonCommand(outreachAddon, {
       throw HfosError.rule(
         'outreach_cancel_all_follows',
         409,
-        `${kit.name} has nothing waiting to cancel: a follow goes at once. To unfollow who didn’t follow you back, tick them under Tidy up on the Friends tab.`,
+        `${kit.name} has nothing waiting to cancel: a follow goes at once. To unfollow who didn’t follow you back, tick them under Tidy up in ${outreachWay('people', PEOPLE_VIEWS.friends)}.`,
       );
     const auto = await automationOf(ctx, me, now, input.platform);
     if (input.on && !auto.choices.on)

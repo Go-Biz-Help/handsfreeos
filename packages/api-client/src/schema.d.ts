@@ -7107,7 +7107,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person asks their computer, from HandsFreeOS, to do something on Facebook only the browser extension can: get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.
+         * The person asks their computer, from HandsFreeOS, to do something only the browser extension can, on one of the networks they work (Facebook, LinkedIn, Instagram or Alignable; platform says which, Facebook when left out): get their Facebook file, check their friend requests, save their friends, groups or a group’s members, find posts, read their chats, cancel or unfriend the people they ticked, look someone up before drafting, research one person for fit (counted in the day’s checks), or on LinkedIn check its pages and send a note of what was found (Check LinkedIn). The computer that works for them takes it. Asking again while one like it is open answers that one.
          * @description Risk level 1. Requires outreach.use. Emits outreach.ask.made, outreach.ask.ended.
          */
         post: operations["command_outreach_ask_make"];
@@ -7187,7 +7187,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person chooses what the browser extension does for them on Facebook on its own (friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows.
+         * The person chooses what the browser extension does for them on its own, on each network they work (Facebook, LinkedIn, Instagram, Alignable: friend requests, likes and comments, messages, replies, liking a post first, confirming requests that fit, the once-a-day jobs), its switches, how their phone hears what waits, and their working hours; an owner or admin can choose for anyone. Only what the business allows. Everything as the screens send it (settings), or only what changes (changes): the rest stays as it is.
          * @description Risk level 0. Requires outreach.use. Emits outreach.automation.saved.
          */
         post: operations["command_outreach_automation_save"];
@@ -8107,7 +8107,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person did a step the extension handed to them, or let it go: it leaves Waiting for you. Let go, the same step for the same person isn’t handed over again for a week.
+         * The person did a step the extension handed to them, or let it go: it leaves Needs you. Let go, the same step for the same person isn’t handed over again for a week.
          * @description Risk level 0. Requires outreach.use. Emits outreach.need.cleared. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_need_clear"];
@@ -8127,7 +8127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Waiting for you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.
+         * The browser extension couldn’t do a step on the person’s list for today on one of their networks (a button or box it couldn’t find, a different page, the network not taking it): it’s handed to the person in Needs you, to do themselves or let go, with a link to their page (or the post) on that network. The same step again is the same one; one let go lately keeps nothing.
          * @description Risk level 0. Requires outreach.use. Emits outreach.need.noted. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_need_note"];
@@ -8327,7 +8327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook: read it first with its list, and change only what the person asked.
+         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook, or only the parts that change.
          * @description Risk level 1. Requires outreach.manage. Emits outreach.playbook.saved.
          */
         post: operations["command_outreach_playbook_save"];
@@ -8507,7 +8507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Waiting for you at once.
+         * The person confirms or deletes a friend request they got (decision 136), whatever they picked for those: their computer confirms it as it works through their day, or deletes it with the once-a-day jobs, on Facebook, LinkedIn or Alignable. It leaves Needs you at once.
          * @description Risk level 2. Requires outreach.use. Emits outreach.request.answered. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_request_answer"];
@@ -8547,7 +8547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person leaves a friend request they got as it is: it leaves Waiting for you until the same person asks again. Nothing changes on Facebook.
+         * The person leaves a friend request they got as it is: it leaves Needs you until the same person asks again. Nothing changes on Facebook.
          * @description Risk level 0. Requires outreach.use. Emits outreach.request.set_aside. Can wait on a phone with no signal.
          */
         post: operations["command_outreach_request_set_aside"];
@@ -8627,7 +8627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Waiting for you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.
+         * The extension sent an OK’d message in Messenger, or posted an OK’d comment, or couldn’t, and why. The message or comment itself is noted as a step, as any other. One that couldn’t go waits for the person in Needs you, with its words, to send themselves; a comment’s post is then set aside, so it isn’t drafted again.
          * @description Risk level 0. Requires outreach.use. Emits outreach.send.done, outreach.need.noted.
          */
         post: operations["command_outreach_send_done"];
@@ -8727,7 +8727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Pitch), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.
+         * Say where someone the person reached stands, when they know better than what’s worked out: ready to pitch (Today offers Send the link), pitched, not a fit (nothing on Today reaches them again but a reply), or back in play.
          * @description Risk level 0. Requires outreach.use. Emits outreach.stage.marked, outreach.lead.wanted.
          */
         post: operations["command_outreach_stage_mark"];
@@ -19727,7 +19727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the person lets the browser extension do for them on Facebook on its own, its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.
+         * What the person lets the browser extension do for them on its own, on each network they work (Facebook, LinkedIn, Instagram, Alignable), its switches and their working hours, in the business’s time zone, inside the business’s rules; an owner or admin can ask for anyone’s.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_automation"];
@@ -19787,7 +19787,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first.
+         * The person’s own chats brought in from their download files or read as they opened them, on every network or one, with the AI’s summary, tags, whether they look like a prospect and a next step: the likely prospects, the tagged, all read, or the ones not read yet. The latest first, 50 a page (fewer with pageSize).
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_chats"];
@@ -20227,7 +20227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.
+         * What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Needs you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_live"];
@@ -20407,7 +20407,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s playbooks for social outreach, the ones in use first, then any archived.
+         * The business’s playbooks for social outreach, the ones in use first, then any archived; one alone, or only those in use or archived; and the ready-made ones a new playbook can start from.
          * @description Requires outreach.use.
          */
         post: operations["query_outreach_playbook_list"];
@@ -40945,7 +40945,111 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    settings: {
+                    changes?: {
+                        acceptedPush?: boolean;
+                        autopilot?: boolean;
+                        collect?: boolean;
+                        confirmRequests?: boolean;
+                        dayReport?: boolean;
+                        hours?: {
+                            days: number[];
+                            end: number;
+                            everyDay?: boolean;
+                            start: number;
+                        };
+                        joinGroups?: boolean;
+                        markPosts?: boolean;
+                        networks?: {
+                            alignable?: {
+                                collect?: boolean;
+                                confirmRequests?: boolean;
+                                fullSpeed?: boolean;
+                                joinGroups?: boolean;
+                                on?: boolean;
+                                /** @enum {string} */
+                                posting?: "copy" | "after_ok" | "own";
+                                /** @enum {string} */
+                                replies?: "draft" | "simple" | "everything";
+                                /** @enum {string} */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /** @enum {string} */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @enum {string} */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                warmUp?: boolean;
+                                watchPosts?: boolean;
+                                young?: boolean;
+                            };
+                            facebook?: {
+                                fullSpeed?: boolean;
+                                on?: boolean;
+                                /** @enum {string} */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /** @enum {string} */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                young?: boolean;
+                            };
+                            instagram?: {
+                                collect?: boolean;
+                                confirmRequests?: boolean;
+                                fullSpeed?: boolean;
+                                joinGroups?: boolean;
+                                on?: boolean;
+                                /** @enum {string} */
+                                posting?: "copy" | "after_ok" | "own";
+                                /** @enum {string} */
+                                replies?: "draft" | "simple" | "everything";
+                                /** @enum {string} */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /** @enum {string} */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @enum {string} */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                warmUp?: boolean;
+                                watchPosts?: boolean;
+                                young?: boolean;
+                            };
+                            linkedin?: {
+                                collect?: boolean;
+                                confirmRequests?: boolean;
+                                fullSpeed?: boolean;
+                                joinGroups?: boolean;
+                                on?: boolean;
+                                /** @enum {string} */
+                                posting?: "copy" | "after_ok" | "own";
+                                /** @enum {string} */
+                                replies?: "draft" | "simple" | "everything";
+                                /** @enum {string} */
+                                requests?: "fits" | "fits_delete" | "all" | "delete";
+                                /** @enum {string} */
+                                sending?: "off" | "steps" | "approve_all" | "everything";
+                                /** @enum {string} */
+                                tidy?: "off" | "cancel" | "unfriend";
+                                warmUp?: boolean;
+                                watchPosts?: boolean;
+                                young?: boolean;
+                            };
+                        };
+                        noting?: boolean;
+                        /** @enum {string} */
+                        posting?: "copy" | "after_ok" | "own";
+                        /** @enum {string} */
+                        pushes?: "bundled" | "each";
+                        readChats?: boolean;
+                        /** @enum {string} */
+                        replies?: "draft" | "simple" | "everything";
+                        /** @enum {string} */
+                        sending?: "off" | "steps" | "approve_all" | "everything";
+                        voice?: {
+                            acronyms?: boolean;
+                            emoji?: boolean;
+                            shorthand?: boolean;
+                            split?: boolean;
+                        };
+                        warmUp?: boolean;
+                        watchPosts?: boolean;
+                    };
+                    settings?: {
                         acceptedPush?: boolean;
                         autopilot?: boolean;
                         /** @default true */
@@ -44551,7 +44655,68 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    details: {
+                    changes?: {
+                        area?: string | null;
+                        audience?: string | null;
+                        avoid?: string[];
+                        businessKinds?: string[];
+                        disclaimer?: string | null;
+                        facebookSearches?: string[];
+                        /** @enum {string} */
+                        goal?: "demo" | "consult" | "estimate" | "appointment" | "call" | "sale" | "recruit" | "partner" | "community";
+                        groupWords?: string[];
+                        hashtags?: string[];
+                        link?: string | null;
+                        niche?: string | null;
+                        offer?: string | null;
+                        /** @enum {boolean} */
+                        onItsNetworks?: true;
+                        openerStyles?: string[];
+                        ownOpeners?: string[];
+                        pace?: {
+                            followUpAfterDays?: number;
+                            followUpGaps?: number[];
+                            followUps?: number;
+                            messageAfterDays: number;
+                        };
+                        partnerKinds?: ("group_admin" | "creator" | "business")[];
+                        platforms?: ("facebook" | "linkedin" | "instagram" | "alignable")[];
+                        postSearches?: string[];
+                        problem?: string | null;
+                        proof?: string[];
+                        questions?: {
+                            answers: {
+                                label: string;
+                                next: ("continue" | "offer" | "later" | "stop") | string;
+                                tag: string | null;
+                            }[];
+                            id: string;
+                            text: string;
+                        }[];
+                        samples?: string[];
+                        signs?: string[];
+                        skip?: string[];
+                        steps?: ("connect" | "engage" | "message" | "follow_up" | "answer" | "post")[];
+                        tags?: string[];
+                        tone?: string | null;
+                        usefulLink?: string | null;
+                        usefulWhat?: string | null;
+                        videoLink?: string | null;
+                        videoScript?: {
+                            /** Format: date-time */
+                            at: string;
+                            parts: {
+                                /** @enum {string} */
+                                part: "who" | "cost" | "method" | "proof" | "call" | "next";
+                                say: string;
+                                show: string;
+                            }[];
+                            version: number | null;
+                        } | null;
+                        wordsWritten?: ("facebook" | "instagram" | "linkedin" | "alignable")[];
+                        worksOnline?: boolean | null;
+                    };
+                    details?: {
                         area: string | null;
                         audience: string | null;
                         avoid: string[];
@@ -46175,6 +46340,15 @@ export interface operations {
                             }[];
                             mine: number;
                         };
+                        library?: {
+                            fromPlaybooks: boolean;
+                            videos: {
+                                about: string;
+                                /** Format: uri */
+                                link: string;
+                                name: string;
+                            }[];
+                        } | null;
                         networks: {
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable";
@@ -77145,6 +77319,7 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    pageSize?: number;
                     /** @enum {string} */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     search?: string;
@@ -77696,6 +77871,7 @@ export interface operations {
                 "application/json": {
                     /** @default 1 */
                     page?: number;
+                    pageSize?: number;
                     /** @enum {string} */
                     platform?: "facebook" | "linkedin" | "instagram" | "alignable";
                     search?: string;
@@ -79187,6 +79363,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    archived?: boolean;
+                    /** Format: uuid */
+                    playbookId?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -79273,6 +79452,12 @@ export interface operations {
                             template: string | null;
                             /** Format: date-time */
                             updatedAt: string;
+                        }[];
+                        templates?: {
+                            /** @enum {string} */
+                            key: "crm_demos" | "real_estate" | "home_services" | "coaching";
+                            name: string;
+                            summary: string;
                         }[];
                     };
                 };
@@ -80327,6 +80512,15 @@ export interface operations {
                             }[];
                             mine: number;
                         };
+                        library?: {
+                            fromPlaybooks: boolean;
+                            videos: {
+                                about: string;
+                                /** Format: uri */
+                                link: string;
+                                name: string;
+                            }[];
+                        } | null;
                         networks: {
                             /** @enum {string} */
                             platform: "facebook" | "linkedin" | "instagram" | "alignable";
@@ -80527,6 +80721,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @enum {string} */
+                    kind?: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                     /**
                      * @default facebook
                      * @enum {string}

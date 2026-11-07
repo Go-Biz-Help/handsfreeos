@@ -339,7 +339,7 @@ describe('who counts as a client, in words', () => {
 
   it('refuses outreach to a client with what to do, by why they’re one', () => {
     expect(P.clientNoOutreach('Dana Reyes', 'tagged')).toBe(
-      'Dana Reyes is a client, so Social Outreach doesn’t send them outreach. Their replies still come to Waiting for you. To reach out again, choose Not a client after all in their menu.',
+      'Dana Reyes is a client, so Social Outreach doesn’t send them outreach. Their replies still come to Needs you. To reach out again, choose Not a client after all in their menu.',
     );
     expect(P.clientNoOutreach('Dana Reyes', 'paid')).toContain('because they paid a bill');
     expect(P.clientNoOutreach('Dana Reyes', null)).toContain('same name');

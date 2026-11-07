@@ -471,9 +471,9 @@ export function LiveStrip({
               {W.tabs.settings}
             </Button>
           ) : !live.canSend && manages && full && runsOnItsOwn(platform) && onGeneral ? (
-            // The business allows only Off, and this owner or admin can change that, on General.
+            // The business allows only Off, and this owner or admin can change that, on Team.
             <Button variant="secondary" size="md" onPress={onGeneral} testID="live-general">
-              {W.settingsGeneral}
+              {W.settingsTeam}
             </Button>
           ) : null}
         </View>

@@ -226,6 +226,8 @@ export const TODAY_MOST = 20;
 export const TodayInput = z.object({
   workspaceId: z.uuid(),
   platform: z.enum(PLATFORM_KEYS).default('facebook'),
+  /** Only the steps of one kind, the customers' and the partners' (the Assistant reads a long day a kind at a time). */
+  kind: z.enum(TODAY_KIND_KEYS).optional(),
 });
 export type TodayInput = z.input<typeof TodayInput>;
 

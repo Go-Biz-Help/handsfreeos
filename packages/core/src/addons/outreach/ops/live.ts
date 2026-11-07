@@ -568,7 +568,7 @@ const NONE: Record<DailyStep, number> = {
 export const live = defineAddonQuery(outreachAddon, {
   name: 'outreach.live',
   description:
-    'What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Waiting for you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.',
+    'What the extension is doing for the person right now, on the computer that works: its line, next step, how many things wait for them (Needs you) and the feed of today’s steps; their computers with when each was last seen; and on one network (Facebook when left out), their day there, today’s counts against its daily limits, any warning it showed and their lists there.',
   input: LiveInput,
   output: LiveOutput,
   permission: 'outreach.use',

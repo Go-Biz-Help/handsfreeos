@@ -10,6 +10,7 @@
  * find, check and remove.
  */
 import type { z } from 'zod';
+import type { AppPlace } from '../assistant/places-map';
 import { RECORD_ICONS } from '../relationships/words';
 
 /**
@@ -506,9 +507,23 @@ export interface AddonManifest {
     readonly portal?: readonly AddonPortalPage[];
     /** Its public pages, for anyone with the link. */
     readonly public?: readonly AddonPublicPage[];
+    /**
+     * Where its business settings are, under its pages (`settings/team`), when that isn't the page keyed `settings`:
+     * the Assistant's card links there after it saves them.
+     */
+    readonly settingsPath?: string;
   };
-  /** One line the AI reads while the add-on is on: what its tools cover ("properties, units, leases, rent"). */
-  readonly ai?: { readonly directory: string };
+  /**
+   * What the AI reads while the add-on is on, in a business it runs in (never the fixed instructions): one line on what
+   * its tools cover ("properties, units, leases, rent"); its pages, each the way there from the side menu in the
+   * screens' own words, paths under its own (`/a/<id>`), so the Assistant names them and knows the one a question is
+   * asked from; and the words it shares with core's pages, said outright.
+   */
+  readonly ai?: {
+    readonly directory: string;
+    readonly places?: readonly AppPlace[];
+    readonly lookAlikes?: readonly string[];
+  };
   /** What the AI teammate may look up and ask for in a customer's conversation (round seven). */
   readonly teammate?: AddonTeammate;
   /** How it answers Search everything: its own query, and the groups it adds. */

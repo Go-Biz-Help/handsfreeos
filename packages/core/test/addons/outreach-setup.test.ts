@@ -646,6 +646,12 @@ describe('each person’s setup', () => {
     const setup: SetupOutput = await runAs(owner, ws, 'outreach.setup', {});
     expect(setup.videos).toBe(1);
     expect(setup.states.find((s) => s.step === 'video')?.state).toBe('done');
+    // The library itself, for owners and admins who change it (the Assistant sends it back whole with the change).
+    expect(setup.library).toEqual({
+      videos: [expect.objectContaining(tour)],
+      fromPlaybooks: false,
+    });
+    expect((await runAs(member, ws, 'outreach.setup', {})).library).toBeNull();
     // Kept with the business's settings, checked as they're saved: a second copy of a link is refused.
     expect(
       await refused(

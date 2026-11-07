@@ -236,9 +236,100 @@ async function idNames(db: Db, ctx: ToolContext): Promise<Map<string, string> | 
   ]);
 }
 
+type SchemaDef = {
+  type?: string;
+  innerType?: unknown;
+  in?: unknown;
+  shape?: Record<string, unknown>;
+};
+const defOf = (s: unknown) => (s as { _zod?: { def?: SchemaDef } } | undefined)?._zod?.def;
 /**
- * The add-on's settings with the model's changes put on what is set now (a setting it didn't name stays as it is),
- * checked with the add-on's own schema, and the card's lines for what really changes.
+ * A group of settings' parts by name, from the add-on's schema: an object's fields, through a default or an optional
+ * around it. Null for anything else, a set of days (a record) among them.
+ */
+function groupOf(s: unknown): Record<string, unknown> | null {
+  for (let def = defOf(s), i = 0; def && i < 8; def = defOf(def.innerType ?? def.in), i++)
+    if (def.type === 'object') return def.shape ?? null;
+  return null;
+}
+const takesNull = (s: unknown) =>
+  typeof (s as { safeParse?: unknown } | undefined)?.safeParse === 'function' &&
+  (s as { safeParse: (v: unknown) => { success: boolean } }).safeParse(null).success;
+
+/**
+ * `changes` put on `base`: a group of settings (an object in the add-on's schema) takes only the parts named, deeper
+ * down too, and a null for a part that can't be null takes it out (a daily limit back to none); a list, a set of days
+ * or a value is replaced whole.
+ */
+function mergedOnto(
+  base: Record<string, unknown>,
+  changes: Record<string, unknown>,
+  parts: Readonly<Record<string, unknown>>,
+  inGroup = false,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...base };
+  for (const [k, v] of Object.entries(changes)) {
+    const group = groupOf(parts[k]);
+    if (inGroup && v === null && !takesNull(parts[k])) delete out[k];
+    else out[k] = group && isPlain(v) && isPlain(base[k]) ? mergedOnto(base[k], v, group, true) : v;
+  }
+  return out;
+}
+
+/**
+ * The parts named in a group of settings that the group doesn't have, deeper down too, each with the group it was named
+ * in: a part the schema doesn't know would be dropped as it's checked, and the save would quietly change nothing.
+ */
+function strangeParts(
+  changes: Record<string, unknown>,
+  parts: Readonly<Record<string, unknown>>,
+  at = '',
+): { path: string; group: string; known: readonly string[] }[] {
+  return Object.entries(changes).flatMap(([k, v]) => {
+    const group = groupOf(parts[k]);
+    if (!group || !isPlain(v)) return [];
+    const known = Object.keys(group);
+    return [
+      ...Object.keys(v)
+        .filter((p) => !Object.hasOwn(group, p))
+        .map((p) => ({ path: `${at}${k}.${p}`, group: `${at}${k}`, known })),
+      ...strangeParts(v, group, `${at}${k}.`),
+    ];
+  });
+}
+
+/**
+ * The card's lines for one setting. A group with groups inside says each part that changes on a line of its own
+ * ("Rules → Daily limits: Friend request: 20"), so the change shows however deep it is; anything else, a group of
+ * plain settings like a set of switches among them, is said whole, as it will be.
+ */
+function changedLines(
+  label: string,
+  before: unknown,
+  after: unknown,
+  part: unknown,
+  names: ReadonlyMap<string, string>,
+): Field[] {
+  const group = groupOf(part);
+  if (!group || !isPlain(before) || !isPlain(after) || !Object.values(group).some(groupOf))
+    return [{ label, value: valueWords(after, names) }];
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((k) => !same(before[k], after[k]))
+    .flatMap((k) =>
+      changedLines(`${label} → ${keyWords(k)}`, before[k], after[k], group[k], names),
+    );
+}
+
+/** At most ten lines fit on a card; the last says how many more there are. */
+const capFields = (fields: Field[]): Field[] =>
+  fields.length <= 10
+    ? fields
+    : [...fields.slice(0, 9), { label: 'And', value: `${fields.length - 9} more changes` }];
+
+/**
+ * The add-on's settings with the model's changes put on what is set now (a setting it didn't name, or a part of a
+ * group it didn't name, stays as it is), checked with the add-on's own schema, and the card's lines for what really
+ * changes.
  */
 async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
   const addonId = str(args['addonId']) ?? '';
@@ -278,6 +369,17 @@ async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
       })),
       `${m.name} has no setting called ${strange.join(', ')}. Its settings are ${known.join(', ')}.`,
     );
+  const strangeDeeper = strangeParts(changes, groupOf(schema) ?? {});
+  if (strangeDeeper.length) {
+    const first = strangeDeeper[0]!;
+    throw HfosError.validation(
+      strangeDeeper.map((s) => ({
+        path: `settings.${s.path}`,
+        message: `${m.name} has no setting by that name.`,
+      })),
+      `${m.name} has no setting called ${strangeDeeper.map((s) => s.path).join(', ')}. The parts of ${first.group} are ${first.known.join(', ')}.`,
+    );
+  }
   const strangeFlags = Object.keys(flagChanges).filter((k) => !Object.hasOwn(declared, k));
   if (strangeFlags.length)
     throw HfosError.validation(
@@ -294,7 +396,7 @@ async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
   const stored = now.settings;
   const read = schema?.safeParse(stored);
   const current = read?.success && isPlain(read.data) ? read.data : stored;
-  const merged = { ...current, ...changes };
+  const merged = mergedOnto(current, changes, groupOf(schema) ?? {});
   const label = (k: string) => shape[k]?.description ?? keyWords(k);
   const checked = schema?.safeParse(merged);
   if (checked && !checked.success) {
@@ -334,17 +436,17 @@ async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
     throw HfosError.validation([{ path: 'settings', message }], message);
   }
 
-  const fields: Field[] = [
-    ...changedKeys.map((k) => ({
-      label: label(k),
-      value: valueWords(next[k], names ?? new Map()),
-    })),
+  const fields: Field[] = capFields([
+    ...changedKeys.flatMap((k) =>
+      changedLines(label(k), current[k], next[k], shape[k], names ?? new Map()),
+    ),
     ...Object.entries(flags).map(([k, on]) => ({
       label: declared[k]!.label,
       value: on ? 'On' : 'Off',
     })),
-  ];
-  const page = m.ui?.nav?.find((n) => n.key === 'settings');
+  ]);
+  // Where its business settings are: where it says, else its page keyed `settings`.
+  const settingsPath = m.ui?.settingsPath ?? m.ui?.nav?.find((n) => n.key === 'settings')?.path;
   return {
     m,
     fields,
@@ -353,7 +455,10 @@ async function addonSettingsPlan(db: Db, ctx: ToolContext, args: Args) {
       ...(changedKeys.length ? { settings: next } : {}),
       ...(Object.keys(flags).length ? { flags } : {}),
     },
-    path: page ? `a/${m.id}${page.path ? `/${page.path}` : ''}` : 'add-ons',
+    path:
+      settingsPath === undefined
+        ? 'add-ons'
+        : `a/${m.id}${settingsPath ? `/${settingsPath.replace(/^\/+/, '')}` : ''}`,
   };
 }
 

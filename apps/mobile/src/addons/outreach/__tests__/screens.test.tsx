@@ -964,7 +964,7 @@ describe('The live view on the phone', () => {
       />,
     );
     expect(screen.getByTestId('live-sending-off')).toHaveTextContent(
-      /Allow it for your team in Settings → General\.$/,
+      /Allow it for your team in Settings → Team\.$/,
     );
     expect(screen.queryByText(/Ask an owner/)).toBeNull();
     await fireEvent.press(screen.getByTestId('live-general'));
@@ -1056,13 +1056,13 @@ describe('The live view on the phone', () => {
       to,
     ).fix!();
     expect(to.onSettings).toHaveBeenLastCalledWith('linkedin');
-    // A business that allows only Off: General, for an owner or admin; nothing to press for anyone else.
+    // A business that allows only Off: Team, for an owner or admin; nothing to press for anyone else.
     startRefusedOf(
       refusal('outreach_sending_off', { platform: 'linkedin', allowed: false }),
       'linkedin',
       to,
     ).fix!();
-    expect(to.onSettings).toHaveBeenLastCalledWith('general');
+    expect(to.onSettings).toHaveBeenLastCalledWith('team');
     expect(
       startRefusedOf(
         refusal('outreach_sending_off', { platform: 'linkedin', allowed: false }),

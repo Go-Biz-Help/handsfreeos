@@ -32,6 +32,8 @@ import {
 import { DONT_PITCH_TAG } from '../limits';
 import { byResults } from '../results';
 import { outreachAddon } from '../manifest';
+import { outreachWay } from '../pages';
+import { LEFT_ALONE, PEOPLE_VIEWS } from '../people-views';
 import { NETWORKS } from '../networks';
 import type { Platform } from '../playbooks';
 import type { NeedStep } from '../waiting-words';
@@ -286,7 +288,7 @@ export const touchSave = defineAddonCommand(outreachAddon, {
           422,
           never.tagged && !profile.dontPitch
             ? `${input.name} is tagged ${DONT_PITCH_TAG} in Contacts, so steps to them aren’t counted as outreach. To count them, take the tag off them in Contacts.`
-            : `${input.name} is on the Don’t pitch list, so steps to them aren’t counted as outreach. To count them, take them off it in Social Outreach → Friends.`,
+            : `${input.name} is on the Don’t pitch list, so steps to them aren’t counted as outreach. To count them, take them off it in ${outreachWay('people', PEOPLE_VIEWS.left_alone)}, under ${LEFT_ALONE.dont_pitch}.`,
         );
       if (input.kind === 'friend_request')
         await keepFriendStates(ctx, me, [{ profileId: profile.id, state: 'request_sent' }], at);

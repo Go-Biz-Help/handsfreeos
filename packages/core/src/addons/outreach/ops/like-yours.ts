@@ -36,6 +36,8 @@ import {
   type LikeYoursAccount,
 } from '../like-yours';
 import { outreachAddon } from '../manifest';
+import { PLATFORMS } from '../networks';
+import { outreachWay } from '../pages';
 import { likeYours } from '../tables';
 import { inWorkspace } from './common';
 import { tally } from './tallies';
@@ -177,7 +179,7 @@ export const likeYoursRemove = defineAddonCommand(outreachAddon, {
       .returning({ id: likeYours.id });
     if (!row)
       throw HfosError.notFound(
-        'That account isn’t on your accounts like yours any more. Refresh Settings → Instagram to see the list.',
+        `That account isn’t on your accounts like yours any more. Refresh ${outreachWay('gear', PLATFORMS.instagram)} to see the list.`,
       );
     await changed(ctx, row.id, 'removed');
     return listed(ctx);

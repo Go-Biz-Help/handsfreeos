@@ -15,6 +15,7 @@
  */
 import { z } from 'zod';
 import type { Tx } from '@hfos/db/client';
+import { placeLine, type AppPlace } from '../assistant/places-map';
 import { assistantToolByName } from '../assistant/tools';
 import type { CommandDef, QueryDef } from '../kernel/types';
 import type { CapabilityContext, CapabilityView } from './capabilities';
@@ -255,6 +256,48 @@ export function addonDirectory(catalog: Catalog, active: readonly string[]): str
     const line = m.ai?.directory.trim();
     return running.has(m.id) && line ? [`${m.name} (${m.id}_…): ${line}`] : [];
   });
+}
+
+/** The add-ons running here whose pages the person may open: they hold any of the add-on's permissions. */
+const openable = (catalog: Catalog, active: readonly string[], permissions: readonly string[]) => {
+  const running = new Set(active);
+  const may = new Set(permissions);
+  return catalog.filter(
+    (m) => running.has(m.id) && m.permissions.some((p) => may.has(p.key)) && m.ai?.places?.length,
+  );
+};
+
+/**
+ * The pages of the add-ons running here that the person may open (their manifests' `ai.places`), each path made whole
+ * inside the business (`/a/<id>/<path>`), so `screenPlace` names the one a question is asked from. Catalogue order.
+ */
+export function addonPlaces(
+  catalog: Catalog,
+  active: readonly string[],
+  permissions: readonly string[],
+): AppPlace[] {
+  return openable(catalog, active, permissions).flatMap((m) =>
+    (m.ai?.places ?? []).map((p) => ({
+      ...p,
+      path: `/a/${m.id}${p.path ? `/${p.path.replace(/^\/+/, '')}` : ''}`,
+    })),
+  );
+}
+
+/**
+ * The same pages as the per-business context says them, the way the fixed instructions say core's (`placeLine`), with
+ * each add-on's words that are core's too; none when no add-on the person may open has any.
+ */
+export function addonPlacesText(
+  catalog: Catalog,
+  active: readonly string[],
+  permissions: readonly string[],
+): string[] {
+  return openable(catalog, active, permissions).flatMap((m) => [
+    `${m.name}’s pages, from its row in the side menu:`,
+    ...(m.ai?.places ?? []).map(placeLine),
+    ...(m.ai?.lookAlikes ?? []).map((l) => `- ${l}`),
+  ]);
 }
 
 /**

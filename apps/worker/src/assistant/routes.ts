@@ -147,7 +147,7 @@ export function registerAssistantRoutes(
     // The screen they asked from, named as the maps name it, so "this" can mean the page or setting that's open.
     const prompt = {
       ...context.prompt,
-      place: screenPlace(input.path),
+      place: screenPlace(input.path, context.places),
       ...(input.spoken ? { spoken: true } : {}),
     };
     const stream = openStream<AssistantEvent>(reply);

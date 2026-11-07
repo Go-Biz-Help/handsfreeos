@@ -59,16 +59,74 @@ const meta = (ctx: ToolContext): RequestMeta => ({
 });
 
 /** The most of an add-on's answer, in characters of JSON, the model reads whole. */
-const MOST = 16_000;
+export const MOST = 16_000;
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+const sizeOf = (v: unknown) => JSON.stringify(v ?? null).length;
+
+/**
+ * An answer too long to read whole, made to fit: every part of it that isn't a list kept whole (the counts, the page
+ * it is and how many pages there are, why nothing more is on it), and each list cut to the first of its rows that fit,
+ * the room shared evenly, a short list kept whole. Null when the rest alone doesn't fit, or it isn't one object.
+ */
+export function fittedAnswer(
+  data: unknown,
+  most = MOST,
+): { data: Record<string, unknown>; dropped: Record<string, number> } | null {
+  if (!isPlainObject(data)) return null;
+  const lists = Object.entries(data).filter(
+    (e): e is [string, unknown[]] => Array.isArray(e[1]) && e[1].length > 0,
+  );
+  if (!lists.length) return null;
+  const rest = Object.fromEntries(Object.entries(data).filter(([, v]) => !Array.isArray(v)));
+  // Room for the rest, the lists' own brackets and keys, and the `dropped` the answer adds.
+  let room = most - sizeOf(rest) - lists.reduce((n, [k]) => n + k.length + 8, 0) - 200;
+  if (room <= 0) return null;
+  const kept = new Map<string, unknown[]>();
+  const dropped: Record<string, number> = {};
+  // The smallest lists first, so one that fits in its share gives what it leaves to the others.
+  const bySize = [...lists].sort((a, b) => sizeOf(a[1]) - sizeOf(b[1]));
+  bySize.forEach(([key, rows], i) => {
+    const share = Math.floor(room / (bySize.length - i));
+    const shown: unknown[] = [];
+    let used = 0;
+    for (const row of rows) {
+      const size = sizeOf(row) + 1;
+      if (used + size > share) break;
+      shown.push(row);
+      used += size;
+    }
+    room -= used;
+    kept.set(key, shown);
+    if (shown.length < rows.length) dropped[key] = rows.length - shown.length;
+  });
+  return {
+    data: Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, kept.has(k) ? kept.get(k) : v]),
+    ),
+    dropped,
+  };
+}
 
 /**
  * What the model reads back from an add-on: its answer, marked as the add-on's data (it can hold what customers
- * wrote), and cut short when it is too long to read.
+ * wrote), and made to fit when it is too long to read: its lists cut to their first rows, everything else whole; only
+ * an answer that can't be made to fit that way is cut short as it is.
  */
-function answerFrom(tool: Pick<AddonAiTool, 'addonName'>, output: unknown): Args {
+export function answerFrom(tool: Pick<AddonAiTool, 'addonName'>, output: unknown): Args {
   const data = output ?? null;
   const json = JSON.stringify(data);
   if (json.length <= MOST) return { from: tool.addonName, data };
+  const fitted = fittedAnswer(data);
+  if (fitted)
+    return {
+      from: tool.addonName,
+      data: fitted.data,
+      cutShort: true,
+      dropped: fitted.dropped,
+      note: 'That was too long to read whole, so some lists show only their first rows (dropped says how many of each were left out); everything else is whole. For the rest, ask for less: one kind, another page, a smaller page or a narrower search.',
+    };
   return {
     from: tool.addonName,
     data: `${json.slice(0, MOST)}…`,
@@ -76,6 +134,10 @@ function answerFrom(tool: Pick<AddonAiTool, 'addonName'>, output: unknown): Args
     note: 'That was too long to read whole: ask it for less (a narrower search or a smaller page).',
   };
 }
+
+/** The answer as the model reads it: reshaped by the operation's own `ai.answer` when it has one. */
+const shownOf = (tool: AddonAiTool, output: unknown, input: Args): unknown =>
+  tool.op.ai?.answer ? tool.op.ai.answer(output, input) : output;
 
 /** The kernel's refusal for an add-on that is off, in words that say nothing happened and who can change that. */
 function saidPlainly(tool: Pick<AddonAiTool, 'addonName'>, e: unknown): unknown {
@@ -101,11 +163,16 @@ export async function runAddonTool(
   const input = addonOperationInput(tool, args, ctx);
   try {
     if (op.kind === 'query')
-      return { result: answerFrom(tool, await executeQuery(db, op, input, ctx.actor, meta(ctx))) };
+      return {
+        result: answerFrom(
+          tool,
+          shownOf(tool, await executeQuery(db, op, input, ctx.actor, meta(ctx)), input),
+        ),
+      };
     if (tool.autonomy !== 'auto') throw new Error(`${tool.name} waits for the person’s OK`);
     const done = await executeCommand(db, op, input, ctx.actor, meta(ctx));
     return {
-      result: { done: true, ...answerFrom(tool, done.output) },
+      result: { done: true, ...answerFrom(tool, shownOf(tool, done.output, input)) },
       command: op.name,
       record: { outcome: `Done in ${tool.addonName}`, command: op.name },
     };
@@ -138,22 +205,59 @@ function valueOf(v: unknown): string {
 }
 
 /**
- * The card's lines: what it does, then what it would be given, in the input's own order. A screen's command the
- * Assistant runs as it is (tools-screen-actions.ts) draws its card the same way.
+ * One line for a value, or a line for each part of a group of settings or details it gives ("Settings → Replies",
+ * "Changes → Networks → Linkedin → Sending"), so a change to one part shows as that part, never as a block of JSON
+ * cut short.
+ */
+function linesOf(label: string, v: unknown, depth = 0): Field[] {
+  if (isPlainObject(v) && depth < 3) {
+    const parts = Object.entries(v).flatMap(([k, x]) =>
+      linesOf(`${label} → ${labelOf(k)}`, x, depth + 1),
+    );
+    if (parts.length) return parts;
+  }
+  return [{ label, value: valueOf(v) }];
+}
+
+/** Argument names a description gives the model in brackets: "(personId)", "(client true)", "(outreach_playbooks)". */
+const NAMES_IN_BRACKETS = /\s*\([^()]*\b(?:[a-z]+[A-Z_][A-Za-z_]*|true|false)\b[^()]*\)/g;
+
+/**
+ * The card's What line, in the person's words: the operation's own (`ai.what`), else the first sentence of what the
+ * model reads, without the argument names it gives in brackets, so a card never shows the person a tool's instructions.
+ */
+export function whatLine(description: string, own?: string | null): string {
+  if (own?.trim()) return clip(own.trim());
+  const flat = description.replace(/\s+/g, ' ').trim();
+  const first = /^.+?[.!?](?=\s+[A-Z“"‘(]|$)/.exec(flat)?.[0] ?? flat;
+  return clip(first.replace(NAMES_IN_BRACKETS, '').replace(/\s+([.,:;])/g, '$1'));
+}
+
+/** An operation's own What line for this input (`ai.what`), when it has one. */
+export function ownWhat(ai: AddonAiTool['op']['ai'], input: unknown): string | null {
+  const what = ai?.what;
+  if (!what) return null;
+  return typeof what === 'string' ? what : what(input);
+}
+
+/**
+ * The card's lines: what it does, then what it would be given, in the input's own order, a group given in parts a line
+ * for each part. A screen's command the Assistant runs as it is (tools-screen-actions.ts) draws its card the same way.
  */
 export function cardFields(
   tool: Pick<AddonAiTool, 'input' | 'description'>,
   values: Args,
+  what?: string | null,
 ): Field[] {
   const given = Object.keys(tool.input.shape)
-    .map((key) => ({ label: labelOf(key), value: valueOf(values[key]) }))
+    .flatMap((key) => linesOf(labelOf(key), values[key]))
     .filter((f) => f.value);
   // The card holds ten lines: what it does, and nine for the rest.
   const rows =
     given.length > 9
       ? [...given.slice(0, 8), { label: 'And', value: `${given.length - 8} more` }]
       : given;
-  return [{ label: 'What', value: clip(tool.description) }, ...rows];
+  return [{ label: 'What', value: whatLine(tool.description, what) }, ...rows];
 }
 
 /**
@@ -193,7 +297,11 @@ export async function prepareAddonTool(
   return {
     card: settingsCard(toolCallId, tool.name, {
       title: `Do this in ${tool.addonName}?`,
-      fields: cardFields(tool, shown.success ? (shown.data as Args) : args),
+      fields: cardFields(
+        tool,
+        shown.success ? (shown.data as Args) : args,
+        ownWhat(tool.op.ai, input),
+      ),
       confirmLabel: 'Confirm',
     }),
     result: { waiting: true, addon: tool.addonName, what: tool.description },
@@ -209,24 +317,21 @@ export async function commitAddonTool(
 ): Promise<CommittedAction> {
   const op = tool.op;
   if (op.kind !== 'command') throw new Error(`${tool.name} is a look-up`);
+  const input = addonOperationInput(tool, args, ctx);
   let output: unknown;
   try {
-    ({ output } = await executeCommand(
-      db,
-      op,
-      addonOperationInput(tool, args, ctx),
-      ctx.actor,
-      meta(ctx),
-    ));
+    ({ output } = await executeCommand(db, op, input, ctx.actor, meta(ctx)));
   } catch (e) {
     throw saidPlainly(tool, e);
   }
+  // The operation's own words for what happened, as its screens' toast says it, when it has them.
+  const said = op.ai?.outcome?.(output, input) ?? null;
   // What it answered stays with the tool call for the model's later questions (a listing page's link, say).
   return {
-    outcome: `Done in ${tool.addonName}`,
-    href: null,
+    outcome: said?.words || `Done in ${tool.addonName}`,
+    href: said?.path ? `/app/w/${ctx.workspaceId}/${said.path.replace(/^\/+/, '')}` : null,
     command: op.name,
-    answer: keptAnswer(output, op.shownOnce),
+    answer: keptAnswer(shownOf(tool, output, input), op.shownOnce),
   };
 }
 

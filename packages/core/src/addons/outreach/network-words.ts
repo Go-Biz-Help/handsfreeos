@@ -573,8 +573,8 @@ export function requestsChoiceOn(platform: Platform) {
   if (!answersRequests(platform)) return null;
   const { friendRequests, friends } = NETWORKS[platform].words;
   const notes: Readonly<Partial<Record<RequestMode, string>>> = {
-    mine: 'They wait for you under Waiting for you, each with what the AI says, and Confirm and Delete.',
-    fits: 'As it starts. The rest wait for you under Waiting for you, with Confirm and Delete.',
+    mine: 'They wait for you under Needs you, each with what the AI says, and Confirm and Delete.',
+    fits: 'As it starts. The rest wait for you under Needs you, with Confirm and Delete.',
     fits_delete:
       'The ones it isn’t sure about wait for you. With no playbook in use, it deletes nobody.',
   };

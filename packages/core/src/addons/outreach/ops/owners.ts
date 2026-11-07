@@ -122,7 +122,7 @@ export const ownerMove = defineAddonCommand(outreachAddon, {
       throw HfosError.rule(
         'outreach_owner_not_on_team',
         422,
-        'They don’t use Social Outreach here, so nothing can be moved to them. Give them Use Social Outreach in Settings → Team first.',
+        'They don’t use Social Outreach here, so nothing can be moved to them. An owner of this business gives them Use Social Outreach in Settings → Permissions first.',
       );
     const table = input.kind === 'group' ? groups : profiles;
     const [had] = await ctx.tx
