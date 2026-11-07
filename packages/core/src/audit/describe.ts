@@ -1,13 +1,14 @@
-import {
-  ATTENTION_KIND_LABELS,
-  industryLabel,
-  LABEL_NAMES,
-  type CalendarLabel,
-  type RequestChannel,
-} from '@hfos/core';
-import type { AuditEntry } from './api/types';
-import { reminderNoun, reminderWhy } from '@/lib/calendar/reminders';
-import { clock } from '@/lib/calls/format';
+/**
+ * The audit log's words: one sentence per row, who did it, what kind of change it was, and whether it is something the
+ * Action Center noticed on its own (hidden until Show what HandsFreeOS noticed is ticked). The web's Audit log and the
+ * Assistant's read of it both say each row this way. Browser-safe.
+ */
+import { ATTENTION_KIND_LABELS } from '../attention/kinds';
+import { LABEL_NAMES, type CalendarLabel } from '../calendar/labels';
+import { reminderNoun, reminderWhy } from '../calendar/reminder-words';
+import { callClock as clock } from '../inbox/time';
+import { industryLabel } from '../industries';
+import type { AUDIT_CATEGORIES, AuditEntry, RequestChannel } from '../schemas/audit';
 
 const ROLE: Record<string, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
 const s = (v: unknown): string => (typeof v === 'string' ? v : '');
@@ -1915,21 +1916,7 @@ const tagsBetween = (these: unknown, those: unknown): string[] => {
   return Array.isArray(these) ? these.map(String).filter((t) => !other.has(t)) : [];
 };
 
-export type AuditCategory =
-  | 'members'
-  | 'invitations'
-  | 'workspace'
-  | 'customers'
-  | 'inbox'
-  | 'calendar'
-  | 'leads'
-  | 'tasks'
-  | 'files'
-  | 'imports'
-  | 'workflows'
-  | 'ai_team'
-  | 'action_center'
-  | 'other';
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
 
 export const AUDIT_CATEGORY_LABEL: Record<AuditCategory, string> = {
   action_center: 'Action Center',
@@ -1995,33 +1982,48 @@ export function auditActor(
   return { name: e.actor.fullName ?? 'Someone', kind: 'person', workflowId: null };
 }
 
-export function auditCategory(action: string): AuditCategory {
+/**
+ * Which kind of change an action is, for Filter by activity: the first rule it matches, in this order (an AI teammate's
+ * answers on a lead are the AI teammate's, not Leads'), else Other. A rule is the actions it names, and the ones that
+ * start with one of its prefixes. `audit.list` filters by the same rules, so the log and the Assistant agree.
+ */
+export const AUDIT_CATEGORY_RULES: readonly {
+  readonly category: Exclude<AuditCategory, 'other'>;
+  readonly prefixes: readonly string[];
+  readonly actions?: readonly string[];
+}[] = [
   // attention.* (people's and the worker's actions on items, and the settings) and attention_item.* (what it noticed).
-  if (action.startsWith('attention')) return 'action_center';
-  if (action.startsWith('workflow')) return 'workflows';
-  if (
-    action.startsWith('ai_teammate.') ||
-    ['conversation.hand_off', 'conversation.pick_up', 'conversation.take_over'].includes(action) ||
-    action === 'conversation.hand_to_ai' ||
-    action === 'lead.record_answers'
-  )
-    return 'ai_team';
-  if (CALENDAR_PREFIXES.some((p) => action.startsWith(p))) return 'calendar';
+  { category: 'action_center', prefixes: ['attention'] },
+  { category: 'workflows', prefixes: ['workflow'] },
+  {
+    category: 'ai_team',
+    prefixes: ['ai_teammate.'],
+    actions: [
+      'conversation.hand_off',
+      'conversation.pick_up',
+      'conversation.take_over',
+      'conversation.hand_to_ai',
+      'lead.record_answers',
+    ],
+  },
+  { category: 'calendar', prefixes: CALENDAR_PREFIXES },
   // A person's own account (deleting it hands a business over) and their cell phone: about the team (M10).
-  if (
-    action.startsWith('membership.') ||
-    action.startsWith('teammate_view.') ||
-    action.startsWith('platform.teammate_view.') ||
-    action.startsWith('account.') ||
-    action.startsWith('user_phone.') ||
-    action === 'organization.add_owner'
-  )
-    return 'members';
-  if (action.startsWith('invitation.')) return 'invitations';
-  if (action.startsWith('workspace.') || action.startsWith('organization.')) return 'workspace';
-  if (
-    action === 'person.set_sms_consent' ||
-    [
+  {
+    category: 'members',
+    prefixes: [
+      'membership.',
+      'teammate_view.',
+      'platform.teammate_view.',
+      'account.',
+      'user_phone.',
+    ],
+    actions: ['organization.add_owner'],
+  },
+  { category: 'invitations', prefixes: ['invitation.'] },
+  { category: 'workspace', prefixes: ['workspace.', 'organization.'] },
+  {
+    category: 'inbox',
+    prefixes: [
       'conversation.',
       'message.',
       'call.',
@@ -2046,24 +2048,32 @@ export function auditCategory(action: string): AuditCategory {
       'meta_message.',
       'meta_lead.',
       'ad.',
-    ].some((p) => action.startsWith(p))
-  )
-    return 'inbox';
-  if (
-    action.startsWith('person.') ||
-    action.startsWith('company.') ||
-    action.startsWith('tag.') ||
-    action.startsWith('record.') ||
-    action.startsWith('contact_ai.') ||
-    action.startsWith('custom_field.') ||
-    action.startsWith('custom_record') ||
-    action.startsWith('relationship')
-  )
-    return 'customers';
-  if (action.startsWith('lead.') || action.startsWith('pipeline.') || action.startsWith('stage.'))
-    return 'leads';
-  if (action.startsWith('task.') || action.startsWith('activity.')) return 'tasks';
-  if (action.startsWith('file.')) return 'files';
-  if (action.startsWith('import.')) return 'imports';
-  return 'other';
+    ],
+    actions: ['person.set_sms_consent'],
+  },
+  {
+    category: 'customers',
+    prefixes: [
+      'person.',
+      'company.',
+      'tag.',
+      'record.',
+      'contact_ai.',
+      'custom_field.',
+      'custom_record',
+      'relationship',
+    ],
+  },
+  { category: 'leads', prefixes: ['lead.', 'pipeline.', 'stage.'] },
+  { category: 'tasks', prefixes: ['task.', 'activity.'] },
+  { category: 'files', prefixes: ['file.'] },
+  { category: 'imports', prefixes: ['import.'] },
+];
+
+export function auditCategory(action: string): AuditCategory {
+  return (
+    AUDIT_CATEGORY_RULES.find(
+      (r) => r.actions?.includes(action) || r.prefixes.some((p) => action.startsWith(p)),
+    )?.category ?? 'other'
+  );
 }

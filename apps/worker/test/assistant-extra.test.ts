@@ -10,6 +10,7 @@ import {
   formPublish,
   hasWorkspacePermission,
   knowledgePackCreate,
+  menuKeys,
   menuOf,
   organizationCreate,
   pushSwitchesOf,
@@ -713,7 +714,10 @@ describe('your own alerts and side menu', () => {
       places: ['audit', 'campaigns'],
     });
     expect(field(hide.card, 'Hide')!.value).toBe('Audit log and Campaigns');
-    expect(field(hide.card, 'Your menu')!.value).toBe('15 in the menu · 2 hidden');
+    // The menu it makes, top to bottom, as the person will see it.
+    expect(field(hide.card, 'Your menu')!.value).toMatch(
+      /^Home, Inbox, Contacts, .*, Settings; hidden: Audit log, Campaigns$/,
+    );
     expect((await me()).user.settings['menu']).toBeUndefined();
     // The web's menu reads the saved menu again once this is confirmed, so there's no reload to ask for.
     expect((await confirm('arrange_my_menu', hide.parsed)).outcome).toBe('Menu saved');
@@ -746,6 +750,74 @@ describe('your own alerts and side menu', () => {
     await expect(prepare('arrange_my_menu', { action: 'start_over' })).rejects.toThrow(
       'Nothing would change.',
     );
+  });
+
+  it('moves places, groups them, renames a group and ungroups it, as Edit menu does', async () => {
+    const saved = async () => menuOf((await me()).user.settings);
+    const move = await prepare('arrange_my_menu', {
+      action: 'move',
+      places: ['tasks'],
+      before: 'inbox',
+    });
+    expect(move.card.title).toBe('Move in your side menu');
+    expect(field(move.card, 'Just above')!.value).toBe('Inbox');
+    expect(field(move.card, 'Your menu')!.value).toMatch(/^Home, Tasks, Inbox, /);
+    await confirm('arrange_my_menu', move.parsed);
+    expect(menuKeys(await saved()).slice(0, 3)).toEqual(['home', 'tasks', 'inbox']);
+
+    // A new group stands where the first of its places stood.
+    const group = await prepare('arrange_my_menu', {
+      action: 'group',
+      places: ['reviews', 'forms'],
+      group: 'Marketing',
+    });
+    expect(field(group.card, 'New group')!.value).toBe('Marketing');
+    expect(field(group.card, 'Your menu')!.value).toContain(
+      'Documents, Marketing (Reviews, Forms), Knowledge',
+    );
+    await confirm('arrange_my_menu', group.parsed);
+    // Then into it by its name, however it's written.
+    const into = await prepare('arrange_my_menu', {
+      action: 'group',
+      places: ['campaigns'],
+      group: 'marketing',
+    });
+    expect(field(into.card, 'Into')!.value).toBe('Marketing');
+    await confirm('arrange_my_menu', into.parsed);
+
+    const rename = await prepare('arrange_my_menu', {
+      action: 'rename_group',
+      group: 'Marketing',
+      name: 'Grow',
+    });
+    expect(field(rename.card, 'New name')!.value).toBe('Grow');
+    await confirm('arrange_my_menu', rename.parsed);
+
+    // With no place to go above, a place comes out of its group to just under it.
+    const out = await prepare('arrange_my_menu', { action: 'move', places: ['forms'] });
+    expect(field(out.card, 'Your menu')!.value).toContain('Grow (Reviews, Campaigns), Forms');
+    await confirm('arrange_my_menu', out.parsed);
+
+    const ungroup = await prepare('arrange_my_menu', { action: 'ungroup', group: 'Grow' });
+    expect(field(ungroup.card, 'Back in the menu')!.value).toBe('Reviews and Campaigns');
+    await confirm('arrange_my_menu', ungroup.parsed);
+    const menu = await saved();
+    expect(menu.entries.some((e) => e.kind === 'group')).toBe(false);
+    expect(menuKeys(menu)).toContain('campaigns');
+
+    await expect(prepare('arrange_my_menu', { action: 'ungroup', group: 'Grow' })).rejects.toThrow(
+      'Your menu has no groups yet.',
+    );
+    // An add-on is a place only where it runs.
+    await expect(
+      prepare('arrange_my_menu', { action: 'hide', places: ['addon:nosuchaddon'] }),
+    ).rejects.toThrow('isn’t in your menu here');
+
+    await confirm(
+      'arrange_my_menu',
+      (await prepare('arrange_my_menu', { action: 'start_over' })).parsed,
+    );
+    expect(sameMenu(await saved(), DEFAULT_MENU)).toBe(true);
   });
 });
 

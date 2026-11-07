@@ -262,6 +262,52 @@ describe('what the Assistant can see', () => {
     expect(me).not.toHaveProperty('weekly');
   });
 
+  it('reads the Audit log as its rows say them, filtered as its menus filter, and keeps the next page when cut', async () => {
+    type Page = { entries: Record<string, unknown>[]; nextCursor: string | null };
+    // Enough new customers that a page of them is too long to read whole.
+    for (let n = 0; n < 65; n += 1)
+      await executeCommand(
+        api(),
+        personCreate,
+        { workspaceId, firstName: `Audra${n}`, lastName: 'Logwood' },
+        actor(owner),
+        meta(),
+      );
+    // Filter by activity → Contacts: each row as the log says it, who did it and what, in words.
+    const contacts = (await read('audit.list', { category: 'customers', limit: 5 })).result
+      .data as Page;
+    expect(contacts.entries).toHaveLength(5);
+    expect(contacts.entries[0]).toMatchObject({
+      who: 'Sam Owner',
+      did: 'added Audra64 Logwood',
+      kind: 'Contacts',
+      action: 'person.create',
+      actorId: owner.id,
+      entityType: 'person',
+    });
+    expect(contacts.entries[0]).not.toHaveProperty('actor');
+    expect(contacts.entries.every((e) => e['kind'] === 'Contacts')).toBe(true);
+    expect(contacts.nextCursor).toEqual(expect.any(String));
+    // Filter by person → a person, and → HandsFreeOS: only what each did.
+    const sam = (await read('audit.list', { actorType: 'human', limit: 50 })).result.data as Page;
+    expect(sam.entries.every((e) => e['who'] === 'Sam Owner')).toBe(true);
+    const system = (await read('audit.list', { actorType: 'system', limit: 50 })).result
+      .data as Page;
+    expect(system.entries.every((e) => String(e['who']).startsWith('HandsFreeOS'))).toBe(true);
+
+    // A page too long to read whole still says where the next one starts.
+    const long = (await read('audit.list', { category: 'customers', limit: 60 })).result as {
+      cutShort?: boolean;
+      nextCursor?: string;
+    };
+    expect(long).toMatchObject({ cutShort: true, nextCursor: expect.any(String) });
+    const next = (
+      await read('audit.list', { category: 'customers', limit: 5, cursor: long.nextCursor })
+    ).result.data as Page;
+    expect(next.entries.length).toBeGreaterThan(0);
+    expect(next.entries.map((e) => e['did'])).not.toContain('added Audra64 Logwood');
+  });
+
   it('gives an affiliate their link and each code’s that’s on, once their page shows them', async () => {
     const admin = testDbs().admin.db;
     const code = `sr-${randomUUID().slice(0, 8)}`;

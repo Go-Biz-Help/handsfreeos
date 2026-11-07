@@ -71,6 +71,51 @@ describe('Assistant context (PERF-M20)', () => {
     ).toContain('- Sales (pipeline id p1): New [open] (stage id s1)');
   });
 
+  it('names what each Action Center item is about, and the phone’s own unsent changes, as data', () => {
+    const about = turnText({
+      ...PROMPT,
+      attention: {
+        scope: 'everyone',
+        total: 1,
+        items: [
+          {
+            id: 'i1',
+            title: 'Rosa Diaz mentioned Tom',
+            kind: 'Referral',
+            urgent: false,
+            chips: ['Mentioned 2 days ago'],
+            subject: { type: 'referral', id: 'r1' },
+          },
+        ],
+      },
+    });
+    expect(about).toContain(
+      '1. Rosa Diaz mentioned Tom [Referral] Mentioned 2 days ago (about referral id r1) (attention item id i1)',
+    );
+
+    const phone = turnText({
+      ...PROMPT,
+      deviceChanges: {
+        waiting: 2,
+        needsYou: [{ title: 'Text to Dana Reyes', why: 'Refused: Dana texted STOP.' }],
+        moreNeedYou: 0,
+        sentJustNow: ['Note for Mike Johnson'],
+      },
+    });
+    expect(phone).toContain('2 waiting to send on their own, 1 needing them.');
+    expect(phone).toContain('- Needs them: "Text to Dana Reyes", "Refused: Dana texted STOP."');
+    expect(phone).toContain('Sent just now: "Note for Mike Johnson"');
+    expect(phone).toContain('under More, then Changes on this phone');
+    expect(
+      turnText({
+        ...PROMPT,
+        deviceChanges: { waiting: 0, needsYou: [], moreNeedYou: 0, sentJustNow: [] },
+      }),
+    ).toContain('Changes on this phone (asked on the phone): up to date, nothing waiting.');
+    // Asked on the web, there's nothing of the phone's to say.
+    expect(turnText(PROMPT)).not.toContain('Changes on this phone');
+  });
+
   it('says when there are more workflows than it lists, and how to read a run on screen', () => {
     const flows = Array.from({ length: 25 }, (_, i) => ({
       id: `w${i}`,

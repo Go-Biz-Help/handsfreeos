@@ -67042,8 +67042,12 @@ export interface operations {
                     action?: string;
                     /** Format: uuid */
                     actorId?: string;
+                    /** @enum {string} */
+                    actorType?: "human" | "system" | "workflow" | "assistant" | "ai_employee" | "api" | "integration" | "customer";
                     /** Format: date-time */
                     before?: string;
+                    /** @enum {string} */
+                    category?: "members" | "invitations" | "workspace" | "customers" | "inbox" | "calendar" | "leads" | "tasks" | "files" | "imports" | "workflows" | "ai_team" | "action_center" | "other";
                     /** @enum {string} */
                     channel?: "web" | "api" | "worker" | "cli" | "sms" | "assistant" | "booking_page" | "workflow" | "ai_employee" | "chat_widget" | "mobile" | "extension" | "contact_ai" | "portal" | "test";
                     cursor?: string;
@@ -89573,6 +89577,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /**
+                     * @description full looks further back and waits longer, as the Search page does; quick is the box’s fast look
                      * @default quick
                      * @enum {string}
                      */
@@ -89585,7 +89590,10 @@ export interface operations {
                     /** @default 3 */
                     perKind?: number;
                     q: string;
-                    /** @default false */
+                    /**
+                     * @description Set by the phone and the web when a setting matched on the device. Leave it out
+                     * @default false
+                     */
                     settingsMatched?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
@@ -90038,11 +90046,15 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: date-time */
+                    /**
+                     * Format: date-time
+                     * @description Look further back: the searchedBack this kind’s last answer gave, for the ones searched only so far back
+                     */
                     before?: string;
                     cursor?: string;
                     /** @default false */
                     includeArchived?: boolean;
+                    /** @description A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam */
                     kind: string;
                     /** @default 50 */
                     limit?: number;

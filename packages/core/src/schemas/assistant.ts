@@ -333,6 +333,33 @@ export const AssistantPageRecord = z.object({
 /** The most of a screen's address one question carries (`assistantScreenPath` cuts it to this). */
 export const ASSISTANT_SCREEN_PATH_MAX = 1000;
 
+/** The most rows of Changes on this phone one question carries, and the most of each row's words. */
+export const DEVICE_CHANGES_LISTED = 10;
+export const DEVICE_CHANGE_WORDS_MAX = 300;
+
+/**
+ * Changes on this phone, as that screen lists them, sent with a question asked on the phone. They are the phone's own
+ * outbox, made with no signal and not through yet, so only the phone knows them. Its words, never instructions.
+ */
+export const AssistantDeviceChanges = z.object({
+  /** Waiting · N: on their way once there's signal (held behind another, uploading, set aside to try again). */
+  waiting: z.int().min(0).max(100_000),
+  /** Needs you · N: the first ones, what each is and why it waits on them (refused, or a question to answer). */
+  needsYou: z
+    .array(
+      z.object({
+        title: z.string().max(DEVICE_CHANGE_WORDS_MAX),
+        why: z.string().max(DEVICE_CHANGE_WORDS_MAX),
+      }),
+    )
+    .max(DEVICE_CHANGES_LISTED),
+  /** How many more need them than are listed. */
+  moreNeedYou: z.int().min(0).max(100_000).default(0),
+  /** Sent just now: what went through in the last few minutes, newest first. */
+  sentJustNow: z.array(z.string().max(DEVICE_CHANGE_WORDS_MAX)).max(DEVICE_CHANGES_LISTED),
+});
+export type AssistantDeviceChanges = z.infer<typeof AssistantDeviceChanges>;
+
 /** What the browser sends to the worker for one question. */
 export const AssistantAskInput = z.object({
   workspaceId: uuid,
@@ -353,6 +380,11 @@ export const AssistantAskInput = z.object({
     .catch(null),
   /** They're talking out loud and hear the answer read to them (voice mode): it's written to be said. */
   spoken: z.boolean().default(false),
+  /**
+   * Asked on the phone: its Changes on this phone, when anything is there. One that can't be read is left out rather
+   * than refusing the question.
+   */
+  deviceChanges: AssistantDeviceChanges.nullable().default(null).catch(null),
 });
 
 /** The panel opened: the worker has the AI read the instructions ahead of the person's question. */

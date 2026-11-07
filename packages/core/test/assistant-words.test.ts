@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   APPEARANCE_OPTIONS,
+  AssistantAskInput,
   ASSISTANT_WORDS,
   assistantCancelledText,
   assistantChatWhen,
@@ -355,6 +356,28 @@ describe('the screen a question is asked from', () => {
     expect(screenPlace(`/calendar?a%20b=${ID}`)).toMatchObject({ ids: [] });
     expect(screenPlace('inbox')).toBe(null);
     expect(screenPlace(null)).toBe(null);
+  });
+});
+
+describe('the phone’s own changes, asked about on the phone', () => {
+  it('carries what Changes on this phone shows, and drops one it can’t read rather than refusing the question', () => {
+    const changes = {
+      waiting: 2,
+      needsYou: [{ title: 'Text to Dana Reyes', why: 'Refused: Dana texted STOP.' }],
+      sentJustNow: ['Note for Mike Johnson'],
+    };
+    expect(
+      AssistantAskInput.parse({ workspaceId: WS, text: 'Did my text go?', deviceChanges: changes })
+        .deviceChanges,
+    ).toEqual({ ...changes, moreNeedYou: 0 });
+    expect(AssistantAskInput.parse({ workspaceId: WS, text: 'Hi' }).deviceChanges).toBeNull();
+    expect(
+      AssistantAskInput.parse({
+        workspaceId: WS,
+        text: 'Hi',
+        deviceChanges: { ...changes, needsYou: [{ title: 'x'.repeat(5000), why: '' }] },
+      }).deviceChanges,
+    ).toBeNull();
   });
 });
 

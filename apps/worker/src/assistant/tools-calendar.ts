@@ -126,6 +126,8 @@ interface Attendee {
   contactPhone?: string | null;
   contactEmail?: string | null;
   smsOk?: boolean;
+  /** When the customer confirmed (by replying C, or on their booking page), or someone on the team marked it. */
+  confirmedAt?: string | null;
 }
 type Appointment = Omit<AppointmentOut, 'attendees'> & { attendees: Attendee[] };
 interface PersonGet {
@@ -216,17 +218,31 @@ export function statusFor(
   };
 }
 
+/**
+ * Whether the customer has confirmed, as Home's Today card marks it (Confirmed, Not confirmed): every booked seat
+ * says so. Only a one-customer booking is ever asked, so a class or a group visit has no answer (null).
+ */
+export function confirmedOf(a: Appointment): boolean | null {
+  if (isGroup(a)) return null;
+  const seats = a.attendees.filter((t) => t.status === 'booked');
+  return seats.length ? seats.every((t) => !!t.confirmedAt) : null;
+}
+
 /** What the model reads about an appointment: its id and plain words. */
-const appointmentResult = (a: Appointment, timeZone: string) => ({
-  id: a.id,
-  calendarId: a.calendar.id,
-  what: whatOf(a),
-  customers: booked(a).map((p) => p.fullName),
-  when: rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), timeZone),
-  startsAt: isoWithOffset(Date.parse(a.startsAt), timeZone),
-  with: staffOf(a),
-  ...statusFor(a, timeZone),
-});
+const appointmentResult = (a: Appointment, timeZone: string) => {
+  const confirmed = confirmedOf(a);
+  return {
+    id: a.id,
+    calendarId: a.calendar.id,
+    what: whatOf(a),
+    customers: booked(a).map((p) => p.fullName),
+    when: rangeLabel(Date.parse(a.startsAt), Date.parse(a.endsAt), timeZone),
+    startsAt: isoWithOffset(Date.parse(a.startsAt), timeZone),
+    with: staffOf(a),
+    ...statusFor(a, timeZone),
+    ...(confirmed === null ? {} : { confirmed }),
+  };
+};
 
 /** A customer's appointments that haven't ended, soonest first (the next 60 days). */
 export async function upcomingFor(
@@ -253,10 +269,18 @@ export async function todaysAppointments(
   const tz = ctx.timezone;
   const now = Date.now();
   const today = localDateOf(now, tz);
-  const { items } = await q<{ items: Appointment[] }>(db, ctx, 'appointment.list', {
-    from: iso(startOfLocalDay(today, tz)),
-    to: iso(startOfLocalDay(addDays(today, 1), tz)),
-  });
+  const [{ items }, next] = await Promise.all([
+    q<{ items: Appointment[] }>(db, ctx, 'appointment.list', {
+      from: iso(startOfLocalDay(today, tz)),
+      to: iso(startOfLocalDay(addDays(today, 1), tz)),
+    }),
+    // Tomorrow's, for the Today card's foot: "3 tomorrow · 2 confirmed so far".
+    q<{ items: Appointment[] }>(db, ctx, 'appointment.list', {
+      from: iso(startOfLocalDay(addDays(today, 1), tz)),
+      to: iso(startOfLocalDay(addDays(today, 2), tz)),
+      status: ['scheduled'],
+    }),
+  ]);
   const live = items.filter((a) => a.status === 'scheduled' || a.status === 'completed');
   const left = live.filter((a) => a.status === 'scheduled' && Date.parse(a.endsAt) > now);
   // A time held for a deposit isn't happening, whatever the clock says.
@@ -278,6 +302,11 @@ export async function todaysAppointments(
         yours: a.staff.some((s) => s.userId === ctx.actor.userId),
       })),
       doneEarlierToday: live.length - left.length,
+      tomorrow: {
+        appointments: next.items.length,
+        confirmedSoFar: next.items.filter((a) => confirmedOf(a) === true).length,
+        yours: next.items.filter((a) => a.staff.some((s) => s.userId === ctx.actor.userId)).length,
+      },
     },
     card: left.length
       ? {

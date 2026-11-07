@@ -1,4 +1,9 @@
-import { AssistantEvent, type AssistantCard, type PageRecord } from '@hfos/core';
+import {
+  AssistantEvent,
+  type AssistantCard,
+  type AssistantDeviceChanges,
+  type PageRecord,
+} from '@hfos/core';
 import { fetch as streamingFetch } from 'expo/fetch';
 
 import { session } from '@/lib/auth';
@@ -26,6 +31,8 @@ export interface AskBody {
   readonly path?: string | null;
   /** Asked out loud: the answer is written to be heard. */
   readonly spoken?: boolean;
+  /** Changes on this phone, which never reached HandsFreeOS, so the Assistant can say what's stuck and why. */
+  readonly deviceChanges?: AssistantDeviceChanges;
 }
 
 /** Where a card stands after Confirm, Cancel or Undo. */

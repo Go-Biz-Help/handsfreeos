@@ -11,7 +11,7 @@
  * agency owner and admin holds in each of its businesses, and the card says when the person isn't one.
  */
 import { z } from 'zod';
-import { MENU_KEYS } from '../account/menu';
+import { MENU_ADDON_PLACES_MAX, MENU_GROUP_LABEL_MAX, MENU_KEYS } from '../account/menu';
 import {
   APPROVALS_NEEDED_MAX,
   APPROVALS_NEEDED_MIN,
@@ -99,6 +99,9 @@ const EVERYONES_ALERTS = PUSH_SWITCHES.filter(
 
 const PUSH_WORDS =
   'customerWaiting: a new message nobody has answered; missedCall: a call nobody took; urgent: something that can’t wait; approval: a draft or workflow step waiting for an OK; booking: one of their appointments booked, moved or cancelled; assigned: something given to them; payment: a customer pays; wallet: the balance runs out; jobs: a visit they were on is over; connections: something connected stops working; qualifying: a lead qualifies, or a customer sends a file a qualifying question asked for; documents: a document they sent is signed by everyone, declined or runs out of time';
+
+/** An add-on's place in the side menu, as the menu keeps it. */
+const MENU_ADDON_PLACE = z.string().regex(/^addon:[a-z]{2,16}$/, 'addon:<the add-on’s id>');
 
 export const extraTools: readonly AssistantTool[] = [
   // ---------- the AI teammate's finer rules ----------
@@ -443,15 +446,46 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'arrange_my_menu',
     description:
-      'Change the person’s own side menu: hide places or show hidden ones, use the suggested groups (everyday places stay out, the rest fold into More), or start over with every place one under the other. Home and Settings never hide. Theirs alone.',
+      'Change the person’s own side menu, as Edit menu does: hide places or show hidden ones; move places (just above another place, or out of their group); put places into a group by its name (a new group when none is called that, five groups at most); rename a group or ungroup it (its places stay in the menu where it stood); use the suggested groups (everyday places stay out, the rest fold into More); or start over with every place one under the other. An add-on running here is a place too, as addon:<its id>. Home and Settings never hide. Theirs alone.',
     input: z.object({
-      action: z.enum(['hide', 'show', 'use_suggested', 'start_over']),
+      action: z.enum([
+        'hide',
+        'show',
+        'move',
+        'group',
+        'rename_group',
+        'ungroup',
+        'use_suggested',
+        'start_over',
+      ]),
       places: z
-        .array(z.enum(MENU_KEYS))
+        .array(z.union([z.enum(MENU_KEYS), MENU_ADDON_PLACE]))
         .min(1)
-        .max(MENU_KEYS.length)
+        .max(MENU_KEYS.length + MENU_ADDON_PLACES_MAX)
         .optional()
-        .describe('For hide and show'),
+        .describe('For hide, show, move and group, in the order they should stand'),
+      before: z
+        .union([z.enum(MENU_KEYS), MENU_ADDON_PLACE])
+        .optional()
+        .describe(
+          'For move: the place they go just above, inside its group when it’s in one. Without it they come out of their group to just under it, or go to the bottom of the menu',
+        ),
+      group: z
+        .string()
+        .trim()
+        .min(1)
+        .max(MENU_GROUP_LABEL_MAX)
+        .optional()
+        .describe(
+          'For group: the group they go into, by name. For rename_group and ungroup: the group, by its name now',
+        ),
+      name: z
+        .string()
+        .trim()
+        .min(1)
+        .max(MENU_GROUP_LABEL_MAX)
+        .optional()
+        .describe('For rename_group: its new name'),
     }),
     autonomy: 'confirm',
     permission: 'assistant.use',

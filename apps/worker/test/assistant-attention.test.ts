@@ -510,6 +510,142 @@ describe('the Assistant on the Action Center', () => {
     });
   });
 
+  it('reads Home whole: what each item is about, its button and the tool behind it, a page at a time, with what HandsFreeOS did and is about to send', async () => {
+    const tools = createToolExecutor(worker());
+    const home = await list(owner, { scope: 'everyone', includeHandled: true });
+    const read = async (args: Record<string, unknown>) =>
+      (
+        await tools.run(
+          tool('what_needs_attention'),
+          { scope: 'everyone', ...args },
+          toolCtx(owner),
+        )
+      ).result as Record<string, unknown>;
+    const first = await read({ limit: 50 });
+    const items = first['items'] as Record<string, unknown>[];
+    expect(items.map((i) => i['id'])).toEqual(home.items.map((i) => i.id));
+
+    // A workflow's approval: what it's about, Home's Review button, and the tool that answers it, with its ids.
+    const approval = home.items.find((i) => i.id === approvalItem)!;
+    expect(items.find((i) => i['id'] === approvalItem)).toMatchObject({
+      subject: { type: approval.subject.type, id: approval.subject.id },
+      button: approval.handleLabel,
+      buttonTool: {
+        tool: 'answer_workflow_approval',
+        approvalId: approval.subject.id,
+        decision: 'approve',
+      },
+      opens: { link: expect.stringContaining(`/app/w/${ws}`) },
+    });
+    // Marco's overdue task opens on its button, so there's no tool for it; the task's id is what complete_task takes.
+    const task = home.items.find((i) => i.kind === 'overdue_task')!;
+    const taskRead = items.find((i) => i['id'] === task.id)!;
+    expect(taskRead).toMatchObject({ subject: { type: 'task', id: task.subject.id } });
+    expect(taskRead['buttonTool']).toBeUndefined();
+
+    // Bo's next action was set through Let HandsFreeOS Handle, and Kevin's follow-up waits to go.
+    expect(first['handled']).toContainEqual(
+      expect.objectContaining({
+        title: 'Bo Test · Whole-house system',
+        byHandsFree: true,
+        how: 'You asked HandsFreeOS',
+      }),
+    );
+    const kevinItem = (await itemOf(kevinLead, 'stale_opportunity')).id;
+    expect(first['comingUp']).toContainEqual(
+      expect.objectContaining({ itemId: kevinItem, sends: 'follow-up' }),
+    );
+
+    // A page at a time: one, then the next, numbered from where it starts; Home's other parts come once.
+    const one = await read({ limit: 1 });
+    expect((one['items'] as Record<string, unknown>[]).map((i) => i['id'])).toEqual([
+      home.items[0]!.id,
+    ]);
+    expect(one).toMatchObject({ more: home.items.length - 1, nextOffset: 1 });
+    const two = await read({ limit: 1, offset: 1 });
+    expect(two['items']).toEqual([expect.objectContaining({ rank: 2, id: home.items[1]!.id })]);
+    expect(two['handled']).toBeUndefined();
+    expect(two['comingUp']).toBeUndefined();
+
+    // Let HandsFreeOS Handle isn't offered for a task, so the card says what can be done instead.
+    const handle = await tools.prepare(
+      tool('handle_attention_item'),
+      { itemId: task.id },
+      toolCtx(owner),
+      randomUUID(),
+    );
+    expect(handle.card).toMatchObject({
+      confirmLabel: '',
+      warnings: [
+        {
+          kind: 'blocked',
+          text: 'HandsFreeOS can’t do your tasks. I can mark this one done for you instead.',
+        },
+      ],
+    });
+    expect(handle.result).toMatchObject({
+      doneWith: { tool: 'complete_task', taskId: task.subject.id },
+    });
+  });
+
+  it('snoozes and dismisses at once, as Home does, but asks first before stopping what HandsFreeOS is about to send', async () => {
+    const tools = createToolExecutor(worker());
+    const setAside = tool('set_aside_attention_item');
+    // Kevin's follow-up is about to go: setting it aside would stop it, so that waits on a card.
+    const kevinItem = (await itemOf(kevinLead, 'stale_opportunity')).id;
+    await expect(
+      tools.run(setAside, { itemId: kevinItem, action: 'dismiss' }, toolCtx(owner)),
+    ).rejects.toMatchObject({ rule: 'attention_stops_auto' });
+    expect((await itemOf(kevinLead, 'stale_opportunity')).state).toBe('open');
+
+    const ana = await typedLead(await customer('Ana'), 'Heat pump quote', 300_000);
+    const cy = await typedLead(await customer('Cy'), 'Thermostat swap', 30_000);
+    await settle();
+    const anaItem = (await itemOf(ana, 'missing_next_action')).id;
+    const cyItem = (await itemOf(cy, 'missing_next_action')).id;
+
+    const until = new Date(Date.now() + 2 * DAY).toISOString();
+    const snoozed = await tools.run(
+      setAside,
+      { itemId: anaItem, action: 'snooze', until },
+      toolCtx(owner),
+    );
+    expect(snoozed.card ?? null).toBeNull();
+    expect(snoozed.result).toMatchObject({
+      item: 'Ana Test · Heat pump quote',
+      putBackWith: 'do_attention_restore',
+    });
+    expect(await itemOf(ana, 'missing_next_action')).toMatchObject({
+      state: 'snoozed',
+      snoozedBy: owner.id,
+    });
+    expect((await itemOf(ana, 'missing_next_action')).snoozedUntil?.toISOString()).toBe(until);
+    expect(await lastAudit('attention.snooze')).toEqual({
+      actor_id: owner.id,
+      channel: 'assistant',
+    });
+
+    await tools.run(
+      setAside,
+      { itemId: cyItem, action: 'dismiss', reason: 'Already booked' },
+      toolCtx(priya),
+    );
+    expect(await itemOf(cy, 'missing_next_action')).toMatchObject({
+      state: 'dismissed',
+      dismissReason: 'Already booked',
+      dismissedBy: priya.id,
+    });
+    expect(await lastAudit('attention.dismiss')).toEqual({
+      actor_id: priya.id,
+      channel: 'assistant',
+    });
+
+    // Off the list now, so there's nothing to set aside again.
+    await expect(
+      tools.run(setAside, { itemId: cyItem, action: 'dismiss' }, toolCtx(owner)),
+    ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
   it('snoozes, assigns and dismisses on Confirm, as the person', async () => {
     let events = await ask(ownerToken, "Snooze Maria's lead until tomorrow");
     let card = cardOf(events, 'confirm')!;
@@ -598,6 +734,7 @@ describe('the Assistant on the Action Center', () => {
         'what_needs_attention',
         'handle_attention_item',
         'update_attention_item',
+        'set_aside_attention_item',
       ]),
     );
     const readOnly = toolsFor(
@@ -606,5 +743,6 @@ describe('the Assistant on the Action Center', () => {
     expect(readOnly).toContain('what_needs_attention');
     expect(readOnly).not.toContain('handle_attention_item');
     expect(readOnly).not.toContain('update_attention_item');
+    expect(readOnly).not.toContain('set_aside_attention_item');
   });
 });

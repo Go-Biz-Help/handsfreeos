@@ -1,9 +1,30 @@
-import { and, desc, eq, gte, like, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, like, lt, not, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { auditLogs, users, workflows } from '@hfos/db/schema';
+import { AUDIT_CATEGORY_RULES, type AuditCategory } from '../audit/describe';
 import { defineQuery } from '../kernel/define';
 import { decodeTimeCursor, encodeCursor } from '../kernel/pagination';
 import { AuditListInput, AuditListOutput } from '../schemas/audit';
+
+/** An action matching one of Filter by activity's rules: one it names, or one starting with a prefix of it. */
+const matchesRule = (rule: (typeof AUDIT_CATEGORY_RULES)[number]): SQL =>
+  or(
+    ...rule.prefixes.map((p) => sql`starts_with(${auditLogs.action}, ${p})`),
+    ...(rule.actions?.length ? [inArray(auditLogs.action, [...rule.actions])] : []),
+  )!;
+
+/**
+ * The rows of one kind of change, sorted as auditCategory sorts them: the first rule an action matches is its kind, so
+ * a kind is its own rule and none of the ones before it; Other is none of them.
+ */
+function inCategory(category: AuditCategory): SQL {
+  const at = AUDIT_CATEGORY_RULES.findIndex((r) => r.category === category);
+  const before = (at < 0 ? AUDIT_CATEGORY_RULES : AUDIT_CATEGORY_RULES.slice(0, at)).map(
+    matchesRule,
+  );
+  const earlier = before.length ? [not(or(...before)!)] : [];
+  return at < 0 ? and(...earlier)! : and(matchesRule(AUDIT_CATEGORY_RULES[at]!), ...earlier)!;
+}
 
 export const auditList = defineQuery({
   name: 'audit.list',
@@ -26,6 +47,8 @@ export const auditList = defineQuery({
     if (input.actorId) conditions.push(eq(auditLogs.actorId, input.actorId));
     if (input.action) conditions.push(like(auditLogs.action, `${input.action}%`));
     if (input.channel) conditions.push(eq(auditLogs.channel, input.channel));
+    if (input.actorType) conditions.push(eq(auditLogs.actorType, input.actorType));
+    if (input.category) conditions.push(inCategory(input.category));
     const target = alias(users, 'target');
     // A workflow is recorded as itself (actor_id is the workflow), so its name comes from workflows.
     const flow = alias(workflows, 'flow');

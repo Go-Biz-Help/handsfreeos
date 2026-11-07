@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ATTENTION_KINDS } from '../attention/kinds';
+import { ATTENTION_KINDS, AUTO_CANCEL_WINDOW_MINUTES } from '../attention/kinds';
 import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
 import { FORM_STARTERS } from '../forms/starters';
@@ -166,14 +166,20 @@ export const assistantTools = [
   }),
   define({
     name: 'what_needs_attention',
-    description:
-      'The Action Center: what needs attention now, from the same list Home shows and in the same order (urgent first, then by value, urgency and how likely it is to pay off). It covers hot leads, new leads nobody has answered, customers waiting on a reply, leads gone quiet or without a next action, unconfirmed appointments, approvals the person can decide and overdue tasks. Returns “$ affected”, the counts, and the top 8 items with their ids, reasons and value, shown as a card. Leave out scope for the person’s usual view (Mine for members, Everyone for owners and admins).',
+    description: `The Action Center: what needs attention now, from the same list Home shows and in the same order (urgent first, then by value, urgency and how likely it is to pay off). It covers every kind Home shows: hot leads, new leads nobody has answered, customers waiting on a reply, leads gone quiet or without a next action, unconfirmed appointments, approvals the person can decide, overdue tasks, money waiting, the balance, referrals, deals on the wrong stage, visits never marked done, things to teach the AI, add-ons’ alerts and the rest. Returns “$ affected”, the counts, and 8 items at a time with their ids, reasons and value, shown as a card; more says how many follow, and offset reads the next ones. Each item has what it is about (subject, whose id is the referral, lesson, draft, approval, task, estimate or invoice it is about) and its customer, lead, conversation and appointment ids; button, the words on its own button on Home; buttonTool, when another tool does what that button does, with the ids to give it (use it when they say to do that); and opens, the link to the page it opens. On the first page, handled lists what was taken care of today, newest first, each by whom and when (byHandsFree marks Home’s Handled by HandsFreeOS; with nothing open, Home lists them all under You’re all caught up), and comingUp what it is about to send (Coming up from HandsFreeOS: each waits ${AUTO_CANCEL_WINDOW_MINUTES} minutes before it goes, so it can be cancelled; do_attention_cancel_auto with the itemId stops one). Leave out scope for the person’s usual view (Mine for members, Everyone for owners and admins).`,
     input: z.object({
       scope: z
         .enum(['mine', 'everyone'])
         .optional()
         .describe('mine: the person’s own items and unassigned ones; everyone: the whole business'),
       kind: z.enum(ATTENTION_KINDS).optional().describe('Only items of this kind'),
+      offset: z
+        .int()
+        .min(0)
+        .max(1000)
+        .optional()
+        .describe('Skip this many: the next ones after the first page'),
+      limit: z.int().min(1).max(50).optional().describe('How many items (8 when left out)'),
     }),
     autonomy: 'auto',
     permission: 'records.read',
@@ -204,7 +210,7 @@ export const assistantTools = [
   define({
     name: 'todays_schedule',
     description:
-      'What is on for today: the business’s appointments still to come (with ids), then the person’s tasks due today.',
+      'What is on for today, as Home’s Today card shows it: the business’s appointments still to come (with ids, whose they are, whether one is happening now, and for a one-customer booking whether the customer confirmed), how many are booked tomorrow and how many of those are confirmed so far, then the person’s tasks due today or overdue (with ids, for complete_task).',
     input: z.object({}),
     autonomy: 'auto',
     permission: 'records.read',
@@ -1810,9 +1816,22 @@ export const assistantTools = [
     permission: 'records.write',
   }),
   define({
+    name: 'set_aside_attention_item',
+    description:
+      'Snooze an Action Center item until a time (30 days at most; it comes back sooner if something changes) or dismiss it with the person’s reason if they gave one (it comes back only if something changes), at once, as Home’s Snooze and Dismiss… do; do_attention_restore puts it back. When HandsFreeOS is about to send something for the item (handsFreeOsSendsAt), this would stop that message, so it refuses: use update_attention_item, which asks first. Item ids come from what_needs_attention or the context.',
+    input: z.object({
+      itemId: uuid,
+      action: z.enum(['snooze', 'dismiss']),
+      until: when.optional().describe('Snooze: when it comes back'),
+      reason: z.string().trim().max(500).optional().describe('Dismiss: why'),
+    }),
+    autonomy: 'auto',
+    permission: 'records.write',
+  }),
+  define({
     name: 'update_attention_item',
     description:
-      'Snooze an Action Center item until a time (30 days at most; it comes back sooner if something changes), dismiss it with the person’s reason if they gave one (it comes back only if something changes), or assign it to a teammate (for a lead, a conversation or a task that makes them its owner; null leaves it for anyone). Item ids come from what_needs_attention or the context.',
+      'Assign an Action Center item to a teammate (for a lead, a conversation or a task that makes them its owner; null leaves it for anyone), or snooze or dismiss one HandsFreeOS is about to send something for, which stops that message (otherwise set_aside_attention_item snoozes and dismisses at once). Snooze: until a time (30 days at most; it comes back sooner if something changes). Dismiss: with the person’s reason if they gave one (it comes back only if something changes). Item ids come from what_needs_attention or the context.',
     input: z.object({
       itemId: uuid,
       action: z.enum(['snooze', 'dismiss', 'assign']),

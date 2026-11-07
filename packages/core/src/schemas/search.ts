@@ -23,11 +23,19 @@ export const SearchEverythingInput = z.object({
   /** The chips; a key the server doesn't know is ignored. */
   kinds: z.array(SearchKindKey).max(30).optional(),
   perKind: z.number().int().min(1).max(5).default(3),
-  depth: z.enum(['quick', 'full']).default('quick'),
+  depth: z
+    .enum(['quick', 'full'])
+    .default('quick')
+    .describe(
+      'full looks further back and waits longer, as the Search page does; quick is the box’s fast look',
+    ),
   includeArchived: z.boolean().default(false),
   onlyMine: z.boolean().default(false),
   /** A setting matched on the device, so close matches aren't looked for. */
-  settingsMatched: z.boolean().default(false),
+  settingsMatched: z
+    .boolean()
+    .default(false)
+    .describe('Set by the phone and the web when a setting matched on the device. Leave it out'),
 });
 export type SearchEverythingInput = z.infer<typeof SearchEverythingInput>;
 
@@ -170,14 +178,20 @@ export const SearchKindInput = ListInput.extend({
   workspaceId: uuid,
   q: searchText,
   /** Any group kind, and 'archived', 'bin' and 'spam'. */
-  kind: SearchKindKey,
+  kind: SearchKindKey.describe(
+    'A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam',
+  ),
   includeArchived: z.boolean().default(false),
   onlyMine: z.boolean().default(false),
   sort: z.enum(['best', 'recent', 'name']).default('best'),
   /** Contacts only: leads or clients. */
   standing: z.enum(['lead', 'client']).optional(),
   /** Windowed kinds: Look further back. */
-  before: isoDateTime.optional(),
+  before: isoDateTime
+    .optional()
+    .describe(
+      'Look further back: the searchedBack this kind’s last answer gave, for the ones searched only so far back',
+    ),
 });
 export type SearchKindInput = z.infer<typeof SearchKindInput>;
 

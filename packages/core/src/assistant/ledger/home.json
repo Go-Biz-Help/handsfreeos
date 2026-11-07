@@ -1,12 +1,12 @@
 {
   "area": "home",
   "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4bb840d5dff6",
-    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "506dcc504dfc",
+    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "2a48aa9428a2",
     "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx": "b0639b60a073",
     "apps/mobile/src/app/app/w/[workspaceId]/search.tsx": "1a959c92bf8a",
     "apps/mobile/src/components/add-ons/news-card.tsx": "6d1402bba2e5",
@@ -46,14 +46,14 @@
     "apps/web/src/components/assistant/composer.tsx": "867a1b9b5de7",
     "apps/web/src/components/assistant/confirm-card.tsx": "eadc98450bf0",
     "apps/web/src/components/assistant/consent-step.tsx": "e7b855fa9663",
-    "apps/web/src/components/assistant/message-list.tsx": "465b0df6e65f",
+    "apps/web/src/components/assistant/message-list.tsx": "fc3bdacd2f8f",
     "apps/web/src/components/assistant/money-cards.tsx": "bb4ce0a038e4",
     "apps/web/src/components/assistant/notices.tsx": "0664f6471ff0",
     "apps/web/src/components/assistant/rich-text.tsx": "6868ba3eafaf",
     "apps/web/src/components/assistant/thread-list.tsx": "a4a0aa133cca",
     "apps/web/src/components/assistant/workflow-cards.tsx": "ad4e36c848b2",
     "apps/web/src/components/attention/bits.tsx": "782802130a33",
-    "apps/web/src/components/audit/audit-log.tsx": "90553c2b4303",
+    "apps/web/src/components/audit/audit-log.tsx": "7f32f5ed204a",
     "apps/web/src/components/home/action-center-intro.tsx": "f716f8ecfadb",
     "apps/web/src/components/home/action-center.tsx": "d8536f35f77a",
     "apps/web/src/components/home/addon-news.tsx": "e8d15b4ae24d",
@@ -214,8 +214,8 @@
       "path": "Home → list → every item past the first 8",
       "kind": "see",
       "file": "apps/web/src/components/home/action-center.tsx:280",
-      "covered": "partly",
-      "by": "top 8 plus a more count; kind filter narrows"
+      "covered": "yes",
+      "by": "what_needs_attention offset and limit (up to 50), more and nextOffset"
     },
     {
       "path": "Home → card → kind tile and label",
@@ -284,8 +284,8 @@
       "path": "Home → card → open the record from the title",
       "kind": "do",
       "file": "apps/web/src/components/home/attention-card.tsx:159",
-      "covered": "partly",
-      "by": "item id given; the way there in words, no link"
+      "covered": "yes",
+      "by": "what_needs_attention opens: the link to its page"
     },
     {
       "path": "Home → folded group → kind, count, total $",
@@ -305,8 +305,8 @@
       "path": "Home → folded group → rows (name, chip, Handle)",
       "kind": "see",
       "file": "apps/web/src/components/home/attention-group.tsx:24",
-      "covered": "partly",
-      "by": "first 8 of the kind"
+      "covered": "yes",
+      "by": "what_needs_attention kind, offset and limit"
     },
     {
       "path": "Home → card → Call (hot lead, missed call)",
@@ -403,8 +403,8 @@
       "path": "Home → card → kinds that open a page (stage mismatch, wallet, add-on)",
       "kind": "do",
       "file": "apps/web/src/components/home/attention-actions.tsx:364",
-      "covered": "partly",
-      "by": "no link; that page’s own tools"
+      "covered": "yes",
+      "by": "what_needs_attention buttonTool (do_lead_catch_up, do_wallet_top_up, do_addon_alert_acknowledge) and opens"
     },
     {
       "path": "Home → card → Acknowledge / Got it (add-on alert)",
@@ -501,8 +501,8 @@
       "path": "Home → ⋯ → open the record or conversation",
       "kind": "do",
       "file": "apps/web/src/components/home/attention-actions.tsx:664",
-      "covered": "partly",
-      "by": "the way there in words, no link"
+      "covered": "yes",
+      "by": "what_needs_attention opens and conversationId"
     },
     {
       "path": "Home → ⋯ sheet (narrow, phone) → item summary at the top",
@@ -704,15 +704,15 @@
       "path": "Home → Handled by HandsFreeOS → rows: what it did, when",
       "kind": "see",
       "file": "apps/web/src/components/home/handled-today.tsx:78",
-      "covered": "partly",
-      "by": "handledToday count; read_audit_list action attention (owners)"
+      "covered": "yes",
+      "by": "what_needs_attention handled: what, how, when, byHandsFree"
     },
     {
       "path": "Home → Handled by HandsFreeOS → Open",
       "kind": "do",
       "file": "apps/web/src/components/home/handled-today.tsx:78",
-      "covered": "partly",
-      "by": "the way there in words, no link"
+      "covered": "yes",
+      "by": "what_needs_attention handled opens"
     },
     {
       "path": "Home → caught up → all caught up, done today count",
@@ -725,22 +725,22 @@
       "path": "Home → caught up → list of what was done today",
       "kind": "see",
       "file": "apps/web/src/components/home/handled-today.tsx:158",
-      "covered": "partly",
-      "by": "count only; handled list not returned"
+      "covered": "yes",
+      "by": "what_needs_attention handled (by the team and by HandsFreeOS)"
     },
     {
       "path": "Home → caught up → Show more",
       "kind": "do",
       "file": "apps/web/src/components/home/handled-today.tsx:180",
       "covered": "partly",
-      "by": "count only"
+      "by": "handled lists 20 and how many more"
     },
     {
       "path": "Home → Coming up from HandsFreeOS → rows: what, to whom, when",
       "kind": "see",
       "file": "apps/web/src/components/home/coming-up.tsx:19",
-      "covered": "partly",
-      "by": "handsFreeOsSendsAt on the top 8; scheduled list not returned"
+      "covered": "yes",
+      "by": "what_needs_attention comingUp: item, what, when"
     },
     {
       "path": "Home → Coming up → Cancel",
@@ -753,15 +753,15 @@
       "path": "Home → Coming up → Nothing planned right now",
       "kind": "see",
       "file": "apps/web/src/components/home/coming-up.tsx:73",
-      "covered": "partly",
-      "by": "only from the top 8"
+      "covered": "yes",
+      "by": "what_needs_attention comingUp empty"
     },
     {
       "path": "Home → Coming up → each one waits 60 minutes so you can cancel",
       "kind": "see",
       "file": "apps/web/src/components/home/coming-up.tsx:14",
-      "covered": "partly",
-      "by": "sends-at time given; the wait not explained"
+      "covered": "yes",
+      "by": "what_needs_attention says each waits 60 minutes"
     },
     {
       "path": "Home → Today → visits still to come: time, who, service",
@@ -837,8 +837,8 @@
       "path": "Home → Today → footer: tomorrow N, N confirmed",
       "kind": "see",
       "file": "apps/web/src/components/home/today-card.tsx:89",
-      "covered": "partly",
-      "by": "list_appointments; no ready count"
+      "covered": "yes",
+      "by": "todays_schedule tomorrow: appointments, confirmedSoFar"
     },
     {
       "path": "Home → Today → Open calendar",
@@ -1040,8 +1040,8 @@
       "path": "Bell → Needs you → press an alert",
       "kind": "do",
       "file": "apps/web/src/components/shell/notifications-bell.tsx:142",
-      "covered": "partly",
-      "by": "item given; its page is a path"
+      "covered": "yes",
+      "by": "what_needs_attention addonAlert and opens"
     },
     {
       "path": "Bell → rows: title, body, time, unread dot",
@@ -1194,36 +1194,36 @@
       "path": "Edit menu → Add group",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:148",
-      "covered": "no",
-      "by": "arrange_my_menu has no add group"
+      "covered": "yes",
+      "by": "arrange_my_menu group (a new group by its name)"
     },
     {
       "path": "Edit menu → group name",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:73",
-      "covered": "no",
-      "by": "no rename"
+      "covered": "yes",
+      "by": "arrange_my_menu rename_group"
     },
     {
       "path": "Edit menu → Ungroup",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:73",
-      "covered": "no",
-      "by": "no ungroup"
+      "covered": "yes",
+      "by": "arrange_my_menu ungroup"
     },
     {
       "path": "Edit menu → Move up / down",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:34",
-      "covered": "no",
-      "by": "no reorder"
+      "covered": "yes",
+      "by": "arrange_my_menu move (just above a place)"
     },
     {
       "path": "Edit menu → Move to a group",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:73",
-      "covered": "no",
-      "by": "no move into a group"
+      "covered": "yes",
+      "by": "arrange_my_menu group into one by its name"
     },
     {
       "path": "Edit menu → Save",
@@ -1824,15 +1824,15 @@
       "path": "Audit log → person: AI teammate",
       "kind": "do",
       "file": "apps/web/src/components/audit/audit-log.tsx:200",
-      "covered": "partly",
-      "by": "filtered on the web; tool reads actor and picks"
+      "covered": "yes",
+      "by": "read_audit_list actorType ai_employee and category ai_team"
     },
     {
       "path": "Audit log → person: HandsFreeOS (system)",
       "kind": "do",
       "file": "apps/web/src/components/audit/audit-log.tsx:200",
-      "covered": "partly",
-      "by": "filtered on the web; actor type in output"
+      "covered": "yes",
+      "by": "read_audit_list actorType system"
     },
     {
       "path": "Audit log → activity: Members, Invitations, Files, Action Center",
@@ -1845,22 +1845,22 @@
       "path": "Audit log → activity: the other categories",
       "kind": "do",
       "file": "apps/web/src/components/audit/audit-log.tsx:219",
-      "covered": "partly",
-      "by": "several prefixes, filtered on the web"
+      "covered": "yes",
+      "by": "read_audit_list category"
     },
     {
       "path": "Audit log → Show what HandsFreeOS noticed",
       "kind": "do",
       "file": "apps/web/src/components/audit/audit-log.tsx:241",
-      "covered": "partly",
-      "by": "filtered on the web"
+      "covered": "yes",
+      "by": "read_audit_list noticedByHandsFree on each row it noticed"
     },
     {
       "path": "Audit log → search box",
       "kind": "do",
       "file": "apps/web/src/components/audit/audit-log.tsx:250",
       "covered": "partly",
-      "by": "no text filter; reads and looks"
+      "by": "no text filter; reads each row’s sentence and looks"
     },
     {
       "path": "Audit log → entry count",
@@ -1894,15 +1894,15 @@
       "path": "Audit log → row: plain sentence of what happened",
       "kind": "see",
       "file": "apps/web/src/components/audit/audit-log.tsx:274",
-      "covered": "partly",
-      "by": "raw action, entityName, before and after"
+      "covered": "yes",
+      "by": "read_audit_list did: the row’s sentence"
     },
     {
       "path": "Audit log → row: category badge",
       "kind": "see",
       "file": "apps/web/src/components/audit/audit-log.tsx:274",
-      "covered": "partly",
-      "by": "worked out on the web from action"
+      "covered": "yes",
+      "by": "read_audit_list kind: the row’s label"
     },
     {
       "path": "Audit log → row: channel badge",
@@ -2370,8 +2370,8 @@
       "path": "Changes → head: Up to date, N waiting, no signal, can’t be reached",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:55",
-      "covered": "never",
-      "by": "SETTINGS_NEVER phone.changes"
+      "covered": "partly",
+      "by": "context deviceChanges when asked on the phone: waiting and needing them; not the signal"
     },
     {
       "path": "Changes → too old to send warning",
@@ -2384,29 +2384,29 @@
       "path": "Changes → Needs you · N",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:137",
-      "covered": "never",
-      "by": "SETTINGS_NEVER phone.changes"
+      "covered": "yes",
+      "by": "context deviceChanges needsYou (asked on the phone)"
     },
     {
       "path": "Changes → Waiting · N",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:159",
-      "covered": "never",
-      "by": "SETTINGS_NEVER phone.changes"
+      "covered": "yes",
+      "by": "context deviceChanges waiting (asked on the phone)"
     },
     {
       "path": "Changes → Sent just now · N",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx:179",
-      "covered": "never",
-      "by": "SETTINGS_NEVER phone.changes"
+      "covered": "yes",
+      "by": "context deviceChanges sentJustNow (asked on the phone)"
     },
     {
       "path": "Changes → row: title, state, quote, why, photo progress, when made",
       "kind": "see",
       "file": "apps/mobile/src/components/changes/change-row.tsx:49",
-      "covered": "never",
-      "by": "SETTINGS_NEVER phone.changes"
+      "covered": "partly",
+      "by": "context deviceChanges: title and why; not the words, photo progress or time"
     },
     {
       "path": "Changes → row → Try again (photo)",
@@ -2556,8 +2556,8 @@
       "kind": "read",
       "where": "Home (Action Center): each card's main button (Create lead, Add to its instructions, Got it, Move, Mark done, Approve/Send on a teammate draft) and the record it opens",
       "gap": "what_needs_attention's itemResult (tools-attention.ts:153-176) and the per-turn context (context.ts:161-172, prompt.ts:166-177) pass only id, kind, title, chips, value, urgent, detail, assignee, canHandle and handsFreeOsSendsAt. attention.list already returns subject {type,id}, personId, leadId, conversationId, appointmentId, addonAlert {alertId, addonName, needsAck, href} and handleLabel (schemas/attention.ts:63-94, 126), and the tools drop all of them. Home's buttons run on those ids: referralId, leadId, lessonId, appointmentId and draftId all come from item.subject.id, and the add-on alert uses addonAlert.alertId (attention-actions.tsx:252, 279, 300, 324, 350, 515). Three of these ids can be found no other way. Nothing lists referrals or teammate lessons. The bell's add-on alerts are read from attention.list too (notifications-provider.tsx:151), so do_referral_create_lead, do_teammate_lesson_apply/dismiss and do_addon_alert_acknowledge can't be used from a Home card at all. read_attention_for_record takes only lead/person/conversation/appointment/task (schemas/attention.ts:190). Three ids can be reached with a second lookup: draftId through list_teammate_drafts (core tools-content.ts:345-361), and leadId or appointmentId through search_customers, list_leads or list_appointments.",
-      "fix": "In apps/worker/src/assistant/tools-attention.ts itemResult, add subject (the {type,id} object), personId, leadId, appointmentId, conversationId, addonAlert as {alertId, addonName, severity, needsAck, href}, and button: i.handleLabel. That is the field attention.list already returns, so there's no need to call handleButtonOf. In context.ts attentionFor (and its type in prompt.ts:151-163 and attentionLines), add subject type and id so the context line reads like '(attention item id X; referral id Y)'. Finally, have the what_needs_attention description in tools.ts:119-122 say that subject.id is the referralId, lessonId, draftId, appointmentId or leadId those tools take.",
-      "status": "open",
+      "fix": "Fixed: what_needs_attention gives each item what it is about (subject: the referral, lesson, draft, approval, task, estimate or invoice, with its id), its customer, lead, conversation and appointment ids, an add-on alert’s id and whether it still waits to be seen, button (the words on its own button), buttonTool (the tool that presses that button, with its ids: do_referral_create_lead, do_teammate_lesson_apply, do_addon_alert_acknowledge, do_lead_catch_up, do_wallet_top_up, update_appointment, update_customer, decide_teammate_draft or answer_workflow_approval) and opens, the whole link to its page (buttonToolOf and itemResult in apps/worker/src/assistant/tools-attention.ts). The per-turn context names each item’s subject and id too.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2566,8 +2566,8 @@
       "kind": "read",
       "where": "Home: the full Needs you list, and its folded groups (\"N more like this\")",
       "gap": "The auditor is wrong that there's no kind filter. what_needs_attention takes kind: z.enum(ATTENTION_KINDS) (tools.ts:128), and the worker passes it as kinds (tools-attention.ts:191), so 'show me the overdue invoices' works up to 8 of that kind. What's real: the output is always cut to TOP=8 plus `more: N` (tools-attention.ts:30, 193, 202), and there's no offset or limit. Past item 8, overall or within one kind, nothing can be read. Home renders every item (action-center.tsx:279-298), and attention.list is not a screen read, so no read_ tool fills the gap.",
-      "fix": "Add `offset` (int ≥0) and `limit` (1–50, default 8) to what_needs_attention's input in packages/core/src/assistant/tools.ts:123-129. In tools-attention.ts:193, slice list.items.slice(offset, offset+limit) and keep the card at 8. Return `more` as the count after offset+limit, and number `rank` from offset+1. Say in the description: 'ask for the next ones with offset'.",
-      "status": "open",
+      "fix": "Fixed: what_needs_attention takes offset and limit (1 to 50, 8 when left out), numbers rank from where the page starts, and says more and nextOffset, so every item can be read, overall or within one kind. The card still shows 8.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2586,8 +2586,8 @@
       "kind": "read",
       "where": "Home: \"Handled by HandsFreeOS\" / \"Handled today\" list (who, what, when) and \"Coming up from HandsFreeOS\" (with Cancel)",
       "gap": "The handled list really is missing. what_needs_attention never passes includeHandled (tools-attention.ts:189-192), so attention.list's `handled` is always [] for it. Only the handledToday count reaches the model (line 200), and HandledByHandsFree's who, what and when list (handled-today.tsx:78-90) can't be read item by item. Scheduled messages are a partial gap. They are open items (view.ts:341-356), and itemResult already gives an id and handsFreeOsSendsAt for any that sits in the top 8 (tools-attention.ts:173-175), so do_attention_cancel_auto works for those. Scheduled items below the top 8 can't be seen, and the `scheduled` array that 'Coming up from HandsFreeOS' shows is dropped.",
-      "fix": "In tools-attention.ts what_needs_attention, call listFor with includeHandled: true. Add handled: list.handled.map(i => ({title: i.title, kind: KIND_WORD[i.kind], via: i.handled?.via, by: i.handled?.by?.fullName ?? 'HandsFreeOS', at: atLabel(...)})) and scheduled: list.scheduled.map(s => ({itemId: s.itemId, title: s.title, action: s.action, goesAt: atLabel(Date.parse(s.scheduledFor), tz)})). Mention both in the tool description at tools.ts:121.",
-      "status": "open",
+      "fix": "Fixed: on its first page what_needs_attention reads attention.list with includeHandled and returns handled (today’s, newest first, up to 20: what was done in core’s words, how, when, byHandsFree for Home’s Handled by HandsFreeOS, and its link) and comingUp (every message HandsFreeOS is about to send: item id, what, which kind, when).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2596,8 +2596,8 @@
       "kind": "words",
       "where": "Home: the main button on each kind of card (Top up, Move, Create lead, Mark done, Add to its instructions, Got it, Add address, Approve/Send a teammate draft)",
       "gap": "The what_needs_attention description names only 8 of the ~35 kinds (tools.ts:121). prompt.ts:28 sends every approval to answer_workflow_approval. That tool is only for workflow approval steps (tools.ts:1419-1421), yet ai_approval items include AI teammate drafts (detectors/ai-approval.ts:2,18), which need decide_teammate_draft and Home approves them as drafts (attention-actions.tsx:347-352, 377). For kinds HandsFreeOS won't handle, handle_attention_item returns the LET_HANDLE_REFUSALS sentence (kinds.ts:663-693) or 'Open it on Home…' (tools-attention.ts:291-297, 313-316). Another tool presses that very button: do_wallet_top_up (Top up), do_lead_catch_up (Move), do_referral_create_lead (Create lead), update_appointment outcome done (Mark done), do_teammate_lesson_apply (Add to its instructions), do_addon_alert_acknowledge and update_customer (Add address). wallet_low's refusal, 'Only you can put money on your own balance', and prompt.ts:34 (topping up is listed as something only they can do, so the model calls settings_help) both contradict do_wallet_top_up, which is in SCREEN_ACTIONS (coverage.ts:161) and charges the card on file (commands/wallet.ts:260-263).",
-      "fix": "Add a kind → tool line to the Action Center paragraph in prompt.ts:28. Teammate drafts (ai_approval whose chip says it's the teammate's) go to decide_teammate_draft with the draft id, and workflow approvals to answer_workflow_approval. Then wallet_low/empty → do_wallet_top_up; pipeline_mismatch → do_lead_catch_up; referral_mentioned → do_referral_create_lead; job_unconfirmed/job_never_completed → update_appointment outcome 'done'; ai_corrections → do_teammate_lesson_apply; addon_alert → do_addon_alert_acknowledge; job_no_address → update_customer. In handlePlan's mode 'none' branch (tools-attention.ts:291-297), return {useInstead: <tool>, ids: {…from item.subject…}} rather than the refusal. Take 'topping up their balance' out of prompt.ts:34's list of steps that need the person.",
-      "status": "open",
+      "fix": "Fixed: each item’s buttonTool names the tool that does what its own button does (Top up, Move, Create lead, Mark done, Add to its instructions, Got it, Add address, Approve a teammate draft or a workflow approval). handle_attention_item’s refusal for a kind HandsFreeOS doesn’t handle offers that button instead (and complete_task for a task), with the tool and ids in its result. The prompt points to buttonTool, and no longer lists topping up the balance as something only the person can do (putting a card on it still is).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2606,8 +2606,8 @@
       "kind": "read",
       "where": "Audit log: each row's sentence (\"Ava (AI) texted Dana…\"), its category, the actor name, and the hidden \"Show what HandsFreeOS noticed\" rows",
       "gap": "read_audit_list returns raw AuditEntry rows (schemas/audit.ts:45-76): the action code, actor.type, actor.fullName (null for the AI teammate), and before/after JSON. The screen's sentence, category label, actor name and detection flag come from describeAudit, auditCategory, AUDIT_CATEGORY_LABEL, auditActor and isAuditDetection, which live only in apps/web/src/lib/audit-describe.ts. No Assistant file uses them. The model can sometimes find the teammate's name in after.teammate and guess a category from the prefix. But system 'attention_item.*' and attention opened/reopened/resolved/became_urgent rows, which the screen hides until 'Show what HandsFreeOS noticed' is ticked, come back unmarked. The places-map Audit log entry (places-map.ts:547-560) leaves out that checkbox and the Filter by activity choices.",
-      "fix": "Move describeAudit, auditActor, auditCategory, AUDIT_CATEGORY_LABEL and isAuditDetection from apps/web/src/lib/audit-describe.ts into @hfos/core (for example packages/core/src/audit/describe.ts), and point the web import at them. In queries/audit.list, add to each AuditEntry `sentence`, `category` (the label), `actorName` (auditActor(e, teammateName).name) and `noticed` (isAuditDetection(e)). In places-map.ts:551, add 'Show what HandsFreeOS noticed (with All activity or Action Center) shows what the Action Center noticed on its own'. List Filter by activity's choices: Members, Invitations, Workspace, Contacts, Inbox & texting, Calendar, Leads, Tasks, Files, Imports, Workflows, Action Center, Assistant.",
-      "status": "open",
+      "fix": "Fixed: the audit log’s words moved to core (packages/core/src/audit/describe.ts; the web’s Audit log imports them from @hfos/core). read_audit_list gives each row as the log says it: at, who, did (the sentence), kind (the row’s label), noticedByHandsFree on what the Action Center noticed on its own, with the action, actor id, channel, entity, reason and before and after (auditRead in tools-screen-reads.ts). The Audit log’s place text lists Filter by person, Filter by activity’s choices and Show what HandsFreeOS noticed.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2616,8 +2616,8 @@
       "kind": "do",
       "where": "Audit log filters: Who (AI teammate, HandsFreeOS) and What (Contacts, Calendar, Leads, Tasks, Workspace, Inbox & texting, Workflows)",
       "gap": "Several of the screen's filters can already be run on the server through AuditListInput. A person is actorId, and a workflow too since actor_id is the workflow (queries/audit.list.ts:26). All workflows is channel 'workflow'. Assistant is channel 'assistant'. Members, Invitations, Files, Imports and Action Center are action prefixes, which is what the web itself sends (audit-log.tsx:28-36, 50-62). Only these run in the browser alone (audit-log.tsx:133-156): Who = AI teammate (actor.type ai_employee, or category ai_team) and Who = HandsFreeOS (actor.type system), plus What = Workspace, Contacts, Inbox & texting, Calendar, Leads, Tasks and Workflows (several prefixes each). runScreenRead also cuts the JSON at 16,000 characters (tools-screen-reads.ts:18, 44-53). AuditListOutput ends with nextCursor, so a cut answer loses the cursor and can't be paged.",
-      "fix": "Add `actorType: z.enum(['user','ai_employee','workflow','system']).optional()` and `category: z.enum(AUDIT_CATEGORIES).optional()` to AuditListInput (packages/core/src/schemas/audit.ts:30-43). Filter on them in packages/core/src/queries/audit.list.ts, using the moved auditCategory's prefixes. In tools-screen-reads.ts runScreenRead, when cutting, lift data.nextCursor (if any) into the result beside cutShort so the next page can be read.",
-      "status": "open",
+      "fix": "Fixed: audit.list takes actorType (system is HandsFreeOS, ai_employee the AI teammate) and category (Filter by activity’s kinds, sorted by the same rules as the log: AUDIT_CATEGORY_RULES), so every filter on the screen runs on the server. A read cut at 16,000 characters keeps nextCursor beside cutShort.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2626,8 +2626,8 @@
       "kind": "words",
       "where": "The bell beside the brand at the top of the side menu (web) and in the phone's top bar: Notifications sheet with Needs you, Recent, unread marks, Show older",
       "gap": "The bell sits at the top of the side menu and, on phone width, in the header. It opens 'Notifications' with 'Needs you' (open add-on alerts), then 'Recent', unread marks and 'Show older' (notifications-bell.tsx:23-28; core bell.ts:22-41). The phone has it in the app bar (app-bar.tsx:111). None of the Assistant's place text names it. EVERY_PAGE's top-of-menu line (places-map.ts:605) and PHONE_APP (places-map.ts:622-630) both skip it. LOOK_ALIKES' Notifications line (places-map.ts:650) points only to Settings → Account. The Assistant can read the list (read_notification_list, screen-reads.ts:62) but would send 'where are my notifications?' to the wrong screen.",
-      "fix": "In places-map.ts:605, add: 'the bell beside the business name opens Notifications: Needs you (add-ons' alerts still open) first, then Recent, what HandsFreeOS sent to your phone about this business in the last 30 days; pressing one opens it and marks it read; Show older'. Add 'the bell in the top bar' to PHONE_APP. Start the LOOK_ALIKES Notifications line with 'what you were sent is the bell at the top of the side menu;' before 'what a person is told about is Settings → Account (Notifications)'.",
-      "status": "open",
+      "fix": "Fixed: the place text names the bell beside the HandsFreeOS name (in the top bar on a narrow screen and on the phone): Notifications, Needs you then Recent, unread marks, Show older, and what its count means; LOOK_ALIKES’ Notifications line starts with it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2636,8 +2636,8 @@
       "kind": "words",
       "where": "Settings → Members, a member's ⋯ menu: \"View as <name>\" and \"Edit my hours\"; phone More → View as a teammate",
       "gap": "'Edit hours' is already in the Members onScreen text (settings-map.ts:441). Only one's own row says 'Edit my hours' (members-table.tsx:217), a small wording difference. What's missing: 'View as <name>' in the member's ⋯ menu (members-table.tsx:221-229; VIEW_AS_WORDS.start) and the phone's More → 'View as a teammate' (more.tsx:166-173; VIEW_AS_WORDS.pickTitle). No Assistant words mention viewing as someone. teammate_view.start/end being in NEVER (coverage.ts:406-407) is correct. The phone hides Ask HandsFreeOS and the bell while viewing (app-bar.tsx:110-111).",
-      "fix": "In settings-map.ts:441, change the Members ⋯ line to 'Edit hours (Edit my hours on your own row), View as <name> (see the app as they do; nothing can be changed meanwhile), Permissions (owners only)…'. Add 'View as a teammate (owners and admins)' to PHONE_APP's More line at places-map.ts:625, with 'Ask HandsFreeOS is hidden while you view as someone on the phone'.",
-      "status": "open",
+      "fix": "Fixed: Settings → Members’ words name Edit my hours on one’s own row and View as <name> (owners and admins, read-only until Stop viewing, only the person starts and stops it); PHONE_APP names More → View as a teammate, and that the bell and Ask HandsFreeOS aren’t there while viewing.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2646,8 +2646,8 @@
       "kind": "words",
       "where": "Phone More tab: Changes on this phone, Documents, Set up your AI teammate, Run quick setup again, View as a teammate, Add-ons, and the bell",
       "gap": "PHONE_APP's More line (places-map.ts:625) lists 'Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web'. more.tsx also shows these, depending on role: Changes on this phone (always, first), Documents, Set up your AI teammate, Run quick setup again, View as a teammate, Add-ons and add-ons' own rows (more.tsx:94-210). Nothing says what Changes on this phone holds (changes.tsx: Needs you, waiting, sent; Discard). PHONE_APP's 'Only on the web: … the AI teammate's settings' clashes with the phone's Set up your AI teammate and Run quick setup again.",
-      "fix": "In places-map.ts:625, rewrite the More line in more.tsx's order: 'More: Switch (business), any add-on's places, Changes on this phone, Contacts, Tasks, Money, Forms, Documents (who can send them), Approvals, Set up your AI teammate or Test your AI teammate and Run quick setup again (who manage it), View as a teammate (owners and admins), Settings, Add-ons (who manage them), Ideas, Get help, Open on the web'. Add a line: 'Changes on this phone: changes saved with no signal, waiting to send; ones that need you, each with Fix or Discard; and what was sent just now'.",
-      "status": "open",
+      "fix": "Fixed: PHONE_APP’s More line follows more.tsx’s order and roles (Switch, add-ons’ places, Changes on this phone, Documents, Set up or Test your AI teammate and Run quick setup again, View as a teammate, Add-ons…), a line says what Changes on this phone holds, and Only on the web no longer clashes with the phone’s AI teammate quick setup.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2656,8 +2656,8 @@
       "kind": "do",
       "where": "Side menu editor (Edit menu): Move up/Move down, Move to group, Add group, rename a group, Ungroup, and hiding an add-on's row",
       "gap": "arrange_my_menu takes only action hide | show | use_suggested | start_over over places: z.enum(MENU_KEYS) (core tools-extra.ts:420-434). The Edit menu screen also has Move up, Move down, Move to (a group), Add a group, Group name (rename) and Ungroup (MENU_WORDS, menu.ts:664-670; menu-editor.tsx), and hides add-on rows. EVERY_PAGE even tells the model 'Each person can reorder, group or hide places' (places-map.ts:609), so it describes moves it can't make. This is the person's own menu preference and safe to do. It's a real gap but small, so severity is lowered.",
-      "fix": "In packages/core/src/assistant/tools-extra.ts:423-431, add 'move' (place plus before or after a place key), 'add_group' (name, places), 'rename_group' (group, name), 'move_to_group' (places, group) and 'ungroup' (group) to arrange_my_menu's action enum. Let places take addon:<id> keys from the person's active add-ons. In apps/worker/src/assistant/tools-extra.ts arrangeMyMenu (~1385), write the same menu preference the editor saves, and update the description.",
-      "status": "open",
+      "fix": "Fixed: arrange_my_menu also moves places (just above another, or out of their group), groups places by a group’s name (a new one when none has it, five at most), renames and ungroups a group, and takes an add-on’s place as addon:<id> where it runs and is open to them. Its card shows the menu it makes, top to bottom.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2666,8 +2666,8 @@
       "kind": "words",
       "where": "The Ask HandsFreeOS panel itself: Your chats (rename and archive under ⋯), New chat, Close, the microphone / Talk, Stop, editing a sent message; on the phone the Ask tab",
       "gap": "The panel appears in the Assistant's words only as 'Ask HandsFreeOS (⌘J or Ctrl J), which is you' (places-map.ts:605). The panel itself has: Your chats, New chat, Close (assistant-panel.tsx:43, 97-156); each chat's ⋯ with Rename and Archive (thread-list.tsx:161-180); and Talk/microphone, Stop and Send (composer.tsx:105, 149, 203). None of the place text or the prompt names them.",
-      "fix": "Add a line to EVERY_PAGE in places-map.ts after 605: 'In Ask HandsFreeOS: Your chats lists past chats (⋯ on one has Rename and Archive), New chat starts over, the microphone lets them talk instead of type and hear the answer, Stop ends an answer, Close hides the panel'. On the phone, add 'the HandsFreeOS mark in the top bar opens Ask HandsFreeOS' to PHONE_APP.",
-      "status": "open",
+      "fix": "Fixed: EVERY_PAGE describes the panel (Your chats with ⋯ Rename and Archive, New chat, Close, Talk out loud, Stop, Send, Copy) and PHONE_APP says the HandsFreeOS mark in the top bar opens Ask HandsFreeOS.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2676,8 +2676,8 @@
       "kind": "words",
       "where": "Search everything page: Include archived, Only mine, the kinds list and Only <kind>, Show N more; a kind's page: All · Leads · Clients, Sort, Compare and merge, Look further back, Look in Spam, Show 50 more",
       "gap": "EVERY_PAGE (places-map.ts:605-606) names Search everything and says Enter opens the Search page. It doesn't describe that page's own controls or a kind's page. APP_PLACES has no Search entry (labels at places-map.ts:34-582). The page has Include archived, Only mine and Show more (search-page.tsx:335-342, 508-604). A kind's page adds Include archived, Only mine, All · Leads · Clients, Sort, Show 50 more, Look further back and Look in Spam (kind-page.tsx:249-260, 269-300, 302-313, 404, 428-437), plus merging duplicates (kind-page.tsx:97).",
-      "fix": "Add an APP_PLACES entry {label: 'Search', where: [], then: 'Search everything at the top of the side menu, then Enter', onScreen: ['Include archived and Only mine; each kind with Show more, and pressing a kind opens its own page', 'A kind's page: Include archived, Only mine, All · Leads · Clients and Sort for contacts, contacts who share a phone or email to compare and merge, Show 50 more, Look further back for messages and notes, and Look in Spam for messages'], path: '/search'}. Copy the exact button words from SEARCH words in core.",
-      "status": "open",
+      "fix": "Fixed: APP_PLACES has a Search entry (path /search) in core’s SEARCH words: Include archived, Only mine, each kind with Show N more and Only <kind>, a kind’s own page with All · Leads · Clients, Sort, Compare and merge, Show 50 more, Look further back and Look in Spam.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2686,8 +2686,8 @@
       "kind": "words",
       "where": "Search: the kind filter and the Only mine / archived / further-back switches as the Assistant calls them",
       "gap": "includeArchived, onlyMine, sort (best|recent|name) and standing (lead|client) explain themselves by name and enum. Valid kinds can be found too: every group in read_search_everything's output carries its `kind` key (schemas/search.ts:126-128), so one search shows the model the keys. What's real: `kind` is a bare regex with no description (schemas/search.ts:16, 172). The special keys 'archived', 'bin' and 'spam' appear only in a JSDoc comment the model never sees. `before` (Look further back), `depth` and `settingsMatched` have no .describe(). The model has no way to know settingsMatched is a device-side flag it should leave alone.",
-      "fix": "In packages/core/src/schemas/search.ts, add .describe() to SearchKindInput.kind: 'A group's kind from search.everything (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <addon>.<kind>), or archived, bin or spam'. Add one to before: 'Look further back: a windowed kind's searchedBack'. On SearchEverythingInput, describe depth ('full' looks further, slower) and settingsMatched ('leave false').",
-      "status": "open",
+      "fix": "Fixed: SearchKindInput.kind and before, and SearchEverythingInput.depth and settingsMatched, now say what they are, so read_search_kind and read_search_everything show the model the special kinds (archived, bin, spam), Look further back, and to leave settingsMatched out.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2696,8 +2696,8 @@
       "kind": "read",
       "where": "Home → Today card: Now / Not confirmed / Confirmed on each appointment, the footer \"N tomorrow · M confirmed so far\", and the tick circle on Tasks due today",
       "gap": "'Now' is covered: todays_schedule gives happeningNow per appointment (tools-calendar.ts:236-241). Task ids can be reached with list_tasks, which returns ids (tools-read.ts:458). What's real: todays_schedule's appointments have no confirmation (appointmentResult, tools-calendar.ts:198-206). There's no tomorrow count or 'M confirmed so far' (today-card.tsx:50, 56-59). tasksDueToday has no ids, always reads scope 'mine' (tools-read.ts:482-498), and includes overdue. The card's 'Due today' follows the Mine/Everyone switch and shows only today's (today-card.tsx:51-54). Tomorrow's confirmations can be pieced together only from list_appointments (no confirmed field, worker tools-scheduling.ts:335-352) plus get_appointment for each.",
-      "fix": "In apps/worker/src/assistant/tools-calendar.ts appointmentResult, add `confirmed: booked(a).length > 0 && booked(a).every(p => p.confirmedAt)` for one-customer bookings. In todays_schedule (tools-read.ts:482), add tomorrow: {count, confirmed} from tomorrow's appointment.list, and add id: t.id to each tasksDueToday entry.",
-      "status": "open",
+      "fix": "Fixed: todays_schedule says for each one-customer appointment whether the customer confirmed (confirmed), and gives tomorrow’s count, how many are confirmed so far and how many are the person’s (confirmedOf and todaysAppointments in tools-calendar.ts). tasksDueToday already had ids (from the pipeline-tasks step).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2706,8 +2706,8 @@
       "kind": "do",
       "where": "Home card: Snooze, Dismiss (with reason) and Assign",
       "gap": "In core, the rule for screen commands is that only risk 0 runs on its own and risk 1 and up waits (screen-actions.ts:32-33, 49). attention.assign is risk 1 (commands/attention.ts:404), so its confirm card is consistent. The auditor's 'risk 0-1 runs on its own' is the add-on rule. attention.snooze and attention.dismiss are risk 0 (commands/attention.ts:229, 322), and update_attention_item still puts them behind Confirm (tools.ts:1485), while do_attention_restore and do_attention_cancel_auto (risk 0) run on their own. That inconsistency is real. But README.md:154 records the confirm card as the design ('can handle, snooze, dismiss or assign an item through a confirm card'). A snooze or dismissal can also cancel a message HandsFreeOS was about to send, which the card warns about (tools-attention.ts:728-732).",
-      "fix": "Ask the owner before changing it, since README.md:154 documents it. If agreed, split autonomy in apps/worker/src/assistant/tools-attention.ts updateItem: run snooze and dismiss straight away (attention.snooze / attention.dismiss) unless item.auto.state === 'scheduled', and keep Confirm for assign and for anything that stops a scheduled message. Then drop 'snoozed, dismissed' from prompt.ts:17's waiting list for that case.",
-      "status": "open",
+      "fix": "Fixed: set_aside_attention_item snoozes or dismisses at once, as Home does (both risk 0; do_attention_restore puts one back). One HandsFreeOS is about to send a message for refuses with rule attention_stops_auto and goes through update_attention_item’s card instead, since that stops the message. update_attention_item keeps its card for assign. README’s Action Center line says so.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2716,8 +2716,8 @@
       "kind": "never",
       "where": "Ask HandsFreeOS panel → Your chats → ⋯ → Rename / Archive",
       "gap": "assistant_thread.rename and assistant_thread.archive sit in NEVER_FOR_THE_ASSISTANT with 'the panel's own list of chats' (coverage.ts:408-409). That's not one of the settled reasons, and no owner decision in the docs covers it. Both commands are risk 1 (commands/assistant.ts:25, 45), not risk 0. So as screen actions they would wait for Confirm (screen-actions.ts:49). Moving them to SCREEN_ACTIONS alone wouldn't work either. ToolContext has no threadId (runtime.ts:91-98), and assistant_thread.list is NOT_FOR_THE_ASSISTANT (screen-reads.ts:131-132), so the model could never get a threadId to pass.",
-      "fix": "Remove both lines from NEVER_FOR_THE_ASSISTANT and add a small core tool, rename_or_archive_this_chat {action: 'rename'|'archive', title?}, with autonomy 'auto' or 'confirm' per the owner. Put threadId on ToolContext in apps/worker/src/assistant/runtime.ts, and have the worker run assistant_thread.rename/archive with ctx.threadId. Another chat's id never goes through the model.",
-      "status": "open",
+      "fix": "Never: the panel’s own list of chats stays the person’s (the owner’s decision for this area), so renaming or archiving a chat is done by them, under ⋯ beside it in Your chats; the place text says so.",
+      "status": "never",
       "pr": null
     },
     {
@@ -2726,8 +2726,8 @@
       "kind": "words",
       "where": "Bottom of the side menu → Get help (menu of Getting started, Take the tour, Ask us for help) and the account menu's Sell HandsFreeOS",
       "gap": "Getting started under Get help is already described (places-map.ts:47, 'Get help at the foot of the menu, then Getting started'). What's missing: while the guide is unfinished, Get help opens a menu with Getting started, Take the tour and Ask us for help (get-help.tsx:116-150), and the form only follows Ask us for help. The form's dialog title is 'Ask us for help'. The account menu (name and email at the foot of the menu) has Sell HandsFreeOS and Sign out (user-menu.tsx:47-60; affiliates/words.ts:209), and no Assistant words name it, though affiliate.apply, make_code and turn_code are screen actions (coverage.ts:331-342).",
-      "fix": "In places-map.ts:608, change Get help to: 'Get help (while Getting started isn't finished it first offers Getting started, Take the tour and Ask us for help; Ask us for help is the form: In a few words, What happened?, then Send it; a person at HandsFreeOS answers)'. Add: 'the account menu (your name at the foot of the menu): Sell HandsFreeOS (the affiliate page) and Sign out'.",
-      "status": "open",
+      "fix": "Fixed (already, by the onboarding step): EVERY_PAGE’s foot-of-the-menu line names Get help’s menu (Getting started, Take the tour, Ask us for help) and the account menu’s Sell HandsFreeOS and Sign out.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2736,8 +2736,8 @@
       "kind": "read",
       "where": "Phone: Changes on this phone (Needs you, Waiting, Sent just now) and Home's waiting-changes banner",
       "gap": "Changes on this phone (changes.tsx: 'Needs you · N' with Fix and Discard, then waiting and sent) reads the phone's own outbox. The rows never reached the server, so no query can return them. Phone Ask sends only the page record (chat.ts:521; schemas/assistant.ts:333-339). 'Did my note to Dana send?' or 'why is something stuck?' can't be answered from what the person sees.",
-      "fix": "Add `deviceChanges: z.object({waiting: z.int(), needsYou: z.array(z.object({title: z.string().max(200), problem: z.string().max(300)})).max(10)}).optional()` to AssistantAskInput. Fill it in apps/mobile/src/assistant/chat.ts from the outbox snapshot that changes.tsx reads. In context.ts/prompt.ts turnText, add one line, quoted as data.",
-      "status": "open",
+      "fix": "Fixed: a question asked on the phone carries deviceChanges, what Changes on this phone shows (how many wait, up to 10 that need the person with their title and why, how many more, and what was sent just now; never what was written). AssistantAskInput takes it (dropped rather than refused when it can’t be read), the phone fills it from its outbox (apps/mobile/src/assistant/device-changes.ts), and the turn’s context lists it as the phone’s own words, with where to fix one.",
+      "status": "fixed",
       "pr": null
     }
   ]

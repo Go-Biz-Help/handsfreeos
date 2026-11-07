@@ -151,7 +151,7 @@ Home is one ranked list of what needs attention, with the money affected at the 
 - **It handles the safe ones.** A confirmation request for tomorrow's visit, and a follow-up nudge in the business's own words. Both respect consent, quiet hours, a 60-minute cancel window, a 14-day cooldown per lead, and a list of reasons to leave someone alone; nudges wait until an owner has read the wording. Everything else asks first. Every skip is recorded, so the card says why nothing went out.
 - **Customers confirm by replying C**, or with a button on their booking page (never a plain link: email scanners open those). YES confirms too while an ask is open. CANCEL is never asked for — for the carriers it means STOP.
 - **It emails.** A morning summary at 7:00 local, per person, only when they have something, and one urgent email per item for a hot lead, an unanswered lead or a customer waiting. It replaces the old unanswered-message email, so nobody gets two.
-- **One engine.** The Assistant's "What needs my attention?" reads the same query as Home, in the same order, and can handle, snooze, dismiss or assign an item through a confirm card.
+- **One engine.** The Assistant's "What needs my attention?" reads the same query as Home, in the same order, with what each item's own button does. It can handle or assign an item through a confirm card, and snooze or dismiss one at once, as Home does; one HandsFreeOS is about to send something for waits on a card, since that stops the message.
 
 "The Action Center" in `docs/operations.md` covers the kinds and thresholds, every guard before an automatic message, confirming visits, both emails, the test routes and what to agree with a client before turning it on.
 
