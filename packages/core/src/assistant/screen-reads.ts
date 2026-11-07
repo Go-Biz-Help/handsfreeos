@@ -51,6 +51,7 @@ export const SCREEN_READS = [
   'funnel.of_person',
   'funnel.people',
   'funnel.suggestions',
+  'idea.areas',
   'idea.roadmap',
   'import.get',
   'inbox.summary',
@@ -114,6 +115,7 @@ export const SCREEN_READS = [
   'platform.founding.business',
   'platform.health.summary',
   'platform.learned_way.list',
+  'platform.me',
   'platform.onboarding.counts',
   'platform.partner_payouts.get',
   'platform.problem_report.get',
@@ -150,7 +152,6 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'the ticker’s light read of what the person’s computer is doing, which the Assistant reads through outreach_live',
   'form.response_export': 'a spreadsheet download',
   'pm.lease.list': 'an add-on’s, which reaches the Assistant through its own `ai`',
-  'platform.me': 'whether the person is HandsFreeOS staff, which the Assistant already knows',
   'platform.view_as.current':
     'which business a staff member is looking at, which this screen shows',
   'teammate_view.current': 'whether the person is looking as a teammate, which this screen shows',
@@ -173,6 +174,8 @@ const SCREEN_READ_WAYS: Readonly<Record<string, ScreenReadWay>> = {
   'onboarding.clients': { offeredTo: 'workspace.update' },
   'migration.get': { agencyDoor: true },
   'migration.review_queue': { agencyDoor: true },
+  // Every signed-in person may ask it, but only HandsFreeOS's support people have anything in it: staff alone.
+  'platform.me': { offeredTo: 'support.read' },
 };
 
 /**
@@ -193,6 +196,14 @@ export const withAgencyDoor = (input: z.ZodObject, agencyDoor: boolean): z.ZodOb
 
 /** What a look-up's answer adds to what the screen shows, said after its description. */
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
+  'idea.areas':
+    'Every area comes with its description, its sort (the order the board lists them in) and whether it’s archived.',
+  'platform.me':
+    'Their own: the name customers see on their replies and their sign-off as saved (Support people, How you sign off), their support role and what it lets them do.',
+  'platform.problem_report.get':
+    'Its answer adds forClaude, what its Copy for Claude copies (the phone’s Share for Claude shares the same): the report, and the page’s outline when one was kept, ready to paste into a session on the code. The outline is there and nowhere else.',
+  'platform.onboarding.counts':
+    'Its answer adds matomoUrl, the Matomo pages report over the same days, which the page’s Open the pages report in Matomo opens: how far people get through the wizard’s pages.',
   'addon.settings':
     'Its settings come as the add-on’s settings page shows them, its defaults filled in where nothing was saved yet, and labels says what each one is in the page’s words. update_addon_settings changes them.',
   'onboarding.clients':

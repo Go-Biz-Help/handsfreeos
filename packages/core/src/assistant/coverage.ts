@@ -28,8 +28,8 @@ export interface ScreenAction {
   /** Said to the model after the command's own description: how to call it the way its screen does. */
   readonly about?: string;
   /**
-   * Parts of its input the worker fills, never the model (the address the business's pages are on): left out of the
-   * tool's input, so whatever the model says there is dropped.
+   * Parts of its input the worker fills, never the model (the address the business's pages are on, a staff credit's
+   * reference): left out of the tool's input, so whatever the model says there is dropped.
    */
   readonly filled?: readonly string[];
   /**
@@ -324,7 +324,10 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'support.canned_reply.save': {},
   'support.canned_reply.delete': {},
-  'support.staff.save_profile': {},
+  'support.staff.save_profile': {
+    about:
+      'Leave signature out to keep the sign-off as it is now: read_platform_me shows your name to customers and sign-off as saved.',
+  },
   'support.staff.invite': { warning: 'They can answer HandsFreeOS support once they accept.' },
   'support.staff.resend_invitation': {},
   'support.staff.revoke_invitation': {},
@@ -334,7 +337,10 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'idea.merge': {},
   'idea.set_hidden': {},
   'idea.set_status': {},
-  'idea_area.save': {},
+  'idea_area.save': {
+    about:
+      'Left out, an area’s description, sort and whether it’s archived stay as they are now (read_idea_areas lists every area, archived ones too).',
+  },
   'whats_new.save': {},
   'whats_new.publish': {},
   'whats_new.unpublish': {},
@@ -362,7 +368,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'partner.set_payouts_open': {
     warning: 'Open, HandsFreeOS charges their card each month and pays their partners.',
   },
-  'wallet.adjust': { warning: 'This changes their balance, and shows on their statement.' },
+  'wallet.adjust': {
+    warning: 'This changes their balance, and shows on their statement.',
+    // One reference per card, as the screen makes one per dialog: a second credit is never taken for the first.
+    filled: ['reference'],
+  },
   'wallet.set_stage': { warning: 'This changes what happens when their balance runs out.' },
   'affiliates.save_settings': {
     warning:
@@ -384,7 +394,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'affiliate.apply': {
     offeredTo: 'assistant.use',
     warning:
-      'It goes to HandsFreeOS to decide, and says you live in the US. You agree to the affiliate terms yourself, on your affiliate page.',
+      'It goes to HandsFreeOS to decide, and says you live in the US. You agree to the affiliate terms yourself, on Sell HandsFreeOS: press your name at the foot of the side menu.',
   },
   'affiliate.make_code': {
     offeredTo: 'assistant.use',
@@ -542,7 +552,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'update_my_account', field: 'emailWhenAddonNeedsYou' },
   ],
   'notifications.support_tickets': [
-    { tool: 'update_my_alerts', field: 'turnOn', value: 'supportTickets' },
+    { tool: 'update_my_support_alerts', field: 'turnOn', value: 'supportTickets' },
   ],
   'notifications.morning_summary': [{ tool: 'update_my_account', field: 'morningEmail' }],
   'notifications.end_of_day': [{ tool: 'update_my_account', field: 'eveningEmail' }],

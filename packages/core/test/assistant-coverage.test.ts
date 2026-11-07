@@ -198,6 +198,20 @@ describe('what the Assistant can do', () => {
     }
   });
 
+  it('never tells anyone but HandsFreeOS’s own staff that the desk’s tools and switches exist', () => {
+    // Everyone's phone alerts leave out New support tickets, which is staff's own tool (the owner, 2026-10-27).
+    const alerts = assistantTools.find((t) => t.name === 'update_my_alerts')!;
+    expect(JSON.stringify(toolInputSchema(alerts))).not.toContain('supportTickets');
+    expect(alerts.description).not.toMatch(/support ticket|support people/i);
+    for (const name of ['update_my_support_alerts', 'read_assistant_coverage']) {
+      const tool = assistantTools.find((t) => t.name === name);
+      expect(tool && isStaffPermission(tool.permission), name).toBe(true);
+    }
+    // Whether someone is staff, and their sign-off: asked by everyone's screens, offered to staff alone.
+    const me = screenReadTools(registry).find((t) => t.query.name === 'platform.me')!;
+    expect(isStaffPermission(me.permission)).toBe(true);
+  });
+
   it('offers each to the people the screen is for, and the staff ones to staff alone', () => {
     for (const t of actions) {
       // The Assistant offers by the business's permissions and staff roles; an agency's is offered on workspace.update.

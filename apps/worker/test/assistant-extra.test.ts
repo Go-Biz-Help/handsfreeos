@@ -140,7 +140,7 @@ afterAll(closeTestDbs);
 describe('the extra tools', () => {
   it('each has an executor, a step label, and goes only to the roles its commands allow', () => {
     const names = [...Object.keys(extraAutoTools), ...Object.keys(extraConfirmTools)];
-    expect(names).toHaveLength(12);
+    expect(names).toHaveLength(14);
     for (const name of names) {
       const tool = assistantToolByName.get(name);
       expect(tool, name).toBeTruthy();
@@ -164,6 +164,9 @@ describe('the extra tools', () => {
       'get_agency_area',
       'edit_template_steps',
       'push_to_client_businesses',
+      // HandsFreeOS's own staff's, never offered to anyone else.
+      'update_my_support_alerts',
+      'read_assistant_coverage',
     ])
       expect(member, name).not.toContain(name);
   });
@@ -812,6 +815,7 @@ describe('Ideas', () => {
     const got = await read('find_ideas', { ideaId });
     expect(got.result['comments']).toEqual([
       {
+        commentId: expect.any(String),
         by: 'You',
         on: expect.any(String),
         words: { someone_wrote: 'We would use it every day.' },

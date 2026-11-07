@@ -27,7 +27,7 @@ export function addonGrantCommands(catalog: Catalog) {
       throw HfosError.rule(
         'addon_unknown',
         404,
-        'HandsFreeOS has no add-on by that name. Pick one from the list.',
+        'HandsFreeOS has no add-on by that name. Pick one from Add-ons in testing, on the business’s page in the Admin area (Businesses, then the business).',
       );
     const status = effectiveStatus(m, await loadOverrides(ctx.tx));
     if (status === 'planned')

@@ -16167,7 +16167,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.
+         * Support: move one business to Warned, Stopped at zero, or Paid by the agency, for when its balance runs out. Moving one off Paid by the agency writes off what it ran up.
          * @description Risk level 4. Requires platform.wallets.adjust. Emits wallet.stage_changed.
          */
         post: operations["command_wallet_set_stage"];

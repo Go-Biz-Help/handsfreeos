@@ -692,7 +692,7 @@ export const walletAdjust = defineCommand({
 export const walletSetStage = defineCommand({
   name: 'wallet.set_stage',
   description:
-    'Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.',
+    'Support: move one business to Warned, Stopped at zero, or Paid by the agency, for when its balance runs out. Moving one off Paid by the agency writes off what it ran up.',
   risk: 4,
   input: WalletSetStageInput,
   output: WalletSetStageOutput,

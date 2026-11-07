@@ -44335,7 +44335,7 @@
     "/v1/commands/wallet.set_stage": {
       "post": {
         "operationId": "command_wallet_set_stage",
-        "summary": "Support: move one business along the usage wallet — silent, warned, or stopped when the balance runs out.",
+        "summary": "Support: move one business to Warned, Stopped at zero, or Paid by the agency, for when its balance runs out. Moving one off Paid by the agency writes off what it ran up.",
         "tags": [
           "commands"
         ],
