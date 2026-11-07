@@ -3,13 +3,20 @@
  * connected app sends, with the worker's address in front. Said once, for the screen and the Assistant. Browser-safe.
  */
 
+/** The worker's address without the slashes at its end, read from the end: no pattern that slows on many slashes. */
+const withoutEndSlashes = (url: string): string => {
+  let end = url.length;
+  while (end > 0 && url.charAt(end - 1) === '/') end -= 1;
+  return url.slice(0, end);
+};
+
 /** Where a website form posts its leads. */
 export const intakeFormUrl = (workerUrl: string, key: string): string =>
-  `${workerUrl.replace(/\/+$/, '')}/intake/f/${key}`;
+  `${withoutEndSlashes(workerUrl)}/intake/f/${key}`;
 
 /** Where a connected app (Zapier, Make) sends its leads, with its key. */
 export const intakeApiUrl = (workerUrl: string): string =>
-  `${workerUrl.replace(/\/+$/, '')}/v1/intake`;
+  `${withoutEndSlashes(workerUrl)}/v1/intake`;
 
 /** The form to paste into a page, as Copy the snippet copies it. */
 export const intakeFormSnippet = (

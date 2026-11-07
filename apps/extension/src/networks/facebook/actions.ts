@@ -28,6 +28,7 @@ import {
   isAfter,
   isBefore,
   labelOf,
+  mainOf,
   namesOn,
   tabsIn,
   textLines,
@@ -122,8 +123,6 @@ const WINDOW_STEPS = 20;
 
 /** The boxes to write in. */
 export const WRITING = '[role="textbox"], [contenteditable="true"]';
-
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 /** The part of the page something is in: a box over the page (a post opened from the feed), the main column, or the rest. */
 function rootOf(element: Element, doc: Document): Element {

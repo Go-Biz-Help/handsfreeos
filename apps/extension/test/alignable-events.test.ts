@@ -4,8 +4,18 @@
  * written here by hand with made-up businesses, till the owner's next Check Alignable outlines an events page.
  */
 import { JSDOM } from 'jsdom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { readEventsNear } from '../src/jobs/alignable/events';
+import type { Hfos, Job, JobTab } from '../src/jobs/job';
+import type { ReportNote } from '../src/jobs/report';
+import { KITS } from '../src/networks';
 import { eventCards, eventOf, eventPage, readAlignable } from '../src/networks/alignable/read';
+
+// A person's pace between pages, skipped.
+vi.mock('../src/jobs/job', async (original) => ({
+  ...(await original<object>()),
+  pause: () => Promise.resolve(),
+}));
 
 const AL = 'https://www.alignable.com';
 const page = (url: string, body: string) =>
@@ -87,5 +97,119 @@ describe('an event’s page', () => {
       ],
     });
     expect(readAlignable(doc, doc.location.href).event?.guests).toHaveLength(2);
+  });
+});
+
+describe('the week’s read of events near them', () => {
+  /** Alignable in a tab: each address opens its page, which the kit reads as the tab's script does. */
+  function alignableTab(pages: Record<string, () => Document>) {
+    const kit = KITS.alignable;
+    const opened: string[] = [];
+    let doc: Document | null = null;
+    const tab = {
+      async open(url: string) {
+        const path = new URL(url).pathname;
+        const make = pages[path];
+        if (!make) throw new Error(`Not expected: ${url}`);
+        opened.push(path);
+        doc = make();
+        return 1;
+      },
+      async inFront<T>(work: () => Promise<T>) {
+        return work();
+      },
+      async close() {},
+      async ask(message: { readonly type: string }) {
+        const at = doc!.location.href;
+        if (message.type === 'hfos-read') return { ok: true, result: kit.readPage(doc!, at) };
+        // Nothing more to scroll to.
+        return { ok: false, error: 'nothing more' };
+      },
+    } as unknown as JobTab;
+    return { tab, opened };
+  }
+  function eventsJob(tab: JobTab) {
+    const sent: { type: string; input: unknown }[] = [];
+    const reported: ReportNote[] = [];
+    const job: Job = {
+      tab,
+      hfos: (async (ask: { readonly type: string; readonly input?: unknown }) => {
+        sent.push({ type: ask.type, input: ask.input });
+        if (ask.type === 'hfos-events-next') return { ok: true, value: { due: true, read: [] } };
+        if (ask.type === 'hfos-finds-save') return { ok: true, value: { added: 1 } };
+        return { ok: true, value: {} };
+      }) as unknown as Hfos,
+      businessId: 'b',
+      stopped: () => false,
+      progress: () => undefined,
+      warn: async () => undefined,
+      report: async (note?: ReportNote) => void reported.push(note!),
+    };
+    return { job, sent, reported };
+  }
+  /** Their own profile, at their business's address in their town. */
+  const mine = () =>
+    page(`${AL}/columbus-oh/summit-roofing?user=77`, '<main><h1>Casey Owner</h1></main>');
+  /** What the town's two addresses showed the owner (6 Nov 2026): the town's group, with no events on it. */
+  const townGroup = (path: string) => () =>
+    page(
+      `${AL}${path}`,
+      `<main><h1>Columbus, OH</h1><a href="/biz/groups/columbus-oh/members">Members</a>
+        <div><a href="/columbus-oh/reyes-plumbing"><span>Dana Reyes</span></a><div>Hello all</div>
+          <a href="/biz/discussions/501">Comment</a></div></main>`,
+    );
+  const town = {
+    '/biz/businesses/my_profile': mine,
+    '/columbus-oh/events': townGroup('/columbus-oh/events'),
+    '/groups/columbus-oh/events': townGroup('/groups/columbus-oh/events'),
+  };
+
+  it('reads Alignable’s own Events page, the menu’s, when the town’s show none (the problem check of 6 Nov 2026)', async () => {
+    const { tab, opened } = alignableTab({
+      ...town,
+      '/biz/events': () =>
+        page(
+          `${AL}/biz/events`,
+          `<main><h1>Events</h1><div><h3><a href="/biz/events/4401">Columbus Business Mixer</a></h3>
+            <span>Tue, Nov 11 · 5:30 PM</span></div></main>`,
+        ),
+      '/biz/events/4401': () =>
+        page(
+          `${AL}/biz/events/4401`,
+          `<main><h1>Columbus Business Mixer</h1>
+            <div><span>Host</span><a href="/columbus-oh/cole-bakery/morgan-cole">Morgan Cole</a>
+              <a href="/columbus-oh/cole-bakery">Cole Bakery</a></div></main>`,
+        ),
+    });
+    const { job, sent, reported } = eventsJob(tab);
+    const end = await readEventsNear(job);
+    expect(opened).toEqual([
+      '/biz/businesses/my_profile',
+      '/columbus-oh/events',
+      '/groups/columbus-oh/events',
+      '/biz/events',
+      '/biz/events/4401',
+    ]);
+    expect(reported).toEqual([]);
+    expect(sent.find((s) => s.type === 'hfos-events-read')?.input).toMatchObject({
+      urls: [`${AL}/biz/events/4401`],
+    });
+    expect(end.line).toContain(
+      'Read 1 event near you in Columbus, OH: 1 business hosting or going',
+    );
+  });
+
+  it('reports the Events page with its outline when it shows none either', async () => {
+    const { tab, opened } = alignableTab({
+      ...town,
+      '/biz/events': () =>
+        page(`${AL}/biz/events`, '<main><h1>Events</h1><p>No upcoming events</p></main>'),
+    });
+    const { job, reported } = eventsJob(tab);
+    await readEventsNear(job);
+    expect(opened.at(-1)).toBe('/biz/events');
+    expect(reported).toEqual([
+      { note: 'Alignable showed no events in their town.', outline: true },
+    ]);
   });
 });
