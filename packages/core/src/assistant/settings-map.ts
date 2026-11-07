@@ -150,7 +150,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     ],
     path: '/settings/workspace',
     permission: 'workspace.update',
-    canChange: ['the name, time zone and industry', 'the website and review link', 'open hours'],
+    canChange: [
+      'the name, time zone and industry',
+      'the website and review link',
+      'open hours',
+      'the business’s street address, which the setup’s Your business asks (it isn’t on this screen): estimates and invoices show it unless Settings → Payments gives another',
+      'the colour, taking the logo off, or looking for the logo on the website again; adding one from their own computer or phone is theirs, under Logo and colour',
+      'turn your page on or off',
+      'turn Getting started on or off for everyone in the business',
+    ],
     handovers: [],
     howTo: [
       'Copy your page’s link: Settings → Workspace, then Copy the link under Your page is at (Show your page has to be on)',
@@ -1102,19 +1110,24 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Migrations'],
     onScreen: [
       'Connect a CRM, at the top',
-      'Connected: each system signed in to, with Start a migration',
+      'Connected: each system connected, with Start a migration (Call it, then Look at <the system>, which counts what’s there and brings nothing across yet)',
     ],
     path: '/settings/migrations',
     permission: 'migrations.manage',
-    canChange: [],
+    canChange: [
+      'once a system is connected: count what’s in it, choose what comes over and where each sub-account lands, and start the move',
+      'pause a move, carry it on or retry it, and settle a possible duplicate it found',
+    ],
     handovers: [
       {
-        what: 'move a business over from another system',
-        why: 'you sign in to the old system yourself so HandsFreeOS may read it',
+        what: 'connect the system the business is moving from',
+        why: 'you give HandsFreeOS read access to your old system yourself, with a private token only you can make there',
         steps: [
           'Open Settings → Migrations and press Connect a CRM.',
-          'Pick the system you are coming from and sign in there.',
-          'Press Start a migration and choose what to bring over; it runs from there.',
+          'Pick the system you are coming from, like GoHighLevel.',
+          'In GoHighLevel, under Settings, open Private Integrations, make one with read access (View Contacts, and whatever else you want brought across), and copy its token: it is shown once.',
+          'Paste the token, and the sub-account’s Location ID (in GoHighLevel’s Business Profile, or the long code after /location/ in its address bar), then press Connect.',
+          'Then I can count what’s there and, once you say what to bring over, start the move. Nothing is brought across until you say yes, and the old account is never changed.',
         ],
       },
     ],

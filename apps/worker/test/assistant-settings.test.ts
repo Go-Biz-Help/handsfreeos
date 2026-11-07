@@ -18,12 +18,14 @@ import {
   settingsArea,
   TEAMMATE_TOOL_NAMES,
   settingsMapText,
+  workspaceUpdate,
   type CalendarConfig,
   type CommandDef,
   type HumanActor,
 } from '@hfos/core/server';
 import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import pino from 'pino';
 import type { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { toolsFor } from '../src/assistant/context';
@@ -37,6 +39,7 @@ import { settingsMoneyConfirmTools } from '../src/assistant/tools-settings-money
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import type { WorkerServices } from '../src/services';
+import { createFakeTelephony } from '../src/telephony/fake';
 
 /**
  * Setting the business up by asking (M12), step one: the Assistant can read how any part of the business is set
@@ -964,6 +967,37 @@ describe('the business itself', () => {
       if (key !== 'website' && key !== 'openHours')
         expect(after.workspace.settings[key], key).toEqual(before.workspace.settings[key]);
   });
+
+  it('keeps the street address the setup asks, and says when it’s on another time zone', async () => {
+    const { card, parsed, tool } = await prepare(
+      'update_business',
+      { address: { line1: '1600 Larimer St', city: 'Denver', state: 'co', postalCode: '80202' } },
+      owner,
+    );
+    expect(card.fields.find((f) => f.label === 'Address')!.value).toBe(
+      '1600 Larimer St, Denver, CO 80202',
+    );
+    // The setup sets the time zone from the address; here it stays as it is, and the card says so.
+    expect(card.warnings).toContainEqual({
+      kind: 'note',
+      text: 'That address is on Mountain time, but the business keeps Central time. Change the time zone too if it should follow.',
+    });
+    await confirm(tool!, parsed, owner);
+    const after = await q<{ workspace: { timezone: string; settings: Record<string, unknown> } }>(
+      'workspace.get',
+    );
+    expect(after.workspace.settings['address']).toMatchObject({
+      line1: '1600 Larimer St',
+      city: 'Denver',
+      state: 'CO',
+      postalCode: '80202',
+    });
+    expect(after.workspace.timezone).toBe(CHI);
+
+    await expect(
+      prepare('update_business', { address: { line1: '1 Main St', city: 'Nowhere' } }, owner),
+    ).rejects.toThrow();
+  });
 });
 
 describe('pipelines and stages', () => {
@@ -1114,6 +1148,70 @@ describe('the business number', () => {
     );
     expect(giving.card.warnings[0]!.kind).toBe('blocked');
     expect(giving.card.warnings[0]!.text).toContain('reaches nobody');
+  });
+
+  it('looks for free numbers near the business first, through the worker’s telephony, and buys none', async () => {
+    await run(
+      workspaceUpdate,
+      {
+        workspaceId,
+        settings: {
+          address: { line1: '100 Main St', city: 'Huntsville', state: 'AL', postalCode: '35801' },
+        },
+      },
+      owner,
+    );
+    const telephony = createFakeTelephony({
+      approvalMs: 0,
+      callbacks: false,
+      log: pino({ level: 'silent' }),
+    });
+    const executor = createToolExecutor(api(), null, null, '', undefined, {
+      services: { telephony } as unknown as WorkerServices,
+    });
+    const tool = assistantToolByName.get('find_phone_numbers')!;
+    type Found = {
+      searched: string;
+      numbers: { number: string; shown: string; town?: string; state?: string }[];
+      note: string;
+    };
+    const look = async (args: Record<string, unknown>) =>
+      (await executor.run(tool, tool.input.parse(args) as never, ctxFor(owner))).result as Found;
+
+    const near = await look({});
+    expect(near.searched).toBe('Within 25 miles of Huntsville, AL, the business’s town');
+    expect(near.numbers.length).toBeGreaterThan(0);
+    expect(near.numbers[0]).toMatchObject({ town: 'Huntsville', state: 'AL' });
+    expect(near.numbers[0]!.shown).toMatch(/^\(\d{3}\) \d{3}-\d{4}$/);
+    expect(near.note).toContain('manage_phone_number');
+
+    expect((await look({ anywhere: true })).searched).toBe('Anywhere');
+
+    const area = await look({ areaCode: '256' });
+    expect(area.searched).toBe('Area code 256');
+    expect(area.numbers.every((n) => n.number.startsWith('+1256'))).toBe(true);
+
+    const tollFree = await look({ numberType: 'toll_free' });
+    expect(tollFree.searched).toBe('Toll-free');
+    expect(tollFree.numbers.every((n) => n.town === undefined)).toBe(true);
+    // Starts with, on the screen's toll-free search.
+    expect((await look({ numberType: 'toll_free', areaCode: '833' })).searched).toBe(
+      'Toll-free · Starting 833',
+    );
+
+    // It only looks: nothing is bought or held.
+    const owned = await rows<{ n: number }>(
+      testDbs().admin.db,
+      sql`select count(*)::int as n from app.phone_numbers where workspace_id = ${workspaceId}`,
+    );
+    expect(owned[0]!.n).toBe(0);
+    expect(executor.reads?.(tool)).toBe(true);
+    expect(executorFor('find_phone_numbers')).toBeTruthy();
+
+    // Without the worker's telephony it says where to look instead of guessing numbers.
+    await expect(createToolExecutor(api()).run(tool, {}, ctxFor(owner))).rejects.toMatchObject({
+      rule: 'numbers_unavailable',
+    });
   });
 });
 

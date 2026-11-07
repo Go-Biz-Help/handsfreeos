@@ -7,7 +7,15 @@
  * way in. Both say so on the card before anyone agrees.
  */
 
-import { HfosError, industryFromText, type IndustryOption } from '@hfos/core';
+import {
+  addressLines,
+  BusinessAddress,
+  HfosError,
+  industryFromText,
+  timeZoneForAddress,
+  usTimeZoneLabel,
+  type IndustryOption,
+} from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query } from './tools-read';
@@ -88,6 +96,21 @@ const stageIn = (pipelines: Pipeline[], stageId: unknown) => {
 
 // ---------- the business ----------
 
+/** The street address given, as the setup's Your business keeps it; null when none was, or it doesn't read. */
+function addressOf(args: Args): BusinessAddress | null {
+  if (args['address'] === undefined) return null;
+  const read = BusinessAddress.safeParse(args['address']);
+  if (!read.success)
+    throw HfosError.validation(
+      read.error.issues.map((i) => ({
+        path: ['address', ...i.path].join('.'),
+        message: i.message,
+      })),
+      `That address doesn’t look right. ${read.error.issues[0]?.message ?? 'Give the street, city, 2-letter state and ZIP code.'}`,
+    );
+  return read.data;
+}
+
 const updateBusiness: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { workspace } = await workspaceOf(db, ctx);
@@ -115,16 +138,32 @@ const updateBusiness: SettingsConfirmTool = {
             ? 'Weekdays 08:00–17:00'
             : hoursLine(args['openHours'] as Hours),
       });
+    const address = addressOf(args);
+    if (address)
+      fields.push({ label: 'Address', value: addressLines(address).replace(/\n/g, ', ') });
+    // The setup sets the time zone from the address; here it stays as it is unless it's changed too.
+    const zone = address ? timeZoneForAddress(address) : null;
+    const zoneNote =
+      zone && !str(args['timezone']) && zone !== workspace.timezone
+        ? `That address is on ${usTimeZoneLabel(zone)} time, but the business keeps ${usTimeZoneLabel(workspace.timezone)} time. Change the time zone too if it should follow.`
+        : null;
     return {
       card: settingsCard(toolCallId, 'update_business', {
         title: `Change ${workspace.name}`,
         fields,
         confirmLabel: 'Save the change',
-        warnings: str(args['timezone'])
-          ? [{ kind: 'note', text: 'Times already booked stay at the same moment.' }]
-          : [],
+        warnings: [
+          ...(str(args['timezone'])
+            ? [{ kind: 'note', text: 'Times already booked stay at the same moment.' }]
+            : []),
+          ...(zoneNote ? [{ kind: 'note', text: zoneNote }] : []),
+        ],
       }),
-      result: { waiting: true, changes: fields.map((f) => f.label) },
+      result: {
+        waiting: true,
+        changes: fields.map((f) => f.label),
+        ...(zoneNote ? { timeZone: zoneNote } : {}),
+      },
     };
   },
 
@@ -133,6 +172,7 @@ const updateBusiness: SettingsConfirmTool = {
       website: str(args['website']),
       ...(str(args['reviewLink']) ? { links: { review: str(args['reviewLink']) } } : {}),
       ...(args['openHours'] === undefined ? {} : { openHours: args['openHours'] }),
+      address: addressOf(args) ?? undefined,
     });
     await command(db, ctx, 'workspace.update', {
       ...defined({

@@ -7,6 +7,7 @@ import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
 import { timezone, uuid } from '../schemas/common';
 import { RichInput } from '../schemas/rcs';
 import { IntakeChannelKind } from '../schemas/intake';
+import { BusinessAddress } from '../onboarding-setup/address';
 import { SETTINGS_AREAS } from './settings-map';
 import {
   clock,
@@ -674,7 +675,7 @@ export const assistantTools = [
   define({
     name: 'update_business',
     description:
-      'Change the business itself: its name, time zone, industry, website, the link customers leave reviews on, and the hours it is open. Read it with get_settings first and pass only what changes.',
+      'Change the business itself: its name, time zone, industry, website, the link customers leave reviews on, the hours it is open, and its street address (the one the setup’s Your business asks: estimates and invoices show it unless Settings → Payments → Your address gives another, and the number search looks near it). Read it with get_settings first and pass only what changes. A new address doesn’t change the time zone: the card says when its time zone differs, and the timezone is yours to pass too if the person says so.',
     input: z.object({
       name: text(120).optional(),
       timezone: text(60).optional().describe('An IANA zone like America/Chicago'),
@@ -686,6 +687,7 @@ export const assistantTools = [
       openHours: WeeklyHoursInput.nullable()
         .optional()
         .describe('When the business is open; null puts it back to weekdays 8–5'),
+      address: BusinessAddress.optional().describe('A US street address, with the 2-letter state'),
     }),
     autonomy: 'confirm',
     permission: 'workspace.update',
@@ -809,7 +811,7 @@ export const assistantTools = [
   define({
     name: 'manage_phone_number',
     description:
-      'Get a business number, or give one up. Getting one costs money every month; giving one up loses it for good and customers texting or calling it reach nobody. The person picks the number itself on Settings → Texting & calls, so only use this when they give you the number.',
+      'Get a business number, or give one up. Getting one costs money every month; giving one up loses it for good and customers texting or calling it reach nobody. Get only a number the person picked: one they give you, or one of find_phone_numbers’ they chose.',
     input: z.object({
       action: z.enum(['get', 'give_up']),
       number: text(20).describe('The number, like +17135551212'),
@@ -817,6 +819,43 @@ export const assistantTools = [
       phoneNumberId: uuid.optional().describe('The number to give up'),
     }),
     autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'find_phone_numbers',
+    description:
+      'Look for business numbers free to get now, as the search on Settings → Texting & calls and on the setup’s Your business number does. With nothing given it looks near the business’s address (25 miles around its city), as the setup does first; or give an area code, digits the number carries, another city with its state, anywhere, or toll-free (the setup picks local with an EIN, toll-free without). Nothing is bought: read the numbers to the person, and once they pick one, get it with manage_phone_number. Carriers sell only what they have on hand, so asking for less finds more.',
+    input: z.object({
+      numberType: z.enum(['local', 'toll_free']).optional().describe('Local unless said'),
+      areaCode: z
+        .string()
+        .regex(/^[2-9][0-9]{2}$/, 'Use a 3-digit area code.')
+        .optional()
+        .describe('Local: its area code. Toll-free: what it starts with (Starts with), like 833'),
+      contains: z
+        .string()
+        .regex(/^(?=.*[0-9])[0-9*]{2,10}$/, 'Use 2 to 10 digits, with * for any digit.')
+        .optional()
+        .describe(
+          'Digits the number carries, * for any one digit: 454, or 256***454* to pin the spot',
+        ),
+      city: text(40).optional().describe('A local number near this city, with its state'),
+      state: z
+        .string()
+        .regex(/^[A-Za-z]{2}$/, 'Use a 2-letter state, like AL.')
+        .optional(),
+      withinMiles: z
+        .int()
+        .min(1)
+        .max(500)
+        .optional()
+        .describe('Widens the city to everything this many miles around it'),
+      anywhere: z
+        .boolean()
+        .optional()
+        .describe('true: anywhere, as Show numbers anywhere does when nothing is free nearby'),
+    }),
+    autonomy: 'auto',
     permission: 'channels.manage',
   }),
   define({

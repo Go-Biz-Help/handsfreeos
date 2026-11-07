@@ -47,7 +47,7 @@ import { moneyConfirmTools, moneyReadTools } from './tools-money';
 import { command, dueWords, money, paths, query, readTools, rehearse, when } from './tools-read';
 import { settingsReadTools } from './tools-settings';
 import { settingsBusinessConfirmTools } from './tools-settings-business';
-import { settingsChannelConfirmTools } from './tools-settings-channels';
+import { numberSearchTools, settingsChannelConfirmTools } from './tools-settings-channels';
 import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-settings-calendar';
@@ -1718,6 +1718,7 @@ export const executorFor = (name: string) =>
   formAutoTools[name] ??
   moreAutoTools[name] ??
   billingLinkTools[name] ??
+  numberSearchTools[name] ??
   capabilityTools[name] ??
   mainOfferAutoTools[name] ??
   mainOfferConfirmTools[name] ??
@@ -1764,6 +1765,9 @@ export function createToolExecutor(
     if (offer) return offer(db, ctx, args, offerDeps);
     const link = billingLinkTools[tool.name];
     if (link) return link(db, ctx, args, moneyLinks);
+    // The carrier's free numbers, through the worker's own telephony.
+    const numbers = numberSearchTools[tool.name];
+    if (numbers) return numbers(db, ctx, args, addonActions?.services.telephony ?? null);
     const run =
       readTools[tool.name] ??
       contactReadTools[tool.name] ??
@@ -1789,7 +1793,8 @@ export function createToolExecutor(
       return prepareAddonTool(db, tool, await addressed(args, ctx), ctx, toolCallId);
     if (isAddonActionTool(tool))
       return prepareAddonActionTool(tool, await addressed(args, ctx), toolCallId);
-    if (isScreenActionTool(tool)) return prepareScreenAction(db, tool, args, ctx, toolCallId);
+    if (isScreenActionTool(tool))
+      return prepareScreenAction(db, tool, args, ctx, toolCallId, webUrl);
     const offer = mainOfferConfirmTools[tool.name];
     if (offer) return offer.prepare(db, ctx, args, toolCallId);
     const t = confirmTools[tool.name];
@@ -1875,6 +1880,8 @@ export function createToolExecutor(
         tool.name in moneyReadTools ||
         // A customer's link is read and signed, never written.
         tool.name in billingLinkTools ||
+        // The carrier's free numbers are looked at, never held or bought.
+        tool.name in numberSearchTools ||
         tool.name in capabilityTools
       );
     },

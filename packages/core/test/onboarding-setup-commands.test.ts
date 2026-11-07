@@ -279,6 +279,28 @@ describe('onboarding_setup.save', () => {
     expect(invite.details).toEqual([expect.objectContaining({ path: 'invite' })]);
   });
 
+  it('refuses answers the screen itself would refuse, and stays where it was', async () => {
+    const before = await get(dale, ws);
+    const { answers } = before;
+    const err = await expectHfos(
+      () =>
+        run(
+          onboardingSetupSave,
+          {
+            workspaceId: ws,
+            screen: 'about',
+            answers: { ...answers, ai: { ...answers.ai, description: '' } },
+          },
+          dale,
+        ),
+      'validation',
+    );
+    expect(err.details).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'answers.ai.description' })]),
+    );
+    expect((await get(dale, ws)).reached).toBe(before.reached);
+  });
+
   it('keeps where customers are, and “Add them as you go”', async () => {
     const { answers } = await get(dale, ws);
     await run(

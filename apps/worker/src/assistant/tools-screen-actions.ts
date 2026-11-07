@@ -27,6 +27,7 @@ import {
 import type { Db } from '@hfos/db/client';
 import { keptAnswer } from './committed';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
+import { setupCard, setupInput, setupOutcome } from './setup-screens';
 import { cardFields } from './tools-addons';
 import { settingsCard } from './tools-settings-calendar';
 import { workflowScreenCards } from './tools-workflow';
@@ -120,8 +121,13 @@ export async function prepareScreenAction(
   args: Args,
   ctx: ToolContext,
   toolCallId: string,
+  /** The web app's address, for the address of the business's page the setup's chat goes on. */
+  webUrl = '',
 ): Promise<PreparedAction> {
-  const input = inputOf(tool, args, ctx);
+  // The guided setup's saves take the screens' whole answers: the model's go over the ones kept (setup-screens.ts).
+  const given = inputOf(tool, args, ctx);
+  const setup = await setupInput(db, ctx, tool, given, webUrl);
+  const input = setup?.input ?? given;
   const checked = tool.command.input.safeParse(input);
   if (!checked.success) {
     const issues = checked.error.issues.map((i) => ({
@@ -134,7 +140,8 @@ export async function prepareScreenAction(
         `Some of that doesn’t fit what this takes. Check the details and call ${tool.name} again.`,
     );
   }
-  await rehearseCommand(db, tool.command, input, ctx.actor, meta(ctx));
+  const tried = await rehearseCommand(db, tool.command, input, ctx.actor, meta(ctx));
+  if (setup) return setupCard(toolCallId, tool, setup, tried);
   // A command whose screen says it in a dialog of its own (Publish, Restore, Run test) is drawn the way it says it.
   const own = workflowScreenCards[tool.command.name];
   if (own) return own.prepare(db, ctx, args, { name: tool.name, toolCallId });
@@ -227,13 +234,10 @@ export async function commitScreenAction(
   /** The web app's address, for a link that is the app's own (the founding claim link). */
   webUrl = '',
 ): Promise<CommittedAction> {
-  const done = await executeCommand(
-    db,
-    tool.command,
-    inputOf(tool, args, ctx),
-    ctx.actor,
-    meta(ctx),
-  );
+  // Over the answers kept now, so only what the card showed changing changes.
+  const given = inputOf(tool, args, ctx);
+  const setup = await setupInput(db, ctx, tool, given, webUrl);
+  const done = await executeCommand(db, tool.command, setup?.input ?? given, ctx.actor, meta(ctx));
   // The command has run by now, so a look-up for its words that fails falls back to the plain answer below, never
   // to a refusal saying nothing changed.
   const own = workflowScreenCards[tool.command.name];
@@ -247,7 +251,9 @@ export async function commitScreenAction(
     };
   }
   const once = passedOn(tool.command, done.output, webUrl);
-  const made = SAID_WHEN_DONE[tool.command.name]?.((done.output ?? {}) as Args) ?? null;
+  const made = setup
+    ? setupOutcome(done.output)
+    : (SAID_WHEN_DONE[tool.command.name]?.((done.output ?? {}) as Args) ?? null);
   return {
     outcome: once?.kept ?? made ?? 'Done',
     href: null,

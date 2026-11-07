@@ -452,6 +452,20 @@ export const onboardingSetupSave = defineCommand({
       input.screen === 'business'
         ? await startFrom(ctx, input, record, { before: before.kind, now: kind })
         : { template: record.template, answers: input.answers };
+    // What the screen itself checks before Next, so a save from elsewhere (the Assistant) never moves past answers
+    // the screen would refuse, only for finishing to refuse them later. The first screen's are its own, above.
+    if (input.screen !== 'business') {
+      const state = await loadOnboardingSetupState(ctx.tx, ws, me);
+      const problems = onboardingSetupScreenProblems(input.screen, answers, state);
+      if (problems.length)
+        throw HfosError.validation(
+          problems.map((p) => ({
+            path: p.path ? `answers.${p.path}` : 'answers',
+            message: p.message,
+          })),
+          problems[0]!.message,
+        );
+    }
     const out: Done = { invited: [], changes: [], notes: [], calendarId: null };
     switch (input.screen) {
       case 'goal':
