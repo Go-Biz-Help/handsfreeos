@@ -41,7 +41,8 @@ const COMPUTER_STATES = {
 const SENDING_OFF = 'The extension doesn’t work on its own for you: you do everything.';
 const ASK_TO_SEND = 'Ask an owner of this business if you’d like it to.';
 const ALLOW_FOR_TEAM_IN = 'Your business doesn’t allow it yet. Allow it for your team in';
-const SETTINGS_GENERAL = 'Settings → General';
+/** Where the team's say is (decision 129), on the web and the phone. */
+const SETTINGS_TEAM = 'Settings → Team';
 
 const JOINED = 'You’re in it';
 const TEAM_NONE = 'Nobody uses Social Outreach here yet';
@@ -202,13 +203,13 @@ export const OUTREACH_WORDS = {
   allowForTeamIn: ALLOW_FOR_TEAM_IN,
   /** A Start my day refused with no words of its own kept (it never should be): what to try. */
   startRefused: 'Your day didn’t start. Try again in a minute.',
-  settingsGeneral: SETTINGS_GENERAL,
+  settingsTeam: SETTINGS_TEAM,
   sendingOff: (canSend: boolean, manages = false) =>
     `${SENDING_OFF} ${
       canSend
         ? 'Change that in Settings.'
         : manages
-          ? `${ALLOW_FOR_TEAM_IN} ${SETTINGS_GENERAL}.`
+          ? `${ALLOW_FOR_TEAM_IN} ${SETTINGS_TEAM}.`
           : ASK_TO_SEND
     }`,
   todaySoFar: 'Today so far',
@@ -850,14 +851,13 @@ export const OUTREACH_WORDS = {
     about:
       'Who from Facebook chats goes in Contacts, when friend requests are suggested for cancelling, the morning push, the weekly report, the choices people may pick, daily limits and where your team gets the extension.',
     open: 'Open Social Outreach settings',
-    notOwner:
-      'Owners and admins change these in Social Outreach → Settings, under For your team on General and on each network’s page.',
+    notOwner: 'Owners and admins change these in Social Outreach → Settings → Team.',
     /** On the Chats tab, beside who goes in Contacts. */
     changeContacts: 'Change it in Settings',
-    contactsNotOwner: 'An owner or admin can change this in Settings → General.',
+    contactsNotOwner: 'An owner or admin can change this in Settings → Team.',
   },
   notAllowed: (choices: readonly string[]) =>
-    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that in Settings → General.`,
+    `Your business doesn’t allow: ${choices.join('; ')}. An owner or admin can change that in Settings → Team.`,
   from: 'From',
   to: 'to',
   /** Under the working hours (decision 139). */

@@ -620,7 +620,7 @@ const notAllowedOf = (c: NetworkChoices, rules: BusinessRules): string[] =>
 /** What the business doesn't allow of these choices, in words to refuse them with; null when it's all allowed. */
 export function notAllowedWords(settings: AutomationSettings, rules: BusinessRules): string | null {
   const fix =
-    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → General.';
+    'Pick another, or ask an owner of this business to allow it under Social Outreach → Settings → Team.';
   const offNetworks = OTHER_PLATFORMS.filter(
     (p) => settings.networks[p].on && !rules.networksAllowed.includes(p),
   );

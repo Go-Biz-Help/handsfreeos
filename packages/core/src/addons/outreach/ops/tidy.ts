@@ -628,6 +628,13 @@ export const friendsCancelAll = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_cancel_all_requests',
     autonomy: 'confirm',
+    what: (input) => {
+      const { on, platform = 'facebook' } = input as CancelAllInput;
+      const where = NETWORKS[platform].name;
+      return on
+        ? `Cancel every sent request on ${where} that waits for an answer, the oldest first, a day’s worth at a time`
+        : `Stop cancelling the sent requests on ${where}`;
+    },
     description:
       'The person starts Cancel all on a social network (People → Friends, Sent): every sent friend request (LinkedIn’s invitations, Alignable’s connection requests) waiting for an answer there, however new, is cancelled by the browser extension on its own, the oldest first, at the day’s limit, leaving out the ones the extension sent unless they say (leaveOutOwn false). Or they stop it (on false), and the ones left wait as usual. Not on Instagram, whose follows wait for nobody. Once it’s confirmed, its answer’s first are the oldest few: the screen asks their computer to start on those at once (outreach_ask_computer, kind cancel, those as profileIds), else the once-a-day jobs take them, so offer that.',
     outcome: cancelAllOutcome,

@@ -635,7 +635,8 @@ async function buildForm(
     },
     card: {
       type: 'done',
-      toolCallId: '',
+      // The runtime stamps the real call's id; until then, a valid stand-in so the card parses.
+      toolCallId: '00000000-0000-0000-0000-000000000000',
       kind: 'note',
       title: made ? 'Drafted a form' : 'Changed a form',
       detail: [
@@ -645,7 +646,7 @@ async function buildForm(
       ].join(' · '),
       href,
       undoable: false,
-    } as AssistantCard,
+    } satisfies AssistantCard,
     command: made ? 'form.create' : 'form.save_draft',
     record: { formId, href },
   };

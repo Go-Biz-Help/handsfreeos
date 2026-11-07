@@ -587,8 +587,8 @@ export function sendingOffWords(
   if (businessAllowsMore)
     return `The extension doesn’t work on its own for you yet, so there’s no day to start. Pick what it does on its own under Social Outreach → Settings → ${name}.`;
   return canManage
-    ? `Your business doesn’t let anyone’s extension work on its own yet, so there’s no day to start. Allow it for your team under Social Outreach → Settings → General, then pick what it does under Social Outreach → Settings → ${name}.`
-    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → General.';
+    ? `Your business doesn’t let anyone’s extension work on its own yet, so there’s no day to start. Allow it for your team under Social Outreach → Settings → Team, then pick what it does under Social Outreach → Settings → ${name}.`
+    : 'The extension doesn’t work on its own for you yet, so there’s no day to start. Ask an owner of this business to allow the extension to work on its own under Social Outreach → Settings → Team.';
 }
 
 /** A computer's plain name, from Chrome's word for its system. */
