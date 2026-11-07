@@ -301,6 +301,10 @@ const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
     'Its answer comes as the template’s editor shows it: what stops it going out (Before it can go out), When it’s sent, Who signs with each one’s key, then each field and each change to the PDF’s words, with the ids change_document_template takes. A template too long to read whole comes as an outline, and page reads one page whole. get_document_pages reads the PDF’s own words.',
   'document.prefill':
     'Its answer comes as the Send screen shows it: what stops it going out and who each role suggests first, then the fields filled in before it goes, When it’s sent, and the template’s changes to the words whole, as do_document_send’s edits take them.',
+  'safety.alert':
+    'checkInId is the end of a Safety notification’s path under the bell (/app/w/…/safety/<checkInId>), and the check in named by the screen they ask from when that is a safety alert. Its answer adds mapUrl, the map link Where their phone was opens, with when the phone was there. Null when it isn’t theirs to answer: it was answered already, or they weren’t one of those told. Once they have reached the person and know they’re OK, do_safety_resolve stops the alerts for everyone.',
+  'safety.mine':
+    'Their own, and nobody else’s: who is told if they don’t check out, with how each is told (a teammate in the app; someone outside by text and email once they reply OK, nothing while asked, never after STOP), and the check-in open now, with whether it shares where their phone is (follows) and when it was last there (locatedAt). my_check_in adds time or checks out, ask_for_help asks for help, and manage_my_safety_contacts changes who is told.',
   'video_call.get':
     'Its answer adds join, the address the team joins the call at, and for a webinar linkAnyoneCanUse, its Link anyone can use as the screen copies it. The customer’s own link went to them by text or email and is never shown. A call that isn’t for an appointment is found by its callId: start_video_call’s answer has it, and once it has been held it is on the customer’s timeline (read_timeline_list, a call’s meta.videoCallId).',
 };

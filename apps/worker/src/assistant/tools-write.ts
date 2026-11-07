@@ -69,6 +69,7 @@ import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling'
 import { commitScreenAction, prepareScreenAction, runScreenAction } from './tools-screen-actions';
 import { runScreenRead } from './tools-screen-reads';
 import { moreSettingsConfirmTools } from './tools-settings-more';
+import { safetyAutoTools, safetyConfirmTools } from './tools-safety';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
 import { testAiTeammate } from './teammate-test';
 
@@ -90,6 +91,7 @@ const moreAutoTools = {
   ...setupAutoTools,
   ...extraAutoTools,
   ...settingsChannelAutoTools,
+  ...safetyAutoTools,
 };
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
@@ -1719,6 +1721,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...moreSettingsConfirmTools,
   ...extraConfirmTools,
   ...documentConfirmTools,
+  ...safetyConfirmTools,
 };
 
 /**

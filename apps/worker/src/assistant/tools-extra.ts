@@ -103,6 +103,7 @@ import type { Db } from '@hfos/db/client';
 import { keptAnswer } from './committed';
 import { personQuery } from './context';
 import type { ToolContext, ToolOutcome } from './runtime';
+import { toolCallScreen } from './store';
 import { draftChanges, draftSaved, draftToRead } from './tools-content';
 import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
@@ -2214,12 +2215,14 @@ const contactSupport: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, extra) {
     if (hasSecret(args))
       throw HfosError.validation(
         [],
         'A support message can’t carry a password, card number or key. Take out the one in this message, then ask again.',
       );
+    // The screen they asked from, as Get help sends its own page: the app's route words and ids, never anything typed.
+    const screen = await toolCallScreen(db, ctx, extra.toolCallId).catch(() => null);
     const out = await command<{ ticketId: string; number: number }>(
       db,
       ctx,
@@ -2227,8 +2230,12 @@ const contactSupport: SettingsConfirmTool = {
       {
         subject: str(args['subject']) ?? '',
         body: str(args['details']),
-        // Where they asked from, never anything typed.
-        context: { page: 'Ask HandsFreeOS' },
+        context: {
+          page: (screen
+            ? `Ask HandsFreeOS on /app/w/${ctx.workspaceId}${screen}`
+            : 'Ask HandsFreeOS'
+          ).slice(0, 200),
+        },
       },
     );
     return {

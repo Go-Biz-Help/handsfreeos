@@ -35,6 +35,7 @@ import {
   safetyContactRecord,
   safetyOkText,
   SAFETY_DEFAULTS,
+  safetyMapLink,
   scheduleJob,
   walletRoom,
   type SafetyTimes,
@@ -191,10 +192,9 @@ async function teammatesToTell(
   return managers.map((m) => ({ userId: m.user_id, contactId: null }));
 }
 
+/** The same link the alert page's Where their phone was opens (@hfos/core's safetyMapLink). */
 const placeLink = (c: CheckIn) =>
-  c.latitude && c.longitude
-    ? `https://maps.google.com/?q=${encodeURIComponent(`${c.latitude},${c.longitude}`)}`
-    : null;
+  c.latitude && c.longitude ? safetyMapLink(c.latitude, c.longitude) : null;
 
 /** Queues the ladder's next run (an earlier one already queued stays: the job reads the check-in when it runs). */
 export async function armLadder(tx: Tx, scope: TenantScope, checkInId: string, at: Date) {

@@ -136,7 +136,7 @@ describe('the last settings by asking', () => {
       safetyUserId: owner.id,
     });
     expect(card.title).toBe('Change Safety');
-    expect(field(card, 'Safety person')).toBe('Morgan Owner');
+    expect(field(card, 'Who’s told when someone has nobody to tell')).toBe('Morgan Owner');
     expect(field(card, 'Was')).toBe('The owners and admins');
     expect((await q<{ safetyUserId: string | null }>('safety.settings')).safetyUserId).toBeNull();
     await confirm('update_safety_settings', parsed);

@@ -497,6 +497,24 @@ export const CUSTOMIZABLE_PERMISSIONS: readonly PermissionInfo[] = PERMISSION_GR
 export const isCustomizablePermission = (p: string): p is WorkspacePermission =>
   CUSTOMIZABLE_PERMISSIONS.some((c) => c.permission === p);
 
+/**
+ * Why a permission that is turned on still does nothing, as Settings → Permissions and a person's permissions say it:
+ * the first thing it stands on that is off, in words ("Off until “Add and edit customers” is on"). Null when it
+ * works, or when it is off anyway.
+ */
+export function permissionHeldBack(
+  info: PermissionInfo,
+  on: boolean,
+  effective: readonly string[],
+): string | null {
+  if (!on || effective.includes(info.permission)) return null;
+  const missing = info.requires.find((r) => !effective.includes(r));
+  const name = missing
+    ? (CUSTOMIZABLE_PERMISSIONS.find((c) => c.permission === missing)?.label ?? null)
+    : null;
+  return name ? `Off until “${name}” is on` : 'Off until what it needs is on';
+}
+
 /** The roles whose permissions a business may change. Owners always keep everything. */
 export const CUSTOMIZABLE_ROLES = ['admin', 'member'] as const;
 export type CustomizableRole = (typeof CUSTOMIZABLE_ROLES)[number];

@@ -14107,7 +14107,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.
+         * Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who replied OK and not STOP.
          * @description Risk level 2. Requires workspace.update. Emits safety.settings_saved.
          */
         post: operations["command_safety_settings_save"];
@@ -22687,7 +22687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.
+         * How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who replied OK and not STOP.
          * @description Requires workspace.read.
          */
         post: operations["query_safety_settings"];
@@ -88804,6 +88804,7 @@ export interface operations {
                             latitude: number | null;
                             locatedAt: string | null;
                             longitude: number | null;
+                            mapUrl: string | null;
                             personName: string;
                             personPhone: string | null;
                             place: string;
@@ -88855,8 +88856,10 @@ export interface operations {
                         open: {
                             appointmentId: string | null;
                             extendedCount: number;
+                            follows: boolean;
                             /** Format: uuid */
                             id: string;
+                            locatedAt: string | null;
                             place: string;
                             /** Format: date-time */
                             plannedEndAt: string;

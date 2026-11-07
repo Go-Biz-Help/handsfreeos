@@ -10,6 +10,19 @@ export const SAFETY_LIMITS = {
   contacts: 5,
 } as const;
 
+/**
+ * The map link for where a phone was, as the alert page's Where their phone was and the alert's text and email open
+ * it. Null without both readings.
+ */
+export function safetyMapLink(
+  latitude: number | string | null | undefined,
+  longitude: number | string | null | undefined,
+): string | null {
+  if (latitude === null || latitude === undefined || longitude === null || longitude === undefined)
+    return null;
+  return `https://maps.google.com/?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+
 /** The business's times unless it sets its own (Settings → Safety). */
 export const SAFETY_DEFAULTS = {
   /** Minutes after the planned end before the person is asked "Still there?". */

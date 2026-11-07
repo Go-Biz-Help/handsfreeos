@@ -54,6 +54,7 @@ import { extraStepLabels } from './tools-extra';
 import { inboxCrmStepLabels } from './tools-inbox-crm';
 import { mainOfferStepLabels } from './tools-main-offer';
 import { moreSettingsStepLabels } from './tools-settings-more';
+import { safetyStepLabels } from './tools-safety';
 import { schedulingStepLabels } from './tools-scheduling';
 import { setupStepLabels } from './tools-setup';
 
@@ -311,6 +312,7 @@ const MORE_STEP_LABELS: Record<string, string> = {
   ...moreSettingsStepLabels,
   ...extraStepLabels,
   ...documentStepLabels,
+  ...safetyStepLabels,
   ...addonStepLabels,
 };
 const stepLabel = (tool: OfferedTool) =>
@@ -374,7 +376,11 @@ export async function ask(
     userId: input.actor.userId,
     ...(input.threadId ? { threadId: input.threadId } : {}),
     question: input.text,
-    context: { page: input.page },
+    // The screen too (its route words and ids only), so a message to support says where they asked from.
+    context: {
+      page: input.page,
+      ...(input.prompt.place ? { screen: input.prompt.place.path } : {}),
+    },
     model: deps.provider.model,
     correlationId,
   });

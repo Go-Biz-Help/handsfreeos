@@ -1046,17 +1046,18 @@ async function safetyPlan(db: Db, ctx: ToolContext, args: Args) {
     id
       ? (members.find((m) => m.userId === id)?.fullName ?? 'Someone not on the team')
       : 'The owners and admins';
+  // The screen's own labels (Settings → Safety, Check-ins).
   const fields: Field[] = [];
   if (next.askAfterMinutes !== now.askAfterMinutes)
-    fields.push({ label: 'Ask if they’re OK after', value: minutesWords(next.askAfterMinutes) });
+    fields.push({ label: 'Ask them after', value: minutesWords(next.askAfterMinutes) });
   if (next.alertAfterMinutes !== now.alertAfterMinutes)
     fields.push({
-      label: 'Tell their contacts after',
+      label: 'Then tell their contacts after',
       value: `${minutesWords(next.alertAfterMinutes)} more`,
     });
   if (next.safetyUserId !== now.safetyUserId)
     fields.push(
-      { label: 'Safety person', value: who(next.safetyUserId) },
+      { label: 'Who’s told when someone has nobody to tell', value: who(next.safetyUserId) },
       { label: 'Was', value: who(now.safetyUserId) },
     );
   return { next, fields };

@@ -42,10 +42,13 @@ import {
   PARTNERS_WORDS,
   partSays,
   PAYMENT_ACCOUNT_BADGES,
+  PERMISSION_GROUPS,
+  permissionHeldBack,
   PAYMENTS_PAGE_WORDS,
   PRODUCT_KIND_WORDS,
   readMoneySettings,
   registry,
+  SAFETY_DEFAULTS,
   SCORED_PART_LABELS,
   SCORED_PARTS,
   screenPlace,
@@ -65,6 +68,7 @@ import {
   type ProductKind,
   type SettingsArea,
   type SettingsAreaInfo,
+  type WorkspaceRole,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { WorkerServices } from '../services';
@@ -508,7 +512,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
       shape: voteRead,
     },
   ],
-  permissions: [{ name: 'permission.settings', as: 'permissions' }],
+  permissions: [{ name: 'permission.settings', as: 'permissions', shape: permissionsRead }],
   pipelines: [{ name: 'pipeline.list', as: 'pipelines' }],
   fields: [{ name: 'custom_field.list', as: 'fields' }],
   relationships: [
@@ -661,7 +665,20 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'live_meeting_account.mine', as: 'liveMeetings' },
   ],
   // Check-ins (round six): the business's times and safety person; never anyone's contacts.
-  safety: [{ name: 'safety.settings', as: 'safety' }],
+  safety: [
+    {
+      name: 'safety.settings',
+      as: 'safety',
+      // What Settings → Safety and each person's When show after the first alert, which nothing saves.
+      shape: (v) => ({
+        ...(v as object),
+        repeatMinutes: SAFETY_DEFAULTS.repeatMinutes,
+        thenTold: `Their contacts are told again every ${SAFETY_DEFAULTS.repeatMinutes} minutes, for an hour, until someone says they’re OK.`,
+        nobodyToTell:
+          'Someone has nobody to tell when none of their teammate contacts is still in the business and nobody outside has replied OK (and not STOP): then the safety person is told, or with none picked, the owners and admins.',
+      }),
+    },
+  ],
   imports: [{ name: 'import.list', as: 'imports' }],
   migrations: [
     {
@@ -680,6 +697,60 @@ const areaOf = (args: Args): SettingsArea => args['area'] as SettingsArea;
 const TIDY: Partial<
   Record<SettingsArea, (read: Record<string, unknown>) => Record<string, unknown>>
 > = { add_ons: addOnsTidy };
+
+/**
+ * Settings → Permissions as its cards read (and a person's What they can do): each group's permissions with their
+ * label and description, whether admins and members have it by default, what it needs, and for each role and person
+ * the ones turned on that wait on another ("Off until “Y” is on").
+ */
+function permissionsRead(v: unknown): unknown {
+  const out = v as {
+    roles: { role: string; settings: Record<string, boolean>; effective: string[] }[];
+    people: { role: string; settings: Record<string, boolean>; effective: string[] }[];
+  };
+  const labelOf = (p: string) =>
+    CUSTOMIZABLE_PERMISSIONS.find((c) => c.permission === p)?.label ?? p;
+  const waiting = (
+    role: string,
+    own: Record<string, boolean>,
+    effective: readonly string[],
+    rolePart?: Record<string, boolean>,
+  ) =>
+    CUSTOMIZABLE_PERMISSIONS.flatMap((info) => {
+      const on =
+        own[info.permission] ??
+        rolePart?.[info.permission] ??
+        hasWorkspacePermission(role as WorkspaceRole, info.permission);
+      const note = permissionHeldBack(info, on, effective);
+      return note ? [{ permission: info.label, note }] : [];
+    });
+  const roleSettings = (role: string) => out.roles.find((r) => r.role === role)?.settings;
+  return {
+    ...out,
+    roles: out.roles.map((r) => {
+      const held = waiting(r.role, r.settings, r.effective);
+      return held.length ? { ...r, offUntil: held } : r;
+    }),
+    people: out.people.map((p) => {
+      if (p.role === 'owner') return p;
+      const held = waiting(p.role, p.settings, p.effective, roleSettings(p.role));
+      return held.length ? { ...p, offUntil: held } : p;
+    }),
+    cards: PERMISSION_GROUPS.map((g) => ({
+      title: g.title,
+      permissions: g.permissions.map((p) => ({
+        permission: p.permission,
+        label: p.label,
+        description: p.description,
+        byDefault: {
+          admins: hasWorkspacePermission('admin', p.permission),
+          members: hasWorkspacePermission('member', p.permission),
+        },
+        ...(p.requires.length ? { needs: p.requires.map(labelOf) } : {}),
+      })),
+    })),
+  };
+}
 
 /**
  * Who sees what a permission opens, by default: owners and admins, owners alone, or owners and whoever an owner gave

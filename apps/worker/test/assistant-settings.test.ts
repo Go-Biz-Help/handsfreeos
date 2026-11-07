@@ -14,10 +14,12 @@ import {
   localMinutes,
   money,
   organizationCreate,
+  PERMISSION_GROUPS,
   personCreate,
   phoneUpdateSettings,
   registry,
   resourceCreate,
+  ROLE_DESCRIPTIONS,
   serviceCreate,
   SETTINGS_AREAS,
   settingsArea,
@@ -229,6 +231,59 @@ describe('get_settings', () => {
         (c) => c.addonId,
       ),
     ).not.toContain('realestate');
+  });
+
+  it('reads Permissions as its cards say them, with what waits on another permission', async () => {
+    const setRole = (allowed: boolean | null) =>
+      run(
+        registry.command('permission.set_role')!,
+        { workspaceId, role: 'member', permission: 'members.invite', allowed },
+        owner,
+      );
+    await setRole(true);
+    try {
+      const { result } = await readTool('get_settings', 'permissions', owner);
+      const read = result['permissions'] as {
+        cards: {
+          title: string;
+          permissions: {
+            permission: string;
+            label: string;
+            byDefault: { admins: boolean; members: boolean };
+            needs?: string[];
+          }[];
+        }[];
+        roles: { role: string; offUntil?: { permission: string; note: string }[] }[];
+      };
+      expect(read.cards.map((c) => c.title)).toEqual(PERMISSION_GROUPS.map((g) => g.title));
+      const invite = read.cards
+        .flatMap((c) => c.permissions)
+        .find((p) => p.permission === 'members.invite')!;
+      expect(invite).toMatchObject({
+        label: 'Invite people',
+        byDefault: { admins: true, members: false },
+        needs: ['See pending invitations'],
+      });
+      // On for members, but it needs what they don't have yet, as the page greys it out.
+      expect(read.roles.find((r) => r.role === 'member')!.offUntil).toEqual([
+        { permission: 'Invite people', note: 'Off until “See pending invitations” is on' },
+      ]);
+    } finally {
+      await setRole(null);
+    }
+  });
+
+  it('reads Safety with how often contacts are told again, and who’s told when someone has nobody', async () => {
+    const { result } = await readTool('get_settings', 'safety', owner);
+    const safety = result['safety'] as {
+      repeatMinutes: number;
+      thenTold: string;
+      nobodyToTell: string;
+    };
+    expect(safety.repeatMinutes).toBe(10);
+    expect(safety.thenTold).toContain('every 10 minutes, for an hour');
+    expect(safety.nobodyToTell).toContain('replied OK');
+    expect(JSON.stringify(result)).toContain('Who’s told when someone has nobody to tell');
   });
 
   it('reads every part without failing, whatever is set up', async () => {
@@ -1236,23 +1291,144 @@ describe('pipelines and stages', () => {
 });
 
 describe('the team', () => {
-  it('says an invitation is an email to a person, and what losing a teammate means', async () => {
+  let tess: TestUser;
+  let rae: TestUser;
+  beforeAll(async () => {
+    [tess, rae] = await Promise.all([
+      createTestUser('aset-tess', { fullName: 'Tess Member' }),
+      createTestUser('aset-rae', { fullName: 'Rae Admin' }),
+    ]);
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${tess.id}, 'member'), (${workspaceId}, ${rae.id}, 'admin')`,
+    );
+  });
+  const team = async () =>
+    (await q<{ members: { userId: string; role: string }[] }>('workspace.members')).members;
+
+  it('says an invitation is an email to a person, with the role as Invite teammate says it', async () => {
     const invite = await prepare(
       'manage_team',
       { action: 'invite', email: 'marco@settingshvac.example', role: 'member' },
       owner,
     );
     expect(invite.card.title).toBe('Invite marco@settingshvac.example');
-    expect(invite.card.fields.find((f) => f.label === 'Role')!.value).toContain('Member');
+    expect(fieldOf(invite.card, 'Role')).toBe(`Member — ${ROLE_DESCRIPTIONS.member}`);
+    expect(fieldOf(invite.card, 'Business')).toBe(businessName);
     expect(invite.card.warnings[0]!.text).toContain('email');
+    expect(invite.card.warnings[0]!.text).toContain('Accept invitation');
     await confirm(invite.tool!, invite.parsed, owner);
-    const { invitations } = await q<{ invitations: { email: string; role: string }[] }>(
-      'workspace.invitations',
-    );
-    expect(invitations.map((i) => i.email)).toContain('marco@settingshvac.example');
+    const { invitations } = await q<{
+      invitations: { id: string; email: string; role: string }[];
+    }>('workspace.invitations');
+    const marco = invitations.find((i) => i.email === 'marco@settingshvac.example')!;
+    expect(marco.role).toBe('member');
+    // The same email again is refused before a card, as the screen refuses it.
+    await expect(
+      prepare(
+        'manage_team',
+        { action: 'invite', email: 'marco@settingshvac.example', role: 'member' },
+        owner,
+      ),
+    ).rejects.toMatchObject({ rule: 'invitation_pending' });
 
-    const removal = await prepare('manage_team', { action: 'remove', userId: owner.id }, owner);
-    expect(removal.card.warnings[0]!.text).toContain('way in');
+    // Sending it again and cancelling it name the invitation as Pending invitations lists it.
+    const sending = await prepare(
+      'manage_team',
+      { action: 'resend_invitation', invitationId: marco.id },
+      owner,
+    );
+    expect(fieldOf(sending.card, 'Sent')).toBe('Sending now');
+    expect(fieldOf(sending.card, 'Expires')).toBeUndefined();
+    await rows(
+      testDbs().admin.db,
+      sql`update app.invitations set sent_at = '2026-11-02T15:00:00Z', expires_at = '2026-11-09T15:00:00Z'
+          where id = ${marco.id}`,
+    );
+    const resend = await prepare(
+      'manage_team',
+      { action: 'resend_invitation', invitationId: marco.id },
+      owner,
+    );
+    expect(resend.card.title).toBe('Send marco@settingshvac.example’s invitation again');
+    expect(fieldOf(resend.card, 'Email')).toBe('marco@settingshvac.example');
+    expect(fieldOf(resend.card, 'Role')).toBe(`Member — ${ROLE_DESCRIPTIONS.member}`);
+    expect(fieldOf(resend.card, 'Invited by')).toBe('Dale Owner');
+    expect(fieldOf(resend.card, 'Sent')).toBe('Nov 2, 2026');
+    expect(fieldOf(resend.card, 'Expires')).toBe('Nov 9, 2026');
+    expect(resend.card.warnings[0]!.text).toContain('old link');
+    expect((await confirm(resend.tool!, resend.parsed, owner)).outcome).toBe(
+      'Invitation re-sent to marco@settingshvac.example. The old link no longer works.',
+    );
+
+    const cancel = await prepare(
+      'manage_team',
+      { action: 'cancel_invitation', invitationId: marco.id },
+      owner,
+    );
+    expect(cancel.card.title).toBe('Cancel marco@settingshvac.example’s invitation');
+    expect(cancel.card.warnings[0]!.text).toContain('link stops working');
+    await confirm(cancel.tool!, cancel.parsed, owner);
+    const after = await q<{ invitations: { id: string }[] }>('workspace.invitations');
+    expect(after.invitations.map((i) => i.id)).not.toContain(marco.id);
+    await expect(
+      prepare('manage_team', { action: 'cancel_invitation', invitationId: marco.id }, owner),
+    ).rejects.toThrow('isn’t pending anymore');
+  });
+
+  it('changes a role and removes someone on cards that name them, their email and role', async () => {
+    const change = await prepare(
+      'manage_team',
+      { action: 'change_role', userId: rae.id, role: 'member' },
+      owner,
+    );
+    expect(change.card.title).toBe('Change Rae Admin’s role');
+    expect(fieldOf(change.card, 'Email')).toBe(rae.email);
+    expect(fieldOf(change.card, 'Now')).toBe(`Member — ${ROLE_DESCRIPTIONS.member}`);
+    expect(fieldOf(change.card, 'Was')).toBe(`Admin — ${ROLE_DESCRIPTIONS.admin}`);
+    await expect(
+      prepare('manage_team', { action: 'change_role', userId: rae.id, role: 'admin' }, owner),
+    ).rejects.toMatchObject({ rule: 'nothing_changes' });
+
+    const removal = await prepare('manage_team', { action: 'remove', userId: rae.id }, owner);
+    expect(removal.card.title).toBe('Remove Rae Admin?');
+    expect(fieldOf(removal.card, 'Teammate')).toBe('Rae Admin');
+    expect(fieldOf(removal.card, 'Email')).toBe(rae.email);
+    expect(fieldOf(removal.card, 'Role')).toBe(`Admin — ${ROLE_DESCRIPTIONS.admin}`);
+    expect(removal.card.warnings[0]!.text).toContain('lose access');
+    // Nothing changes before Confirm.
+    expect((await team()).map((m) => m.userId)).toContain(rae.id);
+    expect((await confirm(removal.tool!, removal.parsed, owner)).outcome).toBe('Removed Rae Admin');
+    expect((await team()).map((m) => m.userId)).not.toContain(rae.id);
+
+    // The only owner can't leave, so no card is offered.
+    await expect(
+      prepare('manage_team', { action: 'remove', userId: owner.id }, owner),
+    ).rejects.toMatchObject({ rule: 'last_owner' });
+  });
+
+  it('refuses what someone’s role doesn’t cover, and lets anyone leave on a card that says what they lose', async () => {
+    await expect(
+      prepare('manage_team', { action: 'invite', email: 'cousin@settingshvac.example' }, tess),
+    ).rejects.toMatchObject({
+      rule: 'team_not_yours',
+      message: expect.stringContaining('Invite people'),
+    });
+    await expect(
+      prepare('manage_team', { action: 'remove', userId: owner.id }, tess),
+    ).rejects.toMatchObject({ rule: 'team_not_yours' });
+
+    const leave = await prepare('manage_team', { action: 'remove', userId: tess.id }, tess);
+    expect(leave.card.title).toBe(`Leave ${businessName}?`);
+    expect(leave.card.confirmLabel).toBe('Leave');
+    expect(fieldOf(leave.card, 'You')).toBe(tess.email);
+    expect(fieldOf(leave.card, 'Role')).toBe(`Member — ${ROLE_DESCRIPTIONS.member}`);
+    expect(leave.card.warnings[0]!.text).toContain('You lose access immediately');
+    const left = await confirm(leave.tool!, leave.parsed, tess);
+    expect(left.outcome).toBe(`You left ${businessName}`);
+    expect(left.href).toBeNull();
+    expect((await team()).map((m) => m.userId)).not.toContain(tess.id);
   });
 });
 

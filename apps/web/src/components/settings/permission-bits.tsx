@@ -1,10 +1,5 @@
 'use client';
-import {
-  CUSTOMIZABLE_PERMISSIONS,
-  ROLE_PERMISSIONS,
-  type PermissionInfo,
-  type WorkspaceRole,
-} from '@hfos/core';
+import { permissionHeldBack, ROLE_PERMISSIONS, type WorkspaceRole } from '@hfos/core';
 import { Select } from '@/components/ui/input';
 
 /**
@@ -23,23 +18,11 @@ export const allowedOf = (c: Choice): boolean | null => (c === 'inherit' ? null 
 export const byDefault = (role: WorkspaceRole, permission: string): boolean =>
   (ROLE_PERMISSIONS[role] as readonly string[]).includes(permission);
 
-const labelOf = (permission: string): string | null =>
-  CUSTOMIZABLE_PERMISSIONS.find((c) => c.permission === permission)?.label ?? null;
-
 /**
  * Why a permission that is turned on still does nothing: the first thing it stands on that is off, in words.
- * Null when it works, or when it is off anyway.
+ * Null when it works, or when it is off anyway. The Assistant says the same (@hfos/core).
  */
-export function heldBack(
-  info: PermissionInfo,
-  on: boolean,
-  effective: readonly string[],
-): string | null {
-  if (!on || effective.includes(info.permission)) return null;
-  const missing = info.requires.find((r) => !effective.includes(r));
-  const name = missing ? labelOf(missing) : null;
-  return name ? `Off until “${name}” is on` : 'Off until what it needs is on';
-}
+export const heldBack = permissionHeldBack;
 
 /** The picker: the level above's answer spelled out first, then on and off. */
 export function ChoiceSelect({

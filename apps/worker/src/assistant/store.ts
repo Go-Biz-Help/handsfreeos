@@ -237,6 +237,25 @@ export async function toolCallDrawnAt(db: Db, scope: Scope, id: string): Promise
   return row ? new Date(row.created_at) : null;
 }
 
+/**
+ * The screen the question that drew a card was asked from (`screen` in its context, the app's own route words and ids
+ * after /app/w/<workspaceId>): null when it wasn't kept.
+ */
+export async function toolCallScreen(db: Db, scope: Scope, id: string): Promise<string | null> {
+  if (!UUID.test(id)) return null;
+  const [row] = await asWorker(db, scope, (tx) =>
+    rows<{ screen: string | null }>(
+      tx,
+      sql`select m.context ->> 'screen' as screen
+          from app.assistant_tool_calls c
+          join app.assistant_messages m on m.run_id = c.run_id and m.role = 'user'
+          where c.id = ${id} and c.workspace_id = ${scope.workspaceId}
+          limit 1`,
+    ),
+  );
+  return row?.screen ?? null;
+}
+
 /** Moves a waiting card to its answer, once: a double click or a second tab finds it already answered. */
 export async function claimToolCall(
   db: Db,

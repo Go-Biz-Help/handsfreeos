@@ -10,6 +10,7 @@ import { RichInput } from '../schemas/rcs';
 import { IntakeChannelKind } from '../schemas/intake';
 import { BusinessAddress } from '../onboarding-setup/address';
 import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
+import { ROLE_DESCRIPTIONS, ROLE_LABELS } from '../permissions';
 import { SETTINGS_AREAS } from './settings-map';
 import {
   clock,
@@ -32,6 +33,7 @@ import { documentTools } from './tools-documents';
 import { extraTools } from './tools-extra';
 import { inboxCrmTools } from './tools-inbox-crm';
 import { mainOfferTools } from './tools-main-offer';
+import { safetyTools } from './tools-safety';
 import { moreSettingsTools } from './tools-settings-more';
 import { Place, schedulingTools } from './tools-scheduling';
 import { setupTools } from './tools-setup';
@@ -745,17 +747,31 @@ export const assistantTools = [
   }),
   define({
     name: 'manage_team',
-    description:
-      'Invite someone to the business, change what a teammate may do, take someone off, or resend or cancel an invitation that has not been accepted. Owners and admins can change settings; members work customers, leads and the inbox.',
+    description: `Members: invite someone to the business, change a teammate’s role, take someone off, resend or cancel an invitation not yet accepted, or leave the business yourself. The roles, as Invite teammate says them: ${(
+      ['owner', 'admin', 'member'] as const
+    )
+      .map((r) => `${ROLE_LABELS[r]}: ${ROLE_DESCRIPTIONS[r]}`)
+      .join(
+        ' ',
+      )} Inviting and resending are for whoever may invite, changing a role and taking someone off for owners and admins (only an owner acts on an owner), and cancelling an invitation for whoever may revoke them; anyone may leave. Each waits on a card that names the person, their email and role. Invitation ids are in get_settings (area team). Viewing the app as a teammate is only ever theirs to start and stop, on Members.`,
     input: z.object({
-      action: z.enum(['invite', 'change_role', 'remove', 'resend_invitation', 'cancel_invitation']),
-      email: z.email().max(320).optional().describe('Who to invite'),
-      userId: uuid.optional().describe('The teammate, from list_team'),
-      invitationId: uuid.optional(),
+      action: z.enum([
+        'invite',
+        'change_role',
+        'remove',
+        'resend_invitation',
+        'cancel_invitation',
+        'leave',
+      ]),
+      email: z.email().max(320).optional().describe('invite: who to invite'),
+      userId: uuid.optional().describe('change_role and remove: the teammate, from list_team'),
+      invitationId: uuid
+        .optional()
+        .describe('resend_invitation and cancel_invitation: from get_settings (area team)'),
       role: z.enum(['owner', 'admin', 'member']).optional(),
     }),
     autonomy: 'confirm',
-    permission: 'members.invite',
+    permission: 'workspace.read',
   }),
   define({
     name: 'manage_tag',
@@ -2168,6 +2184,7 @@ export const assistantTools = [
   ...moreSettingsTools,
   ...extraTools,
   ...documentTools,
+  ...safetyTools,
   // What HandsFreeOS can do here, core and add-ons alike (the add-ons' own tools are derived from their operations).
   ...addonTools,
 ] as const;
