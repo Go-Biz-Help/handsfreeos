@@ -12,6 +12,7 @@ import {
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
+import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
@@ -170,6 +171,23 @@ describe('Settings → Website chat', () => {
       ctx(),
     );
     expect((read.result as { data: { snippet: string } }).data.snippet).toBe(snippet);
+  });
+
+  it('says the new snippet once a new key is confirmed, whole, since the old one stops working', async () => {
+    const before = (await chat())!;
+    const rotate = allScreenActionTools().find((t) => t.name === 'do_chat_widget_rotate_key')!;
+    const executor = createToolExecutor(api(), null, null, WEB);
+    await executor.prepare(rotate, { widgetId: before.id }, ctx(), randomUUID());
+    expect((await chat())!.publicKey).toBe(before.publicKey);
+    const done = await executor.commit(rotate, { widgetId: before.id }, ctx(), {
+      toolCallId: randomUUID(),
+    });
+    const after = (await chat())!;
+    expect(after.publicKey).not.toBe(before.publicKey);
+    expect(done.outcome).toContain(
+      `<script async src="${WEB}/embed/v1/${after.publicKey}.js"></script>`,
+    );
+    expect(done.outcome).toContain('stopped working');
   });
 
   it('changes where the button sits on computers and phones, its colours, logo and name, only on Confirm', async () => {

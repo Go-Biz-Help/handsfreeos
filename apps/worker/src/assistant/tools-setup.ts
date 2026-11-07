@@ -1744,7 +1744,7 @@ const manageWebAddress: SettingsConfirmTool = {
           [
             {
               kind: 'note',
-              text: 'The records to put in show up in a moment. Until they are in, everything stays on handsfreeos.com, so nothing stops working.',
+              text: 'The records to put in show up in a moment. Until they are in, everything stays on app.handsfreeos.com, so nothing stops working.',
             },
           ],
         ),
@@ -1794,7 +1794,7 @@ const manageWebAddress: SettingsConfirmTool = {
           {
             label: 'Goes back to',
             value:
-              'handsfreeos.com, for your forms, payment links, estimates, invoices and booking page',
+              'app.handsfreeos.com, for your forms, payment links, estimates, invoices and booking page',
           },
         ],
         'Stop using it',
@@ -1839,7 +1839,7 @@ const manageWebAddress: SettingsConfirmTool = {
     }
     await command(db, ctx, 'branded_domain.remove', { domainId: d.id });
     return {
-      outcome: `Removed. Your forms, payment links and booking page are back on handsfreeos.com. The DNS records for ${d.domain} can come out whenever you like.`,
+      outcome: `Removed. Your forms, payment links and booking page are back on app.handsfreeos.com. The DNS records for ${d.domain} can come out whenever you like.`,
       href: back,
       command: 'branded_domain.remove',
     };

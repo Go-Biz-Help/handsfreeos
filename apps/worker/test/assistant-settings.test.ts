@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   assistantToolByName,
   AssistantCard,
+  bookingSiteSetPage,
   calendarCreate,
   calendarSave,
   executeCommand,
@@ -608,6 +609,33 @@ describe('the booking page', () => {
     expect((moved.card as Extract<AssistantCard, { type: 'confirm' }>).warnings).toContainEqual({
       kind: 'caution',
       text: 'Links you’ve already shared stop working.',
+    });
+  });
+
+  it('says whether Your page shows, and gives the privacy policy and terms links whole', async () => {
+    const web = 'https://app.hfos.test';
+    const executor = createToolExecutor(api(), null, null, web);
+    const read = async (area: string) =>
+      (await executor.run(assistantToolByName.get('get_settings')!, { area }, ctxFor(owner)))
+        .result as Record<string, Record<string, unknown>>;
+    const slug = (await q<{ site: { slug: string } }>('booking_site.get')).site.slug;
+
+    // Off until it's turned on, and the model is told where.
+    const before = (await read('booking_site'))['bookingSite']!;
+    expect(before.yourPage).toContain('Show your page on Settings → Workspace');
+    expect(before.privacyAndTerms).toMatchObject({
+      privacyPolicy: `${web}/legal/${slug}/privacy`,
+      terms: `${web}/legal/${slug}/terms`,
+    });
+
+    await run(bookingSiteSetPage, { workspaceId, on: true }, owner);
+    const after = (await read('booking_site'))['bookingSite']!;
+    expect(after.yourPage).toContain(`Showing at ${web}/book/${slug}`);
+
+    // Texting's registration links to the same two.
+    expect((await read('texting'))['privacyAndTerms']).toMatchObject({
+      privacyPolicy: `${web}/legal/${slug}/privacy`,
+      terms: `${web}/legal/${slug}/terms`,
     });
   });
 });

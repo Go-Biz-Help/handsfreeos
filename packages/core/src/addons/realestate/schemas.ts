@@ -2702,7 +2702,12 @@ export const ListingCampaignInput = z.object({
   channel: z.enum(['sms', 'email']),
   audience: CampaignAudience,
   /** The listing's public page as the person sees it (their address for it), for the words to link to. */
-  pageUrl: z.string().trim().max(500).url('That isn’t a link.'),
+  pageUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .url('That isn’t a link.')
+    .describe('The listing’s page link, whole, exactly as realestate_listing_marketing gives it'),
 });
 export const ListingCampaignOutput = z.object({
   campaignId: uuid,

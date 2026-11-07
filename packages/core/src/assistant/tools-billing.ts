@@ -151,6 +151,17 @@ export const billingTools: readonly AssistantTool[] = [
     autonomy: 'auto',
     permission: 'money.bill',
   }),
+  // A signer's link is signed with the same link key, so it lives beside the customer's.
+  define({
+    name: 'get_signing_link',
+    description:
+      'A signer’s own link to a document out for signing, as Copy their link gives it on the document’s page in Documents: the whole address, on the business’s own domain when one is serving, the same link their email or text had. It opens the document as that signer (after a code sent to them, when the document asks for one), so give it only to the person asking, for them to pass to that one signer. To send it to the signer again instead, use do_document_remind. Once everyone has signed, it opens the signed copy. A voided, declined or expired document has no link. Each signer’s id is in read_document_get, under its signers.',
+    input: z.object({
+      signerId: uuid.describe('The signer’s id, from read_document_get'),
+    }),
+    autonomy: 'auto',
+    permission: 'documents.send',
+  }),
 
   // ---------- estimates and invoices (confirm) ----------
   define({

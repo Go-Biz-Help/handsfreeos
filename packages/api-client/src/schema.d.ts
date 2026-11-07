@@ -8327,7 +8327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). A save sends the whole playbook: read it first with its list, and change only what the person asked.
+         * Write a playbook for social outreach, or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). The booking link (details.link) is a whole address: for one of the business’s own booking pages, use that calendar’s link exactly as the calendar settings give it, never one put together from a name. A save sends the whole playbook: read it first with its list, and change only what the person asked.
          * @description Risk level 1. Requires outreach.manage. Emits outreach.playbook.saved.
          */
         post: operations["command_outreach_playbook_save"];
@@ -52292,7 +52292,10 @@ export interface operations {
                     channel: "sms" | "email";
                     /** Format: uuid */
                     dealId: string;
-                    /** Format: uri */
+                    /**
+                     * Format: uri
+                     * @description The listing’s page link, whole, exactly as realestate_listing_marketing gives it
+                     */
                     pageUrl: string;
                     /** Format: uuid */
                     workspaceId: string;

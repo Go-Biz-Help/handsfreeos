@@ -48,6 +48,7 @@ import {
   type PaymentTerms,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { teamSignerLink } from '../documents/links';
 import { customerLink } from '../money/link-routes';
 import type { MoneyLinks } from '../money/links';
 import { longDayLabel } from './calendar-format';
@@ -2968,7 +2969,8 @@ export const billingAutoTools: Record<
 
 /**
  * The ones that need the worker's link key: a customer's own link is minted as the worker, as Copy link mints it
- * (money/link-routes.ts), after the person has been shown the document or plan as themselves.
+ * (money/link-routes.ts), after the person has been shown the document or plan as themselves; a signer's link to a
+ * document out for signing the same way (documents/links.ts).
  */
 export const billingLinkTools: Record<
   string,
@@ -3015,6 +3017,31 @@ export const billingLinkTools: Record<
       },
     };
   },
+  /** "Send me Dana's link to the lease." Copy their link on the document's page, by the same rules. */
+  async get_signing_link(db, ctx, args, links) {
+    const signerId = str(args['signerId']);
+    if (!signerId)
+      throw HfosError.validation(
+        [{ path: 'signerId', message: 'Needed.' }],
+        'Say whose link: the signer’s id, from read_document_get.',
+      );
+    if (!links)
+      throw HfosError.rule(
+        'signing_link_unavailable',
+        503,
+        'We couldn’t get their link just now. Press Copy their link beside them on the document’s page in Documents instead.',
+      );
+    const got = await teamSignerLink(db, links, ctx.actor.claims, ctx.workspaceId, signerId);
+    return {
+      result: {
+        for: `${got.name} · ${got.document}`,
+        link: got.url,
+        // Said with the link, as Copy their link says it, but nothing is on the person's clipboard: the model is
+        // told it's their own link, never that it's copied.
+        note: `${got.name}’s own link. It opens the document as them, so only send it to them.`,
+      },
+    };
+  },
 };
 
 export const billingConfirmTools: Record<string, SettingsConfirmTool> = {
@@ -3034,6 +3061,7 @@ export const billingStepLabels: Record<string, string> = {
   get_money_document: 'Opening the document',
   list_plans: 'Looking at plans',
   get_customer_link: 'Getting their link',
+  get_signing_link: 'Getting their link',
   write_estimate: 'Writing the estimate',
   manage_estimate: 'Getting the estimate ready',
   write_invoice: 'Writing the invoice',

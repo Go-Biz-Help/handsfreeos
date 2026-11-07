@@ -622,6 +622,30 @@ export const APP_PLACES: readonly AppPlace[] = [
     path: '/forms',
   },
   {
+    label: 'Documents',
+    what: 'contracts and agreements customers sign online, and the templates they’re sent from',
+    where: ['Documents'],
+    onScreen: [
+      'At the top: New template (owners and admins) and Send a document',
+      'Sent: every document sent, by state, and Show older ones; Templates: In use and Archived, each Ready to send or Not ready yet',
+      'Pressing a document opens it: Remind and Void while it’s out, Open the signed copy and Download once everyone signed, and Send it again',
+      'Beside it, Who signs: each signer and where they are, Sign now when it’s their turn, and Copy their link; then What happened',
+    ],
+    howTo: [
+      'Send a document to sign: Documents, press Send a document, pick the template and who signs, then send it',
+      'Send the signing link again: press the document, then Remind',
+      'Give a signer their link yourself: press the document, then Copy their link beside them',
+      'Have someone sign on your device: press the document, then Sign now beside them when it’s their turn',
+      'Take a document back: press the document, then Void',
+    ],
+    canChange: [
+      'send a document from a template',
+      'remind the signers, or void a document',
+      'give the person a signer’s own link to pass on',
+    ],
+    path: '/documents',
+  },
+  {
     label: 'Reviews',
     what: 'Google and Facebook reviews, and answering them',
     where: ['Reviews'],
@@ -766,7 +790,15 @@ export const CUSTOMER_PAGES: readonly string[] = [
   'An invoice’s page: the customer pays by card or bank transfer, and can print it or save a PDF',
   'A plan’s page: the customer adds the card the plan bills',
   'A form’s link, from the form’s Share tab',
-  'All of them can be on the business’s own web address (Settings → Workspace)',
+  'Your page, the one-page site: Settings → Workspace, under Your page is at',
+  'A partner’s link, which makes whoever books through it their client: Settings → Partners, press the partner, Copy their link; their page in the portal shows it too',
+  'Website chat: the chat box on the business’s own site, from the snippet under Add it to your site on the chat’s page (Forms, then Website chats)',
+  'A webinar’s Link anyone can use, where people sign up and join: Calendar, press the webinar, then under Video call press Copy beside Link anyone can use',
+  'The link asking a customer to send a video: Ask for a video in a conversation’s reply box; it’s shown only once',
+  'The privacy policy and terms HandsFreeOS keeps for the business, written from its texting registration (Settings → Texting & calls); its simple page and its chat’s agreement box link to them',
+  'A document to sign: each signer’s own link, sent by email or text; Documents, press the document, Copy their link beside them',
+  'The customer portal: a client’s own page with their messages, files and documents to sign, and a partner’s own page (Settings → Partners, press the partner, Send their page); they sign in with a code sent to their email',
+  'All of them except the portal and a document to sign can be on the business’s own web address (Settings → Workspace)',
 ];
 
 /**

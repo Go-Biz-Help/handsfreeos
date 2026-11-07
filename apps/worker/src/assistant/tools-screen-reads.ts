@@ -5,12 +5,17 @@
  */
 import {
   addonToolArguments,
+  affiliateCodeLink,
+  affiliateLink,
+  affiliateMine,
   chatSnippet,
   chatSnippetSrc,
   chatWidgetGet,
   executeQuery,
   leadBoard,
   money,
+  platformAffiliate,
+  platformAffiliates,
   registry,
   scheduleTeam,
   screenReadTools,
@@ -66,6 +71,41 @@ function withSnippet(data: unknown): unknown {
   return {
     ...(data as object),
     snippet: chatSnippet(chatSnippetSrc('', widget.publicKey)),
+  };
+}
+
+type Row = Record<string, unknown>;
+
+/**
+ * An affiliate's answer with the links their page copies: their own link, and each code's while the code is on. On the
+ * affiliate's own page their link shows once they're approved and have agreed to the terms (`mine`); staff see every
+ * affiliate's. These are on HandsFreeOS's own website, the one place a link isn't on a business's address.
+ */
+function withAffiliateLinks(data: unknown, mine: boolean): unknown {
+  if (!data || typeof data !== 'object') return data;
+  const code = (c: Row): Row =>
+    c.status === 'on' && typeof c.code === 'string' ? { ...c, link: affiliateCodeLink(c.code) } : c;
+  const codes = (list: unknown) => (Array.isArray(list) ? (list as Row[]).map(code) : list);
+  const person = (a: Row): Row => {
+    if (typeof a.code !== 'string') return a;
+    if (mine && !(a.status === 'approved' && a.termsAccepted === true)) return a;
+    return {
+      ...a,
+      link: affiliateLink(a.code),
+      ...('codes' in a ? { codes: codes(a.codes) } : {}),
+    };
+  };
+  const people = (list: unknown) => (Array.isArray(list) ? (list as Row[]).map(person) : list);
+  const d = data as Row;
+  return {
+    ...d,
+    ...(d.affiliate && typeof d.affiliate === 'object'
+      ? { affiliate: person(d.affiliate as Row) }
+      : {}),
+    ...('codes' in d ? { codes: codes(d.codes) } : {}),
+    ...('houseCodes' in d ? { houseCodes: codes(d.houseCodes) } : {}),
+    ...('applications' in d ? { applications: people(d.applications) } : {}),
+    ...('affiliates' in d ? { affiliates: people(d.affiliates) } : {}),
   };
 }
 
@@ -188,7 +228,12 @@ export async function runScreenRead(
           ? scheduleWords(got as TeamSchedule)
           : tool.query.name === chatWidgetGet.name
             ? withSnippet(got)
-            : got;
+            : tool.query.name === affiliateMine.name
+              ? withAffiliateLinks(got, true)
+              : tool.query.name === platformAffiliates.name ||
+                  tool.query.name === platformAffiliate.name
+                ? withAffiliateLinks(got, false)
+                : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

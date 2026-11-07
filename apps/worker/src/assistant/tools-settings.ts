@@ -13,6 +13,8 @@
 import {
   chatSnippet,
   chatSnippetSrc,
+  consentPolicyPath,
+  consentTermsPath,
   handoverScreen,
   notificationStates,
   settingsArea,
@@ -38,6 +40,23 @@ interface AreaQuery {
 }
 
 const DAY = 86_400_000;
+
+type Site = { slug: string; path: string; page: boolean } | null;
+const siteOf = (v: unknown): Site => (v as { site?: Site } | null)?.site ?? null;
+
+/**
+ * The privacy policy and terms HandsFreeOS hosts for the business, which its simple page, its chat's agreement box and
+ * its texting registration link to. Paths here, which the executor writes out whole. Each goes on to the business's
+ * own when it gave one in the texting registration.
+ */
+const legalPages = (site: Site) =>
+  site
+    ? {
+        privacyPolicy: consentPolicyPath(site.slug),
+        terms: consentTermsPath(site.slug),
+        note: 'The ones HandsFreeOS keeps for the business, written from its texting registration. When it gave its own in the registration, these open those instead.',
+      }
+    : 'None yet: they come with the booking site (Settings → Calendars → Booking site).';
 
 /** What one area is read with: the same queries the screen behind it runs. */
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
@@ -137,7 +156,26 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   services: [{ name: 'service.list', as: 'services' }],
   resources: [{ name: 'resource.list', as: 'resources' }],
   territories: [{ name: 'territory.list', as: 'territories' }],
-  booking_site: [{ name: 'booking_site.get', as: 'bookingSite' }],
+  booking_site: [
+    {
+      name: 'booking_site.get',
+      as: 'bookingSite',
+      // Your page (Settings → Workspace) is the booking site's own address once it's on, and the start page of the
+      // business's own web address while one is working.
+      shape: (v) => {
+        const site = siteOf(v);
+        return {
+          ...(v as object),
+          yourPage: !site
+            ? 'Off: there’s no booking site yet.'
+            : site.page
+              ? `Showing at ${site.path}, and at the start of the business’s own web address while one is working`
+              : 'Off: Show your page on Settings → Workspace turns it on.',
+          privacyAndTerms: legalPages(site),
+        };
+      },
+    },
+  ],
   team: [
     { name: 'workspace.members', as: 'team' },
     { name: 'workspace.invitations', as: 'invitations' },
@@ -145,6 +183,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   tags: [{ name: 'tag.list', as: 'tags' }],
   texting: [
     { name: 'phone.setup_status', as: 'texting' },
+    // The policy and terms the registration offers to host, as its Privacy and terms step links to them.
+    { name: 'booking_site.get', as: 'privacyAndTerms', shape: (v) => legalPages(siteOf(v)) },
     // Who sees which conversations lives on the workspace, not the number.
     {
       name: 'workspace.get',
@@ -193,7 +233,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     {
       name: 'partner.list',
       as: 'partnerList',
-      // Who each one is and what they earn now; their earnings and links are the page's.
+      // Who each one is, what they earn now and their link, as each row's Copy gives it (a path here, which the
+      // executor writes out whole on the business's own domain when one is serving); their earnings are the page's.
       shape: (v) =>
         (
           (
@@ -205,6 +246,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
                 status: string;
                 rateBp: number;
                 ownRate: boolean;
+                linkPath: string | null;
               }[];
             }
           )?.partners ?? []
@@ -215,6 +257,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
           status: p.status,
           sharePercent: p.rateBp / 100,
           ownShare: p.ownRate,
+          link: p.linkPath,
         })),
     },
   ],
