@@ -87,6 +87,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 510,
     said: 'On a group’s own discussion page (/groups/<group>/<discussion>) the count of likes was never pressed: only /biz/discussions counted.',
   },
+  {
+    area: 'alignable',
+    job: 'events',
+    note: 'Alignable showed no events in their town.',
+    fixedIn: '0.126.4',
+    pr: 528,
+    said: 'Both town addresses only showed the town’s group; Alignable’s own Events page (/biz/events, its menu’s) is tried too now.',
+  },
+  {
+    area: 'facebook',
+    job: 'friend_request',
+    note: 'Facebook showed a different page',
+    fixedIn: '0.126.4',
+    pr: 528,
+    said: 'Opened by their number at their username, the read found no name (nor the post) the page showed: it looked in a part of the top bar marked main. It takes the page’s own main part now.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */

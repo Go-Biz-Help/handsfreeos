@@ -11,7 +11,7 @@
  * feed, as a mouse passing over would, for Facebook to give it its address (decision 138). Nothing else: it opens
  * nothing and presses nothing.
  */
-import { inTopBar } from './dom';
+import { inTopBar, mainIn } from './dom';
 import { COMMENT } from './posts';
 import { classifyUrl, facebookUrl, profileFromUrl, threadFromUrl } from './urls';
 
@@ -91,7 +91,7 @@ export function pointAtTimes(root: Document, base: string): number {
   if (!groupFeedPage(base) && classifyUrl(base).kind !== 'search') return 0;
   const view = root.defaultView;
   if (!view) return 0;
-  const feed = root.querySelector('[role="feed"]') ?? root.querySelector('[role="main"]');
+  const feed = root.querySelector('[role="feed"]') ?? mainIn(root);
   let pointed = 0;
   for (const link of feed?.querySelectorAll<HTMLElement>(EMPTY_TIME) ?? []) {
     const article = link.closest('[role="article"]');
