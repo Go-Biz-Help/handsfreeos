@@ -12,6 +12,7 @@ import { rows, sql } from '@hfos/db/client';
 import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ToolContext } from '../src/assistant/runtime';
+import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
@@ -112,7 +113,7 @@ describe('Settings → Email', () => {
     expect(field(card, 'Address')).toBe(`priya@${domain}`);
     expect(field(card, 'Whose')).toBe('Priya Member’s own');
     expect(card.warnings.map((w) => w.text)).toContain(
-      'Only Priya Member sends from it, and mail to it reaches only them.',
+      'Only Priya Member sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. It stays Priya Member’s while they work here.',
     );
     expect((await addresses()).some((a) => a.address === `priya@${domain}`)).toBe(false);
 
@@ -139,5 +140,77 @@ describe('Settings → Email', () => {
         emailDomainId: randomUUID(),
       }),
     ).rejects.toThrow('That isn’t one of this business’s domains.');
+  });
+});
+
+describe('the address of someone who has left', () => {
+  const reassign = allScreenActionTools().find((t) => t.name === 'do_email_address_reassign')!;
+  let leaver: TestUser;
+  let addressId: string;
+  const run = () => createToolExecutor(api());
+
+  beforeAll(async () => {
+    leaver = await createTestUser('aemail-lee', { fullName: 'Lee Leaver' });
+    await rows(
+      admin(),
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${leaver.id}, 'member')`,
+    );
+    await commit({
+      action: 'add_address',
+      localPart: 'lee',
+      displayName: 'Lee at Email HVAC',
+      emailDomainId: domainId,
+      ownerUserId: leaver.id,
+    });
+    addressId = ((await addresses()) as unknown as { id: string; address: string }[]).find(
+      (a) => a.address === `lee@${domain}`,
+    )!.id;
+    // Lee leaves: the address stays Lee's, with its mail sealed, until an owner decides.
+    await rows(
+      admin(),
+      sql`delete from app.workspace_memberships
+          where workspace_id = ${workspaceId} and user_id = ${leaver.id}`,
+    );
+  }, 60_000);
+
+  it('never offers removing it, and refuses it by name if asked anyway', async () => {
+    // Removing it deletes the address and its mail for good, which stays the person's (the owner, 2026-10-26).
+    expect(reassign.input.safeParse({ emailAddressId: addressId, to: 'remove' }).success).toBe(
+      false,
+    );
+    expect(reassign.input.safeParse({ emailAddressId: addressId, to: 'team' }).success).toBe(true);
+    await expect(
+      run().prepare(reassign, { emailAddressId: addressId, to: 'remove' }, ctx(), randomUUID()),
+    ).rejects.toMatchObject({ rule: 'not_for_the_assistant' });
+    await expect(
+      run().commit(reassign, { emailAddressId: addressId, to: 'remove' }, ctx(), {
+        toolCallId: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ rule: 'not_for_the_assistant' });
+    expect((await addresses()).some((a) => a.address === `lee@${domain}`)).toBe(true);
+  });
+
+  it('says on its card whose it was and that its mail opens to the team, and gives it on Confirm', async () => {
+    const args = { emailAddressId: addressId, to: 'team' };
+    const { card } = (await run().prepare(reassign, args, ctx(), randomUUID())) as {
+      card: ConfirmCard;
+    };
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+    expect(card.title).toBe(`Give lee@${domain} to the team`);
+    // Once Lee has left the team no longer sees Lee's name, so the address reads as a former member's, as the screen's.
+    expect(field(card, 'Was')).toBe('Former member’s, who no longer works here');
+    expect(field(card, 'Goes to')).toBe('The team, in the Inbox');
+    expect(card.warnings[0]!.text).toContain('opens to everyone who reads email here');
+    // Nothing changed before Confirm.
+    expect((await addresses()).find((a) => a.address === `lee@${domain}`)?.ownerUserId).toBe(
+      leaver.id,
+    );
+
+    const done = await run().commit(reassign, args, ctx(), { toolCallId: randomUUID() });
+    expect(done.outcome).toMatch(/^lee@.* and its mail \(0 conversations\) are the team’s now$/);
+    expect(
+      (await addresses()).find((a) => a.address === `lee@${domain}`)?.ownerUserId ?? null,
+    ).toBeNull();
   });
 });

@@ -260,3 +260,34 @@ const shortWhen = (iso: string | null): string =>
         minute: '2-digit',
       })
     : 'later';
+
+/** A Page or account as Settings → Facebook & Instagram reads its state: only what its badge and note come from. */
+export interface MetaAccountStateLike {
+  readonly status: string;
+  readonly problem?: string | null;
+  readonly subscribed: boolean;
+}
+
+/** Why a Page or account isn't answering, and what fixes it, as the note under it says; null when it answers. */
+export function metaAccountTrouble(a: MetaAccountStateLike): string | null {
+  if (a.status === 'disconnected') return null;
+  if (a.status === 'needs_attention')
+    return a.problem === 'revoked'
+      ? 'HandsFreeOS was removed from it on Facebook, so its messages stopped. Connect Facebook again to bring it back.'
+      : a.problem === 'failed'
+        ? 'Meta stopped sending its messages here. Connect Facebook again to fix it.'
+        : 'Its Facebook sign-in stopped working, so replies can’t go out. Connect Facebook again to fix it.';
+  if (!a.subscribed)
+    return 'Meta hasn’t started sending its messages here yet. HandsFreeOS asks again each day, or connect Facebook again now.';
+  return null;
+}
+
+/** Its badge: Answering here, Needs attention, or Disconnected (listed under Not connected anymore). */
+export const metaAccountBadge = (
+  a: MetaAccountStateLike,
+): 'Answering here' | 'Needs attention' | 'Disconnected' =>
+  a.status === 'disconnected'
+    ? 'Disconnected'
+    : metaAccountTrouble(a)
+      ? 'Needs attention'
+      : 'Answering here';

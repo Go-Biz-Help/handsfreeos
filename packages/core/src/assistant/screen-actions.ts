@@ -30,6 +30,12 @@ export interface ScreenActionTool extends AssistantTool<z.ZodObject> {
    * anyone else is told who can, not that the agency isn't there.
    */
   readonly agencyOnly: boolean;
+  /** Choices it is never offered (coverage.ts), which the executor refuses by name if asked anyway. */
+  readonly notOffered: {
+    readonly field: string;
+    readonly values: readonly string[];
+    readonly why: string;
+  } | null;
 }
 
 /** Whether an offered tool is one of these (it runs through the one executor for them). */
@@ -53,6 +59,14 @@ function without(input: z.ZodObject, keys: readonly string[]): z.ZodObject {
   return catchall ? rest.catchall(catchall) : rest;
 }
 
+/** The input with the choices it's never offered left out of one part's list (a `to` that removes for good). */
+function narrowed(input: z.ZodObject, never: ScreenActionTool['notOffered']): z.ZodObject {
+  if (!never) return input;
+  const part = (input.shape as Record<string, z.ZodType>)[never.field];
+  if (!(part instanceof z.ZodEnum)) return input;
+  return input.extend({ [never.field]: part.exclude(never.values as never) });
+}
+
 /**
  * The tools, from the registry. A command of risk 0 (setting a note aside, marking a notification opened) runs on
  * its own; everything else waits for the person's OK. A staff command looks across businesses, so its input keeps
@@ -66,7 +80,8 @@ export function screenActionTools(registry: Pick<Registry, 'command'>): ScreenAc
     const staff = isStaffPermission(permission);
     const view = staff ? { input: command.input, scope: [] } : scopedInput(command.input);
     // What the worker fills is never the model's to give, so it isn't in what the model sees.
-    const shown = without(view.input, action.filled ?? []);
+    const notOffered = action.notOffered ?? null;
+    const shown = narrowed(without(view.input, action.filled ?? []), notOffered);
     const agencyDoor = !!action.agencyDoor && view.scope.includes('workspaceId');
     // The client business it names, which the executor checks is the agency's before it puts it on as workspaceId.
     const forBusiness = !!action.forBusiness && view.scope.includes('workspaceId');
@@ -87,6 +102,7 @@ export function screenActionTools(registry: Pick<Registry, 'command'>): ScreenAc
         agencyDoor,
         forBusiness,
         agencyOnly: !!command.permission && isOrgPermission(command.permission),
+        notOffered,
       },
     ];
   });

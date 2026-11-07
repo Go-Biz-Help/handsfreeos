@@ -8,7 +8,7 @@
  * `/oauth/facebook/start`. Facebook sends it back through the worker to /app/oauth/finish, which asks which Pages
  * when the sign-in manages several, and the worker comes back here with `?meta=`.
  */
-import { leadsAccessWords, metaAccountLabel } from '@hfos/core';
+import { leadsAccessWords, metaAccountLabel, metaAccountTrouble } from '@hfos/core';
 import { CircleAlert, MoreHorizontal, Plus, Unplug } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
@@ -77,19 +77,8 @@ async function connectFacebook(workspaceId: string): Promise<void> {
   );
 }
 
-/** Why a Page or account isn't answering, and what fixes it. */
-function troubleOf(a: MetaAccount): string | null {
-  if (a.status === 'disconnected') return null;
-  if (a.status === 'needs_attention')
-    return a.problem === 'revoked'
-      ? 'HandsFreeOS was removed from it on Facebook, so its messages stopped. Connect Facebook again to bring it back.'
-      : a.problem === 'failed'
-        ? 'Meta stopped sending its messages here. Connect Facebook again to fix it.'
-        : 'Its Facebook sign-in stopped working, so replies can’t go out. Connect Facebook again to fix it.';
-  if (!a.subscribed)
-    return 'Meta hasn’t started sending its messages here yet. HandsFreeOS asks again each day, or connect Facebook again now.';
-  return null;
-}
+/** Why a Page or account isn't answering, and what fixes it (core's, as the Assistant says it). */
+const troubleOf = (a: MetaAccount): string | null => metaAccountTrouble(a);
 
 export function FacebookInstagramPage({
   workspaceId,

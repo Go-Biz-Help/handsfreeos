@@ -1307,15 +1307,15 @@
       "path": "Set up → Number → Bring a number → don’t give it up where it is",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:176",
-      "covered": "no",
-      "by": "not in any tool’s words"
+      "covered": "yes",
+      "by": "check_number_host keepIt; list_twilio_numbers note; the Twilio handover"
     },
     {
       "path": "Set up → Number → Bring a number → GoHighLevel steps and guide link",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:253",
-      "covered": "no",
-      "by": "the steps aren’t in any tool"
+      "covered": "yes",
+      "by": "check_number_host note: start watching, then a HighLevel support ticket with the request from get_phone_account"
     },
     {
       "path": "Set up → Number → Bring a number → GoHighLevel → numbers the migration found",
@@ -1335,8 +1335,8 @@
       "path": "Set up → Number → Bring a number → GoHighLevel → Check it, where it’s hosted, international callout",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:325",
-      "covered": "no",
-      "by": "worker lookupNumberHost has no tool"
+      "covered": "yes",
+      "by": "check_number_host: alreadyHere, inTwilio, carrier, note, outsideUsAndCanada"
     },
     {
       "path": "Set up → Number → Bring a number → GoHighLevel → Port it instead",
@@ -1356,8 +1356,8 @@
       "path": "Set up → Number → Bring a number → Twilio → can’t connect here callout",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:430",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "settings_help texting handover: only the organization’s owners and admins connect one"
     },
     {
       "path": "Set up → Number → Bring a number → Twilio → by hand: number, Account SID, Start watching",
@@ -1377,15 +1377,15 @@
       "path": "Set up → Number → Bring a number → Twilio → Show its numbers; numbers, type, used by, already in / on its way",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:487",
-      "covered": "no",
-      "by": "worker listTwilioNumbers has no tool"
+      "covered": "yes",
+      "by": "list_twilio_numbers"
     },
     {
       "path": "Set up → Number → Bring a number → Twilio → Disconnect: Forget this account?",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:657",
-      "covered": "no",
-      "by": "worker disconnectTwilio has no tool"
+      "covered": "yes",
+      "by": "disconnect_twilio_account, on a card"
     },
     {
       "path": "Set up → Number → Bring a number → Twilio → Connect: Account SID, Auth token, API key, Connect",
@@ -1398,15 +1398,15 @@
       "path": "Set up → Number → Bring a number → Twilio → which business it goes to",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:815",
-      "covered": "no",
-      "by": "tools fix the business; another can’t be chosen"
+      "covered": "never",
+      "by": "Never: the business is put on server-side, never taken from the model; the Assistant brings it to the business it works in"
     },
     {
       "path": "Set up → Number → Bring a number → Twilio → Bring it here",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:827",
-      "covered": "partly",
-      "by": "do_number_import_start; the numbers are listed only on screen"
+      "covered": "yes",
+      "by": "list_twilio_numbers, then do_number_import_start with its sid and the connection"
     },
     {
       "path": "Set up → Number → Moving numbers → Bring your numbers here intro",
@@ -1525,7 +1525,7 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1613",
       "covered": "yes",
-      "by": "read_registration_get_draft"
+      "by": "fill_in_carrier_registration result; read_registration_get_draft"
     },
     {
       "path": "Set up → Number → Registration → review banner: waiting, approved, sent back with note",
@@ -1539,56 +1539,56 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1626",
       "covered": "yes",
-      "by": "submit_carrier_registration legalName, businessType, ein"
+      "by": "fill_in_carrier_registration legalName, businessType, ein"
     },
     {
       "path": "Set up → Number → Registration → DBA callout, sole proprietor note, registered elsewhere hint",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1630",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration description and ein"
     },
     {
       "path": "Set up → Number → Registration → Where: website, street, city, state, ZIP",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1685",
       "covered": "yes",
-      "by": "submit_carrier_registration website, address"
+      "by": "fill_in_carrier_registration website, line1, city, state, postalCode"
     },
     {
       "path": "Set up → Number → Registration → must match the IRS address",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1697",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration line1: the address the IRS has for the EIN"
     },
     {
       "path": "Set up → Number → Registration → Contact: first, last, email, phone",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1710",
       "covered": "yes",
-      "by": "submit_carrier_registration contact fields"
+      "by": "fill_in_carrier_registration contactFirst, contactLast, contactEmail, contactPhone"
     },
     {
       "path": "Set up → Number → Registration → About: what you text about, roughly how many",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1720",
       "covered": "yes",
-      "by": "submit_carrier_registration useCase, monthlyVolume"
+      "by": "fill_in_carrier_registration useCase, volume"
     },
     {
       "path": "Set up → Number → Registration → About: topics carriers treat differently",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1773",
-      "covered": "partly",
-      "by": "do_registration_save_draft answers only"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration sensitive ([] for none of these)"
     },
     {
       "path": "Set up → Number → Registration → Samples: Example 1..n",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1797",
       "covered": "yes",
-      "by": "submit_carrier_registration messageSamples"
+      "by": "fill_in_carrier_registration samples"
     },
     {
       "path": "Set up → Number → Registration → Samples: suggested examples",
@@ -1601,8 +1601,8 @@
       "path": "Set up → Number → Registration → Opt-in: let us collect it / own website / in person",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:667",
-      "covered": "partly",
-      "by": "save_draft answers only; submit has no optInPath"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration optInPath"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: chat sign-up page link",
@@ -1622,15 +1622,15 @@
       "path": "Set up → Number → Registration → Opt-in: copy the chat snippet",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:970",
-      "covered": "partly",
-      "by": "publicKey comes back; the snippet is built in the browser"
+      "covered": "yes",
+      "by": "get_settings website_chat snippet"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: tick-box page, proof link, other ways",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:979",
       "covered": "partly",
-      "by": "save_draft answers only"
+      "by": "fill_in_carrier_registration optInUrl, optInProofUrl; other ways are added on How customers agree"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: tick-box wording and policy paragraph to copy",
@@ -1644,7 +1644,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1064",
       "covered": "yes",
-      "by": "submit_carrier_registration optInDescription"
+      "by": "fill_in_carrier_registration optIn"
     },
     {
       "path": "Set up → Number → Registration → Opt-in: Use our wording",
@@ -1657,8 +1657,8 @@
       "path": "Set up → Number → Registration → Policy: contact, privacy ours/own, terms ours/own",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2030",
-      "covered": "partly",
-      "by": "save_draft answers only"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration policyEmail, policyPhone, ownPolicyUrl, ownTermsUrl"
     },
     {
       "path": "Set up → Number → Registration → Policy: clause, preview, link to ours",
@@ -1686,7 +1686,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2650",
       "covered": "partly",
-      "by": "save_draft answers only; submit can’t pass them"
+      "by": "fill_in_carrier_registration opens Before it goes; the ticks are the person’s there (registration.submit not yet)"
     },
     {
       "path": "Set up → Number → Registration → Review: summary rows with Change",
@@ -1714,14 +1714,14 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2003",
       "covered": "yes",
-      "by": "do_registration_save_draft"
+      "by": "fill_in_carrier_registration"
     },
     {
       "path": "Set up → Number → Registration → Send to the carriers",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1994",
       "covered": "partly",
-      "by": "submit_carrier_registration lacks opt-in, policy and confirm fields"
+      "by": "fill_in_carrier_registration fills it in and opens Before it goes, which checks and sends (registration.submit not yet)"
     },
     {
       "path": "Set up → Number → Registration → Pay $X and send",
@@ -1756,7 +1756,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1360",
       "covered": "yes",
-      "by": "read_registration_get_draft, do_registration_save_draft"
+      "by": "read_registration_get_draft, fill_in_carrier_registration"
     },
     {
       "path": "Set up → Number → Register for texting now → owners and admins can send it",
@@ -1783,8 +1783,8 @@
       "path": "Set up → Number → Carrier review → Text me a test",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1107",
-      "covered": "partly",
-      "by": "send_text needs a customer"
+      "covered": "yes",
+      "by": "send_test_text, once texting is approved"
     },
     {
       "path": "Set up → Number → Texting fee due → callout and fee lines",

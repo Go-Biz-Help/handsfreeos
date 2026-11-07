@@ -18,6 +18,7 @@ import {
   endKindWords,
   hasOptions,
   HfosError,
+  intakeFormSnippet,
   lowerLabel,
   manyFor,
   normalizeChatOrigins,
@@ -1399,43 +1400,46 @@ const manageTemplate: SettingsConfirmTool = {
       if (!template.archivedAt)
         throw need(
           'templateId',
-          `${template.name} isn’t archived, so there’s nothing to bring back.`,
-          `${template.name} isn’t archived.`,
+          `${template.name} isn’t put away, so there’s nothing to restore. It’s under In use on Settings → Templates.`,
+          `${template.name} isn’t put away.`,
         );
       taken(template.name);
       return {
         card: card(
           toolCallId,
           tool,
-          `Bring back the ${template.name} template`,
+          `Restore the ${template.name} template`,
           [
             { label: 'Template', value: template.name },
             { label: 'Send as', value: CHANNEL_WORDS[template.channel] },
           ],
-          'Bring it back',
+          'Restore it',
         ),
         result: { waiting: true },
       };
     }
     if (template.archivedAt)
-      throw need('templateId', `${template.name} is archived. Bring it back first.`);
+      throw need(
+        'templateId',
+        `${template.name} is put away. Restore it first: it’s under Put away on Settings → Templates.`,
+      );
 
     if (act === 'archive')
       return {
         card: card(
           toolCallId,
           tool,
-          `Archive the ${template.name} template?`,
+          `Put away the ${template.name} template?`,
           [
             { label: 'Template', value: template.name },
             { label: 'Send as', value: CHANNEL_WORDS[template.channel] },
             { label: 'Used', value: plural(template.usedCount, 'time') },
           ],
-          'Archive it',
+          'Put it away',
           [
             {
               kind: 'note',
-              text: 'It leaves the reply box’s list. Nothing is deleted, and it can be brought back.',
+              text: 'It leaves the reply box’s list and moves to Put away. Nothing is deleted, and it can be restored.',
             },
           ],
         ),
@@ -1506,7 +1510,7 @@ const manageTemplate: SettingsConfirmTool = {
     if (act === 'archive' || act === 'restore') {
       await command(db, ctx, 'template.archive', { templateId, restore: act === 'restore' });
       return {
-        outcome: act === 'archive' ? 'Archived' : 'Brought back',
+        outcome: act === 'archive' ? 'Put away' : 'Restored',
         href: back,
         command: 'template.archive',
       };
@@ -2513,13 +2517,24 @@ const manageLeadForm: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, { services }) {
     const act = action(args);
     const back = href(ctx, 'settings/lead-intake');
+    // The form to paste, as Copy the snippet copies it, on the worker's own address (none in some tests).
+    const snippet = (key: string | null, redirect: string | null) =>
+      key && services?.publicUrl
+        ? ` Its snippet, to paste into the page: ${intakeFormSnippet(services.publicUrl, key, redirect)}`
+        : '';
     if (act === 'create') {
-      await command(db, ctx, 'intake_source.create', newFormOf(args));
+      const input = newFormOf(args);
+      const made = await command<{ publicKey: string | null }>(
+        db,
+        ctx,
+        'intake_source.create',
+        input,
+      );
       return {
-        outcome: 'Made. Copy its snippet from Settings → Lead intake into your page',
+        outcome: `Made.${snippet(made.publicKey, (input['redirectUrl'] as string | undefined) ?? null)} It’s also on Settings → Lead intake.`,
         href: back,
         command: 'intake_source.create',
       };
@@ -2527,11 +2542,16 @@ const manageLeadForm: SettingsConfirmTool = {
     const sourceId = args['sourceId'];
     if (act === 'new_key') {
       // Only a form's: the card was drawn for one, and the command answers an app's with a secret nobody would see.
-      const { form } = await sourceIn(db, ctx, sourceId);
+      const { form, source } = await sourceIn(db, ctx, sourceId);
       if (!form) throw need('sourceId', 'Only a website form’s key can be replaced here.');
-      await command(db, ctx, 'intake_source.rotate_key', { sourceId });
+      const turned = await command<{ publicKey: string | null }>(
+        db,
+        ctx,
+        'intake_source.rotate_key',
+        { sourceId },
+      );
       return {
-        outcome: 'New key. Paste the new snippet from Settings → Lead intake into your site',
+        outcome: `New key. The old snippet stops working, so the new one goes into the site in its place.${snippet(turned.publicKey, source.redirectUrl)}`,
         href: back,
         command: 'intake_source.rotate_key',
       };
@@ -2658,12 +2678,8 @@ export const setupAutoTools: Record<
   },
 
   async list_unmatched_email(db, ctx) {
-    const { items } = await query<{ items: Unmatched[]; nextCursor: string | null }>(
-      db,
-      ctx,
-      'email.unmatched_list',
-      { limit: 20 },
-    );
+    // Every one waiting, as Settings → Email loads them, page after page (up to 500).
+    const items = await pages<Unmatched>(db, ctx, 'email.unmatched_list');
     const back = href(ctx, 'settings/email');
     return {
       result: {

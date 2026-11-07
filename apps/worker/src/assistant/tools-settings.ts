@@ -15,13 +15,23 @@ import {
   binItemWhen,
   binKindLabel,
   BUSINESS_PAGE_SETTINGS_WORDS,
+  CHAT_BUILDERS,
+  chatChannelsOf,
   chatSnippet,
   chatSnippetSrc,
   consentPolicyPath,
   consentTermsPath,
   CUSTOMIZABLE_PERMISSIONS,
+  emailDomainRecords,
   handoverScreen,
   hasWorkspacePermission,
+  intakeApiUrl,
+  intakeCurlExample,
+  intakeFormSnippet,
+  intakeFormUrl,
+  leadsAccessWords,
+  metaAccountBadge,
+  metaAccountTrouble,
   migrationStatusWords,
   notificationStates,
   partSays,
@@ -31,14 +41,19 @@ import {
   screenPlace,
   settingsArea,
   settingsWhere,
+  whoAnswersChat,
   type AssistantCard,
   type BinItemLike,
+  type EmailDomainRecordsLike,
+  type LeadsAccess,
   type MainOfferTryOut,
+  type MetaAccountStateLike,
   type Permission,
   type SettingsArea,
   type SettingsAreaInfo,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import type { WorkerServices } from '../services';
 import { addOnsRead, addOnsTidy, voteRead } from './addons-page';
 import { publicOriginFor } from './full-links';
 import type { ToolContext, ToolOutcome } from './runtime';
@@ -56,7 +71,12 @@ interface AreaQuery {
    * The part of the answer the model needs, when the query says much more. It may read more as the person (the
    * address their pages are on), and says times in the business's own time zone.
    */
-  readonly shape?: (value: unknown, db: Db, ctx: ToolContext) => unknown;
+  readonly shape?: (
+    value: unknown,
+    db: Db,
+    ctx: ToolContext,
+    services: WorkerServices | null,
+  ) => unknown;
 }
 
 const DAY = 86_400_000;
@@ -334,7 +354,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     },
   ],
   email: [
-    { name: 'email.setup_status', as: 'email' },
+    { name: 'email.setup_status', as: 'email', shape: emailRead },
     { name: 'email_sender_rule.list', as: 'senderRules' },
     { name: 'email_suppression.list', as: 'blockedAddresses' },
   ],
@@ -344,21 +364,20 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
       as: 'websiteChat',
       // Each chat's snippet, as Add it to your site copies it. Its address is a path here, which the executor writes
       // out whole on the business's own domain when one is serving (full-links.ts), as the screen does.
-      shape: (v) => {
-        const out = v as { items: { publicKey: string }[] };
-        return {
-          ...out,
-          items: out.items.map((w) => ({
-            ...w,
-            snippet: chatSnippet(chatSnippetSrc('', w.publicKey)),
-          })),
-        };
-      },
+      shape: websiteChatRead,
     },
   ],
-  facebook_instagram: [{ name: 'meta_account.list', as: 'facebookInstagram' }],
+  facebook_instagram: [
+    { name: 'meta_account.list', as: 'facebookInstagram', shape: facebookInstagramRead },
+  ],
   templates: [{ name: 'template.list', as: 'templates' }],
-  lead_intake: [{ name: 'intake.list', as: 'leadIntake' }],
+  lead_intake: [
+    {
+      name: 'intake.list',
+      as: 'leadIntake',
+      shape: (v, _db, _ctx, services) => leadIntakeRead(v, services?.publicUrl ?? null),
+    },
+  ],
   payments: [
     { name: 'money.settings', as: 'payments' },
     { name: 'payment_connection.list', as: 'accounts' },
@@ -519,6 +538,100 @@ export function whoSees(permission: Permission | null | undefined): string {
     : 'Only an owner can.';
 }
 
+/**
+ * Each website chat as Settings → Website chat shows it: its snippet, as Add it to your site copies it, its Try it
+ * link, and who answers it now, as its Who answers says. The snippet's address is a path here, which the executor
+ * writes out whole on the business's own domain when one is serving (full-links.ts), and Try it whole on the web app's.
+ */
+async function websiteChatRead(v: unknown, db: Db, ctx: ToolContext): Promise<unknown> {
+  const out = v as {
+    items: { id: string; publicKey: string; teammate: { id: string } | null }[];
+  };
+  const team = await query<{
+    teammate: { id: string; name: string; status: string; config: unknown } | null;
+  }>(db, ctx, 'ai_teammate.get').catch(() => null);
+  const t = team?.teammate ?? null;
+  const teammate = t
+    ? { ...chatChannelsOf(t.config), id: t.id, name: t.name, status: t.status }
+    : null;
+  return {
+    ...out,
+    items: out.items.map((w) => ({
+      ...w,
+      snippet: chatSnippet(chatSnippetSrc('', w.publicKey)),
+      tryIt: `/chat-preview/${w.publicKey}?w=${ctx.workspaceId}`,
+      whoAnswers: whoAnswersChat(w, teammate).words,
+    })),
+  };
+}
+
+/**
+ * Email as Settings → Email shows it, with each domain's DNS records in the screen's order: the type, what it's for,
+ * the host to type at the DNS provider and the value, and whether the last check found it.
+ */
+function emailRead(v: unknown): unknown {
+  const out = v as { inboundMxHost: string; domains: (EmailDomainRecordsLike & object)[] };
+  return {
+    ...out,
+    domains: out.domains.map((d) => ({ ...d, records: emailDomainRecords(d, out.inboundMxHost) })),
+  };
+}
+
+/**
+ * Each Page and Instagram account as Settings → Facebook & Instagram shows it: its badge, what's wrong and what fixes
+ * it, and whether its lead ads' leads come in.
+ */
+function facebookInstagramRead(v: unknown): unknown {
+  const out = v as {
+    accounts: (MetaAccountStateLike & { name: string; leadsAccess: LeadsAccess })[];
+  };
+  return {
+    ...out,
+    accounts: out.accounts.map((a) => {
+      const trouble = metaAccountTrouble(a);
+      const leads = leadsAccessWords(a.leadsAccess, a.name);
+      return {
+        ...a,
+        badge: metaAccountBadge(a),
+        ...(trouble ? { trouble } : {}),
+        ...(leads ? { leads: leads.words } : {}),
+      };
+    }),
+  };
+}
+
+/**
+ * Lead intake as Settings → Lead intake shows it: each website form with its snippet to paste and where it posts, and
+ * each connected app with where it sends and an example, on the worker's own address. Without that address (some
+ * tests) they're left out. An app's secret key is never here: it's shown once, on that page.
+ */
+function leadIntakeRead(v: unknown, workerUrl: string | null): unknown {
+  const out = v as {
+    sources: { kind: string; publicKey: string | null; redirectUrl: string | null }[];
+  };
+  if (!workerUrl) return out;
+  return {
+    ...out,
+    sources: out.sources.map((x) =>
+      x.kind === 'website_form' && x.publicKey
+        ? {
+            ...x,
+            postsTo: intakeFormUrl(workerUrl, x.publicKey),
+            snippet: intakeFormSnippet(workerUrl, x.publicKey, x.redirectUrl),
+          }
+        : x.kind === 'api'
+          ? {
+              ...x,
+              sendsTo: intakeApiUrl(workerUrl),
+              example: intakeCurlExample(workerUrl),
+              sameOneTwice:
+                'Send the same request twice and only one lead opens. Pass your own dedupeKey to decide what counts as the same one.',
+            }
+          : x,
+    ),
+  };
+}
+
 /** What the person couldn't see in an area, and who can, part by part when they differ. */
 function hiddenNote(area: SettingsArea, missing: readonly string[]): string {
   const who = (as: string) =>
@@ -533,7 +646,12 @@ function hiddenNote(area: SettingsArea, missing: readonly string[]): string {
  * Reads one area. A query the person's role refuses answers `null` for that part rather than failing the tool: the
  * model then says who can see it, which is what the screen does by not showing the tab.
  */
-async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promise<ToolOutcome> {
+async function readArea(
+  db: Db,
+  ctx: ToolContext,
+  info: SettingsAreaInfo,
+  services: WorkerServices | null,
+): Promise<ToolOutcome> {
   // Whether they answer HandsFreeOS support, which only their own account's alerts ask.
   const answersSupport = QUERIES[info.area].some((q) => q.as === 'me')
     ? query<{ staff: unknown }>(db, ctx, 'platform.me').then(
@@ -544,7 +662,8 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
   const parts = await Promise.all(
     QUERIES[info.area].map(async (q) => {
       const value = await query<unknown>(db, ctx, q.name, q.input?.(ctx)).catch(() => null);
-      const shaped = value === null ? null : q.shape ? await q.shape(value, db, ctx) : value;
+      const shaped =
+        value === null ? null : q.shape ? await q.shape(value, db, ctx, services) : value;
       return [q.as, q.as === 'me' ? meShape(value, await answersSupport) : shaped] as const;
     }),
   );
@@ -580,9 +699,13 @@ function helpCard(workspaceId: string, info: SettingsAreaInfo): AssistantCard | 
   };
 }
 
-export const settingsReadTools: Record<string, ReadTool> = {
-  async get_settings(db, ctx, args) {
-    return readArea(db, ctx, settingsArea(areaOf(args)));
+export const settingsReadTools: Record<
+  string,
+  (...a: [...Parameters<ReadTool>, services?: WorkerServices | null]) => Promise<ToolOutcome>
+> = {
+  /** With the worker's services, a form's snippet carries the worker's own address, as Lead intake's does. */
+  async get_settings(db, ctx, args, services = null) {
+    return readArea(db, ctx, settingsArea(areaOf(args)), services);
   },
 
   async settings_help(_db, ctx, args) {
@@ -601,6 +724,10 @@ export const settingsReadTools: Record<string, ReadTool> = {
           where: handoverScreen(ctx.workspaceId, info, h).where,
           steps: h.steps,
         })),
+        // Where the chat's snippet goes on each site builder, as Add it to your site says it.
+        ...(info.area === 'website_chat'
+          ? { onEachBuilder: CHAT_BUILDERS.map((b) => ({ builder: b.name, steps: b.steps })) }
+          : {}),
       },
       ...(card ? { card } : {}),
     };

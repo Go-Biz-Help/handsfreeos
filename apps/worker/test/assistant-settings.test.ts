@@ -11,8 +11,11 @@ import {
   executeQuery,
   hasWorkspacePermission,
   leadCreate,
+  localMinutes,
+  money,
   organizationCreate,
   personCreate,
+  phoneUpdateSettings,
   registry,
   resourceCreate,
   serviceCreate,
@@ -41,7 +44,7 @@ import { settingsMoneyConfirmTools } from '../src/assistant/tools-settings-money
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
 import { createFakeGeocoder } from '../src/geo/geocoder';
 import type { WorkerServices } from '../src/services';
-import { createFakeTelephony } from '../src/telephony/fake';
+import { createFakeTelephony, FAKE_MASTER_SID } from '../src/telephony/fake';
 
 /**
  * Setting the business up by asking (M12), step one: the Assistant can read how any part of the business is set
@@ -148,7 +151,7 @@ describe('the settings map', () => {
       ...Object.keys(settingsMoneyConfirmTools),
       ...Object.keys(settingsMeConfirmTools),
     ];
-    expect(settingsTools.length).toBe(25);
+    expect(settingsTools.length).toBe(26);
     for (const name of settingsTools) expect(assistantToolByName.get(name), name).toBeTruthy();
     for (const name of settingsTools)
       expect(TEAMMATE_TOOL_NAMES as readonly string[], name).not.toContain(name);
@@ -1350,7 +1353,13 @@ describe('the business number', () => {
     );
     expect(getting.card.title).toBe('Get (713) 555-0188');
     expect(getting.card.fields.find((f) => f.label === 'Number')!.value).toBe('(713) 555-0188');
-    expect(getting.card.warnings[0]!.text).toContain('costs money every month');
+    // The price, as Settings → Usage & balance shows it to someone who may see prices, on the card and its warning.
+    const prices = await q<{ items: { key: string | null; cents: number }[] }>('usage.prices');
+    const monthly = `${money(prices.items.find((i) => i.key === 'number.local.month')!.cents)} a month`;
+    expect(getting.card.fields.find((f) => f.label === 'Costs')!.value).toBe(monthly);
+    expect(getting.card.warnings[0]!.text).toBe(
+      `This costs ${monthly}, from your balance, every month you keep it.`,
+    );
 
     const giving = await prepare(
       'manage_phone_number',
@@ -1439,45 +1448,118 @@ describe('the business number', () => {
 });
 
 describe('the carrier registration', () => {
-  it('reads the whole form back before it goes, and says the carriers decide', async () => {
-    const { card } = await prepare(
-      'submit_carrier_registration',
-      {
-        kind: 'a2p_10dlc',
-        legalName: 'Settings HVAC LLC',
-        businessType: 'llc',
-        ein: '12-3456789',
-        website: 'https://settingshvac.example',
-        addressLine1: '400 Main St',
-        city: 'Houston',
-        state: 'TX',
-        postalCode: '77002',
-        contactFirstName: 'Dale',
-        contactLastName: 'Owner',
-        contactEmail: 'dale@settingshvac.example',
-        contactPhone: '+17135550100',
-        useCase: 'customer_care',
-        messageSamples: [
-          'Hi Mike, this is Dale at Settings HVAC confirming your visit tomorrow at 9 AM.',
-          'Your technician is on the way and should arrive in about 20 minutes.',
-        ],
-        optInDescription:
-          'Customers give us their number on our booking page and tick a box agreeing to get texts about their visit.',
-        monthlyVolume: 'under_1000',
-      },
-      owner,
+  it('fills in the answers its steps pick up, sends nothing, and says what’s still to answer', async () => {
+    const tool = assistantToolByName.get('fill_in_carrier_registration')!;
+    const executor = createToolExecutor(api());
+    type Filled = {
+      saved: Record<string, string>;
+      opensAt: string;
+      stillToAnswer?: string[];
+      sent: boolean;
+      note: string;
+    };
+    const fill = async (args: Record<string, unknown>) =>
+      (await executor.run(tool, tool.input.parse(args) as never, ctxFor(owner))) as {
+        result: Filled;
+        card?: AssistantCard | null;
+      };
+    type Draft = { answers: { form: Record<string, unknown>; at: number } | null };
+    const sample = 'Hi Mike, this is Dale at Settings HVAC confirming your visit tomorrow at 9 AM.';
+
+    const first = await fill({
+      legalName: 'Settings HVAC LLC',
+      businessType: 'llc',
+      ein: '12-3456789',
+      samples: [sample],
+    });
+    expect(first.result.sent).toBe(false);
+    expect(first.result.saved).toMatchObject({
+      'Legal name': 'Settings HVAC LLC',
+      'Kind of business': 'llc',
+      EIN: '12-3456789',
+    });
+    // No way customers agree yet, so the screen opens on that step.
+    expect(first.result.opensAt).toBe('How customers agree to get texts');
+    expect(first.result.stillToAnswer).toEqual(
+      expect.arrayContaining([
+        'Website',
+        'How customers agree',
+        'Topics the carriers treat differently',
+      ]),
     );
-    expect(card.title).toBe('Send your texting registration');
-    expect(card.fields.find((f) => f.label === 'Business')!.value).toBe('Settings HVAC LLC');
-    expect(card.fields.find((f) => f.label === 'Address')!.value).toBe(
-      '400 Main St, Houston, TX, 77002',
+    expect(first.result.stillToAnswer).not.toContain('Legal name');
+    expect(first.card).toMatchObject({
+      type: 'done',
+      title: 'Filled in your texting registration',
+    });
+    expect(AssistantCard.safeParse(first.card).success).toBe(true);
+    // Saved where the wizard reads it: its own field names, two example texts, and the step it opens on.
+    const saved = await q<Draft>('registration.get_draft');
+    expect(saved.answers!.form).toMatchObject({
+      legalName: 'Settings HVAC LLC',
+      businessType: 'llc',
+      ein: '12-3456789',
+      samples: [sample, ''],
+    });
+    expect(saved.answers!.at).toBe(5);
+
+    // A later answer keeps the earlier ones. With a way customers agree but nothing yet to tell the carriers about
+    // it, it still opens on How customers agree, which writes that (and sets up the hosted sign-up chat).
+    const second = await fill({
+      website: 'https://settingshvac.example',
+      optInPath: 'hosted',
+      sensitive: [],
+      ownPolicyUrl: null,
+    });
+    expect(second.result.opensAt).toBe('How customers agree to get texts');
+    expect(second.result.saved).toMatchObject({
+      'How customers agree': 'The sign-up page HandsFreeOS hosts',
+      'Topics the carriers treat differently': 'None of these',
+      'Privacy policy': 'The one HandsFreeOS hosts',
+    });
+    expect(second.result.stillToAnswer).toContain('What we will tell the carriers');
+    expect(second.result.stillToAnswer).not.toContain('Topics the carriers treat differently');
+    const again = await q<Draft>('registration.get_draft');
+    expect(again.answers!.form).toMatchObject({
+      legalName: 'Settings HVAC LLC',
+      website: 'https://settingshvac.example',
+      optInPath: 'hosted',
+      sensitive: [],
+      ownPolicyUrl: '',
+      samples: [sample, ''],
+    });
+    expect(again.answers!.at).toBe(5);
+
+    // Once that's written it opens at Before it goes, and the ticks the person gave there on other answers are
+    // cleared, so they tick them again on these: the Assistant never gives one.
+    await rows(
+      testDbs().admin.db,
+      sql`update app.registration_drafts
+          set answers = jsonb_set(answers, '{form,confirmed}', '["only_these_ways"]'::jsonb)
+          where workspace_id = ${workspaceId}`,
     );
-    expect(card.fields.find((f) => f.label === 'Texts are for')!.value).toBe('Answering customers');
-    expect(card.fields.find((f) => f.label === 'Examples')!.value).toBe('2 example texts');
-    expect(card.warnings[0]!.text).toContain('few days');
-    // A local registration's carrier fees are the business's (0105), and the card says so before it goes.
-    expect(card.warnings[1]!.text).toContain('carrier fees, passed on at cost');
-    expect(AssistantCard.safeParse(card).success).toBe(true);
+    const third = await fill({
+      optIn: 'Customers start a chat on settingshvac.example and tick a box to get texts.',
+    });
+    expect(third.result.opensAt).toBe('Before it goes');
+    expect(third.result.stillToAnswer).not.toContain('What we will tell the carriers');
+    const last = await q<Draft>('registration.get_draft');
+    expect(last.answers!.form['optIn']).toBe(
+      'Customers start a chat on settingshvac.example and tick a box to get texts.',
+    );
+    expect(last.answers!.form['confirmed']).toEqual([]);
+    expect(last.answers!.at).toBe(7);
+
+    // Nothing went to the carriers.
+    const sent = await rows<{ n: number }>(
+      testDbs().admin.db,
+      sql`select count(*)::int as n from app.telephony_registrations where workspace_id = ${workspaceId}`,
+    );
+    expect(sent[0]!.n).toBe(0);
+    await expect(fill({})).rejects.toMatchObject({ rule: 'nothing_to_fill_in' });
+    expect(executorFor('fill_in_carrier_registration')).toBeTruthy();
+    // Sending it stays on Before it goes: the Assistant has no tool that sends it.
+    expect(assistantToolByName.get('submit_carrier_registration')).toBeUndefined();
   });
 });
 
@@ -2177,5 +2259,146 @@ describe('a teammate’s hours', () => {
     await expect(
       prepare('update_my_hours', { action: 'set_hours', userId: randomUUID(), weekly: [] }, owner),
     ).rejects.toMatchObject({ message: expect.stringContaining('isn’t on this business’s team') });
+  });
+});
+
+describe('the phone account, numbers from elsewhere, RCS senders and a test text', () => {
+  /** The executor as the worker builds it, on the worker's own connection, with its telephony. */
+  const withPhone = () =>
+    createToolExecutor(testDbs().worker.db, null, null, '', undefined, {
+      services: {
+        telephony: createFakeTelephony({
+          approvalMs: 0,
+          callbacks: false,
+          log: pino({ level: 'silent' }),
+        }),
+        publicUrl: 'https://worker.example.test',
+      } as unknown as WorkerServices,
+    });
+  const ask = async (name: string, args: Record<string, unknown> = {}) => {
+    const tool = assistantToolByName.get(name)!;
+    return (await withPhone().run(tool, tool.input.parse(args) as never, ctxFor(owner)))
+      .result as Record<string, unknown>;
+  };
+
+  it('reads Phone & texting as the screen does: off, then on with its Account SIDs', async () => {
+    const off = await ask('get_phone_account');
+    expect(off['phoneAndTexting']).toBe('Off');
+    expect(off['accountSid']).toBeUndefined();
+    expect(off['numbersInTheAccount']).toBeUndefined();
+    expect((await ask('list_rcs_senders'))['note']).toContain('Phone & texting is off');
+
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.telephony_accounts (workspace_id, provider, account_sid, status)
+          values (${workspaceId}, 'fake', ${`ACpa${suffix}`}, 'active')`,
+    );
+    const on = await ask('get_phone_account');
+    expect(on).toMatchObject({
+      phoneAndTexting: 'On',
+      accountSid: `ACpa${suffix}`,
+      parentAccountSid: FAKE_MASTER_SID,
+      alreadySetUpHere: 0,
+      numbersInTheAccount: [],
+    });
+    const tool = assistantToolByName.get('get_phone_account')!;
+    expect(withPhone().reads?.(tool)).toBe(true);
+  });
+
+  it('looks up where a number is, saying how it would come here, and refuses what isn’t a number', async () => {
+    const inTwilio = await ask('check_number_host', { e164: '+15125550142' });
+    expect(inTwilio).toMatchObject({ number: '(512) 555-0142', inTwilio: true, alreadyHere: null });
+    expect(inTwilio['note']).toContain('do_number_import_start');
+    // Never give it up where it is, as the screen warns; a US number needs nothing more.
+    expect(inTwilio['keepIt']).toContain('not to release or delete it');
+    expect(inTwilio['outsideUsAndCanada']).toBeUndefined();
+    const elsewhere = await ask('check_number_host', { e164: '+15125550009' });
+    expect(elsewhere['inTwilio']).toBe(false);
+    expect(elsewhere['note']).toContain('do_number_port_start');
+    const abroad = await ask('check_number_host', { e164: '+442071838750' });
+    expect(abroad['outsideUsAndCanada']).toContain('Regulatory Bundle SID');
+    await expect(ask('check_number_host', { e164: 'call me' })).rejects.toMatchObject({
+      code: 'validation',
+    });
+  });
+
+  it('says a Twilio account that isn’t connected isn’t, before listing or disconnecting anything', async () => {
+    await expect(ask('list_twilio_numbers', { connectionId: randomUUID() })).rejects.toThrow(
+      'That Twilio account is not connected any more.',
+    );
+    await expect(
+      prepare('disconnect_twilio_account', { connectionId: randomUUID() }, owner),
+    ).rejects.toThrow('That Twilio account isn’t connected.');
+  });
+
+  it('texts a test only on Confirm, to the phone given, and asks for one when there’s no confirmed cell', async () => {
+    await expect(prepare('send_test_text', {}, owner)).rejects.toMatchObject({ rule: 'no_cell' });
+    // The send's own refusals come before any card: with no business number yet, nothing could go.
+    const to = { toPhone: '+17135550123' };
+    await expect(prepare('send_test_text', to, owner)).rejects.toMatchObject({
+      rule: 'no_number',
+    });
+
+    // A toll-free number cleared to text, and quiet hours from an hour ago to an hour from now.
+    const [account] = await rows<{ id: string }>(
+      testDbs().admin.db,
+      sql`insert into app.telephony_accounts (workspace_id, provider, account_sid, status)
+          values (${workspaceId}, 'fake', ${`ACtt${suffix}`}, 'active')
+          on conflict (workspace_id) do update set status = 'active'
+          returning id`,
+    );
+    const [number] = await rows<{ id: string }>(
+      testDbs().admin.db,
+      sql`insert into app.phone_numbers (workspace_id, account_id, provider_sid, e164, number_type, status)
+          values (${workspaceId}, ${account!.id}, ${`PNtt${suffix}`},
+            ${`+1833${String((Date.now() + 11) % 10_000_000).padStart(7, '0')}`}, 'toll_free', 'active')
+          returning id`,
+    );
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.telephony_registrations (workspace_id, account_id, phone_number_id, kind, status, provider_sid, approved_at)
+          values (${workspaceId}, ${account!.id}, ${number!.id}, 'toll_free_verification', 'approved',
+            ${`HHtt${suffix}`}, now())`,
+    );
+    const hhmm = (m: number) => {
+      const x = ((m % 1440) + 1440) % 1440;
+      return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+    };
+    const local = localMinutes(new Date(), CHI);
+    await run(
+      phoneUpdateSettings,
+      {
+        workspaceId,
+        quietHours: { enabled: true, start: hhmm(local - 60), end: hhmm(local + 60) },
+      },
+      owner,
+    );
+    // In quiet hours it asks first, as Text me a test does; it goes then only when they said to send it anyway.
+    await expect(prepare('send_test_text', to, owner)).rejects.toMatchObject({
+      rule: 'quiet_hours',
+    });
+
+    const { card, parsed, tool } = await prepare(
+      'send_test_text',
+      { ...to, duringQuietHours: true },
+      owner,
+    );
+    expect(card.title).toBe('Text a test to (713) 555-0123');
+    expect(card.fields.find((f) => f.label === 'Says')!.value).toBe(
+      `This is a test text from ${businessName} & Plumbing on HandsFreeOS. Replies land in the inbox.`,
+    );
+    expect(card.warnings[0]!.text).toContain('real text from your business number');
+    expect(AssistantCard.safeParse(card).success).toBe(true);
+    const tests = () =>
+      rows<{ n: number }>(
+        testDbs().admin.db,
+        sql`select count(*)::int as n from app.messages
+            where workspace_id = ${workspaceId} and body_text like 'This is a test text from%'`,
+      );
+    expect((await tests())[0]!.n).toBe(0);
+
+    const done = await confirm(tool, parsed, owner);
+    expect(done.outcome).toBe('Texted a test to (713) 555-0123');
+    expect((await tests())[0]!.n).toBe(1);
   });
 });

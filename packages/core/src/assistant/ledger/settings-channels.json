@@ -1,7 +1,7 @@
 {
   "area": "settings-channels",
   "title": "Settings: texting, email, website chat, Facebook and Instagram, templates and lead intake",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/web/src/app/app/oauth/finish/page.tsx": "32b5c89b1bb7",
     "apps/web/src/app/app/w/[workspaceId]/settings/email/page.tsx": "7a7280639dbc",
@@ -12,12 +12,12 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/website-chat/page.tsx": "1c86737b9add",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/settings/a2p-wizard.tsx": "bf187e51ead5",
-    "apps/web/src/components/settings/chat-install.tsx": "ba8423344118",
+    "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/email-page.tsx": "ac7d49b2f76b",
-    "apps/web/src/components/settings/facebook-instagram-page.tsx": "3b9a4f285806",
+    "apps/web/src/components/settings/email-page.tsx": "fdb005694b23",
+    "apps/web/src/components/settings/facebook-instagram-page.tsx": "8674fc1c6cbc",
     "apps/web/src/components/settings/inbox-visibility-card.tsx": "e7ce1e333cd7",
-    "apps/web/src/components/settings/lead-intake-page.tsx": "d106053a9137",
+    "apps/web/src/components/settings/lead-intake-page.tsx": "f7affad2e1dd",
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
     "apps/web/src/components/settings/numbers-card.tsx": "740b4e41ee09",
     "apps/web/src/components/settings/phone-account-card.tsx": "c452df556a06",
@@ -28,8 +28,8 @@
     "apps/web/src/components/settings/templates-editor.tsx": "331baf537fed",
     "apps/web/src/components/settings/test-text-dialog.tsx": "7bce9b29ee3c",
     "apps/web/src/components/settings/texting-page.tsx": "3393503d82a9",
-    "apps/web/src/components/settings/website-chat-page.tsx": "8bd466f15db8",
-    "apps/web/src/lib/chat/editor-data.ts": "dcec29fa0028",
+    "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d",
+    "apps/web/src/lib/chat/editor-data.ts": "84f9988ce043",
     "apps/web/src/lib/texting.ts": "9dea0156d051"
   },
   "items": [
@@ -65,43 +65,43 @@
       "path": "Texting → Phone & texting → couldn’t be checked callout",
       "kind": "see",
       "file": "apps/web/src/components/settings/phone-account-card.tsx:164",
-      "covered": "no",
-      "by": "worker /v1/telephony/account has no tool"
+      "covered": "yes",
+      "by": "get_phone_account: when the account can’t be read, the read fails with the same words"
     },
     {
       "path": "Texting → Phone & texting → account’s last error",
       "kind": "see",
       "file": "apps/web/src/components/settings/phone-account-card.tsx:186",
-      "covered": "no",
-      "by": "lastError comes only from the worker account route"
+      "covered": "yes",
+      "by": "get_phone_account problem"
     },
     {
       "path": "Texting → Phone & texting → Twilio Account SID and Sub-account SID, with copy",
       "kind": "see",
       "file": "apps/web/src/components/settings/phone-account-card.tsx:200",
-      "covered": "no",
-      "by": "worker phoneAccountState has no tool; get_settings has only the status"
+      "covered": "yes",
+      "by": "get_phone_account accountSid, parentAccountSid"
     },
     {
       "path": "Texting → Phone & texting → Numbers already in this account: Find numbers / Look again",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:942",
-      "covered": "no",
-      "by": "worker /v1/telephony/own-numbers has no tool"
+      "covered": "yes",
+      "by": "get_phone_account numbersInTheAccount (read it again to look again)"
     },
     {
       "path": "Texting → Phone & texting → Numbers already in this account → each: number, type, used by, name",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:1000",
-      "covered": "no",
-      "by": "worker listing only"
+      "covered": "yes",
+      "by": "get_phone_account numbersInTheAccount: number, type, usedBy, name"
     },
     {
       "path": "Texting → Phone & texting → Numbers already in this account → Set it up here / Set it up now",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:1052",
-      "covered": "partly",
-      "by": "do_number_import_start / check_now, but the SIDs come only from the worker listing"
+      "covered": "yes",
+      "by": "get_phone_account numbersInTheAccount (sid, importId), then do_number_import_start or do_number_import_check_now"
     },
     {
       "path": "Texting → Numbers on their way here → title and explanation",
@@ -149,8 +149,8 @@
       "path": "Texting → Numbers on their way here → request → Twilio Account SID (parent)",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:1365",
-      "covered": "no",
-      "by": "the parent SID comes only from the worker"
+      "covered": "yes",
+      "by": "get_phone_account parentAccountSid, and in each transferRequests request"
     },
     {
       "path": "Texting → Numbers on their way here → request → Destination sub-account SID",
@@ -163,22 +163,22 @@
       "path": "Texting → Numbers on their way here → request → Preferred cutover window",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:1374",
-      "covered": "no",
-      "by": "only goes into text built in the browser"
+      "covered": "yes",
+      "by": "get_phone_account transferRequests: a preferred cutover window goes at the end of the request"
     },
     {
       "path": "Texting → Numbers on their way here → request → the request text for HighLevel",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:1298",
-      "covered": "partly",
-      "by": "its parts mostly come back; the text is written in the browser"
+      "covered": "yes",
+      "by": "get_phone_account transferRequests request, filled in by core’s transferRequestText"
     },
     {
       "path": "Texting → Numbers on their way here → request → Copy the request",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:1402",
-      "covered": "partly",
-      "by": "as above: no parent SID, no ready text"
+      "covered": "yes",
+      "by": "get_phone_account transferRequests request, given whole to copy"
     },
     {
       "path": "Texting → Numbers on their way here → It should be there — look now",
@@ -317,8 +317,8 @@
       "path": "Texting → Get a business number → intro",
       "kind": "see",
       "file": "apps/web/src/components/settings/texting-page.tsx:730",
-      "covered": "partly",
-      "by": "settings_help texting names the step"
+      "covered": "yes",
+      "by": "find_phone_numbers description; settings_help texting"
     },
     {
       "path": "Texting → Get a business number → I already have a number I want to keep →",
@@ -338,85 +338,85 @@
       "path": "Texting → Get a business number → Toll-free / Local",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:762",
-      "covered": "partly",
-      "by": "manage_phone_number numberType, but no search"
+      "covered": "yes",
+      "by": "find_phone_numbers numberType"
     },
     {
       "path": "Texting → Get a business number → Area code",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:784",
-      "covered": "no",
-      "by": "worker searchNumbers has no tool"
+      "covered": "yes",
+      "by": "find_phone_numbers areaCode"
     },
     {
       "path": "Texting → Get a business number → Starts with 833/844/855",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:797",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers areaCode (Starts with, for toll-free)"
     },
     {
       "path": "Texting → Get a business number → Show numbers",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:813",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers"
     },
     {
       "path": "Texting → Get a business number → More choices / Fewer choices",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:822",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers city, state, withinMiles, contains"
     },
     {
       "path": "Texting → Get a business number → City and State",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:829",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers city and state"
     },
     {
       "path": "Texting → Get a business number → How far out",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:852",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers withinMiles"
     },
     {
       "path": "Texting → Get a business number → Digits in the number",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:868",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers contains"
     },
     {
       "path": "Texting → Get a business number → Look again without the city or digits",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:898",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers again with less, or anywhere"
     },
     {
       "path": "Texting → Get a business number → results: number, place or Toll-free, Calls · Texts · Photos",
       "kind": "see",
       "file": "apps/web/src/components/settings/texting-page.tsx:932",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers numbers: number, shown, town, state"
     },
     {
       "path": "Texting → Get a business number → pick a number from the results",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:920",
-      "covered": "no",
-      "by": "no number search tool"
+      "covered": "yes",
+      "by": "find_phone_numbers, then manage_phone_number get on the one picked"
     },
     {
       "path": "Texting → Get a business number → Buy <number>",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:950",
-      "covered": "partly",
-      "by": "manage_phone_number get buys a number the person names; it can’t find one"
+      "covered": "yes",
+      "by": "manage_phone_number get on the number picked from find_phone_numbers, on a card with its price"
     },
     {
       "path": "Texting → Bring a number → Where is your number today? GoHighLevel / My own Twilio account / Another phone company",
@@ -429,15 +429,15 @@
       "path": "Texting → Bring a number → don’t give it up where it is callout",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:176",
-      "covered": "no",
-      "by": "not in any tool’s words"
+      "covered": "yes",
+      "by": "check_number_host keepIt; list_twilio_numbers note; the Twilio handover"
     },
     {
       "path": "Texting → Bring a number → GoHighLevel → steps and guide link",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:253",
-      "covered": "no",
-      "by": "the steps aren’t in any tool"
+      "covered": "yes",
+      "by": "check_number_host note: start watching, then a HighLevel support ticket with the request from get_phone_account"
     },
     {
       "path": "Texting → Bring a number → GoHighLevel → numbers the migration found",
@@ -457,15 +457,15 @@
       "path": "Texting → Bring a number → GoHighLevel → Check it",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:325",
-      "covered": "no",
-      "by": "worker lookupNumberHost has no tool"
+      "covered": "yes",
+      "by": "check_number_host"
     },
     {
       "path": "Texting → Bring a number → GoHighLevel → where it’s hosted: yours already, elsewhere, in Twilio",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:360",
-      "covered": "no",
-      "by": "result of the worker lookup"
+      "covered": "yes",
+      "by": "check_number_host: alreadyHere, inTwilio, carrier, note"
     },
     {
       "path": "Texting → Bring a number → GoHighLevel → Port it instead",
@@ -478,8 +478,8 @@
       "path": "Texting → Bring a number → GoHighLevel → international number callout",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:384",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "check_number_host outsideUsAndCanada"
     },
     {
       "path": "Texting → Bring a number → GoHighLevel → Start watching for it",
@@ -492,8 +492,8 @@
       "path": "Texting → Bring a number → Twilio → can’t connect here callout",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:430",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "settings_help texting handover: only the organization’s owners and admins connect one"
     },
     {
       "path": "Texting → Bring a number → Twilio → by hand: the number and Account SID it is in",
@@ -520,15 +520,15 @@
       "path": "Texting → Bring a number → Twilio → Show its numbers",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:487",
-      "covered": "no",
-      "by": "worker listTwilioNumbers has no tool"
+      "covered": "yes",
+      "by": "list_twilio_numbers"
     },
     {
       "path": "Texting → Bring a number → Twilio → Disconnect: Forget this account?",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:657",
-      "covered": "no",
-      "by": "worker disconnectTwilio has no tool"
+      "covered": "yes",
+      "by": "disconnect_twilio_account, on a card"
     },
     {
       "path": "Texting → Bring a number → Twilio → Connect: Account SID",
@@ -562,29 +562,29 @@
       "path": "Texting → Bring a number → Twilio → account’s numbers: number, type, Used by, name",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:681",
-      "covered": "no",
-      "by": "worker listing only"
+      "covered": "yes",
+      "by": "list_twilio_numbers numbers: number, name, usedBy, sid"
     },
     {
       "path": "Texting → Bring a number → Twilio → Already in X / On its way to X",
       "kind": "see",
       "file": "apps/web/src/components/settings/number-import.tsx:804",
-      "covered": "no",
-      "by": "worker listing only"
+      "covered": "yes",
+      "by": "list_twilio_numbers alreadyHere, comingTo"
     },
     {
       "path": "Texting → Bring a number → Twilio → which business it goes to",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:815",
-      "covered": "no",
-      "by": "do_* tools fix the business; another can’t be chosen"
+      "covered": "never",
+      "by": "Never: the business is put on server-side, never taken from the model; the Assistant brings it to the business it works in"
     },
     {
       "path": "Texting → Bring a number → Twilio → Bring it here",
       "kind": "do",
       "file": "apps/web/src/components/settings/number-import.tsx:827",
-      "covered": "partly",
-      "by": "do_number_import_start, but the numbers are listed only on screen"
+      "covered": "yes",
+      "by": "list_twilio_numbers, then do_number_import_start with its sid and the connection"
     },
     {
       "path": "Texting → Bring a number → Another phone company → Bring your numbers here intro",
@@ -787,7 +787,7 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1613",
       "covered": "yes",
-      "by": "do_registration_save_draft result; read_registration_get_draft"
+      "by": "fill_in_carrier_registration result; read_registration_get_draft"
     },
     {
       "path": "Texting → Registration → review banner: waiting, approved, sent back with note",
@@ -801,98 +801,98 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1626",
       "covered": "yes",
-      "by": "submit_carrier_registration legalName"
+      "by": "fill_in_carrier_registration legalName"
     },
     {
       "path": "Texting → Registration → Business → DBA callout and Why",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1630",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration description: the DBA and what gets it approved"
     },
     {
       "path": "Texting → Registration → Business → What kind of business it is",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1650",
       "covered": "yes",
-      "by": "submit_carrier_registration businessType"
+      "by": "fill_in_carrier_registration businessType"
     },
     {
       "path": "Texting → Registration → Business → Your EIN",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1670",
       "covered": "yes",
-      "by": "submit_carrier_registration ein"
+      "by": "fill_in_carrier_registration ein"
     },
     {
       "path": "Texting → Registration → Business → sole proprietor note",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1665",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration ein: a sole proprietor has none and texts far less"
     },
     {
       "path": "Texting → Registration → Business → already registered elsewhere hint",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:494",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration description: already registered in another business here"
     },
     {
       "path": "Texting → Registration → Where → Website",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1685",
       "covered": "yes",
-      "by": "submit_carrier_registration website"
+      "by": "fill_in_carrier_registration website"
     },
     {
       "path": "Texting → Registration → Where → Street address, City, State, ZIP",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1691",
       "covered": "yes",
-      "by": "submit_carrier_registration addressLine1, city, state, postalCode"
+      "by": "fill_in_carrier_registration line1, city, state, postalCode"
     },
     {
       "path": "Texting → Registration → Where → must match the IRS address note",
       "kind": "see",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1697",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration line1: the address the IRS has for the EIN"
     },
     {
       "path": "Texting → Registration → Contact → First name, Last name, Email, Phone",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1710",
       "covered": "yes",
-      "by": "submit_carrier_registration contact fields"
+      "by": "fill_in_carrier_registration contactFirst, contactLast, contactEmail, contactPhone"
     },
     {
       "path": "Texting → Registration → About → customer care / mixed / marketing",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1720",
       "covered": "yes",
-      "by": "submit_carrier_registration useCase"
+      "by": "fill_in_carrier_registration useCase"
     },
     {
       "path": "Texting → Registration → About → Roughly how many texts",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1738",
       "covered": "yes",
-      "by": "submit_carrier_registration monthlyVolume"
+      "by": "fill_in_carrier_registration volume"
     },
     {
       "path": "Texting → Registration → About → topics carriers treat differently, None of these",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1773",
-      "covered": "partly",
-      "by": "only in do_registration_save_draft answers; not sent by submit"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration sensitive ([] for none of these)"
     },
     {
       "path": "Texting → Registration → Samples → Example 1..n",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1797",
       "covered": "yes",
-      "by": "submit_carrier_registration messageSamples"
+      "by": "fill_in_carrier_registration samples"
     },
     {
       "path": "Texting → Registration → Samples → suggested examples",
@@ -905,8 +905,8 @@
       "path": "Texting → Registration → Opt-in → Let us collect it / my own website / in person or on the phone",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:667",
-      "covered": "partly",
-      "by": "save_draft answers only; submit has no optInPath"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration optInPath"
     },
     {
       "path": "Texting → Registration → Opt-in → chat sign-up page link",
@@ -926,15 +926,15 @@
       "path": "Texting → Registration → Opt-in → copy the chat snippet",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:970",
-      "covered": "partly",
-      "by": "publicKey comes back; the snippet is built in the browser"
+      "covered": "yes",
+      "by": "get_settings website_chat snippet"
     },
     {
       "path": "Texting → Registration → Opt-in → The page with your tick box",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:979",
-      "covered": "partly",
-      "by": "save_draft answers only; submit has no optInUrl"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration optInUrl"
     },
     {
       "path": "Texting → Registration → Opt-in → tick-box wording and policy paragraph to copy",
@@ -947,22 +947,22 @@
       "path": "Texting → Registration → Opt-in → A link to what customers see or hear",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1035",
-      "covered": "partly",
-      "by": "save_draft answers only; submit has no optInProofUrl"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration optInProofUrl"
     },
     {
       "path": "Texting → Registration → Opt-in → other ways: kind, link, Remove, Add another way",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1215",
       "covered": "partly",
-      "by": "save_draft answers only"
+      "by": "fill_in_carrier_registration says other ways are added on How customers agree; it doesn’t take them"
     },
     {
       "path": "Texting → Registration → Opt-in → What we will tell the carriers",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1064",
       "covered": "yes",
-      "by": "submit_carrier_registration optInDescription"
+      "by": "fill_in_carrier_registration optIn"
     },
     {
       "path": "Texting → Registration → Opt-in → Use our wording",
@@ -975,22 +975,22 @@
       "path": "Texting → Registration → Policy → contact Email and Phone",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2030",
-      "covered": "partly",
-      "by": "save_draft answers only; submit has no policyContact"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration policyEmail, policyPhone"
     },
     {
       "path": "Texting → Registration → Policy → Privacy: use ours / I already have my own, with link",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2112",
-      "covered": "partly",
-      "by": "save_draft answers only"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration ownPolicyUrl (null for ours)"
     },
     {
       "path": "Texting → Registration → Policy → Terms: use ours / I already have my own, with link",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2194",
-      "covered": "partly",
-      "by": "save_draft answers only"
+      "covered": "yes",
+      "by": "fill_in_carrier_registration ownTermsUrl (null for ours)"
     },
     {
       "path": "Texting → Registration → Policy → clause to add, preview, link to ours",
@@ -1046,7 +1046,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2650",
       "covered": "partly",
-      "by": "save_draft answers only; submit can’t pass them"
+      "by": "fill_in_carrier_registration opens Before it goes; the ticks are the person’s there (registration.submit not yet)"
     },
     {
       "path": "Texting → Registration → Review → summary rows with Change",
@@ -1060,7 +1060,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2806",
       "covered": "partly",
-      "by": "submit_carrier_registration has no confirmed"
+      "by": "fill_in_carrier_registration never sets it; the person ticks it on Before it goes (registration.submit not yet)"
     },
     {
       "path": "Texting → Registration → fees: not charged note, fee lines, Now total, monthly",
@@ -1081,14 +1081,14 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:2003",
       "covered": "yes",
-      "by": "do_registration_save_draft"
+      "by": "fill_in_carrier_registration"
     },
     {
       "path": "Texting → Registration → Send to the carriers",
       "kind": "do",
       "file": "apps/web/src/components/settings/a2p-wizard.tsx:1994",
       "covered": "partly",
-      "by": "submit_carrier_registration lacks opt-in, policy and confirm fields and can’t pass the all-green check"
+      "by": "fill_in_carrier_registration fills it in and opens Before it goes, which checks and sends; do_registration_request_review when it won’t go green (registration.submit not yet)"
     },
     {
       "path": "Texting → Registration → Pay $X and send",
@@ -1108,8 +1108,8 @@
       "path": "Texting → Register for texting now → explanation",
       "kind": "see",
       "file": "apps/web/src/components/settings/texting-page.tsx:1346",
-      "covered": "partly",
-      "by": "settings_help texting handover"
+      "covered": "yes",
+      "by": "settings-map texting onScreen: Register for texting now"
     },
     {
       "path": "Texting → Register for texting now → approved callout",
@@ -1123,7 +1123,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1360",
       "covered": "yes",
-      "by": "read_registration_get_draft, do_registration_save_draft"
+      "by": "read_registration_get_draft, fill_in_carrier_registration"
     },
     {
       "path": "Texting → Register for texting now → Owners and admins can send it",
@@ -1157,8 +1157,8 @@
       "path": "Texting → Carrier review → Text me a test (greyed until approved)",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1107",
-      "covered": "partly",
-      "by": "send_text needs a customer"
+      "covered": "yes",
+      "by": "send_test_text, once texting is approved"
     },
     {
       "path": "Texting → Carrier review → Submitted date",
@@ -1228,7 +1228,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1455",
       "covered": "partly",
-      "by": "as Send to the carriers"
+      "by": "fill_in_carrier_registration with what to fix, then Before it goes; do_registration_request_review"
     },
     {
       "path": "Texting → Turned down → View what we sent",
@@ -1249,7 +1249,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1516",
       "covered": "partly",
-      "by": "submit_carrier_registration can’t pass the all-green check"
+      "by": "do_registration_request_review; or fill_in_carrier_registration and Before it goes"
     },
     {
       "path": "Texting → What we sent the carriers → Legal name, Business type, EIN, Website, Address, Contact, Texts about, Texts a month, How customers agree, Example texts",
@@ -1304,22 +1304,22 @@
       "path": "Texting → Business number → Text me a test",
       "kind": "do",
       "file": "apps/web/src/components/settings/texting-page.tsx:1799",
-      "covered": "partly",
-      "by": "send_text texts a customer, not a typed number"
+      "covered": "yes",
+      "by": "send_test_text"
     },
     {
       "path": "Texting → Text me a test → Your mobile number, Send",
       "kind": "do",
       "file": "apps/web/src/components/settings/test-text-dialog.tsx:63",
-      "covered": "partly",
-      "by": "send_text needs personId or conversationId"
+      "covered": "yes",
+      "by": "send_test_text toPhone (else their confirmed cell)"
     },
     {
       "path": "Texting → Text me a test → quiet hours: send anyway",
       "kind": "do",
       "file": "apps/web/src/components/settings/test-text-dialog.tsx:84",
-      "covered": "partly",
-      "by": "as above"
+      "covered": "yes",
+      "by": "send_test_text duringQuietHours"
     },
     {
       "path": "Texting → Carrier registration → Approved badge and monthly fee",
@@ -1402,8 +1402,8 @@
       "path": "Texting → RCS messaging → Connect → senders in your Twilio account",
       "kind": "see",
       "file": "apps/web/src/components/settings/rcs-card.tsx:233",
-      "covered": "no",
-      "by": "worker findRcsSenders has no tool"
+      "covered": "yes",
+      "by": "list_rcs_senders"
     },
     {
       "path": "Texting → RCS messaging → Connect → Sender id",
@@ -2214,29 +2214,29 @@
       "path": "Website chat → Add it to your site → the snippet",
       "kind": "see",
       "file": "apps/web/src/components/settings/chat-install.tsx:73",
-      "covered": "partly",
-      "by": "publicKey comes back; the script address doesn’t"
+      "covered": "yes",
+      "by": "get_settings website_chat snippet, whole on the domain that serves it"
     },
     {
       "path": "Website chat → Add it to your site → Copy",
       "kind": "do",
       "file": "apps/web/src/components/settings/website-chat-page.tsx:763",
-      "covered": "partly",
-      "by": "as above"
+      "covered": "yes",
+      "by": "get_settings website_chat snippet"
     },
     {
       "path": "Website chat → Add it to your site → How to add it on: WordPress, Wix, Squarespace, GoHighLevel, Webflow, Something else",
       "kind": "do",
       "file": "apps/web/src/components/settings/chat-install.tsx:109",
-      "covered": "no",
-      "by": "the steps aren’t in any tool"
+      "covered": "yes",
+      "by": "settings_help website_chat onEachBuilder"
     },
     {
       "path": "Website chat → Add it to your site → each platform’s steps",
       "kind": "see",
       "file": "apps/web/src/components/settings/chat-install.tsx:15",
-      "covered": "no",
-      "by": "the steps aren’t in any tool"
+      "covered": "yes",
+      "by": "settings_help website_chat onEachBuilder steps"
     },
     {
       "path": "Website chat → Add it to your site → New key, Get a new key?",
@@ -2249,8 +2249,8 @@
       "path": "Website chat → Try it",
       "kind": "do",
       "file": "apps/web/src/components/settings/website-chat-page.tsx:813",
-      "covered": "never",
-      "by": "SETTINGS_NEVER website_chat.try: a preview page"
+      "covered": "yes",
+      "by": "get_settings website_chat tryIt: the link Try it opens (nothing to set)"
     },
     {
       "path": "Website chat → Look → Name",
@@ -2858,22 +2858,22 @@
       "path": "Lead intake → Forms and connected apps → Paste this into your website: the snippet",
       "kind": "see",
       "file": "apps/web/src/components/settings/lead-intake-page.tsx:371",
-      "covered": "partly",
-      "by": "publicKey and redirectUrl come back; not the address or snippet"
+      "covered": "yes",
+      "by": "get_settings lead_intake snippet and postsTo"
     },
     {
       "path": "Lead intake → Forms and connected apps → Copy the snippet",
       "kind": "do",
       "file": "apps/web/src/components/settings/lead-intake-page.tsx:389",
-      "covered": "partly",
-      "by": "as above"
+      "covered": "yes",
+      "by": "get_settings lead_intake snippet; manage_lead_form gives it on making and new key"
     },
     {
       "path": "Lead intake → Forms and connected apps → How an app sends one: example and dedupeKey hint",
       "kind": "see",
       "file": "apps/web/src/components/settings/lead-intake-page.tsx:392",
-      "covered": "no",
-      "by": "not in any tool"
+      "covered": "yes",
+      "by": "get_settings lead_intake example and sameOneTwice"
     },
     {
       "path": "Lead intake → Add a website form → What to call it",
@@ -2925,8 +2925,8 @@
       "kind": "do",
       "where": "Settings → Texting & calls, the \"Get a business number\" step: Toll-free/Local, Area code or \"Starts with\" (833/844/855), \"Show numbers\", \"More choices\" (City, State, How far out, Digits in the number), the list of results and \"Buy <number>\"",
       "gap": "The Assistant can't search for numbers to buy. The screen's search (texting-page.tsx:630-670) calls searchNumbers, which goes to the worker's /v1/telephony/available-numbers (server.ts:440, deps.telephony.searchNumbers). No Assistant tool, screen read or worker tool calls it. manage_phone_number says the person picks the number on the screen, so the Assistant hands over correctly and won't make one up. That corrects the finding's claim that it would make up a number. But it can't do the first step of texting setup (\"get me a local 512 number\"), and picking a number isn't a settled person-only step.",
-      "fix": "Add a risk-0 tool `find_phone_numbers` in packages/core/src/assistant/tools.ts (input numberType local|toll_free, areaCode, contains, city, state, withinMiles), implemented in apps/worker/src/assistant/tools-settings-channels.ts with the same telephony.searchNumbers call server.ts:444 makes. It should return e164, display, locality/region and monthly price. Replace the last sentence of manage_phone_number's description (tools.ts:651) with: \"Find one with find_phone_numbers first, read the choices back, then get the one they pick; the card asks for their OK.\"",
-      "status": "open",
+      "fix": "Fixed: find_phone_numbers looks for numbers as Get a business number does (local or toll-free, area code or Starts with, digits in the number, city and state, how far out, anywhere) and buys nothing. manage_phone_number gets only the one the person picked, on a card with the number and what it costs. It came with the setup’s Your business number (onb-4) and is the same search.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2935,8 +2935,8 @@
       "kind": "never",
       "where": "Settings → Email, the box for an address left behind by someone who left: \"Give it to the team\", \"Give it to them\", \"Remove it\"",
       "gap": "do_email_address_reassign is made from email_address.reassign with no narrowing (coverage.ts:196 is {} with no warning). Its input lets to='remove'. Through private.reassign_email_address, that hard-deletes the person's private conversations on the address and the address row itself ('delete from app.conversations … delete from app.email_addresses'). It also schedules email.remove_files (commands/email.ts:787-796). No bin, no restore. The screen itself warns \"It can’t be brought back\" (email-page.tsx:302-304). Offering this breaks the settled rule that the Assistant never deletes anything for good. Nothing in tools-screen-actions.ts refuses it.",
-      "fix": "ScreenAction (coverage.ts:17-28) has no way to narrow an input, so a NEVER_FOR_THE_ASSISTANT entry keyed 'email_address.reassign' would also drop the team and person choices. Do one of two things. (a) Add a field like `refuse?: { field: 'to', values: ['remove'], why: '…' }` to ScreenAction, enforced in apps/worker/src/assistant/tools-screen-actions.ts and dropped from the input schema in screen-actions.ts. (b) Replace the screen action with an own tool, `give_away_left_address`, whose `to` enum is ['team','person']. Either way, record in coverage.ts the reason: removing it \"deletes the address and its mail for good, which stays the person’s: Remove it on Settings → Email\". Add a warning to the remaining action: \"Their sealed mail becomes the team’s (or that person’s) at once.\"",
-      "status": "open",
+      "fix": "Fixed: a screen action can now leave a choice out (notOffered, refused by name with rule not_for_the_assistant). do_email_address_reassign offers giving a left person’s address to the team or to someone, never remove: that deletes the address and its mail for good, which stays the person’s, on Settings → Email. Its own card says whose it was, who gets it, and that its sealed mail opens to them at once.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2945,8 +2945,8 @@
       "kind": "do",
       "where": "Settings → Texting & calls → Business details (the carrier registration wizard): its eight steps, ending with \"Before it goes\" and its buttons \"Ask HandsFreeOS to check it\", \"Send to the carriers\" or \"Pay $X and send\". Also \"Send again\" and \"Fix and send again\" after a rejection.",
       "gap": "Real: submit_carrier_registration can't get through registration.submit. refuseUnlessAllGreen (registration.ts:128-163) needs a registration_checks row whose fingerprint matches the exact details. Only the worker's /v1/telephony/registration-preflight writes that row (server.ts:560, via registration.record_check), and no Assistant tool calls it. registrationInput (tools-settings-channels.ts:253-279) also builds a BusinessProfile without optInPath, optInUrl, displayName, policyUrl, termsUrl, policyContact, otherWays or confirmed. So even a check run on the screen never matches it. The tool's own advice to send the person to the last step to check \"these exact details\" can't work. Drafts are real too: withDraft reads only draft['form'] with the wizard's field names (a2p-wizard.tsx:269-292). registration.save_draft's answers are a loose record with no described shape (schemas/telephony.ts:357-362), so an Assistant draft doesn't fill in the wizard. Not right: \"can’t send at all\". do_registration_request_review is offered (coverage.ts:171) with the full BusinessProfile and notGreen. That gets a registration to the carriers after HandsFreeOS checks it by hand (registration.review.approve, then send). It is also a route for \"Send again\".",
-      "fix": "Change submit_carrier_registration so it never promises an all-green send it can't make. Option (a): drop it from SETTING_TOOLS 'texting.registration' (coverage.ts:582-585). Describe the draft in RegistrationSaveDraftInput.answers (packages/core/src/schemas/telephony.ts:357-362, .describe(...)), since ScreenAction has no field-note property: {form:{legalName, businessType, ein, website, line1, city, state, postalCode, contactFirst, contactLast, contactEmail, contactPhone, useCase, volume, samples[2], optInPath, optIn, optInUrl, optInProofUrl, ownPolicyUrl, ownTermsUrl, policyEmail, policyPhone, sensitive, otherWays, confirmed}, at}. Then hand the person to \"Before it goes\". Option (b): add the missing BusinessProfile fields to the tool, plus a `check_carrier_registration` tool that runs the preflight logic and records the check. In both cases, say in the description that when it can't be all green, do_registration_request_review sends it to HandsFreeOS to check by hand.",
-      "status": "open",
+      "fix": "Fixed: submit_carrier_registration is gone, so nothing promises a send it can’t make. fill_in_carrier_registration fills in the same saved answers the registration’s steps pick up (the wizard’s own fields, how customers agree with its links, the policy contact and the business’s own pages, the topics carriers treat differently) and opens it at How customers agree until what the carriers are told about it is written, then at Before it goes. It clears the ticks given there before, so the person ticks them again on the new answers. Before it goes runs the checks on those exact details, takes the ticks only the person gives and sends: registration.submit is on the not-yet list, and refuseUnlessAllGreen is never skipped. When it won’t go green, do_registration_request_review asks HandsFreeOS to check it by hand.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2955,8 +2955,8 @@
       "kind": "read",
       "where": "Settings → Website chat → \"Add it to your site\": the snippet, Copy, and the \"Try it\" preview link",
       "gap": "get_settings website_chat returns chat_widget.list as it comes (tools-settings.ts:158). It has publicKey but no snippet and no origin, and chat_widget.get (read_chat_widget_get) has none either. The screen builds `<script async src=\"${origin}/embed/v1/${publicKey}.js\"></script>` with origin = brandedOrigin or the app's (chat-install.tsx:72-77, website-chat-page.tsx:727). Try it is /chat-preview/<key>?w=<workspaceId> (website-chat-page.tsx:815). No assistant tool, prompt.ts or context.ts has the web origin. The worker env does have webUrl (env.ts:674), but the assistant tools don't use it. settings-map's handover says \"I set the chat box up and give you the snippet\" (settings-map.ts:610), which it can't do without guessing the domain. The create outcome sends the person to the Forms page instead (tools-settings-channels.ts:838).",
-      "fix": "Move snippetSrc/snippetOf from apps/web/src/components/settings/chat-install.tsx:72-77 into @hfos/core. Give the website_chat entry in apps/worker/src/assistant/tools-settings.ts QUERIES a `shape` that adds, for each widget, `snippet` (absolute src from the branded domain when serving, else env.webUrl) and `tryItUrl` (`${origin}/chat-preview/${publicKey}?w=${workspaceId}`). Return the same snippet in manage_website_chat's create outcome. Until then, change settings-map.ts:610 to \"I set the chat box up; you copy the snippet from Add it to your site\".",
-      "status": "open",
+      "fix": "Fixed: get_settings (area website_chat) gives each chat’s snippet, as Add it to your site copies it, written out whole on the business’s own domain when one serves (else the web app’s), and its Try it link. The snippet is said once in @hfos/core, for the screen and the Assistant.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2965,8 +2965,8 @@
       "kind": "read",
       "where": "Settings → Email → Your own domain: the DNS records (Host and Value with a copy button for each), \"Check now\", and \"Receive mail here\" with its MX row (@, priority 10)",
       "gap": "The raw records do reach the Assistant: get_settings email returns EmailDomainOut with dkimHost/dkimValue, returnPathHost/returnPathValue, ownershipHost/ownershipToken and inboundMxHost. So \"can’t give the records\" is wrong. What's real is that the shape differs from what the screen tells people to type. Hosts are full names, and the screen makes them relative (relativeHost, email-page.tsx:60-62). returnPathValue can be null, and the screen then shows 'pm.mtasv.net' (email-page.tsx:732). The MX record is only a status field, not a row with host @ and priority 10 (email-page.tsx:906-909). There's no type or purpose per record. Also, the add_domain outcome still says \"The records to copy are on the Email screen\" (tools-settings-channels.ts:509), against the handover's \"I … give you the records to copy\" (settings-map.ts:571).",
-      "fix": "Add a `shape` to the email.setup_status entry in tools-settings.ts. Each domain gets records[] = {type, purpose ('Proves the mail is yours (DKIM)', 'Handles bounces (Return-Path)', 'Says the domain is this business’s', 'Brings your mail here'), host (relative, via relativeHost moved to @hfos/core), fullHost, value (returnPathValue ?? 'pm.mtasv.net'), priority (10 for MX), found}. Include the MX row when receiving is on or offered. Have the add_domain outcome return those records.",
-      "status": "open",
+      "fix": "Fixed: get_settings (area email) gives each domain’s records in the screen’s order: the type, what it’s for in the screen’s words, the host to type at the DNS provider (relative to the domain) and the value, and whether the last check found it. emailDomainRecords and relativeHost are in @hfos/core, and Settings → Email uses them too.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2975,8 +2975,8 @@
       "kind": "words",
       "where": "Settings → Texting & calls while registration is pending: \"The carriers are reviewing X\" with the rows Number bought, Business profile and brand, Texting campaign and Texting turns on; the fee callout (Pay $X / Pay with another card); \"Register for texting now\" / \"Start the registration\" / \"Pick up the registration\"",
       "gap": "The texting handover tells the person to watch \"Carrier registration\". That heading is only in the Configured view, which shows when nextStep === 'ready' (texting-page.tsx:307, 1806). Before approval the person sees \"The carriers are reviewing X\", or \"…goes to the carriers once it’s paid\". Under it is the checklist Number bought, Business profile and brand, Texting campaign, Texting turns on (texting-page.tsx:1045-1099), or the Rejected box with \"Fix and send again\" (1455). onScreen doesn't name the Steps (Number, Business details, Carrier review; texting-page.tsx:530), \"Register for texting now\" or \"Start/Pick up the registration\" (1346, 1360), or the fee that holds it back. canChange says \"fill in and send the carrier registration\", which submit_carrier_registration can't do (see txt-2). Downgraded to medium: it's wording, and the person sees the right screen when they open it.",
-      "fix": "In packages/core/src/assistant/settings-map.ts texting: in onScreen, name the Steps (Number, Business details, Carrier review), \"Register for texting now\" with Start the registration / Pick up the registration, and before approval \"The carriers are reviewing <business>\" with its four rows. Add the fee callout (Pay $X, which the person does) and \"Fix and send again\" after a rejection. Change handover step 2 (line 512) to \"Wait for the carriers: The carriers are reviewing … on Settings → Texting & calls shows where it stands (Carrier registration once approved).\" Change canChange line 497 to \"fill in the carrier registration with you, or send it to HandsFreeOS to check\".",
-      "status": "open",
+      "fix": "Fixed: settings-map texting names the Steps (Number, Business details, Carrier review), Register for texting now with Start or Pick up the registration, The carriers are reviewing with its rows, Pay and Fix and send again. The registration handover walks through its steps and Before it goes, where it is checked and sent.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2985,8 +2985,8 @@
       "kind": "read",
       "where": "Settings → Texting & calls → the Phone & texting card: switch (On / Off / Turning on… / Couldn't check), the last error, \"Twilio Account SID\" and \"Sub-account SID\" with Copy, and \"Numbers already in this account\" with \"Set it up here\"",
       "gap": "Real: lastError, the turning-on state, HandsFreeOS's parent Account SID and \"Numbers already in this account\" come only from worker endpoints (/v1/telephony/account at server.ts:486-557, /v1/telephony/own-numbers). The Assistant reads none of them. PhoneSetupStatusOutput has only accountStatus (schemas/telephony.ts:527). settings-map texting never names the Phone & texting switch, though do_telephony_enable/disable are offered. Not real: the sub-account SID is reachable once an import exists, as destinationAccountSid in read_number_import_list (queries/number-import.ts:90). transferRequestText is already in core (packages/core/src/messaging/number-import.ts:95), so it doesn't need moving. Only the parent SID is missing to build it.",
-      "fix": "Add to the texting entry in apps/worker/src/assistant/tools-settings.ts: phoneAccount {state on|turning_on|off, lastError, accountSid, parentAccountSid}, worked out the way server.ts:486-557 does (move that logic into a shared worker helper), and ownNumbers from the own-numbers logic. Add transferRequest (core's transferRequestText) to each waiting number_import row. In settings-map.ts texting, add to onScreen \"Phone & texting: On or Off, its Account SID and Sub-account SID, and Numbers already in this account\", and to canChange \"turn phone & texting on or off\".",
-      "status": "open",
+      "fix": "Fixed: get_phone_account reads Phone & texting as its card does: On, Turning on or Off, what went wrong, the Account SID and HandsFreeOS’s parent Account SID, and Numbers already in this account with what each needs. Each number waiting to move here comes with its request to HighLevel’s or Twilio’s support, filled in (core’s transferRequestText). It reads through the same worker logic as the screen’s routes (telephony-reads.ts), as the person, with the same permission check. settings-map texting names the card and turning it on or off.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2995,8 +2995,8 @@
       "kind": "read",
       "where": "Settings → Texting & calls → the review checklist and what it waits on: Business profile and brand, then Texting campaign, then Texting turns on; and the fee callout",
       "gap": "Nearly all the data is there: get_settings texting returns nextStep, localRegistrationStep (awaiting_approval/rejected/ready), each registration's kind, status, rejectionReason and approvedAt, and textingFees.due. So \"why isn’t texting on yet?\" can be answered from it. What's missing is the screen's grouping and words, which the model has to work out. It isn't told that an unpaid textingFees.due means nothing has gone to the carriers (the field's doc comment never reaches the model). Nor is it told that customer_profile, trust_product and brand make one row, \"Business profile and brand\", with \"Texting campaign\" waiting on it.",
-      "fix": "Lighter than a new helper: add to phone.setup_status's description (packages/core/src/queries/phone.ts:72-73), or to settings-map texting `what`: \"While textingFees.due is set nothing has gone to the carriers; the screen's rows are Business profile and brand (a2p_customer_profile, a2p_trust_product, a2p_brand), then Texting campaign (a2p_campaign, which waits for the brand), then Texting turns on.\" Optionally move the Review rows logic (texting-page.tsx:1024-1099) into core as registrationProgress() and add it to the texting shape.",
-      "status": "open",
+      "fix": "Fixed: settings-map texting’s what says nothing has gone to the carriers while the texting fee is due, and gives the screen’s rows: Business profile and brand, then Texting campaign (which waits for the brand), then texting turns on. No new helper.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3005,8 +3005,8 @@
       "kind": "read",
       "where": "Settings → Website chat → the status card: \"Who answers\" with its notes when the AI teammate is off or not answering website chat",
       "gap": "Part of the data is reachable. Each widget's teammate {id, name, status} is in get_settings website_chat (so 'off' shows), and the teammate's config.channels.chat and widgetId are in get_settings ai_teammate (ai_teammate.get returns the config). What's real is that nothing tells the model the rule that combines them: it answers only when the widget names it, the teammate isn't off, channels.chat is on, and channels.widgetId is null or this widget (editor-data.ts:80). The worker's answerer() note covers off and chat-off only on a change, never widgetId (tools-settings-channels.ts:602-622). So for a second widget, or with the chat channel off, a plain read of website_chat shows a teammate and reads as \"the AI answers\".",
-      "fix": "Move teammateFor (apps/web/src/lib/chat/editor-data.ts:73-82) into @hfos/core. In tools-settings.ts website_chat, also read ai_teammate.get and shape each widget with whoAnswersNow: 'ai'|'team' plus a reason in the screen's words (\"<name> is off, so your team answers for now\", \"<name>’s Website chat channel is off…\", \"<name> answers another chat\"). Use the same helper in answerer() so the widgetId case is covered on changes too.",
-      "status": "open",
+      "fix": "Fixed: get_settings (area website_chat) gives each chat’s whoAnswers in the screen’s words, from whoAnswersChat in @hfos/core, which the web editor uses too: the teammate named, or that the team answers because the teammate or its Website chat channel is off. manage_website_chat’s card says the same.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3015,8 +3015,8 @@
       "kind": "read",
       "where": "Settings → Lead intake → a website form's \"Paste this into your website\" box with \"Copy the snippet\"; a connected app's \"How an app sends one\" (the POST address)",
       "gap": "get_settings lead_intake returns intake.list with each source's publicKey and redirectUrl, but not the form action URL `${workerUrl}/intake/f/${key}`, the snippet (snippetFor), or the app endpoint `${workerUrl}/v1/intake` (lead-intake-page.tsx:138-141). The Assistant has no worker URL in prompt, context or any tool. The worker env has publicUrl (env.ts:42, 413), but the assistant doesn't use it. manage_lead_form's outcomes send the person to copy the snippet from the screen (tools-setup.ts:2447, 2459).",
-      "fix": "Move formUrl, apiUrl and snippetFor (apps/web/src/components/settings/lead-intake-page.tsx:138-150) into @hfos/core, taking the base URL. Shape the lead_intake area in apps/worker/src/assistant/tools-settings.ts so each keyed form source gets formUrl and snippet, and each app source gets postUrl, built from the worker's env.publicUrl. Return the snippet in manage_lead_form's create and new_key outcomes (apps/worker/src/assistant/tools-setup.ts:2447, 2459).",
-      "status": "open",
+      "fix": "Fixed: get_settings (area lead_intake) gives each website form where it posts and the snippet to paste, and each connected app where it sends and an example, on the worker’s address. manage_lead_form gives the snippet when it makes a form and after a new key. The snippet, the addresses and the example are said once in @hfos/core, and Lead intake uses them too.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3025,8 +3025,8 @@
       "kind": "words",
       "where": "Settings → Lead intake, the channel rows: Text, Call, Email, Messenger, Instagram, \"Someone fills in your lead ad's form\" and \"Indeed emails you about an applicant\", each with \"Open a lead as well as the customer\", \"Leads land in\", \"At most N a day\"",
       "gap": "Only onScreen's first line is short: it names Text, Call and Email only. canChange already lists Facebook Page and Instagram messages, lead ad forms and Indeed applicants (settings-map.ts:681). manage_lead_intake's channel enum and description cover all seven (tools.ts:865-871). SETTING_TOOLS maps all seven (coverage.ts:668-670). onScreen already names \"Website form, Connect an app\". So the Assistant won't deny that a Messenger or lead-ad row exists. Missing from onScreen are the four row titles, the per-row labels \"Open a lead as well as the customer\", \"Leads land in\" and \"At most\", and \"Replace the key\" / \"Retire it\".",
-      "fix": "Change settings-map.ts:673 to list all seven by their screen titles: Someone texts your number, Someone calls and doesn’t get through, Someone emails your business address, Someone messages your Facebook Page, Someone messages your Instagram account, Someone fills in your lead ad’s form, Indeed emails you about an applicant. Each has Open a lead as well as the customer, Leads land in, and At most N a day. Add \"Replace the key and Retire it on each\" to the Forms and connected apps line. No enum change is needed.",
-      "status": "open",
+      "fix": "Fixed: settings-map lead_intake onScreen lists all seven ways in by their screen titles, each row’s labels, and Replace the key and Retire it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3035,8 +3035,8 @@
       "kind": "do",
       "where": "Settings → Texting & calls → Business number → \"Text me a test\"",
       "gap": "\"Text me a test\" runs message.send with toPhone and acknowledgeQuietHours (test-text-dialog.tsx:28-46). send_text takes only personId or conversationId (tools.ts:1322-1331), and no Assistant tool or screen action takes a bare phone number. So a test to the person's own cell needs a customer record. Downgraded to low: it's a one-off check the person can press themselves, and no customer is affected.",
-      "fix": "Add a risk-2 tool `send_test_text` in packages/core/src/assistant/tools.ts, implemented in tools-settings-channels.ts. It runs message.send the way test-text-dialog.tsx:33-40 does (the same body text), defaulting toPhone to the person's confirmed cell from user_phone.get. On a quiet_hours refusal, it asks before resending with acknowledgeQuietHours.",
-      "status": "open",
+      "fix": "Fixed: send_test_text texts a test as Text me a test does, with the same words, to the number given or the person’s own confirmed cell. It waits on a card that says it’s a real text from the business number, and during quiet hours it goes only when asked to. With no confirmed cell and no number it asks for one (rule no_cell). The send’s own refusals, such as no business number yet, texting not approved or quiet hours, come before any card.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3045,8 +3045,8 @@
       "kind": "do",
       "where": "Settings → Texting & calls → Calls: \"Team browsers\", the list of phones to ring (add one, remove one, switch one on or off, up to 3), \"Ring for\"",
       "gap": "The second half is already handled: update_texting_settings' description says \"The calls settings are the default number’s, as on the screen\" (tools.ts:617), and who each other number rings is manage_numbers choose_who_it_rings. What's real is that ringPhones replaces the whole forwarding list (routingFrom, tools-settings-channels.ts:165-176). Neither its field description (\"Up to three phones that ring with the browsers\") nor the tool says so, and \"pass only what changes\" invites passing just the new phone. The Confirm card does show the full resulting list under \"Phones that ring\" (tools-settings-channels.ts:81-88), which limits the harm.",
-      "fix": "Change ringPhones' .describe in packages/core/src/assistant/tools.ts (around line 634) to: \"Every phone that rings with the browsers, up to three; this list replaces the one there, so read it with get_settings (area texting) and keep the phones that stay\". That matches manage_website_chat.websites' wording.",
-      "status": "open",
+      "fix": "Fixed: update_texting_settings’ ringPhones says the list replaces the one there, so read it with get_settings (area texting) and keep the phones that stay.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3055,8 +3055,8 @@
       "kind": "do",
       "where": "Settings → Texting & calls → RCS → connect a sender: the list of RCS senders found in the business's Twilio account",
       "gap": "The connect form lists the senders in the business's Twilio account with findRcsSenders (rcs-card.tsx:176-190), from a worker endpoint. do_rcs_sender_connect needs senderId, and nothing the Assistant reads has it before connecting: RcsRequestOut has no sender id, and rcsSender is null until it's connected. Downgraded to low: the handover says HandsFreeOS makes the sender and connects it (settings-map.ts:521), so the person connecting it is the uncommon retry case.",
-      "fix": "Add a risk-0 tool `list_rcs_senders` in packages/core/src/assistant/tools-setup.ts, implemented in the worker with the same logic as the /v1/telephony/rcs-senders route. Return senderId, name and status. Change manage_rcs' description (tools-setup.ts:295) to \"…by its id, from list_rcs_senders, is do_rcs_sender_connect\".",
-      "status": "open",
+      "fix": "Fixed: list_rcs_senders lists the senders in the business’s Twilio account, as the connect form does, through the same worker logic as the screen’s route, as the person. manage_rcs says to connect one by its senderId from list_rcs_senders.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3065,8 +3065,8 @@
       "kind": "words",
       "where": "Settings → Website chat → \"Add it to your site\": the steps for each site builder (WordPress, Wix, Squarespace, GoHighLevel, Webflow, Something else)",
       "gap": "PLATFORMS, with steps for WordPress (WPCode), Wix (Custom code, Body - end), Squarespace (Code injection, business plan or higher), GoHighLevel (Footer tracking code), Webflow (Footer code) and Something else, is only in the web component. The Assistant's only words are settings-map's \"Paste it into your site before </body> (or into your site builder’s custom-code box)\". No assistant source has any of the builder steps. Low: a general answer is roughly right, but the Squarespace plan limit and the exact boxes are lost.",
-      "fix": "Move PLATFORMS from apps/web/src/components/settings/chat-install.tsx:15-70 into @hfos/core. Have settings_help website_chat (apps/worker/src/assistant/tools-settings.ts settings_help) return them as `onEachBuilder`. Add a line to the handover steps in settings-map.ts:611 saying I can give the steps for WordPress, Wix, Squarespace, GoHighLevel or Webflow.",
-      "status": "open",
+      "fix": "Fixed: the builders’ steps (WordPress, Wix, Squarespace, GoHighLevel, Webflow, Something else) are in @hfos/core, and settings_help website_chat gives them as onEachBuilder. The handover says I can give them.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3075,8 +3075,8 @@
       "kind": "read",
       "where": "Settings → Facebook & Instagram → Pages and accounts badges (Answering here / Needs attention / Disconnected, \"Not connected anymore\"), and the Lead ads line",
       "gap": "get_settings facebook_instagram returns meta_account.list as it comes: status (active/needs_attention/disconnected), problem (revoked/failed/…), subscribed and leadsAccess (unknown/ok/not_allowed/blocked). These codes mostly explain themselves, and settings-map's handovers carry the fixes for lead access (Connect Facebook again and leave Leads ticked; Leads Access in Meta Business Suite). What's missing is the screen's exact words: the badges Answering here / Needs attention / Disconnected, and troubleOf's sentences (\"HandsFreeOS was removed from it on Facebook…\", \"Meta hasn’t started sending its messages here yet. HandsFreeOS asks again each day…\"), which live only on the web.",
-      "fix": "Move troubleOf (apps/web/src/components/settings/facebook-instagram-page.tsx:81-92) into packages/core/src/messaging beside leadsAccessWords. Add a shape to the facebook_instagram entry in apps/worker/src/assistant/tools-settings.ts so each account gets badge ('Answering here'|'Needs attention'|'Disconnected'), trouble (troubleOf) and leads (leadsAccessWords(...).words).",
-      "status": "open",
+      "fix": "Fixed: get_settings (area facebook_instagram) gives each account its badge, what’s wrong and what fixes it, and whether its lead ads’ leads come in, in the screen’s words. metaAccountTrouble and metaAccountBadge are in @hfos/core beside leadsAccessWords, and the screen uses them.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3085,8 +3085,8 @@
       "kind": "do",
       "where": "Settings → Texting & calls → \"I already have a number I want to keep\": GoHighLevel's \"Check\" then \"Start watching for it\"; My own Twilio account: \"Show its numbers\", \"Bring it here\", Disconnect",
       "gap": "Three steps are worker endpoints that no Assistant tool calls: the HighLevel \"Check\" (lookupNumberHost, /v1/telephony/number-host), listing a connected Twilio account's numbers for \"Bring it here\" (listTwilioNumbers, /v1/telephony/twilio/numbers), and Disconnect (disconnectTwilio, /v1/telephony/twilio/disconnect). Because they aren't commands, the coverage test doesn't see them. read_twilio_connection_list shows the connections, but not their numbers. Disconnecting isn't a sign-in, so no settled rule covers it.",
-      "fix": "Add risk-0 tools `check_number_host` (e164 → where the number is, and whether it's in Twilio) and `list_twilio_numbers` (connectionId → numbers with sids), implemented with the worker's number-host and twilio/numbers logic. Add a risk-2 `disconnect_twilio_account` (connectionId), with the warning \"HandsFreeOS forgets this Twilio account; numbers already brought here stay\". Name all three in settings-map.ts texting canChange. Connecting the account stays the person's.",
-      "status": "open",
+      "fix": "Fixed: check_number_host says where a number is, whether it’s in Twilio and how it would come here (with the keep-it-active and outside-US warnings); list_twilio_numbers lists a connected account’s numbers with what each is used by and whether it’s here or on its way; disconnect_twilio_account forgets one on a card that says its numbers here stay. They run the worker’s own number-import logic, as the person, with its permission checks. Connecting an account stays the person’s, with a handover.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3095,8 +3095,8 @@
       "kind": "do",
       "where": "Settings → Website chat → Look: Greeting (up to 500 characters, can be left empty); first set-up starts with \"Hi, thanks for stopping by. How can we help?\"",
       "gap": "manage_website_chat.greeting is text(300), which is min 1 and max 300 (tool-kit.ts:24, tools.ts:772). ChatWidgetUpdate's greeting allows up to 500 characters and null (schemas/chat.ts:64-69, 82). So the Assistant can't clear the greeting, and refuses one of 301-500 characters that the screen takes. The worker's lookOf also drops an empty greeting through str(). On create, chat_widget.create stores greeting ?? null (commands/chat-widget.ts:106). The screen's set-up fills in 'Hi, thanks for stopping by. How can we help?' (website-chat-page.tsx:398), so a chat the Assistant makes starts with no greeting.",
-      "fix": "In packages/core/src/assistant/tools.ts:772, make greeting `z.string().trim().max(500).nullable().optional().describe('Empty or null shows no greeting')`. In apps/worker/src/assistant/tools-settings-channels.ts lookOf, pass '' or null through. On create in manageWebsiteChat.commit, default greeting to a core constant CHAT_DEFAULT_GREETING, which website-chat-page.tsx:398 then also uses.",
-      "status": "open",
+      "fix": "Fixed: manage_website_chat’s greeting takes up to 500 characters, and an empty one clears it as emptying the box does (the card shows None). A new chat starts with the greeting the screen’s set-up fills in.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3105,8 +3105,8 @@
       "kind": "words",
       "where": "Settings → Templates: tabs \"In use (N)\" and \"Put away (N)\", buttons \"Put away\" and \"Restore\"",
       "gap": "Put-away templates aren't invisible: list_archived_setup returns archived templates with ids (packages/core/src/assistant/tools-setup.ts:172-176; worker tools-setup.ts:2536), and manage_template's description points to it. What's real is the wording. The Assistant says \"archive\" and \"bring back\" (settings-map.ts:665, manage_template tools-setup.ts:184, and worker outcomes such as \"Archive the … template?\"). The screen says Put away and Restore, with the tabs \"In use (N)\" and \"Put away (N)\" (templates-editor.tsx:102-124, 178). settings-map templates onScreen doesn't mention the tabs.",
-      "fix": "In settings-map.ts templates, set onScreen to ['Templates, with the tabs In use and Put away, by folder', 'New template (Name, Send as, Subject, Message, Folder)', 'Put away and Restore on each'] and canChange to 'add, change, put away or restore a template'. Use \"Put away\" and \"Restore\" in manage_template's description and in its card titles and outcomes in apps/worker/src/assistant/tools-setup.ts (around 1278-1390).",
-      "status": "open",
+      "fix": "Fixed: settings-map templates names the tabs In use and Put away, and Put away and Restore on each. manage_template and its cards say Put away and Restore.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3115,8 +3115,8 @@
       "kind": "read",
       "where": "Settings → Email → \"Mail from people not in Contacts\" (up to 50 shown)",
       "gap": "list_unmatched_email asks email.unmatched_list for limit 20, ignores nextCursor and reports count as items.length (apps/worker/src/assistant/tools-setup.ts:2545-2556). The screen loads 50 (settings/email/page.tsx:29). With more than 20 waiting, the Assistant says there are 20 and never sees the rest. The same file already has a pages() helper that follows cursors (tools-setup.ts:1867-1882).",
-      "fix": "In apps/worker/src/assistant/tools-setup.ts list_unmatched_email, use pages<Unmatched>(db, ctx, 'email.unmatched_list') instead of the single 20-row query. Or query limit 50 and return hasMore: nextCursor !== null with a note that more are on Settings → Email.",
-      "status": "open",
+      "fix": "Fixed: list_unmatched_email pages through every unmatched email, as the screen does, and counts them all.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3125,8 +3125,8 @@
       "kind": "words",
       "where": "Settings → Facebook & Instagram (the area as a whole)",
       "gap": "The model does see the area. get_settings' input is z.enum(SETTINGS_AREAS), and SETTINGS_AREAS includes 'facebook_instagram' (settings-map.ts:39), so the area is in the tool's schema. Only the prose list in the description leaves it out. That list also leaves out branded domain, main offer, add-ons, relationships, the Deleted bin, booking site, resources, partners, safety and usage.",
-      "fix": "In packages/core/src/assistant/tools.ts:344, add to get_settings' description list: \"Facebook & Instagram (connected Pages and Instagram accounts, lead ads)\". While there, add the other areas the enum has but the prose omits (web address, main offer, add-ons, kinds of records and relationships, the Deleted bin, booking page, partners, check-ins).",
-      "status": "open",
+      "fix": "Fixed: get_settings’ description lists every area, Facebook & Instagram among them.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3135,8 +3135,8 @@
       "kind": "words",
       "where": "Settings → Email: \"Another domain\", \"Who reads it\", \"Name customers see\" (saves on every address), \"Make default\", \"Stop receiving here\", and the order of the right column (Mailboxes, Where senders' mail goes, Blocked addresses, Mail from people not in Contacts)",
       "gap": "onScreen already covers \"the name customers see, which address is the default, and who reads each one\" (settings-map.ts:532), and canChange covers receiving or stopping. These are missing: \"Another domain\" (email-page.tsx:503-528), the label \"Stop receiving here\" (980), and the right column's real order, which is Mailboxes, Where senders’ mail goes, Blocked addresses, Mail from people not in Contacts (1501-1504). There's also a behavioural difference the finding didn't name. The screen saves \"Name customers see\" on every address at once (email-page.tsx:137-147), while manage_email_settings change_address changes one address's displayName. And once an address is one person's, the screen offers no way back (\"Only X reads it\" with no picker, 225-226), which the own-address card warning doesn't say.",
-      "fix": "Rewrite settings-map.ts email onScreen in the screen's order: 'Sending address: Name customers see (one name, on every address), Make default, and Who reads it', 'Use your own domain: Add domain, Add address, Check now, Remove domain, Receive mail here too and Stop receiving here; Another domain for a second one', 'Connected mailboxes', 'Where senders’ mail goes', 'Blocked addresses', 'Mail from people not in Contacts'. Make manage_email_settings displayName set every address, as the screen does. Add to ownWarning (tools-settings-channels.ts:377-378): \"It stays theirs while they work here.\"",
-      "status": "open",
+      "fix": "Fixed: settings-map email onScreen follows the screen’s order: the sending address with Name customers see on every address, Make default and Who reads it; your own domain with Add domain, Add address, Check now, Remove domain, Receive mail here too and Stop receiving here, and Another domain.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -3145,8 +3145,8 @@
       "kind": "words",
       "where": "Settings → Texting & calls → RCS: \"Stop renewing\" and \"Change the details\"",
       "gap": "The Assistant can do both, and its tool says so. do_rcs_request_cancel is offered (coverage.ts:187), and its description, which comes from the command, reads \"Give up on an RCS request that hasn’t been paid, or stop a paid one renewing: RCS stays on until the year paid for ends…\" (commands/rcs-request.ts:231-233). So it won't say it can't stop renewing. What's missing is that settings-map texting canChange and onScreen name neither \"Stop renewing\" nor \"Change the details\". Nothing tells it that Change the details is a cancel followed by asking again, which is paid on Stripe and so stays the person's. SETTING_TOOLS 'texting.rcs' (coverage.ts:587-591) doesn't list do_rcs_request_cancel either.",
-      "fix": "Add 'stop RCS renewing, or cancel an unpaid RCS request so its details can be changed (asking again and paying stay with you)' to settings-map.ts texting canChange (after line 504). Add 'RCS messaging: Stop renewing, Change the details' to onScreen. Add { tool: 'do_rcs_request_cancel', field: 'workspaceId' } (or its only field) to SETTING_TOOLS 'texting.rcs'.",
-      "status": "open",
+      "fix": "Fixed: settings-map texting canChange says I can stop RCS renewing, or cancel an unpaid request so its details can be changed (asking again and paying stay with the person), and onScreen names Stop renewing and Change the details. No SETTING_TOOLS row: do_rcs_request_cancel has no field once the business is put on server-side.",
+      "status": "fixed",
       "pr": null
     }
   ]

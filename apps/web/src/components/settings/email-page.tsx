@@ -1,5 +1,11 @@
 'use client';
-import { firstName, MAX_EMAIL_DOMAINS, type SettingKey } from '@hfos/core';
+import {
+  firstName,
+  MAX_EMAIL_DOMAINS,
+  relativeHost,
+  RETURN_PATH_DEFAULT,
+  type SettingKey,
+} from '@hfos/core';
 import { AtSign, CircleAlert, Globe, Lock, Plus, RotateCw, Users, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -56,10 +62,6 @@ function ago(iso: string): string {
   if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
   return shortDate(iso);
 }
-
-/** The DNS name to type at the provider: relative to the domain, as most providers want it. */
-const relativeHost = (host: string, domain: string) =>
-  host.toLowerCase().endsWith(`.${domain}`) ? host.slice(0, -(domain.length + 1)) : host;
 
 function Section({
   title,
@@ -729,7 +731,7 @@ function OwnDomain({
                 type="CNAME"
                 purpose="Handles bounces (Return-Path)"
                 host={domain.returnPathHost!}
-                value={domain.returnPathValue ?? 'pm.mtasv.net'}
+                value={domain.returnPathValue ?? RETURN_PATH_DEFAULT}
                 verified={!!domain.returnPathVerifiedAt}
                 domain={domain.domain}
               />

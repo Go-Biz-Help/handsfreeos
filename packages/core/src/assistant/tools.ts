@@ -8,6 +8,7 @@ import { timezone, uuid } from '../schemas/common';
 import { RichInput } from '../schemas/rcs';
 import { IntakeChannelKind } from '../schemas/intake';
 import { BusinessAddress } from '../onboarding-setup/address';
+import { SENSITIVE_TOPIC_IDS, SENSITIVE_TOPICS } from '../messaging/a2p';
 import { SETTINGS_AREAS } from './settings-map';
 import {
   clock,
@@ -436,7 +437,7 @@ export const assistantTools = [
   define({
     name: 'get_settings',
     description:
-      'How one part of the business is set up right now, and where it is on screen: the business itself (with its logo and colour, and Your page with its link), its own web address, its calendars, services, territories, pipelines, tags, fields, kinds of records and relationships, the Deleted bin, members, permissions, texting, email, website chat, templates, lead intake, payments, products, balance, automations, AI teammate, knowledge base, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
+      'How one part of the business is set up right now, and where it is on screen: the business itself (with its logo and colour, and Your page with its link), its own web address, its main offer, add-ons, calendars, services, resources, territories, booking page, pipelines, tags, fields, kinds of records and relationships, the Deleted bin, members, permissions, texting, email, website chat, Facebook & Instagram (connected Pages and Instagram accounts, and their lead ads), templates, lead intake, payments, products, partners, balance and usage, automations, AI teammate, knowledge base, check-ins, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup to read'),
       toChange: z
@@ -840,7 +841,9 @@ export const assistantTools = [
         )
         .max(3)
         .optional()
-        .describe('Up to three phones that ring with the browsers'),
+        .describe(
+          'Every phone that rings with the browsers, up to three. This list replaces the one there, so read it with get_settings (area texting) and keep the phones that stay',
+        ),
       ringSeconds: z.int().min(10).max(25).optional(),
       voicemailEnabled: z.boolean().optional(),
       voicemailGreeting: text(500).nullable().optional(),
@@ -905,40 +908,110 @@ export const assistantTools = [
     permission: 'channels.manage',
   }),
   define({
-    name: 'submit_carrier_registration',
+    name: 'send_test_text',
     description:
-      'Send the carrier registration that turns texting on. Ask for every part in plain words, a question or two at a time, and read back what you have before sending. Local numbers need at least two example texts. Approval is the carriers’ and takes a few days. It goes only when its last step in Settings → Texting & calls has checked these exact details all green (rule registration_not_checked or registration_not_green otherwise): then send the person there to check it, and to press “Ask HandsFreeOS to check it” if something won’t go green.',
+      'Text a test from the business number, as Text me a test on Settings → Texting & calls does: “This is a test text from <business> on HandsFreeOS. Replies land in the inbox.” It goes to the person’s own confirmed cell unless they give another phone. In quiet hours it is refused (rule quiet_hours): say so, and send it again with duringQuietHours only if they still want it now.',
     input: z.object({
-      kind: z
-        .enum(['a2p_10dlc', 'toll_free_verification'])
-        .describe('a2p_10dlc for a local number'),
-      legalName: text(120).describe(
-        'The legal name exactly as on the IRS letter, with LLC or Inc, even when customers know the business by another name (a DBA): the carriers are told the name customers know as well',
-      ),
-      businessType: z.enum(['llc', 'corporation', 'sole_proprietor', 'partnership', 'non_profit']),
-      ein: text(10)
-        .nullable()
+      toPhone: text(20)
         .optional()
-        .describe('The 9-digit EIN; not needed for a sole proprietor'),
-      website: z.url().max(200),
-      addressLine1: text(200),
-      city: text(100),
-      state: text(2).describe('The two-letter state'),
-      postalCode: text(10),
-      contactFirstName: text(60),
-      contactLastName: text(60),
-      contactEmail: z.email().max(254),
-      contactPhone: text(20),
-      useCase: z.enum(['customer_care', 'mixed', 'marketing']),
-      messageSamples: z
-        .array(text(320))
-        .min(1)
-        .max(5)
-        .describe('Real examples of texts you send customers'),
-      optInDescription: text(1000).describe('How customers agree to get texts from you'),
-      monthlyVolume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']),
+        .describe('The phone to text, like +17135551212; leave it out for the person’s own cell'),
+      duringQuietHours: z
+        .boolean()
+        .optional()
+        .describe('true only after the person said to send it anyway during quiet hours'),
     }),
     autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'fill_in_carrier_registration',
+    description:
+      'Fill in the carrier registration that turns texting on, in the same saved answers its steps in Settings → Texting & calls pick up: give only what the person told you, and the rest stays as they left it (their saved answers are read_registration_get_draft, under form). Ask in plain words, a question or two at a time, and read back what you saved. Nothing goes to the carriers from here: its last step, Before it goes, checks the website, privacy policy, terms and sign-up page, takes the ticks only the person gives, and sends once it’s all green. When something won’t go green, do_registration_request_review asks HandsFreeOS to check it by hand. Other ways customers agree are added on its How customers agree step. When customers know the business by another name (a DBA), the carriers are told “<legal name> (doing business as <name>)”: use the legal name’s EIN and the address on its IRS letter, show both names on the website (at the bottom of every page: “<name> is owned and run by <legal name>.”), and sign the samples with the name customers see. Already registered in another business here? Use the same legal name, EIN and address.',
+    input: z.object({
+      legalName: text(120)
+        .optional()
+        .describe(
+          'The legal name exactly as on the IRS letter, with LLC or Inc, even when customers know the business by another name',
+        ),
+      businessType: z
+        .enum(['llc', 'corporation', 'sole_proprietor', 'partnership', 'non_profit'])
+        .optional(),
+      ein: text(10)
+        .optional()
+        .describe(
+          'The 9-digit EIN on the IRS letter. A sole proprietor has none, and the carriers allow them far less texting: with an EIN, pick the kind of company it belongs to instead',
+        ),
+      website: z.url().max(200).optional(),
+      line1: text(200)
+        .optional()
+        .describe(
+          'The street address the IRS has for the EIN, not necessarily where they work today',
+        ),
+      city: text(100).optional(),
+      state: text(2).optional().describe('The two-letter state'),
+      postalCode: text(10).optional(),
+      contactFirst: text(60).optional(),
+      contactLast: text(60).optional(),
+      contactEmail: z.email().max(254).optional(),
+      contactPhone: text(20).optional(),
+      useCase: z
+        .enum(['customer_care', 'mixed', 'marketing'])
+        .optional()
+        .describe(
+          'customer_care: appointments and answering customers; mixed: that and some marketing; marketing',
+        ),
+      volume: z.enum(['under_1000', '1000_10000', '10000_100000', 'over_100000']).optional(),
+      sensitive: z
+        .array(z.enum(SENSITIVE_TOPIC_IDS))
+        .optional()
+        .describe(
+          `Topics the carriers treat differently that the texts touch, [] for none of these: ${SENSITIVE_TOPICS.map((t) => `${t.id} (${t.label})`).join(', ')}`,
+        ),
+      samples: z
+        .array(text(320))
+        .min(1)
+        .max(2)
+        .optional()
+        .describe('Two texts the business would really send customers, with its name in them'),
+      optInPath: z
+        .enum(['hosted', 'own_site', 'in_person'])
+        .optional()
+        .describe(
+          'How customers agree: hosted (the sign-up page HandsFreeOS hosts), own_site (a box on a page of their own website, optInUrl) or in_person (in person or on the phone, with optInProofUrl)',
+        ),
+      optIn: text(1000)
+        .optional()
+        .describe(
+          'What we will tell the carriers about how customers agree, in the business’s words. Left out, How customers agree writes it from the way picked when the person opens it there',
+        ),
+      optInUrl: z.url().max(500).optional().describe('own_site: the page with the box on it'),
+      optInProofUrl: z
+        .url()
+        .max(500)
+        .optional()
+        .describe(
+          'in_person: a link anyone can open to a photo of the sign-up sheet or the words said',
+        ),
+      ownPolicyUrl: z
+        .url()
+        .max(500)
+        .nullable()
+        .optional()
+        .describe('Their own privacy policy, or null for the one HandsFreeOS hosts for them'),
+      ownTermsUrl: z
+        .url()
+        .max(500)
+        .nullable()
+        .optional()
+        .describe('Their own terms, or null for the ones HandsFreeOS hosts for them'),
+      policyEmail: z
+        .email()
+        .max(254)
+        .optional()
+        .describe('How customers reach the business, as the hosted policy and terms say'),
+      policyPhone: text(20).optional(),
+    }),
+    autonomy: 'auto',
     permission: 'channels.manage',
   }),
   define({
@@ -1014,7 +1087,15 @@ export const assistantTools = [
         .describe(
           'The most new chats it takes a day, so a flood of strangers can’t use up AI time',
         ),
-      greeting: text(300).optional(),
+      greeting: z
+        .string()
+        .trim()
+        .max(500)
+        .nullable()
+        .optional()
+        .describe(
+          'Empty or null shows no greeting; a new chat starts with “Hi, thanks for stopping by. How can we help?”',
+        ),
       buttonLabel: text(40).optional(),
       color: z
         .string()

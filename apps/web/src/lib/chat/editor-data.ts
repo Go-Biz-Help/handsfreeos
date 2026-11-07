@@ -4,7 +4,7 @@
  * business's chats, its AI teammate and which chat that answers, its own domain for the snippet, its website to start
  * a new chat from, and its logo for the top of the chat.
  */
-import { can, lookOf } from '@hfos/core';
+import { can, lookOf, teammateAnswersChat } from '@hfos/core';
 import type { ChatBrand, ChatTeammate } from '@/components/settings/website-chat-page';
 import type { ChatWidget } from '@/lib/api/types';
 import { apiServer, unwrapPage } from '@/lib/api/server';
@@ -77,6 +77,6 @@ export function teammateFor(data: ChatEditorData, widget: ChatWidget | null): Ch
     id: t.id,
     name: t.name,
     status: t.status,
-    answersChat: t.chatOn && !!widget && (t.widgetId === null || t.widgetId === widget.id),
+    answersChat: !!widget && teammateAnswersChat(t, widget.id),
   };
 }

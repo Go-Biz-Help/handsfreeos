@@ -36,6 +36,7 @@ import { ownArguments, scopeIds, staffArguments } from './tools-screen-reads';
 import { settingsCard } from './tools-settings-calendar';
 import { funnelScreenCards } from './tools-funnels';
 import { documentScreenCards } from './tools-documents';
+import { emailScreenCards } from './tools-settings-channels';
 import { workflowScreenCards, type ScreenActionCard } from './tools-workflow';
 
 type Args = Record<string, unknown>;
@@ -46,7 +47,16 @@ const OWN_CARDS: Readonly<Record<string, ScreenActionCard>> = {
   ...funnelScreenCards,
   // Sending, voiding and reminding a document, naming it and who gets it.
   ...documentScreenCards,
+  // Giving a left person's address to the team or someone else, saying what that changes.
+  ...emailScreenCards,
 };
+
+/** A choice the Assistant is never offered (coverage.ts), refused by name whatever the model asked. */
+function refuseNotOffered(tool: ScreenActionTool, args: Args): void {
+  const never = tool.notOffered;
+  if (never && never.values.includes(String(args[never.field])))
+    throw HfosError.rule('not_for_the_assistant', 403, never.why);
+}
 
 /** The most of an answer, in characters of JSON, the model reads whole. */
 const MOST = 16_000;
@@ -128,6 +138,7 @@ export async function runScreenAction(
   ctx: ToolContext,
 ): Promise<ToolOutcome> {
   if (tool.autonomy !== 'auto') throw new Error(`${tool.name} waits for the person’s OK`);
+  refuseNotOffered(tool, args);
   const done = await executeCommand(
     db,
     tool.command,
@@ -156,6 +167,7 @@ export async function prepareScreenAction(
   /** The web app's address, for the address of the business's page the setup's chat goes on. */
   webUrl = '',
 ): Promise<PreparedAction> {
+  refuseNotOffered(tool, args);
   // The guided setup's saves take the screens' whole answers: the model's go over the ones kept (setup-screens.ts).
   // A staff command gets what its screen puts on, and keeps what the model leaves out (staff-cards.ts).
   const given = {
@@ -291,6 +303,7 @@ export async function commitScreenAction(
   /** The card's own id, which a staff credit's reference is made from, as it was when the card was drawn. */
   toolCallId = '',
 ): Promise<CommittedAction> {
+  refuseNotOffered(tool, args);
   // Over the answers kept now, so only what the card showed changing changes.
   const given = {
     ...(await inputOf(db, tool, args, ctx)),

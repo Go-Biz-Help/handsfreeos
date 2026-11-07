@@ -3,3 +3,4 @@ export * from './origins';
 export * from './look';
 export * from './limits';
 export * from './snippet';
+export * from './install';

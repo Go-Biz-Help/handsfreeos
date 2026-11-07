@@ -8,6 +8,7 @@
  * A form's key is public and can be read back at any time; an app's secret key is shown once when it is made
  * or replaced, and after that only its last four characters.
  */
+import { intakeCurlExample, intakeFormSnippet } from '@hfos/core';
 import {
   Boxes,
   BriefcaseBusiness,
@@ -134,26 +135,10 @@ const isChannel = (kind: IntakeKind): kind is IntakeChannel =>
   kind === 'facebook_lead_ad' ||
   kind === 'indeed';
 
-/** Where a form posts, and where an app sends. */
-const formUrl = (key: string) => `${publicEnv.workerUrl}/intake/f/${key}`;
-const apiUrl = () => `${publicEnv.workerUrl}/v1/intake`;
-
+/** The form to paste, and how an app sends one lead, with the worker's address (core's, as the Assistant gives them). */
 const snippetFor = (key: string, redirect: string | null) =>
-  `<form action="${formUrl(key)}" method="POST">
-  <input name="name" placeholder="Your name" required />
-  <input name="phone" type="tel" placeholder="Phone" />
-  <input name="email" type="email" placeholder="Email" />
-  <textarea name="message" placeholder="What do you need?"></textarea>
-  <!-- Robots fill this in; people never see it. -->
-  <input name="website" tabindex="-1" autocomplete="off" style="display:none" />
-  <button type="submit">Send</button>
-</form>${redirect ? `\n<!-- Afterwards they land on ${redirect} -->` : ''}`;
-
-const curlFor = () =>
-  `curl -X POST ${apiUrl()} \\
-  -H "Authorization: Bearer YOUR_KEY" \\
-  -H "Content-Type: application/json" \\
-  -d '{"name":"Dana Reyes","phone":"512-555-0134","email":"dana@example.com","message":"Need a quote"}'`;
+  intakeFormSnippet(publicEnv.workerUrl, key, redirect);
+const curlFor = () => intakeCurlExample(publicEnv.workerUrl);
 
 export function LeadIntakeSettings({
   workspaceId,

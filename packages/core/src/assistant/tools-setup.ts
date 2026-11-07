@@ -201,7 +201,7 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_template',
     description:
-      'Add, change, archive or bring back a template: saved wording for a text or an email that the inbox’s reply box can put in. It can use the same {{placeholders}} a workflow does, like {{person.first_name}}. Nothing is sent. Ids are in get_settings (area templates); archived ones in list_archived_setup.',
+      'Add, change, put away (archive) or restore a template, as Settings → Templates does: saved wording for a text or an email that the inbox’s reply box can put in. It can use the same {{placeholders}} a workflow does, like {{person.first_name}}. Nothing is sent. Ids are in get_settings (area templates); the ones under Put away are in list_archived_setup.',
     input: z.object({
       action: z.enum(['create', 'change', 'archive', 'restore']),
       templateId: uuid.optional(),
@@ -322,7 +322,7 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_rcs',
     description:
-      'Change the business’s RCS sender once it is connected: pause it (every text goes as SMS or MMS), turn it back on, choose the number a customer’s first RCS message starts its conversation on, ask Twilio where it stands now, or disconnect it. Connecting the sender HandsFreeOS made for the business, by its id, is do_rcs_sender_connect; asking for one is paid on Stripe’s page, which only the person can do. Where it stands is in get_settings (area texting).',
+      'Change the business’s RCS sender once it is connected: pause it (every text goes as SMS or MMS), turn it back on, choose the number a customer’s first RCS message starts its conversation on, ask Twilio where it stands now, or disconnect it. Connecting the sender HandsFreeOS made for the business, by its senderId from list_rcs_senders, is do_rcs_sender_connect; asking for one is paid on Stripe’s page, which only the person can do. Where it stands is in get_settings (area texting).',
     input: z.object({
       action: z.enum(['pause', 'turn_on', 'start_on_number', 'check_now', 'disconnect']),
       phoneNumberId: uuid
@@ -330,6 +330,48 @@ export const setupTools: readonly AssistantTool[] = [
         .optional()
         .describe('For start_on_number; null is the default number'),
     }),
+    autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'list_rcs_senders',
+    description:
+      'The RCS senders in the business’s own phone account, as the connect form on Settings → Texting & calls lists them: each one’s senderId (what do_rcs_sender_connect takes), its name and where Twilio has it. None means HandsFreeOS hasn’t made one yet; asking for one is paid on Stripe’s page, which only the person can do.',
+    input: z.object({}),
+    autonomy: 'auto',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'get_phone_account',
+    description:
+      'Phone & texting as Settings → Texting & calls shows it: on, turning on or off, why it couldn’t turn on, the business’s own Account SID and HandsFreeOS’s parent Account SID (what HighLevel’s or Twilio’s move form asks for when a number moves here), and the numbers already sitting in the business’s account that aren’t set up here yet. Bring one of those in with do_number_import_start. Turning Phone & texting on or off is do_telephony_enable and do_telephony_disable.',
+    input: z.object({}),
+    autonomy: 'auto',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'check_number_host',
+    description:
+      'Who hosts a phone number today, as Bring a number’s Check does: the carrier, whether it sits in Twilio (as a HighLevel or LeadConnector number does, so it can move account to account in days rather than a carrier port’s weeks), and whether it is already here. A carrier lookup costs a little, so it runs a handful a minute.',
+    input: z.object({
+      e164: text(20).describe('The number, like +17135551212'),
+    }),
+    autonomy: 'auto',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'list_twilio_numbers',
+    description:
+      'The numbers in a Twilio account the organization connected (Bring it here, on Settings → Texting & calls): each number, who uses it today (HighLevel shows up by its webhooks), and whether it is already here or on its way to one of the organization’s businesses. Only the organization’s owners and admins may, because the account can hold every one of its businesses’ numbers. Connected accounts are read_twilio_connection_list. Connecting one is the person’s own, on that page: its auth token never goes in a chat.',
+    input: z.object({ connectionId: uuid }),
+    autonomy: 'auto',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'disconnect_twilio_account',
+    description:
+      'Let a connected Twilio account go, as its Disconnect on Settings → Texting & calls does: HandsFreeOS forgets the account and what it was opened with, and numbers already brought here or on their way stay. Only the organization’s owners and admins may. Connecting it again is the person’s own, on that page.',
+    input: z.object({ connectionId: uuid }),
     autonomy: 'confirm',
     permission: 'channels.manage',
   }),

@@ -160,10 +160,19 @@ describe('Settings → Website chat', () => {
       settings.input.parse({ area: 'website_chat' }) as Record<string, unknown>,
       ctx(),
     );
-    const listed = (got.result as { websiteChat: { items: { id: string; snippet: string }[] } })
-      .websiteChat.items;
+    const listed = (
+      got.result as {
+        websiteChat: {
+          items: { id: string; snippet: string; tryIt: string; whoAnswers: string }[];
+        };
+      }
+    ).websiteChat.items;
     const snippet = `<script async src="${WEB}/embed/v1/${made.publicKey}.js"></script>`;
-    expect(listed.find((w) => w.id === made.id)?.snippet).toBe(snippet);
+    const mine = listed.find((w) => w.id === made.id)!;
+    expect(mine.snippet).toBe(snippet);
+    // Try it, whole on the web app's address (a signed-in page of ours), and who answers it now.
+    expect(mine.tryIt).toBe(`${WEB}/chat-preview/${made.publicKey}?w=${workspaceId}`);
+    expect(mine.whoAnswers).toBe('Your team answers from the inbox.');
     const screen = allScreenReadTools().find((t) => t.name === 'read_chat_widget_get')!;
     const read = await executor.run(
       screen,
@@ -245,6 +254,8 @@ describe('Settings → Website chat', () => {
     await commit({ action: 'create', websites: [`es.${site}`], name: 'Spanish site' });
     const items = await chats();
     expect(items.map((w) => w.name)).toEqual(['Main website', 'Spanish site']);
+    // A chat made without a greeting starts with the one the screen's set-up fills in.
+    expect(items[1]!.greeting).toBe('Hi, thanks for stopping by. How can we help?');
     // Changing without naming one still changes the first, as Settings → Website chat shows it.
     expect((await chat())!.name).toBe('Main website');
   });
@@ -297,6 +308,16 @@ describe('Settings → Website chat', () => {
 
     await commit(args);
     expect((await chat())!.teammate?.name).toBe('Ava');
+    // A plain read says the same: naming Ava isn't enough while she's off or her Website chat channel is.
+    const settings = assistantToolByName.get('get_settings')!;
+    const got = await createToolExecutor(api(), null, null, WEB).run(
+      settings,
+      settings.input.parse({ area: 'website_chat' }) as Record<string, unknown>,
+      ctx(),
+    );
+    const first = (got.result as { websiteChat: { items: { whoAnswers: string }[] } }).websiteChat
+      .items[0]!;
+    expect(first.whoAnswers).toMatch(/^Ava.* so your team answers/);
 
     await commit({ action: 'change', answeredByAi: false });
     expect((await chat())!.teammate).toBeNull();
@@ -308,6 +329,14 @@ describe('Settings → Website chat', () => {
     expect((await chat())!.paused).toBe(false);
     await commit({ action: 'turn_off' });
     expect((await chat())!.paused).toBe(true);
+  });
+
+  it('clears the greeting when asked, as emptying its box does', async () => {
+    const { card } = await prepare({ action: 'change', greeting: '' });
+    expect(field(card, 'Greeting')).toBe('None');
+    expect((await chat())!.greeting).not.toBeNull();
+    await commit({ action: 'change', greeting: null });
+    expect((await chat())!.greeting).toBeNull();
   });
 
   it('asks what to change when nothing is given', async () => {

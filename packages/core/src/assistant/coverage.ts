@@ -44,6 +44,16 @@ export interface ScreenAction {
    * in. The executor checks it is one of the agency's before putting it on, and the card names it.
    */
   readonly forBusiness?: string;
+  /**
+   * Choices of one part of its input the Assistant is never offered, and why (removing a left person's address with
+   * its mail, for good): left out of the tool's input, so the model can't pick them, and refused by the executor if
+   * asked anyway.
+   */
+  readonly notOffered?: {
+    readonly field: string;
+    readonly values: readonly string[];
+    readonly why: string;
+  };
 }
 
 /**
@@ -220,7 +230,6 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       'This closes the business’s phone account for good. Turning it on again makes a new one.',
   },
   'phone_number.set_recording_notice': {},
-  'registration.save_draft': {},
   'registration.request_review': {
     warning:
       'This opens a ticket asking HandsFreeOS to check the texting registration by hand, with what isn’t green. Nothing goes to the carriers until HandsFreeOS approves it.',
@@ -246,7 +255,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'Mail sent to this domain stops arriving here. Point its MX record somewhere else first.',
   },
-  'email_address.reassign': {},
+  // Giving a left person's address to the team or someone else; its own card says what that changes (email-1).
+  'email_address.reassign': {
+    about:
+      'to is team (everyone who reads email here) or person, with userId from list_team. Removing it is the person’s own: Remove it, on Settings → Email.',
+    notOffered: {
+      field: 'to',
+      values: ['remove'],
+      why: 'Removing it deletes the address and every conversation on it for good, which stays the person’s (the owner, 2026-10-26): Remove it, under the address on Settings → Email.',
+    },
+  },
   'email_sender_rule.remove': {},
   // ---- Settings → Website chat, Facebook & Instagram ----
   'chat_widget.rotate_key': {
@@ -506,6 +524,11 @@ export interface NotYet {
 
 export const ASSISTANT_NOT_YET: readonly NotYet[] = [
   {
+    page: 'Settings → Texting & calls',
+    actions: ['registration.submit'],
+    why: 'Sending the texting registration goes with the ticks on Before it goes that only the business gives, after the checks that step runs on those exact details. The Assistant fills in the answers (fill_in_carrier_registration) and asks HandsFreeOS to check it by hand when it won’t go green (do_registration_request_review); the person sends it from Before it goes.',
+  },
+  {
     page: 'Settings → Safety (phone)',
     actions: ['safety.check_in', 'safety.help', 'safety_contact.save', 'safety_contact.remove'],
     why: 'Found when the check began reading the phone’s own changes (6 November). Checking in, asking for help and choosing who is told are the phone’s safety screens, still to be checked for what the Assistant may do there.',
@@ -672,10 +695,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'do_number_import_start', field: 'e164' },
   ],
   // The campaign fee is paid on Stripe's page (texting_fee.pay is on the Never list).
-  'texting.registration': [
-    { tool: 'submit_carrier_registration', field: 'kind' },
-    { tool: 'do_registration_save_draft', field: 'answers' },
-  ],
+  'texting.registration': [{ tool: 'fill_in_carrier_registration', field: 'legalName' }],
   // Asking for a sender is paid on Stripe's page (rcs_request.submit is on the Never list); HandsFreeOS makes it.
   'texting.rcs': [
     { tool: 'do_rcs_sender_connect', field: 'senderId' },
