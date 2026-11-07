@@ -6,6 +6,9 @@
  */
 import {
   ADDON_CATALOG,
+  ADDON_MOVE_WORDS,
+  ADDON_PAGE_WORDS,
+  addonHoldsLines,
   BIN_WORDS,
   binContentsTotal,
   binDeleteBox,
@@ -52,6 +55,8 @@ interface Impact {
   refusal: { rule: string; message: string } | null;
   optionalFor: { addonId: string; name: string }[];
   capabilitiesLost: { id: string; label: string }[];
+  /** What it has here: the records kept, what it had scheduled, what it holds outside HandsFreeOS. */
+  holds: Parameters<typeof addonHoldsLines>[1];
 }
 
 const MOVE_WORDS: Record<string, string> = {
@@ -78,6 +83,10 @@ const manageAddOn: SettingsConfirmTool = {
     const self = impact.moves.find((m) => m.addonId === args['addonId']);
     const name = self?.name ?? String(args['addonId']);
     const others = impact.moves.filter((m) => m.addonId !== args['addonId']);
+    const holds =
+      act === 'turn_off' || act === 'uninstall'
+        ? addonHoldsLines(LIFECYCLE[act], impact.holds)
+        : [];
     const fields: Field[] = [
       { label: 'Add-on', value: name },
       ...others.map((m) => ({ label: MOVE_WORDS[m.action] ?? 'Also', value: m.name })),
@@ -97,6 +106,8 @@ const manageAddOn: SettingsConfirmTool = {
             },
           ]
         : []),
+      // As the page's confirm says it: the records kept, what it had scheduled that's cancelled, what it lets go of.
+      ...(holds.length ? [{ label: ADDON_PAGE_WORDS.whatItHolds, value: holds.join(' ') }] : []),
     ];
     const titles: Record<Move, string> = {
       install: `Add ${name}`,
@@ -108,10 +119,9 @@ const manageAddOn: SettingsConfirmTool = {
       install: 'It turns on for everyone in the business once it’s set up, in a minute or so.',
       turn_on:
         'It comes back for everyone in the business, with its data and settings as they were.',
-      turn_off:
-        'Its screens and records are hidden from everyone in the business. Its data and settings are kept for when it comes back.',
-      uninstall:
-        'It stops for everyone, and lets go of what it holds outside HandsFreeOS. Its data is kept until an owner deletes it on the Add-ons page.',
+      // The page's own words for what confirming does.
+      turn_off: ADDON_MOVE_WORDS.disable.consequence ?? '',
+      uninstall: ADDON_MOVE_WORDS.uninstall.consequence ?? '',
     };
     return {
       card: settingsCard(toolCallId, 'manage_add_on', {

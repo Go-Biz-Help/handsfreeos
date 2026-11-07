@@ -146,7 +146,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'review_connection.disconnect': {},
   'review_connection.sync_now': {},
   // ---- Ideas ----
-  'idea.edit': { offeredTo: 'assistant.use' },
+  'idea.edit': {
+    offeredTo: 'assistant.use',
+    about:
+      'Read the idea with find_ideas first and pass all three as it gives them (title, its details as body, areaId), with only what was asked changed: details left out are cleared.',
+  },
   'idea.set_comment_hidden': { offeredTo: 'assistant.use' },
   // ---- Agency area: the organization's own permission, checked by the kernel; offered as the agency's own tools are ----
   'ai_setup_template.delete': { offeredTo: 'workspace.update' },
@@ -191,7 +195,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'addon.save_my_settings': {},
   'addon.vote': {},
   'addon.unvote': {},
-  'addon_connection.disconnect': {},
+  // As its Disconnect and Switch back confirms say it: the key or sign-in can't be read back once it's wiped.
+  'addon_connection.disconnect': {
+    warning:
+      'Its key or sign-in is wiped now, so using it again takes signing in or pasting the key again on the add-on’s Connections. What it already brought in stays.',
+  },
   'safety.check_out': {},
   'safety.extend': {},
   'safety.resolve': {},

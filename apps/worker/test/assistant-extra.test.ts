@@ -9,6 +9,8 @@ import {
   formCreate,
   formPublish,
   hasWorkspacePermission,
+  IDEA_STATUS_MEANING,
+  ideaSetStatus,
   knowledgePackCreate,
   menuKeys,
   menuOf,
@@ -865,7 +867,13 @@ describe('Ideas', () => {
 
   it('shares an idea on Confirm, with the areas to pick from', async () => {
     const board = await read('find_ideas', {});
-    expect(board.result['areas']).toContainEqual({ id: 'money', name: 'Money' });
+    // As the board's Area filter lists them: what each covers and how many open ideas it has.
+    expect(board.result['areas']).toContainEqual({
+      id: 'money',
+      name: 'Money',
+      about: 'Estimates, invoices, payments and plans',
+      openIdeas: expect.any(Number),
+    });
 
     const { card, parsed } = await prepare('manage_idea', {
       action: 'share',
@@ -882,17 +890,60 @@ describe('Ideas', () => {
     const done = await confirm('manage_idea', parsed);
     expect(done.outcome).toMatch(/^Thanks — that’s idea #\d+/);
     const mine = await read('find_ideas', { search: mark });
-    const ideas = mine.result['ideas'] as { id: string; youVoted: boolean; words: unknown }[];
+    const ideas = mine.result['ideas'] as Record<string, unknown>[];
     expect(ideas).toHaveLength(1);
-    expect(ideas[0]!.youVoted).toBe(true);
+    ideaId = ideas[0]!['id'] as string;
+    expect(ideas[0]).toMatchObject({
+      youVoted: true,
+      comments: 0,
+      sharedBy: 'You',
+      sharedByYou: true,
+      area: 'money',
+      // The link the emails use: it names no business, so anyone on HandsFreeOS can open it.
+      link: `/app/ideas/${ideaId}`,
+    });
     // What people wrote comes back as their words.
-    expect(ideas[0]!.words).toEqual({
+    expect(ideas[0]!['words']).toEqual({
       someone_wrote: `${title} — So customers pay from their phone.`,
     });
-    ideaId = ideas[0]!.id;
+    // The answer kept for later turns carries that link, for "send it to my partner".
+    expect(done.answer).toEqual({
+      ideaId,
+      number: ideas[0]!['number'],
+      link: `/app/ideas/${ideaId}`,
+    });
     await expect(
       prepare('manage_idea', { action: 'share', title: 'Something', areaId: 'nowhere' }),
     ).rejects.toThrow('isn’t one of the areas an idea can be about');
+  });
+
+  it('reads one idea whole: its words apart, its area, where it stands and who shared it', async () => {
+    const got = await read('find_ideas', { ideaId });
+    expect(got.result['idea']).toMatchObject({
+      id: ideaId,
+      link: `/app/ideas/${ideaId}`,
+      status: 'Under review',
+      whereItStands: IDEA_STATUS_MEANING.under_review,
+      sharedBy: 'You',
+      sharedByYou: true,
+      sharedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+      // Apart, as do_idea_edit takes them back.
+      title: { someone_wrote: title },
+      details: { someone_wrote: 'So customers pay from their phone.' },
+      areaId: 'money',
+      area: 'Money',
+      canEdit: true,
+    });
+    expect(got.result['commentCount']).toBe(0);
+    expect(got.result['story']).toEqual([]);
+
+    // Someone else sees who shared it, and can't change it.
+    const theirs = (await read('find_ideas', { ideaId }, priya)).result['idea'];
+    expect(theirs).toMatchObject({
+      sharedBy: expect.stringMatching(/^Dale/),
+      sharedByYou: false,
+      canEdit: false,
+    });
   });
 
   it('votes and takes the vote back, as someone else', async () => {
@@ -941,6 +992,63 @@ describe('Ideas', () => {
     await confirm('manage_idea', stop.parsed);
     const after = await read('find_ideas', { ideaId });
     expect((after.result['idea'] as Record<string, unknown>)['youFollow']).toBe(false);
+    expect(after.result['commentCount']).toBe(1);
+  });
+
+  it('reads the board a page at a time, and by area, as the board’s filters do', async () => {
+    const other = await prepare('manage_idea', {
+      action: 'share',
+      title: `Book a visit by text ${mark}`,
+      areaId: 'calendar',
+    });
+    await confirm('manage_idea', other.parsed);
+
+    const first = await read('find_ideas', { search: mark, sort: 'new', limit: 1 });
+    expect(first.result).toMatchObject({ count: 1, more: true, nextCursor: expect.any(String) });
+    const next = await read('find_ideas', {
+      search: mark,
+      sort: 'new',
+      limit: 1,
+      cursor: first.result['nextCursor'],
+    });
+    expect(next.result['count']).toBe(1);
+    expect(next.result).not.toHaveProperty('more');
+    const ids = [first, next].map((r) => (r.result['ideas'] as { id: string }[])[0]!.id);
+    expect(ids).toContain(ideaId);
+    expect(new Set(ids).size).toBe(2);
+
+    const money = await read('find_ideas', { search: mark, areaId: 'money' });
+    expect((money.result['ideas'] as { id: string }[]).map((i) => i.id)).toEqual([ideaId]);
+  });
+
+  it('tells what happened to an idea, with the team’s note in their words', async () => {
+    const lead = await createTestUser('aext-lead', { fullName: 'Samantha Lead' });
+    await rows(
+      admin(),
+      sql`insert into platform.staff (user_id, role, display_name) values (${lead.id}, 'lead', 'Sam')
+          on conflict (user_id) do update set role = 'lead', status = 'active', display_name = 'Sam'`,
+    );
+    await run(
+      ideaSetStatus,
+      { ideaId, status: 'planned', note: 'Coming this spring.', notify: false },
+      lead,
+    );
+
+    const got = await read('find_ideas', { ideaId });
+    expect(got.result['idea']).toMatchObject({
+      status: 'Planned',
+      whereItStands: IDEA_STATUS_MEANING.planned,
+      // The team has answered it, so its words stay as they are.
+      canEdit: false,
+    });
+    expect(got.result['story']).toEqual([
+      {
+        line: 'Moved to Planned',
+        by: 'Sam',
+        on: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+        note: { someone_wrote: 'Coming this spring.' },
+      },
+    ]);
   });
 });
 

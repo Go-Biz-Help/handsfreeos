@@ -51,6 +51,7 @@ import type { Db } from '@hfos/db/client';
 import { z } from 'zod';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
+import { addonsPageReads } from './addons-page';
 import { aiSetupRead, clientsRead, gettingStartedRead, setupRead } from './setup-screens';
 import { documentReads } from './tools-documents';
 import { funnelRead } from './tools-funnels';
@@ -450,8 +451,11 @@ export async function runScreenRead(
     correlationId: ctx.correlationId,
     channel: 'assistant',
   });
-  const data =
-    tool.query.name === videoCallGet.name
+  // The Add-ons page's vote, the Roadmap and an add-on's connections, as their screens say them.
+  const page = addonsPageReads[tool.query.name];
+  const data = page
+    ? await page(got, args, db, ctx, webUrl)
+    : tool.query.name === videoCallGet.name
       ? withJoin(got, webUrl)
       : tool.query.name === leadBoard.name
         ? boardSummary(got as Board, args['shown'])

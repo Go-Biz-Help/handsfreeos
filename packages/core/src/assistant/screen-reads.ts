@@ -9,6 +9,7 @@
  */
 import { z } from 'zod';
 import { scopedInput, type ScopeKey } from '../addons/ai';
+import { ADDON_CATEGORIES } from '../addons/manifest';
 import type { Registry } from '../kernel/registry';
 import type { QueryDef } from '../kernel/types';
 import { isOrgPermission, isStaffPermission, type Permission } from '../permissions';
@@ -19,6 +20,7 @@ export const SCREEN_READS = [
   'account.deletion_check',
   'activity.get',
   'addon.news',
+  'addon.roadmap',
   'addon.settings',
   'addon.suggestion',
   'addon_connection.list',
@@ -196,6 +198,42 @@ const SCREEN_READ_WAYS: Readonly<Record<string, ScreenReadWay>> = {
         ),
     },
   },
+  // Vote on what's next, as the page filters it: over a hundred planned add-ons are far more than one answer holds.
+  'addon.roadmap': {
+    more: {
+      search: z
+        .string()
+        .trim()
+        .max(200)
+        .optional()
+        .describe(
+          'As Search add-ons: every word must be in its name, what it does, its category or its groups',
+        ),
+      category: z.enum(ADDON_CATEGORIES).optional().describe('One category chip; left out, All'),
+      group: z
+        .string()
+        .trim()
+        .max(80)
+        .optional()
+        .describe('One of its groups, as the Group filter'),
+      sort: z
+        .enum(['votes', 'az'])
+        .optional()
+        .describe('votes (Most votes, the default) or az (A to Z)'),
+      limit: z.int().min(1).max(30).optional().describe('How many to list; 20 when left out'),
+    },
+  },
+  // The roadmap's three columns hold up to 100 cards each: one column always reads whole.
+  'idea.roadmap': {
+    more: {
+      column: z
+        .enum(['planned', 'in_progress', 'done'])
+        .optional()
+        .describe(
+          'Only this column, up to 60 of its cards. Left out, each column’s count and its first 15 cards',
+        ),
+    },
+  },
   'ai_setup_template.list': { offeredTo: 'workspace.update' },
   'onboarding.clients': { offeredTo: 'workspace.update' },
   'migration.get': { agencyDoor: true },
@@ -226,6 +264,12 @@ const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
     'Each entry comes as the Audit log’s row says it: who did it, what they did in words (did), its kind (the label on the row), and noticedByHandsFree on what the Action Center noticed on its own, rows the log hides until Show what HandsFreeOS noticed is ticked. Filter by person is actorId for a person or one workflow, channel workflow for All workflows, actorType system for HandsFreeOS, and for the AI teammate both actorType ai_employee (what it did) and category ai_team (what people did about it: hand-offs, its answers on a lead). Filter by activity is category (customers is Contacts, inbox is Inbox & texting, ai_team is the AI teammate); its Workflows choice also shows what workflows did (actorType workflow), and its Assistant choice is channel assistant. Today, 7 days and 30 days are since; nextCursor reads the next page.',
   'idea.areas':
     'Every area comes with its description, its sort (the order the board lists them in) and whether it’s archived.',
+  'idea.roadmap':
+    'Its answer comes as the Roadmap tab shows it: Planned, In progress and Done lately (what shipped in the last 90 days, newest first), each with what it means, its count, and each card’s idea number, title, area, votes, whether they voted and since when it’s been there. Without column, each column’s first 15 cards; column reads up to 60 of one. find_ideas reads one idea with its comments and its story, and a column’s status pages through all of it.',
+  'addon.roadmap':
+    'Its answer comes as Add-ons shows it to owners and admins: Coming soon (what the weekly vote picked, with whether this business voted for it), then Vote on what’s next, filtered and sorted as the page does, with the category chips and their counts, the groups to filter by, how many match, and each planned add-on’s addonId, summary, category, groups, Already in HandsFreeOS (what HandsFreeOS already does of it), votes and whether this business voted. The business has one vote on each, cast or taken back by its owners and admins: do_addon_vote and do_addon_unvote take the addonId. A planned add-on is never something to add.',
+  'addon_connection.list':
+    'Its answer adds page, the link to the add-on’s Connections, which opens its own Connections tab when it keeps one among its settings. Connecting an account with a sign-in or a key is the person’s own, on that page: settings_help (area add_ons) gives the steps, and a key is never typed into this chat. Nobody can read a key back once it’s saved, only replace or remove it. do_addon_connection_disconnect disconnects one of the business’s own.',
   'platform.me':
     'Their own: the name customers see on their replies and their sign-off as saved (Support people, How you sign off), their support role and what it lets them do.',
   'platform.problem_report.get':
