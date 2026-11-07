@@ -14,7 +14,7 @@
  */
 import { COMMENT_BOX, hasWriting, MESSAGE_BOX, REPLY_BOX, SEND, WRITING } from './actions';
 import { conversationWith, isConversation, readChat } from './chat';
-import { clean, inTopBar, isAfter, labelOf, textWithEmoji } from './dom';
+import { clean, inTopBar, isAfter, labelOf, mainIn, mainOf, textWithEmoji } from './dom';
 import { findStep, shown, type FetchStep } from './fetch';
 import { isNameLike, nameForms, peopleLinked, sameName } from './people';
 import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, readPost } from './posts';
@@ -134,7 +134,6 @@ export function samePerson(
 }
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 /** How a like, a comment or a message went. */
 export type AutoResult =
@@ -760,7 +759,7 @@ export function messageBoxFor(
   before: ChatsBefore | null = null,
 ): HTMLElement | null {
   // Without the main column, there's no telling a chat's own page from a window over another.
-  const main = doc.querySelector('[role="main"]');
+  const main = mainIn(doc);
   if (!main) return null;
   const pressed = before?.doc === doc ? before : null;
   const byName =
@@ -806,7 +805,7 @@ export function openedWindowLinks(
   names: readonly string[],
   before: ChatsBefore | null,
 ): ProfileRef | null {
-  const main = doc.querySelector('[role="main"]');
+  const main = mainIn(doc);
   const pressed = before?.doc === doc ? before : null;
   if (!main || !pressed || classifyUrl(href).kind === 'chat') return null;
   if (pressed.names.some((name) => names.some((one) => mayBeSame(name, one)))) return null;

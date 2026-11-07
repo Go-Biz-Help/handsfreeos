@@ -151,14 +151,8 @@ export async function eventStops(
   }
   // At each of the addresses they may be at, till one lists any.
   let first: string | undefined;
-  for (const [i, at] of EVENTS_AT.entries()) {
-    const list = await stop(
-      c,
-      job,
-      at(town),
-      i ? 'your town group’s events' : 'the events near you',
-      (p) => countOf(p, 'events'),
-    );
+  for (const { at, called } of EVENTS_AT) {
+    const list = await stop(c, job, at(town), called, (p) => countOf(p, 'events'));
     if (isEnd(list)) return list;
     [first] = eventsOn(list);
     if (first) break;

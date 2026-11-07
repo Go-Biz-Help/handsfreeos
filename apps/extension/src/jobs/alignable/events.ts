@@ -22,13 +22,19 @@ import { paced, pause, valueOf, type Job, type JobEnd } from '../job';
 import { ALIGNABLE, ended, gather, mine, notMine, PAGE_PACE_MS, townPlace } from './read';
 
 /**
- * The events in a town, at each of the addresses they may be at, in turn: under the town's address (/austin-tx/events),
- * then under its own group's, where Alignable opens a town (/groups/austin-tx/events, the owner's Check, 0.66.0).
- * Guesses till the owner's next Check Alignable reads the real one.
+ * The events near the person, at each of the addresses they may be at, in turn, each with what Check Alignable calls
+ * it: under the town's address (/austin-tx/events), then under its own group's, where Alignable opens a town
+ * (/groups/austin-tx/events, the owner's Check, 0.66.0), then Alignable's own Events page, the one its menu links to
+ * (/biz/events, 0.126.4). The town's two only ever showed the town's group (the problem check of 6 Nov 2026), and the
+ * menu's page is a guess at what it lists till the owner's next Check Alignable reads it.
  */
 export const EVENTS_AT = [
-  (town: string) => `${ALIGNABLE}/${town}/events`,
-  (town: string) => `${ALIGNABLE}/groups/${town}/events`,
+  { at: (town: string) => `${ALIGNABLE}/${town}/events`, called: 'the events near you' },
+  {
+    at: (town: string) => `${ALIGNABLE}/groups/${town}/events`,
+    called: 'your town group’s events',
+  },
+  { at: (_town: string) => `${ALIGNABLE}/biz/events`, called: 'Alignable’s Events page' },
 ] as const;
 /** Screens of the town's events read, and of an event's people. */
 const LIST_SCREENS = 2;
@@ -69,7 +75,7 @@ export async function readEventsNear(job: Job): Promise<JobEnd> {
   const where = townPlace(town);
   const someoneElse = notMine(own.business);
   let listed: EventCard[] = [];
-  for (const at of EVENTS_AT) {
+  for (const { at } of EVENTS_AT) {
     if (job.stopped()) break;
     await pause(paced(PAGE_PACE_MS));
     job.progress(`Opening the events in ${where}…`);

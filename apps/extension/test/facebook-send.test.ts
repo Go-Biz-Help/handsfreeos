@@ -617,6 +617,28 @@ describe('a friend request on Facebook', () => {
     ]);
   });
 
+  it('knows them by name on their page when it was opened by their number, past a part of the top bar marked main', async () => {
+    // The owner's problem report of 6 Nov 2026 (0.126.3): kept by number, their profile opened at their username, so
+    // only the name says it's them; the read looked in a part of the top bar marked main, found no name, and the
+    // request said Facebook showed a different page, for the AI helper and Needs you.
+    const byNumber = `${FB}/profile.php?id=100012`;
+    world.pages = (url) => {
+      if (url !== byNumber) return null;
+      const doc = noAddFriend();
+      doc
+        .querySelector('[role="banner"]')!
+        .insertAdjacentHTML(
+          'beforeend',
+          '<div role="main"><a href="/messages/t/1">Chats</a></div>',
+        );
+      return doc;
+    };
+    const outcome = await step({ ...request, profileUrl: byNumber, platformId: '100012' });
+    expect(world.opened).toEqual([byNumber]);
+    expect(outcome).toEqual(PASSED_OVER);
+    expect(world.posted.filter((p) => p.path === CLOSED)).toHaveLength(1);
+  });
+
   it('still passes them over when HandsFreeOS can’t be told', async () => {
     world.pages = (url) => (url === DANA ? noAddFriend() : null);
     world.unreachable = CLOSED;

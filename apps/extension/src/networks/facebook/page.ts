@@ -6,7 +6,7 @@
 import { readBirthdays } from './birthdays';
 import { readChat, type ChatOptions } from './chat';
 import { readChats } from './chats';
-import { inTopBar, tabsIn } from './dom';
+import { inTopBar, mainOf, tabsIn } from './dom';
 import { friendListOf, listBeside, readListBeside, withRequests } from './friends';
 import { readGroupAbout, readGroupLinks, readGroupPage } from './groups';
 import { readNotices } from './notifications';
@@ -65,7 +65,7 @@ export function readPage(
   options: ChatOptions = {},
 ): ReadResult {
   const address = classifyUrl(href);
-  const main = doc.querySelector('[role="main"]') ?? doc.body;
+  const main = mainOf(doc);
   const base = href;
   const notes: string[] = [];
   let found: Omit<ReadResult, 'kind' | 'url' | 'readAt' | 'warnings' | 'notes'> = {};
