@@ -186,6 +186,14 @@ describe('what the Assistant can do', () => {
     }
   });
 
+  it('says on the card what goes for good, and how to keep what an edit would clear', () => {
+    const named = (name: string) => actions.find((t) => t.name === name)!;
+    // Disconnecting wipes the key or sign-in, as the Connections page's own confirm says.
+    expect(named('do_addon_connection_disconnect').warning).toMatch(/wiped/);
+    // Editing an idea takes its title, details and area together: details left out are cleared.
+    expect(named('do_idea_edit').description).toContain('details left out are cleared');
+  });
+
   it('acts only in the business it was asked in, except on HandsFreeOS’s own desk', () => {
     for (const t of actions) {
       const keys = Object.keys(t.input.shape);

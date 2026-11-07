@@ -366,14 +366,14 @@
       "kind": "do",
       "file": "apps/web/src/components/ideas/idea-view.tsx:233",
       "covered": "yes",
-      "by": "do_idea_edit (canEdit not read; command refuses in words)"
+      "by": "do_idea_edit; find_ideas canEdit says whether it still can, and idea.edit refuses in words"
     },
     {
       "path": "An idea → Edit your idea → title, Tell us more (web form; phone sheet)",
       "kind": "do",
       "file": "apps/web/src/components/ideas/idea-view.tsx:160",
       "covered": "yes",
-      "by": "do_idea_edit input title, body"
+      "by": "do_idea_edit input title, body, areaId, all three passed back as find_ideas gives them"
     },
     {
       "path": "An idea → Edit your idea → What is it about? (web only)",
@@ -884,7 +884,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:198",
       "covered": "yes",
-      "by": "do_addon_vote / do_addon_unvote addonId (ids via find_capabilities)"
+      "by": "do_addon_vote / do_addon_unvote addonId (ids from read_addon_roadmap or get_settings add_ons)"
     },
     {
       "path": "Add-ons → Vote → Your business voted for X / vote taken back",
@@ -898,7 +898,7 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:250",
       "covered": "yes",
-      "by": "find_capabilities planned empty"
+      "by": "read_addon_roadmap shown and planned empty; ask again without search, category or group"
     },
     {
       "path": "Add-ons → Turn off / Uninstall → question and consequence (web dialog; phone sheet)",
@@ -1185,7 +1185,7 @@
       "kind": "do",
       "file": "apps/web/src/components/addons/connections.tsx:294",
       "covered": "yes",
-      "by": "do_addon_connection_disconnect connectionId"
+      "by": "do_addon_connection_disconnect connectionId; its card warns the key or sign-in is wiped, as the confirm does"
     },
     {
       "path": "Connections → Use your own account… / Use a different account… / Connect an account…",

@@ -256,6 +256,23 @@ describe('settings_help', () => {
     expect(result['canChange']).toContain('add, rename or archive a pipeline');
   });
 
+  it('hands over an add-on’s data, Start fresh and its sign-ins and keys, and votes and disconnects itself', async () => {
+    const { result } = await readTool('settings_help', 'add_ons', owner);
+    const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
+    expect(theirs.map((t) => t.what)).toEqual([
+      'delete an add-on’s data',
+      'start an add-on fresh',
+      'connect an add-on to another service with a sign-in or a key',
+    ]);
+    for (const t of theirs) expect(t.steps.length, t.what).toBeGreaterThan(1);
+    expect(result['canChange']).toEqual(
+      expect.arrayContaining([
+        'vote for a planned add-on as the business, or take its vote back',
+        'disconnect an account the business connected for an add-on',
+      ]),
+    );
+  });
+
   it('leaves only the card to the person on Usage & balance: topping up and the AI limit are its to do', async () => {
     const { result } = await readTool('settings_help', 'usage', owner);
     const theirs = result['theyDoThemselves'] as { what: string }[];

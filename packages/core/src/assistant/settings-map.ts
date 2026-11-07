@@ -267,7 +267,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         steps: [
           'Open the add-on’s Connections: a Connections tab among its own settings when it has one, or the link I can give you.',
           'Press Sign in with … and sign in at the other service; or press Connect… (Use your own account… to use yours in place of HandsFreeOS’s), paste the key, then Try it and save.',
-          'To go back to HandsFreeOS’s own account, press Switch back to HandsFreeOS’s account.',
+          'To go back to HandsFreeOS’s own account, press Switch back to HandsFreeOS’s account, or ask me to: it wipes your own key.',
         ],
       },
     ],
