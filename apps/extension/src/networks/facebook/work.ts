@@ -72,6 +72,7 @@ import { answerJoin, pressJoin } from './join';
 import { linksPage, writeLink } from './links';
 import { ownEditorsOf, readOwnProfile, writeBioSteps } from './own-profile';
 import { writeFacebookPart } from './parts';
+import { mainOf } from './dom';
 import { readProfile } from './profile';
 import { cancelSent } from './sent';
 import { tidyPage } from './tidy';
@@ -209,7 +210,7 @@ async function groupPostStep(ask: GroupPostAsk): Promise<GroupPostAnswer> {
 /** Whether the tab shows the person's own profile: one with Edit profile, as a button or a link. */
 function ownProfileHere(): boolean {
   const address = classifyUrl(location.href);
-  const main = document.querySelector('[role="main"]') ?? document.body;
+  const main = mainOf(document);
   return (
     address.kind === 'profile' &&
     readProfile(main, address, location.href, document.title).profile.friendship === 'self'

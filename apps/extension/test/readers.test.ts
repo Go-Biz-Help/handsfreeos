@@ -278,6 +278,21 @@ describe('a profile, as Facebook drew it in 2026', () => {
     expect(profile?.friendship).toBe('not_friends');
   });
 
+  it('reads the page’s own main part, never one in the top bar before it', () => {
+    // The owner's problem report of 6 Nov 2026 (0.126.3): a profile whose name sat on the links to it and whose post
+    // showed, read with neither, so a friend request said Facebook showed a different page. The top bar, which an
+    // outline leaves out, is the only place a part marked main can come first.
+    const doc = load('profile-2026.html', url);
+    doc.title = '(8) Facebook';
+    doc
+      .querySelector('[role="banner"]')!
+      .insertAdjacentHTML('beforeend', '<div role="main"><a href="/messages/t/1">Chats</a></div>');
+    const read = readPage(doc, url, NOW);
+    expect(read.profile?.name).toBe('Dana Reyes');
+    expect(read.posts?.length).toBeGreaterThan(0);
+    expect(read.notes).toEqual([]);
+  });
+
   describe('a profile with no Add friend at all', () => {
     // The owner's problem reports of 4 Nov 2026 (0.126.2): profiles whose top has only Message and its menu, or Message,
     // Follow and Search. Facebook leaves Add friend out for someone who takes requests only from friends of friends, or
