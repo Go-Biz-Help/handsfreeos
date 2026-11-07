@@ -14,7 +14,7 @@ export const safetyTools: readonly AssistantTool[] = [
   define({
     name: 'my_check_in',
     description:
-      'The person’s own check-in, for when they’re alone at a customer’s place (the phone’s Check in, and its banner’s Check out and +15 min): start one with where they are and when they plan to leave, add time to the one open now, or check out of it. If they don’t check out by then, HandsFreeOS asks them, then tells their safety contacts where they were. Starting one checks them out of any still open. Only ever their own, never a teammate’s. Sharing where their phone is stays on the phone: Check in there with Share where I am on. If they say they’re in danger or need help now, use ask_for_help.',
+      'The person’s own check-in, for when they’re alone at a customer’s place (the phone’s Check in, and its banner’s Check out and +15 min): start one with where they are and when they plan to leave, add time to the one open now, or check out of it. If they don’t check out by then, HandsFreeOS asks them, then tells their safety contacts where they were. Starting one checks them out of one still open, unless their contacts were already told about it or they asked for help there: then they check out of that one first, so those told hear they’re OK. Only ever their own, never a teammate’s. Sharing where their phone is stays on the phone: Check in there with Share where I am on. If they say they’re in danger or need help now, use ask_for_help.',
     input: z.object({
       action: z.enum(['start', 'add_time', 'check_out']),
       place: text(300)

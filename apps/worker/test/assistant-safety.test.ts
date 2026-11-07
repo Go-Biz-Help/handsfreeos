@@ -183,6 +183,10 @@ describe('the person’s own safety by asking', () => {
     expect(field(emailOnly.card, 'Email')).toBe('sam.ortiz@safehands.example');
     expect(field(emailOnly.card, 'Phone')).toBeUndefined();
     expect(emailOnly.card.warnings.map((w) => w.text).join(' ')).toContain('never told');
+    // No text asks them, so the card doesn't say one will.
+    expect(emailOnly.card.warnings.map((w) => w.text)).not.toContain(
+      SAFETY_PHONE_WORDS.outsideNote,
+    );
 
     const outside = await prepare(
       'manage_my_safety_contacts',
@@ -294,6 +298,15 @@ describe('the person’s own safety by asking', () => {
     const open = (await mineOf(agent)).open!;
     expect(open.state).toBe('help');
 
+    // A new check-in would leave this one telling them, out of my_check_in's reach: it asks to check out first.
+    await expect(
+      run('my_check_in', { action: 'start', place: '9 Pine Ct', until: inHours(1) }, agent),
+    ).rejects.toMatchObject({
+      rule: 'safety_still_told',
+      message: expect.stringContaining('check out of it first'),
+    });
+    expect((await mineOf(agent)).open!.id).toBe(open.id);
+
     // Marcus, told in the app, reads the alert with the map link its Where their phone was opens.
     await rows(
       admin(),
@@ -321,6 +334,24 @@ describe('the person’s own safety by asking', () => {
   });
 
   it('with nobody of their own, names the safety person, or the owners and admins', async () => {
+    // The only owner, with nobody of their own and no safety person: nobody would be told, and the card says so.
+    const alone = await prepare('ask_for_help', { place: 'Warehouse on 5th St' }, owner);
+    expect(field(alone.card, 'Told at once')).toContain('Nobody');
+    expect(field(alone.card, 'Then')).toBeUndefined();
+    expect(alone.card.warnings[0]!.text).toContain('911');
+    expect(alone.card.warnings[1]).toMatchObject({
+      kind: 'caution',
+      text: expect.stringContaining('Nobody in HandsFreeOS would be told'),
+    });
+    expect(alone.result['toldAtOnce']).toEqual([]);
+    const ownerIn = await run(
+      'my_check_in',
+      { action: 'start', place: 'Warehouse on 5th St', until: inHours(1) },
+      owner,
+    );
+    expect(ownerIn.result['ifYouDontCheckOut']).toContain('nobody else is told');
+    await run('my_check_in', { action: 'check_out' }, owner);
+
     const owners = await prepare('ask_for_help', { place: 'Warehouse on 5th St' }, mate);
     expect(field(owners.card, 'Where')).toBe('Warehouse on 5th St');
     expect(field(owners.card, 'Told at once')).toBe(
@@ -359,7 +390,8 @@ describe('the person’s own safety by asking', () => {
     );
     expect(card.title).toBe('Remove Marcus Lee');
     expect(field(card, 'How they’re told now')).toBe(SAFETY_CONTACT_WORDS.teammate);
-    expect(field(card, 'Still told')).toBe('Sam Ortiz');
+    // Sam is still listed, with how he's told: not yet, since he hasn't replied OK.
+    expect(field(card, 'Still on your list')).toBe(`Sam Ortiz (${SAFETY_CONTACT_WORDS.asked})`);
     expect(card.warnings[0]!.text).toBe(
       'Marcus won’t be told if you don’t check out or ask for help.',
     );

@@ -59,6 +59,11 @@ const mineOf = (db: Db, ctx: ToolContext) => query<Mine>(db, ctx, 'safety.mine')
 const page = (ctx: ToolContext) => `/app/w/${ctx.workspaceId}/safety`;
 /** Who's told when the business's owners and admins can't be read by name. */
 const MANAGERS = 'the business’s owners and admins';
+/** With nobody of their own, no safety person, and no other owner or admin, nobody in HandsFreeOS is told. */
+const NOBODY =
+  'Nobody: you have no safety contacts, no safety person is picked, and there’s no other owner or admin to tell';
+const ADD_SOMEONE =
+  'Choose who is told with manage_my_safety_contacts, or on the phone in More, then Settings, then My safety.';
 
 /** "3:30 PM" today, "Fri, Sep 18 at 1:00 AM" past midnight. */
 function untilLabel(at: string, timeZone: string): string {
@@ -76,10 +81,13 @@ async function teamOf(db: Db, ctx: ToolContext): Promise<Person[] | null> {
 }
 
 interface WhoIsTold {
-  /** Who hears at once: their names. */
+  /** Who hears at once: their names. Empty when nobody would be. */
   readonly names: string[];
-  /** Whose they are: the person's own contacts, the business's safety person, or its owners and admins. */
-  readonly who: 'contacts' | 'safety_person' | 'owners_and_admins';
+  /**
+   * Whose they are: the person's own contacts, the business's safety person, its owners and admins, or nobody (they
+   * are the only owner or admin, with nobody of their own and no safety person: the ladder tells no one).
+   */
+  readonly who: 'contacts' | 'safety_person' | 'owners_and_admins' | 'nobody';
   /** In words, for a card: "Sam Lee in the app, and Ana Ruiz by text and email". */
   readonly how: string;
   /** Their own contacts who aren't told, and why. */
@@ -140,6 +148,8 @@ async function whoIsTold(
   const managers = (team ?? []).filter(
     (m) => (m.role === 'owner' || m.role === 'admin') && m.userId !== me,
   );
+  // The team was read and there's no other owner or admin: the ladder tells nobody, so the card mustn't say it does.
+  if (team && !managers.length) return { names: [], who: 'nobody', how: NOBODY, notTold };
   const names = managers.length ? managers.map(nameOf) : [MANAGERS];
   return {
     names,
@@ -183,6 +193,16 @@ async function myCheckIn(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
         ],
         'Say where you are and when you plan to leave, and I’ll check you in.',
       );
+    // A new check-in ends only one nobody was told about yet. One whose contacts were told (or that asked for help)
+    // stays open and keeps telling them, and my_check_in could no longer reach it, so it's checked out of first.
+    if (mine.open && (mine.open.state === 'alerted' || mine.open.state === 'help'))
+      throw HfosError.rule(
+        'safety_still_told',
+        409,
+        mine.open.state === 'help'
+          ? `You asked for help at ${mine.open.place}, and your contacts are being told. If you’re safe now, check out of it first so they hear you’re OK, then check in here.`
+          : `Your contacts were told you hadn’t checked out of ${mine.open.place}. Check out of it first so they hear you’re OK, then check in here.`,
+      );
     const appointmentId = str(args['appointmentId']);
     const out = await command<{ checkIn: CheckIn }>(db, ctx, 'safety.check_in', {
       id: randomUUID(),
@@ -196,12 +216,13 @@ async function myCheckIn(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
       result: {
         checkedIn: out.checkIn.place,
         until: time,
-        ifYouDontCheckOut: `HandsFreeOS asks you if you’re OK after ${time}, then ${namesList(told.names)} ${toldWord(told.names)} told where you were.`,
+        ifYouDontCheckOut:
+          told.who === 'nobody'
+            ? `HandsFreeOS asks you if you’re OK after ${time}, but nobody else is told: you have no safety contacts, no safety person is picked, and there’s no other owner or admin.`
+            : `HandsFreeOS asks you if you’re OK after ${time}, then ${namesList(told.names)} ${toldWord(told.names)} told where you were.`,
         ...(told.who === 'contacts'
           ? {}
-          : {
-              note: 'You have nobody of your own to tell yet: choose them with manage_my_safety_contacts, or on the phone in More, then Settings, then My safety.',
-            }),
+          : { note: `You have nobody of your own to tell yet. ${ADD_SOMEONE}` }),
         ...(told.notTold.length ? { notTold: told.notTold } : {}),
         ...(mine.open && mine.open.id !== out.checkIn.id
           ? { checkedOutFirst: mine.open.place }
@@ -270,13 +291,18 @@ const askForHelp: SettingsConfirmTool = {
     const mine = await mineOf(db, ctx);
     const from = helpFrom(mine, args);
     const told = await whoIsTold(db, ctx, mine.contacts);
+    const nobody = told.who === 'nobody';
     const fields: Field[] = [
       { label: 'Where', value: from.place },
       { label: 'Told at once', value: told.how },
-      {
-        label: 'Then',
-        value: `Again every ${SAFETY_DEFAULTS.repeatMinutes} minutes, for an hour, until someone says you’re OK`,
-      },
+      ...(nobody
+        ? []
+        : [
+            {
+              label: 'Then',
+              value: `Again every ${SAFETY_DEFAULTS.repeatMinutes} minutes, for an hour, until someone says you’re OK`,
+            },
+          ]),
     ];
     if (told.notTold.length) fields.push({ label: 'Not told', value: told.notTold.join('; ') });
     return {
@@ -286,19 +312,31 @@ const askForHelp: SettingsConfirmTool = {
         confirmLabel: 'Tell them now',
         warnings: [
           { kind: 'caution', text: CALL_911 },
-          {
-            kind: 'note',
-            text: `${capitalized(namesList(told.names))} ${toldWord(told.names)} told at once that you need help, and where you are${
-              mine.open?.locatedAt ? ', with where your phone was last' : ''
-            }. Where your phone is right now goes only from Help on the phone.`,
-          },
+          nobody
+            ? {
+                kind: 'caution',
+                text: `Nobody in HandsFreeOS would be told: there’s nobody to tell. Call or text someone yourself. ${ADD_SOMEONE}`,
+              }
+            : {
+                kind: 'note',
+                text: `${capitalized(namesList(told.names))} ${toldWord(told.names)} told at once that you need help, and where you are${
+                  mine.open?.locatedAt ? ', with where your phone was last' : ''
+                }. Where your phone is right now goes only from Help on the phone.`,
+              },
         ],
       }),
       result: {
         waiting: true,
         callFirst: CALL_911,
         toldAtOnce: told.names,
-        ...(told.who === 'contacts' ? {} : { because: 'They have nobody of their own to tell.' }),
+        ...(told.who === 'contacts'
+          ? {}
+          : nobody
+            ? {
+                because:
+                  'Nobody would be told: they have no safety contacts, no safety person is picked, and there’s no other owner or admin.',
+              }
+            : { because: 'They have nobody of their own to tell.' }),
       },
     };
   },
@@ -314,7 +352,10 @@ const askForHelp: SettingsConfirmTool = {
       'checkInId' in from ? { checkInId: from.checkInId } : { place: from.place },
     );
     return {
-      outcome: `${capitalized(namesList(told.names[0] === MANAGERS ? told.names : told.names.map(firstOf)))} ${toldWord(told.names)} being told now, with where you are. If you’re in danger, call 911.`,
+      outcome:
+        told.who === 'nobody'
+          ? 'Nobody in HandsFreeOS could be told: there’s nobody to tell. If you’re in danger, call 911. Call or text someone yourself.'
+          : `${capitalized(namesList(told.names[0] === MANAGERS ? told.names : told.names.map(firstOf)))} ${toldWord(told.names)} being told now, with where you are. If you’re in danger, call 911.`,
       href: page(ctx),
       command: 'safety.help',
     };
@@ -378,9 +419,12 @@ const manageMySafetyContacts: SettingsConfirmTool = {
           fields: [
             { label: 'Who', value: c.name },
             { label: 'How they’re told now', value: SAFETY_CONTACT_WORDS[c.status] },
+            // Each with how they're told, so one who hasn't replied OK isn't read as someone who'd hear.
             {
-              label: 'Still told',
-              value: left.length ? namesList(left.map((k) => k.name)) : 'Nobody of your own',
+              label: 'Still on your list',
+              value: left.length
+                ? left.map((k) => `${k.name} (${SAFETY_CONTACT_WORDS[k.status]})`).join('; ')
+                : 'Nobody of your own',
             },
           ],
           confirmLabel: 'Remove them',
@@ -422,18 +466,16 @@ const manageMySafetyContacts: SettingsConfirmTool = {
         title: `Tell ${c.name} if you don’t check out`,
         fields,
         confirmLabel: 'Add them',
+        // The screen's note is about the text that asks them; with an email alone there is none.
         warnings: outside
-          ? [
-              { kind: 'note', text: SAFETY_PHONE_WORDS.outsideNote },
-              ...(c.phone
-                ? []
-                : [
-                    {
-                      kind: 'caution',
-                      text: 'With an email alone they’re never asked, so they’re never told. Add their cell for that.',
-                    },
-                  ]),
-            ]
+          ? c.phone
+            ? [{ kind: 'note', text: SAFETY_PHONE_WORDS.outsideNote }]
+            : [
+                {
+                  kind: 'caution',
+                  text: 'With an email alone they’re never asked, so they’re never told. Add their cell for that.',
+                },
+              ]
           : [
               {
                 kind: 'note',
