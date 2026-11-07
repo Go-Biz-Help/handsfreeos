@@ -32,7 +32,7 @@ import { setupCard, setupInput, setupOutcome } from './setup-screens';
 import { staffCardFields, staffCautions, staffKept } from './staff-cards';
 import { cardFields } from './tools-addons';
 import { query } from './tools-read';
-import { ownArguments, scopeIds } from './tools-screen-reads';
+import { ownArguments, scopeIds, staffArguments } from './tools-screen-reads';
 import { settingsCard } from './tools-settings-calendar';
 import { workflowScreenCards } from './tools-workflow';
 
@@ -76,10 +76,7 @@ async function inputOf(
   args: Args,
   ctx: ToolContext,
 ): Promise<Args> {
-  if (tool.staff) {
-    const declared = new Set(Object.keys(tool.input.shape));
-    return Object.fromEntries(Object.entries(args).filter(([k]) => declared.has(k)));
-  }
+  if (tool.staff) return staffArguments(tool, args);
   return { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
 }
 

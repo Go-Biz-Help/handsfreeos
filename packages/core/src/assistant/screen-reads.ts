@@ -227,6 +227,11 @@ export interface ScreenReadTool extends AssistantTool<z.ZodObject> {
   readonly query: QueryDef;
   /** The business ids its input takes, which the executor puts on after the model's arguments. */
   readonly scope: readonly ScopeKey[];
+  /**
+   * HandsFreeOS's own staff only, looking across businesses: the model names the business (`workspaceId`) it asks
+   * about, which the executor keeps, and the kernel checks the staff permission.
+   */
+  readonly staff: boolean;
   /** Either door: it may be asked of the whole agency (`wholeAgency`). */
   readonly agencyDoor: boolean;
   /**
@@ -264,6 +269,7 @@ export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTo
         permission: (way.offeredTo ?? query.permission ?? 'assistant.use') as Permission,
         query,
         scope: view.scope,
+        staff,
         agencyDoor,
         agencyOnly: !!query.permission && isOrgPermission(query.permission),
       },

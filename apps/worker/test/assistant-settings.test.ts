@@ -1166,7 +1166,8 @@ describe('the business number', () => {
       callbacks: false,
       log: pino({ level: 'silent' }),
     });
-    const executor = createToolExecutor(api(), null, null, '', undefined, {
+    // The worker's own connection, as in production (main.ts): the permission check asks the database as the worker.
+    const executor = createToolExecutor(testDbs().worker.db, null, null, '', undefined, {
       services: { telephony } as unknown as WorkerServices,
     });
     const tool = assistantToolByName.get('find_phone_numbers')!;
@@ -1218,7 +1219,9 @@ describe('the business number', () => {
     expect(executorFor('find_phone_numbers')).toBeTruthy();
 
     // Without the worker's telephony it says where to look instead of guessing numbers.
-    await expect(createToolExecutor(api()).run(tool, {}, ctxFor(owner))).rejects.toMatchObject({
+    await expect(
+      createToolExecutor(testDbs().worker.db).run(tool, {}, ctxFor(owner)),
+    ).rejects.toMatchObject({
       rule: 'numbers_unavailable',
     });
   });

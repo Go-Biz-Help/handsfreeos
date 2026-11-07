@@ -104,7 +104,10 @@ test('an agency sets up a client’s business, hands it to the owner, and the ow
   );
   await expect(page.getByTestId('setup-pay-connect')).toHaveCount(0);
   await next.click();
+  // Each screen read once its save is done, so a click never lands on the screen after it ("Hand it over" included).
+  await expect(setup).not.toHaveAttribute('data-screen', 'paid');
   for (let i = 0; i < 8 && (await setup.getAttribute('data-screen')) !== 'loop'; i++) {
+    await expect(next).toBeEnabled();
     const screen = (await setup.getAttribute('data-screen'))!;
     await next.click();
     await expect(setup).not.toHaveAttribute('data-screen', screen);
