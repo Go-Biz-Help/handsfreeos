@@ -127979,6 +127979,38 @@
                       "portal",
                       "test"
                     ]
+                  },
+                  "actorType": {
+                    "type": "string",
+                    "enum": [
+                      "human",
+                      "system",
+                      "workflow",
+                      "assistant",
+                      "ai_employee",
+                      "api",
+                      "integration",
+                      "customer"
+                    ]
+                  },
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "members",
+                      "invitations",
+                      "workspace",
+                      "customers",
+                      "inbox",
+                      "calendar",
+                      "leads",
+                      "tasks",
+                      "files",
+                      "imports",
+                      "workflows",
+                      "ai_team",
+                      "action_center",
+                      "other"
+                    ]
                   }
                 },
                 "required": [
@@ -191158,6 +191190,7 @@
                   },
                   "depth": {
                     "default": "quick",
+                    "description": "full looks further back and waits longer, as the Search page does; quick is the box’s fast look",
                     "type": "string",
                     "enum": [
                       "quick",
@@ -191174,6 +191207,7 @@
                   },
                   "settingsMatched": {
                     "default": false,
+                    "description": "Set by the phone and the web when a setting matched on the device. Leave it out",
                     "type": "boolean"
                   }
                 },
@@ -193271,7 +193305,8 @@
                   },
                   "kind": {
                     "type": "string",
-                    "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$"
+                    "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$",
+                    "description": "A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam"
                   },
                   "includeArchived": {
                     "default": false,
@@ -193298,6 +193333,7 @@
                     ]
                   },
                   "before": {
+                    "description": "Look further back: the searchedBack this kind’s last answer gave, for the ones searched only so far back",
                     "type": "string",
                     "format": "date-time",
                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"

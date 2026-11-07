@@ -196,6 +196,8 @@ export const withAgencyDoor = (input: z.ZodObject, agencyDoor: boolean): z.ZodOb
 
 /** What a look-up's answer adds to what the screen shows, said after its description. */
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
+  'audit.list':
+    'Each entry comes as the Audit log’s row says it: who did it, what they did in words (did), its kind (the label on the row), and noticedByHandsFree on what the Action Center noticed on its own, rows the log hides until Show what HandsFreeOS noticed is ticked. Filter by person is actorId for a person or one workflow, channel workflow for All workflows, actorType system for HandsFreeOS, and for the AI teammate both actorType ai_employee (what it did) and category ai_team (what people did about it: hand-offs, its answers on a lead). Filter by activity is category (customers is Contacts, inbox is Inbox & texting, ai_team is the AI teammate); its Workflows choice also shows what workflows did (actorType workflow), and its Assistant choice is channel assistant. Today, 7 days and 30 days are since; nextCursor reads the next page.',
   'idea.areas':
     'Every area comes with its description, its sort (the order the board lists them in) and whether it’s archived.',
   'platform.me':

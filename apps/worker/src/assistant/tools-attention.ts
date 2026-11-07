@@ -1,12 +1,25 @@
 /**
  * The Assistant's Action Center tools (M8). "What needs my attention?" reads attention.list, the query Home reads,
- * so the two always show the same items in the same order. Handling an item (what Let HandsFreeOS Handle does on
- * Home) and snoozing, dismissing or assigning one wait for the person's OK on a card; Confirm then runs the Action
+ * so the two always show the same items in the same order, with each item's ids and the tool its own button is. Handling
+ * an item (what Let HandsFreeOS Handle does on Home) and assigning one wait for the person's OK on a card, and so do
+ * snoozing and dismissing one when that stops a message HandsFreeOS is about to send; Confirm then runs the Action
  * Center's own command as the person, marked as done through the Assistant, so its rules, events and audit apply.
+ * Snoozing and dismissing otherwise happen at once, as on Home (risk 0, and do_attention_restore puts one back).
  */
 import {
+  addonAlertAcknowledge,
   ATTENTION_KIND_LABELS,
+  attentionTargetOf,
+  handledByHandsFree,
+  handledLineOf,
   HfosError,
+  isDraftItem,
+  leadCatchUp,
+  lessonKnowsOtherwise,
+  referralCreateLead,
+  screenActionName,
+  teammateLessonApply,
+  walletTopUp,
   type AssistantCard,
   type AttentionKind,
   type AttentionListOutput,
@@ -149,48 +162,143 @@ function cardItem(ws: string, i: Item): CardItem {
   };
 }
 
-/** One item as the model reads it. */
-const itemResult = (i: Item, rank: number, timezone: string) => ({
-  rank,
-  id: i.id,
-  kind: i.kind,
-  what: ATTENTION_KIND_LABELS[i.kind],
-  title: i.title,
-  chips: i.reasons.map((r) => r.text),
-  value: i.valueIsEstimate ? null : money(i.valueCents),
-  urgent: i.urgent,
-  ...(i.detail
-    ? {
-        detail: QUOTED_DETAIL.has(i.kind)
-          ? i.kind === 'ai_approval'
-            ? { draft: i.detail }
-            : quoted(i.detail)
-          : i.detail,
-      }
-    : {}),
-  assignee: i.assignee?.fullName ?? null,
-  canHandle: i.actions.letHandle,
-  ...(i.auto.state === 'scheduled' && i.auto.scheduledFor
-    ? { handsFreeOsSendsAt: atLabel(Date.parse(i.auto.scheduledFor), timezone) }
-    : {}),
-});
+/**
+ * The tool that does what an item's own button on Home does (Create lead, Move deal, Add to its instructions, Mark
+ * done, Approve, Top up…), with the ids it takes from the item, when it isn't handle_attention_item (Let HandsFreeOS
+ * Handle). Screen commands go by their command's name, as their tools are named. Null when the button opens a
+ * conversation or a page, or calls.
+ */
+export function buttonToolOf(i: Item): ({ readonly tool: string } & Args) | null {
+  // A card carrying a customer's wait answers it first, whatever its kind (handleButtonOf words it Reply).
+  if (i.conversationId && i.reasons.some((r) => r.code === 'waiting')) return null;
+  const id = i.subject.id;
+  switch (i.kind) {
+    case 'referral_mentioned':
+      return { tool: screenActionName(referralCreateLead.name), referralId: id };
+    case 'pipeline_mismatch':
+      return { tool: screenActionName(leadCatchUp.name), leadId: id };
+    case 'ai_corrections':
+      // "Use the new one" when what the AI knows says otherwise: the new words take the old ones' place.
+      return {
+        tool: screenActionName(teammateLessonApply.name),
+        lessonId: id,
+        ...(lessonKnowsOtherwise(i) ? { replace: true } : {}),
+      };
+    case 'job_unconfirmed':
+    case 'job_never_completed':
+      return { tool: 'update_appointment', appointmentId: id, outcome: 'done' };
+    case 'job_no_address':
+      return i.personId ? { tool: 'update_customer', personId: i.personId } : null;
+    case 'ai_approval':
+      return isDraftItem(i)
+        ? { tool: 'decide_teammate_draft', draftId: id, decision: 'approve' }
+        : { tool: 'answer_workflow_approval', approvalId: id, decision: 'approve' };
+    case 'wallet_low':
+    case 'wallet_empty':
+      return { tool: screenActionName(walletTopUp.name) };
+    case 'addon_alert':
+      return i.addonAlert?.needsAck && !i.addonAlert.acknowledgedAt
+        ? { tool: screenActionName(addonAlertAcknowledge.name), alertId: i.addonAlert.alertId }
+        : null;
+    default:
+      return null;
+  }
+}
+
+/** The page an item opens, as its ⋯ menu's Open does: a whole link once the web app's address is known. */
+const opensOf = (i: Item, ws: string, webUrl: string) => {
+  const t = attentionTargetOf(i, ws);
+  return { label: t.label, link: `${webUrl}${t.href}` };
+};
+
+/** One item as the model reads it, with what it is about and the ids its buttons take. */
+const itemResult = (i: Item, rank: number, ctx: ToolContext, webUrl: string) => {
+  const press = buttonToolOf(i);
+  return {
+    rank,
+    id: i.id,
+    kind: i.kind,
+    what: ATTENTION_KIND_LABELS[i.kind],
+    title: i.title,
+    chips: i.reasons.map((r) => r.text),
+    value: i.valueIsEstimate ? null : money(i.valueCents),
+    urgent: i.urgent,
+    ...(i.detail
+      ? {
+          detail: QUOTED_DETAIL.has(i.kind)
+            ? i.kind === 'ai_approval'
+              ? { draft: i.detail }
+              : quoted(i.detail)
+            : i.detail,
+        }
+      : {}),
+    subject: { type: i.subject.type, id: i.subject.id },
+    ...(i.personId ? { personId: i.personId } : {}),
+    ...(i.leadId ? { leadId: i.leadId } : {}),
+    ...(i.conversationId ? { conversationId: i.conversationId } : {}),
+    ...(i.appointmentId ? { appointmentId: i.appointmentId } : {}),
+    ...(i.addonAlert
+      ? {
+          addonAlert: {
+            alertId: i.addonAlert.alertId,
+            addon: i.addonAlert.addonName,
+            severity: i.addonAlert.severity,
+            waitsForSomeoneToSeeIt: i.addonAlert.needsAck && !i.addonAlert.acknowledgedAt,
+          },
+        }
+      : {}),
+    assignee: i.assignee?.fullName ?? null,
+    button: i.handleLabel,
+    ...(press ? { buttonTool: press } : {}),
+    opens: opensOf(i, ctx.workspaceId, webUrl),
+    canHandle: i.actions.letHandle,
+    ...(i.auto.state === 'scheduled' && i.auto.scheduledFor
+      ? { handsFreeOsSendsAt: atLabel(Date.parse(i.auto.scheduledFor), ctx.timezone) }
+      : {}),
+  };
+};
+
+/** "Asked Maria Lopez to confirm the AC install", from core's words with the customer in bold. */
+const handledWords = (i: Item, myUserId: string) => {
+  const { text, sub } = handledLineOf(i, myUserId);
+  return {
+    what: text.map((p) => (typeof p === 'string' ? p : p.strong)).join(''),
+    ...(sub ? { how: sub } : {}),
+  };
+};
 
 /** The list as Home reads it: attention.list, as the person, in the scope they asked for (or their usual one). */
 const listFor = (db: Db, ctx: ToolContext, input: Record<string, unknown>) =>
   query<AttentionListOutput>(db, ctx, 'attention.list', input);
 
+/** A whole number from the model, kept between `min` and `max`; `fallback` when it isn't one. */
+const whole = (v: unknown, fallback: number, min: number, max: number) => {
+  const n = typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : fallback;
+  return Math.min(max, Math.max(min, n));
+};
+
+/** The most of today's handled list read at once (Home shows 6, then Show more). */
+const HANDLED_MOST = 20;
+
 // ---------- what needs attention (on its own) ----------
 
 export const attentionAutoTools: Record<
   string,
-  (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>
+  (db: Db, ctx: ToolContext, args: Args, webUrl?: string) => Promise<ToolOutcome>
 > = {
-  async what_needs_attention(db, ctx, args) {
+  async what_needs_attention(db, ctx, args, webUrl = '') {
     const list = await listFor(db, ctx, {
       ...(str(args['scope']) ? { scope: args['scope'] } : {}),
       ...(str(args['kind']) ? { kinds: [args['kind']] } : {}),
+      includeHandled: true,
     });
-    const top = list.items.slice(0, TOP);
+    const offset = whole(args['offset'], 0, 0, list.items.length);
+    const limit = whole(args['limit'], TOP, 1, 50);
+    const page = list.items.slice(offset, offset + limit);
+    const shown = page.slice(0, TOP);
+    const after = list.items.length - offset - page.length;
+    // Newest first: Home's Handled by HandsFreeOS is the ones HandsFreeOS did; with nothing open, all of them show.
+    const done = list.handled;
     return {
       result: {
         scope: list.scope,
@@ -198,10 +306,31 @@ export const attentionAutoTools: Record<
         affectedCents: list.affectedCents,
         counts: list.counts,
         handledToday: list.handledToday,
-        items: top.map((i, n) => itemResult(i, n + 1, ctx.timezone)),
-        ...(list.items.length > top.length ? { more: list.items.length - top.length } : {}),
+        items: page.map((i, n) => itemResult(i, offset + n + 1, ctx, webUrl)),
+        ...(after > 0 ? { more: after, nextOffset: offset + page.length } : {}),
+        // Home's other two parts, read once, with the first page.
+        ...(offset === 0
+          ? {
+              handled: done.slice(0, HANDLED_MOST).map((i) => ({
+                title: i.title,
+                ...handledWords(i, ctx.actor.userId),
+                ...(handledByHandsFree(i) ? { byHandsFree: true } : {}),
+                ...(i.handled ? { at: atLabel(Date.parse(i.handled.at), ctx.timezone) } : {}),
+                opens: opensOf(i, ctx.workspaceId, webUrl),
+              })),
+              ...(done.length > HANDLED_MOST
+                ? { handledNotListed: done.length - HANDLED_MOST }
+                : {}),
+              comingUp: list.scheduled.map((s) => ({
+                itemId: s.itemId,
+                title: s.title,
+                sends: s.action === 'confirm_request' ? 'confirmation request' : 'follow-up',
+                goesAt: atLabel(Date.parse(s.scheduledFor), ctx.timezone),
+              })),
+            }
+          : {}),
       },
-      card: top.length
+      card: shown.length
         ? {
             type: 'attention',
             affected: {
@@ -210,9 +339,62 @@ export const attentionAutoTools: Record<
               urgent: list.counts.urgent,
               scope: list.scope,
             },
-            items: top.map((i) => cardItem(ctx.workspaceId, i)),
+            items: shown.map((i) => cardItem(ctx.workspaceId, i)),
           }
         : null,
+    };
+  },
+
+  /**
+   * Home's Snooze and Dismiss…, at once (risk 0, as they are on Home, where Undo takes them back). One that would stop
+   * a message HandsFreeOS is about to send asks first instead, through update_attention_item.
+   */
+  async set_aside_attention_item(db, ctx, args) {
+    const item = await openItem(db, ctx, String(args['itemId']));
+    const action = args['action'] === 'dismiss' ? 'dismiss' : 'snooze';
+    if (!item.actions[action])
+      throw HfosError.forbidden(
+        `Your role can’t ${action} this one. An owner or admin can.`,
+        'attention_not_yours',
+      );
+    if (item.auto.state === 'scheduled' && item.auto.scheduledFor)
+      throw HfosError.rule(
+        'attention_stops_auto',
+        409,
+        `HandsFreeOS is sending its ${item.auto.action === 'confirm_request' ? 'confirmation request' : 'follow-up'} for this one ${atLabel(Date.parse(item.auto.scheduledFor), ctx.timezone)}, and this would stop it. Use update_attention_item, which shows the person a card first.`,
+      );
+    const ws = ctx.workspaceId;
+    if (action === 'snooze') {
+      const until = snoozeUntil(args);
+      const out = await command<{ changed: boolean }>(db, ctx, 'attention.snooze', {
+        itemId: item.id,
+        until: new Date(until).toISOString(),
+      });
+      const when = atLabel(until, ctx.timezone);
+      return {
+        result: out.changed
+          ? { item: item.title, snoozedUntil: when, putBackWith: 'do_attention_restore' }
+          : { item: item.title, unchanged: 'It was already set aside like that.' },
+        command: 'attention.snooze',
+        record: { itemId: item.id, outcome: `Snoozed until ${when}`, href: home(ws).page() },
+      };
+    }
+    const reason = str(args['reason']) ?? null;
+    const out = await command<{ changed: boolean }>(db, ctx, 'attention.dismiss', {
+      itemId: item.id,
+      reason,
+    });
+    return {
+      result: out.changed
+        ? {
+            item: item.title,
+            dismissed: 'It comes back only if something changes.',
+            ...(reason ? { reason } : {}),
+            putBackWith: 'do_attention_restore',
+          }
+        : { item: item.title, unchanged: 'It was already dismissed.' },
+      command: 'attention.dismiss',
+      record: { itemId: item.id, outcome: 'Dismissed', href: home(ws).page() },
     };
   },
 };
@@ -292,8 +474,14 @@ async function handlePlan(
     return blockedPlan(
       item.kind === 'ai_approval'
         ? 'Approvals always wait for a person to decide. I can approve or reject it for you instead.'
-        : (preview.reason ??
-            'HandsFreeOS can’t take care of this kind of item for you. Open it on Home to deal with it yourself.'),
+        : item.kind === 'overdue_task'
+          ? // Its button opens the task; ticking it off on Home's Today card is complete_task.
+            'HandsFreeOS can’t do your tasks. I can mark this one done for you instead.'
+          : // Its own button does it (Top up, Create lead, Mark done…), and so can the Assistant, on the person's word.
+            buttonToolOf(item)
+            ? `HandsFreeOS doesn’t take care of this kind on its own. I can do what its ${item.handleLabel} button on Home does instead.`
+            : (preview.reason ??
+              'HandsFreeOS can’t take care of this kind of item for you. Open it on Home to deal with it yourself.'),
     );
   if (!item.actions.letHandle)
     return blockedPlan('Your role can’t hand this one off. An owner or admin can.');
@@ -451,7 +639,16 @@ const handleItem: AttentionConfirmTool = {
             warnings: [{ kind: plan.warning, text: plan.why }],
             confirmLabel: '',
           }),
-          result: { item: item.title, cannotHandle: plan.why },
+          result: {
+            item: item.title,
+            cannotHandle: plan.why,
+            // What its own button does, for the model to offer instead.
+            ...(buttonToolOf(item)
+              ? { button: item.handleLabel, buttonTool: buttonToolOf(item) }
+              : item.kind === 'overdue_task'
+                ? { doneWith: { tool: 'complete_task', taskId: item.subject.id } }
+                : {}),
+          },
         };
       case 'auto': {
         const p = plan.plan;

@@ -1,4 +1,11 @@
 'use client';
+import {
+  AUDIT_CATEGORY_LABEL,
+  auditActor,
+  auditCategory,
+  describeAudit,
+  isAuditDetection,
+} from '@hfos/core';
 import { ChevronDown, Copy, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -13,13 +20,6 @@ import { Input, Select } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { AuditEntry, AuditList } from '@/lib/api/types';
-import {
-  AUDIT_CATEGORY_LABEL,
-  auditActor,
-  auditCategory,
-  describeAudit,
-  isAuditDetection,
-} from '@/lib/audit-describe';
 import { cn } from '@/lib/utils';
 
 type Range = 'today' | '7d' | '30d';

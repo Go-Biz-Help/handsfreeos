@@ -196,6 +196,7 @@ interface AttentionList {
     title: string;
     urgent: boolean;
     reasons: { text: string }[];
+    subject: { type: string; id: string };
   }[];
 }
 
@@ -210,6 +211,7 @@ const attentionFor = (list: AttentionList | null): PromptContext['attention'] =>
       kind: ATTENTION_KIND_LABELS[i.kind],
       urgent: i.urgent,
       chips: i.reasons.slice(0, 3).map((r) => r.text),
+      subject: i.subject,
     })),
   };
 

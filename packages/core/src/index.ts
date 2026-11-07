@@ -117,6 +117,8 @@ export * from './chat/index';
 // A campaign's state and its calls, as the Campaigns pages and the Assistant say them.
 export * from './campaigns/words';
 export * from './attention/index';
+// The audit log's sentence, actor and kind of change for each row, on the web and in the Assistant's read of it.
+export * from './audit/describe';
 // Settings → Automations: the catalog and the switches it owns.
 export * from './automations/index';
 export * from './onboarding/index';

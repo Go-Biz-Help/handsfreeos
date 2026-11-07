@@ -7,6 +7,7 @@ import {
   assistantWaitingOf,
   waitForAssistantAnswer,
   type AssistantCard,
+  type AssistantDeviceChanges,
   type AssistantEvent,
   type AssistantNoticeCode,
   type AssistantWaiting,
@@ -266,6 +267,8 @@ export function useAssistantChat(
   page: PageRecord | null = null,
   /** The screen the mark was pressed on, inside the business (`assistantScreenPath`). */
   path: string | null = null,
+  /** Changes on this phone as that screen shows them, sent with each question (`deviceChangesOf`). */
+  deviceChanges: AssistantDeviceChanges | null = null,
 ): AssistantChat {
   const { online } = useNetwork();
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
@@ -297,6 +300,8 @@ export function useAssistantChat(
   pageRef.current = page;
   const pathRef = React.useRef(path);
   pathRef.current = path;
+  const deviceChangesRef = React.useRef(deviceChanges);
+  deviceChangesRef.current = deviceChanges;
   const loadRef = React.useRef(0);
 
   const setThread = React.useCallback((id: string | null) => {
@@ -525,6 +530,7 @@ export function useAssistantChat(
               page: pageRef.current,
               path: pathRef.current,
               ...(opts.spoken ? { spoken: true } : {}),
+              ...(deviceChangesRef.current ? { deviceChanges: deviceChangesRef.current } : {}),
             },
             onEvent,
             controller.signal,

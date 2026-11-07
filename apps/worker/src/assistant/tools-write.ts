@@ -1771,12 +1771,14 @@ export function createToolExecutor(
     // The agency area's pages, linked whole on the web app's address.
     const web = extraWebTools[tool.name];
     if (web) return web(db, ctx, args, webUrl);
+    // Home's items, with the link each one opens.
+    const attention = attentionAutoTools[tool.name];
+    if (attention) return attention(db, ctx, args, webUrl);
     const run =
       readTools[tool.name] ??
       contactReadTools[tool.name] ??
       settingsReadTools[tool.name] ??
       autoWrites[tool.name] ??
-      attentionAutoTools[tool.name] ??
       moneyReadTools[tool.name] ??
       moreAutoTools[tool.name];
     if (run) return run(db, ctx, args);

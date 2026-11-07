@@ -16,6 +16,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   ADDON_CATALOG,
+  addonOfMenuKey,
   applyTeammatePatch,
   assistantCoverage,
   attentionSettingsOf,
@@ -31,6 +32,7 @@ import {
   DEFAULT_MENU,
   diffTeammateConfigs,
   effectiveMapping,
+  entryKeys,
   followUpLadderWords,
   formatClock,
   GET_HELP_WORDS,
@@ -39,26 +41,34 @@ import {
   IDEA_STATUS_WORDS,
   ideaUpdateLine,
   IDEAS_WORDS,
+  isAlwaysShown,
+  isMenuKey,
   isValidTimeZone,
   lineCheckPriceWords,
-  MENU_ALWAYS_SHOWN,
+  MENU_GROUPS_MAX,
   MENU_WORDS,
   menuOf,
+  menuPlaceOpen,
   menuSummary,
   migrationStatusWords,
   moveKey,
+  normalizeMenu,
   parseAutomationSettings,
   parseDefinition,
   placeholderChoices,
   pushSwitchesOf,
   PUSH_SWITCHES,
   reengageOn,
+  renameGroup,
   sameMenu,
   storedMenu,
   STAGE_ROLE_LABELS,
   SUGGESTED_MENU,
   templateIssues,
+  ungroup,
   validateTeammate,
+  withAddonPlaces,
+  withoutKey,
   type AttentionSettings,
   type AutomationContext,
   type AutomationId,
@@ -68,7 +78,10 @@ import {
   type IdeaStatus,
   type LineCheckCents,
   type Menu,
+  type MenuEntry,
+  type MenuGroup,
   type MenuKey,
+  type MenuPlaceKey,
   type NotifyWho,
   type PushSwitch,
   type PushSwitches,
@@ -1331,61 +1344,266 @@ const MENU_LABELS: Record<MenuKey, string> = {
   audit: 'Audit log',
   settings: 'Settings',
 };
-const placesWords = (keys: readonly MenuKey[]) => joinAnd(keys.map((k) => MENU_LABELS[k]));
-const alwaysShown = (keys: readonly MenuKey[]) =>
+/** A place in the menu's words: core's own, or the add-on's name. */
+const placeLabel = (key: MenuPlaceKey) =>
+  isMenuKey(key) ? MENU_LABELS[key] : (addonOfMenuKey(ADDON_CATALOG, key)?.name ?? key);
+const placesWords = (keys: readonly MenuPlaceKey[]) => joinAnd(keys.map(placeLabel));
+const alwaysShown = (keys: readonly MenuPlaceKey[]) =>
   `${placesWords(keys)} always ${keys.length === 1 ? 'stays' : 'stay'} in the menu.`;
 
-function nextMenu(menu: Menu, args: Args): { next: Menu; refused: MenuKey[]; places: MenuKey[] } {
+type Open = (key: MenuPlaceKey) => boolean;
+
+/**
+ * The person's menu as Edit menu starts from it in this business: what they saved, with the add-ons running here
+ * they never arranged at the end; and which places are open to them here, the only ones the editor lists.
+ */
+async function menuHere(db: Db, ctx: ToolContext): Promise<{ me: Me; menu: Menu; open: Open }> {
+  const [me, { workspace }] = await Promise.all([
+    meOf(db, ctx),
+    query<{ workspace: { permissions: string[]; addons: string[] } }>(db, ctx, 'workspace.get'),
+  ]);
+  const addons = { running: workspace.addons, catalog: ADDON_CATALOG };
+  return {
+    me,
+    menu: withAddonPlaces(menuOf(me.user.settings), workspace.permissions, addons),
+    open: (key) => menuPlaceOpen(key, workspace.permissions, addons),
+  };
+}
+
+/** The menu top to bottom as the person sees it, each group with what's in it: "Home, Inbox, More (Forms, Reviews)". */
+function menuLayout(menu: Menu, open: Open): string {
+  const clean = normalizeMenu(menu);
+  const rows = clean.entries.flatMap((e) => {
+    if (e.kind === 'link') return open(e.key) ? [placeLabel(e.key)] : [];
+    const keys = e.keys.filter(open);
+    return keys.length ? [`${e.label} (${keys.map(placeLabel).join(', ')})`] : [];
+  });
+  const hidden = clean.hidden.filter(open);
+  return `${rows.join(', ')}${hidden.length ? `; hidden: ${hidden.map(placeLabel).join(', ')}` : ''}`;
+}
+
+/** A group of the menu by its name, as the person calls it. */
+const groupNamed = (menu: Menu, name: string): MenuGroup | undefined =>
+  menu.entries.find(
+    (e): e is MenuGroup => e.kind === 'group' && e.label.toLowerCase() === name.toLowerCase(),
+  );
+
+/** The groups the person can see, by name. */
+const groupNames = (menu: Menu, open: Open) =>
+  joinAnd(
+    menu.entries.flatMap((e) => (e.kind === 'group' && e.keys.some(open) ? [`“${e.label}”`] : [])),
+  );
+
+/** The places, in order, as rows of the menu itself at `at`. */
+function linksAt(menu: Menu, at: number, keys: readonly MenuPlaceKey[]): Menu {
+  const entries = [...menu.entries];
+  entries.splice(at, 0, ...keys.map((key): MenuEntry => ({ kind: 'link', key })));
+  return { ...menu, entries };
+}
+
+/**
+ * Move: the places, in the order given, just above `before` (inside its group when it's in one); without it, out
+ * of the group the first one is in to just under it, or to the bottom of the menu.
+ */
+function movePlaces(
+  menu: Menu,
+  places: readonly MenuPlaceKey[],
+  before: MenuPlaceKey | undefined,
+): Menu {
+  const base = places.reduce(withoutKey, menu);
+  if (!before) {
+    const from = menu.entries.find(
+      (e): e is MenuGroup => e.kind === 'group' && e.keys.includes(places[0]!),
+    );
+    // withoutKey keeps a group it empties, so the one they came out of is still there to go under.
+    const at = from ? base.entries.findIndex((e) => e.kind === 'group' && e.id === from.id) : -1;
+    return linksAt(base, at < 0 ? base.entries.length : at + 1, places);
+  }
+  const at = base.entries.findIndex((e) => entryKeys(e).includes(before));
+  if (at < 0)
+    throw HfosError.validation(
+      [{ path: 'before', message: 'Not in the menu.' }],
+      `${placeLabel(before)} is hidden, so nothing can go above it. Show it first, or name a place in the menu.`,
+    );
+  const holder = base.entries[at]!;
+  if (holder.kind === 'link') return linksAt(base, at, places);
+  const keys = [...holder.keys];
+  keys.splice(keys.indexOf(before), 0, ...places);
+  return { ...base, entries: base.entries.map((e, i) => (i === at ? { ...holder, keys } : e)) };
+}
+
+const missing = (path: string, why: string) =>
+  HfosError.validation([{ path, message: 'Missing.' }], why);
+
+function nextMenu(
+  menu: Menu,
+  args: Args,
+  open: Open,
+): { next: Menu; refused: MenuPlaceKey[]; places: MenuPlaceKey[]; group?: MenuGroup } {
   const act = action(args);
   if (act === 'use_suggested') return { next: SUGGESTED_MENU, refused: [], places: [] };
   if (act === 'start_over') return { next: DEFAULT_MENU, refused: [], places: [] };
-  const places = [...new Set(list<MenuKey>(args['places']) ?? [])];
+  if (act === 'rename_group' || act === 'ungroup') {
+    const name = str(args['group']);
+    if (!name) throw missing('group', 'Say which group: give its name in group.');
+    const group = groupNamed(menu, name);
+    if (!group)
+      throw HfosError.notFound(
+        menu.entries.some((e) => e.kind === 'group' && e.keys.some(open))
+          ? `Your menu has no group called “${name}”. Its groups are ${groupNames(menu, open)}.`
+          : 'Your menu has no groups yet. Put places into one with action group.',
+      );
+    if (act === 'ungroup')
+      return { next: ungroup(menu, group.id), refused: [], places: [...group.keys], group };
+    const label = str(args['name']);
+    if (!label) throw missing('name', 'Say what to call the group: give it in name.');
+    return { next: renameGroup(menu, group.id, label), refused: [], places: [], group };
+  }
+  const places = [...new Set(list<MenuPlaceKey>(args['places']) ?? [])];
   if (!places.length)
     throw HfosError.validation(
       [{ path: 'places', message: 'Say which places.' }],
       `Say which places to ${act}: give them in places.`,
     );
+  // An add-on is a place only where it runs and they can open it, as the editor lists it.
+  const closed = places.filter((k) => !isMenuKey(k) && !open(k));
+  if (closed.length)
+    throw HfosError.validation(
+      [{ path: 'places', message: 'Not in the menu here.' }],
+      `${placesWords(closed)} ${closed.length === 1 ? 'isn’t' : 'aren’t'} in your menu here: not running in this business, or nothing in ${closed.length === 1 ? 'it' : 'them'} is open to you. An owner turns add-ons on in Add-ons.`,
+    );
+  if (act === 'move') {
+    const before = str(args['before']) as MenuPlaceKey | undefined;
+    if (before && places.includes(before))
+      throw HfosError.validation(
+        [{ path: 'before', message: 'One of the places moved.' }],
+        `${placeLabel(before)} is one of the places being moved. Name another place in before.`,
+      );
+    if (before && !isMenuKey(before) && !open(before))
+      throw HfosError.validation(
+        [{ path: 'before', message: 'Not in the menu here.' }],
+        `${placeLabel(before)} isn’t in your menu here. Name a place that is.`,
+      );
+    return { next: movePlaces(menu, places, before), refused: [], places };
+  }
+  if (act === 'group') {
+    const name = str(args['group']);
+    if (!name) throw missing('group', 'Say which group: give its name in group.');
+    let next = menu;
+    let group = groupNamed(next, name);
+    if (!group) {
+      if (next.entries.filter((e) => e.kind === 'group').length >= MENU_GROUPS_MAX)
+        throw HfosError.rule(
+          'menu_groups_full',
+          409,
+          `${MENU_WORDS.groupsFull} Put them into one you have (${groupNames(next, open)}), or ungroup one first.`,
+        );
+      // A new group, named as they said, where the first place stood in the menu (else at the bottom, where the
+      // editor's Move to → a new group puts one).
+      const was = next.entries.findIndex((e) => e.kind === 'link' && e.key === places[0]);
+      next = moveKey(next, places[0]!, 'new');
+      const made = next.entries[next.entries.length - 1] as MenuGroup;
+      if (was >= 0) {
+        const entries = next.entries.slice(0, -1);
+        entries.splice(was, 0, made);
+        next = { ...next, entries };
+      }
+      next = renameGroup(next, made.id, name);
+      group = groupNamed(next, name)!;
+    }
+    const id = group.id;
+    for (const key of places) next = moveKey(next, key, { group: id });
+    return { next, refused: [], places, group: groupNamed(next, name) };
+  }
   let next = menu;
-  const refused: MenuKey[] = [];
+  const refused: MenuPlaceKey[] = [];
   for (const key of places) {
     if (act === 'hide') {
-      if (MENU_ALWAYS_SHOWN.includes(key)) refused.push(key);
+      if (isAlwaysShown(key)) refused.push(key);
       else if (!next.hidden.includes(key)) next = moveKey(next, key, 'hidden');
     } else if (next.hidden.includes(key)) next = moveKey(next, key, 'menu');
   }
   return { next, refused, places };
 }
 
+const MENU_TITLES: Record<string, string> = {
+  hide: 'Hide from your side menu',
+  show: 'Show in your side menu',
+  move: 'Move in your side menu',
+  group: 'Group places in your side menu',
+  rename_group: 'Rename a group in your side menu',
+  ungroup: 'Ungroup in your side menu',
+  use_suggested: 'Use the suggested groups',
+  start_over: 'Start your side menu over',
+};
+
+/** What the card says the change is, before the menu it makes. */
+function menuFields(
+  act: string,
+  args: Args,
+  moved: readonly MenuPlaceKey[],
+  group: MenuGroup | undefined,
+  isNew: boolean,
+  open: Open,
+): Field[] {
+  const before = str(args['before']) as MenuPlaceKey | undefined;
+  const more = SUGGESTED_MENU.entries.find((e) => e.kind === 'group');
+  switch (act) {
+    case 'hide':
+      return [{ label: 'Hide', value: placesWords(moved) }];
+    case 'show':
+      return [{ label: 'Show again', value: placesWords(moved) }];
+    case 'move':
+      return [
+        { label: 'Move', value: placesWords(moved) },
+        before
+          ? { label: 'Just above', value: placeLabel(before) }
+          : { label: 'To', value: 'Just under their group, or the bottom of the menu' },
+      ];
+    case 'group':
+      return [
+        { label: isNew ? 'New group' : 'Into', value: group?.label ?? '' },
+        { label: 'Places', value: placesWords(moved) },
+      ];
+    case 'rename_group':
+      return [
+        { label: 'Group', value: group?.label ?? '' },
+        { label: 'New name', value: str(args['name']) ?? '' },
+      ];
+    case 'ungroup':
+      return [
+        { label: 'Ungroup', value: group?.label ?? '' },
+        { label: 'Back in the menu', value: placesWords(moved.filter(open)) },
+      ];
+    case 'use_suggested':
+      return [
+        {
+          label: 'In the menu',
+          value: placesWords(
+            SUGGESTED_MENU.entries.flatMap((e) => (e.kind === 'link' ? [e.key] : [])),
+          ),
+        },
+        ...(more?.kind === 'group'
+          ? [{ label: `In ${more.label}`, value: placesWords(more.keys) }]
+          : []),
+      ];
+    default:
+      return [{ label: 'Your menu', value: 'Every place, one under the other' }];
+  }
+}
+
 const arrangeMyMenu: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const me = await meOf(db, ctx);
-    const menu = menuOf(me.user.settings);
-    const { next, refused, places } = nextMenu(menu, args);
+    const { menu, open } = await menuHere(db, ctx);
+    const { next, refused, places, group } = nextMenu(menu, args, open);
     const act = action(args);
     if (!refused.length && sameMenu(menu, next))
       throw nothingChanges('Your side menu already looks like that.');
     const moved = places.filter((k) => !refused.includes(k));
-    const more = SUGGESTED_MENU.entries.find((e) => e.kind === 'group');
-    const fields: Field[] =
-      act === 'hide'
-        ? [{ label: 'Hide', value: placesWords(moved) }]
-        : act === 'show'
-          ? [{ label: 'Show again', value: placesWords(moved) }]
-          : act === 'use_suggested'
-            ? [
-                {
-                  label: 'In the menu',
-                  value: placesWords(
-                    SUGGESTED_MENU.entries.flatMap((e) => (e.kind === 'link' ? [e.key] : [])),
-                  ),
-                },
-                ...(more?.kind === 'group'
-                  ? [{ label: `In ${more.label}`, value: placesWords(more.keys) }]
-                  : []),
-              ]
-            : [{ label: 'Your menu', value: 'Every place, one under the other' }];
-    if (act === 'hide' || act === 'show')
-      fields.push({ label: 'Your menu', value: menuSummary(next) });
+    const isNew = act === 'group' && !groupNamed(menu, str(args['group']) ?? '');
+    const fields = menuFields(act, args, moved, group, isNew, open);
+    if (act !== 'use_suggested' && act !== 'start_over')
+      fields.push({ label: 'Your menu', value: menuLayout(next, open) });
     const warnings: Warning[] = refused.length
       ? [{ kind: 'blocked', text: alwaysShown(refused) }]
       : act === 'hide'
@@ -1396,21 +1614,14 @@ const arrangeMyMenu: SettingsConfirmTool = {
           : [];
     return {
       card: settingsCard(toolCallId, 'arrange_my_menu', {
-        title:
-          act === 'hide'
-            ? 'Hide from your side menu'
-            : act === 'show'
-              ? 'Show in your side menu'
-              : act === 'use_suggested'
-                ? 'Use the suggested groups'
-                : 'Start your side menu over',
+        title: MENU_TITLES[act] ?? MENU_TITLES['start_over']!,
         fields,
         confirmLabel: refused.length ? '' : 'Save menu',
         warnings,
       }),
       result: refused.length
         ? { blocked: true, why: `${placesWords(refused)} can’t be hidden.` }
-        : { waiting: true, menu: menuSummary(next) },
+        : { waiting: true, menu: menuSummary(next), layout: menuLayout(next, open) },
     };
   },
 
@@ -1419,9 +1630,8 @@ const arrangeMyMenu: SettingsConfirmTool = {
     // says which menu it was made on: one saved in between (the editor, another device) is read again and the
     // change made on that instead, once.
     for (let tries = 1; ; tries += 1) {
-      const me = await meOf(db, ctx);
-      const menu = menuOf(me.user.settings);
-      const { next, refused } = nextMenu(menu, args);
+      const { me, menu, open } = await menuHere(db, ctx);
+      const { next, refused } = nextMenu(menu, args, open);
       if (refused.length) throw HfosError.validation([], alwaysShown(refused));
       if (sameMenu(menu, next)) throw nothingChanges('Your side menu already looks like that.');
       try {

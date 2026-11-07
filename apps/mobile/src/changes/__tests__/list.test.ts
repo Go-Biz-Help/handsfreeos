@@ -101,6 +101,7 @@ describe('Changes on this phone', () => {
     expect(list.sent).toEqual([
       {
         key: `person:${MARIA}`,
+        workspaceId: expect.any(String),
         title: '3 changes for Maria Lopez',
         line: 'Number and email · a note · moved to Won',
         count: 3,

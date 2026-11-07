@@ -745,16 +745,37 @@ export const APP_PLACES: readonly AppPlace[] = [
     path: '/tasks',
   },
   {
+    label: 'Search',
+    what: 'every result for what was typed in Search everything, by kind',
+    where: [],
+    then: 'type in Search everything at the top of the side menu, then press Enter with no row picked',
+    onScreen: [
+      'Kinds of results down the side, each with its count, All first; Include archived and Only mine',
+      'Each kind’s best results, with Show N more under them, and Only <kind> to open that kind on its own',
+      'One kind on its own: Include archived and Only mine; for contacts, All · Leads · Clients and Sort (Best match, Most recent contact, Name A–Z), and Compare and merge where two share a number or an email; Show 50 more',
+      'A kind searched only so far back (messages, notes, the words inside files, form answers) says how far, with Look further back; Messages has Look in Spam',
+    ],
+    howTo: [
+      'See every result: type in Search everything, then press Enter',
+      'Look in one kind only: on the Search page, press the kind (or Only <kind> under it)',
+      'Merge two contacts who share a number: open Contacts on its own on the Search page, then Compare and merge',
+    ],
+    path: '/search',
+  },
+  {
     label: 'Audit log',
     what: 'who changed what, and when',
     where: ['Audit log'],
     onScreen: [
-      'Today, 7 days or 30 days; Filter by person (a person, workflows, the AI teammate or HandsFreeOS); Filter by activity; a search',
-      'Press an entry to see what it was before and after, and why',
+      'Today, 7 days or 30 days; Filter by person (Everyone, a person, a workflow, All workflows, the AI teammate or HandsFreeOS (system)); a search',
+      'Filter by activity: All activity, Members, Invitations, Workspace, Contacts, Inbox & texting, Calendar, Leads, Tasks, Files, Imports, Workflows, Action Center or Assistant',
+      'Show what HandsFreeOS noticed (with All activity or Action Center): what the Action Center noticed on its own, hidden until it’s ticked',
+      'Each entry: the time, who did it and what in a sentence, its kind and where it came from; press it to see what it was before and after, and why',
     ],
     howTo: [
       'See what someone changed: Audit log, pick them in Filter by person, then press an entry',
       'See what the AI teammate did: Audit log, Filter by person, then the AI teammate',
+      'See what was changed through Ask HandsFreeOS: Audit log, Filter by activity, then Assistant',
     ],
     notHere: ['anything older than 30 days', 'exporting the log'],
     path: '/audit',
@@ -814,11 +835,13 @@ export const APP_PLACES: readonly AppPlace[] = [
 
 /** What is on every page, around the page itself. */
 export const EVERY_PAGE: readonly string[] = [
-  'Top of the side menu, on every business page: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search everything (⌘K or Ctrl K), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
+  'Top of the side menu, on every business page: the bell beside the HandsFreeOS name, the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search everything (⌘K or Ctrl K), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
+  'The bell (in the bar along the top on a narrow screen) opens Notifications: Needs you first, the add-ons’ alerts still open, then Recent, what HandsFreeOS sent to their phone for this business in the last 30 days, newest first, with the ones not opened yet marked; pressing one opens what it’s about, and Show older shows more. Its count is what came since they last opened it, and the alerts still open. What they’re sent at all is Settings → Account (Notifications)',
+  'Ask HandsFreeOS, the panel: Your chats lists their chats here, newest first (⋯ on one has Rename and Archive; only they can see them, and renaming or archiving one is theirs to do), New chat starts a fresh one, and Close hides the panel. Under the box: Talk out loud to talk instead of type and hear the answer, Stop to end an answer, Send; Copy under an answer copies it, and a card waiting for an OK has its own buttons',
   'Search everything finds, for whoever may see them, customers, companies, leads, estimates, invoices and payments, messages and calls, appointments, tasks, notes, files and the words inside them, forms and their answers, Knowledge, the business’s own kinds of records, Real Estate’s listings, deals, homes and properties, and settings; archived things show under Archived, and the Deleted bin to whoever may delete for good. Enter with no row picked opens the Search page with every result. A place hidden from the side menu isn’t found by it, but still opens from a link',
   'Settings has its own Search settings box at the top of its menu',
   'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers; while Getting started isn’t finished it’s a menu first: Getting started, Take the tour, and Ask us for help, which opens that message), and Sign out. Pressing their own name there opens their account menu: Sell HandsFreeOS (applying to sell HandsFreeOS for a share, their link and codes, getting paid, and agreeing to the affiliate terms) and Sign out',
-  'Each person can reorder, group or hide places in their side menu (Settings → Account, under Side menu); a place may be inside a group called More; Home and Settings never hide',
+  'Each person can reorder, group or hide places in their side menu (Settings → Account, under Side menu, then Edit menu: Move up, Move down, Move to a group, Add a group, Group name, Ungroup, Hide and Show, Use suggested groups, Start over, then Save menu); a place may be inside a group called More; Home and Settings never hide; an add-on that’s on is a place there too',
   'A place their role doesn’t allow isn’t in their side menu at all: Inbox, Money and Audit log need their own permission',
   'You can send the Get help message for them, and add a business the way Create workspace does (organization owners and admins)',
 ];
@@ -834,12 +857,14 @@ export const NOT_ANYWHERE: readonly string[] = [
 /** The phone app, which does less than the web. */
 export const PHONE_APP: readonly string[] = [
   'The bar along the bottom: Home, Inbox, Pipeline, Calendar and More',
-  'More: Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web',
+  'The bar along the top: the business’s mark on the left (press it to switch businesses), then the bell (Notifications: Needs you, then Recent), the HandsFreeOS mark, which opens Ask HandsFreeOS, and the magnifying glass for Search everything. While someone views as a teammate the bell and Ask HandsFreeOS aren’t there',
+  'More, top to bottom: Switch (businesses), each add-on’s own places, Changes on this phone, Contacts, Tasks, Money, Forms, Documents (for whoever can send them), Approvals, Set up your AI teammate (while there’s none) or Test your AI teammate and Run quick setup again (for whoever manages the AI teammate), View as a teammate (owners and admins: see the app as someone below them, read-only, until Stop viewing), Settings, Add-ons (for whoever manages them), Ideas, Get help, and Open on the web',
+  'Changes on this phone, under More (and the strip under the top bar when something waits): what was changed on the phone and hasn’t reached HandsFreeOS yet. Needs you · N, each with what to do (Fix, or Discard, which sends nothing); Waiting · N, which go on their own once there’s signal; and Sent just now. Only the phone knows these: asked on the phone, the context lists them; asked on the web, you can’t see them, so ask what it says there. Fixing, sending or discarding one is done there, by them',
   'Pipeline: one stage at a time, with the stages as chips along the top showing their counts; tap a lead to open it, then Move to… to change its stage (it works with no signal, and Lost asks why); there is no dragging on the phone',
   'Tasks, under More: Mine or Everyone; the circle ticks one off (and reopens a done one); tapping a task opens its customer or lead; New task at the bottom',
   'Approvals, under More: Waiting and Decided, with the AI teammate’s drafts and workflow approvals together',
   'Its Settings: My cell phone, unlocking with Face ID or a fingerprint, Businesses on this phone, Usage & balance, Notifications, Appearance, Sign out, Delete my account',
-  'Only on the web: workflows, the AI teammate’s settings, Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
+  'Only on the web: workflows, the AI teammate’s settings (the phone has only its quick setup and its test), Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
   'Set up your business runs on the phone too, from Home’s Getting started (Start, or Carry on where it was left on the computer); a Getting started step easier on a computer has Email me a link, which emails the person a link to it',
   `Getting the phone app: ${PHONE_APP_LINKS.links.map((l) => `${l.label}, from the ${l.from}: ${l.url}`).join('; ')}. These two links may be given as they are`,
   'Money, under More: invoices and estimates (and payments and plans for whoever manages money); on an invoice, Record cash or a check, Send and Send a payment link; on an estimate, Send and Send their link; New invoice on the web and New estimate on the web write one on the web',
@@ -873,7 +898,7 @@ export const CUSTOMER_PAGES: readonly string[] = [
 export const LOOK_ALIKES: readonly string[] = [
   'Service area: the territories that route bookings and that the AI teammate checks are Settings → Calendars → Territories; each calendar only uses them once Route by ZIP code is on in its own Territories section; the words the AI says about the area are Knowledge → Overview, in Business profile under Where and when (Service area).',
   'Hours: the business’s open hours are Settings → Workspace (Business hours); a person’s own are Settings → My calendar (Weekly hours); a calendar’s are its Availability section; the AI teammate’s are its Hours section.',
-  'Notifications: what a person is told about is Settings → Account (Notifications); what customers get about a booking is the calendar’s Notifications section; reminders and follow-ups HandsFreeOS sends by itself are Settings → Automations.',
+  'Notifications: what a person was sent is the bell at the top of the side menu (on the phone, in the bar along the top); what a person is told about is Settings → Account (Notifications); what customers get about a booking is the calendar’s Notifications section; reminders and follow-ups HandsFreeOS sends by itself are Settings → Automations.',
   'Quiet hours: only Settings → Texting & calls, in Texting rules.',
   'Deposits: the default for estimates is Settings → Payments (Deposits); a deposit taken at booking is the calendar’s Payments section; one estimate’s own is its Deposit card.',
   'Payments: getting paid by customers is Settings → Payments; paying HandsFreeOS for texts and calls is Settings → Usage & balance; the money itself is Money; one payment’s refund is on its invoice.',

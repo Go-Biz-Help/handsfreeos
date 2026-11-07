@@ -482,7 +482,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Members'],
     onScreen: [
       'Invite teammate, at the top (Email address, then Owner, Admin or Member, then Send invite)',
-      'Everyone in the business, with a Role picker; ⋯ beside a person has Edit hours, Permissions (owners only), and Remove from workspace (Leave workspace on your own row)',
+      'Everyone in the business, with a Role picker; ⋯ beside a person has Edit hours (Edit my hours on your own row), View as <their name> (owners and admins, for someone below them: the app as they see it, read-only, until Stop viewing; only the person starts and stops it), Permissions (owners only), and Remove from workspace (Leave workspace on your own row)',
       'Also has access via the agency (Put me on this business), and Pending invitations with Resend and Revoke',
     ],
     path: '/members',

@@ -10,6 +10,8 @@ import { executeCommand, executeQuery } from '../src/kernel/execute';
 import type { CommandDef, HumanActor, QueryDef, RequestMeta } from '../src/kernel/types';
 import {
   ADDON_SERVER_MODULES,
+  AUDIT_CATEGORIES,
+  auditCategory,
   auditList,
   hashInvitationToken,
   invitationAccept,
@@ -1596,6 +1598,42 @@ describe('account and reads', () => {
     expect(viaTests.entries.every((e) => e.channel === 'test')).toBe(true);
     await expectHfos(
       () => ask(auditList, { workspaceId: wsId, channel: 'fax' }, owner),
+      'validation',
+    );
+  });
+
+  it('audit.list filters by who did it and by Filter by activity’s kinds, as the log sorts them', async () => {
+    const since = new Date(Date.now() - 1000).toISOString();
+    await run(workspaceUpdate, { workspaceId: wsId, timezone: 'America/Denver' }, owner);
+    await run(workspaceUpdate, { workspaceId: wsId, timezone: 'America/Chicago' }, owner);
+    const people = await ask(auditList, { workspaceId: wsId, actorType: 'human' }, owner);
+    expect(people.entries.length).toBeGreaterThan(0);
+    expect(people.entries.every((e) => e.actor.type === 'human')).toBe(true);
+    // Each kind holds exactly what auditCategory puts in it, and the kinds before it never take its rows.
+    const workspace = await ask(auditList, { workspaceId: wsId, category: 'workspace' }, owner);
+    expect(workspace.entries.map((e) => e.action)).toContain('workspace.update');
+    expect(workspace.entries.every((e) => auditCategory(e.action) === 'workspace')).toBe(true);
+    const members = await ask(
+      auditList,
+      { workspaceId: wsId, category: 'members', limit: 200 },
+      owner,
+    );
+    expect(members.entries.every((e) => auditCategory(e.action) === 'members')).toBe(true);
+    const other = await ask(auditList, { workspaceId: wsId, category: 'other', limit: 200 }, owner);
+    expect(other.entries.every((e) => auditCategory(e.action) === 'other')).toBe(true);
+    // Together, the kinds are every row once (over the last moments, so every row of them is on one page).
+    const all = await ask(auditList, { workspaceId: wsId, since, limit: 200 }, owner);
+    expect(all.entries.length).toBeGreaterThan(1);
+    const sorted = await Promise.all(
+      AUDIT_CATEGORIES.map((category) =>
+        ask(auditList, { workspaceId: wsId, since, category, limit: 200 }, owner),
+      ),
+    );
+    expect(sorted.flatMap((p) => p.entries.map((e) => e.id)).sort()).toEqual(
+      all.entries.map((e) => e.id).sort(),
+    );
+    await expectHfos(
+      () => ask(auditList, { workspaceId: wsId, category: 'billing' }, owner),
       'validation',
     );
   });

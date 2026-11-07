@@ -6,6 +6,11 @@
 import {
   ADDON_CATALOG,
   addonToolArguments,
+  AUDIT_CATEGORY_LABEL,
+  auditActor,
+  auditCategory,
+  auditList,
+  describeAudit,
   affiliateCodeLink,
   affiliateLink,
   affiliateMine,
@@ -17,6 +22,7 @@ import {
   deskMatomoPagesUrl,
   executeQuery,
   HfosError,
+  isAuditDetection,
   leadBoard,
   migrationGet,
   migrationStatusWords,
@@ -35,6 +41,7 @@ import {
   screenReadTools,
   videoCallGet,
   webinarDoorPath,
+  type AuditEntry,
   type Permission,
   type ScopeKey,
   type ScreenReadTool,
@@ -395,6 +402,34 @@ function migrationRead(got: unknown, webUrl: string): unknown {
   };
 }
 
+/**
+ * The audit log as its rows read: who did it, the sentence, the kind Filter by activity sorts it into, and whether
+ * HandsFreeOS noticed it on its own (the screen hides those until Show what HandsFreeOS noticed). Before and after stay,
+ * for what a change was; the ids the sentence already says go.
+ */
+export function auditRead(got: unknown): unknown {
+  const entries = (got as { entries?: AuditEntry[] } | null)?.entries;
+  if (!Array.isArray(entries)) return got;
+  return {
+    ...(got as object),
+    entries: entries.map((e) => ({
+      at: e.createdAt,
+      who: auditActor(e).name,
+      did: describeAudit(e),
+      kind: AUDIT_CATEGORY_LABEL[auditCategory(e.action)],
+      ...(isAuditDetection(e) ? { noticedByHandsFree: true } : {}),
+      action: e.action,
+      ...(e.actor.userId ? { actorId: e.actor.userId } : {}),
+      channel: e.channel,
+      entityType: e.entityType,
+      entityId: e.entityId,
+      ...(e.reason ? { reason: e.reason } : {}),
+      before: e.before,
+      after: e.after,
+    })),
+  };
+}
+
 export async function runScreenRead(
   db: Db,
   tool: ScreenReadTool,
@@ -442,8 +477,12 @@ export async function runScreenRead(
                                 ? forClaude(got)
                                 : tool.query.name === platformOnboardingCounts.name
                                   ? withMatomo(got, args)
-                                  : got;
+                                  : tool.query.name === auditList.name
+                                    ? auditRead(got)
+                                    : got;
   const json = JSON.stringify(data ?? null);
+  // A list's next page, kept when the rest is cut, so it can still be read on from.
+  const next = (data as { nextCursor?: unknown } | null)?.nextCursor;
   return {
     result:
       json.length <= MOST
@@ -451,7 +490,11 @@ export async function runScreenRead(
         : {
             data: `${json.slice(0, MOST)}…`,
             cutShort: true,
-            note: 'That was too long to read whole: ask it for less (a smaller page, a narrower search).',
+            ...(typeof next === 'string' && next ? { nextCursor: next } : {}),
+            note:
+              typeof next === 'string' && next
+                ? 'That was too long to read whole: ask it again with a smaller limit or a narrower filter. nextCursor reads on from the end of this page, so it skips what was cut.'
+                : 'That was too long to read whole: ask it for less (a smaller page, a narrower search).',
           },
   };
 }

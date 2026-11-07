@@ -149,6 +149,8 @@ export function registerAssistantRoutes(
       ...context.prompt,
       place: screenPlace(input.path, context.places),
       ...(input.spoken ? { spoken: true } : {}),
+      // Asked on the phone: what its Changes on this phone shows, which never reached HandsFreeOS.
+      ...(input.deviceChanges ? { deviceChanges: input.deviceChanges } : {}),
     };
     const stream = openStream<AssistantEvent>(reply);
     const stop = new AbortController();

@@ -5,6 +5,7 @@ import {
   appointmentCreate,
   applyPatch,
   assistantToolByName,
+  attendeeConfirm,
   calendarAvailability,
   calendarCreate,
   calendarGet,
@@ -477,6 +478,73 @@ describe('the Assistant on the calendar', () => {
         status: 'scheduled',
       }),
     ]);
+  });
+
+  it('says, as Home’s Today card does, whether each customer confirmed, and how many tomorrow are confirmed so far', async () => {
+    const tools = createToolExecutor(testDbs().worker.db);
+    const today = async () =>
+      (
+        await tools.run(
+          assistantToolByName.get('todays_schedule')!,
+          {},
+          {
+            actor: actor(owner),
+            workspaceId,
+            organizationId,
+            correlationId: randomUUID(),
+            timezone: CHI,
+          },
+        )
+      ).result as {
+        stillToCome: Record<string, unknown>[];
+        tomorrow: { appointments: number; confirmedSoFar: number; yours: number };
+        tasksDueToday: Record<string, unknown>[];
+      };
+    const before = await today();
+    // Mike's visit now hasn't been confirmed, so it says so; the task due comes with its id, for complete_task.
+    expect(before.stillToCome).toContainEqual(
+      expect.objectContaining({ customers: ['Mike Johnson'], confirmed: false }),
+    );
+    expect(before.tasksDueToday).toContainEqual(
+      expect.objectContaining({ id: expect.any(String), title: 'Order filters' }),
+    );
+
+    // Two more tomorrow, and Mike confirms one of them.
+    const first = await run(
+      appointmentCreate,
+      {
+        workspaceId,
+        calendarId,
+        personId: mikeId,
+        startsAt: iso(tomorrowAt(15)),
+        acknowledgeWarnings: true,
+      },
+      owner,
+    );
+    await run(
+      appointmentCreate,
+      {
+        workspaceId,
+        calendarId,
+        personId: mikeId,
+        startsAt: iso(tomorrowAt(16)),
+        acknowledgeWarnings: true,
+      },
+      owner,
+    );
+    const [seat] = await rows<{ id: string }>(
+      admin(),
+      sql`select id from app.appointment_attendees where appointment_id = ${first.appointmentId}`,
+    );
+    await run(attendeeConfirm, { workspaceId, attendeeId: seat!.id }, owner);
+
+    const after = await today();
+    expect(after.tomorrow).toEqual({
+      appointments: before.tomorrow.appointments + 2,
+      confirmedSoFar: before.tomorrow.confirmedSoFar + 1,
+      // Priya works them, not Dale.
+      yours: before.tomorrow.yours,
+    });
   });
 
   it('never offers booking, moving or cancelling to someone without appointments.write', async () => {
