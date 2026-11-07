@@ -254,6 +254,7 @@ function labelsOf(schema: unknown): { labels?: Record<string, string> } {
 interface ScreenTool {
   readonly input: z.ZodObject;
   readonly scope: readonly ScopeKey[];
+  readonly staff: boolean;
   readonly agencyDoor: boolean;
   readonly forBusiness?: boolean;
   readonly agencyOnly?: boolean;
@@ -268,6 +269,15 @@ const agencyAdminsOnly = (agency: string) =>
   `Only the owners and admins of ${agency} can do that, in its Agency area. Ask one of them.`;
 
 /** The arguments the screen's own query or command takes: never the business ids, nor the door it's asked through. */
+/**
+ * A staff screen's arguments as the model gave them, business ids included: it looks across businesses, so the model
+ * names the one (`workspaceId`), and the kernel checks the staff permission. Only what its input declares is kept.
+ */
+export function staffArguments(tool: Pick<ScreenTool, 'input'>, args: Record<string, unknown>) {
+  const declared = new Set(Object.keys(tool.input.shape));
+  return Object.fromEntries(Object.entries(args).filter(([k]) => declared.has(k)));
+}
+
 export function ownArguments(tool: ScreenTool, args: Record<string, unknown>) {
   const own = addonToolArguments(tool, args);
   if (tool.agencyDoor) delete own['wholeAgency'];
@@ -393,7 +403,9 @@ export async function runScreenRead(
   /** The web app's address, for the join address a video call's answer adds. */
   webUrl = '',
 ): Promise<ToolOutcome> {
-  const input = { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
+  const input = tool.staff
+    ? staffArguments(tool, args)
+    : { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
   const got = await executeQuery(db, tool.query, input, ctx.actor, {
     correlationId: ctx.correlationId,
     channel: 'assistant',
