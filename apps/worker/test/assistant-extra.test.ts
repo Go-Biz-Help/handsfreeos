@@ -159,6 +159,7 @@ describe('the extra tools', () => {
       expect(member, name).toContain(name);
     for (const name of [
       'update_ai_teammate_rules',
+      'test_ai_teammate',
       'list_automations',
       'update_automations',
       'add_business',
@@ -233,6 +234,43 @@ describe('the AI teammate’s finer rules', () => {
       options: ['Own', 'Rent'],
       notAFitIf: { answers: ['Rent'], below: null, above: null },
     });
+  });
+
+  it('asks its questions in a new order, as the arrows set it, and only with every one named once', async () => {
+    const { parsed: added } = await prepare('update_ai_teammate_rules', {
+      addQuestions: [
+        { question: 'When do you need it done?', kind: 'text' },
+        { question: 'How did you hear about us?', kind: 'text' },
+      ],
+    });
+    await confirm('update_ai_teammate_rules', added);
+    const ids = ((await teammate()).config['qualify'].questions as { id: string }[]).map(
+      (x) => x.id,
+    );
+    expect(ids).toHaveLength(3);
+    const order = [ids[2]!, ids[0]!, ids[1]!];
+    const before = await teammate();
+    const { card, parsed } = await prepare('update_ai_teammate_rules', { questionOrder: order });
+    expect(field(card, 'Order')!.value).toBe(
+      '1. How did you hear about us? 2. Do you own the home? 3. When do you need it done?',
+    );
+    expect(field(card, 'Change')).toBeUndefined();
+    expect((await teammate()).revision).toBe(before.revision);
+    await confirm('update_ai_teammate_rules', parsed);
+    const after = (await teammate()).config['qualify'].questions as { id: string }[];
+    // The same questions, the same ids, in the order asked.
+    expect(after.map((x) => x.id)).toEqual(order);
+    await expect(
+      prepare('update_ai_teammate_rules', { questionOrder: [ids[0]!, ids[1]!] }),
+    ).rejects.toThrow('name every question it keeps, each once');
+    await expect(
+      prepare('update_ai_teammate_rules', { questionOrder: [ids[0]!, ids[0]!, ids[1]!, ids[2]!] }),
+    ).rejects.toMatchObject({ code: 'validation' });
+    // Put back as it was, so the tests after this one find the question they expect first.
+    await confirm(
+      'update_ai_teammate_rules',
+      (await prepare('update_ai_teammate_rules', { removeQuestionIds: [ids[1]!, ids[2]!] })).parsed,
+    );
   });
 
   it('sets limits, hand-off, phone calls, identity and autonomy in one go', async () => {

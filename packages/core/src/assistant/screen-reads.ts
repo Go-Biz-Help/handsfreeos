@@ -163,13 +163,26 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
  * of the query's own, when that is the agency's (`org.*`), which no business permission holds: workspace.update, which
  * every agency owner and admin holds in each of its businesses. The kernel still checks the organization's own
  * permission when it runs. `agencyDoor`: a query either door reads (a business's own part, or the agency's whole), so
- * the model may ask it of the whole agency (`wholeAgency`).
+ * the model may ask it of the whole agency (`wholeAgency`). `more`: what the model may add that the query doesn't
+ * take, which the executor reads to shape the answer and leaves off the query's input.
  */
 export interface ScreenReadWay {
   readonly offeredTo?: Permission;
   readonly agencyDoor?: true;
+  readonly more?: z.ZodRawShape;
 }
 const SCREEN_READ_WAYS: Readonly<Record<string, ScreenReadWay>> = {
+  // A funnel can be longer than one answer holds: one stage of it always reads whole.
+  'funnel.get': {
+    more: {
+      stageId: z
+        .uuid()
+        .optional()
+        .describe(
+          'Only this stage of the funnel, read whole: a stageId from its stages. Left out, the whole funnel, or its outline when it is too long to read whole',
+        ),
+    },
+  },
   'ai_setup_template.list': { offeredTo: 'workspace.update' },
   'onboarding.clients': { offeredTo: 'workspace.update' },
   'migration.get': { agencyDoor: true },
@@ -218,6 +231,8 @@ const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
     'Its answer comes summed up as the board shows it: the open leads and their value, each stage’s count and total value (Won and Lost too), then each stage’s first 5 cards in order (shown with a stage’s id and a limit lists more of it). Pipeline ids are in its pipelines.',
   'schedule.team':
     'The Calendar’s Team, Week and Day views show it. Its answer comes summed up, each person with their weekly hours (or that none are saved, so weekdays 9 to 5 apply) and the zone they’re in, their time off and extra open time with its note and exceptionId (update_my_hours takes it out), when they’re busy in their own Google or Outlook calendar, on a private deal or in another business, and how their calendar link stands. userIds narrows it to some teammates (list_team).',
+  'funnel.get':
+    'Its answer comes as the funnel’s builder shows it: its definition whole while it fits, with inWords saying who gets in and each stage’s messages and moves in the builder’s words. A funnel too long to read whole comes as an outline, each message cut short, and stageId then reads one stage whole. do_funnel_save takes the whole definition back, with the revision read here, so read every stage whole before saving a long one.',
   'video_call.get':
     'Its answer adds join, the address the team joins the call at, and for a webinar linkAnyoneCanUse, its Link anyone can use as the screen copies it. The customer’s own link went to them by text or email and is never shown. A call that isn’t for an appointment is found by its callId: start_video_call’s answer has it, and once it has been held it is on the customer’s timeline (read_timeline_list, a call’s meta.videoCallId).',
 };
@@ -239,6 +254,8 @@ export interface ScreenReadTool extends AssistantTool<z.ZodObject> {
    * anyone else is told who can, not that the agency isn't there.
    */
   readonly agencyOnly: boolean;
+  /** What its input adds to the query's (its way's `more`): read by the executor, never given to the query. */
+  readonly more?: readonly string[];
 }
 
 /** Whether an offered tool is one of these (it runs through the one executor for them). */
@@ -264,7 +281,9 @@ export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTo
       {
         name: screenReadName(name),
         description: `${query.description} What the person sees on the screen it’s on.${SCREEN_READ_MORE[name] ? ` ${SCREEN_READ_MORE[name]}` : ''}`,
-        input: withAgencyDoor(view.input, agencyDoor),
+        input: way.more
+          ? withAgencyDoor(view.input, agencyDoor).extend(way.more)
+          : withAgencyDoor(view.input, agencyDoor),
         autonomy: 'auto' as const,
         permission: (way.offeredTo ?? query.permission ?? 'assistant.use') as Permission,
         query,
@@ -272,6 +291,7 @@ export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTo
         staff,
         agencyDoor,
         agencyOnly: !!query.permission && isOrgPermission(query.permission),
+        ...(way.more ? { more: Object.keys(way.more) } : {}),
       },
     ];
   });

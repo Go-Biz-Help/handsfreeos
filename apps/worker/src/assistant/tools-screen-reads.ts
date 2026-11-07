@@ -21,6 +21,7 @@ import {
   DESK_ONBOARDING_DEFAULT_WINDOW,
   deskMatomoPagesUrl,
   executeQuery,
+  funnelGet,
   HfosError,
   isAuditDetection,
   leadBoard,
@@ -51,6 +52,7 @@ import { z } from 'zod';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { aiSetupRead, clientsRead, gettingStartedRead, setupRead } from './setup-screens';
+import { funnelRead } from './tools-funnels';
 import { query } from './tools-read';
 
 /** The most of an answer, in characters of JSON, the model reads whole. */
@@ -438,9 +440,11 @@ export async function runScreenRead(
   /** The web app's address, for the join address a video call's answer adds. */
   webUrl = '',
 ): Promise<ToolOutcome> {
-  const input = tool.staff
+  const input: Record<string, unknown> = tool.staff
     ? staffArguments(tool, args)
     : { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
+  // What the model may add to shape the answer (one stage of a funnel) isn't the query's to take.
+  for (const key of tool.more ?? []) delete input[key];
   const got = await executeQuery(db, tool.query, input, ctx.actor, {
     correlationId: ctx.correlationId,
     channel: 'assistant',
@@ -479,7 +483,9 @@ export async function runScreenRead(
                                   ? withMatomo(got, args)
                                   : tool.query.name === auditList.name
                                     ? auditRead(got)
-                                    : got;
+                                    : tool.query.name === funnelGet.name
+                                      ? funnelRead(got, args['stageId'])
+                                      : got;
   const json = JSON.stringify(data ?? null);
   // A list's next page, kept when the rest is cut, so it can still be read on from.
   const next = (data as { nextCursor?: unknown } | null)?.nextCursor;

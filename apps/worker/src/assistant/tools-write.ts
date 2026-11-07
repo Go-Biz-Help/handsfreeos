@@ -64,6 +64,12 @@ import { commitScreenAction, prepareScreenAction, runScreenAction } from './tool
 import { runScreenRead } from './tools-screen-reads';
 import { moreSettingsConfirmTools } from './tools-settings-more';
 import { setupAutoTools, setupConfirmTools } from './tools-setup';
+import { testAiTeammate } from './teammate-test';
+
+/** Tools that run on the worker's own services: trying the AI teammate as a customer, as its Test console does. */
+const serviceTools = {
+  test_ai_teammate: testAiTeammate,
+};
 
 /** The rest of what people do on the screens, one file an area: run on their own. */
 const moreAutoTools = {
@@ -1722,6 +1728,7 @@ export const executorFor = (name: string) =>
   capabilityTools[name] ??
   mainOfferAutoTools[name] ??
   mainOfferConfirmTools[name] ??
+  serviceTools[name as keyof typeof serviceTools] ??
   confirmTools[name];
 
 /** `workflows`: the model drafting workflows talks to (without it, draft_workflow says the AI isn't set up). */
@@ -1771,6 +1778,9 @@ export function createToolExecutor(
     // The agency area's pages, linked whole on the web app's address.
     const web = extraWebTools[tool.name];
     if (web) return web(db, ctx, args, webUrl);
+    // The AI teammate's Test console, on the worker's AI and wallet.
+    const service = serviceTools[tool.name as keyof typeof serviceTools];
+    if (service) return service(db, ctx, args, addonActions?.services ?? null, webUrl);
     // Home's items, with the link each one opens.
     const attention = attentionAutoTools[tool.name];
     if (attention) return attention(db, ctx, args, webUrl);

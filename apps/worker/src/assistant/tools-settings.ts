@@ -18,6 +18,7 @@ import {
   handoverScreen,
   migrationStatusWords,
   notificationStates,
+  screenPlace,
   settingsArea,
   settingsWhere,
   type AssistantCard,
@@ -41,6 +42,32 @@ interface AreaQuery {
 }
 
 const DAY = 86_400_000;
+
+type TeammateFix = { id: string; label: string; href?: string; patch?: unknown };
+
+/**
+ * The AI teammate's settings with each Fix that opens another screen said as the way there ("Settings → Texting &
+ * calls"), never as the page's own path inside the business, which isn't a link anyone can open (tm-16). A fix that
+ * changes a setting keeps its patch: the matching tool field makes that change.
+ */
+export function teammateRead(v: unknown): unknown {
+  const issues = (v as { issues?: { fixes?: TeammateFix[] }[] } | null)?.issues;
+  if (!Array.isArray(issues)) return v;
+  return {
+    ...(v as object),
+    issues: issues.map((issue) => ({
+      ...issue,
+      fixes: (issue.fixes ?? []).map(({ href, ...fix }) =>
+        href === undefined
+          ? fix
+          : {
+              ...fix,
+              opens: screenPlace(`/${href.replace(/^\/+/, '')}`)?.way ?? fix.label,
+            },
+      ),
+    })),
+  };
+}
 
 type Site = { slug: string; path: string; page: boolean } | null;
 const siteOf = (v: unknown): Site => (v as { site?: Site } | null)?.site ?? null;
@@ -284,7 +311,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'founding.mine', as: 'founding' },
   ],
   action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
-  ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate' }],
+  ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate', shape: teammateRead }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
   my_account: [
     { name: 'account.me', as: 'me' },

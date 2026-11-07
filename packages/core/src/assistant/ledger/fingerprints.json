@@ -1462,11 +1462,11 @@
   "packages/core/src/addons/outreach/manifest.ts": "762e0bb9a068",
   "packages/core/src/addons/realestate/manifest.ts": "ac6b56db1cf6",
   "packages/core/src/assistant/coverage.ts": "ef2373dbadeb",
-  "packages/core/src/assistant/screen-reads.ts": "6fb4e55ed693",
-  "packages/core/src/assistant/settings-map.ts": "055f630c7a64",
-  "packages/core/src/assistant/tools-content.ts": "8d0fad437270",
-  "packages/core/src/assistant/tools-extra.ts": "57da74b8eef9",
-  "packages/core/src/assistant/tools.ts": "279685333a66",
+  "packages/core/src/assistant/screen-reads.ts": "d068ffbd4104",
+  "packages/core/src/assistant/settings-map.ts": "df1a6f0130ad",
+  "packages/core/src/assistant/tools-content.ts": "0748b6b1605b",
+  "packages/core/src/assistant/tools-extra.ts": "b974b342c749",
+  "packages/core/src/assistant/tools.ts": "a2354862767b",
   "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
   "packages/core/src/bin-words.ts": "d60313191585"
 }

@@ -102,9 +102,12 @@ type AreaEntry = Omit<SettingsAreaInfo, 'area'>;
 /** The calendar editor's own sections, down its left side, in its order. */
 const CALENDAR_SECTION_NAMES = CALENDAR_SECTIONS.map((s) => s.name).join(', ');
 
-/** The AI teammate's own sections, in its order (apps/web/src/lib/ai-team/describe.ts), and what each holds. */
+/**
+ * The AI teammate's own sections, down the left of its Teammate tab, in their three groups and order
+ * (apps/web/src/lib/ai-team/describe.ts, MODULE_GROUPS), and what each holds.
+ */
 const TEAMMATE_SECTIONS =
-  'Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, and what happens when a lead qualifies), Book (which calendars, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up (how many monthly ones; when each follow-up goes is set in Settings → Automations), Hours (Always, After hours only, Custom), Autonomy (how many approvals before it works on its own), Limits (replies a day, discounts, bills, quotes, plans), Hand-off (when it hands over, who is told and how)';
+  'Basics: Identity (name, email signature, how it says it’s AI, tone), Channels (Texts, Email, Website chat, Phone calls), Hours (Always, After hours only, Custom). What it does: Respond (message new leads first, and how soon), Answer (from Knowledge, and photos customers send), Qualify (its questions, in the order it asks them, and what happens when a lead qualifies), Book (which calendars and what each is for, rescheduling, cancelling, the waitlist, repeat visits, and checking the service area), Follow up (how many monthly ones; when each follow-up goes is set in Settings → Automations), Add-ons (only when an add-on running here offers it something). Rules and safety: Hand-off (when it hands over, who is told and how), Autonomy (how many approvals before it works on its own, and when drafts expire), Limits (replies a day, look-ups, its share of the AI limit, discounts, bills, quotes, plans). Under them: Run quick setup again';
 
 /** Each calendar's own sections are reached the same way. */
 const ON_A_CALENDAR = 'Settings → Calendars, press the calendar, then';
@@ -898,10 +901,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'your AI teammate: its name, what it may do, which channels it answers on and its hours',
     where: ['AI teammate'],
     onScreen: [
-      'Tabs: Teammate, Activity, Approvals',
-      `Teammate: its settings, down the left, in order: ${TEAMMATE_SECTIONS}`,
-      'Beside them: Status (Off, Training wheels, Automatic)',
+      'Tabs: Teammate, Instructions, Funnels, Review, Activity, Approvals',
+      `Teammate: its settings, down the left, in three groups: ${TEAMMATE_SECTIONS}`,
+      'Beside them: Status (Off, Training wheels, Automatic), the things to check (each with its Fix), and How it works',
       'At the top: Test console, History, and More (Website chat settings, Knowledge, turn it off or on)',
+      'Instructions: the rules it reads on every reply, call and test (up to 50, 300 characters each), with Add instruction, and Edit or Delete on each',
+      'Funnels: each funnel with its pipeline, how many people are at each stage and its switch, and New funnel; a funnel opens its steps (who gets in, the stages, the messages, wording and approvals, Try it as a lead) beside its map, with Pause, Turn on or Archive it',
+      'Review: what it sent on its own, newest first, Not rated yet or All, each with thumbs up or down; a thumbs down suggests a rule to Save rule',
+      'Activity: every run, what started it, what it looked up, the checks, and what it sent or drafted',
+      'Approvals: its drafts waiting for an OK, and Decided lately',
     ],
     path: '/ai-team',
     permission: 'ai_team.manage',
@@ -921,6 +929,12 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'its email signature and tone',
       'how many approvals before it works on its own, and when drafts expire',
       'approve, change or reject what it wrote while it waits for an OK',
+      'the order it asks its qualifying questions in',
+      'its instructions: add, change or delete one',
+      'save or drop a rule it suggests from feedback on its replies',
+      'its funnels: make one, change a stage, a message or a move, turn it on, pause it or archive it',
+      'try it as a customer by text, email or the website chat, and read what it would say and do (nothing is sent)',
+      'run quick setup again, from what is saved',
     ],
     handovers: [],
     howTo: [
@@ -933,10 +947,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Have it check the service area: the Book section, the switch for checking your service area',
       'Change who hears about a hand-off: the Hand-off section, Who gets told',
       'Have it answer phone calls: the Channels section, Phone calls',
-      'Try it as a customer: AI teammate, Test console',
+      'Try it as a customer: AI teammate, Test console (or ask me to try a question on it)',
       'Undo a change: Undo on the save card, or History, then Restore',
       'See what it did: AI teammate → Activity',
       'Approve what it wrote: AI teammate → Approvals, Review, then Approve and send',
+      'Teach it a rule: AI teammate → Instructions, Add instruction',
+      'Build a funnel: AI teammate → Funnels, New funnel; Turn on, Pause or Archive it on the funnel',
+      'See what it sent on its own and rate it: AI teammate → Review; a thumbs down suggests a rule, and Save rule keeps it',
+      'Change the order of its questions: the Qualify section, the up and down arrows beside each question',
+      'Run quick setup again: AI teammate, Run quick setup again under the sections',
     ],
     notHere: ['deleting it, or having more than one'],
   },

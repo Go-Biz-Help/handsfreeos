@@ -21,6 +21,7 @@ import {
   QUESTION_KINDS,
   QUOTE_MODES,
 } from '../ai-team/config';
+import { TEST_MESSAGES_MAX } from '../ai-team/test-console';
 import { PHONE_VOICES, phoneVoiceInfo } from '../ai-team/voices';
 import { AUTOMATION_GROUPS, AUTOMATIONS, type AutomationId } from '../automations/catalog';
 import { CALL_TRIES_MAX } from '../automations/call-hours';
@@ -108,7 +109,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_ai_teammate_rules',
     description:
-      'Change the AI teammate’s finer rules, as its screen sections have them. Channels: the address it emails from and the website chat it answers. Respond: how its first message to a new lead goes (text or email) and how long after the lead comes in. Book: whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area. Photos: whether it looks at photos and gives rough price ranges from them. Hours: the hours it works when they’re its own. Add-ons: which ones it uses in a conversation. Qualify: switch it on, add, change or remove the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, which channels it answers, when it works and its skills on or off are manage_ai_teammate; when each follow-up goes is update_automations’ followUpTimes. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
+      'Change the AI teammate’s finer rules, as its screen sections have them. Channels: the address it emails from and the website chat it answers. Respond: how its first message to a new lead goes (text or email) and how long after the lead comes in. Book: whether it reschedules, cancels, uses a waitlist, books repeat visits and checks the service area. Photos: whether it looks at photos and gives rough price ranges from them. Hours: the hours it works when they’re its own. Add-ons: which ones it uses in a conversation. Qualify: switch it on, add, change, remove or reorder the questions it asks new leads (kind, choices, required, which answers mean not a fit, and for a file question who hears when it arrives), where a qualified lead moves, who is told, whether it then offers times, whether the team hears when a lead isn’t a fit, and whether it opens and closes deals. Limits: replies to one customer a day, look-ups per reply, its share of the daily AI limit, discounts, bills, new bills, quotes and maintenance plans. Hand-off: when frustrated, sensitive topics, who is told and how, and what the customer is told. Phone calls: on or off, when it picks up, its voice and greeting. Identity: email signature and tone. Autonomy: approvals before it works on its own, and when drafts expire. Its name, status, which channels it answers, when it works and its other skills on or off (all but Qualify) are manage_ai_teammate; when each follow-up goes is update_automations’ followUpTimes. Read it first with get_settings area ai_teammate (question ids are there); stage ids come from get_settings area pipelines and people from list_team. Pass only what changes.',
     input: z.object({
       // Channels
       emailsFromAddressId: uuid
@@ -175,6 +176,13 @@ export const extraTools: readonly AssistantTool[] = [
         .optional()
         .describe('Only the parts that change'),
       removeQuestionIds: z.array(questionId).max(10).optional(),
+      questionOrder: z
+        .array(questionId)
+        .max(10)
+        .optional()
+        .describe(
+          'The order it asks its questions in, as the Qualify section’s up and down arrows set it: every question id it keeps, each once. Questions added in the same change go after them',
+        ),
       qualifiedLeadStageId: uuid
         .nullable()
         .optional()
@@ -277,6 +285,48 @@ export const extraTools: readonly AssistantTool[] = [
         .describe('Then the conversation goes to a person'),
     }),
     autonomy: 'confirm',
+    permission: 'ai_team.manage',
+  }),
+  define({
+    name: 'test_ai_teammate',
+    description:
+      'Try the AI teammate as a customer, as AI teammate → Test console does: send it what a customer would write, by text, email or the website chat, as someone in Contacts or a stranger, now or at a time you pick, and read what it would reply, whether that waits for an OK, what it looked up, what it would do (book, hand off, tell the team…) and how its safety check went. It uses the saved settings. Nothing is sent, booked or changed and nobody is rung; the test counts toward the teammate’s share of the daily AI limit, as the console’s do. To go on with the same test, pass the whole conversation so far, ending with the customer’s new message. A phone call is tried only in the Test console itself, live. To rate a reply, pass the runId it returns to do_ai_teammate_give_feedback; to try again with a better reply in mind, pass retryWithFix.',
+    input: z.object({
+      messages: z
+        .array(
+          z.object({
+            from: z.enum(['customer', 'teammate']),
+            text: z.string().trim().min(1).max(2000),
+          }),
+        )
+        .min(1)
+        .max(TEST_MESSAGES_MAX)
+        .describe(
+          'The test so far, oldest first, ending with the customer’s new message; one customer message starts a new test',
+        ),
+      channel: z
+        .enum(['sms', 'email', 'chat'])
+        .default('sms')
+        .describe('How the customer writes: sms (a text), email, or chat (the website chat)'),
+      personId: uuid
+        .optional()
+        .describe(
+          'Be this person in Contacts (from search_customers); leave out to be someone new',
+        ),
+      at: z.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe('Pretend it’s this time, to try its hours; leave out for now'),
+      retryWithFix: z
+        .object({
+          reply: z.string().trim().max(4000).optional().describe('The reply it gave before'),
+          better: z.string().trim().max(2000).optional().describe('What it should have said'),
+          why: z.string().trim().max(500).optional(),
+        })
+        .optional()
+        .describe('Try the last customer message again, with feedback on the reply it gave'),
+    }),
+    autonomy: 'auto',
     permission: 'ai_team.manage',
   }),
 
