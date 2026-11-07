@@ -1466,7 +1466,7 @@
   "packages/core/src/assistant/settings-map.ts": "98726a0c3600",
   "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
   "packages/core/src/assistant/tools-extra.ts": "687823db8f13",
-  "packages/core/src/assistant/tools.ts": "922f981dd47e",
+  "packages/core/src/assistant/tools.ts": "d3374ddf9fff",
   "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
   "packages/core/src/bin-words.ts": "d60313191585"
 }
