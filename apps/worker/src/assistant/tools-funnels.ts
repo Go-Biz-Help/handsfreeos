@@ -78,8 +78,8 @@ const APPROVAL_WORDS: Readonly<Record<FunnelApproval, string>> = {
   send: 'send on their own, with no OK',
 };
 
-/** "The day before, at 4:00 PM, only if they haven’t joined, by text (exact words): “See you tomorrow…”". */
-export function funnelMessageWords(m: FunnelMessage, most = 160): string {
+/** "The day before, at 4:00 PM, only if they haven’t joined, by text (exact words)": everything but its words. */
+function messageWhen(m: FunnelMessage): string {
   const when = [
     funnelWhenWords(m.when),
     m.onlyIf ? funnelOnlyIfWords(m.onlyIf).replace(/^Only/, 'only') : null,
@@ -87,7 +87,12 @@ export function funnelMessageWords(m: FunnelMessage, most = 160): string {
   ]
     .filter(Boolean)
     .join(', ');
-  return `${when}${m.wording === 'exact' ? ' (exact words)' : ''}: “${clip(m.text, most)}”`;
+  return `${when}${m.wording === 'exact' ? ' (exact words)' : ''}`;
+}
+
+/** "The day before, at 4:00 PM, only if they haven’t joined, by text (exact words): “See you tomorrow…”". */
+export function funnelMessageWords(m: FunnelMessage, most = 160): string {
+  return `${messageWhen(m)}: “${clip(m.text, most)}”`;
 }
 
 const moveWords = (m: FunnelMove, names: FunnelNames) => funnelMoveWords(m, names);
@@ -123,18 +128,25 @@ function entryWords(got: Got, names: FunnelNames) {
   };
 }
 
-/** One stage of the funnel, whole, with its pipeline stage's name and its messages and moves in words. */
-function stageWhole(stage: FunnelStage, got: Got, names: FunnelNames) {
+/**
+ * One stage of the funnel, whole, with its pipeline stage's name and its messages and moves in words. `short`: the
+ * words are left out, so the longest stage (8 messages of 1,000 characters, 6 moves) still reads whole.
+ */
+function stageWhole(stage: FunnelStage, got: Got, names: FunnelNames, short = false) {
   const row = got.funnel.stages.find((s) => s.id === stage.stageId);
   return {
     ...stage,
     name: row?.name ?? stageNamed(names, stage.stageId),
     kind: row?.kind ?? null,
     people: row?.people ?? 0,
-    inWords: {
-      messages: stage.messages.map((m) => `${m.id}: ${funnelMessageWords(m, 80)}`),
-      moves: stage.moves.map((m) => `${m.id}: ${moveWords(m, names)}`),
-    },
+    ...(short
+      ? {}
+      : {
+          inWords: {
+            messages: stage.messages.map((m) => `${m.id}: ${funnelMessageWords(m, 80)}`),
+            moves: stage.moves.map((m) => `${m.id}: ${moveWords(m, names)}`),
+          },
+        }),
   };
 }
 
@@ -168,11 +180,13 @@ export function funnelRead(raw: unknown, stageId: unknown): unknown {
           : `That stage isn’t in ${got.funnel.pipelineName}. Read the funnel without a stage to see its stages.`,
       );
     }
-    return {
+    const read = (short: boolean) => ({
       funnel: summaryOf(got),
-      stage: stageWhole(stage, got, names),
-      note: `${stageNamed(names, stageId)} whole, as the builder’s Stages step shows it. do_funnel_save takes the whole definition, so keep every other stage as the funnel has it.`,
-    };
+      stage: stageWhole(stage, got, names, short),
+      note: `${stageNamed(names, stageId)} whole, as the builder’s Stages step shows it${short ? ', too long to say again in words: a move’s to is the stageId of the stage it moves them to' : ''}. do_funnel_save takes the whole definition, so keep every other stage as the funnel has it.`,
+    });
+    const full = read(false);
+    return JSON.stringify(full).length <= WHOLE ? full : read(true);
   }
   const whole = {
     ...got,
@@ -190,28 +204,40 @@ export function funnelRead(raw: unknown, stageId: unknown): unknown {
   };
   if (JSON.stringify(whole).length <= WHOLE) return whole;
   const inFunnel = new Set(def.stages.map((s) => s.stageId));
-  return {
-    note: 'This funnel is too long to read whole, so this is its outline: each message is cut short, and so is what the AI teammate knows at a stage. Read one stage whole with stageId. do_funnel_save takes the whole definition back, so read every stage whole before saving.',
+  /**
+   * The outline; or, for the longest funnels (12 stages of 8 messages and 6 moves), a shorter one that still names
+   * every stage by its id: each message only by when it goes, goals and moves cut short, and no talking points.
+   */
+  const outline = (short: boolean) => ({
+    note: short
+      ? 'This funnel is too long to read whole, so this is a short outline: each message says only when it goes, goals and moves are cut short, and what the AI teammate knows at a stage is left out. Read one stage whole with stageId. do_funnel_save takes the whole definition back, so read every stage whole before saving.'
+      : 'This funnel is too long to read whole, so this is its outline: each message is cut short, and so is what the AI teammate knows at a stage. Read one stage whole with stageId. do_funnel_save takes the whole definition back, so read every stage whole before saving.',
     funnel: summaryOf(got),
     entry: { ...def.entry, inWords: entryWords(got, names) },
     wording: def.wording,
     approval: def.approval,
-    description: clip(def.description, 300),
+    description: clip(def.description, short ? 120 : 300),
     stages: def.stages.map((s) => ({
       stageId: s.stageId,
       name: stageNamed(names, s.stageId),
       people: got.funnel.stages.find((r) => r.id === s.stageId)?.people ?? 0,
-      goal: s.goal,
-      knows: clip(s.knows, 160),
+      goal: short ? clip(s.goal, 80) : s.goal,
+      ...(short ? {} : { knows: clip(s.knows, 160) }),
       handOff: s.handOff,
-      messages: s.messages.map((m) => `${m.id}: ${funnelMessageWords(m, 60)}`),
-      moves: s.moves.map((m) => `${m.id}: ${moveWords(m, names)}`),
+      messages: s.messages.map(
+        (m) => `${m.id}: ${short ? funnelWhenWords(m.when) : funnelMessageWords(m, 60)}`,
+      ),
+      moves: s.moves.map(
+        (m) => `${m.id}: ${short ? clip(moveWords(m, names), 60) : moveWords(m, names)}`,
+      ),
     })),
     stagesNotInIt: got.funnel.stages
       .filter((s) => !inFunnel.has(s.id))
       .map((s) => ({ stageId: s.id, name: s.name, kind: s.kind })),
     ...restOf(got),
-  };
+  });
+  const full = outline(false);
+  return JSON.stringify(full).length <= WHOLE ? full : outline(true);
 }
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);

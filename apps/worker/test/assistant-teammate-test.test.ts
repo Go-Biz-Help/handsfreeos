@@ -138,5 +138,16 @@ describe('trying the AI teammate by asking', () => {
       message: expect.stringContaining('end the conversation with what the customer says next'),
       details: [{ path: 'messages.1', message: 'End with the customer’s new message.' }],
     });
+    // A worker without its AI services says where to try it instead.
+    await expect(
+      createToolExecutor(testDbs().worker.db).run(
+        tool,
+        tool.input.parse(says('Hi')) as Record<string, unknown>,
+        ctxFor(w.owner),
+      ),
+    ).rejects.toMatchObject({
+      rule: 'ai_not_configured',
+      message: expect.stringContaining('AI teammate → Test console'),
+    });
   });
 });

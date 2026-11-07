@@ -98,7 +98,12 @@ export async function testAiTeammate(
   services: WorkerServices | null,
   webUrl: string,
 ): Promise<ToolOutcome> {
-  if (!services) throw new Error('This worker can’t try the AI teammate for the Assistant');
+  if (!services)
+    throw HfosError.rule(
+      'ai_not_configured',
+      503,
+      'The test console can’t answer here yet. Try it under AI teammate → Test console, or try again in a minute.',
+    );
   // The console's own check: it runs as the worker, so who may try it is checked here, as its route does.
   if (!(await hasPermission({ httpDb: db }, ctx.actor.userId, ctx.workspaceId, 'ai_team.manage')))
     throw HfosError.forbidden(

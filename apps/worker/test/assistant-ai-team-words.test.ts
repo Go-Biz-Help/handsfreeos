@@ -157,6 +157,64 @@ describe('reading a funnel', () => {
       Array(8).fill(1000),
     );
   });
+
+  it('still names every stage of the longest funnel, and reads each of its stages whole', () => {
+    const ids = Array.from(
+      { length: 12 },
+      (_, i) => `${String(i + 1).padStart(8, '0')}-6666-4666-8666-666666666666`,
+    );
+    const definition = {
+      stages: ids.map((stageId, s) => ({
+        stageId,
+        goal: 'g'.repeat(300),
+        knows: 'k'.repeat(1000),
+        messages: Array.from({ length: 8 }, (_, i) => ({
+          id: `m${s}x${i}abcd`,
+          when: { kind: 'booking_day' as const, daysBefore: 2, at: '16:00' },
+          onlyIf: { has: false, event: 'appointment.booked' as const },
+          how: 'text' as const,
+          wording: 'exact' as const,
+          // Quotes and new lines take more room once read as JSON.
+          text: 'Say “hi”, then "ask".\n'.repeat(50).slice(0, 1000),
+        })),
+        moves: Array.from({ length: 6 }, (_, i) => ({
+          id: `v${s}x${i}abcd`,
+          kind: 'reply' as const,
+          says: 's'.repeat(200),
+          to: ids[(s + 1) % 12]!,
+        })),
+      })),
+    };
+    const base = gotOf(definition);
+    const longest = {
+      ...base,
+      funnel: {
+        ...base.funnel,
+        stages: ids.map((id, i) => ({
+          id,
+          name: `Stage ${i} ${'n'.repeat(50)}`,
+          kind: 'open' as const,
+          position: i,
+          people: 3,
+          inFunnel: true,
+        })),
+      },
+    };
+    // Under what a screen's read holds (16,000), so it never comes back cut into a string.
+    const outline = funnelRead(longest, undefined) as Loose;
+    expect(JSON.stringify(outline).length).toBeLessThan(16_000);
+    expect(outline['note']).toMatch(/^This funnel is too long to read whole, so this is a short/);
+    expect(outline['stages'].map((s: { stageId: string }) => s.stageId)).toEqual(ids);
+    expect(outline['stages'][0].messages[0]).toBe('m0x0abcd: 2 days before, at 4:00 PM');
+    expect(outline['stages'][0]).not.toHaveProperty('knows');
+    for (const id of ids) {
+      const stage = funnelRead(longest, id) as Loose;
+      expect(JSON.stringify(stage).length).toBeLessThan(16_000);
+      expect(stage['stage'].messages).toHaveLength(8);
+      expect(stage['stage'].moves).toHaveLength(6);
+      expect(stage['stage'].knows).toHaveLength(1000);
+    }
+  });
 });
 
 describe('what a save changes', () => {
