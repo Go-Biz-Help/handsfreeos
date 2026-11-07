@@ -1111,6 +1111,11 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     onScreen: [
       'Connect a CRM, at the top',
       'Connected: each system connected, with Start a migration (Call it, then Look at <the system>, which counts what’s there and brings nothing across yet)',
+      'Each move, with its status (Needs a look, Ready to set up, Bringing it across, Keeping up with the old system, Done…); press one for its own page',
+      'A move’s page: What we found; Where each one lands, with Save and choose what to bring; What to bring, with Save what to bring; The plan, with Bring it across',
+      'While it runs: Bringing it across, with Pause or Carry on, Try N again for what failed, and whether a customer is Same as someone already here or Somebody new',
+      'Once it’s done: Brought across, with the things left for you, each linking to its screen; Take it back; and Delete this move',
+      'An agency’s owners and admins see every move of the agency’s in the Agency area, under Migrations',
     ],
     path: '/settings/migrations',
     permission: 'migrations.manage',

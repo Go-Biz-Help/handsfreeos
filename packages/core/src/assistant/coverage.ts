@@ -32,6 +32,18 @@ export interface ScreenAction {
    * tool's input, so whatever the model says there is dropped.
    */
   readonly filled?: readonly string[];
+  /**
+   * A change either door takes (a migration's): the model may ask it of the whole agency (`wholeAgency`), as the
+   * agency's own page does. The executor then leaves the business's id off, so the kernel checks the agency's own
+   * permission; only the agency's owners and admins are let through.
+   */
+  readonly agencyDoor?: true;
+  /**
+   * An agency's change that names one of its client businesses (the one to remind, the one to save a setup from): the
+   * model may name it (`businessId`, from get_agency_area), said in these words; left out, it is the business asked
+   * in. The executor checks it is one of the agency's before putting it on, and the card names it.
+   */
+  readonly forBusiness?: string;
 }
 
 /**
@@ -135,10 +147,22 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   // ---- Agency area: the organization's own permission, checked by the kernel; offered as the agency's own tools are ----
   'ai_setup_template.delete': { offeredTo: 'workspace.update' },
   'ai_setup_template.rename': { offeredTo: 'workspace.update' },
-  'ai_setup_template.save': { offeredTo: 'workspace.update' },
+  'ai_setup_template.save': {
+    offeredTo: 'workspace.update',
+    forBusiness:
+      'The business whose setup answers are saved, as Save from a business picks it (from get_agency_area); left out, this one',
+  },
   'knowledge_pack.create': { offeredTo: 'workspace.update' },
-  'knowledge_pack.update': { offeredTo: 'workspace.update' },
-  'onboarding.remind': { offeredTo: 'workspace.update' },
+  'knowledge_pack.update': {
+    offeredTo: 'workspace.update',
+    about:
+      'items replaces the pack’s whole list: read the pack with get_agency_area (its packId) first, and pass every item it has with only what was asked changed, added or taken out. archived true archives the pack, and false restores it.',
+  },
+  'onboarding.remind': {
+    offeredTo: 'workspace.update',
+    forBusiness:
+      'The client business whose own owners get the reminder (from get_agency_area or read_onboarding_clients); left out, this one',
+  },
   'organization.add_owner': {
     offeredTo: 'workspace.update',
     warning:
@@ -265,22 +289,24 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   // ---- Settings → Imports ----
   'import.cancel': {},
   // ---- Settings → Migrations: each step checks the agency's or the business's Migrations permission itself ----
-  'migration.create': { offeredTo: 'migrations.manage' },
-  'migration.scan': { offeredTo: 'migrations.manage' },
-  'migration.select': { offeredTo: 'migrations.manage' },
+  'migration.create': { offeredTo: 'migrations.manage', agencyDoor: true },
+  'migration.scan': { offeredTo: 'migrations.manage', agencyDoor: true },
+  'migration.select': { offeredTo: 'migrations.manage', agencyDoor: true },
   'migration.map_scopes': {
     offeredTo: 'migrations.manage',
+    agencyDoor: true,
     warning: 'A sub-account set to land in a new business makes that business now.',
   },
   'migration.start': {
     offeredTo: 'migrations.manage',
+    agencyDoor: true,
     warning:
-      'It brings what was picked from the old system into the business now; no message, invoice or reminder goes out because of it. Taking it all back is Roll back, on the Migrations page, which only a person presses.',
+      'It brings what was picked from the old system into the business now; no message, invoice or reminder goes out because of it. Taking it all back is Take it back, on the move’s own page (Settings → Migrations or Agency area → Migrations, then the move), which only a person presses.',
   },
-  'migration.pause': { offeredTo: 'migrations.manage' },
-  'migration.resume': { offeredTo: 'migrations.manage' },
-  'migration.retry': { offeredTo: 'migrations.manage' },
-  'migration.resolve_merge': { offeredTo: 'migrations.manage' },
+  'migration.pause': { offeredTo: 'migrations.manage', agencyDoor: true },
+  'migration.resume': { offeredTo: 'migrations.manage', agencyDoor: true },
+  'migration.retry': { offeredTo: 'migrations.manage', agencyDoor: true },
+  'migration.resolve_merge': { offeredTo: 'migrations.manage', agencyDoor: true },
   // ---- HandsFreeOS's own Admin area: staff only (the owner, 2026-10-27) ----
   'support.ticket.assign': {},
   'support.ticket.dismiss_draft': {},
@@ -384,7 +410,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'deleting someone’s answers to a form for good: they skip the Deleted bin, which stays the person’s (the owner, 2026-10-26)',
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
-  'migration.rollback': 'taking back everything a move from another CRM brought, for good',
+  'migration.rollback':
+    'taking back a whole move from another CRM at once, which puts away what it brought (Delete this move finishes them off); the person presses Take it back on the move’s page (the owner, 2026-10-26)',
   'migration.delete':
     'deleting a move from another CRM, which finishes off the records it archived, for good',
   'calendar_connection.connect': 'signing in to Google or Outlook, which only the person can do',
@@ -394,7 +421,7 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'payment_connection.connect': 'signing in to Stripe or Square, which only the person can do',
   'review_connection.connect': 'signing in to Google or Facebook, which only the person can do',
   'migration.connect':
-    'signing in, or pasting a private token, at the CRM the business is leaving, which only the person can do',
+    'pasting a private token from the CRM the business is leaving, which goes straight to HandsFreeOS and never through the Assistant, so only the person can do it',
   'invitation.accept': 'accepting an invitation, which is the person’s own',
   'affiliate.accept_terms':
     'agreeing to the affiliate terms, which the person reads and agrees to themselves',

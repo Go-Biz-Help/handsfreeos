@@ -16,6 +16,7 @@ import {
   consentPolicyPath,
   consentTermsPath,
   handoverScreen,
+  migrationStatusWords,
   notificationStates,
   settingsArea,
   settingsWhere,
@@ -57,6 +58,19 @@ const legalPages = (site: Site) =>
         note: 'The ones HandsFreeOS keeps for the business, written from its texting registration. When it gave its own in the registration, these open those instead.',
       }
     : 'None yet: they come with the booking site (Settings → Calendars → Booking site).';
+
+/** The Migrations list as its badges say it: each move's status in the screen's words beside the stored one. */
+export function migrationListRead(v: unknown): unknown {
+  const list = v as { migrations?: { status: string }[] } | null;
+  if (!list || !Array.isArray(list.migrations)) return v;
+  return {
+    ...list,
+    migrations: list.migrations.map((m) => ({
+      ...m,
+      statusLabel: migrationStatusWords(m.status),
+    })),
+  };
+}
 
 /** What one area is read with: the same queries the screen behind it runs. */
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
@@ -330,6 +344,8 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
       name: 'migration.list',
       as: 'migrations',
       input: (ctx) => ({ organizationId: ctx.organizationId }),
+      // Each move's status as its badge says it. This is the business's own part; get_agency_area lists the agency's.
+      shape: migrationListRead,
     },
   ],
 };

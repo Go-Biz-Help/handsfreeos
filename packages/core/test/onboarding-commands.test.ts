@@ -439,8 +439,10 @@ describe('an agency’s clients', () => {
     );
   });
 
-  const clients = (u: TestUser) =>
-    executeQuery(api(), onboardingClients, { organizationId: orgId }, human(u), meta());
+  const clients = (
+    u: TestUser,
+    only: { group?: 'stuck' | 'setup' | 'done'; businessId?: string } = {},
+  ) => executeQuery(api(), onboardingClients, { organizationId: orgId, ...only }, human(u), meta());
 
   it('shows each business’s own owner, when they last signed in, and why it’s stuck', async () => {
     const got = await clients(dale);
@@ -461,6 +463,17 @@ describe('an agency’s clients', () => {
     // The agency's own people aren't a business's owner.
     expect(got.businesses.find((x) => x.workspaceId === ws)?.owner).toBeNull();
     expect(got.counts.all).toBe(got.businesses.length);
+  });
+
+  it('narrows to one filter or one business, and still counts them all', async () => {
+    const all = await clients(dale);
+    const stuck = await clients(dale, { group: 'stuck' });
+    expect(stuck.businesses.map((x) => x.workspaceId)).toContain(bayou);
+    expect(stuck.businesses.every((x) => x.group === 'stuck')).toBe(true);
+    expect(stuck.counts).toEqual(all.counts);
+    const one = await clients(dale, { businessId: bayou });
+    expect(one.businesses.map((x) => x.workspaceId)).toEqual([bayou]);
+    expect((await clients(dale, { group: 'done', businessId: bayou })).businesses).toEqual([]);
   });
 
   it('is only for the agency’s owners and admins', async () => {

@@ -73,16 +73,16 @@ const meta = () => ({ correlationId: randomUUID(), channel: 'test' as const });
 let owner: TestUser;
 let workspaceId: string;
 let organizationId: string;
-const ctx = (): ToolContext => ({
-  actor: actor(owner),
+const ctx = (u: TestUser = owner): ToolContext => ({
+  actor: actor(u),
   workspaceId,
   organizationId,
   correlationId: randomUUID(),
   timezone: 'America/Chicago',
 });
-const read = async (query: string, args: Record<string, unknown>) => {
+const read = async (query: string, args: Record<string, unknown>, u: TestUser = owner) => {
   const tool = allScreenReadTools().find((t) => t.name === screenReadName(query))!;
-  return (await createToolExecutor(api()).run(tool, tool.input.parse(args) as never, ctx())) as {
+  return (await createToolExecutor(api()).run(tool, tool.input.parse(args) as never, ctx(u))) as {
     result: { data: unknown };
   };
 };
@@ -156,6 +156,12 @@ describe('what the Assistant can see', () => {
     );
     expect(agent).toContain('support.ticket.list');
     expect(agent).not.toContain('platform.rates');
+    // The agency's own screens ask the organization's permission, which no business role holds: they're offered
+    // to whoever can change the business, and the kernel still checks the organization's own (the test below).
+    expect(ownerReads).toContain('onboarding.clients');
+    expect(ownerReads).toContain('ai_setup_template.list');
+    expect(member).not.toContain('onboarding.clients');
+    expect(member).not.toContain('ai_setup_template.list');
   });
 
   it('keeps the business a staff screen looks at, and puts on the person’s own everywhere else', () => {
@@ -184,6 +190,43 @@ describe('what the Assistant can see', () => {
     expect(result.data).toMatchObject({ items: expect.any(Array) });
     const usage = await read('usage.statement', {});
     expect(usage.result.data).toBeTruthy();
+  });
+
+  it('reads the agency’s own screens for its owners, and the whole agency only for them', async () => {
+    type Clients = { counts: { all: number }; businesses: Record<string, unknown>[] };
+    const clients = (await read('onboarding.clients', {})).result.data as Clients;
+    expect(clients.businesses).toContainEqual(
+      expect.objectContaining({
+        businessId: workspaceId,
+        setup: expect.stringMatching(/^\d+ of \d+ done$/),
+        openTheirWorkspace: `/app/w/${workspaceId}`,
+        stillOpen: expect.any(Array),
+      }),
+    );
+    // Narrowed as the page's filters narrow it, still counting them all.
+    const one = (await read('onboarding.clients', { businessId: workspaceId })).result
+      .data as Clients;
+    expect(one.businesses.map((b) => b['businessId'])).toEqual([workspaceId]);
+    expect(one.counts).toEqual(clients.counts);
+    expect((await read('ai_setup_template.list', {})).result.data).toMatchObject({
+      items: expect.any(Array),
+    });
+    // The whole agency's migrations go through the agency's own door.
+    const migration = allScreenReadTools().find((t) => t.query.name === 'migration.get')!;
+    expect(migration.agencyDoor).toBe(true);
+    expect(Object.keys(migration.input.shape)).toContain('wholeAgency');
+    expect(Object.keys(migration.input.shape)).not.toContain('organizationId');
+
+    // A business's admin who isn't one of the agency's owners or admins is told who can.
+    const admin = await createTestUser('screens-admin', { fullName: 'Ada Admin' });
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role) values (${workspaceId}, ${admin.id}, 'admin')`,
+    );
+    await expect(
+      read('migration.get', { migrationId: randomUUID(), wholeAgency: true }, admin),
+    ).rejects.toMatchObject({ rule: 'agency_only' });
+    await expect(read('onboarding.clients', {}, admin)).rejects.toThrow();
   });
 
   it('reads the team’s hours in words, as the Calendar’s Team view shows them, without the day-by-day list', async () => {

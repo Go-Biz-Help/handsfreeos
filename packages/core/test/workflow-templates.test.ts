@@ -490,6 +490,58 @@ describe('templates from scratch, renames, and a pack in each business', () => {
       expect(got.template.createdBy).toMatchObject({ id: orgAdmin.id });
     });
 
+    it('won’t publish while its Checks have a red item, as the editor’s Publish won’t', async () => {
+      const out = await run(
+        workflowTemplateCreate,
+        { organizationId: orgId, name: 'Broken' },
+        owner,
+      );
+      const saved = await run(
+        workflowTemplateSaveDraft,
+        {
+          organizationId: orgId,
+          templateId: out.templateId,
+          baseRevision: 1,
+          ops: [
+            {
+              op: 'add_step',
+              parentId: null,
+              branchId: null,
+              index: null,
+              step: {
+                id: 's_badtask1',
+                type: 'action',
+                action: 'create_task',
+                config: { title: 'Call {{lead.nope}}' },
+              },
+            },
+          ],
+        },
+        owner,
+      );
+      expect(saved.issues).toContainEqual(
+        expect.objectContaining({ severity: 'error', code: 'unknown_variable' }),
+      );
+      const refused = await expectHfos(
+        () =>
+          run(
+            workflowTemplatePublish,
+            { organizationId: orgId, templateId: out.templateId },
+            owner,
+          ),
+        'template_has_errors',
+        409,
+      );
+      expect(refused.message).toContain('{{lead.nope}}');
+      const got = await ask(
+        workflowTemplateGet,
+        { organizationId: orgId, templateId: out.templateId },
+        owner,
+      );
+      expect(got.template.latestVersion).toBeNull();
+      expect(got.versions).toEqual([]);
+    });
+
     it('is the agency’s: a member, a business owner outside it, or the engine can’t make one', async () => {
       const input = { organizationId: orgId, name: 'Not theirs' };
       await expectHfos(() => run(workflowTemplateCreate, input, member), 'not_found', 404);

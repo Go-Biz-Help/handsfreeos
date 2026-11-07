@@ -8,7 +8,9 @@ import { scopedInput, type ScopeKey } from '../addons/ai';
 import type { Registry } from '../kernel/registry';
 import type { CommandDef } from '../kernel/types';
 import { isStaffPermission, type Permission } from '../permissions';
+import { uuid } from '../schemas/common';
 import { SCREEN_ACTIONS } from './coverage';
+import { withAgencyDoor } from './screen-reads';
 import type { AssistantTool } from './tool-kit';
 
 /** One of the screens' commands, offered to the Assistant as a tool. */
@@ -19,6 +21,10 @@ export interface ScreenActionTool extends AssistantTool<z.ZodObject> {
   readonly warning: string | null;
   /** HandsFreeOS's own staff only: offered to nobody else, so it's never mentioned to anyone else either. */
   readonly staff: boolean;
+  /** Either door: it may be asked of the whole agency (`wholeAgency`). */
+  readonly agencyDoor: boolean;
+  /** It names one of the agency's client businesses (`businessId`), checked by the executor before it's put on. */
+  readonly forBusiness: boolean;
 }
 
 /** Whether an offered tool is one of these (it runs through the one executor for them). */
@@ -52,22 +58,29 @@ export function screenActionTools(registry: Pick<Registry, 'command'>): ScreenAc
     const command = registry.command(name);
     const permission = action.offeredTo ?? command?.permission;
     if (!command || !permission || !(command.input instanceof z.ZodObject)) return [];
-    const input = command.input;
     const staff = isStaffPermission(permission);
-    const view = staff ? { input, scope: [] } : scopedInput(input);
+    const view = staff ? { input: command.input, scope: [] } : scopedInput(command.input);
     // What the worker fills is never the model's to give, so it isn't in what the model sees.
     const shown = without(view.input, action.filled ?? []);
+    const agencyDoor = !!action.agencyDoor && view.scope.includes('workspaceId');
+    // The client business it names, which the executor checks is the agency's before it puts it on as workspaceId.
+    const forBusiness = !!action.forBusiness && view.scope.includes('workspaceId');
+    const input = forBusiness
+      ? shown.extend({ businessId: uuid.optional().describe(action.forBusiness!) })
+      : withAgencyDoor(shown, agencyDoor);
     return [
       {
         name: screenActionName(name),
         description: action.about ? `${command.description} ${action.about}` : command.description,
-        input: shown,
+        input,
         autonomy: command.risk === 0 ? ('auto' as const) : ('confirm' as const),
         permission: permission as Permission,
         command,
         scope: view.scope,
         warning: action.warning ?? null,
         staff,
+        agencyDoor,
+        forBusiness,
       },
     ];
   });

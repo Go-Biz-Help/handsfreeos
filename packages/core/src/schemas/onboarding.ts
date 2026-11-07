@@ -155,8 +155,15 @@ export const OnboardingSetEnabledOutput = z.object({
   changed: z.boolean(),
 });
 
-/** An agency's client businesses and how far each has got setting up (Client businesses → Setup). */
-export const OnboardingClientsInput = z.object({ organizationId: uuid });
+/**
+ * An agency's client businesses and how far each has got setting up (Client businesses → Setup). `group` and
+ * `businessId` narrow the list, as its filter and its sheet do; the counts are every business either way.
+ */
+export const OnboardingClientsInput = z.object({
+  organizationId: uuid,
+  group: z.enum(CLIENT_GROUPS).optional().describe('Only the businesses under this filter'),
+  businessId: uuid.optional().describe('Only this one business'),
+});
 export const OnboardingClient = z.object({
   workspaceId: uuid,
   name: z.string(),

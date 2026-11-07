@@ -97,7 +97,11 @@ export const onboardingClients = defineQuery({
     const count = (g: string) => businesses.filter((b) => b.group === g).length;
     return {
       organizationId: org,
-      businesses,
+      businesses: businesses.filter(
+        (b) =>
+          (!input.group || b.group === input.group) &&
+          (!input.businessId || b.workspaceId === input.businessId),
+      ),
       counts: {
         all: businesses.length,
         stuck: count('stuck'),

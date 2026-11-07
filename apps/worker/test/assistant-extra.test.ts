@@ -17,7 +17,9 @@ import {
   registry,
   sameMenu,
   STAGE_ROLE_LABELS,
+  workflowCreate,
   workflowTemplateCreate,
+  workflowTemplateCreateFromWorkflow,
   workflowTemplatePublish,
   type AssistantCard,
   type CommandDef,
@@ -906,12 +908,46 @@ describe('adding a business, and the agency area', () => {
       )) as { packId: string }
     ).packId;
     const { result } = await read('get_agency_area', {});
-    expect(result['businesses']).toContainEqual({ id: newId, name });
+    expect(result['businesses']).toContainEqual({
+      id: newId,
+      name,
+      templates: 'No templates yet',
+      link: `/app/w/${newId}`,
+    });
+    // Its pages, with the organization's id put on here.
+    expect(result['links']).toMatchObject({
+      templates: `/app/org/${organizationId}/templates`,
+      savedSetups: `/app/org/${organizationId}/ai-setups`,
+      migrations: `/app/org/${organizationId}/migrations`,
+    });
     expect(result['templates']).toContainEqual(
-      expect.objectContaining({ id: templateId, published: true, version: 1 }),
+      expect.objectContaining({
+        id: templateId,
+        published: true,
+        version: 1,
+        whosBehind: 'Not installed yet',
+      }),
     );
     expect(result['packs']).toContainEqual(
       expect.objectContaining({ id: packId, items: 1, version: 1 }),
+    );
+
+    // A pack in full, every item, so a change to it keeps the rest.
+    const { result: one } = await read('get_agency_area', { packId });
+    expect(one['pack']).toMatchObject({
+      id: packId,
+      items: [{ kind: 'faq', title: 'Do you service heat pumps?', body: 'Yes, every brand.' }],
+      link: `/app/org/${organizationId}/packs`,
+    });
+    expect(one['note']).toContain('replaces this whole list');
+
+    // A client business's own workflows and knowledge, only once it's checked to be the agency's.
+    const { result: theirs } = await read('get_agency_area', { businessId: newId });
+    expect(theirs['business']).toEqual({ id: newId, name, link: `/app/w/${newId}` });
+    expect(theirs['workflows']).toEqual(expect.any(Array));
+    expect(theirs['note']).toContain('do_workflow_template_create_from_workflow');
+    await expect(read('get_agency_area', { businessId: randomUUID() })).rejects.toThrow(
+      'isn’t one of',
     );
   });
 
@@ -932,6 +968,111 @@ describe('adding a business, and the agency area', () => {
     expect(await installs()).toEqual([]);
     await confirm('push_to_client_businesses', parsed);
     expect(await installs()).toEqual([expect.objectContaining({ workspaceId: newId })]);
+
+    // The template's page as its editor shows it: who has it, and its versions.
+    const { result } = await read('get_agency_area', { templateId });
+    expect(result['whosBehind']).toBe('Installing…');
+    expect(result['businesses']).toEqual([
+      expect.objectContaining({ id: newId, name, status: 'pending', stillToPick: [] }),
+    ]);
+    expect(result['versions']).toEqual([
+      expect.objectContaining({
+        version: 1,
+        publishedBy: 'Dale Owner',
+        changes: ['First version'],
+      }),
+    ]);
+    expect((result['template'] as Record<string, unknown>)['link']).toBe(
+      `/app/org/${organizationId}/templates/${templateId}`,
+    );
+  });
+
+  it('matches a template’s details in each business, and pushes with the one the person picked', async () => {
+    // A workflow on one of this business's stages, saved as a template: each business matches that stage.
+    const stages = (id: string) =>
+      q<{ pipelines: { stages: { id: string; name: string }[] }[] }>('pipeline.list', {
+        workspaceId: id,
+      }).then((p) => p.pipelines[0]!.stages);
+    const estimate = (await stages(workspaceId)).find((s) => s.name === 'Estimate sent')!;
+    const source = (await run(
+      workflowCreate,
+      {
+        workspaceId,
+        name: `Chase ${mark}`,
+        trigger: {
+          kind: 'event',
+          event: 'lead.stage_changed',
+          filters: {
+            match: 'all',
+            conditions: [{ field: 'trigger.to_stage_id', op: 'eq', value: estimate.id }],
+          },
+        },
+      },
+      owner,
+    )) as { workflowId: string };
+    const chase = (
+      (await run(
+        workflowTemplateCreateFromWorkflow,
+        { organizationId, workflowId: source.workflowId, name: `Chase ${mark}` },
+        owner,
+      )) as { templateId: string }
+    ).templateId;
+    await run(workflowTemplatePublish, { organizationId, templateId: chase }, owner);
+    const [detail] = (
+      await q<{ template: { placeholders: { key: string; label: string }[] } }>(
+        'workflow_template.get',
+        { organizationId, templateId: chase },
+      )
+    ).template.placeholders;
+    const theirs = await stages(newId);
+    const same = theirs.find((s) => s.name === 'Estimate sent')!;
+    const other = theirs.find((s) => s.name === 'Contacted')!;
+    const push = (matches?: Record<string, unknown>[]) =>
+      prepare('push_to_client_businesses', {
+        what: 'template',
+        templateId: chase,
+        businessIds: [newId],
+        ...(matches ? { matches } : {}),
+      });
+
+    // Matched by name, as Match details starts it, with the business's other stages to pick from.
+    const first = await push();
+    expect(field(first.card, name)!.value).toBe(`${detail!.label}: ${same.name}`);
+    expect(first.result['matched']).toEqual([
+      expect.objectContaining({
+        businessId: newId,
+        details: [
+          expect.objectContaining({
+            detail: detail!.key,
+            matched: same.name,
+            choices: expect.arrayContaining([{ id: other.id, name: other.name }]),
+          }),
+        ],
+      }),
+    ]);
+
+    // Left for the business to pick, the card says so; a stage of another business's, or no such detail, is refused.
+    const left = await push([{ businessId: newId, detail: detail!.key, id: null }]);
+    expect(field(left.card, name)!.value).toBe(`${detail!.label}: left for them to pick`);
+    expect(left.card.warnings.map((w) => w.text).join(' ')).toContain(`${name} picks what’s left`);
+    await expect(
+      push([{ businessId: newId, detail: detail!.key, id: estimate.id }]),
+    ).rejects.toThrow('isn’t one of');
+    await expect(push([{ businessId: newId, detail: 'nope', id: null }])).rejects.toThrow(
+      'has no detail',
+    );
+
+    // Picked, it goes with the push as that business's mapping.
+    const picked = await push([{ businessId: newId, detail: detail!.key, id: other.id }]);
+    expect(field(picked.card, name)!.value).toBe(`${detail!.label}: ${other.name}`);
+    await confirm('push_to_client_businesses', picked.parsed);
+    const got = await q<{ installs: { workspaceId: string; mapping: Record<string, unknown> }[] }>(
+      'workflow_template.get',
+      { organizationId, templateId: chase },
+    );
+    expect(got.installs).toEqual([
+      expect.objectContaining({ workspaceId: newId, mapping: { [detail!.key]: other.id } }),
+    ]);
   });
 
   it('reads a template’s steps and changes its draft step by step on Confirm', async () => {
@@ -1073,5 +1214,24 @@ describe('adding a business, and the agency area', () => {
     expect(await onIt()).toBe(0);
     await tools.commit(join, {}, there, { toolCallId: randomUUID() });
     expect(await onIt()).toBe(1);
+  });
+
+  it('reminds a client business named from the agency’s own, once it’s checked to be the agency’s', async () => {
+    const remind = allScreenActionTools().find((t) => t.name === 'do_onboarding_remind')!;
+    expect(remind.forBusiness).toBe(true);
+    expect(Object.keys(remind.input.shape)).toContain('businessId');
+    expect(Object.keys(remind.input.shape)).not.toContain('workspaceId');
+    const tools = createToolExecutor(api());
+    // The client's business, not the one asked in: its own rules answer (nobody but the agency owns it yet).
+    await expect(
+      tools.prepare(remind, { businessId: newId }, ctxFor(owner), randomUUID()),
+    ).rejects.toMatchObject({ rule: expect.stringMatching(/^onboarding_/) });
+    await expect(
+      tools.prepare(remind, { businessId: randomUUID() }, ctxFor(owner), randomUUID()),
+    ).rejects.toThrow('isn’t one of this agency’s');
+    // A business's admin who isn't one of the agency's is told who can.
+    await expect(
+      tools.prepare(remind, { businessId: newId }, ctxFor(priya), randomUUID()),
+    ).rejects.toMatchObject({ rule: 'agency_only' });
   });
 });

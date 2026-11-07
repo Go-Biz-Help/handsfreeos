@@ -76434,6 +76434,16 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /**
+                     * Format: uuid
+                     * @description Only this one business
+                     */
+                    businessId?: string;
+                    /**
+                     * @description Only the businesses under this filter
+                     * @enum {string}
+                     */
+                    group?: "stuck" | "setup" | "done";
                     /** Format: uuid */
                     organizationId: string;
                 };
