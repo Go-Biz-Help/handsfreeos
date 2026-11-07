@@ -2,8 +2,1943 @@
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
   "checkedOn": "2026-11-06",
-  "files": {},
-  "items": [],
+  "files": {
+    "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx": "54f26bd0b071",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx": "717ec190b6de",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx": "68b409d36fcc",
+    "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
+    "apps/mobile/src/components/links/link-gate.tsx": "bdad099a27a6",
+    "apps/mobile/src/components/onboarding-setup/look.tsx": "94e41896520a",
+    "apps/mobile/src/components/shell/app-bar.tsx": "4436ff99fd33",
+    "apps/mobile/src/components/shell/bell.tsx": "5fa3f6a86e34",
+    "apps/mobile/src/components/shell/business-list.tsx": "e98ffe219684",
+    "apps/mobile/src/components/shell/business-switcher.tsx": "a10bb9bc9ff8",
+    "apps/mobile/src/components/shell/sign-out-sheet.tsx": "fc7991c49743",
+    "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
+    "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
+    "apps/mobile/src/links/route-map.ts": "adc8f8ea1435",
+    "apps/mobile/src/look/calls.ts": "839009430923",
+    "apps/mobile/src/push/bell.ts": "05eae2e42ce5",
+    "apps/mobile/src/push/buttons.ts": "53fafdb6a0c6",
+    "apps/mobile/src/push/present.ts": "a1e0d43f60dd",
+    "apps/mobile/src/push/press.ts": "cbc8c6ba0536",
+    "apps/mobile/src/push/registration.ts": "52b901d92474",
+    "apps/mobile/src/push/switches.ts": "ac0a0f304155",
+    "apps/web/src/app/(auth)/delete-account/page.tsx": "7e6cbf1364af",
+    "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx": "ff3a2a8a2e90",
+    "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
+    "apps/web/src/components/account/extension-sign-in-prompt.tsx": "5b27e8511869",
+    "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
+    "apps/web/src/components/look/business-mark.tsx": "e884715ba172",
+    "apps/web/src/components/look/look-editor.tsx": "dea820065614",
+    "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
+    "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
+    "apps/web/src/components/settings/menu-section.tsx": "2e927c40840b",
+    "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
+    "apps/web/src/components/settings/notifications-section.tsx": "b997d390c048",
+    "apps/web/src/components/settings/passkeys-section.tsx": "8e0e9b4c0f72",
+    "apps/web/src/components/settings/password-section.tsx": "d07810a8afd8",
+    "apps/web/src/components/settings/profile-form.tsx": "f5a3211463b6",
+    "apps/web/src/components/shell/menu-editor.tsx": "bd19438cf152",
+    "apps/web/src/components/shell/missing-page.tsx": "fb8ed3e50256",
+    "apps/web/src/components/shell/mobile-shell.tsx": "be5559feb770",
+    "apps/web/src/components/shell/nav-links.tsx": "7eea8101aa5c",
+    "apps/web/src/components/shell/notifications-bell.tsx": "36256aed833a",
+    "apps/web/src/components/shell/sidebar.tsx": "91a4d15e744e",
+    "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f",
+    "apps/web/src/components/shell/workspace-switcher.tsx": "84241c6efbdb",
+    "apps/web/src/components/support/get-help.tsx": "a753e0577cbd",
+    "packages/core/src/account/notification-rows.ts": "274b05c79aa2"
+  },
+  "items": [
+    {
+      "path": "Web side menu → business mark and name",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/sidebar.tsx:38",
+      "covered": "yes",
+      "by": "context businessName; get_settings business look"
+    },
+    {
+      "path": "Web side menu → business mark → logo or initials",
+      "kind": "see",
+      "file": "apps/web/src/components/look/business-mark.tsx:36",
+      "covered": "partly",
+      "by": "get_settings business look: logo path, not the image"
+    },
+    {
+      "path": "Web side menu → Search box",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/sidebar.tsx:42",
+      "covered": "yes",
+      "by": "read_search_everything (inside: search ledger)"
+    },
+    {
+      "path": "Web side menu → Ask HandsFreeOS button",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/sidebar.tsx:43",
+      "covered": "yes",
+      "by": "opens the Assistant itself"
+    },
+    {
+      "path": "Web side menu → calls pill → Calls ring in this browser",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/calls-pill.tsx:18",
+      "covered": "no",
+      "by": "this browser's own state; no tool reads it"
+    },
+    {
+      "path": "Web side menu → calls pill → Turn on calls in this browser",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/calls-pill.tsx:28",
+      "covered": "person",
+      "by": "this browser's microphone; device-only"
+    },
+    {
+      "path": "Web side menu → calls pill → Microphone blocked. Allow it in the address bar.",
+      "kind": "see",
+      "file": "apps/web/src/components/calls/calls-pill.tsx:48",
+      "covered": "no",
+      "by": "this browser's own state; no tool reads it"
+    },
+    {
+      "path": "Web side menu → calls pill → unavailable reason and retry",
+      "kind": "do",
+      "file": "apps/web/src/components/calls/calls-pill.tsx:62",
+      "covered": "person",
+      "by": "this browser's calling; device-only"
+    },
+    {
+      "path": "Web side menu → Get help → Getting started isn't finished dot",
+      "kind": "see",
+      "file": "apps/web/src/components/support/get-help.tsx:125",
+      "covered": "yes",
+      "by": "read_onboarding_status"
+    },
+    {
+      "path": "Web side menu → Get help → Getting started",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:87",
+      "covered": "yes",
+      "by": "do_onboarding_set_view hidden false"
+    },
+    {
+      "path": "Web side menu → Get help → Take the tour",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:146",
+      "covered": "no",
+      "by": "no tool runs the screen tour"
+    },
+    {
+      "path": "Web side menu → Get help → Ask us (subject, what's going on, Send it)",
+      "kind": "do",
+      "file": "apps/web/src/components/support/get-help.tsx:150",
+      "covered": "yes",
+      "by": "contact_support"
+    },
+    {
+      "path": "Web side menu → user menu → name and email",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/user-menu.tsx:42",
+      "covered": "yes",
+      "by": "get_settings my_account me.fullName, email"
+    },
+    {
+      "path": "Web side menu → user menu → Sell HandsFreeOS",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/user-menu.tsx:48",
+      "covered": "partly",
+      "by": "read_affiliate_mine; /affiliate is a path"
+    },
+    {
+      "path": "Web side menu → user menu → Sign out (item and icon button)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/user-menu.tsx:56",
+      "covered": "person",
+      "by": "signing in and out is the person's"
+    },
+    {
+      "path": "Web side menu → switcher → current business and organization",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:79",
+      "covered": "yes",
+      "by": "context businessName; get_settings business organizationName"
+    },
+    {
+      "path": "Web side menu → switcher → Find a workspace",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:99",
+      "covered": "partly",
+      "by": "get_agency_area lists them, owners and admins only"
+    },
+    {
+      "path": "Web side menu → switcher → No workspaces match.",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:113",
+      "covered": "partly",
+      "by": "get_agency_area, owners and admins only"
+    },
+    {
+      "path": "Web side menu → switcher → organization header, you are Owner/Admin",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:117",
+      "covered": "partly",
+      "by": "get_settings business role; get_agency_area name"
+    },
+    {
+      "path": "Web side menu → switcher → Agency area",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:124",
+      "covered": "partly",
+      "by": "get_agency_area; path only"
+    },
+    {
+      "path": "Web side menu → switcher → each business, check on the current one",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:135",
+      "covered": "partly",
+      "by": "get_agency_area (owners/admins); meShape drops the list"
+    },
+    {
+      "path": "Web side menu → switcher → open another business",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:135",
+      "covered": "no",
+      "by": "the Assistant works in one business; no switch tool"
+    },
+    {
+      "path": "Web side menu → switcher → HandsFreeOS · staff role",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:166",
+      "covered": "yes",
+      "by": "context staffRole"
+    },
+    {
+      "path": "Web side menu → switcher → Admin area (staff)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:168",
+      "covered": "partly",
+      "by": "staff read_platform_* tools, staff only; path only"
+    },
+    {
+      "path": "Web side menu → switcher → Create workspace",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:184",
+      "covered": "yes",
+      "by": "add_business"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → Organization",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:272",
+      "covered": "partly",
+      "by": "add_business uses this business's organization only"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → Business name",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:282",
+      "covered": "yes",
+      "by": "add_business name"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → Give the business a name.",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:242",
+      "covered": "yes",
+      "by": "add_business needs a name"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → Time zone",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:295",
+      "covered": "yes",
+      "by": "add_business timezone"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → Who runs this business?",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:304",
+      "covered": "yes",
+      "by": "add_business whoRunsIt me or client"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → who-runs explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:313",
+      "covered": "partly",
+      "by": "add_business field words, shorter"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → Add business",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:323",
+      "covered": "yes",
+      "by": "add_business"
+    },
+    {
+      "path": "Web side menu → switcher → Add a business → added toast, opens its setup",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/workspace-switcher.tsx:250",
+      "covered": "partly",
+      "by": "add_business outcome: /app/w/<new>, not onboarding"
+    },
+    {
+      "path": "Web side menu → places (Home, Inbox, Contacts … Settings)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:94",
+      "covered": "partly",
+      "by": "places map says the way; app paths, no link"
+    },
+    {
+      "path": "Web side menu → Home urgent count",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:302",
+      "covered": "yes",
+      "by": "read_attention_summary urgent"
+    },
+    {
+      "path": "Web side menu → Inbox unread count",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:260",
+      "covered": "yes",
+      "by": "read_inbox_summary unread.all"
+    },
+    {
+      "path": "Web side menu → Inbox unread count → Show unread",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:288",
+      "covered": "partly",
+      "by": "find_conversations marks unread; list_inbox has no unread filter"
+    },
+    {
+      "path": "Web side menu → add-on page counts",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:323",
+      "covered": "partly",
+      "by": "only through an add-on's own ai look-ups"
+    },
+    {
+      "path": "Web side menu → add-on rows, their pages and gated rows",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:658",
+      "covered": "partly",
+      "by": "context add-on directory; paths only"
+    },
+    {
+      "path": "Web side menu → groups and the places in them",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:713",
+      "covered": "yes",
+      "by": "get_settings my_account settings.menu"
+    },
+    {
+      "path": "Web side menu → foot → Add-ons",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:141",
+      "covered": "partly",
+      "by": "add-on tools (add-ons ledger); path only"
+    },
+    {
+      "path": "Web side menu → foot → Ideas",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/nav-links.tsx:148",
+      "covered": "partly",
+      "by": "find_ideas (ideas ledger); path only"
+    },
+    {
+      "path": "Web side menu → foot → Ideas New dot",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/nav-links.tsx:897",
+      "covered": "yes",
+      "by": "read_whats_new_unseen"
+    },
+    {
+      "path": "Web Settings → Account → Side menu → intro",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/menu-section.tsx:16",
+      "covered": "partly",
+      "by": "arrange_my_menu description"
+    },
+    {
+      "path": "Web Settings → Account → Side menu → summary of groups and hidden places",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/menu-section.tsx:17",
+      "covered": "yes",
+      "by": "get_settings my_account settings.menu"
+    },
+    {
+      "path": "Web Settings → Account → Side menu → Edit menu",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/menu-section.tsx:20",
+      "covered": "yes",
+      "by": "arrange_my_menu"
+    },
+    {
+      "path": "Edit menu → title and intro",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:209",
+      "covered": "partly",
+      "by": "arrange_my_menu description"
+    },
+    {
+      "path": "Edit menu → Add a group",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:212",
+      "covered": "no",
+      "by": "arrange_my_menu can't add groups"
+    },
+    {
+      "path": "Edit menu → Add a group → limit reached",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:217",
+      "covered": "no",
+      "by": "no group tool"
+    },
+    {
+      "path": "Edit menu → Use suggested groups",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:222",
+      "covered": "yes",
+      "by": "arrange_my_menu use_suggested"
+    },
+    {
+      "path": "Edit menu → Start over",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:231",
+      "covered": "yes",
+      "by": "arrange_my_menu start_over"
+    },
+    {
+      "path": "Edit menu → In the menu list",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:242",
+      "covered": "yes",
+      "by": "get_settings my_account settings.menu"
+    },
+    {
+      "path": "Edit menu → group → name (rename)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:269",
+      "covered": "no",
+      "by": "arrange_my_menu can't rename groups"
+    },
+    {
+      "path": "Edit menu → group → N places",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:277",
+      "covered": "yes",
+      "by": "settings.menu groups"
+    },
+    {
+      "path": "Edit menu → group → Ungroup",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:286",
+      "covered": "no",
+      "by": "arrange_my_menu can't ungroup"
+    },
+    {
+      "path": "Edit menu → group → empty group note",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:297",
+      "covered": "yes",
+      "by": "settings.menu groups"
+    },
+    {
+      "path": "Edit menu → place → Move up / Move down",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:50",
+      "covered": "no",
+      "by": "arrange_my_menu can't reorder"
+    },
+    {
+      "path": "Edit menu → place → Move to → In the menu / Hidden",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:112",
+      "covered": "yes",
+      "by": "arrange_my_menu show, hide"
+    },
+    {
+      "path": "Edit menu → place → Move to → a group / Add a group",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:122",
+      "covered": "no",
+      "by": "arrange_my_menu can't move into groups"
+    },
+    {
+      "path": "Edit menu → an add-on's row → hide or show",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:73",
+      "covered": "no",
+      "by": "MENU_KEYS are core places only"
+    },
+    {
+      "path": "Edit menu → Hidden list / Nothing hidden.",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:324",
+      "covered": "yes",
+      "by": "settings.menu hidden"
+    },
+    {
+      "path": "Edit menu → hidden hint (Home and Settings stay)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:345",
+      "covered": "yes",
+      "by": "arrange_my_menu: Home, Settings never hide"
+    },
+    {
+      "path": "Edit menu → Save menu",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:349",
+      "covered": "yes",
+      "by": "arrange_my_menu saves"
+    },
+    {
+      "path": "Edit menu → saved / changed meanwhile toasts",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/menu-editor.tsx:198",
+      "covered": "yes",
+      "by": "arrange_my_menu outcome or refusal"
+    },
+    {
+      "path": "Bell (web and phone) → count of what's new (9+)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:72",
+      "covered": "yes",
+      "by": "read_notification_list unseen"
+    },
+    {
+      "path": "Bell → open the list",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:57",
+      "covered": "yes",
+      "by": "read_notification_list"
+    },
+    {
+      "path": "Bell → opening marks all seen",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:38",
+      "covered": "never",
+      "by": "notification.seen is NEVER"
+    },
+    {
+      "path": "Bell → about line (last 30 days)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:83",
+      "covered": "yes",
+      "by": "read_notification_list description"
+    },
+    {
+      "path": "Bell → couldn't load / none yet",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:86",
+      "covered": "yes",
+      "by": "tool error or empty list"
+    },
+    {
+      "path": "Bell → Needs you → add-on alerts (add-on, title, detail)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:96",
+      "covered": "yes",
+      "by": "what_needs_attention"
+    },
+    {
+      "path": "Bell → Needs you → open the alert's page",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:101",
+      "covered": "partly",
+      "by": "path, not a link"
+    },
+    {
+      "path": "Bell → Recent → each notification (title, time, subtitle, body, unread dot)",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:163",
+      "covered": "yes",
+      "by": "read_notification_list notifications"
+    },
+    {
+      "path": "Bell → press a notification → marks it read",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:46",
+      "covered": "yes",
+      "by": "do_notification_read ids or pushIds"
+    },
+    {
+      "path": "Bell → press a notification → opens its page",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:48",
+      "covered": "partly",
+      "by": "path, not a link"
+    },
+    {
+      "path": "Bell → Show older",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/notifications-bell.tsx:129",
+      "covered": "yes",
+      "by": "read_notification_list nextCursor"
+    },
+    {
+      "path": "Phone bell → sheet, Needs you, Recent, Show older (same as web)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/bell.tsx:184",
+      "covered": "yes",
+      "by": "read_notification_list; what_needs_attention"
+    },
+    {
+      "path": "Phone bell → marks seen on open, read on press",
+      "kind": "do",
+      "file": "apps/mobile/src/push/bell.ts:146",
+      "covered": "partly",
+      "by": "read: do_notification_read; seen is NEVER"
+    },
+    {
+      "path": "Web phone-width header → New message (Inbox)",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:129",
+      "covered": "yes",
+      "by": "send_text, send_email"
+    },
+    {
+      "path": "Web phone-width header → Search conversations",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:273",
+      "covered": "yes",
+      "by": "find_conversations"
+    },
+    {
+      "path": "Web phone-width header → search sheet → Search everything for X",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:285",
+      "covered": "yes",
+      "by": "read_search_everything"
+    },
+    {
+      "path": "Web phone-width bottom bar → places",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:170",
+      "covered": "partly",
+      "by": "places map; paths only"
+    },
+    {
+      "path": "Web phone-width bottom bar → urgent and unread badges",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/mobile-shell.tsx:187",
+      "covered": "yes",
+      "by": "read_attention_summary, read_inbox_summary"
+    },
+    {
+      "path": "Missing page → We could not find that, explanation",
+      "kind": "see",
+      "file": "apps/web/src/components/shell/missing-page.tsx:20",
+      "covered": "partly",
+      "by": "tools say when a thing isn't found"
+    },
+    {
+      "path": "Missing page → Go to Home",
+      "kind": "do",
+      "file": "apps/web/src/components/shell/missing-page.tsx:24",
+      "covered": "partly",
+      "by": "path only"
+    },
+    {
+      "path": "Extension sign-in (web) → question and the numbers",
+      "kind": "see",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:93",
+      "covered": "never",
+      "by": "extension_sign_in.pending NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Extension sign-in (web and phone) → pick the matching number",
+      "kind": "do",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:109",
+      "covered": "never",
+      "by": "extension_sign_in.answer NEVER; sign-in"
+    },
+    {
+      "path": "Extension sign-in (web and phone) → That wasn't me",
+      "kind": "do",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:116",
+      "covered": "never",
+      "by": "extension_sign_in.answer NEVER; sign-in"
+    },
+    {
+      "path": "Extension sign-in (web) → signed in / refused toasts",
+      "kind": "see",
+      "file": "apps/web/src/components/account/extension-sign-in-prompt.tsx:68",
+      "covered": "never",
+      "by": "sign-in; NEVER"
+    },
+    {
+      "path": "Phone extension sign-in screen → loading, question, done",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx:75",
+      "covered": "never",
+      "by": "extension_sign_in.pending NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Look → can't change (no permission)",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:200",
+      "covered": "yes",
+      "by": "do_look_set offered by permission"
+    },
+    {
+      "path": "Look → logo or initials",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:227",
+      "covered": "partly",
+      "by": "get_settings business look: logo path"
+    },
+    {
+      "path": "Look → status: making, searching, from website, not found",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:180",
+      "covered": "partly",
+      "by": "look searched, asked, from; not the live status"
+    },
+    {
+      "path": "Look → drop a logo / Upload / Change",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:256",
+      "covered": "person",
+      "by": "uploading a file from their device"
+    },
+    {
+      "path": "Look → upload hint",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:295",
+      "covered": "person",
+      "by": "about uploading from the device"
+    },
+    {
+      "path": "Look → Remove logo",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:265",
+      "covered": "yes",
+      "by": "do_look_set removeLogo"
+    },
+    {
+      "path": "Look → Look on the website again",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:280",
+      "covered": "yes",
+      "by": "do_look_find"
+    },
+    {
+      "path": "Look → logo problem message",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:291",
+      "covered": "yes",
+      "by": "get_settings business look.problem.message"
+    },
+    {
+      "path": "Look → colour swatches",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:323",
+      "covered": "yes",
+      "by": "do_look_set color"
+    },
+    {
+      "path": "Look → Any colour picker",
+      "kind": "do",
+      "file": "apps/web/src/components/look/look-editor.tsx:338",
+      "covered": "yes",
+      "by": "do_look_set color hex"
+    },
+    {
+      "path": "Look → colour hex and From logo / From website",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:342",
+      "covered": "yes",
+      "by": "get_settings business look color hex, from"
+    },
+    {
+      "path": "Look → colour hint",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:351",
+      "covered": "partly",
+      "by": "do_look_set description"
+    },
+    {
+      "path": "Look → field error",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:384",
+      "covered": "yes",
+      "by": "do_look_set refusal words"
+    },
+    {
+      "path": "Look → Logo saved / Colour saved toasts",
+      "kind": "see",
+      "file": "apps/web/src/components/look/look-editor.tsx:101",
+      "covered": "yes",
+      "by": "do_look_set outcome"
+    },
+    {
+      "path": "Phone look → pick a logo from photos",
+      "kind": "do",
+      "file": "apps/mobile/src/look/calls.ts:41",
+      "covered": "person",
+      "by": "uploading from their device"
+    },
+    {
+      "path": "Phone look → type any colour, Use #hex",
+      "kind": "do",
+      "file": "apps/mobile/src/components/onboarding-setup/look.tsx:283",
+      "covered": "yes",
+      "by": "do_look_set color"
+    },
+    {
+      "path": "Phone look → typed colour error",
+      "kind": "see",
+      "file": "apps/mobile/src/components/onboarding-setup/look.tsx:124",
+      "covered": "yes",
+      "by": "do_look_set input takes a hex"
+    },
+    {
+      "path": "Web Settings → Account → Profile → initials note",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/profile-form.tsx:45",
+      "covered": "partly",
+      "by": "fullName; initials not said"
+    },
+    {
+      "path": "Web Settings → Account → Profile → Full name",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/profile-form.tsx:48",
+      "covered": "yes",
+      "by": "update_my_account fullName"
+    },
+    {
+      "path": "Web Settings → Account → Profile → Email and Verified badge",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/profile-form.tsx:56",
+      "covered": "partly",
+      "by": "get_settings my_account email; not verified"
+    },
+    {
+      "path": "Web Settings → Account → Profile → email change hint",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/profile-form.tsx:64",
+      "covered": "no",
+      "by": "no tool says it"
+    },
+    {
+      "path": "Web Settings → Account → Profile → Save changes",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/profile-form.tsx:70",
+      "covered": "yes",
+      "by": "update_my_account"
+    },
+    {
+      "path": "Web Settings → Account → Appearance → words",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/appearance-section.tsx:33",
+      "covered": "partly",
+      "by": "update_my_account description"
+    },
+    {
+      "path": "Web Settings → Account → Appearance → Light / Dark / System",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/appearance-section.tsx:35",
+      "covered": "yes",
+      "by": "update_my_account appearance"
+    },
+    {
+      "path": "Web Settings → Account → Appearance → current choice and descriptions",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/appearance-section.tsx:75",
+      "covered": "yes",
+      "by": "get_settings my_account settings.theme"
+    },
+    {
+      "path": "Web Settings → Account → Sign-in methods → Keep at least two",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/settings/page.tsx:77",
+      "covered": "never",
+      "by": "sign-in rows on SETTINGS_NEVER"
+    },
+    {
+      "path": "Web Settings → Account → Password → Change / Close",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/password-section.tsx:50",
+      "covered": "person",
+      "by": "passwords are the person's"
+    },
+    {
+      "path": "Web Settings → Account → Password → Current, New, Update password",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/password-section.tsx:55",
+      "covered": "person",
+      "by": "passwords are the person's"
+    },
+    {
+      "path": "Web Settings → Account → Password → hint, errors, updated toast",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/password-section.tsx:69",
+      "covered": "never",
+      "by": "account.password SETTINGS_NEVER"
+    },
+    {
+      "path": "Web Settings → Account → Google → Checking / Connected as / Not connected",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/google-section.tsx:87",
+      "covered": "never",
+      "by": "account.google_sign_in SETTINGS_NEVER"
+    },
+    {
+      "path": "Web Settings → Account → Google → Connect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/google-section.tsx:103",
+      "covered": "person",
+      "by": "connecting an account by signing in"
+    },
+    {
+      "path": "Web Settings → Account → Google → Disconnect",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/google-section.tsx:95",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Web Settings → Account → Passkeys → list, No passkeys yet, Added · Last used",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:106",
+      "covered": "never",
+      "by": "account.passkeys SETTINGS_NEVER"
+    },
+    {
+      "path": "Web Settings → Account → Passkeys → Add passkey",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:96",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Web Settings → Account → Passkeys → Rename",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:152",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Web Settings → Account → Passkeys → Remove, confirm Remove passkey",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/passkeys-section.tsx:159",
+      "covered": "person",
+      "by": "sign-in is the person's"
+    },
+    {
+      "path": "Notifications (web and phone) → title and description",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:98",
+      "covered": "partly",
+      "by": "update_my_alerts description"
+    },
+    {
+      "path": "Notifications → on N phones badge and tooltip",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:103",
+      "covered": "yes",
+      "by": "get_settings my_account phonesForAlerts"
+    },
+    {
+      "path": "Notifications → columns When, Push, Email",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:117",
+      "covered": "yes",
+      "by": "get_settings my_account alerts push, email"
+    },
+    {
+      "path": "Notifications → each row's title and description",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:144",
+      "covered": "yes",
+      "by": "alerts title, about"
+    },
+    {
+      "path": "Notifications → Always (email always goes)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:164",
+      "covered": "yes",
+      "by": "alerts email always"
+    },
+    {
+      "path": "Notifications → dash where a row has no push or email",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:159",
+      "covered": "yes",
+      "by": "alerts push or email null"
+    },
+    {
+      "path": "Notifications → push on / email on toasts",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/notifications-section.tsx:78",
+      "covered": "yes",
+      "by": "tool outcome"
+    },
+    {
+      "path": "Notifications → A customer waiting on a reply → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:54",
+      "covered": "yes",
+      "by": "update_my_alerts customerWaiting"
+    },
+    {
+      "path": "Notifications → A call nobody took → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:62",
+      "covered": "yes",
+      "by": "update_my_alerts missedCall"
+    },
+    {
+      "path": "Notifications → Urgent items → push and email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:71",
+      "covered": "yes",
+      "by": "update_my_alerts urgent; update_my_account emailWhenCustomerWaiting"
+    },
+    {
+      "path": "Notifications → Approvals → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:80",
+      "covered": "yes",
+      "by": "update_my_alerts approval"
+    },
+    {
+      "path": "Notifications → Your appointments → push and email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:89",
+      "covered": "yes",
+      "by": "update_my_alerts booking; update_my_account emailWhenBooked"
+    },
+    {
+      "path": "Notifications → Assigned to you → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:98",
+      "covered": "yes",
+      "by": "update_my_alerts assigned"
+    },
+    {
+      "path": "Notifications → Your AI teammate's qualifying → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:106",
+      "covered": "yes",
+      "by": "update_my_alerts qualifying"
+    },
+    {
+      "path": "Notifications → Documents you sent → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:115",
+      "covered": "yes",
+      "by": "update_my_alerts documents"
+    },
+    {
+      "path": "Notifications → A customer pays → push and email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:124",
+      "covered": "yes",
+      "by": "update_my_alerts payment; update_my_account emailWhenPaid"
+    },
+    {
+      "path": "Notifications → Your balance runs out → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:132",
+      "covered": "yes",
+      "by": "update_my_alerts wallet"
+    },
+    {
+      "path": "Notifications → A job you were on is over → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:141",
+      "covered": "yes",
+      "by": "update_my_alerts jobs"
+    },
+    {
+      "path": "Notifications → A connection stops working → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:150",
+      "covered": "yes",
+      "by": "update_my_alerts connections"
+    },
+    {
+      "path": "Notifications → An add-on needs you → push and email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:159",
+      "covered": "yes",
+      "by": "update_my_alerts addons; update_my_account emailWhenAddonNeedsYou"
+    },
+    {
+      "path": "Notifications → New support tickets (staff) → push",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:168",
+      "covered": "yes",
+      "by": "update_my_alerts supportTickets"
+    },
+    {
+      "path": "Notifications → Morning summary → email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:181",
+      "covered": "yes",
+      "by": "update_my_account morningEmail"
+    },
+    {
+      "path": "Notifications → End-of-day email → email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:190",
+      "covered": "yes",
+      "by": "update_my_account eveningEmail"
+    },
+    {
+      "path": "Notifications → The AI teammate hands you a conversation → email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:199",
+      "covered": "yes",
+      "by": "update_my_account emailWhenAiHandsOver"
+    },
+    {
+      "path": "Notifications → Daily agency digest (agencies) → email",
+      "kind": "do",
+      "file": "packages/core/src/account/notification-rows.ts:207",
+      "covered": "yes",
+      "by": "update_my_alerts agencyDigestEmail"
+    },
+    {
+      "path": "Phone Settings → Notifications → This phone section",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx:110",
+      "covered": "partly",
+      "by": "phonesForAlerts; not this phone's state"
+    },
+    {
+      "path": "Phone Settings → Notifications → Email only section",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx:133",
+      "covered": "yes",
+      "by": "alerts with push null"
+    },
+    {
+      "path": "Phone Settings → Notifications → info note",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx:145",
+      "covered": "partly",
+      "by": "update_my_alerts description"
+    },
+    {
+      "path": "Phone Settings → Notifications → row push and email switches",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx:248",
+      "covered": "yes",
+      "by": "update_my_alerts; update_my_account"
+    },
+    {
+      "path": "Phone Settings → Notifications → saved toasts",
+      "kind": "see",
+      "file": "apps/mobile/src/push/switches.ts:71",
+      "covered": "yes",
+      "by": "tool outcome"
+    },
+    {
+      "path": "This phone → Notifications on this phone status (On, Off, Not turned on, Waiting for signal, Not added, Setting up)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/this-phone.tsx:16",
+      "covered": "partly",
+      "by": "phonesForAlerts lists phones, not this one's state"
+    },
+    {
+      "path": "This phone → Turn on notifications",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/this-phone.tsx:62",
+      "covered": "person",
+      "by": "the phone's own permission; device-only"
+    },
+    {
+      "path": "This phone → Open the phone's settings",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/this-phone.tsx:71",
+      "covered": "person",
+      "by": "the phone's own settings; device-only"
+    },
+    {
+      "path": "This phone → Try again",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/this-phone.tsx:51",
+      "covered": "person",
+      "by": "registering this phone; device-only"
+    },
+    {
+      "path": "This phone → couldn't turn on toast",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/this-phone.tsx:44",
+      "covered": "person",
+      "by": "the phone's own state; device-only"
+    },
+    {
+      "path": "My cell (web and phone) → title and intro",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:128",
+      "covered": "partly",
+      "by": "settings_help my_account; call_customer words"
+    },
+    {
+      "path": "My cell → number and status (verified on, waiting, not verified)",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:176",
+      "covered": "yes",
+      "by": "read_user_phone_get phone, verifiedAt"
+    },
+    {
+      "path": "My cell → Verified badge",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:185",
+      "covered": "yes",
+      "by": "read_user_phone_get verifiedAt"
+    },
+    {
+      "path": "My cell → Your cell number + Verify my cell",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:151",
+      "covered": "person",
+      "by": "confirming their own cell"
+    },
+    {
+      "path": "My cell → Cancel while waiting",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:155",
+      "covered": "person",
+      "by": "confirming their own cell"
+    },
+    {
+      "path": "My cell → verify again",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:190",
+      "covered": "person",
+      "by": "confirming their own cell"
+    },
+    {
+      "path": "My cell → Change",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:203",
+      "covered": "person",
+      "by": "confirming their own cell"
+    },
+    {
+      "path": "My cell → We'll call X. Press 1 when you answer.",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:215",
+      "covered": "person",
+      "by": "a step of confirming the cell"
+    },
+    {
+      "path": "My cell → The call comes from the business number",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:219",
+      "covered": "partly",
+      "by": "number via get_settings texting"
+    },
+    {
+      "path": "My cell → business needs a number first",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:146",
+      "covered": "yes",
+      "by": "get_settings texting"
+    },
+    {
+      "path": "My cell → save the business number as a contact",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:224",
+      "covered": "partly",
+      "by": "number via get_settings texting; advice not told"
+    },
+    {
+      "path": "My cell → error and saved / verified toasts",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/my-cell-section.tsx:228",
+      "covered": "person",
+      "by": "a step of confirming the cell"
+    },
+    {
+      "path": "Phone My cell → enter number error, needs signal hint",
+      "kind": "see",
+      "file": "apps/mobile/src/components/inbox/my-cell-card.tsx:121",
+      "covered": "person",
+      "by": "a step of confirming the cell"
+    },
+    {
+      "path": "Phone My cell → Verify your cell to call X banner",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx:60",
+      "covered": "partly",
+      "by": "read_user_phone_get; words not told"
+    },
+    {
+      "path": "Phone My cell → Call the customer after verifying",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx:75",
+      "covered": "partly",
+      "by": "call_customer offers a Call button"
+    },
+    {
+      "path": "Phone My cell → contact card title, body, contact line",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx:87",
+      "covered": "partly",
+      "by": "number via get_settings texting"
+    },
+    {
+      "path": "Phone My cell → Add to Contacts",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx:114",
+      "covered": "person",
+      "by": "the phone's contacts app; device-only"
+    },
+    {
+      "path": "Phone My cell → added / no contacts app",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/my-cell.tsx:117",
+      "covered": "person",
+      "by": "the phone's contacts app; device-only"
+    },
+    {
+      "path": "Delete account (web) → title and intro",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:59",
+      "covered": "partly",
+      "by": "settings_help handover; no detail"
+    },
+    {
+      "path": "Delete account → you're the only owner callout",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:68",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Delete account → only owner → Open Members",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:80",
+      "covered": "partly",
+      "by": "members tools; path only"
+    },
+    {
+      "path": "Delete account → hands-over callout",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:92",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Delete account → agency hand-over callout",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:189",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Delete account → agency → Hand X to (who owns, admin of the agency)",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:207",
+      "covered": "yes",
+      "by": "do_organization_add_owner userId"
+    },
+    {
+      "path": "Delete account → agency → Make owner",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:222",
+      "covered": "yes",
+      "by": "do_organization_add_owner, with its warning"
+    },
+    {
+      "path": "Delete account → agency → nobody else owns one yet",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:229",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Delete account → type your email to confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:115",
+      "covered": "person",
+      "by": "deleting their own account"
+    },
+    {
+      "path": "Delete account → Delete my account",
+      "kind": "do",
+      "file": "apps/web/src/components/account/delete-account.tsx:135",
+      "covered": "person",
+      "by": "deleting their own account; account.delete NEVER"
+    },
+    {
+      "path": "Delete account → can't delete yet line",
+      "kind": "see",
+      "file": "apps/web/src/components/account/delete-account.tsx:148",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Public delete-account page → In the app / On the web steps",
+      "kind": "see",
+      "file": "apps/web/src/app/(auth)/delete-account/page.tsx:57",
+      "covered": "partly",
+      "by": "settings_help handover says where"
+    },
+    {
+      "path": "Public delete-account page → What is removed / What each business keeps",
+      "kind": "see",
+      "file": "apps/web/src/app/(auth)/delete-account/page.tsx:67",
+      "covered": "no",
+      "by": "no tool tells what's removed or kept"
+    },
+    {
+      "path": "Phone Settings → Delete account → title and phone intro",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:88",
+      "covered": "partly",
+      "by": "settings_help handover; no detail"
+    },
+    {
+      "path": "Phone Settings → Delete account → Removed / Kept by the business",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:96",
+      "covered": "no",
+      "by": "no tool tells what's removed or kept"
+    },
+    {
+      "path": "Phone Settings → Delete account → needs a signal",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:113",
+      "covered": "person",
+      "by": "the phone's own connection"
+    },
+    {
+      "path": "Phone Settings → Delete account → only owner, hands-over, agency, blocked lines",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:125",
+      "covered": "yes",
+      "by": "read_account_deletion_check"
+    },
+    {
+      "path": "Phone Settings → Delete account → Open on the web (Members, hand over)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:140",
+      "covered": "partly",
+      "by": "do_organization_add_owner; no web link"
+    },
+    {
+      "path": "Phone Settings → Delete account → confirm email, error, Delete my account",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:223",
+      "covered": "person",
+      "by": "deleting their own account"
+    },
+    {
+      "path": "Phone Settings → Delete account → also on the web",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/delete-account.tsx:237",
+      "covered": "partly",
+      "by": "settings_help handover"
+    },
+    {
+      "path": "Phone More → person card: name, role · business",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:81",
+      "covered": "yes",
+      "by": "get_settings my_account fullName; context role, businessName"
+    },
+    {
+      "path": "Phone More → person card → Switch",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:88",
+      "covered": "no",
+      "by": "no switch tool"
+    },
+    {
+      "path": "Phone More → add-on places",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:92",
+      "covered": "partly",
+      "by": "context add-on directory; paths only"
+    },
+    {
+      "path": "Phone More → Changes on this phone, up to date",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:96",
+      "covered": "never",
+      "by": "phone.changes SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone More → Contacts, Tasks, Money, Forms, Documents",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:106",
+      "covered": "partly",
+      "by": "places map; insides in their ledgers"
+    },
+    {
+      "path": "Phone More → Approvals count",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:141",
+      "covered": "yes",
+      "by": "context approvals (canDecide)"
+    },
+    {
+      "path": "Phone More → Approvals",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:138",
+      "covered": "partly",
+      "by": "answer_workflow_approval; path only"
+    },
+    {
+      "path": "Phone More → Set up your AI teammate",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:145",
+      "covered": "partly",
+      "by": "manage_ai_teammate; path only"
+    },
+    {
+      "path": "Phone More → Test your AI teammate",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:154",
+      "covered": "partly",
+      "by": "teammate ledger; path only"
+    },
+    {
+      "path": "Phone More → Run quick setup again",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:163",
+      "covered": "partly",
+      "by": "read_onboarding_setup_get; path only"
+    },
+    {
+      "path": "Phone More → View as (See the app the way they see it)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:173",
+      "covered": "never",
+      "by": "teammate_view.start NEVER"
+    },
+    {
+      "path": "Phone More → Settings",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:182",
+      "covered": "partly",
+      "by": "get_settings; path only"
+    },
+    {
+      "path": "Phone More → Support desk (staff)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:189",
+      "covered": "partly",
+      "by": "read_support_* staff tools; path only"
+    },
+    {
+      "path": "Phone More → Add-ons",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:201",
+      "covered": "partly",
+      "by": "add-ons ledger; path only"
+    },
+    {
+      "path": "Phone More → Ideas",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:210",
+      "covered": "partly",
+      "by": "find_ideas; path only"
+    },
+    {
+      "path": "Phone More → Ideas New badge",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:215",
+      "covered": "yes",
+      "by": "read_whats_new_unseen"
+    },
+    {
+      "path": "Phone More → Get help",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:224",
+      "covered": "yes",
+      "by": "contact_support (support ledger)"
+    },
+    {
+      "path": "Phone More → Open on the web",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:231",
+      "covered": "no",
+      "by": "no web link to the app"
+    },
+    {
+      "path": "Phone Settings → search settings and results",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:136",
+      "covered": "yes",
+      "by": "settings_help, get_settings"
+    },
+    {
+      "path": "Phone Settings → This phone → My cell",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:154",
+      "covered": "partly",
+      "by": "read_user_phone_get; path only"
+    },
+    {
+      "path": "Phone Settings → This phone → Face ID lock",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:168",
+      "covered": "never",
+      "by": "phone.lock SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → This phone → Businesses",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:187",
+      "covered": "never",
+      "by": "phone.businesses SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → This phone → Documents on mobile data",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:195",
+      "covered": "never",
+      "by": "phone.documents_mobile_data SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → This phone → Changes on this phone",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:211",
+      "covered": "never",
+      "by": "phone.changes SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → This business → Balance",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:226",
+      "covered": "partly",
+      "by": "read_usage_statement (usage ledger); path"
+    },
+    {
+      "path": "Phone Settings → This business → Main offer",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:235",
+      "covered": "partly",
+      "by": "get_settings main_offer (its ledger); path"
+    },
+    {
+      "path": "Phone Settings → This business → Partners",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:244",
+      "covered": "partly",
+      "by": "get_settings partners (its ledger); path"
+    },
+    {
+      "path": "Phone Settings → You → My safety",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:258",
+      "covered": "never",
+      "by": "phone.my_safety SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → You → Notifications",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:266",
+      "covered": "yes",
+      "by": "get_settings my_account alerts"
+    },
+    {
+      "path": "Phone Settings → You → Profile and sign-in (opens the web)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:273",
+      "covered": "partly",
+      "by": "update_my_account fullName; sign-in is the person's"
+    },
+    {
+      "path": "Phone Settings → You → Appearance sheet → words",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:322",
+      "covered": "partly",
+      "by": "update_my_account description"
+    },
+    {
+      "path": "Phone Settings → You → Appearance sheet → Light / Dark / System",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:323",
+      "covered": "partly",
+      "by": "update_my_account sets the account theme; phone keeps its own"
+    },
+    {
+      "path": "Phone Settings → Sign out",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:293",
+      "covered": "person",
+      "by": "signing in and out is the person's"
+    },
+    {
+      "path": "Phone Settings → Delete my account",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:299",
+      "covered": "partly",
+      "by": "read_account_deletion_check; deleting is the person's"
+    },
+    {
+      "path": "Phone Settings → footnote (business settings are on the web)",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:308",
+      "covered": "yes",
+      "by": "prompt says the business is set up on the web"
+    },
+    {
+      "path": "Phone Sign out? → summary and changes waiting (and N more)",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/sign-out-sheet.tsx:69",
+      "covered": "never",
+      "by": "phone.changes SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Sign out? → note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/sign-out-sheet.tsx:99",
+      "covered": "never",
+      "by": "phone.changes SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Sign out? → Sign out",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/sign-out-sheet.tsx:109",
+      "covered": "person",
+      "by": "signing in and out is the person's"
+    },
+    {
+      "path": "Phone switcher → Businesses, name · email",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/business-switcher.tsx:47",
+      "covered": "yes",
+      "by": "get_settings my_account fullName, email"
+    },
+    {
+      "path": "Phone switcher → each business: name, org · you are Role",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/business-list.tsx:84",
+      "covered": "partly",
+      "by": "get_agency_area (owners/admins); current via get_settings"
+    },
+    {
+      "path": "Phone switcher → Open a business",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/business-list.tsx:94",
+      "covered": "no",
+      "by": "no switch tool"
+    },
+    {
+      "path": "Phone switcher → can't switch while offline toasts",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/business-switcher.tsx:34",
+      "covered": "no",
+      "by": "no switch tool"
+    },
+    {
+      "path": "Phone switcher and Settings → Businesses → Keep on this phone switch",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/business-list.tsx:116",
+      "covered": "never",
+      "by": "phone.businesses SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone switcher and Settings → Businesses → Keep on this phone detail and note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/shell/business-list.tsx:106",
+      "covered": "never",
+      "by": "phone.businesses SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone Settings → Businesses → title and list",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx:14",
+      "covered": "never",
+      "by": "phone.businesses SETTINGS_NEVER"
+    },
+    {
+      "path": "Phone app bar → business mark opens the switcher",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/app-bar.tsx:71",
+      "covered": "no",
+      "by": "no switch tool"
+    },
+    {
+      "path": "Phone app bar → Ask",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/app-bar.tsx:113",
+      "covered": "yes",
+      "by": "opens the Assistant itself"
+    },
+    {
+      "path": "Phone app bar → search",
+      "kind": "do",
+      "file": "apps/mobile/src/components/shell/app-bar.tsx:125",
+      "covered": "yes",
+      "by": "read_search_everything (search ledger)"
+    },
+    {
+      "path": "Push → each notification: title, body, business",
+      "kind": "see",
+      "file": "apps/mobile/src/push/present.ts:51",
+      "covered": "yes",
+      "by": "read_notification_list"
+    },
+    {
+      "path": "Push → tap opens its page",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:140",
+      "covered": "partly",
+      "by": "path, not a link"
+    },
+    {
+      "path": "Push button → Reply (typed in the notification)",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:55",
+      "covered": "partly",
+      "by": "send_text, send_email; not chat, portal, Messenger, Instagram"
+    },
+    {
+      "path": "Push button → Call",
+      "kind": "do",
+      "file": "apps/mobile/src/push/press.ts:262",
+      "covered": "partly",
+      "by": "call_customer offers a Call button"
+    },
+    {
+      "path": "Push button → Let AI handle",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:69",
+      "covered": "yes",
+      "by": "manage_conversation"
+    },
+    {
+      "path": "Push button → Let HandsFreeOS handle",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:75",
+      "covered": "yes",
+      "by": "handle_attention_item"
+    },
+    {
+      "path": "Push button → Snooze 1 hour",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:81",
+      "covered": "yes",
+      "by": "update_attention_item snooze"
+    },
+    {
+      "path": "Push button → Approve",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:87",
+      "covered": "yes",
+      "by": "answer_workflow_approval, decide_teammate_draft"
+    },
+    {
+      "path": "Push button → Review / Open",
+      "kind": "do",
+      "file": "apps/mobile/src/push/press.ts:248",
+      "covered": "partly",
+      "by": "path, not a link"
+    },
+    {
+      "path": "Push button → Done / Didn't happen",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:100",
+      "covered": "yes",
+      "by": "update_appointment outcome done, no_show"
+    },
+    {
+      "path": "Push button → Still there",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:111",
+      "covered": "no",
+      "by": "no tool for appointment.still_going"
+    },
+    {
+      "path": "Push button → I'm OK",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:118",
+      "covered": "yes",
+      "by": "do_safety_check_out"
+    },
+    {
+      "path": "Push button → +15 min",
+      "kind": "do",
+      "file": "apps/mobile/src/push/buttons.ts:121",
+      "covered": "yes",
+      "by": "do_safety_extend"
+    },
+    {
+      "path": "Push → after a button: sent / done words",
+      "kind": "see",
+      "file": "apps/mobile/src/push/press.ts:414",
+      "covered": "yes",
+      "by": "each tool's outcome"
+    },
+    {
+      "path": "Push → That was already done.",
+      "kind": "see",
+      "file": "apps/mobile/src/push/press.ts:372",
+      "covered": "no",
+      "by": "no tool says a step was already done"
+    },
+    {
+      "path": "Push → unlock the phone to run a button",
+      "kind": "do",
+      "file": "apps/mobile/src/push/press.ts:327",
+      "covered": "person",
+      "by": "the phone's own lock; device-only"
+    },
+    {
+      "path": "Push → waiting for signal / refused (opens Changes)",
+      "kind": "see",
+      "file": "apps/mobile/src/push/press.ts:402",
+      "covered": "never",
+      "by": "phone.changes SETTINGS_NEVER"
+    },
+    {
+      "path": "Push → quiet hours question before sending",
+      "kind": "do",
+      "file": "apps/mobile/src/push/press.ts:474",
+      "covered": "partly",
+      "by": "texting tools follow quiet hours; no ask"
+    },
+    {
+      "path": "Push → this phone's registration status",
+      "kind": "see",
+      "file": "apps/mobile/src/push/registration.ts:21",
+      "covered": "partly",
+      "by": "phonesForAlerts lists phones and lastSeenAt"
+    },
+    {
+      "path": "Phone links → link for a business you aren't part of",
+      "kind": "see",
+      "file": "apps/mobile/src/links/decide.ts:13",
+      "covered": "no",
+      "by": "no tool reads links"
+    },
+    {
+      "path": "Phone links → web-only pages open the browser",
+      "kind": "do",
+      "file": "apps/mobile/src/links/route-map.ts:174",
+      "covered": "no",
+      "by": "no web link given"
+    },
+    {
+      "path": "Phone links → This phone has no web browser",
+      "kind": "see",
+      "file": "apps/mobile/src/components/links/link-gate.tsx:75",
+      "covered": "no",
+      "by": "the phone's own state"
+    },
+    {
+      "path": "Phone links → unlock to run a pending link or press",
+      "kind": "do",
+      "file": "apps/mobile/src/components/links/link-gate.tsx:93",
+      "covered": "person",
+      "by": "the phone's own lock; device-only"
+    }
+  ],
   "gaps": [
     {
       "id": "acct-1",

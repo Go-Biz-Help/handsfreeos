@@ -2,8 +2,1100 @@
   "area": "salescoach",
   "title": "The AI Sales Coach add-on and any add-on page drawn by the generic add-on route",
   "checkedOn": "2026-11-06",
-  "files": {},
-  "items": [],
+  "files": {
+    "apps/mobile/src/addons/gate.tsx": "7be28a0fe47e",
+    "apps/mobile/src/addons/salescoach/call-card.tsx": "e11b62dde145",
+    "apps/mobile/src/addons/salescoach/live.tsx": "d4318f640442",
+    "apps/mobile/src/addons/salescoach/more.tsx": "6375527d5542",
+    "apps/web/src/addons/registry.ts": "21169e3d6007",
+    "apps/web/src/addons/salescoach/call-panel.tsx": "04eeac0b46c2",
+    "apps/web/src/addons/salescoach/calls-view.tsx": "9df2ca234691",
+    "apps/web/src/addons/salescoach/composer-suggestions.tsx": "aa5c423c9d4e",
+    "apps/web/src/addons/salescoach/delete-call.tsx": "f236f073c63c",
+    "apps/web/src/addons/salescoach/home.tsx": "1f6ded1922cd",
+    "apps/web/src/addons/salescoach/lessons-view.tsx": "ba36d5b35818",
+    "apps/web/src/addons/salescoach/live-coach.tsx": "609a80f8d052",
+    "apps/web/src/addons/salescoach/playbooks-view.tsx": "13c7aeeb4a26",
+    "apps/web/src/addons/salescoach/script-builder.tsx": "ec31067d4412",
+    "apps/web/src/addons/salescoach/trends-view.tsx": "ad456906d697",
+    "apps/web/src/addons/salescoach/zoom-panel.tsx": "9e4ed51950d7",
+    "apps/web/src/app/app/w/[workspaceId]/a/[addonId]/[[...path]]/page.tsx": "fd2cbf1adffc",
+    "apps/web/src/components/addons/unavailable.tsx": "e52287367cb9",
+    "apps/web/src/components/money/person-picker.tsx": "8aeb51e81ba0"
+  },
+  "items": [
+    {
+      "path": "Side menu → AI Sales Coach (opens Live call)",
+      "kind": "do",
+      "file": "apps/web/src/addons/registry.ts:252",
+      "covered": "yes",
+      "by": "add-on directory line in the prompt; salescoach_live reads the page"
+    },
+    {
+      "path": "Phone → More → AI Sales Coach · Live call",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/salescoach/more.tsx:16",
+      "covered": "yes",
+      "by": "salescoach_live"
+    },
+    {
+      "path": "AI Sales Coach → header: title and what the coach does",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/home.tsx:56",
+      "covered": "yes",
+      "by": "add-on directory line (context.ts addonDirectory)"
+    },
+    {
+      "path": "AI Sales Coach → tabs: Live call, Coached, Trends, Playbooks",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/home.tsx:64",
+      "covered": "yes",
+      "by": "salescoach_live, _list_calls, _trends, _list_playbooks read each tab; tab names in no places text"
+    },
+    {
+      "path": "Live call → no call: 'No call right now…' and where the coach shows (call bar, phone app); phone shows the read's error instead",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:214",
+      "covered": "partly",
+      "by": "salescoach_live call: null; the where-to words are in no tool or place"
+    },
+    {
+      "path": "Live call → status: Listening / Writing up the call… / Coach stopped for this call / Call ended",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:220",
+      "covered": "yes",
+      "by": "salescoach_live call.state"
+    },
+    {
+      "path": "Live call → the customer's name",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:264",
+      "covered": "yes",
+      "by": "salescoach_live call.person.name"
+    },
+    {
+      "path": "Live call → Stage: <stage>, n of m (scripts with stages)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:77",
+      "covered": "partly",
+      "by": "salescoach_live playbook.details.steps + step; step comes after the playbook, cut past 16k by a big one"
+    },
+    {
+      "path": "Live call → Where you are: step title, n/m",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:105",
+      "covered": "partly",
+      "by": "salescoach_live step; same 16k cut after a big playbook"
+    },
+    {
+      "path": "Live call → each card: kind (Objection, They asked, Next step, Ask this, Heads up), title, words to say",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:158",
+      "covered": "partly",
+      "by": "salescoach_live cards[] kind, title, say; cards come after the playbook and get cut"
+    },
+    {
+      "path": "Live call → card → How: the tip",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:172",
+      "covered": "partly",
+      "by": "salescoach_live cards[].tip; same cut"
+    },
+    {
+      "path": "Live call → newest card → They said: '…'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:177",
+      "covered": "partly",
+      "by": "salescoach_live cards[].heard; same cut"
+    },
+    {
+      "path": "Live call → card → Got it",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:162",
+      "covered": "yes",
+      "by": "salescoach_card_dismiss input cardId (runs on its own)"
+    },
+    {
+      "path": "Live call → no cards yet: the coach is listening, or no playbook yet (ask an owner… Playbooks)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:276",
+      "covered": "partly",
+      "by": "salescoach_live playbook null / cards []; can't name AI Sales Coach → Playbooks (no add-on places)"
+    },
+    {
+      "path": "Live call → Stop coaching this call",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:281",
+      "covered": "yes",
+      "by": "salescoach_call_stop input coachedCallId (card to confirm)"
+    },
+    {
+      "path": "Live call → Start coaching again (stopped, call still going)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:292",
+      "covered": "yes",
+      "by": "salescoach_call_resume input coachedCallId (card to confirm)"
+    },
+    {
+      "path": "Live call → See the write-up (call over; phone opens it on the web)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:303",
+      "covered": "yes",
+      "by": "salescoach_get_call input coachedCallId from salescoach_live call.id"
+    },
+    {
+      "path": "Live call → refusals: not your call, call is over",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/live-coach.tsx:242",
+      "covered": "yes",
+      "by": "same rules from salescoach_call_stop/_resume, rehearsed before the card"
+    },
+    {
+      "path": "Call bar / beside a video call → coach cards: status, customer, stage, step, newest two cards",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/call-panel.tsx:11",
+      "covered": "partly",
+      "by": "salescoach_live; cards cut past a big playbook"
+    },
+    {
+      "path": "Call bar → card Got it; Stop coaching this call; Start coaching again",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/call-panel.tsx:11",
+      "covered": "yes",
+      "by": "salescoach_card_dismiss, salescoach_call_stop, salescoach_call_resume"
+    },
+    {
+      "path": "Phone → AI Sales Coach → Live call: status, customer, Stage, Where you are, cards (newest in big type)",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/salescoach/live.tsx:161",
+      "covered": "partly",
+      "by": "salescoach_live; step and cards cut past a big playbook"
+    },
+    {
+      "path": "Phone → AI Sales Coach → Live call: Got it, Stop coaching this call, Start coaching again",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/salescoach/live.tsx:105",
+      "covered": "yes",
+      "by": "salescoach_card_dismiss, salescoach_call_stop, salescoach_call_resume"
+    },
+    {
+      "path": "Phone → video call → newest coach card over the video",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:25",
+      "covered": "partly",
+      "by": "salescoach_live cards[0]; cut past a big playbook"
+    },
+    {
+      "path": "Phone → video call → coach card → Got it",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/salescoach/call-card.tsx:25",
+      "covered": "yes",
+      "by": "salescoach_card_dismiss input cardId"
+    },
+    {
+      "path": "Conversation → reply box → Suggested replies: each label and reply",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/composer-suggestions.tsx:57",
+      "covered": "yes",
+      "by": "salescoach_suggestions input conversationId → replies[] label, text"
+    },
+    {
+      "path": "Suggested replies → press one (puts it in the reply box to edit)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/composer-suggestions.tsx:61",
+      "covered": "partly",
+      "by": "salescoach_suggestions gives the text; send_text/send_email send it on an OK; nothing fills the box"
+    },
+    {
+      "path": "Suggested replies → Hide suggestions (X)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/composer-suggestions.tsx:46",
+      "covered": "no",
+      "by": "hides on this screen only; nothing kept"
+    },
+    {
+      "path": "Coached → empty: 'Nothing coached yet…' and when calls and conversations show",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:65",
+      "covered": "partly",
+      "by": "salescoach_list_calls calls []; when written ones show is in no tool's words"
+    },
+    {
+      "path": "Coached → each row: customer (or 'A caller nobody knows yet'), channel, language, rep (reviewers), playbook, when",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:80",
+      "covered": "yes",
+      "by": "salescoach_list_calls person.name, channel, language, rep.name, playbookName, startedAt (limit ≤50, cut past ~34 rows)"
+    },
+    {
+      "path": "Coached → each row: won badge (booked, estimate accepted, paid, deal won)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:27",
+      "covered": "yes",
+      "by": "salescoach_list_calls wonHow"
+    },
+    {
+      "path": "Coached → each row: Score n, or On the call now / Being written up / Coach stopped / No write-up",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:41",
+      "covered": "yes",
+      "by": "salescoach_list_calls score, state"
+    },
+    {
+      "path": "Coached → press a row (opens its write-up)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:75",
+      "covered": "yes",
+      "by": "salescoach_get_call input coachedCallId"
+    },
+    {
+      "path": "Coached → row → Delete (bin icon)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:97",
+      "covered": "never",
+      "by": "salescoach.call.delete: notForTheAssistant, risk 4, deletes for good"
+    },
+    {
+      "path": "Coached → call → back to Coached",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:169",
+      "covered": "yes",
+      "by": "salescoach_list_calls"
+    },
+    {
+      "path": "Coached → call → customer's name",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:179",
+      "covered": "yes",
+      "by": "salescoach_get_call person.name"
+    },
+    {
+      "path": "Coached → call → press the customer's name (their page)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:180",
+      "covered": "yes",
+      "by": "get_customer with person.id from salescoach_get_call"
+    },
+    {
+      "path": "Coached → call → channel, language, rep, playbook, when",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:190",
+      "covered": "yes",
+      "by": "salescoach_get_call channel, language, rep.name, playbookName, startedAt"
+    },
+    {
+      "path": "Coached → call → won badge",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:202",
+      "covered": "yes",
+      "by": "salescoach_get_call wonHow"
+    },
+    {
+      "path": "Coached → call → Score (big number), or the state badge with no write-up",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:207",
+      "covered": "yes",
+      "by": "salescoach_get_call score, state (before the transcript)"
+    },
+    {
+      "path": "Coached → call → why there's no write-up",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:221",
+      "covered": "partly",
+      "by": "salescoach_get_call failure; after lines, cut past 16k on long calls"
+    },
+    {
+      "path": "Coached → call → n of m stages, or n of m script steps",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:225",
+      "covered": "partly",
+      "by": "salescoach_get_call result.score.stages/steps; cut on long calls"
+    },
+    {
+      "path": "Coached → call → n of m objections answered / No objections",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:235",
+      "covered": "partly",
+      "by": "result.score.objections; cut on long calls"
+    },
+    {
+      "path": "Coached → call → You talked n% of the time",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:238",
+      "covered": "partly",
+      "by": "result.score.talkShare; cut on long calls"
+    },
+    {
+      "path": "Coached → call → Stages: each Done or Skipped",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:140",
+      "covered": "partly",
+      "by": "result.score.stages covered/missed; cut on long calls"
+    },
+    {
+      "path": "Coached → call → warning: the offer came before they said their problem",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:147",
+      "covered": "partly",
+      "by": "result.score.stages.pitchedEarly; cut on long calls"
+    },
+    {
+      "path": "Coached → call → Summary",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:241",
+      "covered": "partly",
+      "by": "result.summary, cut on long calls; also read_timeline_list body"
+    },
+    {
+      "path": "Coached → call → Notes",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:244",
+      "covered": "partly",
+      "by": "result.notes, cut on long calls; also read_timeline_list body"
+    },
+    {
+      "path": "Coached → call → What you promised: each with when; each is a task",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:253",
+      "covered": "partly",
+      "by": "result.promises, cut on long calls; the tasks via list_tasks"
+    },
+    {
+      "path": "Coached → call → Follow-up to send ('Nothing was sent')",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:265",
+      "covered": "partly",
+      "by": "result.followUp; cut on long calls"
+    },
+    {
+      "path": "Coached → call → Follow-up to send → copy",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:271",
+      "covered": "partly",
+      "by": "text from result.followUp when not cut; no clipboard"
+    },
+    {
+      "path": "Coached → call → Open the conversation",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:272",
+      "covered": "yes",
+      "by": "get_conversation with conversationId from salescoach_get_call"
+    },
+    {
+      "path": "Coached → call → Objections: each what they said, Answered / Not answered",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:283",
+      "covered": "partly",
+      "by": "result.objections said, answered; cut on long calls"
+    },
+    {
+      "path": "Coached → call → Next time: the tips",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:297",
+      "covered": "partly",
+      "by": "result.tips; cut on long calls"
+    },
+    {
+      "path": "Coached → call → What was said: each line, Rep or Customer",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:308",
+      "covered": "partly",
+      "by": "salescoach_get_call lines[] speaker, text; cut past 16k chars"
+    },
+    {
+      "path": "Coached → call → Delete",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/calls-view.tsx:217",
+      "covered": "never",
+      "by": "salescoach.call.delete: notForTheAssistant, risk 4, for good"
+    },
+    {
+      "path": "Delete dialog → 'Delete this coached call?' and what goes and what stays",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/delete-call.tsx:75",
+      "covered": "never",
+      "by": "part of salescoach.call.delete, never the AI's"
+    },
+    {
+      "path": "Delete dialog → Delete for good",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/delete-call.tsx:87",
+      "covered": "never",
+      "by": "salescoach.call.delete, never the AI's"
+    },
+    {
+      "path": "Delete dialog → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/delete-call.tsx:82",
+      "covered": "never",
+      "by": "part of the delete the AI never does"
+    },
+    {
+      "path": "Delete dialog → refusal: still on the call / still being written up",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/delete-call.tsx:76",
+      "covered": "never",
+      "by": "part of salescoach.call.delete, never the AI's"
+    },
+    {
+      "path": "Trends → 4 weeks / 12 weeks / 26 weeks",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:63",
+      "covered": "yes",
+      "by": "salescoach_trends input weeks (4 to 26)"
+    },
+    {
+      "path": "Trends → Your team: heading and what it compares (reviewers)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:83",
+      "covered": "yes",
+      "by": "salescoach_trends team, previous (team comes last: cut with many reps)"
+    },
+    {
+      "path": "Trends → empty: 'Nothing to show yet…'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:84",
+      "covered": "yes",
+      "by": "salescoach_trends totals.coached 0"
+    },
+    {
+      "path": "Trends → tile Coached: count, change, 'was n'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:166",
+      "covered": "yes",
+      "by": "salescoach_trends totals.coached, previous.coached"
+    },
+    {
+      "path": "Trends → tile Average score: score, change, 'was n'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:175",
+      "covered": "yes",
+      "by": "salescoach_trends totals.score, previous.score"
+    },
+    {
+      "path": "Trends → tile Talk time: %, change, 'was n%'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:183",
+      "covered": "yes",
+      "by": "salescoach_trends totals.talkShare, previous.talkShare"
+    },
+    {
+      "path": "Trends → Talk time hint: 35 to 60% is the sweet spot",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:189",
+      "covered": "no",
+      "by": "no tool's words give the sweet spot"
+    },
+    {
+      "path": "Trends → tile Objections answered: %, n of m, change",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:192",
+      "covered": "yes",
+      "by": "salescoach_trends totals.objections answered, of"
+    },
+    {
+      "path": "Trends → tile Script steps done: %, n of m, change",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:201",
+      "covered": "yes",
+      "by": "salescoach_trends totals.steps covered, of"
+    },
+    {
+      "path": "Trends → tile Wins: count, change",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:210",
+      "covered": "yes",
+      "by": "salescoach_trends totals.wins, previous.wins"
+    },
+    {
+      "path": "Trends → Wins hint: a job booked, estimate accepted, payment or deal won within a week",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:216",
+      "covered": "partly",
+      "by": "wonHow kinds in salescoach_list_calls; 'within a week' in no tool's words"
+    },
+    {
+      "path": "Trends → tile: 'nothing before' with no earlier weeks",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:237",
+      "covered": "yes",
+      "by": "salescoach_trends previous.coached 0"
+    },
+    {
+      "path": "Trends → Score by week: the line, each week's score, the latest score",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:309",
+      "covered": "yes",
+      "by": "salescoach_trends series[].score"
+    },
+    {
+      "path": "Trends → Score by week → hover or arrow keys: Score, Week of date, Coached",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:402",
+      "covered": "yes",
+      "by": "salescoach_trends series[] week, score, coached"
+    },
+    {
+      "path": "Trends → See as a table",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:435",
+      "covered": "yes",
+      "by": "salescoach_trends series[]"
+    },
+    {
+      "path": "Trends → table rows: Week, Coached, Average score, Talk time, Wins",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:439",
+      "covered": "yes",
+      "by": "salescoach_trends series[] week, coached, score, talkShare, wins"
+    },
+    {
+      "path": "Trends → reps table rows: Rep, Coached, Average score with change, Talk time, Objections answered, Script steps done, Wins",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:479",
+      "covered": "yes",
+      "by": "salescoach_trends reps[] rep.name, totals, previous.score"
+    },
+    {
+      "path": "Trends → reps table → press a rep (their weeks)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:497",
+      "covered": "yes",
+      "by": "salescoach_trends input userId"
+    },
+    {
+      "path": "Trends → a rep → back to Your team",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:103",
+      "covered": "yes",
+      "by": "salescoach_trends without userId"
+    },
+    {
+      "path": "Trends → a rep, or Your coached calls: heading, about, tiles, Score by week, Steps skipped most",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:112",
+      "covered": "yes",
+      "by": "salescoach_trends reps[] (a rep reads only their own)"
+    },
+    {
+      "path": "Trends → Steps skipped most: each step, its playbook, 'Skipped on n of m calls'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:552",
+      "covered": "yes",
+      "by": "salescoach_trends skippedSteps[] title, playbookName, skipped, of"
+    },
+    {
+      "path": "Trends → Steps skipped most: what it's from, and 'No step is skipped often…' (3 calls)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/trends-view.tsx:546",
+      "covered": "partly",
+      "by": "skippedSteps [] seen; the 3-call minimum is in no tool's words"
+    },
+    {
+      "path": "Playbooks → about: the coach says only what's here; the usual one is what calls use",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:145",
+      "covered": "partly",
+      "by": "salescoach_playbook_save's words; calls now pick by kind first, which no tool says"
+    },
+    {
+      "path": "Playbooks → 'Owners and admins write the playbooks.' (others)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:145",
+      "covered": "yes",
+      "by": "find_capabilities restricted: Sales playbooks; save tools only with salescoach.manage"
+    },
+    {
+      "path": "Playbooks → empty: 'No playbooks yet…' and the three ways to start",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:215",
+      "covered": "yes",
+      "by": "salescoach_list_playbooks []; draft and save tools"
+    },
+    {
+      "path": "Playbooks → each playbook: name, Kind of call, Usual, Archived",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:223",
+      "covered": "partly",
+      "by": "salescoach_list_playbooks name, kind, isDefault, archivedAt; cut past 16k after 1–2 big ones"
+    },
+    {
+      "path": "Playbooks → each playbook: n steps · n objections · n talking points",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:268",
+      "covered": "partly",
+      "by": "salescoach_list_playbooks details; same cut"
+    },
+    {
+      "path": "Playbooks → read only (others): each step's stage, what to do, words, how; each objection and answer",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:281",
+      "covered": "partly",
+      "by": "salescoach_list_playbooks details.steps, details.objections; same cut"
+    },
+    {
+      "path": "Playbooks → New playbook",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:160",
+      "covered": "yes",
+      "by": "salescoach_playbook_save without playbookId (card to confirm)"
+    },
+    {
+      "path": "Playbooks → Edit",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:231",
+      "covered": "partly",
+      "by": "salescoach_playbook_save playbookId; must resend whole details, which the list may cut"
+    },
+    {
+      "path": "Playbooks → Make it the usual one",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:240",
+      "covered": "partly",
+      "by": "salescoach_playbook_save isDefault true; must resend name, kind, details or they reset"
+    },
+    {
+      "path": "Playbooks → Archive / Bring back",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:257",
+      "covered": "yes",
+      "by": "salescoach_playbook_archive input playbookId, archived"
+    },
+    {
+      "path": "Playbooks → 'Playbook saved.' and refusals (name taken, archived)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:97",
+      "covered": "yes",
+      "by": "salescoach_playbook_save result and rules, rehearsed before the card"
+    },
+    {
+      "path": "Playbooks → What's working: what the coach compares weekly; nothing changes until you use one",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:87",
+      "covered": "yes",
+      "by": "salescoach_learn_from_wins and salescoach_lesson_list descriptions"
+    },
+    {
+      "path": "What's working → Look again now",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:77",
+      "covered": "yes",
+      "by": "salescoach_learn_from_wins (runs on its own)"
+    },
+    {
+      "path": "What's working → 'n new suggestions' / 'Nothing new to suggest yet.'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:48",
+      "covered": "yes",
+      "by": "salescoach_learn_from_wins output kept"
+    },
+    {
+      "path": "What's working → none: 'Nothing new yet…' (3 wins)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:88",
+      "covered": "partly",
+      "by": "salescoach_lesson_list []; the 3-win minimum is in no tool's words"
+    },
+    {
+      "path": "What's working → each: Better answer / New objection, the objection, In '<playbook>'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:98",
+      "covered": "yes",
+      "by": "salescoach_lesson_list kind, objection, playbookName"
+    },
+    {
+      "path": "What's working → each: how often it won (n of m)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:104",
+      "covered": "yes",
+      "by": "salescoach_lesson_list wins, of"
+    },
+    {
+      "path": "What's working → each: Now (current answer), Suggested",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:107",
+      "covered": "yes",
+      "by": "salescoach_lesson_list current, answer"
+    },
+    {
+      "path": "What's working → Use it",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:116",
+      "covered": "yes",
+      "by": "salescoach_lesson_decide input lessonId, use true (card to confirm)"
+    },
+    {
+      "path": "What's working → Not now",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:119",
+      "covered": "yes",
+      "by": "salescoach_lesson_decide input use false"
+    },
+    {
+      "path": "What's working → 'Playbook updated.' and refusals (archived, no longer there, full)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/lessons-view.tsx:62",
+      "covered": "yes",
+      "by": "salescoach_lesson_decide result and rules"
+    },
+    {
+      "path": "Playbooks → Use my own script (opens the panel)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:153",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook"
+    },
+    {
+      "path": "Use my own script → about: the AI turns it into steps and answers, keeping your words",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:180",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook description"
+    },
+    {
+      "path": "Use my own script → Your script",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:182",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook input script (or fileId)"
+    },
+    {
+      "path": "Use my own script → It's for (kind of call)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:192",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook input kind"
+    },
+    {
+      "path": "Use my own script → Turn it into a playbook (opens the draft in the editor)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:205",
+      "covered": "partly",
+      "by": "salescoach_draft_playbook name, details in chat only, cut past 16k; then salescoach_playbook_save"
+    },
+    {
+      "path": "Playbooks → Build my scripts (opens the builder)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:149",
+      "covered": "yes",
+      "by": "salescoach_guess_sales_answers, salescoach_draft_playbook"
+    },
+    {
+      "path": "Build your sales scripts → about: scripts that sell by asking",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:107",
+      "covered": "partly",
+      "by": "salescoach_draft_playbook description; the question-led way isn't named"
+    },
+    {
+      "path": "Build your sales scripts → 'Reading what HandsFreeOS knows…', then 'From what HandsFreeOS knows. Change anything that's off.'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:116",
+      "covered": "yes",
+      "by": "salescoach_guess_sales_answers"
+    },
+    {
+      "path": "Build your sales scripts → each question's AI answer, or 'Tell us' when blank",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:124",
+      "covered": "yes",
+      "by": "salescoach_guess_sales_answers brief offer, buyers, problems, result, why, nextStep"
+    },
+    {
+      "path": "Build your sales scripts → answer each question (what you sell, who buys, problems, result, why you, next step)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:126",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook input brief.<question>"
+    },
+    {
+      "path": "Build your sales scripts → Write a script for: tick each kind of call",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:141",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook input kind, once per kind"
+    },
+    {
+      "path": "Build your sales scripts → 'Pick at least one kind of call.'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:153",
+      "covered": "yes",
+      "by": "salescoach_draft_playbook kind defaults to new lead"
+    },
+    {
+      "path": "Build your sales scripts → Build the scripts (each opens in the editor, Script n of m)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:158",
+      "covered": "partly",
+      "by": "salescoach_draft_playbook per kind; drafts in chat only, cut past 16k"
+    },
+    {
+      "path": "Build your sales scripts → couldn't read: 'Answer the questions yourself, then build.'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:72",
+      "covered": "yes",
+      "by": "salescoach_guess_sales_answers refusal words"
+    },
+    {
+      "path": "Build your sales scripts → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/script-builder.tsx:165",
+      "covered": "yes",
+      "by": "nothing is saved until salescoach_playbook_save"
+    },
+    {
+      "path": "Playbook editor → Script n of m (the builder's drafts)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:429",
+      "covered": "partly",
+      "by": "no queue; each draft only in chat"
+    },
+    {
+      "path": "Playbook editor → Name",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:437",
+      "covered": "yes",
+      "by": "salescoach_playbook_save input name"
+    },
+    {
+      "path": "Playbook editor → Kind of call",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:446",
+      "covered": "yes",
+      "by": "salescoach_playbook_save input kind (left out, it becomes Any call)"
+    },
+    {
+      "path": "Playbook editor → Script steps: each Stage, What to do, Words to say, How to say it",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:467",
+      "covered": "yes",
+      "by": "salescoach_playbook_save input details.steps[] stage, title, say, tip"
+    },
+    {
+      "path": "Playbook editor → Objections: each They say, You answer",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:482",
+      "covered": "yes",
+      "by": "salescoach_playbook_save input details.objections[] objection, answer"
+    },
+    {
+      "path": "Playbook editor → Talking points: each Topic, Fact",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:495",
+      "covered": "yes",
+      "by": "salescoach_playbook_save input details.points[] topic, fact"
+    },
+    {
+      "path": "Playbook editor → each section's about (in order; what customers push back with; facts to lean on)",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:342",
+      "covered": "yes",
+      "by": "salescoach_playbook_save description"
+    },
+    {
+      "path": "Playbook editor → Remove (a step, objection or talking point)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:383",
+      "covered": "yes",
+      "by": "salescoach_playbook_save details without it"
+    },
+    {
+      "path": "Playbook editor → Add a step / Add an objection / Add a talking point (up to 20 / 40 / 40)",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:393",
+      "covered": "yes",
+      "by": "salescoach_playbook_save details lists, same limits"
+    },
+    {
+      "path": "Playbook editor → Save playbook",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:501",
+      "covered": "yes",
+      "by": "salescoach_playbook_save (card to confirm)"
+    },
+    {
+      "path": "Playbook editor → Cancel / Skip this one",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/playbooks-view.tsx:508",
+      "covered": "yes",
+      "by": "nothing is saved until salescoach_playbook_save"
+    },
+    {
+      "path": "Zoom panel → outside Zoom: 'This is the coach for Zoom meetings…' and keep Live call open on a second screen",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:179",
+      "covered": "no",
+      "by": "no tool or place says where HandsFreeOS's Zoom app is"
+    },
+    {
+      "path": "Zoom panel → not in a meeting: 'Start or join a Zoom meeting, then open HandsFreeOS from Apps.'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:179",
+      "covered": "no",
+      "by": "nothing reads Zoom's state"
+    },
+    {
+      "path": "Zoom panel → on open: claims the meeting (customer from the appointment) and starts listening",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:123",
+      "covered": "never",
+      "by": "live_meeting.claim on NEVER: done from the app inside Zoom"
+    },
+    {
+      "path": "Zoom panel → failed: Zoom didn't start (ask the host…), update Zoom, or the claim's refusal; Start coaching",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:198",
+      "covered": "no",
+      "by": "Zoom's own state; these help words are in no tool"
+    },
+    {
+      "path": "Zoom panel → Zoom not linked yet: the refusal",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:208",
+      "covered": "partly",
+      "by": "read_live_meeting_account_mine says whether it's linked"
+    },
+    {
+      "path": "Zoom panel → Connect Zoom",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:210",
+      "covered": "person",
+      "by": "signing in to Zoom"
+    },
+    {
+      "path": "Zoom panel → I've connected. Try again",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:213",
+      "covered": "person",
+      "by": "reloads the panel inside the person's Zoom"
+    },
+    {
+      "path": "Zoom panel → 'Who is this call with?' and why to pick the customer",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:221",
+      "covered": "never",
+      "by": "live_meeting.claim on NEVER"
+    },
+    {
+      "path": "Zoom panel → customer search: 'Type a name, phone or email'",
+      "kind": "do",
+      "file": "apps/web/src/components/money/person-picker.tsx:89",
+      "covered": "yes",
+      "by": "search_customers"
+    },
+    {
+      "path": "Zoom panel → customer search: each name, email or phone; 'Nobody matches. Add them from Contacts first.'",
+      "kind": "see",
+      "file": "apps/web/src/components/money/person-picker.tsx:122",
+      "covered": "yes",
+      "by": "search_customers"
+    },
+    {
+      "path": "Zoom panel → pick a customer / Coach without a customer",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:223",
+      "covered": "never",
+      "by": "live_meeting.claim input personId, on NEVER"
+    },
+    {
+      "path": "Zoom panel → With <name> / Coach without a customer / No customer picked yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:238",
+      "covered": "yes",
+      "by": "salescoach_live call.person"
+    },
+    {
+      "path": "Zoom panel → Change / Pick the customer",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:241",
+      "covered": "never",
+      "by": "live_meeting.claim on NEVER"
+    },
+    {
+      "path": "Zoom panel → Start coaching",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:250",
+      "covered": "person",
+      "by": "Zoom's own stream (startRTMS), started in the person's Zoom"
+    },
+    {
+      "path": "Zoom panel → 'The coach isn't listening to this meeting.'",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:236",
+      "covered": "partly",
+      "by": "salescoach_live state; Zoom's stream itself isn't read"
+    },
+    {
+      "path": "Zoom panel → notice: Zoom shows everyone in the meeting that an app is listening",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:257",
+      "covered": "no",
+      "by": "in no tool's words"
+    },
+    {
+      "path": "Zoom panel → listening: 'Zoom is starting to listen…', then the live cards",
+      "kind": "see",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:276",
+      "covered": "partly",
+      "by": "salescoach_live; cards cut past a big playbook"
+    },
+    {
+      "path": "Zoom panel → Stop coaching",
+      "kind": "do",
+      "file": "apps/web/src/addons/salescoach/zoom-panel.tsx:277",
+      "covered": "partly",
+      "by": "salescoach_call_stop stops the coach; Zoom's stream stays on"
+    },
+    {
+      "path": "Any add-on page, add-on off (owners/admins) → '<add-on> is off for this business'",
+      "kind": "see",
+      "file": "apps/web/src/components/addons/unavailable.tsx:38",
+      "covered": "yes",
+      "by": "get_settings add_ons running; find_capabilities turnedOff"
+    },
+    {
+      "path": "Any add-on page, add-on off → 'Its screens and records are hidden while it's off, and nothing is lost…'",
+      "kind": "see",
+      "file": "apps/web/src/components/addons/unavailable.tsx:41",
+      "covered": "yes",
+      "by": "manage_add_on description: off keeps its data and settings"
+    },
+    {
+      "path": "Any add-on page, add-on off → Go to Add-ons",
+      "kind": "do",
+      "file": "apps/web/src/components/addons/unavailable.tsx:58",
+      "covered": "partly",
+      "by": "manage_add_on action turn_on; get_settings add_ons drops the addonId it asks for"
+    },
+    {
+      "path": "Any add-on page, add-on off → Go to Home",
+      "kind": "do",
+      "file": "apps/web/src/components/addons/unavailable.tsx:62",
+      "covered": "yes",
+      "by": "Home is in the places map"
+    },
+    {
+      "path": "Any add-on page, add-on off (others) → 'This isn't available here', ask an owner or an admin",
+      "kind": "see",
+      "file": "apps/web/src/components/addons/unavailable.tsx:48",
+      "covered": "yes",
+      "by": "find_capabilities turnedOff and its words"
+    },
+    {
+      "path": "Phone → add-on screen not on for you → 'This isn't available here', ask an owner or an admin",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/gate.tsx:43",
+      "covered": "yes",
+      "by": "find_capabilities turnedOff / restricted"
+    },
+    {
+      "path": "Any /a/<add-on>/… with no page, an unknown or planned add-on, or no permission → the not-found page",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/[addonId]/[[...path]]/page.tsx:22",
+      "covered": "yes",
+      "by": "find_capabilities; add-on tools offered only to holders"
+    }
+  ],
   "gaps": [
     {
       "id": "sc-1",

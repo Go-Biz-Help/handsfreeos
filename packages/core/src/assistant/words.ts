@@ -434,21 +434,23 @@ const RECORD_ROUTES: readonly (readonly [PageRecord['type'], string])[] = [
  * screens sit at the web's own addresses, so both read it the same way: `/app/w/<ws>/customers/people/<id>` is a
  * person, `customers/companies/<id>` a company, `customers/records/<id>` a pet, vehicle or property (a business's
  * own kind of record), `leads/<id>` a lead, `inbox/<id>` a conversation, `workflows/<id>` a workflow,
- * `workflows/runs/<id>` a run of one, and `/calendar?appt=<id>` the appointment that's open. Every other page has no
- * record.
+ * `workflows/runs/<id>` a run of one, `/calendar?appt=<id>` the appointment that's open, and `/pipeline?lead=<id>` the
+ * lead open in the board's side sheet. Every other page has no record.
  */
 export function assistantPageRecord(
   pathname: string,
   workspaceId: string,
   appt: string | null = null,
+  lead: string | null = null,
 ): PageRecord | null {
   const base = `/app/w/${workspaceId}/`;
   if (!pathname.startsWith(base)) return null;
   const rest = pathname.slice(base.length);
+  const isId = (v: string | null): v is string => !!v && new RegExp(`^${UUID}$`, 'i').test(v);
   if (/^calendar\/?$/.test(rest))
-    return appt && new RegExp(`^${UUID}$`, 'i').test(appt)
-      ? { type: 'appointment', id: appt.toLowerCase() }
-      : null;
+    return isId(appt) ? { type: 'appointment', id: appt.toLowerCase() } : null;
+  if (/^pipeline\/?$/.test(rest))
+    return isId(lead) ? { type: 'lead', id: lead.toLowerCase() } : null;
   for (const [type, prefix] of RECORD_ROUTES) {
     const m = new RegExp(`^${prefix}/(${UUID})(?:/|$)`, 'i').exec(rest);
     if (m) return { type, id: m[1]!.toLowerCase() };

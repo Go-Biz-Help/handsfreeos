@@ -2,8 +2,4434 @@
   "area": "realestate-deals",
   "title": "The Real Estate Agent add-on: a deal and every tab of it",
   "checkedOn": "2026-11-06",
-  "files": {},
-  "items": [],
+  "files": {
+    "apps/mobile/src/addons/realestate/buyer-kit.tsx": "7ef82a5182b0",
+    "apps/mobile/src/addons/realestate/deal.tsx": "87647e08ea63",
+    "apps/mobile/src/addons/realestate/listing-photos.tsx": "058d372dac28",
+    "apps/mobile/src/addons/realestate/open-houses.tsx": "fd32cae2ea3c",
+    "apps/mobile/src/addons/realestate/tours.tsx": "b2bcc72745d8",
+    "apps/mobile/src/addons/realestate/voice-note.tsx": "091a8e358e5d",
+    "apps/mobile/src/addons/realestate/walkthrough.tsx": "486a02d4b544",
+    "apps/web/src/addons/realestate/buyer-cards.tsx": "6c922d8f81e0",
+    "apps/web/src/addons/realestate/buyer-page.tsx": "527b6b9fe919",
+    "apps/web/src/addons/realestate/client-tasks-page.tsx": "86d2b0244499",
+    "apps/web/src/addons/realestate/client-update.tsx": "7a37b3457a0c",
+    "apps/web/src/addons/realestate/cma-page.tsx": "addf0639eb74",
+    "apps/web/src/addons/realestate/contingencies-page.tsx": "9b084540cd20",
+    "apps/web/src/addons/realestate/contract-page.tsx": "e98335c76109",
+    "apps/web/src/addons/realestate/dates-page.tsx": "9860ebb04255",
+    "apps/web/src/addons/realestate/deal-dialogs.tsx": "5e76134121ef",
+    "apps/web/src/addons/realestate/deal-page.tsx": "61909296f21e",
+    "apps/web/src/addons/realestate/deal-side.tsx": "eac9267553cc",
+    "apps/web/src/addons/realestate/description-page.tsx": "8ca6794bc2e6",
+    "apps/web/src/addons/realestate/documents-page.tsx": "ad57b0127b17",
+    "apps/web/src/addons/realestate/duty-drawer.tsx": "505e848c90f8",
+    "apps/web/src/addons/realestate/duty-vendors.tsx": "4696b1471d6a",
+    "apps/web/src/addons/realestate/duty-waits.tsx": "4cd84ac8dc26",
+    "apps/web/src/addons/realestate/esign-bits.tsx": "b24f7a31fe4a",
+    "apps/web/src/addons/realestate/field-cards.tsx": "215a4d23e7de",
+    "apps/web/src/addons/realestate/financing-page.tsx": "696d5589732e",
+    "apps/web/src/addons/realestate/flyer-page.tsx": "6dc2861d3f61",
+    "apps/web/src/addons/realestate/history-page.tsx": "6d6a272b8a16",
+    "apps/web/src/addons/realestate/home-dialogs.tsx": "13682b458d40",
+    "apps/web/src/addons/realestate/homes-page.tsx": "fd40c035f739",
+    "apps/web/src/addons/realestate/inspections-page.tsx": "a4bed935698a",
+    "apps/web/src/addons/realestate/keeping.tsx": "f64de71e05a7",
+    "apps/web/src/addons/realestate/listing-cards.tsx": "d8289ed714bb",
+    "apps/web/src/addons/realestate/listing-facts-page.tsx": "5f62e35a920c",
+    "apps/web/src/addons/realestate/listing-offers-page.tsx": "fa9bffbfa46f",
+    "apps/web/src/addons/realestate/listing-photos-page.tsx": "11ae8ff4cbfc",
+    "apps/web/src/addons/realestate/lockboxes.tsx": "400a76beb827",
+    "apps/web/src/addons/realestate/marketing-page.tsx": "5a0153f7ac72",
+    "apps/web/src/addons/realestate/matches-page.tsx": "6f4a49c7d938",
+    "apps/web/src/addons/realestate/net-sheet-page.tsx": "0cdc7dcd5e21",
+    "apps/web/src/addons/realestate/offer-dialogs.tsx": "2de8abdbd1ef",
+    "apps/web/src/addons/realestate/offers-page.tsx": "5a207d8d6684",
+    "apps/web/src/addons/realestate/open-houses-page.tsx": "9999ef30ebdd",
+    "apps/web/src/addons/realestate/plan-tour.tsx": "83f35a86ca0b",
+    "apps/web/src/addons/realestate/price-page.tsx": "9c3fbcb73f63",
+    "apps/web/src/addons/realestate/risk-cards.tsx": "25dd2b617d8b",
+    "apps/web/src/addons/realestate/showings-page.tsx": "42e22d2cdaed",
+    "apps/web/src/addons/realestate/suggestions-card.tsx": "63475b187b24",
+    "apps/web/src/addons/realestate/tours-page.tsx": "a0285ffde8d9"
+  },
+  "items": [
+    {
+      "path": "A deal → crumb → Deals",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:233",
+      "covered": "yes",
+      "by": "realestate_find_deals"
+    },
+    {
+      "path": "A deal → title: deal name · property address",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:239",
+      "covered": "yes",
+      "by": "realestate_get_deal deal.name, property.address"
+    },
+    {
+      "path": "A deal → line under the title: buyer deal or listing, the clients, main agent, each teammate and their part, linked to …",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:217",
+      "covered": "yes",
+      "by": "realestate_get_deal deal.side, team, parties, links"
+    },
+    {
+      "path": "A deal → line under the title: in the portal since <date>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:225",
+      "covered": "yes",
+      "by": "realestate_client_tasks clients.portalSince"
+    },
+    {
+      "path": "A deal → Key dates button",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:248",
+      "covered": "yes",
+      "by": "realestate_get_deal terms"
+    },
+    {
+      "path": "A deal → Documents button",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:251",
+      "covered": "yes",
+      "by": "realestate_list_documents"
+    },
+    {
+      "path": "A deal (listing) → Marketing button",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:255",
+      "covered": "yes",
+      "by": "realestate_listing_marketing"
+    },
+    {
+      "path": "A deal (buyer) → Plan a tour button",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:263",
+      "covered": "yes",
+      "by": "realestate_plan_tour"
+    },
+    {
+      "path": "A deal → Move to <next stage>",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:276",
+      "covered": "partly",
+      "by": "realestate_move_deal stage; no tool lists the side's stage keys"
+    },
+    {
+      "path": "A deal → Close the deal (at Closing)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:272",
+      "covered": "yes",
+      "by": "realestate_deal_close"
+    },
+    {
+      "path": "A deal → Close the deal? → what it does (after-closing duties added, open ones stay)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:195",
+      "covered": "yes",
+      "by": "realestate_deal_close description and card"
+    },
+    {
+      "path": "A deal → Close the deal? → Mark the lead won on the Pipeline too",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:199",
+      "covered": "yes",
+      "by": "realestate_deal_close markLeadWon"
+    },
+    {
+      "path": "A deal → stages row: each stage of its side, passed, current, ahead",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:413",
+      "covered": "partly",
+      "by": "realestate_get_deal stage, stageLabel; not the side's run of stages"
+    },
+    {
+      "path": "A deal → stages row → press a later stage → Move this deal to <stage>? (duties for passed stages added)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:426",
+      "covered": "partly",
+      "by": "realestate_move_deal stage; stage keys not listed"
+    },
+    {
+      "path": "A deal → More → Record what happened…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:295",
+      "covered": "yes",
+      "by": "realestate_record_deal_moment"
+    },
+    {
+      "path": "A deal → More → Record what happened → What happened (offer received, inspection report, repair request, repairs agreed, low appraisal, amendment, search changed)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:150",
+      "covered": "yes",
+      "by": "realestate_record_deal_moment event"
+    },
+    {
+      "path": "A deal → More → Record what happened → Note (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:163",
+      "covered": "yes",
+      "by": "realestate_record_deal_moment note"
+    },
+    {
+      "path": "A deal → More → Add a duty…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:298",
+      "covered": "yes",
+      "by": "realestate_add_duty"
+    },
+    {
+      "path": "A deal → Add a duty → Duty, Details (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:468",
+      "covered": "yes",
+      "by": "realestate_add_duty title, details"
+    },
+    {
+      "path": "A deal → Add a duty → Due (optional), Time (optional; none = 11:59 PM)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:485",
+      "covered": "yes",
+      "by": "realestate_add_duty dueDate, dueTime"
+    },
+    {
+      "path": "A deal → Add a duty → What finishes it (Saying it’s done, A note, A file, Someone’s word)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:504",
+      "covered": "yes",
+      "by": "realestate_add_duty proof"
+    },
+    {
+      "path": "A deal → Add a duty → How much it matters",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:516",
+      "covered": "yes",
+      "by": "realestate_add_duty materiality"
+    },
+    {
+      "path": "A deal → Add a duty → In these words (someone’s word)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:532",
+      "covered": "yes",
+      "by": "realestate_add_duty attestation"
+    },
+    {
+      "path": "A deal → Add a duty → Accountable (the main agent or a teammate)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:545",
+      "covered": "yes",
+      "by": "realestate_add_duty accountableUserId; list_team"
+    },
+    {
+      "path": "A deal → More → The offer was lost… → Why → Record it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:671",
+      "covered": "yes",
+      "by": "realestate_deal_record_offer_lost reason"
+    },
+    {
+      "path": "A deal → More → Terminate the contract… → Why → Terminate",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:651",
+      "covered": "yes",
+      "by": "realestate_deal_terminate reason"
+    },
+    {
+      "path": "A deal → More → Report changed wiring…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:311",
+      "covered": "yes",
+      "by": "realestate_report_wire_change"
+    },
+    {
+      "path": "A deal → Report changed wiring → who hears, nobody sends money until a call",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:252",
+      "covered": "yes",
+      "by": "realestate_report_wire_change description"
+    },
+    {
+      "path": "A deal → Report changed wiring → How it came in (Email, Text, Phone call, Some other way)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:276",
+      "covered": "yes",
+      "by": "realestate_report_wire_change how"
+    },
+    {
+      "path": "A deal → Report changed wiring → Who it said it was from, Note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:288",
+      "covered": "yes",
+      "by": "realestate_report_wire_change from, note"
+    },
+    {
+      "path": "A deal (listing) → More → Withdraw the listing… / The listing expired… / Cancel the listing… → Why → End it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:317",
+      "covered": "yes",
+      "by": "realestate_deal_end how, reason"
+    },
+    {
+      "path": "A deal (listing) → More → Back on the market",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:332",
+      "covered": "partly",
+      "by": "realestate_move_deal stage active; key not listed"
+    },
+    {
+      "path": "A deal (buyer) → More → The buyer stopped looking… → Why → End it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:339",
+      "covered": "yes",
+      "by": "realestate_deal_end how lost, reason"
+    },
+    {
+      "path": "A deal → More → Reopen the deal… → Why → Reopen",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:729",
+      "covered": "yes",
+      "by": "realestate_deal_reopen reason"
+    },
+    {
+      "path": "A deal → More → Apply the newest duty list…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:350",
+      "covered": "yes",
+      "by": "realestate_deal_apply_template_version"
+    },
+    {
+      "path": "A deal → Apply the newest duty list → Move this deal to version N? Cancelled (N), Changed (N), Added (N), or nothing would change",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:334",
+      "covered": "yes",
+      "by": "realestate_template_diff fromVersion, toVersion, changes"
+    },
+    {
+      "path": "A deal → Apply the newest duty list → Apply to this deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:373",
+      "covered": "yes",
+      "by": "realestate_deal_apply_template_version templateSetId"
+    },
+    {
+      "path": "A deal → More → Export the whole transaction…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:355",
+      "covered": "yes",
+      "by": "realestate_deal_export"
+    },
+    {
+      "path": "A deal → Export dialog → what goes in it, and Make the file",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:292",
+      "covered": "yes",
+      "by": "realestate_deal_export (card)"
+    },
+    {
+      "path": "A deal → More → Place a legal hold… → Reason → Place the hold",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:222",
+      "covered": "yes",
+      "by": "do_record_hold_place customRecordId, reason"
+    },
+    {
+      "path": "A deal → More → Lift the legal hold… → Reason → Lift",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:252",
+      "covered": "yes",
+      "by": "do_record_hold_lift holdId, reason"
+    },
+    {
+      "path": "A deal → More → History",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:377",
+      "covered": "yes",
+      "by": "realestate_deal_history"
+    },
+    {
+      "path": "A deal → More → Archive / Restore",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:383",
+      "covered": "yes",
+      "by": "realestate_deal_archive; realestate_deal_restore"
+    },
+    {
+      "path": "A deal → Archived banner (nothing changes until restored)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:447",
+      "covered": "yes",
+      "by": "realestate_get_deal deal.archived"
+    },
+    {
+      "path": "A deal → ended banner: outcome, date, reason",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:451",
+      "covered": "yes",
+      "by": "realestate_get_deal outcome, outcomeAt, outcomeReason"
+    },
+    {
+      "path": "A deal → legal hold banner: placed by, when, why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:186",
+      "covered": "yes",
+      "by": "read_record_hold_list"
+    },
+    {
+      "path": "A deal → legal hold banner → Lift…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:195",
+      "covered": "yes",
+      "by": "do_record_hold_lift"
+    },
+    {
+      "path": "A deal → linked deal problems callout: what doesn’t fit, what to do, Also: …",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:121",
+      "covered": "yes",
+      "by": "realestate_get_deal linkedProblems words, next"
+    },
+    {
+      "path": "A deal → contract callout: The contract: N values to confirm (read from a scan note)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:43",
+      "covered": "yes",
+      "by": "realestate_contract_reads state, waiting, scan"
+    },
+    {
+      "path": "A deal → contract callout → Check them",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:48",
+      "covered": "yes",
+      "by": "realestate_get_contract_read"
+    },
+    {
+      "path": "A deal → Reading <document>… callout",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:67",
+      "covered": "yes",
+      "by": "realestate_contract_reads state reading"
+    },
+    {
+      "path": "A deal → risks card title: Nothing stands in the way / N things could stop this closing / N things need attention",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:779",
+      "covered": "yes",
+      "by": "realestate_what_could_stop_closing health, reasons"
+    },
+    {
+      "path": "A deal → risks card → each reason: words, Owner, Next",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:795",
+      "covered": "yes",
+      "by": "realestate_what_could_stop_closing reasons words, accountable, next"
+    },
+    {
+      "path": "A deal → risks card → Open (a duty)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:822",
+      "covered": "yes",
+      "by": "realestate_get_duty"
+    },
+    {
+      "path": "A deal → risks card → Dates",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:826",
+      "covered": "yes",
+      "by": "realestate_get_deal terms"
+    },
+    {
+      "path": "A deal → risks card → Show all N / Show fewer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:834",
+      "covered": "yes",
+      "by": "realestate_what_could_stop_closing reasons (all)"
+    },
+    {
+      "path": "A deal → Duties → Open · N / Done · N / All",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:886",
+      "covered": "partly",
+      "by": "realestate_get_deal duties, cut past 16,000 chars (re-4); realestate_list_duties dealId, status"
+    },
+    {
+      "path": "A deal → Duties → groups by what started them",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:919",
+      "covered": "partly",
+      "by": "realestate_get_deal duties startedBy; cut on big deals"
+    },
+    {
+      "path": "A deal → Duties → each row: title, owner, Still needs … / Proof: …, Waiting on … / Blocked · … / Waiting for dates / Proof added / status, due words",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:926",
+      "covered": "partly",
+      "by": "realestate_get_deal duties (cut past 16,000 chars); list_duties rows lack proof, waitingOn, blocked"
+    },
+    {
+      "path": "A deal → Duties → open a duty",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:927",
+      "covered": "yes",
+      "by": "realestate_get_duty"
+    },
+    {
+      "path": "A deal → Duties → + Add a duty",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:907",
+      "covered": "yes",
+      "by": "realestate_add_duty"
+    },
+    {
+      "path": "A deal → Duties → empty: Nothing open. Every duty so far is finished.",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:915",
+      "covered": "yes",
+      "by": "realestate_list_duties dealId status open"
+    },
+    {
+      "path": "A deal (buyer) → Fits from our listings → each: address, price, facts, built, fit lines, Our listing · MLS #",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/suggestions-card.tsx:40",
+      "covered": "yes",
+      "by": "realestate_listing_suggestions"
+    },
+    {
+      "path": "A deal (buyer) → Fits from our listings → why suggested; the listing’s agent sees only how many",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/suggestions-card.tsx:97",
+      "covered": "yes",
+      "by": "realestate_listing_suggestions description"
+    },
+    {
+      "path": "A deal (buyer) → Fits from our listings → Add to their homes",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/suggestions-card.tsx:68",
+      "covered": "yes",
+      "by": "realestate_suggestion_add"
+    },
+    {
+      "path": "A deal (buyer) → Fits from our listings → Not a fit → Why (optional) → Set it aside",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/suggestions-card.tsx:87",
+      "covered": "yes",
+      "by": "realestate_suggestion_not_a_fit reason"
+    },
+    {
+      "path": "A deal (buyer) → What they want: Budget, Preapproved to, At least, Type, Areas, Must have, Deal-breakers, Move by",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:66",
+      "covered": "yes",
+      "by": "realestate_get_buyer_profile; realestate_financing preapproval; realestate_buyer_memory"
+    },
+    {
+      "path": "A deal (buyer) → What they want → Buyer memory · N to confirm",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:51",
+      "covered": "yes",
+      "by": "realestate_buyer_memory waiting"
+    },
+    {
+      "path": "A deal (buyer) → What they want → empty: Nothing yet … link to What they want",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:56",
+      "covered": "yes",
+      "by": "realestate_get_buyer_profile (none)"
+    },
+    {
+      "path": "A deal (buyer) → Homes card → up to 3 homes: street, facts, fit lines, Saved by / Passed: … / Added by / No answer yet, Facts to confirm / Reading the listing… / On the <date> tour / status",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:148",
+      "covered": "partly",
+      "by": "realestate_list_homes; MLS data per home cuts it past 16,000 chars (re-5)"
+    },
+    {
+      "path": "A deal (buyer) → Homes card → All N / open a home",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:132",
+      "covered": "partly",
+      "by": "realestate_list_homes, cut on many MLS homes"
+    },
+    {
+      "path": "A deal (buyer) → Homes card → Add a home",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:134",
+      "covered": "yes",
+      "by": "realestate_add_home"
+    },
+    {
+      "path": "A deal (buyer) → Homes card → empty explanation",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:141",
+      "covered": "yes",
+      "by": "realestate_list_homes (none)"
+    },
+    {
+      "path": "A deal (buyer) → Tours card → up to 3 tours: when, N homes · streets or feedback on N, status",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:243",
+      "covered": "yes",
+      "by": "realestate_tours tours"
+    },
+    {
+      "path": "A deal (buyer) → Tours card → Plan a tour / All tours / open a tour",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:230",
+      "covered": "yes",
+      "by": "realestate_plan_tour; realestate_tours"
+    },
+    {
+      "path": "A deal (buyer) → Buyer agreement card: Signed, Ends <date>, or what’s wrong; Documents link",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:287",
+      "covered": "yes",
+      "by": "realestate_tours agreement ok, endsOn, words"
+    },
+    {
+      "path": "A deal (buyer) → Financing card: steps done and next two (Done, warning, line), Lender · officer",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:324",
+      "covered": "yes",
+      "by": "realestate_financing steps, lender"
+    },
+    {
+      "path": "A deal (buyer) → Financing card → Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:322",
+      "covered": "yes",
+      "by": "realestate_financing"
+    },
+    {
+      "path": "A deal → Client’s / Seller’s to-do card: up to 4 tasks, Done / waiting words / Open",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:366",
+      "covered": "yes",
+      "by": "realestate_client_tasks tasks"
+    },
+    {
+      "path": "A deal → Client’s / Seller’s to-do card → All",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:361",
+      "covered": "yes",
+      "by": "realestate_client_tasks"
+    },
+    {
+      "path": "A deal → Client’s / Seller’s to-do card → Invite <names> to the portal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:382",
+      "covered": "yes",
+      "by": "do_portal_access_give; realestate_client_tasks clients.portal"
+    },
+    {
+      "path": "A deal (buyer) → Offers and CMA card: offers (street · price, clock words, status), CMAs (street, low–high or N comps, status)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:429",
+      "covered": "yes",
+      "by": "realestate_offers; realestate_cmas"
+    },
+    {
+      "path": "A deal (buyer) → Offers and CMA card → Offers / an offer / a CMA / Homes links",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-cards.tsx:412",
+      "covered": "yes",
+      "by": "realestate_offers; realestate_cma; realestate_list_homes"
+    },
+    {
+      "path": "A deal (listing) → MLS and this deal disagree banner: each difference; never changes the MLS",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:85",
+      "covered": "yes",
+      "by": "realestate_get_listing feed.differences"
+    },
+    {
+      "path": "A deal (listing) → MLS banner → It’s changed (ask the feed again)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:62",
+      "covered": "yes",
+      "by": "realestate_listing_lookup"
+    },
+    {
+      "path": "A deal (listing) → The listing card: cover photo, caption, 1 of N / Add the photos",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:124",
+      "covered": "partly",
+      "by": "realestate_get_listing photos captions, fileIds; no picture link"
+    },
+    {
+      "path": "A deal (listing) → The listing card: list price, was $X lowered/raised <date>, signed off by …",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:138",
+      "covered": "yes",
+      "by": "realestate_listing_prices current, history"
+    },
+    {
+      "path": "A deal (listing) → The listing card: N days on the market",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:142",
+      "covered": "yes",
+      "by": "realestate_get_listing feed.mls.daysOnMarket"
+    },
+    {
+      "path": "A deal (listing) → The listing card: facts line or No facts confirmed yet → Confirm them",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:149",
+      "covered": "yes",
+      "by": "realestate_get_listing facts, factsConfirmedAt"
+    },
+    {
+      "path": "A deal (listing) → The listing card: Live on the MLS since <date> · #N · seen by the feed / The MLS shows it … / Not live yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:162",
+      "covered": "yes",
+      "by": "realestate_get_listing mls, feed.mls"
+    },
+    {
+      "path": "A deal (listing) → The listing card: Description signed off <date> / waiting on the seller / No description yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:174",
+      "covered": "partly",
+      "by": "realestate_get_listing description, after photos so cut on big listings (re-5)"
+    },
+    {
+      "path": "A deal (listing) → The listing card: Public page up / No public page yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:181",
+      "covered": "yes",
+      "by": "realestate_listing_marketing page.state"
+    },
+    {
+      "path": "A deal (listing) → The listing card: the public page’s link",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:187",
+      "covered": "yes",
+      "by": "realestate_listing_marketing page.path, written whole (full-links.ts)"
+    },
+    {
+      "path": "A deal (listing) → The listing card → The home’s facts / Photos (N) / Description / Price · waiting on the seller",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:198",
+      "covered": "yes",
+      "by": "realestate_get_listing; realestate_listing_prices waiting"
+    },
+    {
+      "path": "A deal (listing) → Offers card: N offers · first answer due …; Shared with <seller> <date> / Not shared yet; the seller’s choice",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:268",
+      "covered": "yes",
+      "by": "realestate_compare_offers rows, shared, choices"
+    },
+    {
+      "path": "A deal (listing) → Offers card → each offer: buyers · how they pay, price, seller takes home about $ (best marked)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:285",
+      "covered": "yes",
+      "by": "realestate_compare_offers rows net, best"
+    },
+    {
+      "path": "A deal (listing) → Offers card → Side by side / Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:256",
+      "covered": "yes",
+      "by": "realestate_compare_offers"
+    },
+    {
+      "path": "A deal (listing) → Marketing card: Public page, Flyer, Social posts (Drafting…, N drafts); nothing goes out until live on the MLS",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:364",
+      "covered": "yes",
+      "by": "realestate_listing_marketing page, ready, posts, mls"
+    },
+    {
+      "path": "A deal (listing) → Marketing card → Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:362",
+      "covered": "yes",
+      "by": "realestate_listing_marketing"
+    },
+    {
+      "path": "A deal (listing) → Matching card: suggested to the agents of N buyers · N added, or why none",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:405",
+      "covered": "yes",
+      "by": "realestate_get_listing matches suggested, added"
+    },
+    {
+      "path": "A deal (listing) → Seller’s estimate card: payoff, listing fee, title and escrow, Updated <date> / No figures yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:328",
+      "covered": "yes",
+      "by": "realestate_compare_offers figures"
+    },
+    {
+      "path": "A deal (listing) → Seller’s estimate card → Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:325",
+      "covered": "yes",
+      "by": "realestate_compare_offers"
+    },
+    {
+      "path": "A deal (listing) → CMAs card: CMA N · street, status, low–high",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:463",
+      "covered": "yes",
+      "by": "realestate_cmas"
+    },
+    {
+      "path": "A deal (listing) → CMAs card → Start a CMA",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-cards.tsx:435",
+      "covered": "yes",
+      "by": "realestate_start_cma"
+    },
+    {
+      "path": "A deal → Key dates card: each date and value, Conflict / Confirm / Amended",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:74",
+      "covered": "yes",
+      "by": "realestate_get_deal terms entries, confirmed, conflict, source"
+    },
+    {
+      "path": "A deal → Key dates card: the dates’ problems",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:97",
+      "covered": "yes",
+      "by": "realestate_get_deal dateProblems"
+    },
+    {
+      "path": "A deal → Key dates card → All dates / Key dates",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:54",
+      "covered": "yes",
+      "by": "realestate_get_deal terms"
+    },
+    {
+      "path": "A deal → Contingencies card: each label and where it stands",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:106",
+      "covered": "yes",
+      "by": "realestate_get_contingencies label, stateWords, clock"
+    },
+    {
+      "path": "A deal → Contingencies card → All / add one",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:96",
+      "covered": "yes",
+      "by": "realestate_get_contingencies; realestate_contingency_add"
+    },
+    {
+      "path": "A deal → Linked deal card (none): what a link does → Link a deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:160",
+      "covered": "yes",
+      "by": "realestate_deal_link"
+    },
+    {
+      "path": "A deal → Link a deal → How they’re linked (Sale and purchase, Same home)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:319",
+      "covered": "yes",
+      "by": "realestate_deal_link kind"
+    },
+    {
+      "path": "A deal → Link a deal → The other deal: search, results (name · address, Listing/Buyer · stage) → Link",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:354",
+      "covered": "yes",
+      "by": "realestate_find_deals search; realestate_deal_link otherDealId"
+    },
+    {
+      "path": "A deal → Linked deal card: Linked: their sale / their purchase / the other side; name, kind · agent, Stage, key dates (not confirmed), Health",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:172",
+      "covered": "yes",
+      "by": "realestate_get_deal links"
+    },
+    {
+      "path": "A deal → Linked deal card → open the linked deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:207",
+      "covered": "yes",
+      "by": "realestate_get_deal otherDealId (when canOpen)"
+    },
+    {
+      "path": "A deal → Linked deal card → Unlink",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/risk-cards.tsx:178",
+      "covered": "yes",
+      "by": "realestate_deal_unlink"
+    },
+    {
+      "path": "A deal → People card: each teammate and their part",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:130",
+      "covered": "yes",
+      "by": "realestate_get_deal team"
+    },
+    {
+      "path": "A deal → People card → take a teammate off (×)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:139",
+      "covered": "yes",
+      "by": "realestate_deal_remove_person"
+    },
+    {
+      "path": "A deal → People card: each outside party, name (opens their page) and part",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:164",
+      "covered": "yes",
+      "by": "realestate_get_deal parties; get_customer"
+    },
+    {
+      "path": "A deal → People card → take a party off (×)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:182",
+      "covered": "yes",
+      "by": "realestate_party_remove"
+    },
+    {
+      "path": "A deal → People card → Property: address (opens the record) / Add the property",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:207",
+      "covered": "yes",
+      "by": "realestate_get_deal property; get_record_details"
+    },
+    {
+      "path": "A deal → The property dialog → Address, matches (Already here · N deals), Add as a new property",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:834",
+      "covered": "yes",
+      "by": "realestate_property_search; realestate_deal_set_property"
+    },
+    {
+      "path": "A deal → People card → Add from your team",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:232",
+      "covered": "yes",
+      "by": "realestate_deal_add_person"
+    },
+    {
+      "path": "A deal → Add someone to the deal → Who, Their part (co-agent, coordinator, assistant, Main agent)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:633",
+      "covered": "yes",
+      "by": "realestate_deal_add_person role; realestate_deal_set_role agent"
+    },
+    {
+      "path": "A deal → People card → Add a client or contact",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:236",
+      "covered": "yes",
+      "by": "realestate_party_add"
+    },
+    {
+      "path": "A deal → Add someone from outside → Their part (client, lender, title, other agent…)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:725",
+      "covered": "yes",
+      "by": "realestate_party_add role"
+    },
+    {
+      "path": "A deal → Add someone from outside → Who (a contact)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:750",
+      "covered": "yes",
+      "by": "realestate_party_add personId/companyId; search_customers"
+    },
+    {
+      "path": "A deal → Add someone from outside → Note (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:752",
+      "covered": "yes",
+      "by": "realestate_party_add note"
+    },
+    {
+      "path": "A deal → Commission card: Agreed, Credit to the client, Brokerage split, Expected to you, Final",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:293",
+      "covered": "yes",
+      "by": "realestate_get_deal commission"
+    },
+    {
+      "path": "A deal → Commission card → Edit",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:287",
+      "covered": "yes",
+      "by": "realestate_deal_set_commission"
+    },
+    {
+      "path": "A deal → Commission → Agreed as (share of the price, flat), Rate (%), Amount",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:932",
+      "covered": "yes",
+      "by": "realestate_deal_set_commission rateBp, flatCents"
+    },
+    {
+      "path": "A deal → Commission → Credit to the client, Your share of the split (%)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:964",
+      "covered": "yes",
+      "by": "realestate_deal_set_commission creditCents, splitBp"
+    },
+    {
+      "path": "A deal → Commission card → Final → Set it (owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:311",
+      "covered": "yes",
+      "by": "realestate_deal_set_final_commission"
+    },
+    {
+      "path": "A deal → Final commission → Amount, Note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-dialogs.tsx:1053",
+      "covered": "yes",
+      "by": "realestate_deal_set_final_commission cents, note"
+    },
+    {
+      "path": "A deal → Commission card: Set by an owner or admin after closing",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:319",
+      "covered": "yes",
+      "by": "realestate_get_deal can.except"
+    },
+    {
+      "path": "A deal → Client updates card: up to 4 drafts, subject or milestone, Being written / Ready to check / Sent / Couldn’t be written",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:392",
+      "covered": "yes",
+      "by": "realestate_status_email_list"
+    },
+    {
+      "path": "A deal → Client updates card → Draft one",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:365",
+      "covered": "yes",
+      "by": "realestate_draft_client_update"
+    },
+    {
+      "path": "A deal → Client updates card → open a draft",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:394",
+      "covered": "yes",
+      "by": "realestate_get_client_update"
+    },
+    {
+      "path": "A deal → Client updates card → empty: the Assistant drafts one at each milestone",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-side.tsx:385",
+      "covered": "yes",
+      "by": "realestate_status_email_list (none)"
+    },
+    {
+      "path": "A deal → links card → Documents, History",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-page.tsx:593",
+      "covered": "yes",
+      "by": "realestate_list_documents; realestate_deal_history"
+    },
+    {
+      "path": "A deal → Final walkthrough card: state, summary, when (Finished/Started/planned), clients agreed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:170",
+      "covered": "yes",
+      "by": "realestate_walkthrough"
+    },
+    {
+      "path": "A deal → Final walkthrough card → items by where they came from: title, OK / Not right / Not sure, note or detail, Duty added",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:188",
+      "covered": "yes",
+      "by": "realestate_walkthrough items"
+    },
+    {
+      "path": "A deal → Final walkthrough card → an item’s photo (opens the full one)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:224",
+      "covered": "partly",
+      "by": "realestate_walkthrough photoFileIds; no link to the picture"
+    },
+    {
+      "path": "A deal → Final walkthrough card → Show all N / fewer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:239",
+      "covered": "yes",
+      "by": "realestate_walkthrough items (all)"
+    },
+    {
+      "path": "A deal → Field notes · N: each note’s when, what it’s about, who, words",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:65",
+      "covered": "yes",
+      "by": "realestate_field_notes notedAt, aboutKind, createdBy, body"
+    },
+    {
+      "path": "A deal → Field notes → a recording’s words (Said: …), still writing, couldn’t",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:83",
+      "covered": "yes",
+      "by": "realestate_field_notes transcript, transcriptState"
+    },
+    {
+      "path": "A deal → Field notes → open the recording / a photo",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:98",
+      "covered": "partly",
+      "by": "realestate_field_notes audioFileId, photoFileIds; no link"
+    },
+    {
+      "path": "A deal → Field notes → Show all / fewer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:121",
+      "covered": "yes",
+      "by": "realestate_field_notes (all)"
+    },
+    {
+      "path": "A deal → Field notes / walkthrough: made on the phone",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/field-cards.tsx:129",
+      "covered": "yes",
+      "by": "realestate_field_note_add; realestate_plan_walkthrough"
+    },
+    {
+      "path": "A deal → a duty (drawer) → couldn’t be opened / Opening the duty…",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:102",
+      "covered": "yes",
+      "by": "realestate_get_duty (refusal words)"
+    },
+    {
+      "path": "A deal → a duty → tracker · key · round N, title, what it is, deal name",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:216",
+      "covered": "yes",
+      "by": "realestate_get_duty duty tracker, key, pass, title, behavior, dealName"
+    },
+    {
+      "path": "A deal → a duty → badges: overdue words, status, Accountable, Doing it, Could stop the closing / Matters to the deal, Done without its proof, Waits on N still open",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:232",
+      "covered": "yes",
+      "by": "realestate_get_duty status, accountable, performers, materiality, exception, waitsOn"
+    },
+    {
+      "path": "A deal → a duty → Due: when, its rule, how it was worked out, warnings, Moved by hand: why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:252",
+      "covered": "yes",
+      "by": "realestate_get_duty dueDate, dueRule, dueTrace, warnings, dueSetByHand"
+    },
+    {
+      "path": "A deal → a duty → It starts once these are confirmed on Key dates: …",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:269",
+      "covered": "yes",
+      "by": "realestate_get_duty needsDates"
+    },
+    {
+      "path": "A deal → a duty → Waiting on …, since <date>, chase them <date>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:280",
+      "covered": "yes",
+      "by": "realestate_get_duty waitingOn, waitingSince, chaseAt"
+    },
+    {
+      "path": "A deal → a duty → Waiting on → Chased",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:286",
+      "covered": "yes",
+      "by": "realestate_duty_chased"
+    },
+    {
+      "path": "A deal → a duty → Waiting on → It came in",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:302",
+      "covered": "yes",
+      "by": "realestate_update_duty status"
+    },
+    {
+      "path": "A deal → a duty → Blocked: what, whose to clear, what it holds up, look again",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:337",
+      "covered": "yes",
+      "by": "realestate_get_duty blocker"
+    },
+    {
+      "path": "A deal → a duty → Proof: what finishes it, Still missing / All its proof is in",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:351",
+      "covered": "yes",
+      "by": "realestate_get_duty proof.needs, proof.missing"
+    },
+    {
+      "path": "A deal → a duty → each proof: label, added by, when, withdrawn: why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:366",
+      "covered": "yes",
+      "by": "realestate_get_duty evidence"
+    },
+    {
+      "path": "A deal → a duty → a proof → Take back → Why",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:377",
+      "covered": "yes",
+      "by": "realestate_duty_withdraw_evidence"
+    },
+    {
+      "path": "A deal → a duty → Mark done",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:425",
+      "covered": "yes",
+      "by": "realestate_complete_duty"
+    },
+    {
+      "path": "A deal → a duty → Add a note → What was done → Add the note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:439",
+      "covered": "yes",
+      "by": "realestate_add_proof kind note, body"
+    },
+    {
+      "path": "A deal → a duty → Give your word → In your words → Add your word",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:443",
+      "covered": "never",
+      "by": "settled: only the person gives their word (handler refuses the AI)"
+    },
+    {
+      "path": "A deal → a duty → Add a file (from the device)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:447",
+      "covered": "person",
+      "by": "uploading a file from their device"
+    },
+    {
+      "path": "A deal → a duty → Pick a document → A document on this deal (title · kind vN · signed) → Add it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:466",
+      "covered": "yes",
+      "by": "realestate_add_proof kind document; realestate_list_documents"
+    },
+    {
+      "path": "A deal → a duty → Waiting on… → Waiting on, Chase them on (optional) → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:563",
+      "covered": "yes",
+      "by": "realestate_update_duty waiting_external, waitingOn, chaseOn"
+    },
+    {
+      "path": "A deal → a duty → Blocked → What’s in the way, Whose it is to clear, What it holds up, Look again on → Mark blocked",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:619",
+      "covered": "yes",
+      "by": "realestate_update_duty blocked, blocker"
+    },
+    {
+      "path": "A deal → a duty → In progress",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:476",
+      "covered": "yes",
+      "by": "realestate_update_duty in_progress"
+    },
+    {
+      "path": "A deal → a duty → Finish without … (owners and admins; reason kept)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:682",
+      "covered": "yes",
+      "by": "realestate_get_duty can.except"
+    },
+    {
+      "path": "A deal → a duty → Complete with a reason → Reason",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:721",
+      "covered": "yes",
+      "by": "realestate_duty_complete_with_exception reason"
+    },
+    {
+      "path": "A deal → a duty → Waive it → Reason",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:728",
+      "covered": "yes",
+      "by": "realestate_duty_waive reason"
+    },
+    {
+      "path": "A deal → a duty → Accountable (as its rule says, or a teammate)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:738",
+      "covered": "yes",
+      "by": "realestate_duty_assign userId (null = its rule)"
+    },
+    {
+      "path": "A deal → a duty → Move the due date → New due date, Time, Why → Move it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:805",
+      "covered": "yes",
+      "by": "realestate_duty_set_due date, time, reason"
+    },
+    {
+      "path": "A deal → a duty → Move the due date → Back to its rule",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:835",
+      "covered": "yes",
+      "by": "realestate_duty_set_due clear"
+    },
+    {
+      "path": "A deal → a duty → Acknowledge (overdue)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:776",
+      "covered": "yes",
+      "by": "realestate_duty_acknowledge"
+    },
+    {
+      "path": "A deal → a duty → Cancel the duty → Why cancel it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:794",
+      "covered": "yes",
+      "by": "realestate_duty_cancel reason"
+    },
+    {
+      "path": "A deal → a duty → Reopen → Why reopen it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:799",
+      "covered": "yes",
+      "by": "realestate_duty_reopen reason"
+    },
+    {
+      "path": "A deal → a duty → Reason (why it was finished another way)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:914",
+      "covered": "yes",
+      "by": "realestate_get_duty finishReason"
+    },
+    {
+      "path": "A deal → a duty → History: when, what changed, by whom or the Assistant, note",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-drawer.tsx:923",
+      "covered": "partly",
+      "by": "realestate_get_duty log: codes and raw before/after, not dutyLogWords (re-6)"
+    },
+    {
+      "path": "A deal → a duty → Waits on: each duty, who has it, due or done, waiting on, Built in / X added",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-waits.tsx:109",
+      "covered": "yes",
+      "by": "realestate_get_duty waitsOn"
+    },
+    {
+      "path": "A deal → a duty → Waits on → Remove (one a person added)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-waits.tsx:134",
+      "covered": "yes",
+      "by": "realestate_duty_unlink"
+    },
+    {
+      "path": "A deal → a duty → Waits on another duty → It can’t be done before (pick a duty) → It waits on this",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-waits.tsx:162",
+      "covered": "yes",
+      "by": "realestate_duty_link; realestate_list_duties dealId"
+    },
+    {
+      "path": "A deal → a duty → Waiting on this: each duty and where it stands",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-waits.tsx:224",
+      "covered": "yes",
+      "by": "realestate_get_duty waitingOnThis"
+    },
+    {
+      "path": "A deal → a duty → If it slips: what waits on it, duties on the same date",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-waits.tsx:241",
+      "covered": "yes",
+      "by": "realestate_get_duty ifItSlips"
+    },
+    {
+      "path": "A deal → a duty → Vendor: picked vendor, what they do, picked by, when, disclosure",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:71",
+      "covered": "yes",
+      "by": "realestate_duty_vendors picks"
+    },
+    {
+      "path": "A deal → a duty → Vendor → Quote (amount · document) / type a quote → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:96",
+      "covered": "yes",
+      "by": "realestate_duty_vendor_quote cents, documentId"
+    },
+    {
+      "path": "A deal → a duty → Vendor → Appointment: when · on the calendar / Not booked yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:143",
+      "covered": "yes",
+      "by": "realestate_duty_vendors picks.appointment; realestate_duty_vendor_appointment"
+    },
+    {
+      "path": "A deal → a duty → Vendor → Take them off → Why",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:157",
+      "covered": "yes",
+      "by": "realestate_duty_unpick_vendor reason"
+    },
+    {
+      "path": "A deal → a duty → Pick a vendor: each fitting vendor, services, areas, not listed for this area, last used, disclosure",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:183",
+      "covered": "yes",
+      "by": "realestate_duty_vendors fits"
+    },
+    {
+      "path": "A deal → a duty → Pick a vendor → Pick",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:212",
+      "covered": "yes",
+      "by": "realestate_pick_vendor"
+    },
+    {
+      "path": "A deal → a duty → no approved vendor does it yet; give the client every vendor that fits",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-vendors.tsx:237",
+      "covered": "yes",
+      "by": "realestate_duty_vendors service, fits (empty)"
+    },
+    {
+      "path": "Key dates → header: deal · address, every value keeps its source and history",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:102",
+      "covered": "yes",
+      "by": "realestate_get_deal; realestate_date_history"
+    },
+    {
+      "path": "Key dates → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:96",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Key dates → Confirm N values (every unconfirmed one at once)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:111",
+      "covered": "partly",
+      "by": "realestate_confirm_date, one entry and one Confirm card each (re-12)"
+    },
+    {
+      "path": "Key dates → conflict callout: two values disagree, what each source says, not confirmed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:124",
+      "covered": "yes",
+      "by": "realestate_get_deal terms conflict, entries; realestate_date_history"
+    },
+    {
+      "path": "Key dates → conflict → Use <value> → Why this one → Use it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:138",
+      "covered": "yes",
+      "by": "realestate_term_resolve_conflict key, keepEntryId, reason"
+    },
+    {
+      "path": "Key dates → table: Date or term, Value, Source, Status (Conflict, Confirmed · who, Typed · confirm)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:170",
+      "covered": "yes",
+      "by": "realestate_get_deal terms; realestate_date_history confirmedBy, source"
+    },
+    {
+      "path": "Key dates → a row’s date problems",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:194",
+      "covered": "yes",
+      "by": "realestate_get_deal dateProblems"
+    },
+    {
+      "path": "Key dates → a row → Confirm",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:209",
+      "covered": "yes",
+      "by": "realestate_confirm_date entryId"
+    },
+    {
+      "path": "Key dates → a row → Change",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:219",
+      "covered": "yes",
+      "by": "realestate_enter_date replaces"
+    },
+    {
+      "path": "Key dates → a row → History (N): each value, source, typed by, confirmed by, replaced, set aside: why, note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:228",
+      "covered": "yes",
+      "by": "realestate_date_history entries"
+    },
+    {
+      "path": "Key dates → empty: nothing typed in yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:153",
+      "covered": "yes",
+      "by": "realestate_get_deal terms (none)"
+    },
+    {
+      "path": "Key dates → business days, 11:59 PM default, weekend warning explanation",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:266",
+      "covered": "partly",
+      "by": "realestate_get_duty dueTrace, warnings; the general rule isn’t told"
+    },
+    {
+      "path": "Key dates → Add a date or term",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:107",
+      "covered": "yes",
+      "by": "realestate_enter_date"
+    },
+    {
+      "path": "Key dates → Add or change → What (Dates, Amounts, Words for this side)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:370",
+      "covered": "yes",
+      "by": "realestate_enter_date key"
+    },
+    {
+      "path": "Key dates → Add or change → Date, Time (optional) / Amount / Words",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:401",
+      "covered": "yes",
+      "by": "realestate_enter_date date, time, cents, text"
+    },
+    {
+      "path": "Key dates → Add or change → Where it came from, Where in it (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:442",
+      "covered": "yes",
+      "by": "realestate_enter_date source, sourceRef"
+    },
+    {
+      "path": "Key dates → Add or change → I checked it against the document",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/dates-page.tsx:459",
+      "covered": "yes",
+      "by": "realestate_enter_date confirm"
+    },
+    {
+      "path": "History → header: deal, every change newest first, never edited",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/history-page.tsx:38",
+      "covered": "yes",
+      "by": "realestate_deal_history"
+    },
+    {
+      "path": "History → each line: when, the change in words, who (a person, HandsFreeOS, the Assistant), note",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/history-page.tsx:47",
+      "covered": "partly",
+      "by": "realestate_deal_history lines: code and raw before/after, not dealHistoryWords (re-6)"
+    },
+    {
+      "path": "History → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/history-page.tsx:32",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Documents → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:193",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Documents → table: Document, Kind, Version (vN of M), Status (Received, Sent for signatures, Signed · kept, Superseded, Void), The one that counts, void reason",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:227",
+      "covered": "yes",
+      "by": "realestate_list_documents"
+    },
+    {
+      "path": "Documents → a document’s name (opens the file)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:238",
+      "covered": "partly",
+      "by": "realestate_list_documents fileId; no link to open it"
+    },
+    {
+      "path": "Documents → reading badge: Reading…, N values to confirm, Read · all confirmed, Couldn’t read it (opens the reading)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:491",
+      "covered": "yes",
+      "by": "realestate_contract_reads; realestate_get_contract_read"
+    },
+    {
+      "path": "Documents → Signing column: service · who signed, waiting on, then",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:280",
+      "covered": "yes",
+      "by": "realestate_signing_status envelopes signers"
+    },
+    {
+      "path": "Documents → a document → Mark signed (kept for good)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:303",
+      "covered": "yes",
+      "by": "realestate_document_mark_signed"
+    },
+    {
+      "path": "Documents → a document → More → Send for signing…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:332",
+      "covered": "yes",
+      "by": "realestate_prepare_for_signing"
+    },
+    {
+      "path": "Documents → a document → More → Add a newer version…",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:339",
+      "covered": "partly",
+      "by": "realestate_document_add supersedesId, only with a file already on the deal"
+    },
+    {
+      "path": "Documents → a document → More → Read it again",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:343",
+      "covered": "yes",
+      "by": "realestate_document_read"
+    },
+    {
+      "path": "Documents → a document → More → Make it the one that counts",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:363",
+      "covered": "yes",
+      "by": "realestate_document_set_controlling"
+    },
+    {
+      "path": "Documents → a document → More → Void… → Why → Void it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:377",
+      "covered": "yes",
+      "by": "realestate_document_void reason"
+    },
+    {
+      "path": "Documents → empty: no documents yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:209",
+      "covered": "yes",
+      "by": "realestate_list_documents (none)"
+    },
+    {
+      "path": "Documents → Other files on this deal: each file (opens it)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:397",
+      "covered": "partly",
+      "by": "get_record_details record files (name, type, size); no link"
+    },
+    {
+      "path": "Documents → Other files → File it as a document",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:406",
+      "covered": "yes",
+      "by": "realestate_document_add fileId"
+    },
+    {
+      "path": "Documents → Signed documents are kept for good; fingerprints recorded",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:433",
+      "covered": "yes",
+      "by": "realestate_document_mark_signed description; list_documents locked"
+    },
+    {
+      "path": "Documents → Add a document",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:203",
+      "covered": "partly",
+      "by": "realestate_document_add needs a fileId already on the deal"
+    },
+    {
+      "path": "Documents → Add a document → The file → Pick a file (from the device)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:599",
+      "covered": "person",
+      "by": "uploading a file from their device"
+    },
+    {
+      "path": "Documents → Add a document → Or a file already on the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:626",
+      "covered": "yes",
+      "by": "realestate_document_add fileId; get_record_details files"
+    },
+    {
+      "path": "Documents → Add a document → Kind, Where it stands (Received or drafted, Sent for signatures), Title (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/documents-page.tsx:643",
+      "covered": "yes",
+      "by": "realestate_document_add kind, status, title"
+    },
+    {
+      "path": "Documents → Send for signing → no service connected / stopped working (an owner connects in Deal settings → Connections)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:143",
+      "covered": "yes",
+      "by": "realestate_signing_status connected"
+    },
+    {
+      "path": "Documents → Send for signing → With (DocuSign or Dotloop)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:178",
+      "covered": "yes",
+      "by": "realestate_prepare_for_signing provider"
+    },
+    {
+      "path": "Documents → Send for signing → Who signs, in order: name, email, take off, At the same time as the one above",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:204",
+      "covered": "yes",
+      "by": "realestate_prepare_for_signing signers name, email, order"
+    },
+    {
+      "path": "Documents → Send for signing → add a deal person · part / Someone else",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:276",
+      "covered": "yes",
+      "by": "realestate_prepare_for_signing signers; realestate_get_deal parties; get_customer email"
+    },
+    {
+      "path": "Documents → Send for signing → Message (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:286",
+      "covered": "yes",
+      "by": "realestate_prepare_for_signing message"
+    },
+    {
+      "path": "Documents → Send for signing → sent from which account; you place the fields there; signed copy comes back locked",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:295",
+      "covered": "yes",
+      "by": "realestate_signing_status connected account; tool descriptions"
+    },
+    {
+      "path": "Documents → Send for signing → Get it ready to send",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:306",
+      "covered": "yes",
+      "by": "realestate_prepare_for_signing"
+    },
+    {
+      "path": "Documents → signing panel: document · service, where it stands, state, sent or started by, failure",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:341",
+      "covered": "yes",
+      "by": "realestate_signing_status envelopes"
+    },
+    {
+      "path": "Documents → signing panel → each signer: order, name, email, signed / declined / waiting, when",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:360",
+      "covered": "yes",
+      "by": "realestate_signing_status signers"
+    },
+    {
+      "path": "Documents → signing panel → Place the fields and send in / Open in <service>",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:389",
+      "covered": "yes",
+      "by": "realestate_open_signing_page url (the fields are placed by the person there)"
+    },
+    {
+      "path": "Documents → signing panel → Remind them (DocuSign)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:399",
+      "covered": "yes",
+      "by": "realestate_remind_signers"
+    },
+    {
+      "path": "Documents → signing panel → It’s signed (Dotloop)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:416",
+      "covered": "yes",
+      "by": "realestate_esign_mark_signed"
+    },
+    {
+      "path": "Documents → signing panel → Look again",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:441",
+      "covered": "yes",
+      "by": "realestate_check_signing"
+    },
+    {
+      "path": "Documents → signing panel → Void it… → Why",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:458",
+      "covered": "yes",
+      "by": "realestate_esign_void reason"
+    },
+    {
+      "path": "Documents → signing panel → how the service reports signing (DocuSign updates, Dotloop doesn’t)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/esign-bits.tsx:470",
+      "covered": "yes",
+      "by": "realestate_signing_status words"
+    },
+    {
+      "path": "Documents → Exports: each export’s file name or Making it…, files and size, Asked for <when>, failure, state",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:375",
+      "covered": "yes",
+      "by": "realestate_exports"
+    },
+    {
+      "path": "Documents → Exports → Download",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:414",
+      "covered": "partly",
+      "by": "realestate_exports fileId; no link to the file"
+    },
+    {
+      "path": "Documents → Exports → Export the whole transaction",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:360",
+      "covered": "yes",
+      "by": "realestate_deal_export"
+    },
+    {
+      "path": "Documents → Exports → none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:371",
+      "covered": "yes",
+      "by": "realestate_exports (none)"
+    },
+    {
+      "path": "Contract reading → crumb: deal / Documents / Contract",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:112",
+      "covered": "yes",
+      "by": "realestate_get_deal; realestate_list_documents"
+    },
+    {
+      "path": "Contract reading → title: Reading…, couldn’t be read, what it changes, N values to confirm, every value confirmed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:87",
+      "covered": "yes",
+      "by": "realestate_get_contract_read state, kind, values"
+    },
+    {
+      "path": "Contract reading → line: file name, read from a scan or its text <date>, N pages, N duties move",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:96",
+      "covered": "yes",
+      "by": "realestate_get_contract_read readAt, scan, pages, moves"
+    },
+    {
+      "path": "Contract reading → Read it again",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:125",
+      "covered": "yes",
+      "by": "realestate_document_read"
+    },
+    {
+      "path": "Contract reading → Confirm N values / Confirm and move N duties",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:130",
+      "covered": "yes",
+      "by": "realestate_contract_confirm (no valueIds = all waiting)"
+    },
+    {
+      "path": "Contract reading → read again since → Open it (the newer reading)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:144",
+      "covered": "yes",
+      "by": "realestate_get_contract_read newerReadId"
+    },
+    {
+      "path": "Contract reading → The Assistant is reading it / it couldn’t be read (why) → type dates under Key dates",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:160",
+      "covered": "yes",
+      "by": "realestate_get_contract_read state, failure"
+    },
+    {
+      "path": "Contract reading → problems callouts",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:177",
+      "covered": "yes",
+      "by": "realestate_get_contract_read problems"
+    },
+    {
+      "path": "Contract reading → the PDF beside the values, Open the PDF, at a page",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:432",
+      "covered": "partly",
+      "by": "realestate_get_contract_read page numbers; no link to the PDF"
+    },
+    {
+      "path": "Contract reading → Values / What it says: N to confirm, All confirmed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:189",
+      "covered": "yes",
+      "by": "realestate_get_contract_read values"
+    },
+    {
+      "path": "Contract reading → each value: label, value, worked out, the quoted words, clause · p. N, Read from a scan, Now / Was …, Same as now, Confirmed by / Set aside by: why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:375",
+      "covered": "yes",
+      "by": "realestate_get_contract_read values quote, clause, page, now, state, decidedByName"
+    },
+    {
+      "path": "Contract reading → a value → Confirm",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:409",
+      "covered": "yes",
+      "by": "realestate_contract_confirm valueIds"
+    },
+    {
+      "path": "Contract reading → a value → Not right… → What’s wrong with it → Set it aside",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:418",
+      "covered": "yes",
+      "by": "realestate_contract_reject_value reason"
+    },
+    {
+      "path": "Contract reading → What moves · N duties: each duty, who, why, from → to",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:216",
+      "covered": "yes",
+      "by": "realestate_get_contract_read moves"
+    },
+    {
+      "path": "Contract reading → N to look at: what, quote, where; Type a date",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:243",
+      "covered": "yes",
+      "by": "realestate_get_contract_read unclear; realestate_enter_date"
+    },
+    {
+      "path": "Contract reading → N more values left out (quote not in the document)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contract-page.tsx:275",
+      "covered": "yes",
+      "by": "realestate_get_contract_read dropped"
+    },
+    {
+      "path": "Contingencies → header: address, N open, N ended",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:88",
+      "covered": "yes",
+      "by": "realestate_get_contingencies"
+    },
+    {
+      "path": "Contingencies → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:87",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Contingencies → urgent callout: ended and nothing recorded / ends soon, what to record",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:110",
+      "covered": "yes",
+      "by": "realestate_get_contingencies clock, endsOn, stateWords"
+    },
+    {
+      "path": "Contingencies → urgent callout → Record it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:115",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve"
+    },
+    {
+      "path": "Contingencies → table: Contingency (and where from or note), End (not confirmed), Where it stands (by whom), Proof (the form, or Without the form: why)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:151",
+      "covered": "yes",
+      "by": "realestate_get_contingencies"
+    },
+    {
+      "path": "Contingencies → a row → the signed form (opens the file)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:196",
+      "covered": "partly",
+      "by": "realestate_get_contingencies document title; no file link"
+    },
+    {
+      "path": "Contingencies → a row → Record how it ended",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:215",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve"
+    },
+    {
+      "path": "Contingencies → empty, and each ends on its key date; the clients see them in their portal",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:134",
+      "covered": "yes",
+      "by": "realestate_get_contingencies; tool description"
+    },
+    {
+      "path": "Contingencies → Record how it ended → What happened (Satisfied, Waived, Expired)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:357",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve how"
+    },
+    {
+      "path": "Contingencies → Record how it ended → The signed form (a deal document)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:398",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve documentId; realestate_list_documents"
+    },
+    {
+      "path": "Contingencies → Record how it ended → Add the signed form (from the device)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:423",
+      "covered": "person",
+      "by": "uploading a file from their device"
+    },
+    {
+      "path": "Contingencies → Record how it ended → Note for the file",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:445",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve note"
+    },
+    {
+      "path": "Contingencies → Record how it ended → No form yet? Record it without the form → Why there’s no form (owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:448",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve reason"
+    },
+    {
+      "path": "Contingencies → Add a contingency",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:99",
+      "covered": "yes",
+      "by": "realestate_contingency_add"
+    },
+    {
+      "path": "Contingencies → Add a contingency → Which (each kind not there yet, or Another one, named here), What it is",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:541",
+      "covered": "yes",
+      "by": "realestate_contingency_add kind, label"
+    },
+    {
+      "path": "Contingencies → Add a contingency → When it ends",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/contingencies-page.tsx:565",
+      "covered": "yes",
+      "by": "realestate_contingency_add endsOn, date"
+    },
+    {
+      "path": "What they want → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:86",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "What they want → Read what’s new",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:98",
+      "covered": "yes",
+      "by": "realestate_memory_request"
+    },
+    {
+      "path": "What they want → Add one yourself → What kind, What to remember → Keep it (kept as confirmed)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:116",
+      "covered": "partly",
+      "by": "realestate_remember kind, words; from the Assistant it’s only a suggestion a person confirms"
+    },
+    {
+      "path": "What they want → N suggestions to confirm / Nothing to confirm (how suggestions arrive)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:125",
+      "covered": "yes",
+      "by": "realestate_buyer_memory items status suggested"
+    },
+    {
+      "path": "What they want → each suggestion: kind, words, their quote, From a message / call / note, when",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:249",
+      "covered": "yes",
+      "by": "realestate_buyer_memory items words, quote, sourceKind, createdAt"
+    },
+    {
+      "path": "What they want → a suggestion → Change the words → Confirm",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:276",
+      "covered": "no",
+      "by": "realestate_memory_decide offered, but its handler refuses the Assistant (re-8)"
+    },
+    {
+      "path": "What they want → a suggestion → Not right",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:280",
+      "covered": "no",
+      "by": "realestate_memory_decide refuses the Assistant (re-8)"
+    },
+    {
+      "path": "What they want → N suggestions left out because they were about who lives there",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:152",
+      "covered": "yes",
+      "by": "realestate_buyer_memory protectedDropped"
+    },
+    {
+      "path": "What they want → Confirmed: budget and rooms lines, each confirmed item (kind, words, quote)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:174",
+      "covered": "yes",
+      "by": "realestate_get_buyer_profile; realestate_buyer_memory confirmed"
+    },
+    {
+      "path": "What they want → a confirmed item → No longer true",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:188",
+      "covered": "no",
+      "by": "realestate_memory_decide retire refuses the Assistant (re-8)"
+    },
+    {
+      "path": "What they want → Budget and rooms last changed by …, date",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:206",
+      "covered": "yes",
+      "by": "realestate_get_buyer_profile updatedBy, updatedAt"
+    },
+    {
+      "path": "What they want → Edit / Add their budget and rooms",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:168",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile"
+    },
+    {
+      "path": "What they want → profile → Lowest price, Highest price",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:455",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile budgetMinCents, budgetMaxCents"
+    },
+    {
+      "path": "What they want → profile → Areas",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:473",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile areas"
+    },
+    {
+      "path": "What they want → profile → Kinds of home (ticks)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:483",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile homeTypes"
+    },
+    {
+      "path": "What they want → profile → Bedrooms, Bathrooms, Square feet at least",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:497",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile bedsMin, bathsMin, sqftMin"
+    },
+    {
+      "path": "What they want → profile → Move by",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:521",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile moveBy"
+    },
+    {
+      "path": "What they want → profile → Must-haves, Deal-breakers",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/buyer-page.tsx:529",
+      "covered": "yes",
+      "by": "realestate_save_buyer_profile mustHaves, dealBreakers"
+    },
+    {
+      "path": "Homes → crumb back to the deal; fit is checked against what they want",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:113",
+      "covered": "yes",
+      "by": "realestate_list_homes fit"
+    },
+    {
+      "path": "Homes → What they want button",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:119",
+      "covered": "yes",
+      "by": "realestate_get_buyer_profile"
+    },
+    {
+      "path": "Homes → Add a home",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:123",
+      "covered": "yes",
+      "by": "realestate_add_home"
+    },
+    {
+      "path": "Homes → N new matches from the MLS / their search is off → See them / Their search",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:130",
+      "covered": "yes",
+      "by": "realestate_matches; realestate_search_set"
+    },
+    {
+      "path": "Homes → Fits from our listings card",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:153",
+      "covered": "yes",
+      "by": "realestate_listing_suggestions"
+    },
+    {
+      "path": "Homes → filter chips: All, Shortlisted, Saved by <client>, Passed, Facts to confirm (with counts)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:164",
+      "covered": "partly",
+      "by": "realestate_list_homes has no filter; it filters whole list, cut on many MLS homes (re-5)"
+    },
+    {
+      "path": "Homes → table: Home (photo, street, from the MLS · status / Asking the MLS… / Facts to confirm / Reading the listing… / Added by / Pasted by / Address only), Price, Bd · Ba · Sq ft, Fit, what the client said, Status",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:204",
+      "covered": "partly",
+      "by": "realestate_list_homes, cut past 16,000 chars on MLS homes (re-5)"
+    },
+    {
+      "path": "Homes → open a home",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:207",
+      "covered": "partly",
+      "by": "realestate_list_homes; no one-home read"
+    },
+    {
+      "path": "Homes → empty / No homes here",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:187",
+      "covered": "yes",
+      "by": "realestate_list_homes (none)"
+    },
+    {
+      "path": "Homes → fit reads only budget, areas, kind and rooms; never who lives there",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/homes-page.tsx:262",
+      "covered": "yes",
+      "by": "realestate_list_homes description"
+    },
+    {
+      "path": "Homes → Add a home (MLS) → Address or MLS number, Asking the MLS…, results",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:548",
+      "covered": "yes",
+      "by": "realestate_search_listing_feed text"
+    },
+    {
+      "path": "Homes → Add a home (MLS) → no listing data connected / nothing matches",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:572",
+      "covered": "yes",
+      "by": "realestate_search_listing_feed connected, homes"
+    },
+    {
+      "path": "Homes → Add a home (MLS) → the picked home: photo, address, MLS #, price, rooms, from which MLS, the MLS notice",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:605",
+      "covered": "yes",
+      "by": "realestate_search_listing_feed homes (photo, mls, notice, courtesy)"
+    },
+    {
+      "path": "Homes → Add a home (MLS) → Add it for <client>",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:636",
+      "covered": "yes",
+      "by": "realestate_add_home address, mlsNumber"
+    },
+    {
+      "path": "Homes → Add a home → Find it on the MLS instead / Paste a listing instead",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:418",
+      "covered": "yes",
+      "by": "realestate_search_listing_feed; realestate_add_home pastedText"
+    },
+    {
+      "path": "Homes → Add a home (paste) → Address, The listing’s text, Link",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:434",
+      "covered": "yes",
+      "by": "realestate_add_home address, pastedText, link"
+    },
+    {
+      "path": "Homes → Add a home → Reading the listing’s text… / didn’t say the facts clearly",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:482",
+      "covered": "yes",
+      "by": "realestate_list_homes factsState, factsFailure"
+    },
+    {
+      "path": "Homes → facts to check: each fact card with the words it was found in (or From the MLS), ticked to keep",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:221",
+      "covered": "yes",
+      "by": "realestate_list_homes facts, factSources"
+    },
+    {
+      "path": "Homes → facts → Change a number (every fact as a field, kind of home) → Confirm N facts / Check later",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:176",
+      "covered": "no",
+      "by": "realestate_home_confirm_facts offered, but its handler refuses the Assistant"
+    },
+    {
+      "path": "Homes → a home → address, added by whom and when",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:846",
+      "covered": "yes",
+      "by": "realestate_list_homes addedBy, addedByClient, addedAt"
+    },
+    {
+      "path": "Homes → a home → facts line, Facts confirmed / to confirm / Reading the listing…",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:852",
+      "covered": "yes",
+      "by": "realestate_list_homes facts, factsState"
+    },
+    {
+      "path": "Homes → a home → Listing link",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:861",
+      "covered": "yes",
+      "by": "realestate_list_homes link"
+    },
+    {
+      "path": "Homes → a home → from the MLS: photo, MLS #, status, price or sold for, days on market, where from and when, N photos, MLS notice",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:718",
+      "covered": "yes",
+      "by": "realestate_list_homes mls"
+    },
+    {
+      "path": "Homes → a home → Look it up on the MLS",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:690",
+      "covered": "yes",
+      "by": "realestate_look_up_home"
+    },
+    {
+      "path": "Homes → a home → the MLS says X, you confirmed Y → Use the MLS’s",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:752",
+      "covered": "no",
+      "by": "realestate_home_confirm_facts refuses the Assistant"
+    },
+    {
+      "path": "Homes → a home → fit lines (met, missed, not known)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:872",
+      "covered": "yes",
+      "by": "realestate_list_homes fit"
+    },
+    {
+      "path": "Homes → a home → what each client said (saved it, passed on it: note)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:873",
+      "covered": "yes",
+      "by": "realestate_list_homes reactions"
+    },
+    {
+      "path": "Homes → a home → Where it stands (status)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:914",
+      "covered": "yes",
+      "by": "realestate_set_home_status status"
+    },
+    {
+      "path": "Homes → a home → Change its facts / Type in its facts",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:933",
+      "covered": "no",
+      "by": "realestate_home_confirm_facts refuses the Assistant"
+    },
+    {
+      "path": "Homes → a home → Plan a tour",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:938",
+      "covered": "yes",
+      "by": "realestate_plan_tour homeIds"
+    },
+    {
+      "path": "Homes → a home → Start a CMA",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:945",
+      "covered": "yes",
+      "by": "realestate_start_cma"
+    },
+    {
+      "path": "Homes → a home → Make an offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:953",
+      "covered": "yes",
+      "by": "realestate_record_offer"
+    },
+    {
+      "path": "Homes → a home → Take it off the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/home-dialogs.tsx:964",
+      "covered": "yes",
+      "by": "realestate_set_home_status removed"
+    },
+    {
+      "path": "Tours → header: buyer agreement signed, ends <date>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:110",
+      "covered": "yes",
+      "by": "realestate_tours agreement"
+    },
+    {
+      "path": "Tours → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:109",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Tours → no current buyer agreement callout",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:125",
+      "covered": "yes",
+      "by": "realestate_tours agreement words"
+    },
+    {
+      "path": "Tours → empty: no tours yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:134",
+      "covered": "yes",
+      "by": "realestate_tours (none)"
+    },
+    {
+      "path": "Tours → each tour: when, Led by, note, status, exception (by whom, why), Canceled: why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:232",
+      "covered": "yes",
+      "by": "realestate_tours tours"
+    },
+    {
+      "path": "Tours → each stop: order, street, each client’s feedback (interest, rating, words, heard by), note, Planned / Seen / Skipped",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:266",
+      "covered": "yes",
+      "by": "realestate_tours stops, feedback"
+    },
+    {
+      "path": "Tours → Done section; Show N canceled / Hide canceled tours",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:141",
+      "covered": "yes",
+      "by": "realestate_tours status"
+    },
+    {
+      "path": "Tours → a stop → Seen / Skipped",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:293",
+      "covered": "yes",
+      "by": "realestate_tour_record_visit"
+    },
+    {
+      "path": "Tours → a stop → Add feedback → Who, What they thought, In their words → Keep it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:306",
+      "covered": "yes",
+      "by": "realestate_tour_feedback personId, interest, words"
+    },
+    {
+      "path": "Tours → a tour → Move → Day and start, Tell the clients → Move it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:246",
+      "covered": "yes",
+      "by": "realestate_tour_reschedule startsAt, notifyClient"
+    },
+    {
+      "path": "Tours → Move → Let it through without a current agreement (reason)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:414",
+      "covered": "no",
+      "by": "realestate_tour_reschedule exception refused for the Assistant (re-7)"
+    },
+    {
+      "path": "Tours → a tour → Cancel → Why → Cancel the tour (off the calendar, clients told)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:249",
+      "covered": "yes",
+      "by": "realestate_tour_cancel reason"
+    },
+    {
+      "path": "Tours → Plan a tour",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/tours-page.tsx:119",
+      "covered": "yes",
+      "by": "realestate_plan_tour"
+    },
+    {
+      "path": "Plan a tour → refused: no signed buyer agreement for the day; ask an owner or admin",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:165",
+      "covered": "yes",
+      "by": "realestate_plan_tour refusal words; realestate_tours agreement"
+    },
+    {
+      "path": "Plan a tour → Day and start",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:172",
+      "covered": "yes",
+      "by": "realestate_plan_tour startsAt"
+    },
+    {
+      "path": "Plan a tour → Calendar (the one for tours, or another)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:198",
+      "covered": "yes",
+      "by": "realestate_plan_tour calendarId; get_calendar_settings"
+    },
+    {
+      "path": "Plan a tour → Who leads it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:213",
+      "covered": "yes",
+      "by": "realestate_plan_tour agentUserId"
+    },
+    {
+      "path": "Plan a tour → How long",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:227",
+      "covered": "yes",
+      "by": "realestate_plan_tour durationMinutes"
+    },
+    {
+      "path": "Plan a tour → Homes, in order: each with its time and minutes; Earlier, Later, take it off; Add a home",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:243",
+      "covered": "yes",
+      "by": "realestate_plan_tour homeIds (order); realestate_tour_set_stops"
+    },
+    {
+      "path": "Plan a tour → Invite the clients, with reminders",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:319",
+      "covered": "yes",
+      "by": "realestate_plan_tour notifyClient"
+    },
+    {
+      "path": "Plan a tour → Note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:324",
+      "covered": "yes",
+      "by": "realestate_plan_tour note"
+    },
+    {
+      "path": "Plan a tour → Let this tour through as an exception (reason)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:329",
+      "covered": "no",
+      "by": "realestate_plan_tour exception refused for the Assistant (re-7)"
+    },
+    {
+      "path": "Plan a tour → the calendar’s warnings → Plan it anyway",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/plan-tour.tsx:346",
+      "covered": "yes",
+      "by": "realestate_plan_tour acknowledgeWarnings"
+    },
+    {
+      "path": "Financing (buyer) / The buyer’s loan (listing) → header: deal, street, closing <date>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:75",
+      "covered": "yes",
+      "by": "realestate_financing closing"
+    },
+    {
+      "path": "Financing → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:74",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Financing → each step: label, line, warning, proof, Closing Disclosure 3 business days before closing",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:88",
+      "covered": "yes",
+      "by": "realestate_financing steps, cdDeadline"
+    },
+    {
+      "path": "Financing → a step → Dates → Started, Expected by, Preapproved up to / Appraised at, Rate, Letter ends / Lock ends, Note → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:132",
+      "covered": "yes",
+      "by": "realestate_update_financing"
+    },
+    {
+      "path": "Financing → a step → Mark done → Proof (a document or a file on the deal), Done on → Mark done",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:139",
+      "covered": "no",
+      "by": "realestate_financing_mark_done offered, but its handler refuses the Assistant (re-8)"
+    },
+    {
+      "path": "Financing → a done step → Change",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:119",
+      "covered": "no",
+      "by": "realestate_financing_mark_done refuses the Assistant (re-8)"
+    },
+    {
+      "path": "Financing → a done step → Not done → Why → Mark it not done",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:126",
+      "covered": "yes",
+      "by": "realestate_financing_reopen_step reason"
+    },
+    {
+      "path": "Financing → Lender card: lender, officer, Reach them (email · phone), Loan (type · amount) / No lender yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:167",
+      "covered": "yes",
+      "by": "realestate_financing lender"
+    },
+    {
+      "path": "Financing → Lender → Add / Change → Lender, Loan officer, Their email, Their phone, Loan, Loan amount",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:161",
+      "covered": "yes",
+      "by": "realestate_financing_set_lender"
+    },
+    {
+      "path": "Financing → Marking a step done: each step needs its proof",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/financing-page.tsx:191",
+      "covered": "yes",
+      "by": "realestate_financing_mark_done description"
+    },
+    {
+      "path": "Client’s to-do → crumb back to the deal; what the clients do themselves",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:94",
+      "covered": "yes",
+      "by": "realestate_client_tasks"
+    },
+    {
+      "path": "Client’s to-do → each task: title, kind, For <client> / every client, by <date>, who did it or who marked it for them, file, signed off, note; Done / Canceled / waiting words",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:131",
+      "covered": "yes",
+      "by": "realestate_client_tasks tasks, completions"
+    },
+    {
+      "path": "Client’s to-do → empty: nothing asked of them yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:124",
+      "covered": "yes",
+      "by": "realestate_client_tasks (none)"
+    },
+    {
+      "path": "Client’s to-do → a task → Mark done → For, How it was done, The file (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:187",
+      "covered": "no",
+      "by": "realestate_client_task_mark_done offered, but its handler refuses the Assistant (re-8)"
+    },
+    {
+      "path": "Client’s to-do → a task → Cancel → Why → Cancel it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:191",
+      "covered": "yes",
+      "by": "realestate_client_task_cancel reason"
+    },
+    {
+      "path": "Client’s to-do → Add a task for them",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:106",
+      "covered": "yes",
+      "by": "realestate_add_client_task"
+    },
+    {
+      "path": "Client’s to-do → Add a task → Task (presets, or Something else…), What kind",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:489",
+      "covered": "yes",
+      "by": "realestate_add_client_task preset, kind"
+    },
+    {
+      "path": "Client’s to-do → Add a task → Title, What to do, The words they sign off on",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:518",
+      "covered": "yes",
+      "by": "realestate_add_client_task title, detail, signOffWords"
+    },
+    {
+      "path": "Client’s to-do → Add a task → For (every client or one), By (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:547",
+      "covered": "yes",
+      "by": "realestate_add_client_task forPersonId, dueOn"
+    },
+    {
+      "path": "Client’s to-do → Their portal: each client (opens their page), Not in the portal / Invited / In the portal · since / Portal turned off",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:210",
+      "covered": "yes",
+      "by": "realestate_client_tasks clients portal, portalSince"
+    },
+    {
+      "path": "Client’s to-do → Their portal → no clients on the deal yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:204",
+      "covered": "yes",
+      "by": "realestate_client_tasks clients (none)"
+    },
+    {
+      "path": "Client’s to-do → Invite to the portal / Invite / Send again → what they’ll see, 6-digit code, no email warning → Send the invite",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:229",
+      "covered": "yes",
+      "by": "do_portal_access_give"
+    },
+    {
+      "path": "Client’s to-do → Their portal → Turn off → Turn it off (signed out everywhere)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-tasks-page.tsx:237",
+      "covered": "yes",
+      "by": "do_portal_access_revoke"
+    },
+    {
+      "path": "Client update → crumb back to the deal; drafted when <milestone> · to <client>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:104",
+      "covered": "yes",
+      "by": "realestate_get_client_update draft milestone, to"
+    },
+    {
+      "path": "Client update → being written / couldn’t be written (why) / thrown away / Sent <when> to <client>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:172",
+      "covered": "yes",
+      "by": "realestate_get_client_update status, failure, sentAt"
+    },
+    {
+      "path": "Client update → from your mailbox, email address or the team inbox",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:200",
+      "covered": "partly",
+      "by": "realestate_send_client_update description; which one it will use isn’t returned"
+    },
+    {
+      "path": "Client update → Subject, Message → Save changes",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:204",
+      "covered": "yes",
+      "by": "realestate_status_email_save subject, body"
+    },
+    {
+      "path": "Client update → Send (once flags are fixed or kept)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:140",
+      "covered": "yes",
+      "by": "realestate_send_client_update"
+    },
+    {
+      "path": "Client update → Discard (throw away, not sent)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:110",
+      "covered": "yes",
+      "by": "realestate_status_email_discard"
+    },
+    {
+      "path": "Client update → Fair housing: checking… / N flags / nothing flagged; each flagged phrase, why, category, Try: …",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:236",
+      "covered": "yes",
+      "by": "realestate_get_client_update flags, checking"
+    },
+    {
+      "path": "Client update → a flag → select the phrase / Change the words",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:247",
+      "covered": "yes",
+      "by": "realestate_status_email_save body"
+    },
+    {
+      "path": "Client update → Keep it, with a reason → Keep them",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:270",
+      "covered": "yes",
+      "by": "realestate_status_email_acknowledge_flags reason"
+    },
+    {
+      "path": "Client update → Kept, with your reason; N checks so far, kept for the broker",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:261",
+      "covered": "yes",
+      "by": "realestate_get_client_update acknowledged, checks"
+    },
+    {
+      "path": "Client update → What the AI saw",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/client-update.tsx:288",
+      "covered": "yes",
+      "by": "realestate_draft_client_update description"
+    },
+    {
+      "path": "Offers (buyer) → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:86",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Offers (buyer) → each offer: Offer N · street, price · version N · to <agent>, clock words, status",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:106",
+      "covered": "yes",
+      "by": "realestate_offers"
+    },
+    {
+      "path": "Offers (buyer) → open an offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:109",
+      "covered": "yes",
+      "by": "realestate_offers"
+    },
+    {
+      "path": "Offers → empty: no offers yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:100",
+      "covered": "yes",
+      "by": "realestate_offers (none)"
+    },
+    {
+      "path": "Offers (buyer) → CMAs card: CMA N · street, low–high or N comps, status; open one",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:139",
+      "covered": "yes",
+      "by": "realestate_cmas; realestate_cma"
+    },
+    {
+      "path": "Offers (buyer) → Make an offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:92",
+      "covered": "yes",
+      "by": "realestate_record_offer"
+    },
+    {
+      "path": "Make an offer → Home (one of the deal’s homes)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:480",
+      "covered": "yes",
+      "by": "realestate_record_offer homeId"
+    },
+    {
+      "path": "Make / Add an offer → Listing agent / Their agent, Their brokerage, Their email, Their phone",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:498",
+      "covered": "yes",
+      "by": "realestate_record_offer theirAgentName, theirBrokerage, theirEmail, theirPhone"
+    },
+    {
+      "path": "Offer terms → Price, Earnest money, due in (days), Seller pays toward costs, Inspection period",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:152",
+      "covered": "yes",
+      "by": "realestate_record_offer / realestate_record_counter terms"
+    },
+    {
+      "path": "Offer terms → Loan, Financing period, Down payment (listing), Appraisal condition",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:196",
+      "covered": "yes",
+      "by": "terms loanType, financingDays, downPaymentPct, appraisalContingency"
+    },
+    {
+      "path": "Offer terms (listing) → A home to sell first, Their agent’s fee (% or dollars), Escalation up to and by, Possession",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:242",
+      "covered": "yes",
+      "by": "terms homeSaleContingency, buyerAgentFeeBp/Cents, escalation…, possession"
+    },
+    {
+      "path": "Offer terms → Closing, Answer due by (date, time), Other terms",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:311",
+      "covered": "yes",
+      "by": "terms closingDate, otherTerms; respondBy"
+    },
+    {
+      "path": "Offer terms → The contract, uploaded (pick a deal document)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:358",
+      "covered": "yes",
+      "by": "realestate_record_offer documentId"
+    },
+    {
+      "path": "Make an offer → Record the offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:530",
+      "covered": "yes",
+      "by": "realestate_record_offer"
+    },
+    {
+      "path": "An offer → crumb: deal / Offers / offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:309",
+      "covered": "yes",
+      "by": "realestate_offers"
+    },
+    {
+      "path": "An offer → title and line: to/from <agent, brokerage>, status",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:316",
+      "covered": "yes",
+      "by": "realestate_offers theirAgentName, theirBrokerage, status"
+    },
+    {
+      "path": "An offer (buyer) → Share a summary with <client> / Summary shared",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:322",
+      "covered": "yes",
+      "by": "realestate_offers shared; realestate_share_offer_summary"
+    },
+    {
+      "path": "An offer → Record their answer / Record our answer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:332",
+      "covered": "yes",
+      "by": "realestate_record_offer_answer"
+    },
+    {
+      "path": "An offer → Record the answer → Accepted / Declined / No answer in time (It passed), what each does",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:699",
+      "covered": "yes",
+      "by": "realestate_record_offer_answer outcome"
+    },
+    {
+      "path": "An offer → Record the answer → The version accepted, When, Note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offer-dialogs.tsx:709",
+      "covered": "yes",
+      "by": "realestate_record_offer_answer versionId, at, note"
+    },
+    {
+      "path": "An offer → More → Add a counter… → Whose counter (theirs or ours), the terms → Keep this version",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:340",
+      "covered": "yes",
+      "by": "realestate_record_counter side, terms"
+    },
+    {
+      "path": "An offer → More → Withdraw the offer… / The buyers withdrew it… → Why",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:343",
+      "covered": "yes",
+      "by": "realestate_offer_withdraw reason"
+    },
+    {
+      "path": "An offer → clock: whose answer, due when or no deadline, from which version, you’ll hear 2 hours before",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:353",
+      "covered": "yes",
+      "by": "realestate_offers clock"
+    },
+    {
+      "path": "An offer → ended: status and reason",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:371",
+      "covered": "yes",
+      "by": "realestate_offers endedReason"
+    },
+    {
+      "path": "An offer → versions side by side: N · Our offer / counter / Seller’s counter · date · accepted; each term row (price, earnest money, credit, inspection, financing, appraisal, down payment, home to sell, agent’s fee, escalation, closing, possession, other, respond by), changes marked",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:377",
+      "covered": "yes",
+      "by": "realestate_offers versions"
+    },
+    {
+      "path": "An offer → Document row: Signed · uploaded / Uploaded / Not uploaded",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:416",
+      "covered": "yes",
+      "by": "realestate_offers versions.document"
+    },
+    {
+      "path": "An offer → Attach the contract… (a deal document)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:511",
+      "covered": "yes",
+      "by": "realestate_offer_attach_document"
+    },
+    {
+      "path": "An offer → every version kept; contract filled in your forms software",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:454",
+      "covered": "yes",
+      "by": "realestate_record_offer description"
+    },
+    {
+      "path": "Offer summary → Summary for <client>: title, business, date, note, term lines, What happens next",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:593",
+      "covered": "yes",
+      "by": "realestate_offers summary"
+    },
+    {
+      "path": "Offer summary → crumb: deal / Offer · street / Summary",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:553",
+      "covered": "yes",
+      "by": "realestate_offers"
+    },
+    {
+      "path": "Offer summary → Print",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:565",
+      "covered": "no",
+      "by": "printing is the browser’s; no tool prints"
+    },
+    {
+      "path": "Offer summary → Share in the portal / Shared in the portal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/offers-page.tsx:569",
+      "covered": "yes",
+      "by": "realestate_share_offer_summary"
+    },
+    {
+      "path": "Offers (listing) → header: N offers · shared with <seller> <date>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:118",
+      "covered": "yes",
+      "by": "realestate_compare_offers rows, shared"
+    },
+    {
+      "path": "Offers (listing) → Seller’s estimate button",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:125",
+      "covered": "yes",
+      "by": "realestate_compare_offers figures"
+    },
+    {
+      "path": "Offers (listing) → Add an offer → Buyers, their agent, the terms → Record the offer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:130",
+      "covered": "yes",
+      "by": "realestate_record_offer buyerNames, terms"
+    },
+    {
+      "path": "Offers (listing) → Share with <seller>",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:133",
+      "covered": "yes",
+      "by": "realestate_share_offer_comparison"
+    },
+    {
+      "path": "Offers (listing) → the seller said (accept, counter, decline, let’s talk) the X offer, their words, from their portal, when",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:158",
+      "covered": "yes",
+      "by": "realestate_compare_offers choices"
+    },
+    {
+      "path": "Offers (listing) → take-home leaves out payoff and costs until entered on the seller’s estimate",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:173",
+      "covered": "yes",
+      "by": "realestate_compare_offers figures (null)"
+    },
+    {
+      "path": "Offers (listing) → side by side: each offer’s buyers (opens it), agent · brokerage, status; <seller> takes home about $ (best marked); price, how they pay, earnest money, credit, home to sell, closing, respond by and the rest",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:192",
+      "covered": "yes",
+      "by": "realestate_compare_offers rows"
+    },
+    {
+      "path": "Offers (listing) → an offer column → Record our answer / Add a version / Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:261",
+      "covered": "yes",
+      "by": "realestate_record_offer_answer; realestate_record_counter; realestate_offers"
+    },
+    {
+      "path": "Offers (listing) → take-home is an estimate from the seller’s estimate figures",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:294",
+      "covered": "yes",
+      "by": "realestate_compare_offers description"
+    },
+    {
+      "path": "Offers (listing) → Ended: buyers · price, status; open one",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-offers-page.tsx:304",
+      "covered": "yes",
+      "by": "realestate_offers status"
+    },
+    {
+      "path": "Seller’s estimate → What <seller> would take home; an estimate, figures as of <date> / none saved",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:194",
+      "covered": "yes",
+      "by": "realestate_compare_offers figures.savedAt"
+    },
+    {
+      "path": "Seller’s estimate → crumb back to the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:188",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Seller’s estimate → The figures: Mortgage payoff, Listing fee (% or $), Title and escrow, Transfer tax, Other costs, What they are, Where they come from",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:220",
+      "covered": "yes",
+      "by": "realestate_net_sheet_save"
+    },
+    {
+      "path": "Seller’s estimate → Save the figures",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:199",
+      "covered": "yes",
+      "by": "realestate_net_sheet_save"
+    },
+    {
+      "path": "Seller’s estimate → table per open offer: price, listing fee, their agent’s fee, credit, payoff, title, tax, other, About what <seller> takes home",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:348",
+      "covered": "yes",
+      "by": "realestate_compare_offers rows net.lines, netCents"
+    },
+    {
+      "path": "Seller’s estimate → At the list price column (before any offer)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:138",
+      "covered": "no",
+      "by": "worked out in the browser; compare_offers has no list-price estimate (re-11)"
+    },
+    {
+      "path": "Seller’s estimate → no offers and no list price yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:342",
+      "covered": "yes",
+      "by": "realestate_compare_offers rows (none)"
+    },
+    {
+      "path": "Seller’s estimate → Earlier figures: version, date, who, figures, note",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/net-sheet-page.tsx:392",
+      "covered": "yes",
+      "by": "realestate_compare_offers figureHistory"
+    },
+    {
+      "path": "CMA → header: street, subject beds, baths, sq ft, year, list price",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:125",
+      "covered": "yes",
+      "by": "realestate_cma subject"
+    },
+    {
+      "path": "CMA → Change the subject: beds, baths, square feet, year built, list price",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:893",
+      "covered": "yes",
+      "by": "realestate_cma_set_subject"
+    },
+    {
+      "path": "CMA → badge: CMA number and status (draft, final)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:146",
+      "covered": "yes",
+      "by": "realestate_cma / realestate_cmas status"
+    },
+    {
+      "path": "CMA → Comps from the MLS: within 0.5/1/2/5 miles, sold in the last 3/6/12 months",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:479",
+      "covered": "yes",
+      "by": "realestate_find_comps"
+    },
+    {
+      "path": "CMA → finding comps state: looking, found N, none, failed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:211",
+      "covered": "yes",
+      "by": "realestate_cma (find state)"
+    },
+    {
+      "path": "CMA → Add a comp",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:159",
+      "covered": "yes",
+      "by": "realestate_add_comp"
+    },
+    {
+      "path": "CMA → Finalize (needs a price range)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:166",
+      "covered": "yes",
+      "by": "realestate_cma_finalize"
+    },
+    {
+      "path": "CMA → Reopen",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:182",
+      "covered": "yes",
+      "by": "realestate_cma_reopen"
+    },
+    {
+      "path": "CMA → Start another from it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:196",
+      "covered": "yes",
+      "by": "realestate_start_cma"
+    },
+    {
+      "path": "CMA → comps table: street, From the MLS #, courtesy, why picked, warnings, price, sold date, beds·baths·sq ft, distance, adjusted price",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:234",
+      "covered": "yes",
+      "by": "realestate_cma comps"
+    },
+    {
+      "path": "CMA → comps → Use (tick or untick a comp)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:291",
+      "covered": "yes",
+      "by": "realestate_cma_update_comp used"
+    },
+    {
+      "path": "CMA → no comps yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:228",
+      "covered": "yes",
+      "by": "realestate_cma comps (none)"
+    },
+    {
+      "path": "CMA → MLS notices (courtesy and data rules)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:314",
+      "covered": "partly",
+      "by": "realestate_cma; MLS-bound fields cut from AI answers (re-5)"
+    },
+    {
+      "path": "CMA → comp dialog: address, price, status, sold on, beds, baths, sq ft, year, miles away, note",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:643",
+      "covered": "yes",
+      "by": "realestate_add_comp / realestate_cma_update_comp"
+    },
+    {
+      "path": "CMA → comp dialog → adjustments: what for, amount, take off, Add an adjustment (up to 8)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:810",
+      "covered": "yes",
+      "by": "realestate_cma_update_comp adjustments"
+    },
+    {
+      "path": "CMA → comp dialog → Take it off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:873",
+      "covered": "yes",
+      "by": "realestate_cma_remove_comp"
+    },
+    {
+      "path": "CMA → summary: text, Drafted by AI badge, drafting…, failed or none",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:572",
+      "covered": "yes",
+      "by": "realestate_cma summary"
+    },
+    {
+      "path": "CMA → summary → amounts the comps don’t support warning",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:601",
+      "covered": "yes",
+      "by": "realestate_cma summary check"
+    },
+    {
+      "path": "CMA → summary → Draft it with AI / Draft it again",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:622",
+      "covered": "yes",
+      "by": "realestate_draft_cma_summary"
+    },
+    {
+      "path": "CMA → summary → Edit / Write it yourself",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:632",
+      "covered": "yes",
+      "by": "realestate_cma_save_summary"
+    },
+    {
+      "path": "CMA → price range: low, likely, high, method, from N comps as of date, or what’s missing",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:347",
+      "covered": "yes",
+      "by": "realestate_cma range"
+    },
+    {
+      "path": "CMA → fair housing: checking, N flagged, phrase, reason, safer wording, kept by and why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:373",
+      "covered": "yes",
+      "by": "realestate_cma flags"
+    },
+    {
+      "path": "CMA → fair housing → Keep it as it is, with a reason",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:400",
+      "covered": "no",
+      "by": "realestate_cma_acknowledge_flags offered but refuses non-person (re-8)"
+    },
+    {
+      "path": "CMA → share: in the portal since, or why it can’t be shared yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:409",
+      "covered": "yes",
+      "by": "realestate_cma shared, shareBlocked"
+    },
+    {
+      "path": "CMA → Share with the client",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/cma-page.tsx:423",
+      "covered": "yes",
+      "by": "realestate_share_cma (Confirm)"
+    },
+    {
+      "path": "New matches → tabs New / Sent / Skipped with counts",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:122",
+      "covered": "yes",
+      "by": "realestate_matches counts, state"
+    },
+    {
+      "path": "New matches → only the team sees these until one is sent; empty words per tab",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:142",
+      "covered": "yes",
+      "by": "realestate_matches"
+    },
+    {
+      "path": "New matches → a match: photo, street, New today / Changed on the MLS / Found N ago, status, MLS #, price or sold for, rooms, how it fits, courtesy",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:159",
+      "covered": "partly",
+      "by": "realestate_matches; each carries full MLS data, so long lists are cut (re-5); no photo link"
+    },
+    {
+      "path": "New matches → a match → Send to the client",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:197",
+      "covered": "yes",
+      "by": "realestate_send_match (Confirm)"
+    },
+    {
+      "path": "New matches → a match → Skip",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:205",
+      "covered": "yes",
+      "by": "realestate_match_dismiss"
+    },
+    {
+      "path": "New matches → Sent or Skipped by who, when · Open the home",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:215",
+      "covered": "yes",
+      "by": "realestate_matches decidedBy, decidedAt, homeId"
+    },
+    {
+      "path": "New matches → MLS notice and logo under the list",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:240",
+      "covered": "partly",
+      "by": "realestate_matches mls.display; cut on long lists (re-5)"
+    },
+    {
+      "path": "New matches → the client’s search: asks for, runs on every MLS update or off, last run",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:250",
+      "covered": "yes",
+      "by": "realestate_matches search"
+    },
+    {
+      "path": "New matches → search warnings: no listing data connected, what’s missing, why it failed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:260",
+      "covered": "yes",
+      "by": "realestate_matches search.feedConnected, missing, failure"
+    },
+    {
+      "path": "New matches → Run the client’s search (on or off)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/matches-page.tsx:295",
+      "covered": "yes",
+      "by": "realestate_search_set"
+    },
+    {
+      "path": "The home’s facts → header: street, N facts, N to decide, confirmed on by who",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:157",
+      "covered": "yes",
+      "by": "realestate_get_listing choices, factsConfirmedAt"
+    },
+    {
+      "path": "The home’s facts → Paste the old listing → the old listing’s words → Read it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:446",
+      "covered": "yes",
+      "by": "realestate_listing_paste"
+    },
+    {
+      "path": "The home’s facts → reading the old listing… / couldn’t be read, why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:217",
+      "covered": "yes",
+      "by": "realestate_get_listing pasted.state, failure"
+    },
+    {
+      "path": "The home’s facts → seller’s questionnaire: not asked, started, waiting, or add the seller first",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:228",
+      "covered": "yes",
+      "by": "realestate_get_listing questionnaire.state"
+    },
+    {
+      "path": "The home’s facts → Ask the seller (questionnaire in their portal)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:238",
+      "covered": "yes",
+      "by": "realestate_listing_request_questionnaire"
+    },
+    {
+      "path": "The home’s facts → where they disagree: seller says X; the old listing says Y",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:270",
+      "covered": "yes",
+      "by": "realestate_get_listing choices.candidates, disagree"
+    },
+    {
+      "path": "The home’s facts → pick the right one where they disagree",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:290",
+      "covered": "no",
+      "by": "saved only by realestate_listing_confirm_facts, which refuses the Assistant (re-8)"
+    },
+    {
+      "path": "The home’s facts → table: fact, what it says, where it came from, the words it was found in",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:314",
+      "covered": "yes",
+      "by": "realestate_get_listing choices"
+    },
+    {
+      "path": "The home’s facts → tick facts → Confirm N facts",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:186",
+      "covered": "no",
+      "by": "realestate_listing_confirm_facts offered, but its handler refuses the Assistant (re-8)"
+    },
+    {
+      "path": "The home’s facts → Type one in: fact, what it is (kind of home, number, amount)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:513",
+      "covered": "no",
+      "by": "kept only by realestate_listing_confirm_facts, refused for the Assistant"
+    },
+    {
+      "path": "The home’s facts → Type one in → errors (halves, amount, whole number, pick a kind)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:524",
+      "covered": "no",
+      "by": "browser-only checks; the confirm op is refused for the Assistant"
+    },
+    {
+      "path": "The home’s facts → In the seller’s words: what’s been updated, what they love",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:369",
+      "covered": "yes",
+      "by": "realestate_get_listing questionnaire.updates, loves"
+    },
+    {
+      "path": "The home’s facts → Highlights for the description",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-facts-page.tsx:387",
+      "covered": "no",
+      "by": "saved only with realestate_listing_confirm_facts, refused for the Assistant"
+    },
+    {
+      "path": "Photos → header: N photos, N on the public page",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:84",
+      "covered": "yes",
+      "by": "realestate_get_listing photos"
+    },
+    {
+      "path": "Photos → Upload photos (from the device)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:95",
+      "covered": "person",
+      "by": "uploading a file from their device"
+    },
+    {
+      "path": "Photos → Add from the deal’s files → pick an image",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:224",
+      "covered": "yes",
+      "by": "realestate_listing_photo_add (fileId from get_record_details files)"
+    },
+    {
+      "path": "Photos → no photos yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:129",
+      "covered": "yes",
+      "by": "realestate_get_listing photos (none)"
+    },
+    {
+      "path": "Photos → each photo: the image, its place, caption, on the page or hidden",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:139",
+      "covered": "partly",
+      "by": "realestate_get_listing photos; captions and order yes, no link to the image"
+    },
+    {
+      "path": "Photos → a photo → Caption",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:145",
+      "covered": "partly",
+      "by": "realestate_listing_photos_arrange needs the whole list; its card shows only N items (re-13)"
+    },
+    {
+      "path": "Photos → a photo → On the public page switch",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:158",
+      "covered": "partly",
+      "by": "realestate_listing_photos_arrange (re-13)"
+    },
+    {
+      "path": "Photos → a photo → Move earlier / Move later",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:173",
+      "covered": "partly",
+      "by": "realestate_listing_photos_arrange (re-13)"
+    },
+    {
+      "path": "Photos → a photo → Take it off the listing",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/listing-photos-page.tsx:191",
+      "covered": "yes",
+      "by": "realestate_listing_photo_remove (Confirm)"
+    },
+    {
+      "path": "Description → header: version, drafted by the AI or your team, version in use, signed off on",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:108",
+      "covered": "yes",
+      "by": "realestate_get_listing description"
+    },
+    {
+      "path": "Description → Ask the AI to draft it / for another (needs confirmed facts)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:120",
+      "covered": "yes",
+      "by": "realestate_draft_listing_description"
+    },
+    {
+      "path": "Description → confirm the facts first",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:157",
+      "covered": "yes",
+      "by": "realestate_get_listing factsConfirmedAt; refusal words"
+    },
+    {
+      "path": "Description → working version: words, flagged phrases marked, drafting…, couldn’t draft",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:171",
+      "covered": "yes",
+      "by": "realestate_get_listing description.working"
+    },
+    {
+      "path": "Description → status badge: Drafting, Couldn’t draft, Waiting on sign-off, Checking, N flagged, Both checks clear",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:395",
+      "covered": "yes",
+      "by": "realestate_get_listing description.working state, checked, flags"
+    },
+    {
+      "path": "Description → Edit / Write it yourself → Save as a new version",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:180",
+      "covered": "yes",
+      "by": "realestate_listing_description_save"
+    },
+    {
+      "path": "Description → fair housing flags: phrase, reason, safer wording; kept as written and why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:233",
+      "covered": "yes",
+      "by": "realestate_get_listing description.working.flags, acknowledged"
+    },
+    {
+      "path": "Description → Keep it as it is, with a reason",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:264",
+      "covered": "no",
+      "by": "realestate_listing_description_acknowledge_flags refuses the Assistant (re-8)"
+    },
+    {
+      "path": "Description → Send to the seller to sign off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:129",
+      "covered": "yes",
+      "by": "realestate_send_listing_description (Confirm)"
+    },
+    {
+      "path": "Description → version in use: words, signed off by the seller or used without the portal, why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:273",
+      "covered": "yes",
+      "by": "realestate_get_listing description.inUse"
+    },
+    {
+      "path": "Description → no description yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:291",
+      "covered": "yes",
+      "by": "realestate_get_listing description"
+    },
+    {
+      "path": "Description → Earlier versions: version, AI’s or team’s, date, words",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:297",
+      "covered": "yes",
+      "by": "realestate_get_listing description.history"
+    },
+    {
+      "path": "Description → Sign-off steps: drafted, checked, signed off; what blocks sending",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:318",
+      "covered": "yes",
+      "by": "realestate_get_listing description.working.blocked"
+    },
+    {
+      "path": "Description → Signed on paper? Use it with a reason (owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/description-page.tsx:338",
+      "covered": "no",
+      "by": "realestate_listing_description_let_through refuses the Assistant (re-7)"
+    },
+    {
+      "path": "Price → header: street, price now or no list price yet (enter it on Key dates)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/price-page.tsx:68",
+      "covered": "yes",
+      "by": "realestate_listing_prices currentCents"
+    },
+    {
+      "path": "Price → Change the price → new price, why, the exact words → Send to the seller",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/price-page.tsx:276",
+      "covered": "yes",
+      "by": "realestate_propose_price_change (Confirm)"
+    },
+    {
+      "path": "Price → waiting for the seller: sent on, from → to, the words, why, not signed off yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/price-page.tsx:96",
+      "covered": "yes",
+      "by": "realestate_listing_prices waiting"
+    },
+    {
+      "path": "Price → Signed on paper? Use it with a reason (owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/price-page.tsx:119",
+      "covered": "no",
+      "by": "realestate_listing_price_let_through refuses the Assistant (re-7)"
+    },
+    {
+      "path": "Price → Withdraw it (reason)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/price-page.tsx:129",
+      "covered": "yes",
+      "by": "realestate_listing_price_withdraw"
+    },
+    {
+      "path": "Price → History: date, price, lowered or raised from, withdrawn and why, signed off or used without the portal, listed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/price-page.tsx:138",
+      "covered": "yes",
+      "by": "realestate_listing_prices history; listed row from realestate_date_history"
+    },
+    {
+      "path": "Marketing → header: street, live on the MLS since, MLS #, or the list price",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:107",
+      "covered": "yes",
+      "by": "realestate_listing_marketing mls"
+    },
+    {
+      "path": "Marketing → not live on the MLS yet: what waits until it is",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:130",
+      "covered": "yes",
+      "by": "realestate_listing_marketing; realestate_not_on_mls refusals"
+    },
+    {
+      "path": "Marketing → held cards before the MLS: Public page, Flyer, Email or text (what each still needs)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:171",
+      "covered": "yes",
+      "by": "realestate_listing_marketing ready"
+    },
+    {
+      "path": "Marketing → Mark it live on the MLS: MLS number, live since, the MLS page (a deal document)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:766",
+      "covered": "yes",
+      "by": "realestate_mark_listing_live"
+    },
+    {
+      "path": "Marketing → Mark it live → upload the MLS page (from the device)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:875",
+      "covered": "person",
+      "by": "uploading a file from their device"
+    },
+    {
+      "path": "Marketing → Print the flyer",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:116",
+      "covered": "yes",
+      "by": "realestate_listing_flyer (opens what it shows)"
+    },
+    {
+      "path": "Marketing → Public page: Published on / Taken down, what it shows, what it still needs",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:270",
+      "covered": "yes",
+      "by": "realestate_listing_marketing page, ready"
+    },
+    {
+      "path": "Marketing → Public page → the page’s link",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:296",
+      "covered": "yes",
+      "by": "page.path made a whole link by withWholeLinks (re-1 mostly fixed)"
+    },
+    {
+      "path": "Marketing → Public page → QR code",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:284",
+      "covered": "partly",
+      "by": "the whole link only; no tool makes the QR image"
+    },
+    {
+      "path": "Marketing → Public page → Copy link",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:309",
+      "covered": "yes",
+      "by": "the Assistant gives the whole link"
+    },
+    {
+      "path": "Marketing → Public page → Publish / Put it back up",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:346",
+      "covered": "yes",
+      "by": "realestate_publish_listing_page (Confirm)"
+    },
+    {
+      "path": "Marketing → Public page → Take it down",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:322",
+      "covered": "yes",
+      "by": "realestate_listing_page_take_down"
+    },
+    {
+      "path": "Marketing → Email or text to your contacts → Send as Email / Text",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:444",
+      "covered": "yes",
+      "by": "realestate_listing_campaign channel"
+    },
+    {
+      "path": "Marketing → Email or text → Who gets it: tags, or people with a deal in a stage",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:454",
+      "covered": "yes",
+      "by": "realestate_listing_campaign audience (tag and stage ids from list tools)"
+    },
+    {
+      "path": "Marketing → Email or text → who it would reach: N people, N left out and why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:490",
+      "covered": "partly",
+      "by": "its card names no recipients; only core start_campaign previews (re-2)"
+    },
+    {
+      "path": "Marketing → Email or text → add your business address first (Settings → Payments)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:498",
+      "covered": "partly",
+      "by": "refused when the campaign is approved, not before"
+    },
+    {
+      "path": "Marketing → Email or text → the exact subject and words, or why not yet (page down, no signed-off description)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:505",
+      "covered": "partly",
+      "by": "refusals say why; the words are seen only in Campaigns after it’s made"
+    },
+    {
+      "path": "Marketing → Email or text → Start the campaign (approved in Campaigns)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:533",
+      "covered": "yes",
+      "by": "realestate_listing_campaign (Confirm), pageUrl from the whole link (re-2)"
+    },
+    {
+      "path": "Marketing → Social posts → Draft them / Draft again",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:595",
+      "covered": "yes",
+      "by": "realestate_draft_listing_posts"
+    },
+    {
+      "path": "Marketing → Social posts → drafting, failed, none yet or confirm the facts first",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:616",
+      "covered": "yes",
+      "by": "realestate_listing_marketing posts.state, failure"
+    },
+    {
+      "path": "Marketing → Social posts → a post: words, Checking / N flags / Checks clear, each flag’s phrase, reason, safer wording",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:702",
+      "covered": "yes",
+      "by": "realestate_listing_marketing posts.items"
+    },
+    {
+      "path": "Marketing → Social posts → a post → Edit → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:673",
+      "covered": "yes",
+      "by": "realestate_listing_post_save"
+    },
+    {
+      "path": "Marketing → Social posts → a post → Copy (once live and clear)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:742",
+      "covered": "yes",
+      "by": "the Assistant gives the post’s words from realestate_listing_marketing"
+    },
+    {
+      "path": "Marketing → Social posts → HandsFreeOS doesn’t post for you",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/marketing-page.tsx:639",
+      "covered": "yes",
+      "by": "tool descriptions"
+    },
+    {
+      "path": "Flyer → not ready: why (not on the MLS, no signed-off description) · Open Marketing",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/flyer-page.tsx:84",
+      "covered": "yes",
+      "by": "realestate_listing_flyer refusal words"
+    },
+    {
+      "path": "Flyer → the QR code shows once the page is up",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/flyer-page.tsx:100",
+      "covered": "yes",
+      "by": "realestate_listing_flyer page"
+    },
+    {
+      "path": "Flyer → street, city, price, facts, description, agent, business, MLS #",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/flyer-page.tsx:118",
+      "covered": "yes",
+      "by": "realestate_listing_flyer"
+    },
+    {
+      "path": "Flyer → cover photo and three more",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/flyer-page.tsx:106",
+      "covered": "partly",
+      "by": "realestate_listing_flyer photos (captions); no link to the image"
+    },
+    {
+      "path": "Flyer → QR code to the public page",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/flyer-page.tsx:146",
+      "covered": "partly",
+      "by": "whole link only; no QR image"
+    },
+    {
+      "path": "Flyer → Print",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/flyer-page.tsx:75",
+      "covered": "no",
+      "by": "printing is the browser’s; no tool makes a printable flyer"
+    },
+    {
+      "path": "A deal → Showings card: N waiting on the seller, N from ShowingTime to check, next three confirmed (when, agent, brokerage), what buyers said",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:913",
+      "covered": "yes",
+      "by": "realestate_showings"
+    },
+    {
+      "path": "A deal → Open houses card: each planned one’s when, host, N signed in, N to follow up",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:576",
+      "covered": "yes",
+      "by": "realestate_open_houses"
+    },
+    {
+      "path": "Showings → header: street, from our page and ShowingTime’s emails",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:120",
+      "covered": "yes",
+      "by": "realestate_showings street"
+    },
+    {
+      "path": "Showings → Copy the request link (or put the page up first)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:125",
+      "covered": "yes",
+      "by": "realestate_showings requestPath made a whole link (withWholeLinks)"
+    },
+    {
+      "path": "Showings → no showings yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:155",
+      "covered": "yes",
+      "by": "realestate_showings (none)"
+    },
+    {
+      "path": "Showings → table: when, from where, checked, access sent, agent, brokerage, phone, email, where it stands, note, feedback line, link sent, shared with the seller",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:161",
+      "covered": "yes",
+      "by": "realestate_showings showings"
+    },
+    {
+      "path": "Showings → a showing → Confirm / Decline (for the seller)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:217",
+      "covered": "yes",
+      "by": "realestate_answer_showing (Confirm)"
+    },
+    {
+      "path": "Showings → a showing → Cancel it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:238",
+      "covered": "yes",
+      "by": "realestate_answer_showing cancel (Confirm)"
+    },
+    {
+      "path": "Showings → a ShowingTime showing → check it: the right time, the right agent → It’s right",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:721",
+      "covered": "yes",
+      "by": "realestate_showing_check"
+    },
+    {
+      "path": "Showings → a showing → Type in / Change feedback: interest 1–5, what they liked, what gave them pause, the price",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:802",
+      "covered": "yes",
+      "by": "realestate_showing_feedback"
+    },
+    {
+      "path": "Showings → a showing → Share feedback with the seller",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:273",
+      "covered": "yes",
+      "by": "realestate_showing_share_feedback (Confirm)"
+    },
+    {
+      "path": "Showings → Add a showing: when, buyer’s agent, brokerage, email, mobile",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:621",
+      "covered": "yes",
+      "by": "realestate_showing_add"
+    },
+    {
+      "path": "Showings → What buyers said: summary, liked, didn’t, interest, price feel counts",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:304",
+      "covered": "yes",
+      "by": "realestate_showings summary, themes"
+    },
+    {
+      "path": "Showings → How showings work here: requests, confirming, access, lockbox codes, feedback",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:351",
+      "covered": "yes",
+      "by": "realestate_showings settings"
+    },
+    {
+      "path": "Showings → How showings work → take requests on the page, who says yes, days, from, to, each one’s length",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:487",
+      "covered": "yes",
+      "by": "realestate_showing_settings"
+    },
+    {
+      "path": "Showings → How showings work → Access instructions (the lockbox code and how to get in)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:565",
+      "covered": "yes",
+      "by": "realestate_showing_settings access; this free text can hold a lockbox code, which then reaches the AI"
+    },
+    {
+      "path": "Showings → How showings work → send access N hours before, ask for feedback N hours after",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/showings-page.tsx:579",
+      "covered": "yes",
+      "by": "realestate_showing_settings accessHours, feedbackHours"
+    },
+    {
+      "path": "Showings → Lockboxes: kind, where, serial, code kept locked or no code; none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/lockboxes.tsx:121",
+      "covered": "yes",
+      "by": "realestate_lockbox_list (hasCode, never the code)"
+    },
+    {
+      "path": "Showings → Lockboxes → Add a lockbox / Change: kind, where it is, serial",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/lockboxes.tsx:377",
+      "covered": "never",
+      "by": "realestate.lockbox.save is on the NEVER list (its code never goes through the AI); re-14"
+    },
+    {
+      "path": "Showings → Lockboxes → Add or Change → the code",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/lockboxes.tsx:413",
+      "covered": "never",
+      "by": "settled: a lockbox code never goes through the AI"
+    },
+    {
+      "path": "Showings → Lockboxes → Show code / Hide",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/lockboxes.tsx:170",
+      "covered": "never",
+      "by": "settled: a lockbox code never goes through the AI"
+    },
+    {
+      "path": "Showings → Lockboxes → Remove",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/lockboxes.tsx:204",
+      "covered": "yes",
+      "by": "realestate_lockbox_remove"
+    },
+    {
+      "path": "Showings → Who opened them: when, who, SentriLock or Supra, fits a showing or no showing booked; none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/lockboxes.tsx:238",
+      "covered": "yes",
+      "by": "realestate_lockbox_list openings"
+    },
+    {
+      "path": "Open houses → none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:135",
+      "covered": "yes",
+      "by": "realestate_open_houses (none)"
+    },
+    {
+      "path": "Open houses → an open house: when, Cancelled / Planned, host, N signed in, on the host’s calendar, sign-in opens and closes",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:262",
+      "covered": "yes",
+      "by": "realestate_open_houses"
+    },
+    {
+      "path": "Open houses → an open house → Cancel it (why)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:215",
+      "covered": "yes",
+      "by": "realestate_open_house_cancel"
+    },
+    {
+      "path": "Open houses → visitors: name (opens the person), contact, with an agent, texts OK, followed up",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:324",
+      "covered": "yes",
+      "by": "realestate_open_houses visitors"
+    },
+    {
+      "path": "Open houses → a visitor → Follow up → note → Mark followed up",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:241",
+      "covered": "yes",
+      "by": "realestate_open_house_follow_up"
+    },
+    {
+      "path": "Open houses → nobody signed in",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:394",
+      "covered": "yes",
+      "by": "realestate_open_houses visitors (none)"
+    },
+    {
+      "path": "Open houses → Plan an open house: day, start, how long, who hosts, calendar",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:402",
+      "covered": "yes",
+      "by": "realestate_plan_open_house"
+    },
+    {
+      "path": "Open houses → Plan → calendar warnings → Plan it anyway",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:553",
+      "covered": "yes",
+      "by": "realestate_plan_open_house acknowledgeWarnings"
+    },
+    {
+      "path": "Open houses → sign-in sheet: Welcome, QR code, street, when; or why no QR yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:159",
+      "covered": "partly",
+      "by": "realestate_open_houses signInPath as a whole link; no QR image"
+    },
+    {
+      "path": "Open houses → Print the sign-in sheet",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/open-houses-page.tsx:116",
+      "covered": "no",
+      "by": "printing is the browser’s; no tool makes the sheet"
+    },
+    {
+      "path": "Inspections → header: inspection period ends, or enter it under Key dates",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:97",
+      "covered": "yes",
+      "by": "realestate_inspections periodEnds"
+    },
+    {
+      "path": "Inspections → no inspections yet (buyer and listing words)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:132",
+      "covered": "yes",
+      "by": "realestate_inspections"
+    },
+    {
+      "path": "Inspections → Add an inspection: what kind, inspector, when, report expected",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:397",
+      "covered": "yes",
+      "by": "realestate_add_inspection"
+    },
+    {
+      "path": "Inspections → an inspection: label, Report in / day / Not booked, when, inspector, pages or report expected, note",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:140",
+      "covered": "yes",
+      "by": "realestate_inspections inspections"
+    },
+    {
+      "path": "Inspections → an inspection → The report’s in: the report (a deal document), pages",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:489",
+      "covered": "yes",
+      "by": "realestate_inspection_report_in"
+    },
+    {
+      "path": "Inspections → an inspection → Cancel (why)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:377",
+      "covered": "yes",
+      "by": "realestate_inspection_cancel"
+    },
+    {
+      "path": "Inspections → findings table: what, photos, where, how serious, estimate, client’s priority, ask for, credit",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:197",
+      "covered": "yes",
+      "by": "realestate_inspections findings"
+    },
+    {
+      "path": "Inspections → a finding’s photo (opens it)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:219",
+      "covered": "partly",
+      "by": "photoFileIds only; no link to the image"
+    },
+    {
+      "path": "Inspections → Add a finding / a finding: what was found, where, estimate, how serious, client’s priority, ask for, credit",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:565",
+      "covered": "yes",
+      "by": "realestate_add_finding / realestate_finding_update"
+    },
+    {
+      "path": "Inspections → a finding → Take it off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:701",
+      "covered": "yes",
+      "by": "realestate_finding_remove"
+    },
+    {
+      "path": "Inspections → repair request: badge (version sent, came in, answer due, seller agreed/refused/countered)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:263",
+      "covered": "yes",
+      "by": "realestate_inspections repairs"
+    },
+    {
+      "path": "Inspections → repair request: ready to draft from N findings with credits, or nothing yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:277",
+      "covered": "yes",
+      "by": "realestate_inspections draft"
+    },
+    {
+      "path": "Inspections → repair request versions and answers: whose, number, date, credit, outcome, words",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:286",
+      "covered": "yes",
+      "by": "realestate_inspections repairs"
+    },
+    {
+      "path": "Inspections → Draft the repair request / Send another version: the request, answer due by → Keep it as sent",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:739",
+      "covered": "yes",
+      "by": "realestate_repair_send"
+    },
+    {
+      "path": "Inspections (listing) → Keep the buyers’ request: what they ask for, credit, answer due, their request (a deal document)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:818",
+      "covered": "yes",
+      "by": "realestate_receive_repair_request"
+    },
+    {
+      "path": "Inspections → Record the seller’s answer: Agreed / Countered / Refused, what they’ll do, credit",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/inspections-page.tsx:926",
+      "covered": "yes",
+      "by": "realestate_repair_record_answer"
+    },
+    {
+      "path": "Phone → a deal → Call the client",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deal.tsx:451",
+      "covered": "person",
+      "by": "call.start is the person’s own (their microphone)"
+    },
+    {
+      "path": "Phone → a deal → Text the client (opens their thread)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deal.tsx:464",
+      "covered": "yes",
+      "by": "send_text"
+    },
+    {
+      "path": "Phone → a deal → Note → A note on this deal → Add the note",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deal.tsx:479",
+      "covered": "yes",
+      "by": "realestate_field_note_add"
+    },
+    {
+      "path": "Phone → a tour → Directions (every stop in Maps)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:271",
+      "covered": "partly",
+      "by": "the Assistant gives the stops’ addresses; no maps link"
+    },
+    {
+      "path": "Phone → a tour stop → Stop i of N, beds·baths·size, built·HOA, price",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:536",
+      "covered": "yes",
+      "by": "realestate_tours, realestate_list_homes"
+    },
+    {
+      "path": "Phone → a tour stop → Ask while you’re there: their must-have, deal-breaker, not on the listing",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:542",
+      "covered": "partly",
+      "by": "worked out on the phone from the profile and home facts; the Assistant has both but no such list"
+    },
+    {
+      "path": "Phone → a tour stop → Check in (safety)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:530",
+      "covered": "no",
+      "by": "safety.check_in has no Assistant tool"
+    },
+    {
+      "path": "Phone → a tour stop → Note",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:590",
+      "covered": "yes",
+      "by": "realestate_field_note_add aboutKind tour_stop"
+    },
+    {
+      "path": "Phone → a tour stop → Voice note: record, Stop, Keep it, Record again",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/voice-note.tsx:56",
+      "covered": "person",
+      "by": "a recording from their own phone (a file from the device)"
+    },
+    {
+      "path": "Phone → a tour stop → Photo (camera)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:610",
+      "covered": "person",
+      "by": "a photo from their own phone (a file from the device)"
+    },
+    {
+      "path": "Phone → a tour stop → Next stop / Done with this tour (marks it seen)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:620",
+      "covered": "yes",
+      "by": "realestate_tour_record_visit visited"
+    },
+    {
+      "path": "Phone → a tour stop → Skip this stop → why",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:646",
+      "covered": "yes",
+      "by": "realestate_tour_record_visit skipped"
+    },
+    {
+      "path": "Phone → a tour stop → notes here: typed and voice notes with their words",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:590",
+      "covered": "yes",
+      "by": "realestate_field_notes"
+    },
+    {
+      "path": "Phone → tour feedback → what the client said at each stop → Send to their portal",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:730",
+      "covered": "yes",
+      "by": "realestate_tour_feedback"
+    },
+    {
+      "path": "Phone → Homes → a home → Add to that tour",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/tours.tsx:847",
+      "covered": "yes",
+      "by": "realestate_tour_set_stops"
+    },
+    {
+      "path": "Phone → Walkthrough → none yet → Build the walkthrough list (needs signal)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:284",
+      "covered": "yes",
+      "by": "realestate_plan_walkthrough"
+    },
+    {
+      "path": "Phone → Walkthrough → the list, built from the deal: repairs agreed, items that stay or go, from the inspection, rooms, added on the day",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:325",
+      "covered": "yes",
+      "by": "realestate_walkthrough items"
+    },
+    {
+      "path": "Phone → Walkthrough → Start the walkthrough",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:339",
+      "covered": "yes",
+      "by": "realestate_walkthrough_start"
+    },
+    {
+      "path": "Phone → Walkthrough → N of N checked",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:358",
+      "covered": "yes",
+      "by": "realestate_walkthrough items state"
+    },
+    {
+      "path": "Phone → Walkthrough → an item → Fixed / Not fixed / Not sure (or OK / Not right), note",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:510",
+      "covered": "yes",
+      "by": "realestate_walkthrough_check_item"
+    },
+    {
+      "path": "Phone → Walkthrough → an item → Add a photo",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:532",
+      "covered": "person",
+      "by": "a photo from their own phone (a file from the device)"
+    },
+    {
+      "path": "Phone → Walkthrough → Add an item: what to check, detail",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:569",
+      "covered": "yes",
+      "by": "realestate_walkthrough_add_item"
+    },
+    {
+      "path": "Phone → Walkthrough → Finish: the clients agree it’s as agreed",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:646",
+      "covered": "yes",
+      "by": "realestate_walkthrough_finish"
+    },
+    {
+      "path": "Phone → Walkthrough → done: N to fix (who, due), proof done, clients agreed",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/walkthrough.tsx:429",
+      "covered": "yes",
+      "by": "realestate_walkthrough"
+    },
+    {
+      "path": "Phone → Open houses → Hand the phone to a visitor → first, last, email, phone, working with an agent, their agent → Sign in, Next visitor, hand it back",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/open-houses.tsx:203",
+      "covered": "never",
+      "by": "realestate.open_house.sign_in is on the NEVER list (the visitor’s own)"
+    },
+    {
+      "path": "Phone → Open houses → Check in (safety)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/open-houses.tsx:213",
+      "covered": "no",
+      "by": "safety.check_in has no Assistant tool"
+    },
+    {
+      "path": "Phone → Open houses → host, signed in N, has an agent, texts OK; others",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/open-houses.tsx:216",
+      "covered": "yes",
+      "by": "realestate_open_houses visitors"
+    },
+    {
+      "path": "Phone → Photos → Take a photo (camera)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/listing-photos.tsx:179",
+      "covered": "person",
+      "by": "a photo from their own phone (a file from the device)"
+    },
+    {
+      "path": "Phone → Photos → a photo → Make it the cover",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/listing-photos.tsx:193",
+      "covered": "partly",
+      "by": "realestate_listing_photos_arrange (re-13)"
+    },
+    {
+      "path": "Phone → a deal not on this phone, or a page that needs signal (summary chip)",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/buyer-kit.tsx:70",
+      "covered": "yes",
+      "by": "the Assistant reads the deal from the server"
+    }
+  ],
   "gaps": [
     {
       "id": "re-1",

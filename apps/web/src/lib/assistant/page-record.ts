@@ -13,10 +13,13 @@ export { assistantPageRecord as pageRecord };
 
 export function usePageRecord(workspaceId: string): PageRecord | null {
   const pathname = usePathname();
-  const appt = useSearchParams().get('appt');
+  const params = useSearchParams();
+  const appt = params.get('appt');
+  // The lead open in the pipeline board's side sheet.
+  const lead = params.get('lead');
   return useMemo(
-    () => assistantPageRecord(pathname, workspaceId, appt),
-    [pathname, workspaceId, appt],
+    () => assistantPageRecord(pathname, workspaceId, appt, lead),
+    [pathname, workspaceId, appt, lead],
   );
 }
 

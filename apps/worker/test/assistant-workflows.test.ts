@@ -32,6 +32,7 @@ import { consentToAssistant } from './assistant-consent';
 import { scriptedAi } from '../src/ai/scripted';
 import { questionContext, toolsFor } from '../src/assistant/context';
 import { contextText, SYSTEM } from '../src/assistant/prompt';
+import type { ToolContext } from '../src/assistant/runtime';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
@@ -682,5 +683,166 @@ describe('workflows and knowledge in the Assistant', () => {
     // What they may do still works: looking up workflows.
     events = await ask(memberToken, 'Show my workflows');
     expect(cardOf(events, 'list')?.items).toHaveLength(2);
+  });
+});
+
+describe('workflow approvals, read in full and answered text by text', () => {
+  let organizationId: string;
+  let twoTexts: string;
+  let lapsed: string;
+  const direct = () => createToolExecutor(api());
+  const ctx = (u: TestUser = owner): ToolContext => ({
+    actor: actor(u),
+    workspaceId: ws,
+    organizationId,
+    correlationId: randomUUID(),
+    timezone: 'America/Chicago',
+  });
+  const tool = (name: string) => assistantToolByName.get(name)!;
+  const argsOf = (name: string, args: Record<string, unknown>) =>
+    tool(name).input.parse(args) as Record<string, unknown>;
+  type Confirm = Extract<AssistantCard, { type: 'confirm' }>;
+  const prepare = async (name: string, args: Record<string, unknown>) =>
+    (await direct().prepare(tool(name), argsOf(name, args), ctx(), randomUUID())) as {
+      card: Confirm;
+      result: Record<string, unknown>;
+    };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const read = async (name: string, args: Record<string, unknown>): Promise<any> =>
+    (await direct().run(tool(name), argsOf(name, args), ctx())).result;
+  /** A run of Follow-up call for Mike, waiting on an approval with this preview and expiry, asking the member. */
+  const waitingApproval = async (preview: Record<string, unknown>, expiresAt: string) => {
+    const [r] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.workflow_runs (workspace_id, workflow_id, version_id, person_id, dedupe_key, status)
+          values (${ws}, ${followUp}, ${followUpVersion}, ${mike}, ${randomUUID()}, 'awaiting_approval')
+          returning id`,
+    );
+    const [a] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.workflow_approvals (workspace_id, workflow_id, run_id, step_key, approvers, preview, expires_at)
+          values (${ws}, ${followUp}, ${r!.id}, 's_fupaprv1#1', ${`{${member.id}}`}::uuid[],
+            ${JSON.stringify(preview)}::jsonb, ${expiresAt}::timestamptz)
+          returning id`,
+    );
+    return a!.id;
+  };
+
+  beforeAll(async () => {
+    const [w] = await rows<{ organization_id: string }>(
+      admin(),
+      sql`select organization_id from app.workspaces where id = ${ws}`,
+    );
+    organizationId = w!.organization_id;
+    twoTexts = await waitingApproval(
+      {
+        message: 'Check the email before it goes',
+        fields: { subject: 'Your Tuesday visit', message: 'Hi Mike, we can come Tuesday at 9.' },
+        channel: 'email',
+        customer: 'Mike Johnson',
+        asked: 'Can you come this week?',
+        items: [{ id: financing, kind: 'faq', title: 'Do you offer financing?' }],
+      },
+      new Date(Date.now() + 2 * 3_600_000).toISOString(),
+    );
+    lapsed = await waitingApproval(
+      {
+        fields: { message: 'Hi Mike, still want that quote?' },
+        channel: 'sms',
+        customer: 'Mike Johnson',
+      },
+      new Date(Date.now() - 60_000).toISOString(),
+    );
+  });
+
+  it('reads what the AI wrote, what the customer said, who was asked and when it expires', async () => {
+    const { approvals } = await read('list_workflow_approvals', {});
+    expect(approvals.find((a: { id: string }) => a.id === twoTexts)).toMatchObject({
+      workflow: { id: followUp, name: 'Follow-up call' },
+      customer: 'Mike Johnson',
+      whatGoesOut: 'an email',
+      note: 'Check the email before it goes',
+      aiWritten: {
+        subject: { label: 'The email that will go', ai_wrote: 'Your Tuesday visit' },
+        message: {
+          label: 'The email that will go',
+          ai_wrote: 'Hi Mike, we can come Tuesday at 9.',
+        },
+      },
+      theirLatestMessage: { customer_wrote: 'Can you come this week?' },
+      knowledgeUsed: ['Do you offer financing?'],
+      asked: expect.stringMatching(/^asked /),
+      expires: expect.any(String),
+      canDecide: true,
+    });
+    expect(approvals.find((a: { id: string }) => a.id === lapsed)).toMatchObject({
+      expired: 'This expired. The workflow goes on as its approval step says.',
+      canDecide: false,
+    });
+  });
+
+  it('edits each AI-written text by its key, and refuses a key it doesn’t have', async () => {
+    const args = { approvalId: twoTexts, decision: 'approve', edits: { subject: 'Tuesday at 9' } };
+    const { card, result } = await prepare('answer_workflow_approval', args);
+    // Both texts are on the card, the subject in the approver's words (in the order the database keeps the keys).
+    const texts = card.fields
+      .filter((f) => f.label === 'The email that will go')
+      .map((f) => f.value);
+    expect(texts).toHaveLength(2);
+    expect(texts).toEqual(
+      expect.arrayContaining(['Tuesday at 9', 'Hi Mike, we can come Tuesday at 9.']),
+    );
+    expect(card.body).toBe(null);
+    // It reaches Mike, and the card says so.
+    expect(card.warnings).toContainEqual({
+      kind: 'caution',
+      text: 'The email goes to Mike Johnson once you confirm.',
+    });
+    expect(result['edited']).toEqual(['subject']);
+    expect(result['text']).toEqual({
+      subject: { ai_wrote: 'Tuesday at 9' },
+      message: { ai_wrote: 'Hi Mike, we can come Tuesday at 9.' },
+    });
+    await expect(
+      prepare('answer_workflow_approval', { ...args, edits: { greeting: 'Hello' } }),
+    ).rejects.toThrow(/no AI-written text called greeting/);
+
+    await direct().commit(
+      tool('answer_workflow_approval'),
+      argsOf('answer_workflow_approval', args),
+      ctx(),
+      { toolCallId: randomUUID() },
+    );
+    const [row] = await rows<{ status: string; edits: unknown }>(
+      admin(),
+      sql`select status::text as status, edits from app.workflow_approvals where id = ${twoTexts}`,
+    );
+    expect(row).toEqual({ status: 'approved', edits: { subject: 'Tuesday at 9' } });
+  });
+
+  it('won’t offer to decide one that has expired', async () => {
+    const { card, result } = await prepare('answer_workflow_approval', {
+      approvalId: lapsed,
+      decision: 'approve',
+    });
+    expect(card.confirmLabel).toBe('');
+    expect(card.warnings).toContainEqual({
+      kind: 'blocked',
+      text: 'This expired. The workflow goes on as its approval step says.',
+    });
+    expect(result['cannotDecide']).toBe(
+      'This expired. The workflow goes on as its approval step says.',
+    );
+  });
+
+  it('reads the Decided list, with who decided, when and whether they changed the words', async () => {
+    const { approvals } = await read('list_workflow_approvals', { status: 'approved' });
+    expect(approvals.find((a: { id: string }) => a.id === twoTexts)).toMatchObject({
+      decided: 'Approved by Test with an edit in the Assistant',
+      when: expect.any(String),
+      edited: true,
+    });
+    const waiting = await read('list_workflow_approvals', {});
+    expect(waiting.approvals.map((a: { id: string }) => a.id)).not.toContain(twoTexts);
   });
 });

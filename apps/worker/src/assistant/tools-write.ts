@@ -5,11 +5,14 @@ import {
   formatClock,
   formatPhone,
   HfosError,
+  instantOfInput,
   isAddonAiTool,
   isScreenActionTool,
   isScreenReadTool,
   normalizePhone,
   SOCIAL_CHANNEL_NAMES,
+  taskDueBucket,
+  dueLabel,
   VIDEO_LINK_DAYS,
   VIDEO_CALL_WORDS,
   videoCallAppPath,
@@ -41,7 +44,7 @@ import { attentionAutoTools, attentionConfirmTools } from './tools-attention';
 import { calendarConfirmTools } from './tools-calendar';
 import { contactConfirmTools, contactReadTools } from './tools-contacts';
 import { moneyConfirmTools, moneyReadTools } from './tools-money';
-import { command, money, paths, query, readTools, rehearse, when } from './tools-read';
+import { command, dueWords, money, paths, query, readTools, rehearse, when } from './tools-read';
 import { settingsReadTools } from './tools-settings';
 import { settingsBusinessConfirmTools } from './tools-settings-business';
 import { settingsChannelConfirmTools } from './tools-settings-channels';
@@ -122,35 +125,82 @@ const FIELD_WORDS: Record<string, string> = {
   leadId: 'lead',
 };
 
+/**
+ * A due date as the task dialog sets it: a date alone is all day, kept at noon where the business is (so its day is
+ * the same day across the US); a date and time is due then. Undefined when none was given; null takes it off.
+ */
+function dueOf(
+  value: unknown,
+  timezone: string,
+): { dueAt: string | null; allDay: boolean | undefined } | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return { dueAt: null, allDay: undefined };
+  const v = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const noon = instantOfInput(v, timezone);
+    if (noon === null)
+      throw HfosError.validation(
+        [{ path: 'dueAt', message: 'Use a date like 2026-11-13.' }],
+        `${v} isn’t a date. Give one like 2026-11-13, or a date and time.`,
+      );
+    return { dueAt: new Date(noon).toISOString(), allDay: true };
+  }
+  return { dueAt: new Date(v).toISOString(), allDay: false };
+}
+
+/** The task's due words, as its row on the Tasks page says them: "Today", "Fri", "Overdue · Nov 2, 9:00 AM". */
+const dueRow = (dueAt: string | null, allDay: boolean, timezone: string) => {
+  const t = { dueAt, allDay, doneAt: null };
+  return dueLabel({ ...t, dueBucket: taskDueBucket(t, timezone) }, new Date(), timezone).text;
+};
+
 const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>> = {
   async create_task(db, ctx, args) {
+    const due = dueOf(args['dueAt'], ctx.timezone);
+    // A lead's New task is on its customer and company too, as the lead's own Tasks section adds it.
+    let personId = str(args['personId']) ?? null;
+    let companyId = str(args['companyId']) ?? null;
+    const leadId = str(args['leadId']) ?? null;
+    if (leadId && !personId && !companyId) {
+      const { lead } = await query<{
+        lead: { person: { id: string } | null; company: { id: string } | null };
+      }>(db, ctx, 'lead.get', { leadId });
+      personId = lead.person?.id ?? null;
+      companyId = lead.company?.id ?? null;
+    }
     const { taskId } = await command<{ taskId: string }>(db, ctx, 'task.create', {
       title: args['title'],
       notes: str(args['notes']) ?? null,
-      dueAt: args['dueAt'] ?? null,
-      allDay: args['allDay'] ?? false,
+      dueAt: due?.dueAt ?? null,
+      allDay: due?.allDay ?? true,
       // A task nobody was named for is the asker's own, as when they add one themselves.
       assigneeUserId: args['assigneeUserId'] ?? ctx.actor.userId,
-      personId: args['personId'] ?? null,
-      companyId: args['companyId'] ?? null,
-      leadId: args['leadId'] ?? null,
+      personId,
+      companyId,
+      leadId,
       customRecordId: args['customRecordId'] ?? null,
     });
     const assignee = args['assigneeUserId'] ?? ctx.actor.userId;
     const who =
       assignee === ctx.actor.userId ? 'You' : ((await teammate(db, ctx, assignee)) ?? 'A teammate');
-    const due = args['dueAt'] ? when(String(args['dueAt']), ctx.timezone) : 'No due date';
+    const dueAt = due?.dueAt ?? null;
+    const allDay = due?.allDay ?? true;
     const href = paths(ctx.workspaceId).tasks();
     const title = String(args['title']);
     return {
-      result: { taskId, added: true, assignee: who, due },
+      result: {
+        taskId,
+        added: true,
+        assignee: who,
+        due: dueWords({ dueAt, allDay }, ctx.timezone),
+      },
       command: 'task.create',
       card: {
         type: 'done',
         toolCallId: PENDING_ID,
         kind: 'task',
         title,
-        detail: `${who} · ${due}`,
+        detail: `${who} · ${dueRow(dueAt, allDay, ctx.timezone)}`,
         href,
         undoable: true,
       },
@@ -159,6 +209,10 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
   },
 
   async update_task(db, ctx, args) {
+    // A date alone is all day and a time isn't, as Edit task's At a specific time; allDay alone switches it.
+    const due = dueOf(args['dueAt'], ctx.timezone);
+    const allDay =
+      due?.allDay === true ? true : args['allDay'] !== undefined ? args['allDay'] : due?.allDay;
     const { updated } = await command<{ taskId: string; updated: string[] }>(
       db,
       ctx,
@@ -166,8 +220,8 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
       defined({
         taskId: args['taskId'],
         title: args['title'],
-        dueAt: args['dueAt'],
-        allDay: args['allDay'],
+        dueAt: due?.dueAt,
+        allDay,
         assigneeUserId: args['assigneeUserId'],
         notes: args['notes'],
         leadId: args['leadId'],
@@ -207,6 +261,63 @@ const autoWrites: Record<string, (db: Db, ctx: ToolContext, args: Args) => Promi
         undoable: true,
       },
       record: { taskId: args['taskId'], outcome: 'Marked the task done', href },
+    };
+  },
+
+  async reopen_task(db, ctx, args) {
+    const href = paths(ctx.workspaceId).tasks();
+    // A task that is still open stays as it is: task.reopen changes nothing, and Undo mustn't then tick it off.
+    const { items } = await query<{ items: { title: string; doneAt: string | null }[] }>(
+      db,
+      ctx,
+      'task.list',
+      { scope: 'all', status: 'all', taskId: args['taskId'], limit: 1 },
+    );
+    const task = items[0];
+    if (!task)
+      throw HfosError.notFound(
+        'That task isn’t there anymore. It may have been deleted. Look on the Tasks page.',
+      );
+    if (!task.doneAt)
+      return {
+        result: { taskId: args['taskId'], open: true, note: 'It was already open.' },
+        card: {
+          type: 'done',
+          toolCallId: PENDING_ID,
+          kind: 'task',
+          title: task.title,
+          detail: 'Already open, so nothing changed',
+          href,
+          undoable: false,
+        },
+        record: { taskId: args['taskId'], outcome: 'The task was already open', href, undo: false },
+      };
+    const out = await command<{ notApplied?: string[] }>(db, ctx, 'task.reopen', {
+      taskId: args['taskId'],
+    });
+    // Someone ticked it off again after this was asked: theirs stands.
+    const kept = !!out.notApplied?.length;
+    return {
+      result: {
+        taskId: args['taskId'],
+        open: !kept,
+        ...(kept ? { note: 'Someone marked it done again after that, so it stays done.' } : {}),
+      },
+      command: 'task.reopen',
+      card: {
+        type: 'done',
+        toolCallId: PENDING_ID,
+        kind: 'task',
+        title: kept ? task.title : 'Task reopened',
+        detail: kept
+          ? 'Someone marked it done again after that, so it stays done'
+          : 'It’s open again',
+        href,
+        undoable: !kept,
+      },
+      record: kept
+        ? { taskId: args['taskId'], outcome: 'The task stayed done', href, undo: false }
+        : { taskId: args['taskId'], outcome: 'Reopened the task', href },
     };
   },
 
@@ -1114,6 +1225,7 @@ const startVideoCall: ConfirmTool = {
 interface LeadLite {
   id: string;
   title: string;
+  pipelineId: string;
   stageId: string;
   stageName: string;
   valueCents: number;
@@ -1124,6 +1236,7 @@ interface LeadLite {
   assignee: { id: string; fullName: string } | null;
   nextAction: string | null;
   nextActionAt: string | null;
+  lostReason: string | null;
 }
 const leadGet = (db: Db, ctx: ToolContext, leadId: unknown) =>
   query<{ lead: LeadLite; stages: { id: string; name: string; kind: string }[] }>(
@@ -1135,6 +1248,34 @@ const leadGet = (db: Db, ctx: ToolContext, leadId: unknown) =>
 const leadLine = (l: LeadLite) =>
   `${l.title} · ${l.person?.fullName ?? l.company?.name ?? 'No customer'} · ${money(l.valueCents)}`;
 
+/**
+ * Where in its stage a lead goes, as dragging its card up or down places it: "At the top", or after the lead named.
+ * The lead to go after has to be in that stage, or the move would quietly put it at the bottom instead.
+ */
+async function placeWords(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  to: { id: string; name: string },
+  pipelineId: string,
+): Promise<string | null> {
+  const after = args['afterLeadId'];
+  if (after === undefined) return null;
+  if (after === null) return `At the top of ${to.name}`;
+  if (after === args['leadId'])
+    throw HfosError.validation(
+      [{ path: 'afterLeadId', message: 'Pick another lead.' }],
+      'A lead can’t go after itself. Name the lead it should follow, or null for the top.',
+    );
+  const { lead: other } = await leadGet(db, ctx, after);
+  if (other.stageId !== to.id)
+    throw HfosError.validation(
+      [{ path: 'afterLeadId', message: 'That lead is in another stage.' }],
+      `${other.title} is ${other.pipelineId === pipelineId ? `in ${other.stageName}, not ${to.name}` : 'in another pipeline'}. Name a lead of ${to.name} for it to follow, or null for the top.`,
+    );
+  return `After ${other.title} in ${to.name}`;
+}
+
 const moveLead: ConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { lead, stages } = await leadGet(db, ctx, args['leadId']);
@@ -1144,28 +1285,34 @@ const moveLead: ConfirmTool = {
         [],
         'That stage isn’t in this lead’s pipeline. Use one of the stage ids get_lead gives for this lead.',
       );
-    if (to.id === lead.stageId)
+    const sameStage = to.id === lead.stageId;
+    if (sameStage && args['afterLeadId'] === undefined)
       throw HfosError.rule(
         'same_stage',
         409,
-        `It’s already in ${to.name}, so nothing would change.`,
+        `It’s already in ${to.name}, so nothing would change. To move it up or down there, give afterLeadId (null for the top).`,
       );
+    const place = await placeWords(db, ctx, args, to, lead.pipelineId);
     const reason = str(args['lostReason']);
-    const lost = to.kind === 'lost';
+    // Moving it within the lost stage keeps the reason it was lost for.
+    const lost = to.kind === 'lost' && !sameStage;
     return {
       card: confirmCard(toolCallId, 'move_lead', {
-        title: lost
-          ? 'Mark this lead as lost?'
-          : to.kind === 'won'
-            ? 'Mark this lead as won?'
-            : 'Move this lead?',
+        title: sameStage
+          ? `Move this lead within ${to.name}?`
+          : lost
+            ? 'Mark this lead as lost?'
+            : to.kind === 'won'
+              ? 'Mark this lead as won?'
+              : 'Move this lead?',
         fields: [
           { label: 'Lead', value: leadLine(lead) },
+          ...(place ? [{ label: 'Place', value: place }] : []),
           ...(lost && reason ? [{ label: 'Reason', value: reason }] : []),
         ],
         body: null,
-        stageFrom: lead.stageName,
-        stageTo: to.name,
+        stageFrom: sameStage ? null : lead.stageName,
+        stageTo: sameStage ? null : to.name,
         warnings: [],
         reasons: lost && !reason ? LOST_REASONS : [],
         confirmLabel: lost ? 'Mark as lost' : 'Move lead',
@@ -1175,19 +1322,24 @@ const moveLead: ConfirmTool = {
         lead: lead.title,
         from: lead.stageName,
         to: to.name,
+        ...(place ? { place } : {}),
         ...(lost && !reason ? { needsReason: true } : {}),
       },
     };
   },
   async commit(db, ctx, args, extra) {
-    const { stages } = await leadGet(db, ctx, args['leadId']);
+    const { lead, stages } = await leadGet(db, ctx, args['leadId']);
     const to = stages.find((s) => s.id === args['stageId']);
     if (!to)
       throw HfosError.validation(
         [],
         'That stage isn’t in this lead’s pipeline anymore. It may have been removed in Settings → Pipelines. Ask again to move it to another stage.',
       );
-    const reason = extra.lostReason ?? str(args['lostReason']);
+    const sameStage = to.id === lead.stageId;
+    const reason =
+      extra.lostReason ??
+      str(args['lostReason']) ??
+      (sameStage ? (lead.lostReason ?? undefined) : undefined);
     if (to.kind === 'lost' && !reason)
       throw HfosError.validation(
         [],
@@ -1200,11 +1352,16 @@ const moveLead: ConfirmTool = {
       defined({
         leadId: args['leadId'],
         stageId: to.id,
+        afterLeadId: args['afterLeadId'],
         lostReason: to.kind === 'lost' ? reason : undefined,
       }),
     );
     return {
-      outcome: to.kind === 'lost' ? `Marked as lost: ${reason}` : `Moved to ${to.name}`,
+      outcome: sameStage
+        ? `Moved it within ${to.name}`
+        : to.kind === 'lost'
+          ? `Marked as lost: ${reason}`
+          : `Moved to ${to.name}`,
       href: paths(ctx.workspaceId).lead(String(args['leadId'])),
       command: 'lead.move_stage',
     };
@@ -1676,12 +1833,21 @@ export function createToolExecutor(
         case 'complete_task':
           await command(db, ctx, 'task.reopen', { taskId: record['taskId'] });
           return 'Undone. The task is open again.';
+        case 'reopen_task':
+          // It was already open, or stayed done: nothing changed, so nothing is ticked off.
+          if (record['undo'] === false)
+            throw HfosError.conflict(
+              'Nothing changed, so there’s nothing to undo.',
+              'nothing_to_undo',
+            );
+          await command(db, ctx, 'task.complete', { taskId: record['taskId'] });
+          return 'Undone. The task is done again.';
         case 'add_note':
           await command(db, ctx, 'activity.delete', { activityId: record['activityId'] });
           return `Undone. The ${typeof record['kind'] === 'string' ? record['kind'] : 'note'} is gone.`;
         default:
           throw HfosError.conflict(
-            'This can’t be undone from here. Only a task or note the Assistant added, or a task it completed, can be.',
+            'This can’t be undone from here. Only a task or note the Assistant added, or a task it completed or reopened, can be.',
             'nothing_to_undo',
           );
       }

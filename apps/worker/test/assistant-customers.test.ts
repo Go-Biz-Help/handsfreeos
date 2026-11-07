@@ -345,7 +345,10 @@ describe('tasks on a company or a record', () => {
       }),
     ]);
     expect((await read('list_tasks', { companyId: pine })).tasks).toEqual([
-      expect.objectContaining({ title: 'Send the clinic a quote', company: 'Pine Clinic' }),
+      expect.objectContaining({
+        title: 'Send the clinic a quote',
+        company: { id: pine, name: 'Pine Clinic' },
+      }),
     ]);
 
     await run(taskComplete, { workspaceId, taskId: rexTask }, dale);

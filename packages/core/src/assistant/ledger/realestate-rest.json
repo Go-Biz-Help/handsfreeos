@@ -2,8 +2,1605 @@
   "area": "realestate-rest",
   "title": "The Real Estate Agent add-on: the deals list, coordinate, duties, vendors and Deal settings",
   "checkedOn": "2026-11-06",
-  "files": {},
-  "items": [],
+  "files": {
+    "apps/mobile/src/addons/realestate/coordinate.tsx": "5c8cabbfafe6",
+    "apps/mobile/src/addons/realestate/deal-bits.tsx": "a021262ad124",
+    "apps/mobile/src/addons/realestate/deals.tsx": "708b5ee0ade6",
+    "apps/mobile/src/addons/realestate/duties.tsx": "9046ab3ea42a",
+    "apps/mobile/src/addons/realestate/duty-sheet.tsx": "a7df02f187de",
+    "apps/mobile/src/addons/realestate/duty-vendors.tsx": "5833b7aa35a6",
+    "apps/mobile/src/addons/realestate/kit.tsx": "bd0e3c3db032",
+    "apps/mobile/src/addons/realestate/more.tsx": "f69dbd67fb9a",
+    "apps/mobile/src/addons/realestate/vendors.tsx": "4803712f823b",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/_layout.tsx": "086e048dabfe",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/coordinate.tsx": "10dfe1378bdb",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/duties.tsx": "82b9fa72d050",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/index.tsx": "828ef9fc3a13",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/vendors.tsx": "849cdec789d9",
+    "apps/web/src/addons/realestate/bits.tsx": "db463b1d6d90",
+    "apps/web/src/addons/realestate/company-panel.tsx": "fae5d11df654",
+    "apps/web/src/addons/realestate/coordinate-page.tsx": "dcb0ad6aa2ad",
+    "apps/web/src/addons/realestate/deal-dialogs.tsx": "5e76134121ef",
+    "apps/web/src/addons/realestate/deal-settings.tsx": "219ee5584d06",
+    "apps/web/src/addons/realestate/deals-home.tsx": "321e43a2bac4",
+    "apps/web/src/addons/realestate/deals-panel.tsx": "4a18e5cd40d1",
+    "apps/web/src/addons/realestate/duty-drawer.tsx": "505e848c90f8",
+    "apps/web/src/addons/realestate/duty-list.tsx": "9a63c244db42",
+    "apps/web/src/addons/realestate/keeping.tsx": "f64de71e05a7",
+    "apps/web/src/addons/realestate/lead-panel.tsx": "5e3f4490f404",
+    "apps/web/src/addons/realestate/my-duties.tsx": "6d895d616ccf",
+    "apps/web/src/addons/realestate/person-panel.tsx": "8fbbf506be1e",
+    "apps/web/src/addons/realestate/record-panel.tsx": "80a6285c2b69",
+    "apps/web/src/addons/realestate/rule-editors.tsx": "7b82138eb5b5",
+    "apps/web/src/addons/realestate/settings-link.tsx": "b2d6eafd2af2",
+    "apps/web/src/addons/realestate/start-deal-dialog.tsx": "4e6cb78200c6",
+    "apps/web/src/addons/realestate/vendors-page.tsx": "845322f3c48b",
+    "apps/web/src/app/app/w/[workspaceId]/a/realestate/coordinate/page.tsx": "040bca92c059",
+    "apps/web/src/app/app/w/[workspaceId]/a/realestate/duties/page.tsx": "4eb77e63355c",
+    "apps/web/src/app/app/w/[workspaceId]/a/realestate/page.tsx": "714b6749422a",
+    "apps/web/src/app/app/w/[workspaceId]/a/realestate/settings/page.tsx": "d711bc309a26",
+    "apps/web/src/app/app/w/[workspaceId]/a/realestate/vendors/page.tsx": "2717306a4433",
+    "apps/web/src/components/addons/connections.tsx": "9d4b4706c549",
+    "apps/web/src/components/crm/record-picker.tsx": "415ed8b189ad",
+    "apps/web/src/components/settings/support-access-card.tsx": "136227a6f294",
+    "packages/core/src/addons/realestate/manifest.ts": "5388ac67bb8f"
+  },
+  "items": [
+    {
+      "path": "Real Estate (web, phone) → opened while the add-on is off, or without Real Estate access: not available / not found",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/realestate/page.tsx:58",
+      "covered": "yes",
+      "by": "realestate_* tools not offered then; a call says it’s off and who can turn it on"
+    },
+    {
+      "path": "Sidebar → Real Estate: Deals, My duties, Coordinate, Vendors, Deal settings",
+      "kind": "do",
+      "file": "packages/core/src/addons/realestate/manifest.ts:1501",
+      "covered": "yes",
+      "by": "realestate_find_deals, realestate_list_duties, realestate_today, realestate_vendors, realestate_template_list"
+    },
+    {
+      "path": "Deals → header: business · N open · time zone",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:163",
+      "covered": "yes",
+      "by": "realestate_find_deals status open (count); time zone in its context"
+    },
+    {
+      "path": "Deals → header with filters: N of M open match",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:162",
+      "covered": "yes",
+      "by": "realestate_find_deals with and without the filters"
+    },
+    {
+      "path": "Deals → Start a listing",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:167",
+      "covered": "yes",
+      "by": "realestate_open_deal side listing (asks first)"
+    },
+    {
+      "path": "Deals → Start a buyer deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:174",
+      "covered": "yes",
+      "by": "realestate_open_deal side buyer (asks first)"
+    },
+    {
+      "path": "Deals → counts: Healthy, Needs attention, At risk (open deals)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:183",
+      "covered": "yes",
+      "by": "realestate_find_deals → each deal’s health"
+    },
+    {
+      "path": "Deals → Dates to confirm: count → Confirm",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:188",
+      "covered": "yes",
+      "by": "realestate_find_deals datesToConfirm; realestate_confirm_date"
+    },
+    {
+      "path": "Deals → tabs: My deals · N, All deals · N, Needs attention · N, Closed, Archived",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:207",
+      "covered": "yes",
+      "by": "realestate_find_deals mine, status open/closed/ended/archived; health, datesToConfirm"
+    },
+    {
+      "path": "Deals → Find a deal or address",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:229",
+      "covered": "yes",
+      "by": "realestate_find_deals search (name, client or address)"
+    },
+    {
+      "path": "Deals → filter Agent: Any or a main agent",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:244",
+      "covered": "yes",
+      "by": "realestate_find_deals agentUserId; list_team ids"
+    },
+    {
+      "path": "Deals → filter Side: Buyer, Listing",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:251",
+      "covered": "yes",
+      "by": "realestate_find_deals side"
+    },
+    {
+      "path": "Deals → filter Stage: Any or a stage (of the side picked)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:261",
+      "covered": "partly",
+      "by": "realestate_find_deals stage; no tool lists the stage keys"
+    },
+    {
+      "path": "Deals → filter Closing within: 14, 30, 60, 90 days",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:268",
+      "covered": "yes",
+      "by": "realestate_find_deals closingWithinDays"
+    },
+    {
+      "path": "Deals → filter Waiting on: someone outside, blocked, either",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:275",
+      "covered": "yes",
+      "by": "realestate_find_deals waitingOn"
+    },
+    {
+      "path": "Deals → filter Health: At risk, Needs attention, On track",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:282",
+      "covered": "yes",
+      "by": "realestate_find_deals → health (no input; kept from the answer)"
+    },
+    {
+      "path": "Deals → filters → Clear",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:293",
+      "covered": "yes",
+      "by": "realestate_find_deals without filters"
+    },
+    {
+      "path": "Deals → empty: No deal matches that / You’re not on any open deals yet / Nothing needs attention / No closed deals yet / Nothing archived / No open deals yet, start one",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:307",
+      "covered": "yes",
+      "by": "realestate_find_deals (none)"
+    },
+    {
+      "path": "Deals → each row: health dot, deal name · address, line (Archived, how it ended, what’s wrong first, N dates to confirm, On track)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:358",
+      "covered": "yes",
+      "by": "realestate_find_deals health, name, property.address, archived, outcome, headline, datesToConfirm"
+    },
+    {
+      "path": "Deals → each row: Side badge",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:368",
+      "covered": "yes",
+      "by": "realestate_find_deals side"
+    },
+    {
+      "path": "Deals → each row: Stage, or how it ended",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:370",
+      "covered": "yes",
+      "by": "realestate_find_deals stageLabel, outcome"
+    },
+    {
+      "path": "Deals → each row: Next duty (title, when due) or Waiting on (what, who)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:371",
+      "covered": "yes",
+      "by": "realestate_find_deals nextDue, waiting"
+    },
+    {
+      "path": "Deals → each row: Closing date",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:398",
+      "covered": "yes",
+      "by": "realestate_find_deals closing"
+    },
+    {
+      "path": "Deals → each row: Agent",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:399",
+      "covered": "yes",
+      "by": "realestate_find_deals mainAgent.name"
+    },
+    {
+      "path": "Deals → each row → open the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-home.tsx:351",
+      "covered": "yes",
+      "by": "realestate_get_deal dealId (the deal itself: realestate-deals ledger)"
+    },
+    {
+      "path": "Deals → Start a deal → Deal name (suggested: Nguyen purchase, Listing · address)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:179",
+      "covered": "yes",
+      "by": "realestate_open_deal name"
+    },
+    {
+      "path": "Deals → Start a deal → Client / Seller: pick a customer (a person, not a company)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:192",
+      "covered": "yes",
+      "by": "realestate_open_deal clientPersonId; search_customers finds them"
+    },
+    {
+      "path": "Deals → Start a deal → Client hint: add a spouse, co-buyer or co-owner on the deal’s page",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:196",
+      "covered": "yes",
+      "by": "realestate_deal_add_person / realestate_party_add"
+    },
+    {
+      "path": "Deals → Start a deal → Property: street address, or a home already here (address · N deals) → Change",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:221",
+      "covered": "yes",
+      "by": "realestate_open_deal propertyId / newPropertyAddress; realestate_property_search"
+    },
+    {
+      "path": "Deals → Start a deal → Property hints: a home already here keeps its deals; none yet, add it at the accepted offer; the home being sold",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:213",
+      "covered": "partly",
+      "by": "realestate_property_search says homes here; the advice isn’t told"
+    },
+    {
+      "path": "Deals → Start a deal → Starting stage (+ duties for earlier stages are added too)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:269",
+      "covered": "partly",
+      "by": "realestate_open_deal stage; the side’s stage keys aren’t listed"
+    },
+    {
+      "path": "Deals → Start a deal → From the Pipeline: the lead (read-only), kept on the Pipeline, linked",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:287",
+      "covered": "yes",
+      "by": "realestate_open_deal leadId"
+    },
+    {
+      "path": "Deals → Start a deal → Main agent (owners and admins), or You’ll be its main agent; only the deal’s people see it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:296",
+      "covered": "yes",
+      "by": "realestate_open_deal mainAgentUserId; list_team ids"
+    },
+    {
+      "path": "Deals → Start a deal → Cancel",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:318",
+      "covered": "yes",
+      "by": "the card waits for an OK; nothing runs without it"
+    },
+    {
+      "path": "Deals → Start a deal → Start the deal → Deal started, with N duties; opens it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:321",
+      "covered": "yes",
+      "by": "realestate_open_deal → dealId, dutiesCreated"
+    },
+    {
+      "path": "Deals → Start a deal → errors: Name the deal; Pick a person as the client; field errors",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/start-deal-dialog.tsx:131",
+      "covered": "yes",
+      "by": "realestate_open_deal refusals come back in words"
+    },
+    {
+      "path": "Phone → Deals → title; N open · business, or Every deal · business",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:227",
+      "covered": "yes",
+      "by": "realestate_find_deals"
+    },
+    {
+      "path": "Phone → Deals → Find a deal or address (search button)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:238",
+      "covered": "yes",
+      "by": "realestate_find_deals search"
+    },
+    {
+      "path": "Phone → Deals → Whose deals: Mine · N, Every deal · N (sees every deal)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:277",
+      "covered": "yes",
+      "by": "realestate_find_deals mine"
+    },
+    {
+      "path": "Phone → Deals → chips: Open (or Closed, Ended, Archived, Every deal), Buyers, Listings, At risk · N, Closing this month",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:296",
+      "covered": "yes",
+      "by": "realestate_find_deals status, side, closingWithinDays; health from the answer"
+    },
+    {
+      "path": "Phone → Deals → filters sheet: Side, How they’re doing, Stage, Agent",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:508",
+      "covered": "partly",
+      "by": "realestate_find_deals side, agentUserId, health; stage keys aren’t listed"
+    },
+    {
+      "path": "Phone → Deals → filters sheet → Sort by: Needs you, Closing, Newest",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:572",
+      "covered": "partly",
+      "by": "health, closing, nextDue to sort by; risk counts one deal at a time; no start date"
+    },
+    {
+      "path": "Phone → Deals → filters sheet → Show N deals / Clear",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:582",
+      "covered": "yes",
+      "by": "realestate_find_deals with or without filters"
+    },
+    {
+      "path": "Phone → Deals → each card: health dot, name, stage, address · client · X’s deal",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:436",
+      "covered": "yes",
+      "by": "realestate_find_deals health, name, stageLabel, property, client, mine, mainAgent"
+    },
+    {
+      "path": "Phone → Deals → each card: N things could stop this closing / need attention, else next duty, Waiting on X, N dates to confirm or On track · closing <day>",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:379",
+      "covered": "yes",
+      "by": "realestate_what_could_stop_closing per deal; realestate_find_deals nextDue, waiting, datesToConfirm, closing"
+    },
+    {
+      "path": "Phone → Deals → each card of yours: next two duties with when due",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:460",
+      "covered": "yes",
+      "by": "realestate_list_duties dealId → title, dueAt, overdue"
+    },
+    {
+      "path": "Phone → Deals → each card → open the deal",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:428",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Phone → Deals → empty: You’re not on any open deals yet / No open deals yet / No deal matches that; Clear the filters",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:337",
+      "covered": "yes",
+      "by": "realestate_find_deals (none)"
+    },
+    {
+      "path": "Phone → Deals → a deal you’re not on: Summary, duties and dates on this phone, and its footnote",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:456",
+      "covered": "no",
+      "by": "about the phone’s offline copy; nothing for the Assistant"
+    },
+    {
+      "path": "Phone → Deals → sort label and Up to date",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deals.tsx:335",
+      "covered": "no",
+      "by": "the phone’s own sync state"
+    },
+    {
+      "path": "Phone → Deals, Coordinate, My duties, Vendors → No signal · what this phone kept at <time>",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/deal-bits.tsx:106",
+      "covered": "no",
+      "by": "the phone’s own no-signal notice"
+    },
+    {
+      "path": "Phone → More → Real Estate → Deals: N open · N at risk",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/more.tsx:72",
+      "covered": "yes",
+      "by": "realestate_overview openDeals; realestate_find_deals health"
+    },
+    {
+      "path": "Phone → More → Real Estate → My duties: N today · N late / Nothing due today",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/more.tsx:79",
+      "covered": "yes",
+      "by": "realestate_list_duties overdue, dueAt; realestate_overview overdueDuties"
+    },
+    {
+      "path": "Phone → More → Real Estate → Coordinate: Today, exceptions, waiting, workload",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/more.tsx:86",
+      "covered": "yes",
+      "by": "realestate_today and the coordinate tools"
+    },
+    {
+      "path": "Phone → More → Real Estate → Vendors: N approved",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/more.tsx:93",
+      "covered": "yes",
+      "by": "realestate_vendors approved"
+    },
+    {
+      "path": "Phone → More → Real Estate → Deal settings opens on the web",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/more.tsx:105",
+      "covered": "no",
+      "by": "the phone’s note on where a page opens"
+    },
+    {
+      "path": "Customer, company, lead or property page → Real estate card: up to 5 deals (health, name, Buyer or Listing · stage or Closed · main agent)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-panel.tsx:82",
+      "covered": "yes",
+      "by": "realestate_deal_for personId / companyId / leadId / propertyId"
+    },
+    {
+      "path": "Real estate card → a deal → open it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-panel.tsx:86",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Real estate card → empty: No deals you can see yet / (lead) No deal from this lead yet, the lead stays on the Pipeline",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-panel.tsx:108",
+      "covered": "yes",
+      "by": "realestate_deal_for (none)"
+    },
+    {
+      "path": "Lead page → Real estate deal → when it closes you’ll be asked whether to mark the lead won",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deals-panel.tsx:114",
+      "covered": "yes",
+      "by": "realestate_deal_close markLeadWon"
+    },
+    {
+      "path": "Real estate card → Start a buyer deal / Start a listing (client, lead or property filled in)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deals-panel.tsx:121",
+      "covered": "yes",
+      "by": "realestate_open_deal clientPersonId, leadId, propertyId"
+    },
+    {
+      "path": "A deal’s plain record page → This is a deal in Real Estate Agent → Open the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/record-panel.tsx:22",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "Settings → Add-ons → Real Estate Agent → its settings: what’s there, Open Deal settings; not an owner: owners and admins change them",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/settings-link.tsx:13",
+      "covered": "yes",
+      "by": "read_addon_settings; realestate_template_list"
+    },
+    {
+      "path": "Coordinate → header: business · today · what this tab is for",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:114",
+      "covered": "yes",
+      "by": "realestate_today today"
+    },
+    {
+      "path": "Coordinate → Deals: All you see / Mine",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:119",
+      "covered": "yes",
+      "by": "realestate_today, _exceptions, _waiting_room, _workload mine"
+    },
+    {
+      "path": "Coordinate → Agent: Everyone or a teammate",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:136",
+      "covered": "yes",
+      "by": "the coordinate tools agentUserId; list_team ids"
+    },
+    {
+      "path": "Coordinate (web, phone) → tabs: Today · N, Exceptions · N, Waiting room · N, Workload (sees every deal)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:162",
+      "covered": "yes",
+      "by": "realestate_today, realestate_exceptions, realestate_waiting_room, realestate_workload"
+    },
+    {
+      "path": "Coordinate (web, phone) → Today → At risk · N: what, deal, Escalated, what to do next",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:343",
+      "covered": "yes",
+      "by": "realestate_today atRisk words, dealName, kind, next, level"
+    },
+    {
+      "path": "Coordinate (web, phone) → Today → At risk → Acknowledge (an escalated duty)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:364",
+      "covered": "yes",
+      "by": "realestate_duty_acknowledge"
+    },
+    {
+      "path": "Coordinate (web, phone) → Today → At risk → Open (the duty, or the deal)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:385",
+      "covered": "yes",
+      "by": "realestate_get_duty / realestate_get_deal"
+    },
+    {
+      "path": "Coordinate (web, phone) → Today → Overdue · N, Due today · N: duty, deal, who answers or Nobody accountable, when due",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:395",
+      "covered": "yes",
+      "by": "realestate_today overdue, dueToday"
+    },
+    {
+      "path": "Coordinate (web, phone) → Today → a duty → Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:338",
+      "covered": "yes",
+      "by": "realestate_get_duty"
+    },
+    {
+      "path": "Coordinate (web, phone) → Today → empty: Nothing at risk, overdue or due today",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:322",
+      "covered": "yes",
+      "by": "realestate_today (empty)"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Read values to confirm: deal · document · N values; from a scan or the PDF’s text",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:432",
+      "covered": "yes",
+      "by": "realestate_exceptions reads (documentTitle, waiting, scan)"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Read values → Check them",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:444",
+      "covered": "yes",
+      "by": "realestate_get_contract_read; realestate_contract_confirm"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Dates or terms that disagree (Linked deal moved): deal, what, next step",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:451",
+      "covered": "yes",
+      "by": "realestate_exceptions disagree words, next, linked"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Dates disagree → Open (the deal, Key dates)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:463",
+      "covered": "yes",
+      "by": "realestate_get_deal; realestate_term_resolve_conflict"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Contingencies past their end: deal · contingency, ended <date>, nothing recorded",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:467",
+      "covered": "yes",
+      "by": "realestate_exceptions contingencies label, endedOn"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Contingencies → Record it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:479",
+      "covered": "yes",
+      "by": "realestate_contingency_resolve"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Nobody accountable: deal · duty, pick who has it",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:484",
+      "covered": "yes",
+      "by": "realestate_exceptions nobodyAccountable"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Nobody accountable → Give it to… / Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:495",
+      "covered": "yes",
+      "by": "realestate_duty_assign; list_team ids"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Due soon without proof: deal · duty, when due, who answers",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:502",
+      "covered": "yes",
+      "by": "realestate_exceptions noProof"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → Blocked past its review time: deal · duty, blocker, whose to clear, review day",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:513",
+      "covered": "yes",
+      "by": "realestate_exceptions blocked"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → without proof / blocked → Open",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:509",
+      "covered": "yes",
+      "by": "realestate_get_duty"
+    },
+    {
+      "path": "Coordinate → Exceptions → note: each stays until it’s fixed; nothing here is a duty",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:527",
+      "covered": "partly",
+      "by": "realestate_exceptions says what it finds, not that items stay until fixed"
+    },
+    {
+      "path": "Coordinate (web, phone) → Exceptions → empty: Nothing disagrees, is missing or has passed",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:425",
+      "covered": "yes",
+      "by": "realestate_exceptions (empty)"
+    },
+    {
+      "path": "Phone → Coordinate → Exceptions → Fixing it needs signal",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/coordinate.tsx:375",
+      "covered": "no",
+      "by": "the phone’s own no-signal notice"
+    },
+    {
+      "path": "Phone → Coordinate → Exceptions → note: reads, contingencies and proof on deals you’re not on are checked with signal",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/coordinate.tsx:464",
+      "covered": "no",
+      "by": "about the phone’s offline copy; the tool checks every deal"
+    },
+    {
+      "path": "Coordinate (web, phone) → Waiting room → each: duty, deal, Waiting on X / Blocked: what, X to clear it, since <date>",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:561",
+      "covered": "yes",
+      "by": "realestate_waiting_room title, dealName, status, waitingOn, blocker, since"
+    },
+    {
+      "path": "Coordinate (web, phone) → Waiting room → each: Chase / Review <day>, today, or was <day> (past)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:584",
+      "covered": "yes",
+      "by": "realestate_waiting_room next, past"
+    },
+    {
+      "path": "Coordinate (web, phone) → Waiting room → each → open the duty / the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:565",
+      "covered": "yes",
+      "by": "realestate_get_duty / realestate_get_deal"
+    },
+    {
+      "path": "Coordinate → Waiting room → Chased",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:594",
+      "covered": "yes",
+      "by": "realestate_duty_chased (nextOn optional)"
+    },
+    {
+      "path": "Coordinate → Waiting room → It came in / It’s clear",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:616",
+      "covered": "yes",
+      "by": "realestate_update_duty status in_progress"
+    },
+    {
+      "path": "Coordinate → Waiting room → note: Chased moves the chase two business days on; past it the deal turns yellow",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:644",
+      "covered": "partly",
+      "by": "realestate_duty_chased says two business days; the yellow rule isn’t told"
+    },
+    {
+      "path": "Coordinate (web, phone) → Waiting room → empty: Nothing is waiting on anyone outside",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:548",
+      "covered": "yes",
+      "by": "realestate_waiting_room (empty)"
+    },
+    {
+      "path": "Coordinate (web, phone) → Workload → each person: name, role, Deals, Open duties, Overdue, Due in 2 days, Deals at risk, bar",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:670",
+      "covered": "yes",
+      "by": "realestate_workload people"
+    },
+    {
+      "path": "Coordinate → Workload → note: colours; give a duty to someone else from its drawer",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:719",
+      "covered": "yes",
+      "by": "realestate_workload; realestate_duty_assign"
+    },
+    {
+      "path": "Coordinate (web, phone) → Workload → empty: Nobody on the team has deals yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:653",
+      "covered": "yes",
+      "by": "realestate_workload (empty)"
+    },
+    {
+      "path": "Phone → Coordinate → header: business · your name",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/coordinate.tsx:78",
+      "covered": "yes",
+      "by": "the business and the person are in its context"
+    },
+    {
+      "path": "Coordinate, My duties → a duty (drawer, ?duty=): the deal’s duty drawer, itemized in realestate-deals",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/coordinate-page.tsx:205",
+      "covered": "yes",
+      "by": "realestate_get_duty and the duty tools"
+    },
+    {
+      "path": "My duties → title My duties / Everyone’s duties; N open · N overdue, or Nothing open",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:94",
+      "covered": "yes",
+      "by": "realestate_list_duties mine, status open → overdue"
+    },
+    {
+      "path": "My duties → Mine / Everyone’s (sees every deal)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:102",
+      "covered": "yes",
+      "by": "realestate_list_duties mine"
+    },
+    {
+      "path": "My duties (web, phone) → groups: Overdue (Late), Today, This week, Later, No deadline, Waiting on someone, Blocked · N",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:80",
+      "covered": "yes",
+      "by": "realestate_list_duties overdue, dueAt, status"
+    },
+    {
+      "path": "My duties → Waiting for a date to be confirmed · N",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:88",
+      "covered": "yes",
+      "by": "realestate_list_duties status drafts"
+    },
+    {
+      "path": "My duties (web, phone) → each duty: title, deal, who answers, status badge or when due (red if late)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:145",
+      "covered": "yes",
+      "by": "realestate_list_duties title, dealName, accountable, status, dueAt, overdue"
+    },
+    {
+      "path": "My duties (web, phone) → each duty → open it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:141",
+      "covered": "yes",
+      "by": "realestate_get_duty"
+    },
+    {
+      "path": "My duties → each duty → deal name → open the deal",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:147",
+      "covered": "yes",
+      "by": "realestate_get_deal"
+    },
+    {
+      "path": "My duties → empty: Nothing to do. New duties show here as your deals move.",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/my-duties.tsx:121",
+      "covered": "yes",
+      "by": "realestate_list_duties (none)"
+    },
+    {
+      "path": "Phone → My duties → Mine · N, I’m watching · N, Team (sees every deal)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duties.tsx:121",
+      "covered": "partly",
+      "by": "realestate_list_duties mine true/false; no watching filter (others’ duties on my deals)"
+    },
+    {
+      "path": "Phone → My duties → empty: Nothing to do / Nothing on your deals is waiting on someone else / Nothing open on the team’s deals",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duties.tsx:142",
+      "covered": "yes",
+      "by": "realestate_list_duties (none)"
+    },
+    {
+      "path": "Phone → My duties, a duty, Vendors → waiting to send (a change still on this phone)",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duties.tsx:211",
+      "covered": "no",
+      "by": "the phone’s own queue"
+    },
+    {
+      "path": "Phone → a duty → title, deal · who does it (you track) · when due",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:209",
+      "covered": "yes",
+      "by": "realestate_get_duty title, dealName, performers, dueAt"
+    },
+    {
+      "path": "Phone → a duty → badges: Done, Done without its proof, Waived, Cancelled, Waiting for dates, Late, Due today, Waiting on X, Blocked: X",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:216",
+      "covered": "yes",
+      "by": "realestate_get_duty status, exception, waitingOn, blocker"
+    },
+    {
+      "path": "Phone → a duty → What counts as done: each proof, there or still needed, and what ticked it",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:222",
+      "covered": "yes",
+      "by": "realestate_get_duty proof.needs, proof.missing, evidence"
+    },
+    {
+      "path": "Phone → a duty → Saying it’s done is enough / Any one of these finishes it / Mark done turns on once each proof is there",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:227",
+      "covered": "yes",
+      "by": "realestate_get_duty proof"
+    },
+    {
+      "path": "Phone → a duty → Add a photo → Take a photo / Choose from your photos",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:243",
+      "covered": "person",
+      "by": "a photo from the person’s own phone"
+    },
+    {
+      "path": "Phone → a duty → Add a file or note → Say “<words>”",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:573",
+      "covered": "never",
+      "by": "only the person gives their word"
+    },
+    {
+      "path": "Phone → a duty → Add a file or note → What was done → Add the note",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:590",
+      "covered": "yes",
+      "by": "realestate_add_proof kind note, body"
+    },
+    {
+      "path": "Phone → a duty → Add a file or note → Use one of the deal’s documents (none on this phone)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:600",
+      "covered": "yes",
+      "by": "realestate_add_proof kind document; realestate_list_documents"
+    },
+    {
+      "path": "Phone → a duty → Mark done",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:261",
+      "covered": "yes",
+      "by": "realestate_complete_duty"
+    },
+    {
+      "path": "Phone → a duty → Pick a vendor (a duty a vendor does) → the vendor sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-vendors.tsx:38",
+      "covered": "yes",
+      "by": "realestate_duty_vendors, realestate_pick_vendor (itemized in realestate-deals)"
+    },
+    {
+      "path": "Phone → a duty → Mark done without its proof → reason → send (owners and admins; others told to ask one)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:657",
+      "covered": "yes",
+      "by": "realestate_duty_complete_with_exception reason"
+    },
+    {
+      "path": "Phone → a duty → without proof → Keep it for later; your reason kept on this phone → Send it now",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:678",
+      "covered": "no",
+      "by": "the phone’s own queue"
+    },
+    {
+      "path": "Phone → a duty → Why then: its rule and how the date was worked out",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:501",
+      "covered": "yes",
+      "by": "realestate_get_duty dueRule, dueTrace"
+    },
+    {
+      "path": "Phone → a duty → Waits on: each duty · who has it",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:514",
+      "covered": "yes",
+      "by": "realestate_get_duty waitsOn"
+    },
+    {
+      "path": "Phone → a duty → What happened: last changes, who, when",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:526",
+      "covered": "partly",
+      "by": "realestate_get_duty log: codes and raw before/after, not dutyLogWords"
+    },
+    {
+      "path": "Phone → a duty → proof loads with signal / isn’t on this phone / N changes wait on this phone",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/duty-sheet.tsx:224",
+      "covered": "no",
+      "by": "about the phone’s offline copy"
+    },
+    {
+      "path": "Vendors → header: business · the people your deals use",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:52",
+      "covered": "yes",
+      "by": "realestate_vendors"
+    },
+    {
+      "path": "Vendors (web, phone) → Add a vendor",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:54",
+      "covered": "yes",
+      "by": "realestate_vendor_save (asks first)"
+    },
+    {
+      "path": "Vendors → filter: All or one service (when more than one is used)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:61",
+      "covered": "yes",
+      "by": "realestate_vendors service"
+    },
+    {
+      "path": "Vendors (web, phone) → each: name, disclosure (or none), phone · email",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:108",
+      "covered": "yes",
+      "by": "realestate_vendors name, disclosureWords, phone, email"
+    },
+    {
+      "path": "Vendors (web, phone) → each: services, areas (or Anywhere), used N times · last <when> / Not yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:123",
+      "covered": "yes",
+      "by": "realestate_vendors servicesWords, areas, uses, lastUsedAt"
+    },
+    {
+      "path": "Vendors (web, phone) → each: Approved / Waiting for approval (phone: grouped)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:131",
+      "covered": "yes",
+      "by": "realestate_vendors approved"
+    },
+    {
+      "path": "Vendors (web, phone) → each → Approve (owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:134",
+      "covered": "yes",
+      "by": "realestate_vendor_approve approved true"
+    },
+    {
+      "path": "Vendors → each → Change → the vendor form",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:158",
+      "covered": "yes",
+      "by": "realestate_vendor_save vendorId"
+    },
+    {
+      "path": "Vendors → each → Archive (owners and admins) → Why (optional) → Archive",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:166",
+      "covered": "yes",
+      "by": "realestate_vendor_archive reason"
+    },
+    {
+      "path": "Vendors → Archive dialog: duties stop offering them; they stay in Contacts and on their deals",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:197",
+      "covered": "yes",
+      "by": "realestate_vendor_archive description"
+    },
+    {
+      "path": "Vendors (web, phone) → empty: No vendors yet; each is a company in Contacts",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:82",
+      "covered": "yes",
+      "by": "realestate_vendors (none)"
+    },
+    {
+      "path": "Vendors → note: a client is offered every approved vendor that fits; an owner or admin approves",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:182",
+      "covered": "yes",
+      "by": "realestate_vendor_approve, realestate_duty_vendors descriptions"
+    },
+    {
+      "path": "Vendors (web, phone) → Add a vendor / Change X → about: a company in Contacts; approve them so duties offer them",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:236",
+      "covered": "yes",
+      "by": "realestate_vendor_save description"
+    },
+    {
+      "path": "Vendors (web, phone) → vendor form → Name (new only)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:299",
+      "covered": "yes",
+      "by": "realestate_vendor_save name (or companyId)"
+    },
+    {
+      "path": "Vendors (web, phone) → vendor form → Email, Phone (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:309",
+      "covered": "yes",
+      "by": "realestate_vendor_save email, phone"
+    },
+    {
+      "path": "Vendors (web, phone) → vendor form → What they do (pick at least one)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:322",
+      "covered": "yes",
+      "by": "realestate_vendor_save services"
+    },
+    {
+      "path": "Vendors (web, phone) → vendor form → Where they work (towns, counties or ZIPs; empty: anywhere)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:349",
+      "covered": "yes",
+      "by": "realestate_vendor_save areas"
+    },
+    {
+      "path": "Vendors (web, phone) → vendor form → Disclosure (optional), said wherever the vendor is offered",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:356",
+      "covered": "yes",
+      "by": "realestate_vendor_save disclosure"
+    },
+    {
+      "path": "Vendors → vendor form → Note for the team (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:369",
+      "covered": "yes",
+      "by": "realestate_vendor_save note"
+    },
+    {
+      "path": "Vendors (web, phone) → vendor form → Cancel / Save / Add them; errors",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/vendors-page.tsx:373",
+      "covered": "yes",
+      "by": "realestate_vendor_save; refusals in words"
+    },
+    {
+      "path": "Phone → Vendors → each → Call <name>",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/realestate/vendors.tsx:179",
+      "covered": "person",
+      "by": "dialing on the person’s own phone"
+    },
+    {
+      "path": "Phone → Vendors → footer: adding works with no signal; approving needs an owner or admin with signal",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/realestate/vendors.tsx:108",
+      "covered": "partly",
+      "by": "realestate_vendor_approve refuses others; the signal part is the phone’s"
+    },
+    {
+      "path": "Deal settings → tabs: Duty list, Alerts & dates, Connections, Keeping records, Versions, Support access",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:155",
+      "covered": "yes",
+      "by": "realestate_template_list, read_addon_settings, read_addon_connection_list, realestate_template_versions, read_support_access_list"
+    },
+    {
+      "path": "Deal settings → Safety tab (Settings → Safety, for who may change settings)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:92",
+      "covered": "yes",
+      "by": "get_settings safety"
+    },
+    {
+      "path": "Deal settings → Duty list header: version N, published <date> by X, open deals keep theirs / not published yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:104",
+      "covered": "yes",
+      "by": "realestate_template_list published (version, publishedAt, publishedBy)"
+    },
+    {
+      "path": "Deal settings → Write a duty",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:121",
+      "covered": "yes",
+      "by": "realestate_template_save_custom (asks first)"
+    },
+    {
+      "path": "Deal settings → Publish version N → a note for the history (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:124",
+      "covered": "yes",
+      "by": "realestate_template_publish note (asks first)"
+    },
+    {
+      "path": "Deal settings → Duty list → chips: All, Listing, Buyer, Both, Your own, Changed, Turned off · N",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:125",
+      "covered": "yes",
+      "by": "realestate_template_list side, own, changed, enabled"
+    },
+    {
+      "path": "Deal settings → Duty list → Changes not published",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:143",
+      "covered": "yes",
+      "by": "realestate_template_list unpublished"
+    },
+    {
+      "path": "Deal settings → Duty list → Find a duty",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:144",
+      "covered": "yes",
+      "by": "realestate_template_list title, key"
+    },
+    {
+      "path": "Deal settings → Duty list → each: Id, Duty (Your own, Changed: what, Off), Due, Proof, Accountable",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:175",
+      "covered": "yes",
+      "by": "realestate_template_list key, title, own, changed, enabled, definition (due, proof, accountable)"
+    },
+    {
+      "path": "Deal settings → Duty list → No duty matches.",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:207",
+      "covered": "yes",
+      "by": "realestate_template_list"
+    },
+    {
+      "path": "Deal settings → Duty list → a list duty → Edit: key · title, kind of work · what brings it, what it means",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:273",
+      "covered": "yes",
+      "by": "realestate_template_list definition tracker, trigger, behavior"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → On: new deals get it / Off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:280",
+      "covered": "yes",
+      "by": "realestate_template_set_override enabled"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → When it’s due",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:282",
+      "covered": "yes",
+      "by": "realestate_template_set_override patch.due"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → What finishes it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:285",
+      "covered": "yes",
+      "by": "realestate_template_set_override patch.proof"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → Accountable",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:289",
+      "covered": "yes",
+      "by": "realestate_template_set_override patch.accountable"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → How much it matters",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:302",
+      "covered": "yes",
+      "by": "realestate_template_set_override patch.materiality"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → Remind, days before (7, 3, 1), in words",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:315",
+      "covered": "yes",
+      "by": "realestate_template_set_override patch.reminders"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → Back to how the list has it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:326",
+      "covered": "yes",
+      "by": "realestate_template_clear_override"
+    },
+    {
+      "path": "Deal settings → a list duty → Edit → Cancel / Save (a draft until published)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:346",
+      "covered": "yes",
+      "by": "realestate_template_set_override (asks first)"
+    },
+    {
+      "path": "Deal settings → a duty → When it’s due → How: before or after a key date, some time after it starts, again every few days, kept up while open, no deadline",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:66",
+      "covered": "yes",
+      "by": "due rule kinds relative, after_start, every, ongoing, none"
+    },
+    {
+      "path": "Deal settings → a duty → When it’s due → Within N hours, days or business days",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:80",
+      "covered": "yes",
+      "by": "due after_start"
+    },
+    {
+      "path": "Deal settings → a duty → When it’s due → Every N days",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:112",
+      "covered": "yes",
+      "by": "due every days"
+    },
+    {
+      "path": "Deal settings → a duty → When it’s due → N days, business days or hours before, on or after <key date>, at a time (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:155",
+      "covered": "yes",
+      "by": "due relative to, days, time"
+    },
+    {
+      "path": "Deal settings → a duty → When it’s due → earliest or latest of two rules, in words → Use one rule instead",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:50",
+      "covered": "yes",
+      "by": "due earliest / latest, or one rule"
+    },
+    {
+      "path": "Deal settings → a duty → What finishes it → Saying it’s done is enough (no proof)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:247",
+      "covered": "yes",
+      "by": "proof null"
+    },
+    {
+      "path": "Deal settings → a duty → What finishes it → All of these / Any one of these",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:251",
+      "covered": "yes",
+      "by": "proof.mode"
+    },
+    {
+      "path": "Deal settings → a duty → What finishes it → each proof in words → Take it off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:269",
+      "covered": "yes",
+      "by": "proof.items"
+    },
+    {
+      "path": "Deal settings → a duty → What finishes it → Add proof: a document (kind, Signed), any file, a note, someone’s word (words), an appointment, a message, a date confirmed, something filled in → Add",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/rule-editors.tsx:282",
+      "covered": "yes",
+      "by": "proof.items kinds document, file, note, attestation, appointment, message, dates, deal_field"
+    },
+    {
+      "path": "Deal settings → Write a duty / your own duty → Name",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:447",
+      "covered": "yes",
+      "by": "realestate_template_save_custom duty.title"
+    },
+    {
+      "path": "Deal settings → your own duty → Side: Listings, Buyer deals, Both",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:457",
+      "covered": "yes",
+      "by": "duty.side"
+    },
+    {
+      "path": "Deal settings → your own duty → Kind of work",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:468",
+      "covered": "yes",
+      "by": "duty.tracker"
+    },
+    {
+      "path": "Deal settings → your own duty → What brings it: reaching a stage (which), a date confirmed (which), something happening (what), in words",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:482",
+      "covered": "yes",
+      "by": "duty.trigger stage / dates / event"
+    },
+    {
+      "path": "Deal settings → your own duty → When it’s due, What finishes it",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:552",
+      "covered": "yes",
+      "by": "duty.due, duty.proof"
+    },
+    {
+      "path": "Deal settings → your own duty → Accountable, How much it matters, Remind days before",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:565",
+      "covered": "yes",
+      "by": "duty.accountable, materiality, reminders"
+    },
+    {
+      "path": "Deal settings → your own duty → What HandsFreeOS may do (never on its own), and what that means",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:601",
+      "covered": "yes",
+      "by": "duty.automation (A4 refused)"
+    },
+    {
+      "path": "Deal settings → your own duty → What it means (optional)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:620",
+      "covered": "yes",
+      "by": "duty.behavior"
+    },
+    {
+      "path": "Deal settings → your own duty → errors",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:628",
+      "covered": "yes",
+      "by": "realestate_template_save_custom refusals in words"
+    },
+    {
+      "path": "Deal settings → your own duty → Take it off the list (confirm; deals that have it keep it)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:632",
+      "covered": "yes",
+      "by": "realestate_template_archive_custom (asks first)"
+    },
+    {
+      "path": "Deal settings → your own duty → Cancel / Save (a draft until published)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/duty-list.tsx:655",
+      "covered": "yes",
+      "by": "realestate_template_save_custom dutyKey (asks first)"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Who hears when it’s serious: the escalation rule (one business day; critical at once)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:423",
+      "covered": "partly",
+      "by": "alertPersonUserIds in read_addon_settings; the rule isn’t told"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Alert people: each name · role (or Someone who left); none: the owners hear",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:431",
+      "covered": "yes",
+      "by": "read_addon_settings alertPersonUserIds; list_team names, roles"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Alert people → × stop alerting someone",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:439",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.alertPersonUserIds"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → + Add someone (owners or who sees every deal; up to 10)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:462",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.alertPersonUserIds"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Reminders: how duties remind (Home card, push, email; working hours)",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:487",
+      "covered": "partly",
+      "by": "each duty’s reminders in realestate_template_list; how they arrive isn’t told"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Reminders → Change a duty’s reminders",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:493",
+      "covered": "yes",
+      "by": "realestate_template_set_override patch.reminders"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Business days: weekends, federal holidays, closed days; a date with no time is due 11:59 PM",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:501",
+      "covered": "partly",
+      "by": "closedDays in read_addon_settings; the holiday rule isn’t told"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Days this office is closed: each date · why; none besides weekends and holidays",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:508",
+      "covered": "yes",
+      "by": "read_addon_settings closedDays"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → a closed day → × open again",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:516",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.closedDays"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → A day closed, Why (optional) → Add",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:551",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.closedDays"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Tours go on: a calendar, or the agent’s own calendar",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:578",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.tourCalendarId; get_settings calendars ids"
+    },
+    {
+      "path": "Deal settings → Alerts & dates → Client updates: Under contract, Inspection done, Clear to close, Closed; nothing sent without the agent",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:602",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.milestoneDrafts"
+    },
+    {
+      "path": "Deal settings → Connections → header: listing data, e-sign and ShowingTime",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:111",
+      "covered": "yes",
+      "by": "read_addon_connection_list addonId realestate"
+    },
+    {
+      "path": "Deal settings → Connections → Listing data, E-sign: what each is for",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:200",
+      "covered": "partly",
+      "by": "realestate_connections_uses says what uses them; not these lines"
+    },
+    {
+      "path": "Deal settings → Connections → what uses each: N listings and N buyers’ searches; N documents out for signing",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:204",
+      "covered": "yes",
+      "by": "realestate_connections_uses listingData.words, esign.words"
+    },
+    {
+      "path": "Deal settings → Connections → one in trouble: what uses it shows what came in last until it works",
+      "kind": "see",
+      "file": "apps/web/src/components/addons/connections.tsx:192",
+      "covered": "yes",
+      "by": "read_addon_connection_list status; realestate_connections_uses"
+    },
+    {
+      "path": "Deal settings → Connections → Listing data: your own Repliers, AnyProp or MLS feed replaces it; your MLS license",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:212",
+      "covered": "yes",
+      "by": "read_addon_connection_list providers"
+    },
+    {
+      "path": "Deal settings → Connections → each connection, Disconnect, use your own account, sign in, paste a key (as Settings → Add-ons → Connections, itemized in ideas-addons)",
+      "kind": "do",
+      "file": "apps/web/src/components/addons/connections.tsx:245",
+      "covered": "partly",
+      "by": "list and do_addon_connection_disconnect yes; keys and sign-ins are the person’s"
+    },
+    {
+      "path": "Deal settings → Connections → ShowingTime: emails On/Off, read from the Inbox or left as emails, what was read",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:271",
+      "covered": "yes",
+      "by": "read_addon_settings showingTimeEmails; realestate_connections_uses showingTime"
+    },
+    {
+      "path": "Deal settings → Connections → ShowingTime → Turn on / Turn off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:281",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.showingTimeEmails"
+    },
+    {
+      "path": "Deal settings → Connections → SentriLock and Supra: opened emails On/Off and what that means",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:337",
+      "covered": "yes",
+      "by": "read_addon_settings lockboxEmails (no code involved)"
+    },
+    {
+      "path": "Deal settings → Connections → SentriLock and Supra → Turn on / Turn off",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:345",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.lockboxEmails"
+    },
+    {
+      "path": "Deal settings → Keeping records → Keep closed deals at least N years after they end",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:69",
+      "covered": "yes",
+      "by": "read_addon_settings keepClosedYears"
+    },
+    {
+      "path": "Deal settings → Keeping records → years → Save; errors (enter years, whole number, 1 to 30)",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:98",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.keepClosedYears (1–30 checked)"
+    },
+    {
+      "path": "Deal settings → Keeping records → about: nobody can delete until then; never on its own; open deals and signed documents kept",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:129",
+      "covered": "partly",
+      "by": "keepClosedYears readable; what it means isn’t told"
+    },
+    {
+      "path": "Deal settings → Keeping records → Legal holds · N: each deal (link), placed by, when, why",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:132",
+      "covered": "yes",
+      "by": "read_record_hold_list kind legal"
+    },
+    {
+      "path": "Deal settings → Keeping records → a hold → Lift… → Reason → Lift",
+      "kind": "do",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:151",
+      "covered": "yes",
+      "by": "do_record_hold_lift holdId, reason (warns first)"
+    },
+    {
+      "path": "Deal settings → Keeping records → none: No deal is on legal hold; place one from the deal’s More",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:164",
+      "covered": "yes",
+      "by": "read_record_hold_list (none); do_record_hold_place"
+    },
+    {
+      "path": "Deal settings → Keeping records → about: lifting needs a reason; a hold stops deleting the business; owners and admins only",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/keeping.tsx:166",
+      "covered": "yes",
+      "by": "do_record_hold_lift warning; permission refusal"
+    },
+    {
+      "path": "Deal settings → Versions → each: Version N, New deals take it, note, published when, N open deals on it",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:635",
+      "covered": "yes",
+      "by": "realestate_template_versions"
+    },
+    {
+      "path": "Deal settings → Versions → empty: Nothing published yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:628",
+      "covered": "yes",
+      "by": "realestate_template_versions (none)"
+    },
+    {
+      "path": "Deal settings → Versions → note: an open deal keeps its version; More → Apply the newest duty list",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:657",
+      "covered": "yes",
+      "by": "realestate_template_diff; realestate_deal_apply_template_version"
+    },
+    {
+      "path": "Deal settings → Support access → header: support can’t see private deals unless you let them; access is read-only, 24 hours, in the Audit log",
+      "kind": "see",
+      "file": "apps/web/src/addons/realestate/deal-settings.tsx:237",
+      "covered": "yes",
+      "by": "do_support_access_grant warning; read_audit_list"
+    },
+    {
+      "path": "Deal settings → Support access → requests, Allow for 24 hours, Decline, open grants, End now, Give access (as Settings → Support access, itemized in safety-team)",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/support-access-card.tsx:76",
+      "covered": "yes",
+      "by": "read_support_access_list; do_support_access_grant, _decline, _end"
+    }
+  ],
   "gaps": [
     {
       "id": "re-1",

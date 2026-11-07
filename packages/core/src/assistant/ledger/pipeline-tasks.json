@@ -43,7 +43,7 @@
     "apps/web/src/components/inbox/attachment-chip.tsx": "ebcdf73e5026",
     "apps/web/src/components/inbox/message-sheet.tsx": "a156995e028d",
     "apps/web/src/components/pipeline/attention-banner.tsx": "c47471f7ab30",
-    "apps/web/src/components/pipeline/board.tsx": "a1803ced81b5",
+    "apps/web/src/components/pipeline/board.tsx": "1df97ee99149",
     "apps/web/src/components/pipeline/lead-card.tsx": "4b9d6fb9f37c",
     "apps/web/src/components/pipeline/lead-detail.tsx": "008861551277",
     "apps/web/src/components/pipeline/lead-edit-dialog.tsx": "a243336d9301",
@@ -64,7 +64,7 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/board.tsx:280",
       "covered": "yes",
-      "by": "read_lead_board → stages[].count, valueCents of open stages"
+      "by": "read_lead_board → openLeads, openValue"
     },
     {
       "path": "Pipeline → Pipeline picker (more than one pipeline)",
@@ -113,14 +113,14 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/stage-column.tsx:182",
       "covered": "yes",
-      "by": "read_lead_board → stages[].name, kind, count, valueCents"
+      "by": "read_lead_board → stages[].name, kind, count, value (every stage, Won and Lost too)"
     },
     {
       "path": "Pipeline → Board → column → Show more · N not shown",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/stage-column.tsx:203",
       "covered": "yes",
-      "by": "read_lead_board input shown[].limit"
+      "by": "read_lead_board → stages[].notListed; input shown[].limit lists more"
     },
     {
       "path": "Pipeline → Board → empty column: Drop a lead here",
@@ -140,8 +140,8 @@
       "path": "Pipeline → Board → drag a card up or down within its stage",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/board.tsx:229",
-      "covered": "no",
-      "by": "move_lead has no afterLeadId; no tool orders leads"
+      "covered": "yes",
+      "by": "move_lead afterLeadId within its own stage (null for the top)"
     },
     {
       "path": "Pipeline → Board → moved toast ({lead} moved to {stage})",
@@ -162,28 +162,28 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-card.tsx:61",
       "covered": "yes",
-      "by": "read_lead_board → leads[].person, company"
+      "by": "read_lead_board → leads[].customer, company"
     },
     {
       "path": "Pipeline → Board → lead card → funnel badge (In {funnel} / Paused · {funnel})",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-card.tsx:62",
       "covered": "yes",
-      "by": "read_lead_board → funnel.leads[].paused"
+      "by": "read_lead_board → leads[].funnel (In {funnel} / Paused · {funnel})"
     },
     {
       "path": "Pipeline → Board → lead card → value",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-card.tsx:85",
       "covered": "yes",
-      "by": "read_lead_board → leads[].valueCents; get_lead value"
+      "by": "read_lead_board → leads[].value; get_lead value"
     },
     {
       "path": "Pipeline → Board → lead card → days in stage",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-card.tsx:87",
       "covered": "yes",
-      "by": "read_lead_board → leads[].stageEnteredAt"
+      "by": "read_lead_board → leads[].daysInStage"
     },
     {
       "path": "Pipeline → Board → lead card → assignee avatar",
@@ -218,14 +218,14 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/board.tsx:465",
       "covered": "yes",
-      "by": "read_lead_board → leads[] fields"
+      "by": "read_lead_board → stages and leads[] (title, customer, value, assignee, nextAction); list_leads"
     },
     {
       "path": "Pipeline → List → each row: title and customer",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/board.tsx:484",
       "covered": "yes",
-      "by": "read_lead_board → leads[].title, person, company"
+      "by": "read_lead_board → leads[].title, customer, company"
     },
     {
       "path": "Pipeline → List → each row: Stage picker",
@@ -239,7 +239,7 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/board.tsx:493",
       "covered": "yes",
-      "by": "read_lead_board → valueCents, assignee"
+      "by": "read_lead_board → leads[].value, assignee"
     },
     {
       "path": "Pipeline → List → each row: next action, or stage badge when won or lost",
@@ -301,8 +301,8 @@
       "path": "New lead → Who is it for? (person or company)",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:149",
-      "covered": "partly",
-      "by": "create_lead personId only; no companyId"
+      "covered": "yes",
+      "by": "create_lead personId or companyId"
     },
     {
       "path": "New lead → Title",
@@ -350,29 +350,29 @@
       "path": "New lead → When (next action's time)",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:239",
-      "covered": "partly",
-      "by": "not on create_lead; update_lead nextActionAt after"
+      "covered": "yes",
+      "by": "create_lead nextActionAt"
     },
     {
       "path": "New lead → Time zone pick under When",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:249",
-      "covered": "partly",
-      "by": "update_lead nextActionAt takes an exact moment; not on create"
+      "covered": "yes",
+      "by": "create_lead / update_lead nextActionAt: a time with its offset, so any zone"
     },
     {
       "path": "New lead → Expected close",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:259",
-      "covered": "no",
-      "by": "create_lead and update_lead have no expectedCloseOn"
+      "covered": "yes",
+      "by": "create_lead / update_lead expectedCloseOn"
     },
     {
       "path": "New lead → Source",
       "kind": "do",
       "file": "apps/web/src/components/crm/lead-dialog.tsx:267",
-      "covered": "no",
-      "by": "create_lead and update_lead have no source"
+      "covered": "yes",
+      "by": "create_lead / update_lead source"
     },
     {
       "path": "New lead → Create lead / Cancel",
@@ -413,8 +413,8 @@
       "path": "Lead → ⋯ Lead actions → Edit details",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:331",
-      "covered": "partly",
-      "by": "update_lead covers value and assignee only"
+      "covered": "yes",
+      "by": "update_lead title, value, assignee, expected close, source"
     },
     {
       "path": "Lead → ⋯ Lead actions → Archive lead (confirm: leaves the pipeline, keeps history)",
@@ -456,7 +456,7 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:380",
       "covered": "yes",
-      "by": "get_lead value; read_lead_board stageEnteredAt"
+      "by": "get_lead value, daysInStage; read_lead_board daysInStage"
     },
     {
       "path": "Lead → stage stepper: each stage button",
@@ -470,7 +470,7 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:436",
       "covered": "yes",
-      "by": "get_lead nextAction; read_lead_board nextActionAt"
+      "by": "get_lead nextAction, nextActionAt, nextActionOverdue"
     },
     {
       "path": "Lead → Next → Change",
@@ -519,14 +519,14 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:494",
       "covered": "yes",
-      "by": "read_lead_board → lostReason, lostAt"
+      "by": "get_lead → lostReason, lostAt"
     },
     {
       "path": "Lead (web and phone) → Won · {date}, and the later-milestone note",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:503",
       "covered": "yes",
-      "by": "read_lead_board → wonAt; get_lead status"
+      "by": "get_lead → wonAt, status"
     },
     {
       "path": "Lead (web and phone) → Value",
@@ -547,35 +547,35 @@
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:522",
       "covered": "yes",
-      "by": "read_lead_board → leads[].lastContactAt"
+      "by": "get_lead → lastContactAt"
     },
     {
       "path": "Lead (web and phone) → Expected close",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:526",
       "covered": "yes",
-      "by": "read_lead_board → leads[].expectedCloseOn"
+      "by": "get_lead → expectedCloseOn"
     },
     {
       "path": "Lead (web and phone) → Source",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:530",
       "covered": "yes",
-      "by": "read_lead_board → leads[].source"
+      "by": "get_lead → source; read_lead_board leads[].source"
     },
     {
       "path": "Lead (phone) → In stage (Since …)",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/leads/[leadId].tsx:102",
       "covered": "yes",
-      "by": "read_lead_board → stageEnteredAt"
+      "by": "get_lead → daysInStage; read_lead_board daysInStage"
     },
     {
       "path": "Lead (web and phone) → Tags (chips)",
       "kind": "see",
       "file": "apps/web/src/components/crm/tag-picker.tsx:83",
       "covered": "yes",
-      "by": "read_lead_board → leads[].tags"
+      "by": "get_lead → tags"
     },
     {
       "path": "Lead → Tags → Add tag / Edit tags → tick a tag on or off",
@@ -623,8 +623,8 @@
       "path": "Lead → Log call",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:557",
-      "covered": "partly",
-      "by": "add_note logs a note, never a call"
+      "covered": "yes",
+      "by": "add_note kind call (or visit), occurredAt"
     },
     {
       "path": "Lead (page) → Book",
@@ -686,8 +686,8 @@
       "path": "Edit lead → Title",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:108",
-      "covered": "no",
-      "by": "update_lead has no title"
+      "covered": "yes",
+      "by": "update_lead title"
     },
     {
       "path": "Edit lead → Value",
@@ -707,29 +707,29 @@
       "path": "Edit lead → Expected close",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:143",
-      "covered": "no",
-      "by": "update_lead has no expectedCloseOn"
+      "covered": "yes",
+      "by": "update_lead expectedCloseOn (null clears it)"
     },
     {
       "path": "Edit lead → Source",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:151",
-      "covered": "no",
-      "by": "update_lead has no source"
+      "covered": "yes",
+      "by": "update_lead source (null clears it)"
     },
     {
       "path": "Edit lead → Save / Cancel",
       "kind": "do",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:159",
-      "covered": "partly",
-      "by": "update_lead saves value and assignee only"
+      "covered": "yes",
+      "by": "update_lead (Confirm, or not)"
     },
     {
       "path": "Edit lead → errors (Give the lead a title; Enter an amount in dollars)",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-edit-dialog.tsx:58",
-      "covered": "partly",
-      "by": "update_lead checks value; no title to check"
+      "covered": "yes",
+      "by": "update_lead title needs words; value is dollars"
     },
     {
       "path": "Next action dialog → What is the next step on {lead}? → Next action",
@@ -959,57 +959,57 @@
       "path": "Lead (page) → Qualification → status (Qualified, Not a fit, Incomplete)",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:245",
-      "covered": "partly",
-      "by": "read_timeline_list has the marked-qualified line; get_lead drops qualification"
+      "covered": "yes",
+      "by": "get_lead qualification.status"
     },
     {
       "path": "Lead (page) → Qualification → Asked by {teammate} (AI) · time",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:250",
-      "covered": "no",
-      "by": "lead.get qualification read by no tool"
+      "covered": "yes",
+      "by": "get_lead qualification.answers[].by, at"
     },
     {
       "path": "Lead (page) → Qualification → each answer: question, answer, by AI or a person, in Files",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:260",
-      "covered": "no",
-      "by": "get_lead leaves out qualification"
+      "covered": "yes",
+      "by": "get_lead qualification.answers[]: question, answer, by, files"
     },
     {
       "path": "Lead (page) → Qualification → No answers yet.",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:279",
-      "covered": "no",
-      "by": "get_lead leaves out qualification"
+      "covered": "yes",
+      "by": "get_lead qualification.answers []"
     },
     {
       "path": "Lead (page) → Qualification → summary (All N answered / Not a fit: … / Still to ask: …)",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:281",
-      "covered": "partly",
-      "by": "questions in get_settings ai_teammate; what's missing not read"
+      "covered": "yes",
+      "by": "get_lead qualification.questionsStillToAsk, stillToAsk, ruledOutBy"
     },
     {
       "path": "Lead (page) → Qualification → note: each answer keeps the question as asked",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/qualification-card.tsx:303",
-      "covered": "no",
-      "by": "nothing reads a lead's qualification"
+      "covered": "yes",
+      "by": "get_lead qualification.answers[].question is the question as it was asked"
     },
     {
       "path": "Lead (page) → Money → each estimate and invoice on this job: title, date, total, status, still owed",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-money.tsx:363",
-      "covered": "partly",
-      "by": "customer_money lists the customer's documents, not by lead"
+      "covered": "yes",
+      "by": "customer_money leadId"
     },
     {
       "path": "Lead (page) → Money → Nothing quoted for this job yet.",
       "kind": "see",
       "file": "apps/web/src/components/crm/record-money.tsx:355",
-      "covered": "partly",
-      "by": "customer_money, not by lead"
+      "covered": "yes",
+      "by": "customer_money leadId, empty"
     },
     {
       "path": "Lead (page) → Money → New estimate (customer and lead on it)",
@@ -1288,15 +1288,15 @@
       "path": "Lead → Tasks → each task on this lead",
       "kind": "see",
       "file": "apps/web/src/components/pipeline/lead-detail.tsx:692",
-      "covered": "partly",
-      "by": "list_tasks has no lead filter or lead field"
+      "covered": "yes",
+      "by": "list_tasks leadId"
     },
     {
       "path": "Lead → Tasks → empty: No tasks · Reminders about this lead.",
       "kind": "see",
       "file": "apps/web/src/components/tasks/task-list.tsx:275",
-      "covered": "partly",
-      "by": "list_tasks can't filter by lead"
+      "covered": "yes",
+      "by": "list_tasks leadId, empty"
     },
     {
       "path": "Lead → Tasks → New task (on this lead)",
@@ -1323,22 +1323,22 @@
       "path": "Lead (page) → Files → locked badge (kept under a hold)",
       "kind": "see",
       "file": "apps/web/src/components/files/file-grid.tsx:155",
-      "covered": "no",
-      "by": "get_record_details files has no locked flag"
+      "covered": "yes",
+      "by": "get_record_details lead → files[].signedAndKept; its Files card says Signed · kept"
     },
     {
       "path": "Lead (page) → Files → open a file",
       "kind": "do",
       "file": "apps/web/src/components/files/file-grid.tsx:138",
-      "covered": "no",
-      "by": "no tool opens or links a file"
+      "covered": "yes",
+      "by": "get_record_details lead Files card: each file opens on the lead’s page (?file=)"
     },
     {
       "path": "Lead (page) → Files → ⋯ Download",
       "kind": "do",
       "file": "apps/web/src/components/files/file-grid.tsx:172",
-      "covered": "no",
-      "by": "no tool gives a download link"
+      "covered": "partly",
+      "by": "get_record_details Files card opens the file on the lead’s page, where Download is; no download link of its own"
     },
     {
       "path": "Lead (page) → Files → ⋯ Remove",
@@ -1442,8 +1442,8 @@
       "path": "Log activity → Note / Call / Visit",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:145",
-      "covered": "partly",
-      "by": "add_note writes notes only; no call or visit"
+      "covered": "yes",
+      "by": "add_note kind note, call or visit"
     },
     {
       "path": "Log activity → Note / What was said",
@@ -1456,8 +1456,8 @@
       "path": "Log activity → When",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:164",
-      "covered": "no",
-      "by": "add_note has no occurredAt"
+      "covered": "yes",
+      "by": "add_note occurredAt"
     },
     {
       "path": "Log activity → Set a next action from this → Next action, When",
@@ -1470,8 +1470,8 @@
       "path": "Log activity → Save note / Save call / Save visit",
       "kind": "do",
       "file": "apps/web/src/components/timeline/log-activity-sheet.tsx:212",
-      "covered": "partly",
-      "by": "add_note (notes only)"
+      "covered": "yes",
+      "by": "add_note"
     },
     {
       "path": "Delete for good (web dialog, phone sheet) → what goes with it, Checking…, which can't go and why",
@@ -1492,7 +1492,7 @@
       "kind": "see",
       "file": "apps/web/src/components/tasks/tasks-page.tsx:79",
       "covered": "yes",
-      "by": "list_tasks count; context timezone"
+      "by": "list_tasks shown, more; context timezone"
     },
     {
       "path": "Tasks → Mine / Everyone (phone: with counts)",
@@ -1520,14 +1520,14 @@
       "kind": "see",
       "file": "apps/web/src/components/tasks/tasks-page.tsx:114",
       "covered": "yes",
-      "by": "list_tasks → dueBucket"
+      "by": "list_tasks due (overdue, today, week, later, none) → group"
     },
     {
       "path": "Tasks → Recently done · N (phone: Done lately)",
       "kind": "see",
       "file": "apps/web/src/components/tasks/tasks-page.tsx:134",
-      "covered": "partly",
-      "by": "list_tasks open only; read_search_kind finds done tasks by words"
+      "covered": "yes",
+      "by": "list_tasks status done → done, doneBy"
     },
     {
       "path": "Tasks → a task a search result opens (?task=)",
@@ -1554,8 +1554,8 @@
       "path": "Tasks → task row → circle on a done task: Reopen task (web and phone)",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-list.tsx:300",
-      "covered": "partly",
-      "by": "only Undo of its own complete_task (task.reopen)"
+      "covered": "yes",
+      "by": "reopen_task"
     },
     {
       "path": "Tasks → task row → title (struck through when done)",
@@ -1575,22 +1575,22 @@
       "path": "Tasks → task row → related lead, customer or company (web and phone)",
       "kind": "see",
       "file": "apps/web/src/components/tasks/task-list.tsx:322",
-      "covered": "partly",
-      "by": "list_tasks → customer only; no lead or company"
+      "covered": "yes",
+      "by": "list_tasks → customer, company, lead, record"
     },
     {
       "path": "Tasks → task row → notes",
       "kind": "see",
       "file": "apps/web/src/components/tasks/task-list.tsx:323",
-      "covered": "partly",
-      "by": "list_tasks has no notes; read_search_kind matches them"
+      "covered": "yes",
+      "by": "list_tasks → notes"
     },
     {
       "path": "Tasks → task row → due words (Overdue badge, Today, a day and time) (web and phone)",
       "kind": "see",
       "file": "apps/web/src/components/tasks/task-list.tsx:326",
       "covered": "yes",
-      "by": "list_tasks → due, dueBucket"
+      "by": "list_tasks → due (all-day ones without a time), group"
     },
     {
       "path": "Tasks → task row → ⋯ Edit",
@@ -1603,8 +1603,8 @@
       "path": "Tasks → task row → ⋯ Open lead",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-list.tsx:354",
-      "covered": "partly",
-      "by": "list_tasks gives no lead; get_lead needs its id"
+      "covered": "yes",
+      "by": "list_tasks → lead id; get_lead"
     },
     {
       "path": "Tasks → task row → ⋯ Delete (confirm)",
@@ -1625,14 +1625,14 @@
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-dialog.tsx:175",
       "covered": "yes",
-      "by": "create_task / update_task dueAt"
+      "by": "create_task / update_task dueAt: a date alone is all day"
     },
     {
       "path": "Task dialog → At a specific time",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-dialog.tsx:182",
-      "covered": "partly",
-      "by": "create_task allDay; update_task has no allDay"
+      "covered": "yes",
+      "by": "create_task / update_task dueAt with a time; update_task allDay alone switches"
     },
     {
       "path": "Task dialog → Time zone (timed)",
@@ -1652,8 +1652,8 @@
       "path": "Task dialog → Notes",
       "kind": "do",
       "file": "apps/web/src/components/tasks/task-dialog.tsx:231",
-      "covered": "partly",
-      "by": "create_task notes; update_task has no notes"
+      "covered": "yes",
+      "by": "create_task / update_task notes"
     },
     {
       "path": "Task dialog → Add task / Save task / Cancel",
@@ -1674,7 +1674,7 @@
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/pipeline.tsx:53",
       "covered": "yes",
-      "by": "read_lead_board"
+      "by": "read_lead_board → openLeads, openValue"
     },
     {
       "path": "Pipeline tab (phone) → pipeline name → Pipeline sheet → pick one",
@@ -1695,21 +1695,21 @@
       "kind": "see",
       "file": "apps/mobile/src/components/pipeline/bits.tsx:75",
       "covered": "yes",
-      "by": "read_lead_board → count, valueCents"
+      "by": "read_lead_board → stages[].count, value"
     },
     {
       "path": "Pipeline tab (phone) → lead card: title, value, customer, assignee",
       "kind": "see",
       "file": "apps/mobile/src/components/pipeline/bits.tsx:104",
       "covered": "yes",
-      "by": "read_lead_board → leads[]"
+      "by": "read_lead_board → leads[].title, value, customer, assignee"
     },
     {
       "path": "Pipeline tab (phone) → lead card: source · time in stage",
       "kind": "see",
       "file": "apps/mobile/src/components/pipeline/bits.tsx:120",
       "covered": "yes",
-      "by": "read_lead_board → source, stageEnteredAt"
+      "by": "read_lead_board → leads[].source, daysInStage"
     },
     {
       "path": "Pipeline tab (phone) → lead card: next action, overdue dot, or No next action",
@@ -1778,8 +1778,8 @@
       "path": "Lead (phone) → Move to… sheet → works with no signal note",
       "kind": "see",
       "file": "apps/mobile/src/components/pipeline/bits.tsx:202",
-      "covered": "no",
-      "by": "the phone's offline promise; n/a to the Assistant"
+      "covered": "yes",
+      "by": "places map PHONE_APP: Move to… works with no signal"
     },
     {
       "path": "Lead (phone) → Move to… sheet → Cancel",
@@ -1841,8 +1841,8 @@
       "path": "Tasks (phone) → tap a task → its lead, customer or company",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/tasks.tsx:67",
-      "covered": "partly",
-      "by": "list_tasks gives the customer's name only, no ids"
+      "covered": "yes",
+      "by": "list_tasks → personId, company, lead and record ids"
     },
     {
       "path": "New task (phone sheet) → title",
@@ -1856,7 +1856,7 @@
       "kind": "do",
       "file": "apps/mobile/src/components/customers/sheets.tsx:350",
       "covered": "yes",
-      "by": "create_task dueAt, allDay"
+      "by": "create_task dueAt: a date alone is all day"
     },
     {
       "path": "New task (phone sheet) → For: me or a teammate",
@@ -1876,22 +1876,22 @@
       "path": "Approvals (phone) → Waiting · N / Decided · N",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:113",
-      "covered": "partly",
-      "by": "waiting: context approvals + list_teammate_drafts; decided only partly"
+      "covered": "yes",
+      "by": "list_workflow_approvals and list_teammate_drafts, status pending or decided"
     },
     {
       "path": "Approvals (phone) → filter All · N / Workflows · N / {teammate} · N",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:134",
       "covered": "yes",
-      "by": "context approvals; list_teammate_drafts"
+      "by": "context approvals and the AI teammate’s drafts; list_workflow_approvals workflowId; list_teammate_drafts"
     },
     {
       "path": "Approvals (phone) → Waiting for you",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:164",
       "covered": "yes",
-      "by": "context approvals (the ones they can decide)"
+      "by": "context approvals (the ones they can decide, not expired) and drafts; list_workflow_approvals canDecide"
     },
     {
       "path": "Approvals (phone) → training wheels line ({teammate}’s drafts … : progress)",
@@ -1905,77 +1905,77 @@
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:187",
       "covered": "yes",
-      "by": "context approvals empty; list_teammate_drafts note"
+      "by": "context approvals empty; list_workflow_approvals and list_teammate_drafts notes"
     },
     {
       "path": "Approvals (phone) → workflow approval → title (what it does, for whom)",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:111",
       "covered": "yes",
-      "by": "context approvals → workflow, customer, what"
+      "by": "list_workflow_approvals → workflow, customer, whatGoesOut"
     },
     {
       "path": "Approvals (phone) → workflow approval → byline: workflow · who was asked · waiting for",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:114",
-      "covered": "partly",
-      "by": "context has the workflow; no approvers or wait"
+      "covered": "yes",
+      "by": "list_workflow_approvals → workflow, asked, waitingSince"
     },
     {
       "path": "Approvals (phone) → workflow approval → Expires in … / Expired",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:117",
-      "covered": "no",
-      "by": "no tool reads an approval's expiresAt"
+      "covered": "yes",
+      "by": "list_workflow_approvals → expires, or expired"
     },
     {
       "path": "Approvals (phone) → workflow approval → note",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:140",
-      "covered": "partly",
-      "by": "answer_workflow_approval card shows it (Asks); not read before"
+      "covered": "yes",
+      "by": "list_workflow_approvals → note"
     },
     {
       "path": "Approvals (phone) → workflow approval → {first}’s latest message",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:147",
-      "covered": "partly",
-      "by": "get_conversation reads their messages; not tied to the approval"
+      "covered": "yes",
+      "by": "list_workflow_approvals → theirLatestMessage"
     },
     {
       "path": "Approvals (phone) → workflow approval → Knowledge used",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:157",
-      "covered": "no",
-      "by": "no tool reads it"
+      "covered": "yes",
+      "by": "list_workflow_approvals → knowledgeUsed"
     },
     {
       "path": "Approvals (phone) → workflow approval → AI-written text · you can edit it",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:180",
-      "covered": "partly",
-      "by": "answer_workflow_approval card shows the first field; model can't read it first"
+      "covered": "yes",
+      "by": "list_workflow_approvals → aiWritten (label, ai_wrote); the answer_workflow_approval card shows each"
     },
     {
       "path": "Approvals (phone) → workflow approval → edit the text (each field)",
       "kind": "do",
       "file": "apps/mobile/src/components/home/approval-card.tsx:183",
-      "covered": "partly",
-      "by": "answer_workflow_approval message edits the first field only"
+      "covered": "yes",
+      "by": "answer_workflow_approval edits by key (message for one text)"
     },
     {
       "path": "Approvals (phone) → workflow approval → Edited / Written by the AI; text segments",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:198",
       "covered": "partly",
-      "by": "card says Edited when message given; no segments"
+      "by": "answer_workflow_approval card says Edited; list_workflow_approvals decided → edited; no text segments"
     },
     {
       "path": "Approvals (phone) → workflow approval → Write the text, or reject it.",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:206",
       "covered": "yes",
-      "by": "answer_workflow_approval message min 1"
+      "by": "answer_workflow_approval message and edits need words"
     },
     {
       "path": "Approvals (phone) → workflow approval → Approving lets {workflow} carry on for {who}.",
@@ -1988,8 +1988,8 @@
       "path": "Approvals (phone) → workflow approval → if nobody decides in time / This expired",
       "kind": "see",
       "file": "apps/mobile/src/components/home/approval-card.tsx:221",
-      "covered": "no",
-      "by": "expiry not read"
+      "covered": "yes",
+      "by": "list_workflow_approvals → ifNobodyDecides, expired; answer_workflow_approval stops at an expired one"
     },
     {
       "path": "Approvals (phone) → workflow approval → Approve / Approve and send",
@@ -2114,8 +2114,8 @@
       "path": "Approvals (phone) → Decided → workflow row: customer, workflow, approved/rejected/expired line, when",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:337",
-      "covered": "partly",
-      "by": "list_workflow_runs show all: runs and status; no decision line"
+      "covered": "yes",
+      "by": "list_workflow_approvals status approved, rejected or expired → customer, workflow, decided, when"
     },
     {
       "path": "Approvals (phone) → Decided → workflow row → Run",
@@ -2128,22 +2128,22 @@
       "path": "Approvals (phone) → Decided → AI draft row: customer, teammate, decided line, when",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:304",
-      "covered": "no",
-      "by": "list_teammate_drafts reads waiting drafts only"
+      "covered": "yes",
+      "by": "list_teammate_drafts status decided → for, teammate, decided, when"
     },
     {
       "path": "Approvals (phone) → Decided → AI draft row → Conversation",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:320",
-      "covered": "partly",
-      "by": "get_conversation by customer; no draft to find it from"
+      "covered": "yes",
+      "by": "list_teammate_drafts status decided → conversationId; get_conversation"
     },
     {
       "path": "Approvals (phone) → Decided → Nothing decided lately",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx:223",
-      "covered": "partly",
-      "by": "decided drafts and approvals not read"
+      "covered": "yes",
+      "by": "list_teammate_drafts status decided note; list_workflow_approvals empty"
     }
   ],
   "gaps": [
@@ -2154,7 +2154,7 @@
       "where": "A lead (side sheet, full page and phone lead page): the ⋯ menu item “Delete for good…” (BIN_WORDS.menu); phone: the “Delete for good…” button",
       "gap": "The places map tells the Assistant a lead can't be deleted, though the screens and its own tool can. The lead place's ⋯ line lists only Edit details and Archive lead. Its notHere says 'deleting a lead (archive it)', and NOT_ANYWHERE says 'deleting a company or lead for good (they are archived…)'. The lead's ⋯ has Delete for good… for people with records.archive + records.delete, and the phone lead page has the button. move_to_bin's own description says it deletes leads and companies. 'How do I delete this lead?' gets 'HandsFreeOS doesn't do that', which contradicts move_to_bin.",
       "fix": "packages/core/src/assistant/places-map.ts: line 224 → 'Note, Log call, Won and Lost (Reopen once closed); ⋯ has Edit details, Archive lead and Delete for good… (owners)'. Line 235: drop notHere 'deleting a lead (archive it)'. Add howTo 'Delete it for good: ⋯, then Delete for good… (owners); it waits 30 days in Settings → Deleted bin'. Line 616: rewrite to drop 'company or lead' (e.g. remove the entry, or make it 'deleting anything at once with no way back: what is deleted for good waits 30 days in Settings → Deleted bin').",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2164,7 +2164,7 @@
       "where": "A lead (side sheet and full page): Next: … · due time, Lost: reason · date, Won · date, Value, Assigned to, Last contact, Expected close, Source, Tags, “N days in stage”, Archived, Qualification card",
       "gap": "get_lead, list_leads and get_customer's openLeads all go through leadResult. It keeps only id, title, customer, personId, stage, status, value, assignee, nextAction, needsNextAction and createdAt. It drops nextActionAt, nextActionOverdue, lostReason, lostAt, wonAt, expectedCloseOn, source, tags, lastContactAt, stageEnteredAt, archivedAt and company (when there is also a person). get_lead also drops lead.qualification, which lead.get returns. The only partial fallback is read_lead_board, which returns raw LeadCards. It is unreliable: cut at 16,000 chars, no archived leads, no qualification.",
       "fix": "apps/worker/src/assistant/tools-read.ts: extend the LeadItem interface (:136) and leadResult (:210) with nextActionAt (when()), nextActionOverdue, lostReason, lostAt/wonAt (when()), expectedCloseOn, source, tags (names), lastContactAt (when()), daysInStage (from stageEnteredAt), company name, and archived (bool). In get_lead (:376) also return qualification {status, answers: question → quoted(answer), missing}. Update the get_lead description in packages/core/src/assistant/tools.ts:105 to name these fields.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2174,7 +2174,7 @@
       "where": "Pipeline header “N open leads · $X” and the board/list of leads",
       "gap": "Totals are reachable: read_crm_summary (crm.summary) gives open-lead count and value for the business, and read_lead_board gives per-stage counts. So 'how many open leads' is answerable. What is real: list_leads reports `count: items.length` (max 20), which reads like a total. It drops lead.list's nextCursor, so nobody knows more exist. It can't filter by pipelineId, companyId or q, though lead.list takes them. Its description says 'newest first', while lead.list sorts by last change (updatedAt desc).",
       "fix": "packages/core/src/assistant/tools.ts:88-99 list_leads: add pipelineId, companyId, query (→ q) and cursor. Change the description to 'Leads, most recently changed first… for totals use read_crm_summary or read_lead_board'. apps/worker/src/assistant/tools-read.ts:349-360: pass them through, return {shown: items.length, nextCursor, more: !!nextCursor} instead of count.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2184,7 +2184,7 @@
       "where": "Pipeline board/list: pressing a lead opens it in the side sheet (“Lead”); Tasks page: a task opened from search (?task=)",
       "gap": "The board keeps the open lead in component state, not the URL. assistantPageRecord maps only /leads/<id> and /calendar?appt=. So with a lead open in the board's side sheet, the context says 'No customer, lead or appointment is on screen.', and 'mark this one won' or 'who is this for?' don't resolve. /tasks?task= isn't mapped either, and PageRecord has no 'task' type.",
       "fix": "apps/web/src/components/pipeline/board.tsx:82,377,385: keep the open lead in ?lead=<id> (router.replace when it opens and closes, as :257 already does for view). packages/core/src/assistant/words.ts:429: take the param, e.g. assistantPageRecord(pathname, ws, {appt, lead}), and map /pipeline?lead=<uuid> to {type:'lead'}. apps/web/src/lib/assistant/page-record.ts: read useSearchParams().get('lead') and pass it. Do the same in the phone's Pipeline if it opens leads in a sheet.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2194,7 +2194,7 @@
       "where": "A lead → ⋯ → Edit details (Edit lead dialog): Title, Value, Assigned to, Expected close, Source",
       "gap": "update_lead takes only assigneeUserId, value, nextAction and nextActionAt, so the Assistant can't rename a lead, set or clear Expected close, or change Source. lead.update takes all three. The places map even tells it 'Change its value, owner or close date: ⋯, then Edit details'.",
       "fix": "packages/core/src/assistant/tools.ts:1296-1306 update_lead: add title text(160).optional(), expectedCloseOn (local date, isLocalDate).nullable().optional(), source z.string().trim().max(80).nullable().optional(). Description: 'Change a lead's title, value, assignee, expected close, source or next action.' apps/worker/src/assistant/tools-write.ts:738-790 updateLead: add 'Title', 'Expected close' and 'Source' old → new fields in prepare, and pass title/expectedCloseOn/source to lead.update in commit. Fix the 'Nothing would change' message at :762.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2204,7 +2204,7 @@
       "where": "Approvals (phone More → Approvals; web Workflows → Approvals): a workflow approval’s card — the AI-written text (“The text that will go · You can edit”), “Latest message from …”, Knowledge used, who was asked and how long it waited, Expires in …",
       "gap": "No tool returns what the AI wrote in a waiting workflow approval. The context lists at most 10 pending approvals (no 'of N') with only workflow, customer and 'a text/an email/the next step'. answer_workflow_approval puts the text on the person's card, but its result gives the model none of it. A 'say Wednesday instead' edit rewrites a text the model never saw. what_needs_attention doesn't help: attention's previewText reads the top-level 'message' key (the approval step's note) and never 'fields', so its detail.draft is the note, not the AI text. The worker's approval-words copy also drops asked, items, expiresAt and approvers. Prepare offers Approve on an approval past expiresAt, which the command then refuses (approval_expired).",
       "fix": "Add an auto read tool list_workflow_approvals {status: pending|approved|rejected|expired, workflowId?, cursor?} in packages/core/src/assistant/tools-content.ts, run in the worker over workflow.approval_list with core approvalPreviewOf (packages/core/src/workflows/approval-words.ts:54). Return id, workflow, customer, note, fields as {key: {ai_wrote: text}}, asked as quoted(), knowledge titles, approvers, waitingSince, expiresAt, canDecide and nextCursor. Delete apps/worker/src/assistant/approval-words.ts in favour of core's. In tools-workflow.ts answerApproval.prepare, add `text` to result and block with 'This approval expired.' when expiresAt has passed. context.ts:368: say 'the newest 10 of N'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2214,7 +2214,7 @@
       "where": "Approvals: Waiting list with filter chips All · N, Workflows · N, <Teammate> · N — the AI teammate’s drafts wait in the same list",
       "gap": "The teammate's drafts do reach the Assistant through the Action Center. Attention's ai_approval kind covers teammate drafts, so the context's top-8 attention lines and what_needs_attention(kind: ai_approval) include them. What's real: the prompt says 'Approvals are decided with answer_workflow_approval', and the context's 'approvals waiting on this person' are workflow approvals only. Neither list_teammate_drafts nor decide_teammate_draft is named in SYSTEM, so with tool search they aren't always loaded (alwaysLoaded takes names from SYSTEM). 'What's waiting for my approval?' tends to get workflows only.",
       "fix": "apps/worker/src/assistant/prompt.ts:28 → '…Approvals: a workflow's are decided with answer_workflow_approval; the AI teammate's drafts waiting for an OK are list_teammate_drafts and decide_teammate_draft (both wait in Workflows → Approvals).' apps/worker/src/assistant/context.ts:361-424: add the pending canDecide drafts (ai_teammate.draft_list status pending) to the approvals lines, or a count of them.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2224,7 +2224,7 @@
       "where": "Approvals → Decided tab: approved, rejected and expired workflow approvals and decided teammate drafts, each with “Approved by Priya with an edit” / “Rejected by Dale: …” / “Expired: nobody decided in time” and when",
       "gap": "Owners and admins (audit.read) can see decisions through read_audit_list (action 'workflow.decide_approval' or the teammate's decide, with actor and before/after). That is raw, without customer names, and isn't offered to members. Otherwise every approval read is pending only. list_teammate_drafts hard-codes status 'pending', though ai_teammate.draft_list takes 'decided'/'all' and returns decidedBy, decidedAt, edits and reason. The workflow side reads only pending. The Decided tab ('Approved by Priya with an edit', 'Expired: nobody decided in time') has no equal.",
       "fix": "packages/core/src/assistant/tools-content.ts:345-354 list_teammate_drafts: add status z.enum(['pending','decided']).default('pending'). In apps/worker/src/assistant/tools-content.ts:2648-2690, pass it and return decidedBy, decidedAt, edited (bool), reason, via, using core's decided-line words. Give list_workflow_approvals (appr-1) status approved|rejected|expired with decidedBy, decidedAt, edits and reason.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2244,7 +2244,7 @@
       "where": "New task / Edit task dialog: Due, with “At a specific time” unticked by default (all-day)",
       "gap": "create_task does have allDay, so an all-day task can be made. But it defaults allDay to false, against the command (default true) and the dialog (all-day unless 'At a specific time'). The field has no description, and dueAt must be a full date-time. 'Due Friday' typically becomes a timed task at 00:00 or 09:00, overdue from that moment. All-day tasks aren't kept at noon in the business zone the way the dialog's instantOfInput does.",
       "fix": "packages/core/src/assistant/tools.ts:1129-1139 create_task: replace dueAt/allDay with due: dayOrWhen.optional() (a local date = all-day, a time = timed). apps/worker/src/assistant/tools-write.ts:113-123: for a local date send dueAt = instantOfInput(date, ctx.timezone) (noon) with allDay true, and for a time allDay false.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2254,7 +2254,7 @@
       "where": "Edit task dialog: Notes, and the “At a specific time” box (and Time zone pick)",
       "gap": "update_task sends only title, dueAt and assigneeUserId. It can't change or clear a task's notes, and can't switch between all-day and timed: task.update's allDay is never sent. A new time on an all-day task stays all-day, so the time isn't shown.",
       "fix": "packages/core/src/assistant/tools.ts:1144-1152 update_task: add notes z.string().trim().max(2000).nullable().optional() and due: dayOrWhen.nullable().optional() (as in task-1). Description: 'Change a task's title, notes, due date or time, or assignee.' apps/worker/src/assistant/tools-write.ts:146-156: pass notes plus dueAt/allDay worked out from due. Add FIELD_WORDS notes: 'notes' at :104.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2264,7 +2264,7 @@
       "where": "Tasks: the circle on a done task (Recently done / Done lately) reopens it",
       "gap": "task.reopen is reachable only as the Undo of the Assistant's own complete_task. The coverage test counts it because the worker writes the name. A task a person ticked off can't be reopened, and done tasks can't even be listed (task-4).",
       "fix": "packages/core/src/assistant/tools.ts after :1161: add define({name:'reopen_task', description:'Reopen a task that was marked done.', input:{taskId: uuid}, autonomy:'auto', permission:'records.write'}). apps/worker/src/assistant/tools-write.ts autoWrites: reopen_task runs task.reopen. In undo, reopen_task → task.complete.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2274,7 +2274,7 @@
       "where": "Tasks page: groups Overdue, Today, This week, Later, No due date (up to 100 open), then Recently done; each row’s related lead/customer/company and notes; a lead’s Tasks section",
       "gap": "list_tasks reads only open tasks (status hard-coded), takes 60 and filters after, without saying more exist. It can't filter by leadId, personId or companyId, and its due enum lacks later/none. Its 'week' folds in overdue and today. It returns no notes, lead, company, custom record, allDay or doneAt. No other tool lists a lead's tasks (get_lead returns none, get_customer only a person's open ones). 'Tasks on the Smith lead', 'what did Dale finish', 'what's in Later' go unanswered.",
       "fix": "packages/core/src/assistant/tools.ts:131-140 list_tasks: add status open|done|all, leadId, personId, companyId, due values later and none, cursor. apps/worker/src/assistant/tools-read.ts:440-478: pass these to task.list (limit 100 + cursor) and filter 'week' as the This week bucket only. Return notes, lead {id,title}, related (core taskRelatedLine), allDay, doneAt and doneBy, nextCursor and more. Widen TaskItem (:151) to match TaskOut.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2284,7 +2284,7 @@
       "where": "Task rows’ due words (“Tomorrow”, “Fri”, “Today”, “Overdue · Mon”) — all-day tasks show no time",
       "gap": "Every task due date goes through the worker's when(), which always adds the hour and minute. All-day tasks are stored at noon, so list_tasks, get_customer openTasks, todays_schedule tasksDueToday and create_task's card say e.g. 'Fri, Nov 13, 12:00 PM'. The model reports a noon deadline where the screen says 'Fri' or 'Today'.",
       "fix": "apps/worker/src/assistant/tools-read.ts:151 add allDay and doneAt to TaskItem. Replace when(t.dueAt, tz) for tasks at :331, :467, :476, :496 and :510 with core dueLabel(t, new Date(), ctx.timezone).text (packages/core/src/crm/task-words.ts:62). In apps/worker/src/assistant/tools-write.ts:126, format create_task's due the same way (allDay-aware).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2294,7 +2294,7 @@
       "where": "A lead: Log call (Log activity sheet with Note / Call / Visit, When, and “Set a next action from this”)",
       "gap": "add_note always logs kind 'note' at the current time. No Assistant tool logs a call or a visit, or one that happened earlier, though activity.log takes kind and occurredAt. The sheet's 'Set a next action from this' has no equal in one step (update_lead can do it separately).",
       "fix": "packages/core/src/assistant/tools.ts:1162-1172 add_note: add kind z.enum(['note','call','visit']).default('note') and occurredAt: when.optional(). Description: 'Log a note, call or visit on a customer, company or lead, now or earlier.' apps/worker/src/assistant/tools-write.ts:195-236: pass kind and occurredAt to activity.log, and title the card 'Call logged on …' / 'Visit logged on …'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2304,7 +2304,7 @@
       "where": "Pipeline → New lead: Who is it for? (a person or a company), Title, Value, Assigned to, Pipeline, Stage, Next action, When, Expected close, Source",
       "gap": "create_lead requires personId, so it can't open a lead for a company, which the New lead dialog allows. It also has no nextActionAt, expectedCloseOn or source, though lead.create takes all of them.",
       "fix": "packages/core/src/assistant/tools.ts:1281-1293 create_lead: personId optional, add companyId (refine: one of them), nextActionAt: when.optional(), expectedCloseOn (local date).optional(), source.optional(). apps/worker/src/assistant/tools-write.ts:672-735: load company.get when there is no personId ('Open a lead for <company>?'), add 'When', 'Expected close' and 'Source' card fields, and pass them all to lead.create.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2314,7 +2314,7 @@
       "where": "Pipeline board: each column’s count badge and total value, and the Won/Lost columns",
       "gap": "read_lead_board returns lead.board as raw JSON, cut at 16,000 chars. With BOARD_LEADS_PER_STAGE = 100 full LeadCards per stage (each several hundred chars), the cut lands inside the first columns, so later stages' count and valueCents (Won, Lost, later open stages) are lost. Asking for less needs `shown` with every stage id at limit 1. Nothing tells the model that, and pipeline ids aren't in the context (pipeline names are).",
       "fix": "apps/worker/src/assistant/tools-screen-reads.ts: special-case lead.board (or add an own pipeline_board tool in tools-read.ts). Return pipeline {id,name}, pipelines, and per stage {id, name, kind, count, value: money(valueCents)} first, then the first 5 cards trimmed to title, customer, value, nextAction, daysInStage, with 'N more'. apps/worker/src/assistant/context.ts:400-405: include pipeline ids.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2324,7 +2324,7 @@
       "where": "A lead: Next action “Change” dialog (keeps the current When unless changed) and the Set box (text + When)",
       "gap": "updateLead.commit sends dueAt: nextActionAt ?? null whenever nextAction is given, so rewording a next action silently wipes its due time, while the screen's Change keeps the current When. Changing only the time is refused ('a nextActionAt only counts with a nextAction'). The card shows 'Next: old → new' but never the time it sets or clears.",
       "fix": "apps/worker/src/assistant/tools-write.ts:738-799: in commit, send dueAt as args.nextActionAt when it is given (null clears it), otherwise lead.nextActionAt. Allow nextActionAt alone, reusing lead.nextAction as the text (refuse only if there is none). In prepare, add {label:'When', value: `${when(lead.nextActionAt)} → ${when(new)}`} whenever the time changes.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2334,7 +2334,7 @@
       "where": "Phone app: Pipeline tab (one stage at a time with stage chips, tap a lead, then Move to…; Lost asks why) and More → Tasks (circle ticks off, tapping opens its customer or lead, New task at the bottom)",
       "gap": "PHONE_APP says nothing about the phone's Pipeline or Tasks, and the context doesn't say which app the question came from. The Pipeline how-to is web-only ('drag it on the board, change Stage in the list…'). The phone has Ask (ask.tsx) and moves a lead through the Move to… sheet, so a phone user is told to drag.",
       "fix": "packages/core/src/assistant/places-map.ts PHONE_APP (:624-631): add 'Pipeline: one stage at a time, the chips along the top switch stage and show counts; tap a lead, then Move to… (works with no signal); Lost asks why' and 'Tasks (More → Tasks): Mine or Everyone; the circle ticks one off; tapping opens its customer or lead; New task at the bottom'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2344,7 +2344,7 @@
       "where": "A lead’s Tasks section: “New task” button (no “Task” button on a lead)",
       "gap": "The Tasks place says 'Add a task about a customer or lead: from their page, Task'. A customer's page has Task along the top (it opens the Tasks tab, then New task). A lead has no Task button, only New task in its Tasks section.",
       "fix": "packages/core/src/assistant/places-map.ts:536 → 'Add a task about a customer or lead: on a customer's page press Task, then New task; on a lead, New task in its Tasks section (New task on the Tasks page can't attach one)'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2354,7 +2354,7 @@
       "where": "Workflow approval card: every AI-written field is editable (“The AI’s words (<key>) · You can edit”)",
       "gap": "answer_workflow_approval takes one `message`. Both prepare (body) and commit (edits) use p.fields[0], so an approval with several AI-written fields can only have its first one edited, and the card body shows only that one.",
       "fix": "packages/core/src/assistant/tools-content.ts / tools.ts answer_workflow_approval input: add edits z.record(z.string(), z.string().trim().min(1).max(5000)).optional() (keys from list_workflow_approvals, appr-1), keeping message as shorthand for a single-field approval. apps/worker/src/assistant/tools-workflow.ts:565-616: show every field on the card and send only keys that exist in p.fields as edits.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2364,7 +2364,7 @@
       "where": "Lead values on the card, list and lead (“$4,312.50”)",
       "gap": "The worker's own money() rounds to whole dollars (maximumFractionDigits: 0). The screens use core money(), which keeps cents when the amount isn't whole, so a $4,312.50 lead is '$4,313' in list_leads, get_lead, move_lead and update_lead cards.",
       "fix": "apps/worker/src/assistant/tools-read.ts:30-35: replace the local formatter with `export { money } from '@hfos/core'` (packages/core/src/money/format.ts:29), or moneyRounded only where a summary tile is meant.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2374,7 +2374,7 @@
       "where": "Pipeline board: dragging a card up or down within its column (lead.move_stage with afterLeadId)",
       "gap": "move_lead has no position input and refuses the lead's current stage with same_stage, so a lead can't be reordered within its column. lead.move_stage takes afterLeadId.",
       "fix": "packages/core/src/assistant/tools.ts:1309-1319 move_lead: add afterLeadId uuid.nullable().optional() ('null puts it at the top'). apps/worker/src/assistant/tools-write.ts:530-600: skip the same_stage refusal when afterLeadId is given, and pass afterLeadId to lead.move_stage.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2384,7 +2384,7 @@
       "where": "A lead’s New task (attaches the lead and its company), and tasks on a pet, vehicle or property",
       "gap": "create_task takes only personId and leadId. A lead's New task ties the task to the lead, person and company, and task.create doesn't derive the company from the lead. So an Assistant-made task on a company-only lead isn't on the company, and tasks on the business's own kinds of records (customRecordId) can't be made.",
       "fix": "packages/core/src/assistant/tools.ts:1129-1139 create_task: add companyId and customRecordId (uuid.optional()). apps/worker/src/assistant/tools-write.ts:113-123: pass both to task.create, and when only leadId is given fill personId/companyId from lead.get, as the lead page's relation does.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     }
   ]

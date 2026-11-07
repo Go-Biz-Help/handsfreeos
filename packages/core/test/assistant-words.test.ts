@@ -220,11 +220,18 @@ describe('the record a question is asked from', () => {
     expect(at(`workflows/${ID}`)).toEqual({ type: 'workflow', id: ID });
     expect(at(`workflows/runs/${ID}`)).toEqual({ type: 'workflow_run', id: ID });
     expect(at('calendar', ID)).toEqual({ type: 'appointment', id: ID });
+    // The lead open in the pipeline board's side sheet.
+    expect(assistantPageRecord(`/app/w/${WS}/pipeline`, WS, null, ID)).toEqual({
+      type: 'lead',
+      id: ID,
+    });
   });
 
   it('has no record for a list, another business’s page, or a name that isn’t an id', () => {
     expect(assistantPageRecord(`/app/w/${WS}/customers`, WS)).toBe(null);
     expect(assistantPageRecord(`/app/w/${WS}/calendar`, WS)).toBe(null);
+    expect(assistantPageRecord(`/app/w/${WS}/pipeline`, WS)).toBe(null);
+    expect(assistantPageRecord(`/app/w/${WS}/pipeline`, WS, null, 'not-an-id')).toBe(null);
     expect(assistantPageRecord(`/app/w/${WS}/inbox/not-an-id`, WS)).toBe(null);
     expect(assistantPageRecord(`/app/w/other/customers/people/${ID}`, WS)).toBe(null);
     expect(assistantPageRecord('/sign-in', WS)).toBe(null);

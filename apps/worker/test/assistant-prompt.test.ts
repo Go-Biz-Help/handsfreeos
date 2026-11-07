@@ -48,6 +48,25 @@ describe('Assistant context (PERF-M20)', () => {
     expect(contextText(PROMPT)).toBe(`${lastingText(PROMPT)}\n${turnText(PROMPT)}`);
   });
 
+  it('lists the AI teammate’s drafts beside the workflow approvals, says when more wait, and names pipelines by id', () => {
+    const waiting = turnText({
+      ...PROMPT,
+      moreApprovals: true,
+      teammateDrafts: [{ id: 'd1', what: 'Ava’s reply to Mike Johnson' }],
+    });
+    expect(waiting).toContain(
+      'Workflow approvals waiting on this person (the newest 10 waiting; list_workflow_approvals reads the rest):',
+    );
+    expect(waiting).toContain('- Ava’s reply to Mike Johnson (draft id d1)');
+    expect(turnText(PROMPT)).not.toContain('draft id');
+    expect(
+      lastingText({
+        ...PROMPT,
+        pipelines: [{ id: 'p1', name: 'Sales', stages: PROMPT.pipelines[0]!.stages }],
+      }),
+    ).toContain('- Sales (pipeline id p1): New [open] (stage id s1)');
+  });
+
   it('says which page or setting is open when no record is, with the ids in its address', () => {
     const ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
     const on = (path: string) => turnText({ ...PROMPT, place: screenPlace(path) });

@@ -3,6 +3,9 @@ import {
   ADDON_SERVER_MODULES,
   addonAiTools,
   addonDirectory,
+  approvalCustomerOf,
+  approvalKind,
+  approvalPreviewOf,
   assistantTools,
   ATTENTION_KIND_LABELS,
   briefFromProfile,
@@ -27,7 +30,6 @@ import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
 import { loadGrounding } from '../knowledge/grounding';
 import type { TenantScope } from '../services';
-import { approvalPreview, approvalWhat } from './approval-words';
 import { atLabel, joinAnd, rangeLabel } from './calendar-format';
 import type { PromptContext } from './prompt';
 import type { OfferedTool } from './runtime';
@@ -104,6 +106,7 @@ interface WorkspaceGet {
 }
 interface PipelineList {
   pipelines: {
+    id: string;
     name: string;
     archivedAt: string | null;
     stages: { id: string; name: string; kind: string }[];
@@ -147,11 +150,37 @@ interface ApprovalList {
   items: {
     id: string;
     workflow: { name: string };
-    person: { fullName: string } | null;
+    person: { id: string; fullName: string } | null;
     preview: Record<string, unknown>;
+    expiresAt: string | null;
     canDecide: boolean;
   }[];
+  nextCursor: string | null;
 }
+/** The AI teammate's drafts waiting for an OK, as Workflows → Approvals lists them beside the workflows'. */
+interface DraftList {
+  items: {
+    id: string;
+    kind: string;
+    teammate: { name: string };
+    person: { fullName: string } | null;
+    expiresAt: string | null;
+    canDecide: boolean;
+  }[];
+  nextCursor: string | null;
+}
+
+/** What a waiting draft is, in a few words: "Ava’s reply to Mike Johnson", "Ava asks about Mike Johnson". */
+const DRAFT_KIND_WORDS: Readonly<Record<string, string>> = {
+  reply: 'reply to',
+  call: 'call to',
+  approval: 'request for',
+  ask: 'ask about',
+};
+
+/** Not past its expiry: an approval or draft past it can't be decided any more. */
+const stillOpen = (x: { expiresAt: string | null }, now: Date) =>
+  !x.expiresAt || Date.parse(x.expiresAt) > now.getTime();
 interface AttentionList {
   scope: 'mine' | 'everyone';
   counts: { total: number };
@@ -391,19 +420,25 @@ export async function questionContext(
   ];
   const live = services.items.filter((s) => !s.archivedAt);
   const scope = { workspaceId, organizationId: workspace.organizationId };
-  const [calendars, shown, next, flows, approvals, knowledge, attention] = await Promise.all([
-    calendarsFor(ask, new Map(people.map((p) => [p.userId, p.fullName])), live),
-    page ? pageDetails(ask, page, workspace.timezone) : Promise.resolve(null),
-    page?.type === 'person'
-      ? nextAppointment(ask, page.id, workspace.timezone)
-      : Promise.resolve(null),
-    ask<WorkflowList>('workflow.list').catch((): WorkflowList => ({ items: [] })),
-    ask<ApprovalList>('workflow.approval_list', { status: 'pending', limit: 10 }).catch(
-      (): ApprovalList => ({ items: [] }),
-    ),
-    knowledgeFor(db, scope).catch(() => null),
-    ask<AttentionList>('attention.list').catch((): null => null),
-  ]);
+  const [calendars, shown, next, flows, approvals, drafts, knowledge, attention] =
+    await Promise.all([
+      calendarsFor(ask, new Map(people.map((p) => [p.userId, p.fullName])), live),
+      page ? pageDetails(ask, page, workspace.timezone) : Promise.resolve(null),
+      page?.type === 'person'
+        ? nextAppointment(ask, page.id, workspace.timezone)
+        : Promise.resolve(null),
+      ask<WorkflowList>('workflow.list').catch((): WorkflowList => ({ items: [] })),
+      ask<ApprovalList>('workflow.approval_list', { status: 'pending', limit: 10 }).catch(
+        (): ApprovalList => ({ items: [], nextCursor: null }),
+      ),
+      can('inbox.use')
+        ? ask<DraftList>('ai_teammate.draft_list', { status: 'pending', limit: 10 }).catch(
+            (): DraftList => ({ items: [], nextCursor: null }),
+          )
+        : Promise.resolve<DraftList>({ items: [], nextCursor: null }),
+      knowledgeFor(db, scope).catch(() => null),
+      ask<AttentionList>('attention.list').catch((): null => null),
+    ]);
   return {
     organizationId: workspace.organizationId,
     timezone: workspace.timezone,
@@ -433,6 +468,7 @@ export async function questionContext(
       pipelines: pipelines
         .filter((p) => !p.archivedAt)
         .map((p) => ({
+          id: p.id,
           name: p.name,
           stages: p.stages.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
         })),
@@ -449,13 +485,24 @@ export async function questionContext(
         .slice(0, 25)
         .map((w) => ({ id: w.id, name: w.name, status: w.status, trigger: w.trigger.summary })),
       approvals: approvals.items
-        .filter((a) => a.canDecide)
-        .map((a) => ({
-          id: a.id,
-          workflow: a.workflow.name,
-          customer: a.person?.fullName ?? approvalPreview(a.preview).customer,
-          what: approvalWhat(a.preview),
+        .filter((a) => a.canDecide && stillOpen(a, now))
+        .map((a) => {
+          const p = approvalPreviewOf(a);
+          return {
+            id: a.id,
+            workflow: a.workflow.name,
+            customer: approvalCustomerOf(a, p),
+            what: approvalKind(p),
+          };
+        }),
+      ...(approvals.nextCursor ? { moreApprovals: true } : {}),
+      teammateDrafts: drafts.items
+        .filter((d) => d.canDecide && stillOpen(d, now))
+        .map((d) => ({
+          id: d.id,
+          what: `${d.teammate.name}’s ${DRAFT_KIND_WORDS[d.kind] ?? 'draft for'} ${d.person?.fullName ?? 'a new customer'}`,
         })),
+      ...(drafts.nextCursor ? { moreTeammateDrafts: true } : {}),
       knowledge,
       attention: attentionFor(attention),
       addons: addonDirectory(addons.catalog ?? ADDON_CATALOG, workspace.addons),
