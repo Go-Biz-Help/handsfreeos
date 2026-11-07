@@ -283,7 +283,9 @@ describe('get_settings', () => {
     expect(safety.repeatMinutes).toBe(10);
     expect(safety.thenTold).toContain('every 10 minutes, for an hour');
     expect(safety.nobodyToTell).toContain('replied OK');
-    expect(JSON.stringify(result)).toContain('Who’s told when someone has nobody to tell');
+    // get_settings reads what is set; the screen's own labels come with settings_help.
+    const help = await readTool('settings_help', 'safety', owner);
+    expect(JSON.stringify(help.result)).toContain('Who’s told when someone has nobody to tell');
   });
 
   it('reads every part without failing, whatever is set up', async () => {
