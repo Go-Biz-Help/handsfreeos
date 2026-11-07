@@ -14,7 +14,7 @@
  * Built from Facebook's usual words for this page, not yet from a page outline of it: Check Facebook sends its outline
  * (./tries.ts), so it can be tuned from the person's own.
  */
-import { clean, textLines } from './dom';
+import { clean, mainOf, textLines } from './dom';
 import {
   controlIn,
   EDITOR_LOOK_MS,
@@ -81,10 +81,7 @@ export function linksPage(href: string): boolean {
 
 /** Whether a link shows on the page, or in the box on top: as a link, or as words. */
 export function linkShown(doc: Document, link: string): boolean {
-  const places = [
-    ...placesOf(doc).filter((p) => p !== doc.body),
-    doc.querySelector('[role="main"]') ?? doc.body,
-  ];
+  const places = [...placesOf(doc).filter((p) => p !== doc.body), mainOf(doc)];
   return places.some(
     (place) =>
       [...place.querySelectorAll('a[href]')].some((a) =>

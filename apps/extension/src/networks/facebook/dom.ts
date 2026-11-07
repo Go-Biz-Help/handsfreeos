@@ -259,6 +259,18 @@ export function inTopBar(element: Element): boolean {
   return element.closest('[role="banner"]') !== null;
 }
 
+/**
+ * The page's own main part, never one inside the top bar, which comes before it on the page. A profile read from a
+ * part of the top bar marked main found neither the name nor the post the page showed, so a friend request said
+ * Facebook showed a different page (the owner's problem report of 6 Nov 2026, 0.126.3). Null when there's none.
+ */
+export function mainIn(doc: Document): Element | null {
+  return [...doc.querySelectorAll('[role="main"]')].find((main) => !inTopBar(main)) ?? null;
+}
+
+/** The page's own main part (`mainIn`), or the whole page when it has none. */
+export const mainOf = (doc: Document): Element => mainIn(doc) ?? doc.body;
+
 /** A page's tabs (a profile's All, About, Friends…; a group's About, Discussion, People…), outside the top bar. */
 export function tabsIn(root: Element): Element | null {
   return [...root.querySelectorAll('[role="tablist"]')].find((tabs) => !inTopBar(tabs)) ?? null;

@@ -30,6 +30,7 @@ import {
   isBefore,
   isHeading,
   labelOf,
+  mainOf,
   tabsIn,
   textLines,
 } from './dom';
@@ -58,7 +59,6 @@ import { isFacebookText, UI_WORDS } from './vocabulary';
 import { readWarnings } from './warnings';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 const EDIT_BIO = /^(edit|add) bio$/i;
 const COVER = /\bcover (photo|picture|image)\b/i;

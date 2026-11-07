@@ -17,6 +17,7 @@ import {
   elementsAfter,
   elementsIn,
   isBefore,
+  mainOf,
   namesOn,
   outermost,
   textLines,
@@ -194,7 +195,7 @@ export function readChat(
   base: string,
   options: ChatOptions = {},
 ): ChatPage {
-  return readChatIn(doc.querySelector('[role="main"]') ?? doc.body, address.thread, base, options);
+  return readChatIn(mainOf(doc), address.thread, base, options);
 }
 
 /** The chat a part of the page shows: the main column of a chat's own page, or a small chat window over another page. */
