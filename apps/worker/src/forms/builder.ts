@@ -28,9 +28,10 @@ import {
   type HumanActor,
   type RequestMeta,
 } from '@hfos/core/server';
-import { asWorker, type Db } from '@hfos/db/client';
+import { asWorker, rows, sql, type Db } from '@hfos/db/client';
 import type { Logger } from 'pino';
 import { AI_BUSY_MESSAGE, AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
+import { slidesFromRead, slidesLines } from './poll-cue-routes';
 import { aiBudget, recordAndChargeAi } from '../ai/budget';
 import type { TenantScope, WorkerServices } from '../services';
 
@@ -119,6 +120,16 @@ export async function draftForm(
   const catalogs = await asWorker(deps.db, scope, (tx) =>
     formIssues(tx, scope.workspaceId, loaded.definition),
   );
+  // A live poll's slides, as Read them on its Slides card reads them: what the worker already read in the PDF.
+  const slides = loaded.definition.mode === 'poll' ? (loaded.definition.slides ?? null) : null;
+  const [read] = slides
+    ? await asWorker(deps.db, scope, (tx) =>
+        rows<{ text: string; pages: number[] }>(
+          tx,
+          sql`select text, pages from app.file_texts where file_id = ${slides.fileId} and chars > 0`,
+        ),
+      )
+    : [];
   const context = [
     `Business: ${quoteData(workspace.name)}.`,
     catalogs.catalogs.customFields.length
@@ -126,6 +137,27 @@ export async function draftForm(
           .map((f) => `${quoteData(f.label)}=${f.id} (${f.type}, on the ${f.entity})`)
           .join('; ')}`
       : 'This business has invented no fields of its own yet.',
+    // The calendars and services a booking question, or a poll's book button, can book on.
+    catalogs.catalogs.calendars.length
+      ? `Calendars (calendarId) and their services (serviceId): ${catalogs.catalogs.calendars
+          .map(
+            (c) =>
+              `${quoteData(c.name)}=${c.id}${
+                c.services.length
+                  ? ` [${c.services.map((sv) => `${quoteData(sv.name)}=${sv.id}`).join(', ')}]`
+                  : ''
+              }`,
+          )
+          .join('; ')}`
+      : 'This business has no calendars yet.',
+    ...(slides
+      ? [
+          `Its slides: ${quoteData(slides.name)}, ${slides.pages} ${slides.pages === 1 ? 'slide' : 'slides'}.`,
+          read?.pages.length
+            ? quoteData(slidesLines(slidesFromRead(read)).join('\n'))
+            : 'Their words haven’t been read yet: tie a question to a slide only when the request says which.',
+        ]
+      : []),
     'The form as it is now:',
     '<form>',
     formForModel(loaded.definition),

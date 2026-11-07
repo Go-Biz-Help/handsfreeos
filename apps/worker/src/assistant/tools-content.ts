@@ -27,7 +27,10 @@ import {
   diffWorkflows,
   endReasonText,
   failedStep,
+  campaignCallWords,
+  campaignStatusWords,
   findStep,
+  FORM_SOURCE_WORDS,
   HfosError,
   isLiveRun,
   KnowledgeEditableContent,
@@ -63,6 +66,7 @@ import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { command, query, quoted, rehearse, when } from './tools-read';
 import type { SettingsConfirmTool } from './tools-settings-calendar';
+import { wholeFormLink } from './tools-forms';
 import { lastRunOut, sourceOut, type WorkflowItem } from './tools-workflow';
 
 type Args = Record<string, unknown>;
@@ -183,19 +187,26 @@ interface Recipient {
   id: string;
   personId: string;
   name: string;
+  phone: string | null;
+  email: string | null;
   status: 'drafting' | 'ready' | 'skipped' | 'removed' | 'approved' | 'sent' | 'failed';
   skipReason: string | null;
   draft: string | null;
   edited: boolean;
   sentAt: string | null;
   error: string | null;
-  call: { status: string; outcome: string | null } | null;
+  call: { status: string; outcome: string | null; summary: string | null } | null;
 }
 interface CampaignGet {
   campaign: CampaignSummary & {
     audience: { tagIds: string[]; stageIds: string[] };
-    email: { subject: string | null; body: string | null; postalAddress: string | null } | null;
-    call: { opening: string | null } | null;
+    email: {
+      subject: string | null;
+      body: string | null;
+      edited: boolean;
+      postalAddress: string | null;
+    } | null;
+    call: { opening: string | null; edited: boolean } | null;
   };
   recipients: Recipient[];
   nextSendAt: string | null;
@@ -225,14 +236,9 @@ const SENDS_AS: Record<Channel, string> = {
   email: 'One email to them all, with their first name',
   call: 'AI calls from your AI teammate',
 };
-const CAMPAIGN_STATUS: Record<CampaignSummary['status'], string> = {
-  drafting: 'Being written',
-  review: 'Waiting for approval',
-  sending: 'Sending',
-  paused: 'Paused',
-  done: 'Done',
-  cancelled: 'Stopped',
-};
+/** A campaign's state, as its badge says it (core's, which the Campaigns pages use). */
+const CAMPAIGN_STATUS = (c: Pick<CampaignSummary, 'status' | 'channel'>) =>
+  campaignStatusWords(c.status, c.channel);
 /** The Campaigns screen's words for why someone was left out. */
 const SKIP_WORDS: Record<string, string> = {
   no_phone: 'no mobile number',
@@ -288,7 +294,10 @@ function whereItIs(c: CampaignSummary): string {
   const going = c.counts.sent + c.counts.approved + c.counts.failed;
   switch (c.status) {
     case 'drafting':
-      return c.channel === 'sms' ? 'The AI is writing the texts' : `The AI is writing the ${one}`;
+      // As the page counts them: the ones left out aren't written.
+      return c.channel === 'sms'
+        ? `The AI is writing the texts: ${c.counts.total - c.counts.drafting - c.counts.skipped} of ${c.counts.total - c.counts.skipped} written`
+        : `The AI is writing the ${one}, to ${peopleOf(c.counts.total - c.counts.skipped)}`;
     case 'review':
       return `${peopleOf(c.counts.ready)} to ${c.channel === 'call' ? 'call' : 'get it'}, waiting for approval`;
     case 'sending':
@@ -344,10 +353,11 @@ async function listCampaigns(db: Db, ctx: ToolContext, args: Args): Promise<Tool
         id: c.id,
         name: c.name,
         sends: NOUN[c.channel][1],
-        status: c.status,
+        status: CAMPAIGN_STATUS(c),
         whereItIs: whereItIs(c),
         goal: c.goal,
         pace: `${c.perHour} an hour`,
+        ...(c.channel === 'call' ? { keepsAddingPeople: c.keepAdding } : {}),
         ...(c.offer ? { offer: c.offer.name } : {}),
         started: when(c.createdAt, ctx.timezone),
       })),
@@ -377,40 +387,75 @@ async function getCampaign(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
   const { campaign: c, recipients } = got;
   const who = await audienceWords(db, ctx, c.audience);
   const going = recipients.filter((r) => r.status !== 'skipped' && r.status !== 'removed');
+  const left = recipients.filter((r) => r.status === 'skipped' || r.status === 'removed');
+  const whyLeftOut = (r: Recipient) =>
+    r.status === 'removed' ? 'taken out by hand' : skipWords(r.skipReason);
   const byReason: Record<string, number> = {};
-  for (const r of recipients)
-    if (r.status === 'skipped' || r.status === 'removed') {
-      const why = r.status === 'removed' ? 'taken out by hand' : skipWords(r.skipReason);
-      byReason[why] = (byReason[why] ?? 0) + 1;
-    }
+  for (const r of left) byReason[whyLeftOut(r)] = (byReason[whyLeftOut(r)] ?? 0) + 1;
   const p = contentPaths(ctx.workspaceId);
   return {
     result: {
       id: c.id,
       name: c.name,
       sends: SENDS_AS[c.channel],
-      status: c.status,
+      status: CAMPAIGN_STATUS(c),
       whereItIs: whereItIs(c),
       goal: c.goal,
       whoItPicks: whoLine(who),
       pace: paceLine(c),
+      ...(c.channel === 'call' ? { keepsAddingPeople: c.keepAdding } : {}),
       ...(c.offer ? { offer: c.offer.name } : {}),
       ...(c.status === 'paused' && c.pausedReason
         ? { pausedBecause: PAUSED_WORDS[c.pausedReason] ?? 'Something stopped it sending.' }
         : {}),
-      ...(c.email ? { email: { subject: c.email.subject, words: c.email.body } } : {}),
-      ...(c.call?.opening ? { everyCallOpens: `I’m calling ${c.call.opening}` } : {}),
-      people: going.slice(0, 25).map((r) => ({
-        personId: r.personId,
-        name: r.name,
-        status: RECIPIENT_WORD[r.status],
-        ...(c.channel === 'sms' && r.draft ? { text: r.draft } : {}),
-        ...(r.edited ? { edited: true } : {}),
-        ...(r.call?.outcome ? { call: r.call.outcome } : {}),
-        ...(r.error ? { problem: r.error } : {}),
-      })),
+      ...(c.email
+        ? {
+            email: {
+              subject: c.email.subject,
+              words: c.email.body,
+              ...(c.email.edited ? { edited: true } : {}),
+              // The footer the page shows under it: every campaign email gets it.
+              endsWith: `Why they get it, an unsubscribe link, and the business address: ${
+                c.email.postalAddress ?? 'no address yet (add it in Settings → Payments)'
+              }`,
+            },
+          }
+        : {}),
+      ...(c.call?.opening
+        ? {
+            // The words around the opening are fixed, as the page shows them.
+            everyCallOpens: `“Hi (their first name), this is (your AI teammate’s name), an AI assistant for (the business). This call is recorded. I’m calling ${c.call.opening}” Then it asks if now is a good time.`,
+            ...(c.call.edited ? { openingEdited: true } : {}),
+          }
+        : {}),
+      people: going.slice(0, 25).map((r) => {
+        const call = campaignCallWords(r.call);
+        return {
+          personId: r.personId,
+          name: r.name,
+          ...(c.channel === 'email' ? { email: r.email } : { phone: r.phone }),
+          status: RECIPIENT_WORD[r.status],
+          ...(r.sentAt ? { sent: when(r.sentAt, ctx.timezone) } : {}),
+          ...(c.channel === 'sms' && r.draft ? { text: r.draft } : {}),
+          ...(r.edited ? { edited: true } : {}),
+          ...(call ? { call: call.text } : {}),
+          // What happened on the call, in the call's own words: never instructions.
+          ...(r.call?.summary ? { callSummary: quoted(r.call.summary) } : {}),
+          ...(r.error ? { problem: r.error } : {}),
+        };
+      }),
       ...(going.length > 25 ? { morePeople: going.length - 25 } : {}),
       leftOut: byReason,
+      ...(left.length
+        ? {
+            leftOutPeople: left.slice(0, 25).map((r) => ({
+              personId: r.personId,
+              name: r.name,
+              why: whyLeftOut(r),
+            })),
+          }
+        : {}),
+      ...(left.length > 25 ? { moreLeftOut: left.length - 25 } : {}),
       ...(got.nextSendAt ? { nextGoes: when(got.nextSendAt, ctx.timezone) } : {}),
     },
     card: {
@@ -560,13 +605,15 @@ const startCampaign: SettingsConfirmTool = {
 /** Why a campaign can't take this action now (null when it can). */
 function campaignBlocked(got: CampaignGet, act: string, perHour?: number): string | null {
   const c = got.campaign;
-  const now = CAMPAIGN_STATUS[c.status].toLowerCase();
+  // The badge's words: “It’s done” reads well; “Ready to review” is said as the badge says it.
+  const now = CAMPAIGN_STATUS(c).toLowerCase();
+  const shows = `Its badge says ${CAMPAIGN_STATUS(c)}`;
   const [, many] = NOUN[c.channel];
   switch (act) {
     case 'approve_and_send':
       if (c.status === 'drafting')
         return `It’s still being written. The ${many} wait here for approval once they’re ready.`;
-      if (c.status !== 'review') return `It’s ${now}, so there’s nothing to approve.`;
+      if (c.status !== 'review') return `${shows}, so there’s nothing to approve.`;
       if (c.counts.ready === 0 && !c.keepAdding) return 'There’s nobody left to send to.';
       if (c.channel === 'email' && !(c.email?.subject?.trim() && c.email.body?.trim()))
         return 'The email isn’t written yet.';
@@ -574,9 +621,9 @@ function campaignBlocked(got: CampaignGet, act: string, perHour?: number): strin
         return 'It doesn’t say what the calls are about yet.';
       return null;
     case 'pause':
-      return c.status === 'sending' ? null : `It’s ${now}, so there’s nothing to pause.`;
+      return c.status === 'sending' ? null : `${shows}, so there’s nothing to pause.`;
     case 'resume':
-      return c.status === 'paused' ? null : `It’s ${now}, not paused.`;
+      return c.status === 'paused' ? null : `${shows}, not Paused.`;
     case 'stop':
       return c.status === 'done' || c.status === 'cancelled' ? `It’s already ${now}.` : null;
     case 'keep_adding':
@@ -852,7 +899,7 @@ const editCampaign: SettingsConfirmTool = {
     const base = { label: 'Campaign', value: c.name };
     const shut = OPEN.includes(c.status)
       ? null
-      : `It’s ${CAMPAIGN_STATUS[c.status].toLowerCase()}, so it can’t be changed any more.`;
+      : `It’s ${CAMPAIGN_STATUS(c).toLowerCase()}, so it can’t be changed any more.`;
     const still = { kind: 'note', text: 'Nothing goes until the campaign is approved.' };
     switch (act) {
       case 'change_text': {
@@ -1002,10 +1049,19 @@ interface Review {
   postedAt: string;
   replyBody: string | null;
   canReply: boolean;
+  /** The review on Facebook or Google: the screen's Answer on Facebook link. */
+  url: string | null;
 }
 interface ReviewList {
   reviews: Review[];
-  connections: { provider: 'google' | 'facebook'; status: string; displayName: string | null }[];
+  connections: {
+    id: string;
+    provider: 'google' | 'facebook';
+    status: 'pending' | 'connected' | 'needs_attention' | 'disconnected';
+    displayName: string | null;
+    /** Why reviews stopped coming in: the red line on its card. */
+    lastError: string | null;
+  }[];
   summary: {
     total: number;
     averageRating: number | null;
@@ -1015,6 +1071,17 @@ interface ReviewList {
   };
 }
 const PROVIDER = { google: 'Google', facebook: 'Facebook' } as const;
+/** A connection's state, as its card on Reviews shows it, with the way back when it needs one. */
+const CONNECTION_WORDS: Record<ReviewList['connections'][number]['status'], string> = {
+  connected: 'connected',
+  needs_attention:
+    'needs signing in again (the red badge on Reviews): press Disconnect on its card, then Connect',
+  pending: 'not finished connecting (press Connect on Reviews)',
+  disconnected: 'disconnected',
+};
+/** How to sign one in again: there is no Sign in again button, only the badge. */
+const SIGN_IN_AGAIN = (place: string) =>
+  `On Reviews, press Disconnect (the unplug button) on ${place}’s card, then Connect, and sign in.`;
 const verdict = (r: Review) =>
   r.rating !== null
     ? `${plural(r.rating, 'star')} on ${PROVIDER[r.provider]}`
@@ -1051,9 +1118,11 @@ async function listReviews(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
         unanswered: s.unanswered,
       },
       connected: open.connections.map((c) => ({
+        connectionId: c.id,
         place: PROVIDER[c.provider],
         name: c.displayName,
-        status: c.status === 'connected' ? 'connected' : 'needs signing in again',
+        status: CONNECTION_WORDS[c.status] ?? c.status,
+        ...(c.lastError ? { problem: c.lastError } : {}),
       })),
       reviews: list.map((r) => ({
         id: r.id,
@@ -1064,6 +1133,7 @@ async function listReviews(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
         wrote: quoted(r.body),
         answer: r.replyBody,
         canAnswerHere: r.canReply && !r.replyBody,
+        ...(!r.canReply && r.url ? { answerOnFacebook: r.url } : {}),
       })),
       ...(open.connections.length
         ? {}
@@ -1107,16 +1177,27 @@ const answerReview: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { review: r, connections } = await reviewOf(db, ctx, args['reviewId']);
     const place = PROVIDER[r.provider];
-    const connected = connections.some(
-      (c) => c.provider === r.provider && c.status === 'connected',
+    // review.reply takes an answer while the sign-in needs redoing too, and keeps it to post, as the screen's Answer does.
+    const connection = connections.find(
+      (c) =>
+        c.provider === r.provider && (c.status === 'connected' || c.status === 'needs_attention'),
     );
     const blocked = !r.canReply
       ? `${place} doesn’t let apps answer reviews, so this one is answered on ${place} itself.`
       : r.replyBody
         ? 'It already has an answer.'
-        : !connected
-          ? `${place} needs signing in again (Reviews shows Sign in again), so an answer wouldn’t reach ${place}.`
+        : !connection
+          ? `${place} isn’t connected, so an answer wouldn’t reach ${place}. Connecting it is the person’s to do: Connect on ${place}’s card on Reviews.`
           : null;
+    const signIn: Warning[] =
+      connection?.status === 'needs_attention'
+        ? [
+            {
+              kind: 'caution',
+              text: `${place} needs signing in again. The answer is kept here and tried again, but it may not go up until it is. ${SIGN_IN_AGAIN(place)}`,
+            },
+          ]
+        : [];
     const who = r.authorName ?? 'Someone';
     return {
       card: card(toolCallId, 'answer_review', {
@@ -1134,6 +1215,7 @@ const answerReview: SettingsConfirmTool = {
             text: `Public: anyone who looks the business up on ${place} reads it, under the business’s name.`,
           },
           { kind: 'note', text: 'There’s no changing it from HandsFreeOS once it’s up.' },
+          ...signIn,
         ]),
       }),
       result: { review: `${who} · ${verdict(r)}`, ...(blocked ? { cannotAnswer: blocked } : {}) },
@@ -1175,9 +1257,11 @@ interface FormResponse {
   responseId: string;
   formId: string;
   status: 'in_progress' | 'completed';
+  source: string;
   personId: string | null;
   personName: string | null;
   scorePercent: number | null;
+  passed: boolean | null;
   startedAt: string;
   completedAt: string | null;
 }
@@ -1201,6 +1285,7 @@ async function listFormResponses(db: Db, ctx: ToolContext, args: Args): Promise<
       formId: form.formId,
       includeUnfinished: args['includeUnfinished'] === true,
       limit: Number(args['limit'] ?? 10),
+      ...(str(args['cursor']) ? { cursor: str(args['cursor']) } : {}),
     },
   );
   const who = (r: FormResponse) => r.personName ?? 'Someone who didn’t leave a name';
@@ -1217,9 +1302,11 @@ async function listFormResponses(db: Db, ctx: ToolContext, args: Args): Promise<
         who: who(r),
         personId: r.personId,
         when: done(r),
+        ...(FORM_SOURCE_WORDS[r.source] ? { cameFrom: FORM_SOURCE_WORDS[r.source] } : {}),
         ...(r.scorePercent !== null ? { score: `${r.scorePercent}%` } : {}),
+        ...(r.passed !== null ? { passed: r.passed } : {}),
       })),
-      ...(out.nextCursor ? { more: true } : {}),
+      ...(out.nextCursor ? { nextCursor: out.nextCursor } : {}),
     },
     card: out.items.length
       ? {
@@ -1254,7 +1341,7 @@ async function listArchivedForms(db: Db, ctx: ToolContext): Promise<ToolOutcome>
 }
 
 const manageForm: SettingsConfirmTool = {
-  async prepare(db, ctx, args, toolCallId) {
+  async prepare(db, ctx, args, toolCallId, deps) {
     const act = action(args);
     const f = await formOf(db, ctx, args['formId']);
     const archived = f.status === 'archived';
@@ -1346,20 +1433,21 @@ const manageForm: SettingsConfirmTool = {
         const link = str(args['link']);
         if (!link) throw need('What should the link end in? Pass link, like fall-survey.');
         if (!putAway && link === f.slug) throw nothingChanges(`Its link already ends in ${link}.`);
-        const [{ items: all }, site] = await Promise.all([
+        const [{ items: all }, now, next] = await Promise.all([
           query<{ items: FormSummary[] }>(db, ctx, 'form.list', { includeArchived: true }),
-          query<{ site: { slug: string } | null }>(db, ctx, 'booking_site.get', {}),
+          wholeFormLink(db, ctx, deps?.webUrl ?? '', f.slug),
+          wholeFormLink(db, ctx, deps?.webUrl ?? '', link),
         ]);
         const taken = all.some((x) => x.slug === link && x.formId !== f.formId);
         const blocked = putAway ?? (taken ? 'Another form already uses that link.' : null);
-        const address = (slug: string) =>
-          site.site ? `…/f/${site.site.slug}/${slug}` : `…/${slug}`;
+        // The whole address, as Share shows it; only its end when the business has no link name yet.
+        const address = (whole: string | null, slug: string) => whole ?? `Ends in ${slug}`;
         return {
           card: card(toolCallId, 'manage_form', {
             title: `Change the link to “${f.name}”?`,
             fields: [
-              { label: 'New link', value: address(link) },
-              { label: 'Was', value: address(f.slug) },
+              { label: 'New link', value: address(next, link) },
+              { label: 'Was', value: address(now, f.slug) },
             ],
             ...orBlocked(blocked, 'Change the link', [
               {
@@ -1371,43 +1459,10 @@ const manageForm: SettingsConfirmTool = {
           result: { ...result, ...(blocked ? { cannot: blocked } : {}) },
         };
       }
-      default: {
-        const responseId = str(args['responseId']);
-        if (!responseId) throw need('Which response? responseId comes from list_form_responses.');
-        const { response: r } = await query<{ response: FormResponse }>(
-          db,
-          ctx,
-          'form.response_get',
-          { responseId },
+      default:
+        throw need(
+          'Say what to do: rename, duplicate, archive, restore or change_link. Deleting someone’s answers is for good, so the person does it: Results → One at a time, open the response, then Delete this response (on the phone, Delete these answers).',
         );
-        if (r.formId !== f.formId)
-          throw HfosError.notFound(
-            `That response is to another form, not “${f.name}”. Use a responseId that list_form_responses gives for this form.`,
-          );
-        const who = r.personName ?? 'Someone who didn’t leave a name';
-        return {
-          card: card(toolCallId, 'manage_form', {
-            title: `Delete ${r.personName ? `${r.personName}’s` : 'these'} answers to “${f.name}”?`,
-            personId: r.personId,
-            fields: [
-              base,
-              { label: 'Who', value: who },
-              {
-                label: 'When',
-                value: r.completedAt
-                  ? when(r.completedAt, ctx.timezone)
-                  : `Started ${when(r.startedAt, ctx.timezone)}, not finished`,
-              },
-              { label: 'Score', value: r.scorePercent !== null ? `${r.scorePercent}%` : '' },
-            ],
-            confirmLabel: 'Delete the answers',
-            warnings: [
-              { kind: 'caution', text: 'This can’t be undone: their answers go with it.' },
-            ],
-          }),
-          result: { ...result, who },
-        };
-      }
     }
   },
   async commit(db, ctx, args) {
@@ -1440,16 +1495,9 @@ const manageForm: SettingsConfirmTool = {
           command: 'form.restore',
         };
       }
-      case 'change_link':
+      default: // change_link
         await command(db, ctx, 'form.set_slug', { formId, slug: str(args['link']) });
         return { outcome: 'Changed the link.', href: p.form(formId), command: 'form.set_slug' };
-      default:
-        await command(db, ctx, 'form_response.delete', { responseId: str(args['responseId']) });
-        return {
-          outcome: 'Deleted the answers.',
-          href: p.form(formId),
-          command: 'form_response.delete',
-        };
     }
   },
 };
@@ -3437,7 +3485,15 @@ export const contentStepLabels: Record<string, string> = {
   edit_campaign: 'Changing the campaign',
   list_reviews: 'Looking at reviews',
   answer_review: 'Drafting the answer',
+  list_forms: 'Looking at forms',
+  get_form: 'Looking at the form',
+  form_results: 'Looking at the results',
+  build_form: 'Working on the form',
+  publish_form: 'Getting the form ready',
+  send_form: 'Getting the text ready',
   list_form_responses: 'Looking at who answered',
+  get_form_response: 'Looking at their answers',
+  fill_in_form: 'Filling in the form',
   list_archived_forms: 'Looking at archived forms',
   manage_form: 'Getting the form change ready',
   list_knowledge_items: 'Looking at your knowledge base',

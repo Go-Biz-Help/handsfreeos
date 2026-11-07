@@ -114,6 +114,8 @@ export { INTAKE_KINDS, INTAKE_NAMES, type IntakeKind } from './crm/intake-kinds'
 // Quick setup: a few simple questions that set up a working AI teammate.
 export * from './ai-setup/index';
 export * from './chat/index';
+// A campaign's state and its calls, as the Campaigns pages and the Assistant say them.
+export * from './campaigns/words';
 export * from './attention/index';
 // Settings → Automations: the catalog and the switches it owns.
 export * from './automations/index';

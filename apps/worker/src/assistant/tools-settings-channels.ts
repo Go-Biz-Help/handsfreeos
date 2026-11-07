@@ -7,7 +7,7 @@
  * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
  */
 
-import { HfosError, money, normalizeChatOrigins } from '@hfos/core';
+import { chatSnippet, chatSnippetSrc, HfosError, money, normalizeChatOrigins } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
 import { command, query, rehearse } from './tools-read';
@@ -828,14 +828,17 @@ const manageWebsiteChat: SettingsConfirmTool = {
     const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
     const { fields } = lookOf(args);
     if (creating) {
-      const made = await command<{ widgetId: string }>(db, ctx, 'chat_widget.create', {
-        allowedOrigins: sites ?? [],
-        teammateId: who?.teammateId ?? null,
-        ...fields,
-      });
+      const made = await command<{ widgetId: string; publicKey: string }>(
+        db,
+        ctx,
+        'chat_widget.create',
+        { allowedOrigins: sites ?? [], teammateId: who?.teammateId ?? null, ...fields },
+      );
+      // The snippet as Add it to your site copies it. Its address is a path here, which the executor writes out whole
+      // on the business's own domain when one is serving (full-links.ts), as the screen does.
+      const snippet = chatSnippet(chatSnippetSrc('', made.publicKey));
       return {
-        outcome:
-          'The chat box is set up. Copy its snippet from Add it to your site on its page under Website chats on the Forms page, and paste it into your site.',
+        outcome: `The chat box is set up. Its snippet, to paste just before </body> on every page of the site: ${snippet} It’s also under Add it to your site, on its page under Website chats on the Forms page.`,
         href: pageOf(made.widgetId),
         command: 'chat_widget.create',
       };

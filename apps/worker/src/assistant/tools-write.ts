@@ -1768,7 +1768,7 @@ export function createToolExecutor(
       moreAutoTools[tool.name];
     if (run) return run(db, ctx, args);
     const form = formAutoTools[tool.name];
-    if (form) return form(db, ctx, args, forms ?? (workflows as FormToolDeps | null));
+    if (form) return form(db, ctx, args, forms ?? (workflows as FormToolDeps | null), webUrl);
     const flow = workflowAutoTools[tool.name];
     if (!flow) throw new Error(`No executor for ${tool.name}`);
     return flow(db, ctx, args, workflows);

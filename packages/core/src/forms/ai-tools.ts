@@ -62,6 +62,8 @@ export const FORM_TOOL_NAMES = [
   'move_question',
   'delete_question',
   'add_page',
+  'update_page',
+  'delete_page',
   'add_calculation',
   'add_result',
   'set_form',
@@ -138,6 +140,26 @@ export const FORM_BUILDER_TOOLS: readonly FormToolDef[] = [
     inputSchema: obj({
       ref: nullable(str('A short name for it so later add_question calls can point at it.')),
       title: nullable(str('The heading above its questions.')),
+    }),
+    strict: true,
+  },
+  {
+    name: 'update_page',
+    description:
+      'Change a page: its heading, or whether it saves their details when they leave it (savesContact), so someone who stops part way is still a customer to follow up.',
+    inputSchema: obj({
+      pageId: str('A page id (p_…) or a ref you gave a page added earlier in this reply.'),
+      title: nullable(str('The heading above its questions; null leaves it.')),
+      savesContact: nullable(bool('Save their details when they leave this page; null leaves it.')),
+    }),
+    strict: true,
+  },
+  {
+    name: 'delete_page',
+    description:
+      'Take out a page break: the page’s questions join the end of the page before it, as Join page N to the page before does. The first page can’t be taken out.',
+    inputSchema: obj({
+      pageId: str('A page id (p_…) or a ref you gave a page added earlier in this reply.'),
     }),
     strict: true,
   },
@@ -266,6 +288,12 @@ const INPUTS = {
   }),
   delete_question: z.object({ questionId: z.string() }),
   add_page: z.object({ ref: z.string().nullish(), title: z.string().max(160).nullish() }),
+  update_page: z.object({
+    pageId: z.string(),
+    title: z.string().max(160).nullish(),
+    savesContact: z.boolean().nullish(),
+  }),
+  delete_page: z.object({ pageId: z.string() }),
   add_calculation: z.object({ ref: z.string().nullish(), json: z.string() }),
   add_result: z.object({
     ref: z.string().nullish(),
@@ -411,6 +439,33 @@ export function formToolCallsToOps(
         if (input.ref) pageRefs[input.ref] = id;
         return [
           { op: 'add_page', index: null, page: { id, title: input.title ?? '', questions: [] } },
+        ];
+      }
+      case 'update_page': {
+        const input = checked(INPUTS.update_page, raw, 'The call');
+        const patch: Record<string, unknown> = {};
+        if (input.title !== null && input.title !== undefined) patch.title = input.title;
+        if (input.savesContact !== null && input.savesContact !== undefined)
+          patch.savesContact = input.savesContact;
+        if (!Object.keys(patch).length) throw new CallError('Nothing to change.');
+        return [{ op: 'update_page', pageId: pageId(input.pageId), patch }];
+      }
+      case 'delete_page': {
+        // As the editor's Join page N to the page before: its questions move to the end of that page first.
+        const input = checked(INPUTS.delete_page, raw, 'The call');
+        const id = pageId(input.pageId);
+        const at = work.pages.findIndex((p) => p.id === id);
+        if (at < 0) throw new CallError(`There’s no page “${input.pageId}”.`);
+        if (at === 0) throw new CallError('The first page can’t be taken out.');
+        const before = work.pages[at - 1]!;
+        return [
+          ...work.pages[at]!.questions.map((q, i) => ({
+            op: 'move_question' as const,
+            questionId: q.id,
+            pageId: before.id,
+            index: before.questions.length + i,
+          })),
+          { op: 'delete_page', pageId: id },
         ];
       }
       case 'add_calculation': {

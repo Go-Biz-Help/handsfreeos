@@ -11,8 +11,8 @@
     "apps/mobile/src/forms/qr-image.ts": "335d7b886235",
     "apps/mobile/src/forms/qr.ts": "7b9c6c1d6851",
     "apps/mobile/src/forms/use-answers.ts": "38c18d46d689",
-    "apps/mobile/src/forms/use-forms.ts": "54f1fbb86106",
-    "apps/mobile/src/forms/words.ts": "7009bb18c397",
+    "apps/mobile/src/forms/use-forms.ts": "14ac0231b801",
+    "apps/mobile/src/forms/words.ts": "f0cab84bfc9c",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/[campaignId]/page.tsx": "57602a3f2342",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/new/page.tsx": "9ba736aae3db",
     "apps/web/src/app/app/w/[workspaceId]/campaigns/page.tsx": "9c1a30c69219",
@@ -26,7 +26,7 @@
     "apps/web/src/components/campaigns/campaign-view.tsx": "1b1388ac72ed",
     "apps/web/src/components/campaigns/new-campaign.tsx": "cf5b5f5af705",
     "apps/web/src/components/campaigns/unsubscribe-page.tsx": "b2e66720312a",
-    "apps/web/src/components/campaigns/words.ts": "7779d5928582",
+    "apps/web/src/components/campaigns/words.ts": "01bb44a8879d",
     "apps/web/src/components/chat-widget/chat-parts.tsx": "9e49cd44afb5",
     "apps/web/src/components/chat-widget/chat-showcase.tsx": "ca141aed1861",
     "apps/web/src/components/chat-widget/chat-window.tsx": "96ea0e00ee8e",
@@ -53,13 +53,13 @@
     "apps/web/src/components/forms/question-settings.tsx": "05f794b78aeb",
     "apps/web/src/components/forms/responses.tsx": "b5b52bf7900a",
     "apps/web/src/components/forms/results.tsx": "6dac7b5b3c0b",
-    "apps/web/src/components/forms/share.tsx": "2d51a00b49a8",
+    "apps/web/src/components/forms/share.tsx": "2bfbad5c8d8f",
     "apps/web/src/components/forms/steps.tsx": "45030e8f6bdb",
     "apps/web/src/components/forms/video-player.tsx": "15b62433f2c1",
     "apps/web/src/components/forms/website-chats.tsx": "7b25ec4e137e",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/reviews/reviews-board.tsx": "685e5ab4c16c",
-    "apps/web/src/components/settings/chat-install.tsx": "ba8423344118",
+    "apps/web/src/components/settings/chat-install.tsx": "02a8f68d64c4",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
     "apps/web/src/components/settings/website-chat-page.tsx": "8bd466f15db8"
   },
@@ -96,8 +96,8 @@
       "path": "Campaigns → each campaign row: Keeps adding badge",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-list.tsx:39",
-      "covered": "no",
-      "by": "list_campaigns and get_campaign leave keepAdding out"
+      "covered": "yes",
+      "by": "list_campaigns keepsAddingPeople (a call campaign)"
     },
     {
       "path": "Campaigns → each campaign row: N of M sent",
@@ -243,8 +243,8 @@
       "path": "Campaigns → a campaign → N of M written (while the AI writes)",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:107",
-      "covered": "partly",
-      "by": "get_campaign whereItIs says it’s writing, without the counts"
+      "covered": "yes",
+      "by": "get_campaign whereItIs: The AI is writing the texts: N of M written"
     },
     {
       "path": "Campaigns → a campaign → N people to text, or N of M sent/called",
@@ -327,8 +327,8 @@
       "path": "Campaigns → a campaign → Keep adding people: on or off now, and what that means",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:420",
-      "covered": "no",
-      "by": "get_campaign leaves keepAdding out"
+      "covered": "yes",
+      "by": "get_campaign keepsAddingPeople; manage_campaign keep_adding or stop_adding"
     },
     {
       "path": "Campaigns → a campaign → Keep adding people switch",
@@ -362,8 +362,8 @@
       "path": "Campaigns → a campaign → The email: Edited",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:595",
-      "covered": "no",
-      "by": "get_campaign doesn’t say the email was edited"
+      "covered": "yes",
+      "by": "get_campaign email.edited"
     },
     {
       "path": "Campaigns → a campaign → {first_name} becomes each person’s first name",
@@ -376,8 +376,8 @@
       "path": "Campaigns → a campaign → The email: footer (why they get it, unsubscribe link, the address or No address yet)",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:629",
-      "covered": "partly",
-      "by": "address only on start_campaign’s card; get_campaign leaves postalAddress out"
+      "covered": "yes",
+      "by": "get_campaign email.endsWith: the footer, with the address or no address yet"
     },
     {
       "path": "Campaigns → a campaign → How every call opens: the opening",
@@ -397,15 +397,15 @@
       "path": "Campaigns → a campaign → How every call opens: Edited",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:683",
-      "covered": "no",
-      "by": "get_campaign doesn’t say the opening was edited"
+      "covered": "yes",
+      "by": "get_campaign openingEdited"
     },
     {
       "path": "Campaigns → a campaign → How every call opens: the fixed words around it (says it’s an AI, recorded, then asks if it’s a good time)",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:686",
-      "covered": "partly",
-      "by": "start_campaign card says it’s an AI and recorded; the rest isn’t said"
+      "covered": "yes",
+      "by": "get_campaign everyCallOpens: the fixed words around the opening"
     },
     {
       "path": "Campaigns → a campaign → Who gets it / Who it calls / Read each text: each person’s name",
@@ -418,8 +418,8 @@
       "path": "Campaigns → a campaign → each person: their email or phone",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:496",
-      "covered": "no",
-      "by": "get_campaign leaves recipients’ email and phone out"
+      "covered": "yes",
+      "by": "get_campaign people phone (email for an email campaign)"
     },
     {
       "path": "Campaigns → a campaign → each person: the text written for them",
@@ -453,8 +453,8 @@
       "path": "Campaigns → a campaign → each person: Sent at a time",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:511",
-      "covered": "partly",
-      "by": "get_campaign people status Sent, without the time"
+      "covered": "yes",
+      "by": "get_campaign people sent (when)"
     },
     {
       "path": "Campaigns → a campaign → each person: Didn’t send / Not called",
@@ -474,22 +474,22 @@
       "path": "Campaigns → a campaign → each call: Calling soon, retrying, Calling now, Talked, Voicemail, No answer, Busy, Not called, Didn’t go through",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:507",
-      "covered": "partly",
-      "by": "get_campaign people call: the outcome only, not the call’s status"
+      "covered": "yes",
+      "by": "get_campaign people call, in the badge’s words (core campaignCallWords)"
     },
     {
       "path": "Campaigns → a campaign → each call: what was said (summary)",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:531",
-      "covered": "no",
-      "by": "get_campaign leaves the call summary out"
+      "covered": "yes",
+      "by": "get_campaign people callSummary, marked as what was said"
     },
     {
       "path": "Campaigns → a campaign → N people left out: each name and why",
       "kind": "see",
       "file": "apps/web/src/components/campaigns/campaign-view.tsx:267",
-      "covered": "partly",
-      "by": "get_campaign leftOut: counts by reason, no names"
+      "covered": "yes",
+      "by": "get_campaign leftOutPeople: each name and why (the first 25, then moreLeftOut)"
     },
     {
       "path": "Campaign email unsubscribe page (/u/<token>) → Stop emails from X? → Unsubscribe",
@@ -530,8 +530,8 @@
       "path": "Reviews → Google / Facebook card: what went wrong (last error)",
       "kind": "see",
       "file": "apps/web/src/components/reviews/reviews-board.tsx:138",
-      "covered": "no",
-      "by": "list_reviews leaves lastError out"
+      "covered": "yes",
+      "by": "list_reviews connected problem"
     },
     {
       "path": "Reviews → Google / Facebook card: Connect",
@@ -544,15 +544,15 @@
       "path": "Reviews → Google / Facebook card: Read again now",
       "kind": "do",
       "file": "apps/web/src/components/reviews/reviews-board.tsx:147",
-      "covered": "partly",
-      "by": "do_review_connection_sync_now needs connectionId, which list_reviews leaves out"
+      "covered": "yes",
+      "by": "list_reviews connectionId, then do_review_connection_sync_now"
     },
     {
       "path": "Reviews → Google / Facebook card: Disconnect, and its confirm",
       "kind": "do",
       "file": "apps/web/src/components/reviews/reviews-board.tsx:167",
-      "covered": "partly",
-      "by": "do_review_connection_disconnect needs connectionId, which nothing gives"
+      "covered": "yes",
+      "by": "list_reviews connectionId, then do_review_connection_disconnect on a Confirm card"
     },
     {
       "path": "Reviews → summary: average stars on Google",
@@ -614,8 +614,8 @@
       "path": "Reviews → each Facebook review: Answer on Facebook (link)",
       "kind": "do",
       "file": "apps/web/src/components/reviews/reviews-board.tsx:310",
-      "covered": "partly",
-      "by": "list_reviews says it’s answered on Facebook; no link to it"
+      "covered": "yes",
+      "by": "list_reviews answerOnFacebook (the review’s link)"
     },
     {
       "path": "Forms → New form",
@@ -642,8 +642,8 @@
       "path": "Forms → New form → Or start from one of these (starters)",
       "kind": "do",
       "file": "apps/web/src/components/forms/new-form.tsx:88",
-      "covered": "partly",
-      "by": "build_form drafts from the person’s words; no starter input"
+      "covered": "yes",
+      "by": "build_form starter"
     },
     {
       "path": "Forms → New form → Create / Cancel",
@@ -698,15 +698,15 @@
       "path": "Forms → each form: N% finish it",
       "kind": "see",
       "file": "apps/web/src/components/forms/form-list.tsx:116",
-      "covered": "partly",
-      "by": "list_forms drops completionRate; form_results started, finished per form"
+      "covered": "yes",
+      "by": "list_forms finishRate"
     },
     {
       "path": "Forms → each form: its link (/f/<site>/<form>) or Not shared yet",
       "kind": "see",
       "file": "apps/web/src/components/forms/form-list.tsx:124",
-      "covered": "partly",
-      "by": "list_forms link is /f/…/<form>, without the site name"
+      "covered": "yes",
+      "by": "list_forms link, whole (null while it’s a draft, and for a live poll, whose page is never served)"
     },
     {
       "path": "Forms → each form: Draft, Taking answers or Closed",
@@ -894,8 +894,8 @@
       "path": "Forms → a website chat → Add it to your site: the snippet, Copy",
       "kind": "do",
       "file": "apps/web/src/components/settings/website-chat-page.tsx:766",
-      "covered": "partly",
-      "by": "get_settings website_chat publicKey; no tool gives the snippet itself"
+      "covered": "yes",
+      "by": "get_settings website_chat snippet; read_chat_widget_get snippet; setting one up says it"
     },
     {
       "path": "Forms → a website chat → Add it to your site: steps for WordPress, Wix, Squarespace and the rest",
@@ -1153,22 +1153,22 @@
       "path": "Forms → a form → Questions → a page’s heading: change it",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-list.tsx:218",
-      "covered": "partly",
-      "by": "build_form add_page sets a new page’s heading; nothing changes an existing one"
+      "covered": "yes",
+      "by": "build_form (its builder’s update_page title)"
     },
     {
       "path": "Forms → a form → Questions → Join page N to the page before",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-list.tsx:232",
-      "covered": "partly",
-      "by": "build_form moves the questions; its builder can’t delete a page"
+      "covered": "yes",
+      "by": "build_form (its builder’s delete_page: the questions join the page before)"
     },
     {
       "path": "Forms → a form → Questions → Save their details when they leave this page",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-list.tsx:256",
-      "covered": "no",
-      "by": "build_form’s builder has no page savesContact"
+      "covered": "yes",
+      "by": "build_form (its builder’s update_page savesContact)"
     },
     {
       "path": "Forms → a form → Questions → Nothing on this page yet / Nothing is asked yet",
@@ -1223,8 +1223,8 @@
       "path": "Forms → a form → a question → what it holds now: the line underneath, choice words, its settings, where it goes",
       "kind": "see",
       "file": "apps/web/src/components/forms/question-settings.tsx:80",
-      "covered": "partly",
-      "by": "get_form gives one line a question; the detail reaches only build_form’s builder"
+      "covered": "yes",
+      "by": "get_form questions: choices, fillsIn, showsOnlyWhen and settings"
     },
     {
       "path": "Forms → a form → a question → What does it ask?",
@@ -1328,8 +1328,8 @@
       "path": "Forms → a form → a question → The calendar it books, The service it books, How many days ahead",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-settings.tsx:742",
-      "covered": "partly",
-      "by": "build_form, but its builder isn’t given calendars or services"
+      "covered": "yes",
+      "by": "build_form (its builder is given the calendars and their services)"
     },
     {
       "path": "Forms → a form → a question → Where the answer goes (Nowhere, The customer, Fields you invented)",
@@ -1363,8 +1363,8 @@
       "path": "Forms → a live poll → a button → The calendar it books on",
       "kind": "do",
       "file": "apps/web/src/components/forms/question-settings.tsx:622",
-      "covered": "partly",
-      "by": "build_form, but its builder isn’t given calendars"
+      "covered": "yes",
+      "by": "build_form (its builder is given the calendars)"
     },
     {
       "path": "Forms → a live poll → a question → When to ask it",
@@ -1419,8 +1419,8 @@
       "path": "Forms → a live poll → Your slides: file name and how many slides",
       "kind": "see",
       "file": "apps/web/src/components/forms/poll-slides.tsx:84",
-      "covered": "no",
-      "by": "get_form doesn’t say; only the builder sees the count"
+      "covered": "yes",
+      "by": "get_form slides: the file and how many"
     },
     {
       "path": "Forms → a live poll → Add your slides (a PDF)",
@@ -1447,8 +1447,8 @@
       "path": "Forms → a live poll → Read the slides and write when to ask each question",
       "kind": "do",
       "file": "apps/web/src/components/forms/poll-slides.tsx:123",
-      "covered": "partly",
-      "by": "build_form writes cues and slide numbers but can’t read the slides"
+      "covered": "yes",
+      "by": "build_form (its builder reads the slides’ words, as Read them does)"
     },
     {
       "path": "Forms → a live poll → Draft the questions with AI: What the webinar is for, How many, Draft the questions",
@@ -1482,8 +1482,8 @@
       "path": "Forms → a live poll → The most anyone can get is N",
       "kind": "see",
       "file": "apps/web/src/components/forms/poll-leads.tsx:136",
-      "covered": "no",
-      "by": "get_form doesn’t give points"
+      "covered": "yes",
+      "by": "get_form mostAnyoneCanGet"
     },
     {
       "path": "Forms → a live poll → Suggest points for every question",
@@ -1503,8 +1503,8 @@
       "path": "Forms → a form → Design → Match my website: site, Match, Matched to X on date, its error",
       "kind": "do",
       "file": "apps/web/src/components/forms/design-panel.tsx:419",
-      "covered": "partly",
-      "by": "build_form set_design from words; nothing reads the website"
+      "covered": "yes",
+      "by": "build_form matchWebsite"
     },
     {
       "path": "Forms → a form → Design → Colours: Light or Dark",
@@ -1573,8 +1573,8 @@
       "path": "Forms → a form → Design → the design as set now",
       "kind": "see",
       "file": "apps/web/src/components/forms/design-panel.tsx:152",
-      "covered": "partly",
-      "by": "get_form doesn’t return the design; build_form’s builder sees it"
+      "covered": "yes",
+      "by": "get_form design"
     },
     {
       "path": "Forms → a form → Design → preview: On your website / On its own page, Computer / Phone",
@@ -1657,8 +1657,8 @@
       "path": "Forms → a form → Results → each question: the recent written answers",
       "kind": "see",
       "file": "apps/web/src/components/forms/results.tsx:178",
-      "covered": "partly",
-      "by": "form_results recentAnswers: the first 3"
+      "covered": "yes",
+      "by": "form_results recentAnswers: every one Results shows, marked as theirs"
     },
     {
       "path": "Forms → a form → Results → Nothing to add up for this one",
@@ -1671,8 +1671,8 @@
       "path": "Forms → a form → Results → One at a time → each response: name or anonymous, when or Not finished, score, passed",
       "kind": "see",
       "file": "apps/web/src/components/forms/responses.tsx:97",
-      "covered": "partly",
-      "by": "list_form_responses who, when, score; not passed"
+      "covered": "yes",
+      "by": "list_form_responses passed"
     },
     {
       "path": "Forms → a form → Results → One at a time → Nobody has answered yet",
@@ -1692,29 +1692,29 @@
       "path": "Forms → a form → Results → The answers sheet: each question and what they answered",
       "kind": "see",
       "file": "apps/web/src/components/forms/responses.tsx:152",
-      "covered": "partly",
-      "by": "no tool returns one response; read_search_everything shows one matching answer"
+      "covered": "yes",
+      "by": "get_form_response answers"
     },
     {
       "path": "Forms → a form → Results → The answers sheet: Worked out",
       "kind": "see",
       "file": "apps/web/src/components/forms/responses.tsx:165",
-      "covered": "no",
-      "by": "nothing returns a response’s worked-out sums"
+      "covered": "yes",
+      "by": "get_form_response workedOut"
     },
     {
       "path": "Forms → a form → Results → The answers sheet: Delete this response",
       "kind": "do",
       "file": "apps/web/src/components/forms/responses.tsx:176",
-      "covered": "yes",
-      "by": "manage_form delete_response (a hard delete)"
+      "covered": "never",
+      "by": "NEVER_FOR_THE_ASSISTANT form_response.delete: their answers go for good, skipping the Deleted bin, so deleting them stays the person’s"
     },
     {
       "path": "Search result → a form answer (forms/<form>/answers/<response>) → the form’s Results with it open",
       "kind": "do",
       "file": "apps/web/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId]/page.tsx:13",
-      "covered": "partly",
-      "by": "read_search_everything finds it; nothing opens the whole response"
+      "covered": "yes",
+      "by": "read_search_everything finds it (its id); get_form_response opens the whole sheet"
     },
     {
       "path": "Forms → a form → Share → Not shared yet (a draft)",
@@ -1734,8 +1734,8 @@
       "path": "Forms → a form → Share → The link (whole address), Copy the link",
       "kind": "do",
       "file": "apps/web/src/components/forms/share.tsx:119",
-      "covered": "partly",
-      "by": "list_forms gives /f/…/<form>; send_form puts the whole link in a text or email"
+      "covered": "yes",
+      "by": "list_forms and get_form link, whole"
     },
     {
       "path": "Forms → a form → Share → QR code",
@@ -1755,8 +1755,8 @@
       "path": "Forms → a form → Share → Sites allowed to show it: what’s set now",
       "kind": "see",
       "file": "apps/web/src/components/forms/share.tsx:164",
-      "covered": "no",
-      "by": "get_form and list_forms leave embedOrigins out"
+      "covered": "yes",
+      "by": "list_forms and get_form sitesAllowedToShowIt"
     },
     {
       "path": "Forms → a form → Share → Sites allowed to show it: change them",
@@ -1769,15 +1769,15 @@
       "path": "Forms → a form → Share → the embed snippet, Copy the snippet",
       "kind": "do",
       "file": "apps/web/src/components/forms/share.tsx:185",
-      "covered": "no",
-      "by": "nothing gives the snippet"
+      "covered": "yes",
+      "by": "get_form embedSnippet"
     },
     {
       "path": "Forms → a form → Share → Let the AI teammate ask it: on or off now",
       "kind": "see",
       "file": "apps/web/src/components/forms/share.tsx:196",
-      "covered": "no",
-      "by": "get_form and list_forms leave inChat out"
+      "covered": "yes",
+      "by": "list_forms and get_form aiTeammateAsksIt"
     },
     {
       "path": "Forms → a form → Share → Let the AI teammate ask it: switch",
@@ -1902,15 +1902,15 @@
       "path": "Phone → a form → Fill it in",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:137",
-      "covered": "no",
-      "by": "form_response.record has no tool and is on no list"
+      "covered": "yes",
+      "by": "fill_in_form (form_response.record, on a Confirm card)"
     },
     {
       "path": "Phone → a form → Share the link or QR code (needs signal)",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:146",
       "covered": "partly",
-      "by": "list_forms gives a path; send_form texts or emails the whole link"
+      "by": "list_forms gives the whole link; send_form texts or emails it to a customer; no QR code"
     },
     {
       "path": "Phone → a form → link sheet → QR code",
@@ -1923,8 +1923,8 @@
       "path": "Phone → a form → link sheet → the link",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:242",
-      "covered": "partly",
-      "by": "list_forms gives /f/…/<form> only"
+      "covered": "yes",
+      "by": "list_forms and get_form link, whole"
     },
     {
       "path": "Phone → a form → link sheet → Send it (the phone’s share sheet)",
@@ -1951,15 +1951,15 @@
       "path": "Phone → a form → ANSWERS → each sheet: name or anonymous, when, score, passed, where from (link, QR code, website, conversation, phone, another app)",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:166",
-      "covered": "partly",
-      "by": "list_form_responses who, when, score; not passed or where from"
+      "covered": "yes",
+      "by": "list_form_responses who, when, score, passed and cameFrom"
     },
     {
       "path": "Phone → a form → ANSWERS → Show more",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/index.tsx:182",
-      "covered": "partly",
-      "by": "list_form_responses: up to 25 and says more; no next page"
+      "covered": "yes",
+      "by": "list_form_responses nextCursor, then cursor"
     },
     {
       "path": "Phone → a form → ANSWERS → Export to CSV (needs signal)",
@@ -1979,50 +1979,50 @@
       "path": "Phone → a form → Fill it in → Fill this one in on the web (file, signature, payment, video, booking), Open on the web",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx:80",
-      "covered": "no",
-      "by": "no tool fills a form in"
+      "covered": "yes",
+      "by": "fill_in_form refuses one with a file, signature, payment, video, booking or button showing, and says to send the link"
     },
     {
       "path": "Phone → a form → Fill it in → the intro and questions, with what’s wrong with an answer",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx:133",
-      "covered": "no",
-      "by": "form_response.record has no tool"
+      "covered": "yes",
+      "by": "fill_in_form: each answer on the card, and what’s wrong with one before it"
     },
     {
       "path": "Phone → a form → Fill it in → OK to text, OK to call switches with their words",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx:149",
-      "covered": "no",
-      "by": "form_response.record has no tool; record_consent won’t record a yes to texts"
+      "covered": "person",
+      "by": "the customer’s own yes: fill_in_form leaves OK to text and OK to call unticked and says so, as record_consent won’t record a yes to texts"
     },
     {
       "path": "Phone → a form → Fill it in → Send it (works with no signal)",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/fill.tsx:174",
-      "covered": "no",
-      "by": "form_response.record has no tool"
+      "covered": "yes",
+      "by": "fill_in_form Send it, on Confirm"
     },
     {
       "path": "Phone → a form → an answer sheet → who (opens the customer), when, score, where from",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx:64",
-      "covered": "partly",
-      "by": "list_form_responses who, personId, when, score; not where from"
+      "covered": "yes",
+      "by": "get_form_response who, personId, when, score and cameFrom"
     },
     {
       "path": "Phone → a form → an answer sheet → each question and answer (files and signatures: open on the web)",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx:86",
-      "covered": "partly",
-      "by": "no tool returns one response; read_search_everything shows one matching answer"
+      "covered": "yes",
+      "by": "get_form_response answers (files and signatures: open on the web)"
     },
     {
       "path": "Phone → a form → an answer sheet → Worked out",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx:105",
-      "covered": "no",
-      "by": "nothing returns a response’s worked-out sums"
+      "covered": "yes",
+      "by": "get_form_response workedOut"
     },
     {
       "path": "Phone → a form → an answer sheet → Open this form on the web",
@@ -2035,8 +2035,8 @@
       "path": "Phone → a form → an answer sheet → Delete these answers → Delete / Keep them",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx:124",
-      "covered": "yes",
-      "by": "manage_form delete_response (a hard delete)"
+      "covered": "never",
+      "by": "NEVER_FOR_THE_ASSISTANT form_response.delete: their answers go for good, skipping the Deleted bin, so deleting them stays the person’s"
     },
     {
       "path": "Phone → a form → an answer sheet → Answers need a signal, Try again",
@@ -2054,7 +2054,7 @@
       "where": "Forms → a form → Share tab, “The link” card with Copy the link (and the Link column on the Forms list; the phone’s Share the link or QR code)",
       "gap": "list_forms returns `link` as the literal placeholder `/f/…/<slug>`: no domain, and an ellipsis where the business's link name goes. get_form returns no link at all. The Share tab shows the full address, on the verified branded domain or on WEB_URL (https://app.handsfreeos.com). A live or closed poll also gets a link, though polls have no Share tab. Only send_form's commit builds the real URL. manage_form change_link's card has the same problem: `…/f/<site>/<slug>`. Auto tools never receive webUrl, because createToolExecutor passes it only to confirm commits.",
       "fix": "Add `webUrl` to FormToolDeps and pass it from createToolExecutor (tools-write.ts:861/893). Move send_form's origin logic (tools-forms.ts:382-389) into one helper, `formLink(db, ctx, webUrl, slug)`: branded_domain.get when verified and certificateReady, else webUrl, plus core's publicFormPath(site.slug, slug). Use it in listForms, getForm, send_form and the change_link card (tools-content.ts:1328). Return `link: null` for status draft or mode poll. When booking_site.get has no site, return `link: null, noLinkBecause: 'This business has no link name yet. Set one under Settings → Calendars → Booking site.'`.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2064,7 +2064,7 @@
       "where": "Forms → a form → Share tab, “On your own website” card, Copy the snippet",
       "gap": "No Assistant tool returns a form's embed snippet: the iframe of `<publicUrl>?embed=1`, plus `<script src=\"<app origin>/embed/v1/form.js\" async>`. The script always loads from the app's own address, never the branded domain. places-map tells people to Copy the snippet, so the Assistant can point at the tab, but it can't give the code when asked, and it may make one up. It isn't high, because the right clicks to get it are already in places-map.",
       "fix": "Move the snippet builder from share.tsx:106 into packages/core/src/forms/links.ts as `formEmbedSnippet({ publicUrl, appOrigin, name })`, and have share.tsx use it. In getForm, return `embedSnippet` for a non-draft, non-poll form: publicUrl from the forms-1 helper, appOrigin = webUrl. Next to it, return `sitesAllowedToShowIt` (forms-5), since the snippet works only on those sites.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2074,7 +2074,7 @@
       "where": "Forms → Website chats → a chat (and Settings → Website chat), “Add it to your site” card with Copy, and Try it",
       "gap": "get_settings (website_chat → chat_widget.list) and read_chat_widget_get return only `publicKey`. No tool builds `<script async src=\"<branded or app origin>/embed/v1/<key>.js\"></script>`. Yet the settings-map handover tells the model to say “I set the chat box up and give you the snippet.” That pushes it to put together a snippet with a guessed host. manage_website_chat's card and outcome tell the person to copy it themselves. That matches what the tools can do, and contradicts the handover. Try it is a signed-in app page (/chat-preview/<key>?w=<ws>), so a relative href on a card would work. That part is minor.",
       "fix": "Move snippetOf and snippetSrc from apps/web/src/components/settings/chat-install.tsx:73-77 into core. Thread webUrl into get_settings, and give the website_chat area a `shape` that adds per chat `snippet: snippetOf(snippetSrc(origin, w.publicKey))`, with origin = the verified branded domain or webUrl. In manage_website_chat's create commit (tools-settings-channels.ts:833-840), read the new chat's publicKey and put the snippet in the outcome. If that isn't done, change settings-map.ts:610 to “I set the chat box up; copy its snippet from Add it to your site on its page under Website chats on the Forms page.”",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2084,7 +2084,7 @@
       "where": "Every public link this area hands out: a form’s link, the chat snippet, the booking link",
       "gap": "The prompt's only example of a link is `https://handsfreeos.com/book/acme`. The app and every public link are actually on WEB_URL, https://app.handsfreeos.com, or on the business's verified domain. settings-map says branded domains replace “handsfreeos.com”. context.ts gives no origin. The tools return paths: list_forms `/f/…/slug`, the booking site `/book/<slug>` (tools-settings-calendar.ts:939,968), and the change_link card `…/f/`. So when the model fills in a host, it picks the wrong one.",
       "fix": "In prompt.ts:49, drop the real-looking host: “Write a link exactly as a tool gives it, whole. Never build one from a path or guess its host; if a tool gave only a path, say where on the screen to copy it.” In context.ts, add one line each turn: “This business's public links start with <origin>”, from publicOrigin(tx, ws, webUrl) (apps/worker/src/hosting/origin.ts:75). Change settings-map.ts:141 to “instead of app.handsfreeos.com”. Make the booking-site outcome (tools-settings-calendar.ts:968) a full URL too.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2094,7 +2094,7 @@
       "where": "Forms → a form → Results → One at a time, a response row → “The answers” sheet (and the phone’s answer sheet)",
       "gap": "No tool returns one response's answer sheet. list_form_responses gives responseId, who, personId, when and score. form_results gives totals and at most 3 unnamed recent written answers per question. form.response_get runs only to label the delete_response card, and it isn't in SCREEN_READS. read_search_everything can find a response by the person's name, but returns only one answer's snippet (the question and a fragment), not the sheet or its Worked out values.",
       "fix": "Add an auto tool `get_form_response {responseId}` to packages/core/src/assistant/tools-content.ts, and implement it in apps/worker/src/assistant/tools-content.ts on form.response_get. Return who/personId, when, score and passed, `answers: [{ question: a.questionTitle, answer: quoted(a.labels.join(', ') || a.text) }]` and `workedOut` (the calculations' values, named from form.get's definition.calculations). Point list_form_responses' description at it: “what one person answered is get_form_response”.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2104,7 +2104,7 @@
       "where": "Forms → a form → Questions tab (each question’s settings), Design tab, poll leads card",
       "gap": "get_form returns describeForm lines such as “Budget — choice, 4 choices, only sometimes, fills in a field”. It leaves out the choice labels, which field the answer fills (the Where the answer goes select), the rule behind “only sometimes”, onePageAtATime, identity and the button's words, the design, and a poll's Hot/Warm leads. Its description promises “where its answers go”. The builder's on-submit, scoring, results and calculation formulas aren't on any web screen, but the Assistant sets them through build_form and can't read them back. formForModel adds only choice labels and ids, not mapTo or showIf, so it alone doesn't fix this. Related: places-map's Forms notHere says “showing a question only after a certain answer” isn't in HandsFreeOS, yet build_form can do it (showIfJson).",
       "fix": "In getForm (tools-forms.ts:114-118), return per question `{ id, title, type, required, choices: labels, fillsIn: ANSWER_TARGETS[mapTo]?.label or the custom field's label from form.catalogs, showIf: ruleText(q.showIf, definition) when it has conditions }`. Also return `settings` (onePageAtATime, oneQuestionAtATime, identity, button words), `design`, `onSubmit` (stage and workflow names), `results` (names and headlines), `scoring`, calculations by name, and, for a poll, `leads` (hot, warm, hotAction). Take “showing a question only after a certain answer” out of places-map's Forms notHere and say build_form can do it.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2114,7 +2114,7 @@
       "where": "Forms → a form → Share tab, “Sites allowed to show it” and the “Let the AI teammate ask it” switch",
       "gap": "form.get and form.list both return `embedOrigins` and `inChat`, but get_form and list_forms drop both. The Assistant can't say which sites may show a form, or whether the AI teammate asks it. do_form_set_delivery replaces the whole embedOrigins list, so adding one site means guessing the rest.",
       "fix": "In getForm (and listForms), return `sitesAllowedToShowIt: out.form.embedOrigins` and `aiTeammateAsksIt: out.form.inChat`. Add `embedOrigins: string[]; inChat: boolean` to FormSummary in tools-forms.ts:56-66.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2124,7 +2124,7 @@
       "where": "Forms → a form → Design tab (Colours, Font, Shape, Button, Layout) and form behaviour",
       "gap": "The form builder's tools include set_design and set_settings, so build_form can change a form's look and behaviour. But build_form's description talks only about what a form asks, and places-map's Forms entry doesn't mention the Design tab or design in canChange. Nothing tells the Assistant it can restyle a form or change one question or page at a time, anonymous, or the button's words. Only do_form_use_design_everywhere hints that design exists.",
       "fix": "Extend build_form's description (packages/core/src/assistant/tools.ts:1519) with: “…or change how it looks (the Design tab: light or dark, colours, font, text size, corners, boxes, button, spacing, labels inside or above, width, the name and logo at the top), how it behaves (one question or page at a time, anonymous, the button's words) and what happens when it's sent (a lead in a stage, workflows).” Add “change how it looks or behaves” to places-map's Forms canChange.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2134,7 +2134,7 @@
       "where": "Forms → a form → Design tab, “Match my website” card (site box, Match)",
       "gap": "Match my website calls the worker's /v1/forms/website-style. It reads the site's button colour, words, font and corners into a design patch, and no Assistant tool calls that code (websiteStyleOf is used only by that route). do_look_find reads the business's logo and colour from its website, and a form whose colours are null follows the business colour, so the button colour can be matched indirectly. The font, corners, button words and button style can't.",
       "fix": "Add `matchWebsite: z.string().url().optional()` to build_form. In buildForm, call the same websiteStyleOf/designFromStyle code (apps/worker/src/look/style.ts) on that site, defaulting to the form's first embedOrigin and then the business's website, and apply the result as a set_design op on the draft before or alongside draftForm.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2144,7 +2144,7 @@
       "where": "Forms → New form dialog, “Or start from one of these” (the starters)",
       "gap": "form.create accepts `starter` (a FORM_STARTERS key), and the New form dialog offers the starters. build_form calls form.create with only name and mode, and always requires a description. The Assistant can't start from a starter and isn't told they exist. It can still draft an equivalent form from words, so this is low.",
       "fix": "Add `starter: z.enum(FORM_STARTERS.map(s => s.key)).optional()` to build_form (tools.ts:1520-1529), listing the starters' names in its description. Pass it to form.create in tools-forms.ts:180-183. When a starter is given, make description optional and skip draftForm when it is empty.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2154,7 +2154,7 @@
       "where": "Phone: More → Forms → a form → Fill it in",
       "gap": "On the phone, Fill it in runs form_response.record (risk 2, records.write). It sends a whole answer sheet for a customer, which opens the lead or task and starts the form's workflows. form_response.record isn't in SCREEN_ACTIONS, NEVER_FOR_THE_ASSISTANT or any Assistant source. The coverage test misses it because its regex matches only `/v1/commands/<name>` strings, and the phone calls change('form_response.record', …). The input has no personId: the person comes from the answers. It also takes smsConsent and callConsent.",
       "fix": "Add 'form_response.record' to SCREEN_ACTIONS in coverage.ts. It becomes do_form_response_record and waits for Confirm at risk 2. Give it a warning: “Tick OK to text or call only if the customer said so.” A dedicated `fill_in_form {formId, answers by questionId, smsConsent, callConsent}` that shows each answer on the card would be clearer. In assistant-coverage.test.ts:51, also scan apps/mobile for `change\\('([a-z_]+\\.[a-z_.]+)'`.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2164,7 +2164,7 @@
       "where": "Reviews → the Google and Facebook cards, the “Read Google again” (refresh) and “Disconnect Google” (unplug) buttons",
       "gap": "do_review_connection_sync_now and do_review_connection_disconnect take `connectionId`. list_reviews maps connections to {place, name, status} and drops review.list's `id`, and no other tool, settings area or screen read lists review connections. So “check for new Google reviews now” and “stop reading Facebook reviews” can't be done. places-map's Reviews entry also leaves both buttons out of onScreen and canChange.",
       "fix": "In listReviews (apps/worker/src/assistant/tools-content.ts:1025-1029), add `connectionId: c.id` to each `connected` entry, and add `id: string` to ReviewList.connections (line 978). In places-map.ts Reviews, add to onScreen “each connected one: Read again (the refresh button) and Disconnect (the unplug button)”, and to canChange “read Google or Facebook again now”, “stop reading one (disconnect); the reviews already here stay”.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2174,7 +2174,7 @@
       "where": "Reviews → a connection card’s red error line; a Facebook review’s “Answer on Facebook” link",
       "gap": "Real: list_reviews drops the connection's `lastError`, the screen's red line that says why reviews stopped. It drops a review's `url`, the screen's Answer on Facebook link. It calls every status other than connected “needs signing in again”, including `pending`, which the screen shows with a Connect button as not connected. Not real: the screen doesn't show lastSyncedAt, so the “last read time” part isn't a screen gap.",
       "fix": "In listReviews, add `problem: c.lastError` when set. Map the status as: connected → 'connected', needs_attention → 'needs signing in again', pending → 'not finished connecting (press Connect on Reviews)'. On each review with !r.canReply, add `answerOnFacebook: r.url`, and add `url: string | null` to the Review interface (tools-content.ts:965-975).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2184,7 +2184,7 @@
       "where": "Campaigns → a call campaign → Who it calls: each row’s call badge (Talked, Voicemail, No answer, trying again, Calling now) and the call’s summary; every row’s phone or email and Sent <time>",
       "gap": "campaign.get returns each recipient's phone, email, sentAt and call {status, outcome, summary}. get_campaign keeps only `call: r.call.outcome`, and only when there is one, so a queued retry (“No answer, trying again”), “Calling now” and the call's summary are missing. A raw outcome on a queued retry reads like a final result. Phone or email and the Sent time are also missing. The words of a call may be reachable through recent_calls (call.log transcripts), but only for the last 25 calls, and not as the campaign row's summary.",
       "fix": "Move callWords from apps/web/src/components/campaigns/words.ts:61-86 into @hfos/core and use it on the web and in the worker. In getCampaign (tools-content.ts:375-383), per person add `call: callWords(r.call)?.text`, `callSummary: quoted(r.call?.summary)`, `phone: r.phone`, `email: r.email` and `sent: r.sentAt ? when(r.sentAt, ctx.timezone) : undefined`. Widen the Recipient interface (lines 154-165) to match.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2194,7 +2194,7 @@
       "where": "Campaigns → a campaign → “N people left out” (each name with why)",
       "gap": "get_campaign returns `leftOut` only as counts by reason, though its own description promises “who was left out and why”. The screen lists each left-out person with why. “Why was Ana left out?” can't be answered.",
       "fix": "In getCampaign, next to the counts, add `leftOutPeople: left.slice(0, 25).map(r => ({ personId: r.personId, name: r.name, why: r.status === 'removed' ? 'taken out by hand' : skipWords(r.skipReason) }))` and `moreLeftOut` when there are more than 25.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2204,7 +2204,7 @@
       "where": "Campaigns list “Keeps adding” badge; a call campaign’s “Keep adding people” switch",
       "gap": "The worker's CampaignSummary reads `keepAdding`, but neither list_campaigns nor get_campaign returns it. The list's “Keeps adding” badge and a call campaign's Keep adding people switch can't be described. The Assistant only finds out through manage_campaign's blocked text.",
       "fix": "Add `...(c.channel === 'call' ? { keepsAddingPeople: c.keepAdding } : {})` to the campaign entries in listCampaigns (tools-content.ts:302-312) and in getCampaign's result.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2214,7 +2214,7 @@
       "where": "Forms page and a form’s tabs, as places-map describes them",
       "gap": "places-map's Forms entry leaves out the Design tab. It doesn't say a live poll has only Questions, Preview and Results, or that the button reads Publish changes once published. New form leaves out Live poll, which is one of its four modes. The page's Website chats section with New website chat isn't there (settings-map's website_chat does mention it). canChange lists only rename, copy, archive, link and delete answers, though the Assistant can build and change questions and look, publish, close, reopen, send the link, set sites allowed and Let the AI teammate ask it, and use the design on all forms. notHere also says “showing a question only after a certain answer” isn't done, yet build_form does it.",
       "fix": "Update the Forms place (places-map.ts:477-504). onScreen: “A form: Questions, Design, Preview, Results and Share, with Undo and Publish (Publish changes once it's out); a live poll has Questions, Preview and Results”, “Design: Match my website, Colours, Font, Shape, Button, Layout, and Use on all my forms”, “Website chats: each chat, and New website chat”. New form: “Form, Survey, Quiz or Live poll, or a starter”. canChange: add “build or change its questions, look and behaviour”, “publish it, close it or take answers again”, “text or email someone its link”, “which sites may show it, and Let the AI teammate ask it”, “use its design on all my forms”. Take the showIf line out of notHere.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2224,7 +2224,7 @@
       "where": "Reviews list (newest 50); Forms → Results → One at a time (50, phone has Show more)",
       "gap": "Real: list_form_responses says `more: true` but takes no cursor, while the phone's answers list has Show more. Both list_reviews and list_form_responses cap at 25, and both screens load 50. Not a screen gap: the web Reviews page loads only the newest 50 and never pages, so `before` on list_reviews would go beyond what the screen offers.",
       "fix": "Raise both limits to `limit(100, 10)` in packages/core/src/assistant/tools-content.ts:125,147. Add `cursor: z.string().max(400).optional()` to list_form_responses, pass it to form.response_list, and return `nextCursor` in place of `more: true` (tools-content.ts:1192). A `before` on list_reviews is optional.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2234,7 +2234,7 @@
       "where": "Reviews → a Google review → Answer (shown while Google’s card says Sign in again)",
       "gap": "answer_review blocks unless the Google connection is exactly `connected`. review.reply accepts `needs_attention` too, and the review sync still treats needs_attention as usable. The screen offers Answer whatever the connection's status. So the Assistant refuses an answer the screen would send.",
       "fix": "In answerReview.prepare (apps/worker/src/assistant/tools-content.ts:1082-1093), count `connected` or `needs_attention` as connected. For needs_attention, add the card note: “Google needs signing in again; the answer is kept and goes up once it is.”",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2244,7 +2244,7 @@
       "where": "Reviews → Google or Facebook card while it needs attention",
       "gap": "places-map says “Google and Facebook: Connect, or Sign in again”, and answer_review's blocked text says “(Reviews shows Sign in again)”. On the screen, Sign in again is only a red badge. While a connection needs attention, the card shows only Read again and Disconnect, no Connect. The way back is Disconnect, then Connect.",
       "fix": "Change places-map.ts:510 to “Google and Facebook: Connect; once connected, Read again and Disconnect. Sign in again is a red badge: press Disconnect (the unplug button), then Connect”. Add a howTo: “Sign Google in again: Reviews, Disconnect on Google's card, then Connect”. Use the same words in the blocked text at tools-content.ts:1092.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2254,7 +2254,7 @@
       "where": "Campaigns list and page status badges and approve button",
       "gap": "The screen's badges say Writing texts, Writing the email, Planning the calls, Ready to review, Sending, Calling, Paused, Done or Stopped. The Assistant says Being written and Waiting for approval: in list_campaigns' description, in the blocked texts (CAMPAIGN_STATUS) and in whereItIs. list_campaigns and get_campaign return the raw status. places-map gives only the text campaign's buttons, Write the texts and Approve all and send. A call campaign's are Plan the calls and Approve all and start calling, and an email's is Write the email.",
       "fix": "Move statusWords and CAMPAIGN_STATUS_WORDS from apps/web/src/components/campaigns/words.ts into @hfos/core. Return `status: statusWords(c.status, c.channel)` from listCampaigns and getCampaign, use them for CAMPAIGN_STATUS (tools-content.ts:199-206), and reword core tools-content.ts:42 to match. In places-map.ts:455-475, add “then Write the texts, Write the email or Plan the calls” and “Approve all and send (Approve all and start calling for calls)”, plus “Keep adding people (calls)”.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2264,7 +2264,7 @@
       "where": "Forms list “x% finished”; a response row’s “passed / not passed” and phone’s “from the link / QR code / on your website”; Results’ recent written answers",
       "gap": "list_forms drops `completionRate`, the list's “x% finished”. list_form_responses drops `passed` (passed or not passed) and the phone's source (from the link, the QR code, or on your website). form_results cuts each question's recent answers to 3 when form.results returns 5, doesn't say so, and passes them unquoted although they are customers' words.",
       "fix": "Add `finishRate: f.completionRate` to listForms, and `passed` and `cameFrom` (link, qr or embed in the phone's words) to listFormResponses. In formResults, pass all `q.samples.map(quoted)` as recentAnswers.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2274,7 +2274,7 @@
       "where": "Forms → a form with pages → each page’s heading box, “Save their details when they leave this page”, and “Take out this page break”",
       "gap": "The screen renames a page, turns on Save their details when they leave this page (savesContact), and Take out this page break (update_page and delete_page ops). The builder's tools have add_page (ref and title only) and no update_page or delete_page. So the Assistant can't rename a page, set savesContact, or join a page back.",
       "fix": "Add `update_page` (pageId, title, savesContact) and `delete_page` (pageId) to FORM_TOOL_NAMES and FORM_BUILDER_TOOLS in packages/core/src/forms/ai-tools.ts, map them to the existing ops in formToolCallsToOps, and describe them in describeFormOp.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2284,7 +2284,7 @@
       "where": "Confirm card for texting or emailing a form’s link",
       "gap": "send_form's card shows To, Form and the message. The link is worked out and added only at commit, so the person confirms a text without seeing the address that goes with it.",
       "fix": "Work out the link in sendForm.prepare with the forms-1 helper. Add it as a card field (`{ label: 'Link', value: link }`) or show the body as `${message}\\n\\n${link}`. Block in prepare, not at commit, when the business has no link name.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2294,7 +2294,7 @@
       "where": "Forms → a live poll → Slides card “Read them”, and “Write phrases for all” / Draft the questions",
       "gap": "Read them on the Slides card, and the poll draft, run worker routes (poll-cue-routes, poll-draft-routes) that read the slides' words to tie each question to its slide and write cues. build_form's builder gets only formForModel. Its system prompt mentions the slides count, but formForModel doesn't even include it. So the Assistant can't match questions to what each slide says.",
       "fix": "In draftForm (apps/worker/src/forms/builder.ts:122-133), when the form is a poll with slides, add the slide count and the slides' words, as poll-cue-routes reads them (app.file_texts, capped as SLIDE_CHARS/SLIDES_CHARS), inside the <form> context. Or have build_form call the poll cue route's logic when asked to tie questions to slides.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     }
   ]

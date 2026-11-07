@@ -109,7 +109,8 @@ const app = await buildHttpServer({
         tools: createToolExecutor(
           httpHandle.db,
           { ai, log, wallet },
-          { ai, log, wallet },
+          // Match my website reads the site through the worker's safe fetch, as the Design tab's route does.
+          { ai, log, wallet, fetchUrl: services.fetchUrl },
           env.webUrl,
           undefined,
           // The add-ons' worker actions run as the route runs them, with the worker's services.

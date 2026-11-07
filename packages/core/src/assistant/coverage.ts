@@ -357,6 +357,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'bin.empty': 'emptying the Deleted bin, which stays the person’s (the owner, 2026-10-26)',
   'file.delete':
     'deleting a file for good: it skips the Deleted bin and its stored copy is erased, which stays the person’s (the owner, 2026-10-26)',
+  'form_response.delete':
+    'deleting someone’s answers to a form for good: they skip the Deleted bin, which stays the person’s (the owner, 2026-10-26)',
   'addon.purge': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'addon.start_fresh': 'deleting an add-on’s data for good (the owner, 2026-10-26)',
   'migration.rollback': 'taking back everything a move from another CRM brought, for good',
@@ -432,11 +434,6 @@ export interface NotYet {
 }
 
 export const ASSISTANT_NOT_YET: readonly NotYet[] = [
-  {
-    page: 'Forms → a form → Fill it in (phone)',
-    actions: ['form_response.record'],
-    why: 'Found when the check began reading the phone’s own changes (6 November). Filling in a form for a customer needs a tool that takes each answer and shows them on the card.',
-  },
   {
     page: 'Settings → Safety (phone)',
     actions: ['safety.check_in', 'safety.help', 'safety_contact.save', 'safety_contact.remove'],

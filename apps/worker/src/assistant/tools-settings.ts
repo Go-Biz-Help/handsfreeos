@@ -11,6 +11,8 @@
  */
 
 import {
+  chatSnippet,
+  chatSnippetSrc,
   handoverScreen,
   notificationStates,
   settingsArea,
@@ -159,7 +161,24 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'email_sender_rule.list', as: 'senderRules' },
     { name: 'email_suppression.list', as: 'blockedAddresses' },
   ],
-  website_chat: [{ name: 'chat_widget.list', as: 'websiteChat' }],
+  website_chat: [
+    {
+      name: 'chat_widget.list',
+      as: 'websiteChat',
+      // Each chat's snippet, as Add it to your site copies it. Its address is a path here, which the executor writes
+      // out whole on the business's own domain when one is serving (full-links.ts), as the screen does.
+      shape: (v) => {
+        const out = v as { items: { publicKey: string }[] };
+        return {
+          ...out,
+          items: out.items.map((w) => ({
+            ...w,
+            snippet: chatSnippet(chatSnippetSrc('', w.publicKey)),
+          })),
+        };
+      },
+    },
+  ],
   facebook_instagram: [{ name: 'meta_account.list', as: 'facebookInstagram' }],
   templates: [{ name: 'template.list', as: 'templates' }],
   lead_intake: [{ name: 'intake.list', as: 'leadIntake' }],

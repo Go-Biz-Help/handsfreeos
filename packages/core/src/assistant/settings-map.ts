@@ -152,7 +152,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   branded_domain: {
     label: 'Your own web address',
-    what: 'the domain the customer-facing links are served on — forms, payment links, estimates, invoices, website chat, and the booking page and calendar links — instead of handsfreeos.com',
+    what: 'the domain the customer-facing links are served on — forms, payment links, estimates, invoices, website chat, and the booking page and calendar links — instead of app.handsfreeos.com',
     // The same screen as the business itself: one domain covers every public link, so it does not belong
     // under any one of them.
     where: ['Settings', 'Workspace'],

@@ -4,6 +4,7 @@
  * install check ("Seen on acme.com 3 min ago"). Settings → Website chat shows them, and so does the texting
  * registration's "Let us collect it for you", whose chat goes in the footer of the business's own site.
  */
+import { chatSnippet, chatSnippetSrc } from '@hfos/core';
 import { CircleCheck, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -69,12 +70,11 @@ export const PLATFORMS = [
   },
 ] as const;
 
-/** The snippet a business pastes: `<script async src="…/embed/v1/<key>.js"></script>`. */
-export const snippetOf = (src: string) => `<script async src="${src}"></script>`;
+/** The snippet a business pastes: `<script async src="…/embed/v1/<key>.js"></script>` (core's, as the Assistant gives it). */
+export const snippetOf = chatSnippet;
 
 /** Where the snippet loads from: their own domain when one is serving, otherwise this app. */
-export const snippetSrc = (origin: string, publicKey: string) =>
-  `${origin}/embed/v1/${publicKey}.js`;
+export const snippetSrc = chatSnippetSrc;
 
 export const hostOf = (origin: string | null) => {
   if (!origin) return 'your site';

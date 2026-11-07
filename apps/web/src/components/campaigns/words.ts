@@ -1,22 +1,10 @@
 /** The words the campaigns pages use for a campaign's state and for why someone was left out. */
-export const CAMPAIGN_STATUS_WORDS: Record<string, string> = {
-  drafting: 'Writing texts',
-  review: 'Ready to review',
-  sending: 'Sending',
-  paused: 'Paused',
-  done: 'Done',
-  cancelled: 'Stopped',
-};
+import { CAMPAIGN_STATUS_WORDS, campaignCallWords, campaignStatusWords } from '@hfos/core';
 
-/** The same, for an email or call campaign where it reads differently. */
-export const statusWords = (status: string, channel: string): string =>
-  channel === 'email' && status === 'drafting'
-    ? 'Writing the email'
-    : channel === 'call' && status === 'drafting'
-      ? 'Planning the calls'
-      : channel === 'call' && status === 'sending'
-        ? 'Calling'
-        : (CAMPAIGN_STATUS_WORDS[status] ?? status);
+// A campaign's state and its calls are core's, so the Assistant says them as these pages do.
+export { CAMPAIGN_STATUS_WORDS };
+export const statusWords = campaignStatusWords;
+export const callWords = campaignCallWords;
 
 /** How a campaign reaches people, on its badge. */
 export const CHANNEL_WORDS: Record<string, string> = {
@@ -50,40 +38,6 @@ export const SKIP_REASON_WORDS: Record<string, string> = {
   called_recently: 'Called by another campaign in the last 14 days',
   not_business_landline: 'No yes to calls, and not a business landline',
 };
-
-/** A try nobody answered, while the next waits for tomorrow. */
-const RETRY_WORDS: Readonly<Record<string, string>> = {
-  no_answer: 'No answer, trying again',
-  busy: 'Busy, trying again',
-  voicemail: 'Voicemail, trying again',
-};
-
-/** How one person's campaign call went. */
-export function callWords(
-  call: { status: string; outcome: string | null } | null,
-): { text: string; tone: 'ok' | 'gray' | 'pending' | 'danger' } | null {
-  if (!call) return null;
-  if (call.status === 'queued') {
-    // Nobody answered a try: it rings again tomorrow.
-    const missed = call.outcome ? RETRY_WORDS[call.outcome] : undefined;
-    return { text: missed ?? 'Calling soon', tone: 'pending' };
-  }
-  if (call.status === 'calling') return { text: 'Calling now', tone: 'pending' };
-  if (call.status === 'skipped' || call.status === 'cancelled')
-    return { text: 'Not called', tone: 'gray' };
-  switch (call.outcome) {
-    case 'talked':
-      return { text: 'Talked', tone: 'ok' };
-    case 'voicemail':
-      return { text: 'Voicemail', tone: 'gray' };
-    case 'no_answer':
-      return { text: 'No answer', tone: 'gray' };
-    case 'busy':
-      return { text: 'Busy', tone: 'gray' };
-    default:
-      return { text: 'Didn’t go through', tone: 'danger' };
-  }
-}
 
 /** Why HandsFreeOS paused a campaign, and what to do about it. */
 export const PAUSED_REASON_WORDS: Record<string, string> = {

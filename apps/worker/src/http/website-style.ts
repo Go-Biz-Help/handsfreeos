@@ -58,25 +58,43 @@ export async function registerWebsiteStyleRoutes(
         const body = parseBody(Body, req.body);
         await requirePermission(deps, actor.userId, body.workspaceId, 'forms.manage');
         const url = await siteToRead(deps, body.workspaceId, body.site);
-        const read = await readSite(deps, url);
-        if (!read)
-          throw HfosError.rule(
-            'website_unreadable',
-            422,
-            `We couldn’t read ${hostOf(url)} just now. Check the address is right and the site is up, then try again.`,
-          );
-        const style = websiteStyleOf(read.html, read.sheets);
-        const { patch, fontNote, found } = designFromStyle(style, read.url, new Date());
-        if (!found)
-          throw HfosError.rule(
-            'website_style_unknown',
-            422,
-            `We read ${hostOf(read.url)} but couldn’t tell its colours or font. Pick them on this tab instead.`,
-          );
-        return { site: read.url, design: patch, fontNote, style };
+        return websiteDesign(deps, url);
       },
     );
   });
+}
+
+/** What reading a site needs: the safe fetch and the log. */
+type SiteReader = Pick<HttpDeps, 'fetchUrl' | 'log'>;
+
+/**
+ * The design that matches a site, or why there is none: what Match my website fills in, and what the Assistant's
+ * build_form puts in a draft when asked to match one. Nothing is kept here.
+ */
+export async function websiteDesign(deps: SiteReader, url: string) {
+  const read = await readSite(deps, url);
+  if (!read)
+    throw HfosError.rule(
+      'website_unreadable',
+      422,
+      `We couldn’t read ${hostOf(url)} just now. Check the address is right and the site is up, then try again.`,
+    );
+  const style = websiteStyleOf(read.html, read.sheets);
+  const { patch, fontNote, found } = designFromStyle(style, read.url, new Date());
+  if (!found)
+    throw HfosError.rule(
+      'website_style_unknown',
+      422,
+      `We read ${hostOf(read.url)} but couldn’t tell its colours or font. Pick them on the form’s Design tab instead.`,
+    );
+  return { site: read.url, design: patch, fontNote, style };
+}
+
+/** A site as typed, as the exact address to read: `acme.com` is `https://acme.com/`. */
+export function siteAddress(typed: string): string {
+  const r = normalizeChatOrigin(typed);
+  if (!r.ok) throw HfosError.validation([{ path: 'site', message: r.message }], r.message);
+  return `${r.origin}/`;
 }
 
 /** The site asked for, as an exact address; else the business's own website. */
@@ -85,11 +103,7 @@ async function siteToRead(
   workspaceId: string,
   typed: string | undefined,
 ): Promise<string> {
-  if (typed) {
-    const r = normalizeChatOrigin(typed);
-    if (!r.ok) throw HfosError.validation([{ path: 'site', message: r.message }], r.message);
-    return `${r.origin}/`;
-  }
+  if (typed) return siteAddress(typed);
   const [w] = await asWorker(deps.httpDb, { workspaceId }, (tx) =>
     tx
       .select({ settings: workspaces.settings })
@@ -107,7 +121,7 @@ async function siteToRead(
 }
 
 async function readSite(
-  deps: HttpDeps,
+  deps: SiteReader,
   url: string,
 ): Promise<{ url: string; html: string; sheets: string[] } | null> {
   let start: URL;
@@ -170,7 +184,7 @@ async function readSite(
 }
 
 /** robots.txt for HandsFreeOS: none counts as everything allowed; null when the site can't be reached. */
-async function robotsAt(deps: HttpDeps, origin: string): Promise<Robots | null> {
+async function robotsAt(deps: SiteReader, origin: string): Promise<Robots | null> {
   try {
     const res = await deps.fetchUrl(`${origin}/robots.txt`, {
       sameHost: true,
