@@ -87,6 +87,10 @@ export const clientSet = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_mark_client',
     autonomy: 'confirm',
+    what: (input) =>
+      (input as ClientSetInput).client
+        ? 'Mark them as a client: the Client tag goes on them in Contacts, and outreach messages waiting to go to them are skipped'
+        : 'Not a client after all: take the Client tag off them',
     description: `Mark someone the person reached as a client (client true): they’re added to Contacts if they aren’t there, or tied to the customer named (personId), the Client tag goes on their customer, and anyone’s outreach messages to them waiting for an OK are skipped; nothing on Today reaches them again but a reply. Or take the Client tag off again (client false, Not a client after all); Contacts may still count them a client for another reason, which is said. When they aren’t in Contacts yet: ${SAME_NAME_FIRST}`,
     keywords: ['client', 'mark as client', 'customer'],
     outcome: clientOutcome,

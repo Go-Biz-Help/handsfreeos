@@ -11,6 +11,7 @@ import type { Reentry, Step, WorkflowDefinition } from './definition';
 import { describeStep, refName, type WorkflowNames } from './describe';
 import type { RefKind } from './ids';
 import { allSteps, findStep } from './walk';
+import { intlTimeZone } from '../intl/engine-zones';
 
 export type RunStatus = z.infer<typeof WorkflowRunStatusValue>;
 export type RunStepStatus = z.infer<typeof WorkflowStepStatusValue>;
@@ -46,20 +47,22 @@ export function runStepTitle(step: Step, names: WorkflowNames, def: WorkflowDefi
 // ---- Times ----
 
 function dayKey(d: Date, timeZone: string) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone }).format(d);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: intlTimeZone(timeZone) }).format(d);
 }
 
 /** "10:41 AM" where the business is. */
 export function runClockText(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', minute: '2-digit' }).format(
-    new Date(iso),
-  );
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: intlTimeZone(timeZone),
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(iso));
 }
 
 /** "10:41:02 AM", for a test's step log. */
 export function runClockSeconds(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat('en-US', {
-    timeZone,
+    timeZone: intlTimeZone(timeZone),
     hour: 'numeric',
     minute: '2-digit',
     second: '2-digit',
@@ -75,7 +78,7 @@ export function runWhenText(iso: string, timeZone: string, now = Date.now()): st
   if (day === dayKey(new Date(now - 86_400_000), timeZone)) return `Yesterday, ${time}`;
   if (day === dayKey(new Date(now + 86_400_000), timeZone)) return `Tomorrow, ${time}`;
   const date = new Intl.DateTimeFormat('en-US', {
-    timeZone,
+    timeZone: intlTimeZone(timeZone),
     weekday: 'short',
     month: 'short',
     day: 'numeric',
@@ -756,9 +759,11 @@ export function workflowAvailability(
 ): { ok: boolean; note: string } {
   if (w.status === 'paused') return { ok: false, note: 'Paused. Resume it to add people.' };
   const date = (iso: string) =>
-    new Intl.DateTimeFormat('en-US', { timeZone, month: 'short', day: 'numeric' }).format(
-      new Date(iso),
-    );
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: intlTimeZone(timeZone),
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(iso));
   const live = runs.find((r) => isLiveRun(r.status));
   if (w.reentry === 'once' && runs.length)
     return {

@@ -1,11 +1,15 @@
 import { playbooksAnswer } from '@hfos/core/addons/salescoach/ai-answers';
 import { describe, expect, it } from 'vitest';
+import { ADDON_SERVER_MODULES, allAddonAiTools } from '@hfos/core/server';
 import { ADDON_WORKER_MODULES } from '../src/addons/modules';
 import {
   allAddonActionTools,
   answerFrom,
+  cardFields,
   fittedAnswer,
   MOST,
+  ownWhat,
+  whatLine,
   WHOLE_MOST,
 } from '../src/assistant/tools-addons';
 
@@ -131,5 +135,55 @@ describe('an answer too long to read whole', () => {
     expect(got.data.steps.length).toBeGreaterThan(0);
     expect(got.data.objections.length).toBeGreaterThan(0);
     expect(got.dropped['objections']).toBe(40 - got.data.objections.length);
+  });
+});
+
+/**
+ * A Confirm card's What line is for the person: the operation's own words when it has them, else the first sentence of
+ * what the model reads, never the model's instructions or the names of tools and arguments.
+ */
+describe('a Confirm card’s What line', () => {
+  it('is the first sentence, without the argument names given in brackets', () => {
+    expect(
+      whatLine(
+        'Save to their card: copy a chat onto the customer’s card, or take the one picked (personId). Then read it with outreach_chats.',
+      ),
+    ).toBe('Save to their card: copy a chat onto the customer’s card, or take the one picked.');
+    expect(whatLine('Mark them a client (client true), or not (client false).')).toBe(
+      'Mark them a client, or not.',
+    );
+    // Brackets in the person's words stay.
+    expect(whatLine('Cancel them all (People → Friends, Sent).')).toBe(
+      'Cancel them all (People → Friends, Sent).',
+    );
+    expect(whatLine('Cancel a pool visit and tell the customer.')).toBe(
+      'Cancel a pool visit and tell the customer.',
+    );
+    expect(whatLine('Long words for the model.', 'Short words for you')).toBe(
+      'Short words for you',
+    );
+  });
+
+  it('takes the operation’s own words for what it was given', () => {
+    const tools = allAddonAiTools(ADDON_SERVER_MODULES);
+    const client = tools.find((t) => t.name === 'outreach_mark_client')!;
+    expect(ownWhat(client.op.ai, { client: true })).toMatch(/^Mark them as a client/);
+    expect(ownWhat(client.op.ai, { client: false })).toMatch(/^Not a client after all/);
+    const fields = cardFields(client, { client: false }, ownWhat(client.op.ai, { client: false }));
+    expect(fields[0]).toEqual({
+      label: 'What',
+      value: 'Not a client after all: take the Client tag off them',
+    });
+    const cancel = tools.find((t) => t.name === 'outreach_cancel_all_requests')!;
+    expect(ownWhat(cancel.op.ai, { platform: 'linkedin', on: true })).toContain('on LinkedIn');
+  });
+
+  it('names no tool or argument on any add-on’s card', () => {
+    const named = /\b[a-z]+_[a-z_]+\b|\b[a-z]+[A-Z][A-Za-z]*\b/;
+    const odd = allAddonAiTools(ADDON_SERVER_MODULES)
+      .filter((t) => t.autonomy === 'confirm' && typeof t.op.ai?.what !== 'function')
+      .map((t) => [t.name, whatLine(t.description, ownWhat(t.op.ai, {}))] as const)
+      .filter(([, what]) => named.test(what));
+    expect(odd).toEqual([]);
   });
 });

@@ -216,6 +216,10 @@ export const playbookSave = defineAddonCommand(outreachAddon, {
   permission: 'outreach.manage',
   ai: {
     tool: 'outreach_save_playbook',
+    what: (input) =>
+      (input as PlaybookSaveInput).playbookId
+        ? 'Change this outreach playbook'
+        : 'Write a new outreach playbook',
     description:
       'Write a playbook for social outreach (Social Outreach → Playbooks), or change one: its name, goal and offer, who it’s for, where to look, the steps it takes, how it sounds, the tags to use, and its short video (videoLink: a video or playlist link that someone who says yes gets before the booking link). To change one, read it with outreach_playbooks (playbookId), then send its id, its name and only the parts that change in changes, by their names there: every part left out stays as it is. A new one can start from a ready-made one (template, from outreach_playbooks’ templates): it starts as that one, with changes laid over it. The booking link (link) is a whole address: for one of the business’s own booking pages, copy that calendar’s booking link from get_settings (area calendars) exactly, never one put together from a name.',
     autonomy: 'confirm',
