@@ -40,6 +40,7 @@ import {
   stepWords,
   type AiSetupStep,
   type BusinessAddress,
+  type HandOverRole,
   type OnboardingSetupScreen,
   type OnboardingStep,
   type QueryDef,
@@ -113,6 +114,8 @@ export interface SetupInput {
   readonly input: Args;
   /** The answers kept before this save, for what the card says changes. */
   readonly saved: Args;
+  /** Handing it over invites the owner as this (`handOverAs`, as the screen shows it); null when it can't. */
+  readonly handOverAs?: HandOverRole | null;
 }
 
 /**
@@ -132,6 +135,7 @@ export async function setupInput(
   const got = await readSetup(db, ctx, setup.read);
   const saved = isObject(got['answers']) ? got['answers'] : {};
   const origin = setup.finish ? await publicOriginFor(db, ctx, webUrl) : '';
+  const role = got['handOverAs'];
   return {
     input: {
       ...input,
@@ -139,6 +143,7 @@ export async function setupInput(
       ...(origin ? { pageOrigin: origin } : {}),
     },
     saved,
+    handOverAs: role === 'owner' || role === 'admin' ? role : null,
   };
 }
 
@@ -295,6 +300,18 @@ export function setupCard(
           },
         ]
       : []),
+    // Who they join as, as the hand-over screen says it: only an owner of the agency can make someone an owner.
+    ...(handing && typeof ownerEmail === 'string' && given.handOverAs
+      ? [
+          {
+            label: 'Joins as',
+            value:
+              given.handOverAs === 'owner'
+                ? 'The business’s owner'
+                : 'An admin, since only an owner of your agency can make someone an owner',
+          },
+        ]
+      : []),
     ...(answerLines.length > 7
       ? [
           ...answerLines.slice(0, 6),
@@ -339,6 +356,9 @@ export function setupCard(
       answersChanged: answers.map(([k]) => k),
       willChange: changes,
       ...(notes.length ? { notes } : {}),
+      ...(handing && typeof ownerEmail === 'string' && given.handOverAs
+        ? { ownerJoinsAs: given.handOverAs }
+        : {}),
     },
   };
 }

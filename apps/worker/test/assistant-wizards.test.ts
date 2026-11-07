@@ -201,4 +201,21 @@ describe('the setup wizards', () => {
     expect(number!['goesTo']).toBe('Its own setup step, which its button opens');
     expect(data.next).toEqual({ key: expect.any(String), title: expect.any(String) });
   });
+
+  it('draws quick setup’s card from the answers it takes, never one it would drop', async () => {
+    const save = named('do_ai_setup_save')!;
+    // Quick setup's answers are the teammate's own: an `ai` part, as the guided setup has, isn't one of them.
+    const args = { step: 'voice', answers: { allowPrices: true, ai: { name: 'Max' } } };
+    const prepared = await createToolExecutor(api()).prepare(
+      save,
+      args,
+      ctxFor(owner),
+      randomUUID(),
+    );
+    const card = prepared.card;
+    if (card?.type !== 'confirm') throw new Error('Expected a confirm card');
+    expect(prepared.result).toMatchObject({ answersChanged: ['allowPrices'] });
+    expect(card.fields).toContainEqual({ label: 'Can tell customers prices', value: 'Yes' });
+    expect(card.fields.map((f) => f.label)).not.toContain('ai');
+  });
 });

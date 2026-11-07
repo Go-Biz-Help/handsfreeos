@@ -141,7 +141,8 @@ export async function prepareScreenAction(
     );
   }
   const tried = await rehearseCommand(db, tool.command, input, ctx.actor, meta(ctx));
-  if (setup) return setupCard(toolCallId, tool, setup, tried);
+  // Drawn from the answers as the command reads them, so one it would drop (a key it doesn't take) never shows.
+  if (setup) return setupCard(toolCallId, tool, { ...setup, input: checked.data as Args }, tried);
   // A command whose screen says it in a dialog of its own (Publish, Restore, Run test) is drawn the way it says it.
   const own = workflowScreenCards[tool.command.name];
   if (own) return own.prepare(db, ctx, args, { name: tool.name, toolCallId });

@@ -849,7 +849,9 @@ export const assistantTools = [
         .min(1)
         .max(500)
         .optional()
-        .describe('Widens the city to everything this many miles around it'),
+        .describe(
+          'Widens the city, or with no city the business’s own town, to everything this many miles around it',
+        ),
       anywhere: z
         .boolean()
         .optional()

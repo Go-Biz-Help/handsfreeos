@@ -2112,8 +2112,8 @@
       "path": "Set up → Hand it over → what the owner gets hint (by role)",
       "kind": "see",
       "file": "apps/web/src/components/onboarding-setup/screens.tsx:800",
-      "covered": "partly",
-      "by": "the finish card warns it emails them; hint words not returned"
+      "covered": "yes",
+      "by": "read_onboarding_setup_get handOverAs; the finish card’s Joins as says the owner, or an admin and why (onb-6)"
     },
     {
       "path": "Set up → Stay in the loop → Save for a business with no website (chat on the simple page)",
@@ -2804,7 +2804,7 @@
       "kind": "do",
       "where": "\"Stay in the loop\" → \"What will change\" list, then Save changes (a business that already has a teammate); \"Your booking page is ready\" list of what was made",
       "gap": "For a business that already has a teammate, Stay in the loop lists planOnboardingSetup(state, answers).changes before Save changes. The Assistant's card for do_onboarding_setup_finish (and do_onboarding_setup_save, do_ai_setup_finish) shows only `What: <description clipped to 300>`, then the input keys with JSON clipped to 300. The rehearsal's output is thrown away, and the model gets only {waiting:true, what}. So neither the person nor the model sees the changes, or the hand-over role (owner or admin).",
-      "fix": "Fixed: the card is drawn from the rehearsed save: the screen, the answers it changes, “What this changes in the business” from the save’s changes (or that nothing else changes yet), what it couldn’t do as notes, and for an agency’s finish who it’s handed to, with Hand it over (setupCard).",
+      "fix": "Fixed: the card is drawn from the rehearsed save: the screen, the answers it changes, “What this changes in the business” from the save’s changes (or that nothing else changes yet), what it couldn’t do as notes, and for an agency’s finish who it’s handed to and what they join as (the owner, or an admin), with Hand it over (setupCard).",
       "status": "fixed",
       "pr": null
     },
@@ -2814,7 +2814,7 @@
       "kind": "do",
       "where": "\"Your business number\": the list of free numbers near the address, toll-free numbers, Area code + Search, Show numbers anywhere, then Get <number>",
       "gap": "Number search (near the address, by area code, local or toll-free, or anywhere) is a worker HTTP route, not a command or query. So no screen-read, screen action or tool covers it. manage_phone_number can only buy a number the person types out, and says so. Nothing on a NEVER list excludes the search. Lowered to medium: the Assistant routes correctly to the screen and says nothing wrong; it just can't do the look-up.",
-      "fix": "Fixed: new look-up find_phone_numbers (channels.manage, runs on its own): near the business’s address (25 miles) with nothing asked, or by area code or toll-free prefix, digits, another city and state with a distance, anywhere, or toll-free; it buys nothing and says to get the one the person picks with manage_phone_number, whose description now says so.",
+      "fix": "Fixed: new look-up find_phone_numbers (channels.manage, runs on its own): near the business’s address (25 miles, or as far as asked) with nothing asked, or by area code or toll-free prefix, digits, another city and state with a distance, anywhere, or toll-free; a state with no city is refused rather than searched somewhere else; it buys nothing and says to get the one the person picks with manage_phone_number, whose description now says so.",
       "status": "fixed",
       "pr": null
     },

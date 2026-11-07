@@ -1184,6 +1184,15 @@ describe('the business number', () => {
     expect(near.numbers[0]).toMatchObject({ town: 'Huntsville', state: 'AL' });
     expect(near.numbers[0]!.shown).toMatch(/^\(\d{3}\) \d{3}-\d{4}$/);
     expect(near.note).toContain('manage_phone_number');
+    // "Within 50 miles of us" widens the business's own town.
+    expect((await look({ withinMiles: 50 })).searched).toBe(
+      'Within 50 miles of Huntsville, AL, the business’s town',
+    );
+    // A state alone isn't a place the carriers look in, so it's refused rather than searched somewhere else.
+    await expect(look({ state: 'TN' })).rejects.toMatchObject({
+      code: 'validation',
+      message: 'Name a city in TN too, or give an area code there instead.',
+    });
 
     expect((await look({ anywhere: true })).searched).toBe('Anywhere');
 

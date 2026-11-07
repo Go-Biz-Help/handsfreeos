@@ -67,6 +67,11 @@ describe('the guided setup’s saves, as the Assistant makes them', () => {
       expect(Object.keys(t.input.shape), command).not.toContain('pageOrigin');
       expect(t.description, command).toContain('Pass only the answers this screen changes');
     }
+    // The guided setup keeps the AI teammate's answers under ai; quick setup's are the teammate's own.
+    for (const command of ['onboarding_setup.save', 'onboarding_setup.finish'])
+      expect(tool(command).description, command).toContain('answers.ai');
+    for (const command of ['ai_setup.save', 'ai_setup.finish'])
+      expect(tool(command).description, command).not.toContain('answers.ai');
     expect(tool('onboarding_setup.save').warning).toContain('Your goal sends its invitations');
   });
 
@@ -133,6 +138,31 @@ describe('the guided setup’s saves, as the Assistant makes them', () => {
       label: 'Hand it to',
       value: 'Nobody yet: invite the owner later from Members',
     });
+    expect(card.fields.map((f) => f.label)).not.toContain('Joins as');
+
+    // With their email, it says what they join as, as the hand-over screen does.
+    const named = setupCard(
+      CALL,
+      tool('onboarding_setup.finish'),
+      {
+        input: {
+          workspaceId: WS,
+          answers: saved,
+          baseRevision: null,
+          owner: { email: 'pat@hfos.test' },
+        },
+        saved,
+        handOverAs: 'admin',
+      },
+      { changes: [], notes: [] },
+    );
+    if (named.card?.type !== 'confirm') throw new Error('Not a confirm card');
+    expect(named.card.fields).toContainEqual({ label: 'Hand it to', value: 'pat@hfos.test' });
+    expect(named.card.fields).toContainEqual({
+      label: 'Joins as',
+      value: 'An admin, since only an owner of your agency can make someone an owner',
+    });
+    expect(named.result).toMatchObject({ ownerJoinsAs: 'admin' });
   });
 
   it('says what changed and what it couldn’t do once saved', () => {

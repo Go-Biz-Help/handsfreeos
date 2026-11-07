@@ -273,11 +273,18 @@ async function findPhoneNumbers(
   const contains = str(args['contains']);
   let city = numberType === 'local' ? str(args['city']) : undefined;
   let state = numberType === 'local' ? str(args['state'])?.toUpperCase() : undefined;
-  let withinMiles = city ? num(args['withinMiles']) : undefined;
+  const miles = num(args['withinMiles']);
+  let withinMiles = city ? miles : undefined;
   if (city && !state)
     throw HfosError.validation(
       [{ path: 'state', message: 'A city needs its state with it.' }],
-      `Add ${city}’s state too, like AL: there’s a Huntsville in three of them.`,
+      `Add ${city}’s state too, like AL: many towns share a name.`,
+    );
+  // The carriers look by a city in its state, never a whole state: one alone would quietly search somewhere else.
+  if (state && !city)
+    throw HfosError.validation(
+      [{ path: 'city', message: 'A state needs a city in it.' }],
+      `Name a city in ${state} too, or give an area code there instead.`,
     );
   // Nothing asked for: near the business, as the setup looks first.
   let near = false;
@@ -289,7 +296,8 @@ async function findPhoneNumbers(
     if (address) {
       city = address.city;
       state = address.state.toUpperCase();
-      withinMiles = NEAR_MILES;
+      // "Within 50 miles of us" widens it; nothing said is the setup's own 25.
+      withinMiles = miles ?? NEAR_MILES;
       near = true;
     }
   }
@@ -311,7 +319,7 @@ async function findPhoneNumbers(
           .filter(Boolean)
           .join(' · ')
       : [
-          near ? `Within ${NEAR_MILES} miles of ${city}, ${state}, the business’s town` : null,
+          near ? `Within ${withinMiles} miles of ${city}, ${state}, the business’s town` : null,
           !near && city
             ? `Near ${city}, ${state}${withinMiles ? ` (${withinMiles} miles)` : ''}`
             : null,

@@ -67,8 +67,10 @@ function expectRealWay(way: readonly string[], name: string) {
   });
 }
 
-/** A business's pages are under /app/w/<workspaceId>; the agency area's say their own /app/org/… in full. */
-/** A page of the business, or one outside it: the agency area (/app/org) and the guided setup (/onboarding). */
+/**
+ * A business's pages are under /app/w/<workspaceId>; those outside it say their own path in full: the agency area's
+ * (/app/org/…) and the guided setup's (/onboarding/…).
+ */
 const pageExists = (path: string) =>
   existsSync(
     join(

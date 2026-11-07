@@ -40,6 +40,9 @@ export interface ScreenAction {
  */
 const SETUP_ANSWERS_ABOUT =
   'Pass only the answers this screen changes, under answers (the AI teammate’s under answers.ai): every other answer stays as it was saved, and the card shows what will change.';
+/** Quick setup's answers are the AI teammate's own, so none sit under `ai`. */
+const AI_SETUP_ANSWERS_ABOUT =
+  'Pass only the answers this screen changes, under answers: every other answer stays as it was saved, and the card shows what will change.';
 
 /** The screens' commands the Assistant runs through tools made from the command, by name. */
 export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
@@ -244,9 +247,9 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.pause': {},
   'funnel.archive': {},
   // ---- AI quick setup and onboarding setup: a screen's answers at a time, from read_ai_setup_get or read_onboarding_setup_get ----
-  'ai_setup.save': { about: SETUP_ANSWERS_ABOUT },
+  'ai_setup.save': { about: AI_SETUP_ANSWERS_ABOUT },
   'ai_setup.finish': {
-    about: `${SETUP_ANSWERS_ABOUT} baseRevision is state.teammate.revision as read_ai_setup_get gave it, or null with no teammate.`,
+    about: `${AI_SETUP_ANSWERS_ABOUT} baseRevision is state.teammate.revision as read_ai_setup_get gave it, or null with no teammate.`,
     filled: ['pageOrigin'],
   },
   'onboarding_setup.save': {
