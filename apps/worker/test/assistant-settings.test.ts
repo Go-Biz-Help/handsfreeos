@@ -1770,8 +1770,19 @@ describe('Settings → Payments: every row', () => {
 
 describe('Settings → Payments as the page reads it', () => {
   it('says the address documents show, the page’s warnings and how getting paid works', async () => {
-    // Earlier tests took Payments' own address off and gave the business a street address in its setup: documents
-    // show the setup's until one is written here, as the page says under Your address.
+    // An earlier test took Payments' own address off. The setup's street address is set here, since the free-numbers
+    // test moved it to Huntsville: documents show the setup's until one is written here, as the page says.
+    await run(
+      workspaceUpdate,
+      {
+        workspaceId,
+        settings: {
+          address: { line1: '1600 Larimer St', city: 'Denver', state: 'CO', postalCode: '80202' },
+        },
+      },
+      owner,
+    );
+    expect((await q<{ settings: MoneyRow }>('money.settings')).settings.businessAddress).toBe('');
     const { result } = await readTool('get_settings', 'payments', owner);
     const payments = result['payments'] as {
       addressOnDocuments: { address: string | null; from: string };
@@ -1858,6 +1869,14 @@ describe('Settings → Products', () => {
       'Estimates and invoices already sent keep the price they went out with.',
     );
     expect((await reprice.done()).outcome).toBe(`${name} saved.`);
+    // A change the editor has no box for still says on the card what changes.
+    const described = await product({
+      action: 'change',
+      productId: item.id,
+      description: 'Sealing leaky ducts, by the hour.',
+    });
+    expect(described.card.fields.map((f) => f.label)).toEqual(['Item', 'Description']);
+    expect(fieldOf(described.card, 'Description')).toBe('Sealing leaky ducts, by the hour.');
     await expect(
       product({ action: 'change', productId: item.id, priceDollars: 140 }),
     ).rejects.toThrow('Nothing would change.');

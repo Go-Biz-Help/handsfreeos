@@ -68,7 +68,7 @@ describe('a partner’s page', () => {
     expect(read.commissions.length).toBeLessThan(200);
     // The newest first, as the query gives them: the first ones are kept.
     expect(read.commissions[0]!.commissionId).toBe(id(2));
-    expect(read.note).toContain(`of 200 lines of what they've earned are here`);
+    expect(read.note).toContain('of 200 lines of what they’ve earned are here');
     expect(read.note).toContain('What they’ve earned');
   });
 });

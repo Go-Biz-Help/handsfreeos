@@ -69,7 +69,7 @@ export function partnerRead(got: unknown, room = LONG_READ_ROOM): unknown {
       ? `Their first ${cut['clients'].shown} of ${cut['clients'].total} clients are here; the rest are on their page under Their clients.`
       : null,
     cut['commissions']
-      ? `The newest ${cut['commissions'].shown} of ${cut['commissions'].total} lines of what they've earned are here; the rest are on their page under What they’ve earned. Their totals in partner.earnings count every one.`
+      ? `The newest ${cut['commissions'].shown} of ${cut['commissions'].total} lines of what they’ve earned are here; the rest are on their page under What they’ve earned. Their totals in partner.earnings count every one.`
       : null,
   ].filter(Boolean);
   return notes.length ? { ...data, note: notes.join(' ') } : data;
@@ -90,7 +90,7 @@ export function importRead(got: unknown, room = LONG_READ_ROOM): unknown {
   const { data, cut } = fitLists(bare, ['errors'], room);
   return {
     ...data,
-    note: `Each row's own cells are left out to fit: the import's page shows them under Rows that did not import.${
+    note: `Each row’s own cells are left out to fit: the import’s page shows them under Rows that did not import.${
       cut['errors']
         ? ` The first ${cut['errors'].shown} of the ${cut['errors'].total} rows listed there are here.`
         : ''

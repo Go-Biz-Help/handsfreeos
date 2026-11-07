@@ -338,6 +338,7 @@ const updateMoneySettings: SettingsConfirmTool = {
 interface Product {
   id: string;
   name: string;
+  description: string | null;
   sku: string | null;
   kind: ProductKind;
   unitPriceCents: number;
@@ -423,6 +424,8 @@ async function productRows(
   if (shows('unitPriceCents') || shows('unitLabel'))
     rows.push({ label: 'Price', value: priceWords(p) });
   if (shows('sku')) rows.push({ label: 'Code', value: p.sku ?? (only ? 'None' : '') });
+  if (shows('description'))
+    rows.push({ label: 'Description', value: p.description ?? (only ? 'None' : '') });
   if (shows('taxable'))
     rows.push({
       label: 'Sales tax',
@@ -516,7 +519,11 @@ const manageProduct: SettingsConfirmTool = {
         confirmLabel: PRODUCT_CONFIRMS[act],
         warnings,
       }),
-      result: { waiting: true, action: act, changes: fields.map((f) => `${f.label}: ${f.value}`) },
+      result: {
+        waiting: true,
+        action: act,
+        changes: fields.filter((f) => f.value).map((f) => `${f.label}: ${f.value}`),
+      },
     };
   },
 

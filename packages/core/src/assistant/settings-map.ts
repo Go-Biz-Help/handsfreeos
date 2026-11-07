@@ -1242,7 +1242,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Open Settings → Migrations and press Connect a CRM.',
           'Pick the system you are coming from, like GoHighLevel.',
           'In GoHighLevel, under Settings, open Private Integrations, make one with read access (View Contacts, and whatever else you want brought across), and copy its token: it is shown once.',
-          'Paste the token, and the sub-account’s Location ID (in GoHighLevel’s Business Profile, or the long code after /location/ in its address bar), then press Connect.',
+          'Paste the token there, never in this chat, with the sub-account’s Location ID (in GoHighLevel’s Business Profile, or the long code after /location/ in its address bar), then press Connect.',
           'Then I can count what’s there and, once you say what to bring over, start the move. Nothing is brought across until you say yes, and the old account is never changed.',
         ],
       },
