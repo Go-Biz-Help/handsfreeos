@@ -1159,6 +1159,16 @@ it, while Alignable's menu links Events to /biz/events. That page is now tried l
 `src/jobs/alignable/events.ts`, and the same stop in Check Alignable). Its readers are still guesses: if it lists
 nothing either, the report carries its outline, so the next check can read the real page.
 
+### Facebook's main part, never one in its top bar (0.126.4)
+
+The problem check of 7 Nov 2026 found a friend request saying Facebook showed a different page. The person was kept by
+number, Facebook opened their profile at their username, so only the name could say it was them, and the read found no
+name and no post though the page showed both, on the links by the tabs and on the post. The readers looked in the
+page's first part marked main, and the only place one can come before the real one is the top bar, which an outline
+leaves out. Every Facebook reader and press now takes the page's own main part, never one inside the top bar (`mainOf`
+and `mainIn` in `src/networks/facebook/dom.ts`). That person had no Add friend, so the request now passes them over
+(decision 156) instead of handing them to the AI helper and Needs you.
+
 ### No Add friend, Connect in More's menu, and posts with nothing to open (0.126.3)
 
 The problem check of 4 Nov 2026, 19:23 UTC, found four problems on 0.126.2. From 0.126.3:
