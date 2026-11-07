@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
+  ADDON_MOVE_WORDS,
+  ADDON_PAGE_WORDS,
+  addonHoldsLines,
   assistantToolByName,
   BIN_WORDS,
   binDeletedWords,
@@ -411,7 +414,16 @@ describe('the last settings by asking', () => {
     ).rejects.toThrow('Nothing would change');
     const off = await prepare('manage_add_on', { action: 'turn_off', addonId: 'outreach' });
     expect(off.card.title).toBe('Turn off Social Outreach');
-    expect(off.card.warnings[0]!.text).toContain('kept for when it comes back');
+    // The page's own words for what turning it off does, and what it has here that stays.
+    expect(off.card.warnings[0]!.text).toBe(ADDON_MOVE_WORDS.disable.consequence);
+    const { holds } = await q<{ holds: Parameters<typeof addonHoldsLines>[1] }>('addon.impact', {
+      addonId: 'outreach',
+      action: 'disable',
+    });
+    const held = addonHoldsLines('disable', holds);
+    expect(field(off.card, ADDON_PAGE_WORDS.whatItHolds)).toBe(
+      held.length ? held.join(' ') : undefined,
+    );
     expect((await confirm('manage_add_on', off.parsed)).outcome).toBe('Social Outreach is off');
     const state = async () =>
       (

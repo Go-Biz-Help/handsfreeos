@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  ADDON_PAGE_WORDS,
   ADDON_SERVER_MODULES,
   AFFILIATE_TERMS_VERSION,
   affiliateCodeLink,
@@ -11,6 +12,8 @@ import {
   executeCommand,
   hasStaffPermission,
   hasWorkspacePermission,
+  IDEA_STATUS_WORDS,
+  IDEAS_WORDS,
   isStaffPermission,
   NOT_FOR_THE_ASSISTANT,
   organizationCreate,
@@ -343,5 +346,64 @@ describe('what the Assistant can see', () => {
     } finally {
       await admin.execute(sql`delete from platform.affiliates where id = ${affiliateId}`);
     }
+  });
+});
+
+describe('the Add-ons page’s vote and the Ideas Roadmap', () => {
+  it('reads the vote on what’s next as the page filters it, each add-on with the id a vote takes', async () => {
+    type Planned = {
+      comingSoon: { addonId: string }[];
+      categories: { category: string; label: string; count: number }[];
+      planned: { addonId: string; name: string; category: string }[];
+      more?: number;
+    };
+    const all = (await read('addon.roadmap', {})).result.data as Planned;
+    expect(all.categories[0]).toMatchObject({
+      category: 'all',
+      label: ADDON_PAGE_WORDS.allCategories,
+    });
+    expect(all.comingSoon).toContainEqual(expect.objectContaining({ addonId: 'realestate' }));
+    // The first 20, and how many more there are, as nobody reads a hundred-odd at once.
+    expect(all.planned).toHaveLength(20);
+    expect(all.more).toBe(all.categories[0]!.count - 20);
+
+    // One category chip, A to Z, as the page's chips and Sort do.
+    const chip = all.categories[1]!;
+    const one = (await read('addon.roadmap', { category: chip.category, sort: 'az', limit: 30 }))
+      .result.data as Planned;
+    expect(one.planned.length).toBe(Math.min(chip.count, 30));
+    expect(one.planned.every((p) => p.category === chip.label)).toBe(true);
+    const names = one.planned.map((p) => p.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it('reads the Roadmap as its columns show it, and more of one column when asked', async () => {
+    type Column = {
+      column: string;
+      status: string;
+      means: string;
+      count: number;
+      cards: unknown[];
+    };
+    const all = (await read('idea.roadmap', {})).result.data as { columns: Column[] };
+    expect(all.columns.map((c) => c.column)).toEqual([
+      IDEA_STATUS_WORDS.planned,
+      IDEA_STATUS_WORDS.in_progress,
+      IDEAS_WORDS.doneLately,
+    ]);
+    for (const c of all.columns) expect(c.cards.length, c.status).toBe(Math.min(c.count, 15));
+
+    const done = (await read('idea.roadmap', { column: 'done' })).result.data as {
+      columns: Column[];
+    };
+    expect(done.columns).toHaveLength(1);
+    expect(done.columns[0]).toMatchObject({ status: 'done', column: IDEAS_WORDS.doneLately });
+    expect(done.columns[0]!.means).toContain('90 days');
+  });
+
+  it('gives the link to an add-on’s Connections with what it connects to', async () => {
+    const got = (await read('addon_connection.list', { addonId: 'realestate' })).result.data;
+    // The tests run without the web app's address, so the link is the path.
+    expect(got).toMatchObject({ page: `/app/w/${workspaceId}/addons/realestate/connections` });
   });
 });

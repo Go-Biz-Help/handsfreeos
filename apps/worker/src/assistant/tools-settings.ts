@@ -30,6 +30,7 @@ import {
   type SettingsAreaInfo,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { addOnsRead, addOnsTidy, voteRead } from './addons-page';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { query, type ReadTool } from './tools-read';
@@ -147,52 +148,16 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     {
       name: 'addon.list',
       as: 'addOns',
-      // What the page shows: each add-on here and whether it runs, and (for whoever manages add-ons) what could be
-      // added. What each one lets the business do is find_capabilities' to answer.
-      shape: (v) => {
-        const list = v as {
-          installed?: { addonId: string; name: string; state: string; running: boolean }[];
-          catalog?: { addonId: string; name: string; summary: string; status: string }[];
-        } | null;
-        const here = new Set((list?.installed ?? []).map((i) => i.addonId));
-        const catalog = (list?.catalog ?? []).filter((c) => !here.has(c.addonId));
-        return {
-          // Its id too: manage_add_on and update_addon_settings take it.
-          inThisBusiness: (list?.installed ?? []).map((i) => ({
-            addonId: i.addonId,
-            name: i.name,
-            state: i.state,
-            running: i.running,
-          })),
-          availableToAdd: catalog
-            .filter((c) => c.status === 'available')
-            .map((c) => ({ addonId: c.addonId, name: c.name, summary: c.summary })),
-        };
-      },
+      // What the page shows: each add-on here with where it stands and what it is, and (for whoever manages add-ons)
+      // what could be added, each with Install or the note in its place.
+      shape: addOnsRead,
     },
     {
       name: 'addon.roadmap',
       as: 'vote',
       // What's coming soon, and the vote on what comes next (0109): the most-voted handful and whether the business
-      // voted for each, not all hundred-odd planned add-ons.
-      shape: (v) => {
-        const roadmap = v as {
-          comingSoon?: { name: string; voted: boolean }[];
-          planned?: { name: string; votes: number; voted: boolean }[];
-          nextPickAt?: string;
-        } | null;
-        const planned = roadmap?.planned ?? [];
-        return {
-          comingSoon: (roadmap?.comingSoon ?? []).map((c) => c.name),
-          mostVotes: [...planned]
-            .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name))
-            .slice(0, 5)
-            .map((p) => ({ name: p.name, votes: p.votes, youVoted: p.voted })),
-          youVotedFor: planned.filter((p) => p.voted).map((p) => p.name),
-          planned: planned.length,
-          nextPickAt: roadmap?.nextPickAt ?? null,
-        };
-      },
+      // voted for each, not all hundred-odd planned add-ons (read_addon_roadmap lists those).
+      shape: voteRead,
     },
   ],
   permissions: [{ name: 'permission.settings', as: 'permissions' }],
@@ -444,6 +409,11 @@ function withoutSupportSwitch(settings: unknown): unknown {
 
 const areaOf = (args: Args): SettingsArea => args['area'] as SettingsArea;
 
+/** An area whose parts are said together, as its page draws them: Coming soon leaves out the add-ons it has. */
+const TIDY: Partial<
+  Record<SettingsArea, (read: Record<string, unknown>) => Record<string, unknown>>
+> = { add_ons: addOnsTidy };
+
 /**
  * Reads one area. A query the person's role refuses answers `null` for that part rather than failing the tool: the
  * model then says who can see it, which is what the screen does by not showing the tab.
@@ -464,13 +434,14 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
     }),
   );
   const missing = parts.filter(([, v]) => v === null).map(([as]) => as);
+  const read = Object.fromEntries(parts);
   return {
     result: {
       area: info.area,
       where: settingsWhere(info.area),
       canChange: info.canChange,
       theyDoThemselves: info.handovers.map((h) => h.what),
-      ...Object.fromEntries(parts),
+      ...(TIDY[info.area]?.(read) ?? read),
       ...(missing.length
         ? { note: `Not this person's to see: ${missing.join(', ')}. An owner or admin can.` }
         : {}),

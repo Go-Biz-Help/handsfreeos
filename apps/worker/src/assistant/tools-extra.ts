@@ -38,6 +38,7 @@ import {
   GET_HELP_WORDS,
   guessStageRole,
   HfosError,
+  IDEA_STATUS_MEANING,
   IDEA_STATUS_WORDS,
   ideaUpdateLine,
   IDEAS_WORDS,
@@ -97,6 +98,7 @@ import {
   type WorkflowPlaceholder,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { keptAnswer } from './committed';
 import { personQuery } from './context';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { draftChanges, draftSaved, draftToRead } from './tools-content';
@@ -1702,15 +1704,19 @@ interface IdeaSummary {
   areaId: string;
   status: IdeaStatus;
   voteCount: number;
+  commentCount: number;
   author: { name: string; you: boolean };
   voted: boolean;
+  createdAt: string;
 }
 interface IdeaGet {
   idea: IdeaSummary & {
     body: string;
     following: boolean;
+    canEdit: boolean;
     votingOpen: boolean;
     mergedInto: { id: string; number: number; title: string } | null;
+    hidden: boolean;
   };
   comments: {
     id: string;
@@ -1719,48 +1725,88 @@ interface IdeaGet {
     hidden: boolean;
     createdAt: string;
   }[];
-  updates: Parameters<typeof ideaUpdateLine>[0][];
+  updates: (Parameters<typeof ideaUpdateLine>[0] & {
+    note: string;
+    other: { id: string; number: number; title: string } | null;
+    whatsNew: { id: string; title: string } | null;
+    by: string;
+    createdAt: string;
+  })[];
+  shipped: { id: string; title: string; publishedAt: string }[];
 }
 interface IdeaAreas {
-  areas: { id: string; name: string; archived: boolean }[];
+  areas: { id: string; name: string; description: string; archived: boolean; openCount: number }[];
 }
 
 const ideaHref = (ctx: ToolContext, id: string) => `/app/w/${ctx.workspaceId}/ideas/${id}`;
+/**
+ * The link the emails about an idea use: it names no business, so it opens the idea for anyone on HandsFreeOS, in the
+ * business they were last in. The address in the bar names this business, which nobody else can open.
+ */
+const ideaLink = (webUrl: string, id: string) => `${webUrl.replace(/\/+$/, '')}/app/ideas/${id}`;
 const ideaOf = (db: Db, ctx: ToolContext, ideaId: unknown) =>
   query<IdeaGet>(db, ctx, 'idea.get', { ideaId });
+/** Who someone is beside an idea or a comment, as the board names them. */
+const ideaPerson = (p: { name: string; you: boolean }) =>
+  p.you ? IDEAS_WORDS.you : p.name || IDEAS_WORDS.someone;
+const dayOf = (iso: string) => iso.slice(0, 10);
 
 /** The comments an idea's read gives unless every one is asked for: the latest. */
 const LAST_COMMENTS = 10;
 
-async function findIdeas(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
+async function findIdeas(db: Db, ctx: ToolContext, args: Args, webUrl = ''): Promise<ToolOutcome> {
   const ideaId = str(args['ideaId']);
   if (ideaId) {
-    const { idea, comments, updates } = await ideaOf(db, ctx, ideaId);
+    const [{ idea, comments, updates, shipped }, areas] = await Promise.all([
+      ideaOf(db, ctx, ideaId),
+      query<IdeaAreas>(db, ctx, 'idea.areas').catch(() => null),
+    ]);
     const shown = args['allComments'] === true ? comments : comments.slice(-LAST_COMMENTS);
     return {
       result: {
         idea: {
           id: idea.id,
           number: idea.number,
+          link: ideaLink(webUrl, idea.id),
           status: IDEA_STATUS_WORDS[idea.status],
+          whereItStands: IDEA_STATUS_MEANING[idea.status],
           votes: idea.voteCount,
           youVoted: idea.voted,
           youFollow: idea.following,
           votingOpen: idea.votingOpen,
+          sharedBy: ideaPerson(idea.author),
           sharedByYou: idea.author.you,
+          sharedOn: dayOf(idea.createdAt),
+          // As the author wrote them, apart: do_idea_edit takes all three back, so a fixed title keeps the rest.
+          title: theirs(idea.title),
+          details: theirs(idea.body),
+          areaId: idea.areaId,
+          area: areas?.areas.find((a) => a.id === idea.areaId)?.name ?? idea.areaId,
+          canEdit: idea.canEdit,
+          ...(idea.hidden ? { takenOffTheBoard: IDEAS_WORDS.hidden } : {}),
           ...(idea.mergedInto
-            ? { mergedInto: { id: idea.mergedInto.id, number: idea.mergedInto.number } }
+            ? {
+                mergedInto: {
+                  id: idea.mergedInto.id,
+                  number: idea.mergedInto.number,
+                  title: theirs(idea.mergedInto.title),
+                },
+                merged: IDEAS_WORDS.mergedAfter,
+              }
             : {}),
-          words: theirs(`${idea.title}\n\n${idea.body}`.trim()),
+          ...(shipped.length
+            ? { inWhatsNew: shipped.map((s) => ({ title: s.title, on: dayOf(s.publishedAt) })) }
+            : {}),
         },
         // As the idea's page shows them: who wrote each, the team's marked, and to the team the ones taken down too
         // (idea.get gives those only to them). commentId is what do_idea_set_comment_hidden takes.
+        commentCount: comments.length,
         comments: shown.map((c) => ({
           commentId: c.id,
-          by: c.author.you ? 'You' : c.author.name || 'Someone',
-          ...(c.author.team ? { team: 'HandsFreeOS team' } : {}),
+          by: ideaPerson(c.author),
+          ...(c.author.team ? { team: IDEAS_WORDS.team } : {}),
           ...(c.hidden ? { takenDown: true } : {}),
-          on: c.createdAt.slice(0, 10),
+          on: dayOf(c.createdAt),
           words: theirs(c.body),
         })),
         ...(shown.length < comments.length
@@ -1769,16 +1815,30 @@ async function findIdeas(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
               note: `Only the last ${LAST_COMMENTS} comments are here. Ask again with allComments for every one.`,
             }
           : {}),
-        story: updates.map(ideaUpdateLine),
+        // What happened, as the page tells it: each move, who made it and when, and the team's note in their words.
+        story: updates.map((u) => ({
+          line: ideaUpdateLine(u),
+          by: u.by,
+          on: dayOf(u.createdAt),
+          ...(u.note.trim() ? { note: theirs(u.note) } : {}),
+          ...(u.other
+            ? {
+                otherIdea: { id: u.other.id, number: u.other.number, title: theirs(u.other.title) },
+              }
+            : {}),
+          ...(u.whatsNew ? { whatsNew: u.whatsNew.title } : {}),
+        })),
       },
     };
   }
-  const [{ ideas }, areas] = await Promise.all([
-    query<{ ideas: IdeaSummary[] }>(db, ctx, 'idea.list', {
+  const [{ ideas, nextCursor }, areas] = await Promise.all([
+    query<{ ideas: IdeaSummary[]; nextCursor: string | null }>(db, ctx, 'idea.list', {
       ...(str(args['search']) ? { search: str(args['search']) } : {}),
       ...(str(args['sort']) ? { sort: str(args['sort']) } : {}),
       ...(str(args['status']) ? { status: str(args['status']) } : {}),
+      ...(str(args['areaId']) ? { areaId: str(args['areaId']) } : {}),
       ...(str(args['mine']) ? { mine: str(args['mine']) } : {}),
+      ...(str(args['cursor']) ? { cursor: str(args['cursor']) } : {}),
       limit: num(args['limit']) ?? 10,
     }),
     query<IdeaAreas>(db, ctx, 'idea.areas').catch(() => null),
@@ -1786,18 +1846,40 @@ async function findIdeas(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
   return {
     result: {
       count: ideas.length,
+      // A page, as the board's Show more ideas reads on from it.
+      ...(nextCursor
+        ? {
+            more: true,
+            nextCursor,
+            note: 'There are more ideas than these: pass nextCursor as cursor for the next ones.',
+          }
+        : {}),
       ideas: ideas.map((i) => ({
         id: i.id,
         number: i.number,
         status: IDEA_STATUS_WORDS[i.status],
         votes: i.voteCount,
         youVoted: i.voted,
+        comments: i.commentCount,
+        sharedBy: ideaPerson(i.author),
         sharedByYou: i.author.you,
+        sharedOn: dayOf(i.createdAt),
         area: i.areaId,
+        link: ideaLink(webUrl, i.id),
         words: theirs(i.excerpt ? `${i.title} — ${i.excerpt}` : i.title),
       })),
+      // As the board's Area filter lists them: each with what it covers and how many open ideas it has.
       ...(areas
-        ? { areas: areas.areas.filter((a) => !a.archived).map((a) => ({ id: a.id, name: a.name })) }
+        ? {
+            areas: areas.areas
+              .filter((a) => !a.archived)
+              .map((a) => ({
+                id: a.id,
+                name: a.name,
+                about: a.description,
+                openIdeas: a.openCount,
+              })),
+          }
         : {}),
     },
     card: ideas.length
@@ -1961,7 +2043,7 @@ const manageIdea: SettingsConfirmTool = {
     }
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, extra) {
     const act = action(args);
     if (act === 'share') {
       const out = await command<{ ideaId: string; number: number }>(db, ctx, 'idea.share', {
@@ -1973,6 +2055,12 @@ const manageIdea: SettingsConfirmTool = {
         outcome: IDEAS_WORDS.shared(out.number),
         href: ideaHref(ctx, out.ideaId),
         command: 'idea.share',
+        // The link anyone on HandsFreeOS can open it by, for "send it to my partner".
+        answer: keptAnswer({
+          ideaId: out.ideaId,
+          number: out.number,
+          link: ideaLink(extra.webUrl ?? '', out.ideaId),
+        }),
       };
     }
     const ideaId = str(args['ideaId'])!;
@@ -2854,6 +2942,7 @@ export const extraWebTools: Record<
   (db: Db, ctx: ToolContext, args: Args, webUrl: string) => Promise<ToolOutcome>
 > = {
   get_agency_area: getAgencyArea,
+  find_ideas: findIdeas,
 };
 
 export const extraConfirmTools: Record<string, SettingsConfirmTool> = {

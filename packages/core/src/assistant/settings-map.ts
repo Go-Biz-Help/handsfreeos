@@ -229,16 +229,19 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the add-ons this business has (extra features for particular kinds of work) and whether each one is on, the ones it could add, what’s coming soon, and the vote on what comes next',
     where: ['Add-ons'],
     onScreen: [
-      'In this business: each add-on, whether it is on, and its Settings',
-      'Available to add',
-      'Coming soon: what the weekly vote picked, until it can be added',
-      'Vote on what’s next: every planned add-on, with a search, categories, groups and an upvote on each',
+      'In this business: each add-on, whether it is on and what that means, Open, its Settings, and Turn on, Turn off, Uninstall, Install or Delete its data as where it stands allows; a note when it’s being tested here, isn’t quite finished, or can’t come back',
+      'Each add-on: What it lets you do, What it needs and Works with, each with why',
+      'Available to add: Install, or in its place a note (a paid one HandsFreeOS support turns on, or what it needs that can’t be added here)',
+      'Coming soon: what the weekly vote picked, until it can be added, and whether this business voted for it',
+      'Vote on what’s next: every planned add-on, with a search, categories, groups, Sort (Most votes, A to Z) and an Upvote on each; the business has one vote on each, and every Sunday at midnight Eastern the one with the most votes becomes Coming soon',
     ],
     path: '/add-ons',
     permission: 'addons.manage',
     canChange: [
       'add an add-on, turn one on or off, or uninstall one, with what has to move with it',
       'change an add-on’s own settings, the ones on its settings page (Real Estate Agent’s Deal settings, Social Outreach’s settings), for whoever that add-on lets change them',
+      'vote for a planned add-on as the business, or take its vote back',
+      'disconnect an account the business connected for an add-on',
     ],
     handovers: [
       {
@@ -248,6 +251,23 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Open Add-ons, at the bottom of the side menu.',
           'Uninstall the add-on first, if it is still installed.',
           'Press Delete its data, and type the add-on’s name to confirm.',
+        ],
+      },
+      {
+        what: 'start an add-on fresh',
+        why: 'it deletes all of the add-on’s data, which can’t be undone, so only an owner does it, typing the add-on’s name',
+        steps: [
+          'Open the add-on’s own settings, where it offers Start fresh, and type its name to confirm.',
+          'An add-on that doesn’t offer it: on Add-ons, at the bottom of the side menu, Uninstall it, press Delete its data, then Install it again.',
+        ],
+      },
+      {
+        what: 'connect an add-on to another service with a sign-in or a key',
+        why: 'signing in to the other service, and its key, are the person’s own, so a key never goes in this chat',
+        steps: [
+          'Open the add-on’s Connections: a Connections tab among its own settings when it has one, or the link I can give you.',
+          'Press Sign in with … and sign in at the other service; or press Connect… (Use your own account… to use yours in place of HandsFreeOS’s), paste the key, then Try it and save.',
+          'To go back to HandsFreeOS’s own account, press Switch back to HandsFreeOS’s account.',
         ],
       },
     ],

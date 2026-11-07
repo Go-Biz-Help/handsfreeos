@@ -1,7 +1,7 @@
 {
   "area": "ideas-addons",
   "title": "Ideas, roadmap, what's new, the Add-ons page and add-on connections",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/[addonId].tsx": "d44afafe8d41",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/index.tsx": "a777b575cb27",
@@ -113,15 +113,15 @@
       "path": "Ideas → board → Area: Every part of HandsFreeOS, each area (web select; phone Filters sheet)",
       "kind": "do",
       "file": "apps/web/src/components/ideas/ideas-board.tsx:153",
-      "covered": "partly",
-      "by": "find_ideas has no areaId input; rows only carry area id"
+      "covered": "yes",
+      "by": "find_ideas areaId, an id from its areas"
     },
     {
       "path": "Ideas → board → Area → each area's open-idea count",
       "kind": "see",
       "file": "apps/web/src/components/ideas/ideas-board.tsx:165",
-      "covered": "no",
-      "by": "find_ideas areas give id and name only"
+      "covered": "yes",
+      "by": "find_ideas areas: openIdeas"
     },
     {
       "path": "Ideas → board → Whose: Everybody’s, Shared by me, My votes, Following",
@@ -183,15 +183,15 @@
       "path": "Ideas → board → each idea: comment count",
       "kind": "see",
       "file": "apps/web/src/components/ideas/ideas-board.tsx:229",
-      "covered": "partly",
-      "by": "find_ideas list drops commentCount; one idea gives ≤10 comments"
+      "covered": "yes",
+      "by": "find_ideas ideas[].comments"
     },
     {
       "path": "Ideas → board → each idea: who shared it (You / name / Someone) · when",
       "kind": "see",
       "file": "apps/web/src/components/ideas/ideas-board.tsx:236",
-      "covered": "partly",
-      "by": "find_ideas sharedByYou only; no name or date"
+      "covered": "yes",
+      "by": "find_ideas ideas[].sharedBy (You / name / Someone), sharedOn"
     },
     {
       "path": "Ideas → board → each idea → open it (title)",
@@ -218,8 +218,8 @@
       "path": "Ideas → board → Show more ideas",
       "kind": "do",
       "file": "apps/web/src/components/ideas/ideas-board.tsx:247",
-      "covered": "partly",
-      "by": "find_ideas limit ≤20, no cursor"
+      "covered": "yes",
+      "by": "find_ideas more and nextCursor; cursor reads on"
     },
     {
       "path": "Ideas (phone) → pull down to refresh (board, roadmap, What’s new, an idea)",
@@ -281,8 +281,8 @@
       "path": "Share an idea (phone) → area sheet → each area's description",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/ideas/share.tsx:187",
-      "covered": "no",
-      "by": "find_ideas areas give id and name only"
+      "covered": "yes",
+      "by": "find_ideas areas: about"
     },
     {
       "path": "Share an idea → errors: Give it a title / Pick what it is about / needs a signal (phone)",
@@ -316,36 +316,36 @@
       "path": "An idea → merged notice: same as #N title (link); votes went there",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:135",
-      "covered": "partly",
-      "by": "find_ideas mergedInto id, number; no title"
+      "covered": "yes",
+      "by": "find_ideas idea.mergedInto id, number, title; merged (IDEAS_WORDS.mergedAfter)"
     },
     {
       "path": "An idea → hidden notice: team took it off the board, only you see it",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:150",
-      "covered": "no",
-      "by": "find_ideas one idea has no hidden flag"
+      "covered": "yes",
+      "by": "find_ideas idea.takenOffTheBoard (IDEAS_WORDS.hidden)"
     },
     {
       "path": "An idea → title, #number, status, details (phone header #N)",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:217",
       "covered": "yes",
-      "by": "find_ideas ideaId → number, status, words"
+      "by": "find_ideas ideaId → number, status, title and details as their words"
     },
     {
       "path": "An idea → area name",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:225",
-      "covered": "partly",
-      "by": "one-idea read has no area; list rows do"
+      "covered": "yes",
+      "by": "find_ideas idea.area (name) and areaId"
     },
     {
       "path": "An idea → Shared by you / name · time ago",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:228",
-      "covered": "partly",
-      "by": "find_ideas sharedByYou only; no name or date"
+      "covered": "yes",
+      "by": "find_ideas idea.sharedBy, sharedOn"
     },
     {
       "path": "An idea → vote count, voting closed",
@@ -393,57 +393,57 @@
       "path": "An idea → In What’s new: entry title · day (link)",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:249",
-      "covered": "partly",
-      "by": "not in find_ideas; read_whats_new_list entries list their ideas"
+      "covered": "yes",
+      "by": "find_ideas idea.inWhatsNew: title, day; read_whats_new_list for the entry"
     },
     {
       "path": "An idea → What happened → each line (Moved to Planned, Shipped, Merged into #N)",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:275",
       "covered": "yes",
-      "by": "find_ideas ideaId → story"
+      "by": "find_ideas ideaId → story[].line"
     },
     {
       "path": "An idea → What happened → each update: linked idea title, What’s new entry, by, day",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:276",
-      "covered": "no",
-      "by": "find_ideas story gives the line only"
+      "covered": "yes",
+      "by": "find_ideas story[]: line, by, on, otherIdea (number, title), whatsNew"
     },
     {
       "path": "An idea → What happened → team's note on an update",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:298",
-      "covered": "no",
-      "by": "find_ideas story drops the note"
+      "covered": "yes",
+      "by": "find_ideas story[].note, as the team’s words"
     },
     {
       "path": "An idea → Comments (count)",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:310",
-      "covered": "partly",
-      "by": "find_ideas comments: last 10 shown ones"
+      "covered": "yes",
+      "by": "find_ideas commentCount; earlierComments when cut; allComments for every one"
     },
     {
       "path": "An idea → each comment: who (You, name, HandsFreeOS team badge), when, words",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:313",
-      "covered": "partly",
-      "by": "find_ideas comments by You/team/Someone, day, words; no names"
+      "covered": "yes",
+      "by": "find_ideas comments: by (You / name / Someone), team badge, on, words"
     },
     {
       "path": "An idea → your own taken-down comment, dimmed",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:319",
-      "covered": "no",
-      "by": "find_ideas leaves hidden comments out"
+      "covered": "yes",
+      "by": "find_ideas comments: takenDown, given to whoever idea.get gives them to, as the page dims them"
     },
     {
       "path": "An idea → Delete (your own comment)",
       "kind": "do",
       "file": "apps/web/src/components/ideas/idea-view.tsx:335",
-      "covered": "partly",
-      "by": "do_idea_set_comment_hidden; no tool gives comment ids"
+      "covered": "yes",
+      "by": "find_ideas comments[].commentId (by You) → do_idea_set_comment_hidden"
     },
     {
       "path": "An idea → No comments yet. How would you use it?…",
@@ -470,8 +470,8 @@
       "path": "An idea → Where it stands: status and what it means",
       "kind": "see",
       "file": "apps/web/src/components/ideas/idea-view.tsx:386",
-      "covered": "partly",
-      "by": "find_ideas status; the meaning isn't given"
+      "covered": "yes",
+      "by": "find_ideas idea.status and whereItStands (IDEA_STATUS_MEANING)"
     },
     {
       "path": "An idea → Where it stands: N votes, yours among them",
@@ -492,14 +492,14 @@
       "kind": "do",
       "file": "apps/web/src/app/app/ideas/[ideaId]/page.tsx:11",
       "covered": "yes",
-      "by": "find_ideas card href /app/w/<business>/ideas/<id>"
+      "by": "find_ideas link and manage_idea share answer: /app/ideas/<id> on the web app’s address"
     },
     {
       "path": "Roadmap → columns Planned, In progress, Done lately, each with its count",
       "kind": "see",
       "file": "apps/web/src/components/ideas/roadmap-board.tsx:8",
       "covered": "yes",
-      "by": "read_idea_roadmap planned, inProgress, done"
+      "by": "read_idea_roadmap columns: Planned, In progress, Done lately, each with count"
     },
     {
       "path": "Roadmap (phone) → Planned · In progress · Done picker with counts",
@@ -512,22 +512,22 @@
       "path": "Roadmap → each column's meaning line",
       "kind": "see",
       "file": "apps/web/src/components/ideas/roadmap-board.tsx:42",
-      "covered": "no",
-      "by": "status meanings aren't given"
+      "covered": "yes",
+      "by": "read_idea_roadmap columns[].means"
     },
     {
       "path": "Roadmap → empty column words",
       "kind": "see",
       "file": "apps/web/src/components/ideas/roadmap-board.tsx:43",
       "covered": "yes",
-      "by": "read_idea_roadmap empty list"
+      "by": "read_idea_roadmap columns[].empty (IDEAS_WORDS.roadmapEmpty)"
     },
     {
       "path": "Roadmap → each card: title, area, votes, your vote, day shipped (Done)",
       "kind": "see",
       "file": "apps/web/src/components/ideas/roadmap-board.tsx:49",
       "covered": "yes",
-      "by": "read_idea_roadmap cards; area names via find_ideas"
+      "by": "read_idea_roadmap cards: title, area name, votes, youVoted, since"
     },
     {
       "path": "Roadmap → each card → vote / take back (not on Done)",
@@ -618,42 +618,42 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:151",
       "covered": "yes",
-      "by": "get_settings add_ons → inThisBusiness name, state, running"
+      "by": "get_settings add_ons → inThisBusiness addonId, name, state label, running"
     },
     {
       "path": "Add-ons → In this business → each add-on: what its state means",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:171",
-      "covered": "partly",
-      "by": "raw state only, not its words"
+      "covered": "yes",
+      "by": "get_settings add_ons inThisBusiness: state label and whatThatMeans (ADDON_STATE_WORDS)"
     },
     {
       "path": "Add-ons → In this business → each add-on: summary and longer description",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:170",
-      "covered": "no",
-      "by": "inThisBusiness drops summary; no description anywhere"
+      "covered": "yes",
+      "by": "get_settings add_ons: summary and description from the manifest"
     },
     {
       "path": "Add-ons → each add-on: Testing badge and what it means",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:164",
-      "covered": "no",
-      "by": "testing isn't in get_settings add_ons"
+      "covered": "yes",
+      "by": "get_settings add_ons: testing (ADDON_PAGE_WORDS.testingDetail)"
     },
     {
       "path": "Add-ons → each add-on: What it lets you do (each capability, description)",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:251",
-      "covered": "partly",
-      "by": "find_capabilities current/restricted/turnedOff, from = add-on"
+      "covered": "yes",
+      "by": "get_settings add_ons: whatItLetsYouDo, each label and description"
     },
     {
       "path": "Add-ons → each add-on: What it needs / Works with, each with why (phone: opens it)",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:264",
-      "covered": "partly",
-      "by": "manage_add_on card names what moves with it; no list or why"
+      "covered": "yes",
+      "by": "get_settings add_ons: whatItNeeds and worksWith, each with why"
     },
     {
       "path": "Add-ons → each add-on: HandsFreeOS has switched it off for now",
@@ -666,22 +666,22 @@
       "path": "Add-ons → each add-on: HandsFreeOS no longer has it (retired)",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:225",
-      "covered": "no",
-      "by": "retired isn't in get_settings add_ons"
+      "covered": "yes",
+      "by": "get_settings add_ons: note (ADDON_PAGE_WORDS.retired)"
     },
     {
       "path": "Add-ons → each add-on: Not quite finished + each failed check",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:230",
-      "covered": "no",
-      "by": "failedChecks / lastError aren't given"
+      "covered": "yes",
+      "by": "get_settings add_ons: trouble (troubleChecks and each failed check in addonCheckWords)"
     },
     {
       "path": "Add-ons → each add-on: note in place of moves (paid, support, needs another, can't add)",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:176",
-      "covered": "no",
-      "by": "offer note isn't given"
+      "covered": "yes",
+      "by": "get_settings add_ons: inPlaceOfInstall (addonOfferNote)"
     },
     {
       "path": "Add-ons → each add-on → Open (its first page)",
@@ -715,15 +715,15 @@
       "path": "Add-ons → each add-on → Turn on",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:201",
-      "covered": "partly",
-      "by": "manage_add_on turn_on; get_settings add_ons gives no addonId"
+      "covered": "yes",
+      "by": "manage_add_on turn_on; addonId from get_settings add_ons"
     },
     {
       "path": "Add-ons → uninstalled add-on → Install again",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:201",
-      "covered": "partly",
-      "by": "manage_add_on install; get_settings add_ons gives no addonId"
+      "covered": "yes",
+      "by": "manage_add_on install; addonId and inPlaceOfInstall from get_settings add_ons"
     },
     {
       "path": "Add-ons → each add-on → Delete its data (owners)",
@@ -750,22 +750,22 @@
       "path": "Add-ons → Available to add → each add-on: name and summary",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/add-ons-page.tsx:290",
-      "covered": "partly",
-      "by": "availableToAdd name, summary; omits ones handed to test"
+      "covered": "yes",
+      "by": "get_settings add_ons availableToAdd: name, summary, with the ones handed to test"
     },
     {
       "path": "Add-ons → Available to add → each: what it would let you do",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/addon-card.tsx:251",
-      "covered": "partly",
-      "by": "find_capabilities suggestions: ≤2, only for a need"
+      "covered": "yes",
+      "by": "get_settings add_ons availableToAdd: whatItLetsYouDo"
     },
     {
       "path": "Add-ons → Available to add → each → Install",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/add-ons-page.tsx:305",
-      "covered": "partly",
-      "by": "manage_add_on install; id only via find_capabilities suggestions"
+      "covered": "yes",
+      "by": "manage_add_on install; addonId and canInstall from get_settings add_ons availableToAdd"
     },
     {
       "path": "Add-ons → Available to add → empty: None to add yet",
@@ -786,98 +786,98 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/add-ons-page.tsx:364",
       "covered": "yes",
-      "by": "get_settings add_ons → vote.comingSoon"
+      "by": "get_settings add_ons → vote.comingSoon addonId, name"
     },
     {
       "path": "Add-ons → Coming soon → each: summary, Your business voted for this.",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/add-ons-page.tsx:366",
-      "covered": "no",
-      "by": "vote.comingSoon gives names only"
+      "covered": "yes",
+      "by": "get_settings add_ons vote.comingSoon: summary, youVoted; read_addon_roadmap comingSoon"
     },
     {
       "path": "Add-ons → Vote on what’s next → one vote each; picked Sundays at midnight Eastern",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/add-ons-page.tsx:376",
-      "covered": "partly",
-      "by": "get_settings add_ons vote.nextPickAt"
+      "covered": "yes",
+      "by": "get_settings add_ons vote.howItWorks (ADDON_PAGE_WORDS.voteDetail) and nextPickAt"
     },
     {
       "path": "Add-ons → Vote → Search add-ons",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:143",
-      "covered": "partly",
-      "by": "find_capabilities need + includePlanned (8 best)"
+      "covered": "yes",
+      "by": "read_addon_roadmap search"
     },
     {
       "path": "Add-ons → Vote → category chips (All, each, with counts)",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:180",
-      "covered": "no",
-      "by": "no tool gives planned categories"
+      "covered": "yes",
+      "by": "read_addon_roadmap categories (All and each, with counts) and category"
     },
     {
       "path": "Add-ons → Vote → group filter (web select; phone chips)",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:154",
-      "covered": "no",
-      "by": "no tool gives planned groups"
+      "covered": "yes",
+      "by": "read_addon_roadmap groups and group"
     },
     {
       "path": "Add-ons → Vote → sort Most votes / A to Z",
       "kind": "do",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:168",
-      "covered": "partly",
-      "by": "get_settings vote.mostVotes: top 5 only"
+      "covered": "yes",
+      "by": "read_addon_roadmap sort votes or az"
     },
     {
       "path": "Add-ons → Vote → N add-ons shown",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:185",
-      "covered": "partly",
-      "by": "vote.planned total, not the filtered count"
+      "covered": "yes",
+      "by": "read_addon_roadmap shown (ADDON_PAGE_WORDS.plannedCount)"
     },
     {
       "path": "Add-ons → Vote → Tap a tag to filter by it.",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:186",
-      "covered": "no",
-      "by": "no tags reach the Assistant"
+      "covered": "yes",
+      "by": "read_addon_roadmap each add-on’s groups; group filters by one"
     },
     {
       "path": "Add-ons → Vote → each planned add-on: name, votes",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:197",
-      "covered": "partly",
-      "by": "vote.mostVotes top 5; find_capabilities planned (no votes)"
+      "covered": "yes",
+      "by": "read_addon_roadmap planned: name, votes, youVoted"
     },
     {
       "path": "Add-ons → Vote → each: whether your business voted",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:201",
       "covered": "yes",
-      "by": "get_settings add_ons vote.youVotedFor"
+      "by": "get_settings add_ons vote.youVotedFor; read_addon_roadmap planned[].youVoted"
     },
     {
       "path": "Add-ons → Vote → each: category and group tags (web: tap to filter)",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:219",
-      "covered": "no",
-      "by": "category and groups aren't given"
+      "covered": "yes",
+      "by": "read_addon_roadmap planned: category and groups"
     },
     {
       "path": "Add-ons → Vote → each: summary",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:240",
-      "covered": "partly",
-      "by": "find_capabilities planned summary (8 best)"
+      "covered": "yes",
+      "by": "read_addon_roadmap planned: summary"
     },
     {
       "path": "Add-ons → Vote → each: Already in HandsFreeOS: overlap",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/planned-list.tsx:241",
-      "covered": "no",
-      "by": "overlap isn't given"
+      "covered": "yes",
+      "by": "read_addon_roadmap planned: alreadyInHandsFreeOS"
     },
     {
       "path": "Add-ons → Vote → each → Upvote / take back",
@@ -905,7 +905,7 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/move-dialogs.tsx:137",
       "covered": "yes",
-      "by": "manage_add_on card title and note"
+      "by": "manage_add_on card title and note (ADDON_MOVE_WORDS consequence)"
     },
     {
       "path": "Add-ons → confirm → Checking what else this changes… / couldn't check (phone: Try again)",
@@ -953,8 +953,8 @@
       "path": "Add-ons → confirm → What it holds here",
       "kind": "see",
       "file": "apps/web/src/components/settings/add-ons/move-dialogs.tsx:171",
-      "covered": "no",
-      "by": "manage_add_on card leaves impact.holds out"
+      "covered": "yes",
+      "by": "manage_add_on card field What it holds here (addonHoldsLines)"
     },
     {
       "path": "Add-ons → confirm → Turn off both / Uninstall (yes), Cancel",
@@ -1051,8 +1051,8 @@
       "path": "Add-ons (phone) → each row: name, summary, state, note (trouble, retired, paused, how to add)",
       "kind": "see",
       "file": "apps/mobile/src/components/add-ons/addon-bits.tsx:97",
-      "covered": "partly",
-      "by": "get_settings add_ons name, state, running; no trouble or note"
+      "covered": "yes",
+      "by": "get_settings add_ons: summary, state words, note (paused or retired), trouble, inPlaceOfInstall"
     },
     {
       "path": "Add-ons (phone) → each row → opens the add-on's own screen",
@@ -1079,8 +1079,8 @@
       "path": "An add-on (phone) → category line under its name",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/add-ons/[addonId].tsx:79",
-      "covered": "no",
-      "by": "category isn't given"
+      "covered": "yes",
+      "by": "get_settings add_ons: category (addonCategoryLine)"
     },
     {
       "path": "An add-on (phone) → a planned one: Coming soon, It’s being built now",
@@ -1233,8 +1233,8 @@
       "path": "Connections → Nobody can read a key back (explanation card)",
       "kind": "see",
       "file": "apps/web/src/components/addons/connections.tsx:388",
-      "covered": "no",
-      "by": "not told to the Assistant"
+      "covered": "yes",
+      "by": "read_addon_connection_list description: nobody can read a key back; settings_help add_ons"
     },
     {
       "path": "Connections → key dialog → pick the service",
@@ -1307,8 +1307,8 @@
       "kind": "read",
       "where": "Add-ons → every card (In this business, Available to add, Coming soon, Vote on what’s next), each keyed by its add-on",
       "gap": "get_settings (area add_ons) returns no addonId anywhere: inThisBusiness is {name,state,running}, availableToAdd is {name,summary}, comingSoon/mostVotes/youVotedFor are names. Yet manage_add_on’s description and update_addon_settings’ not-found error both point to get_settings (area add_ons) for the id, and manage_add_on, update_addon_settings, read_addon_settings, read_addon_connection_list, do_addon_vote and do_addon_unvote all take one. Some indirect routes exist: the prompt’s directory gives “Name (id_…)” for running add-ons only, find_capabilities gives addonId on at most two suggestions (only when nothing here meets the need) and on up to eight planned matches (includePlanned), and capability ids are prefixed with the add-on id. None of these covers a turned-off, uninstalled, available-to-add or testing add-on as listed on the page, or a most-voted planned one, so the model must guess and gets “HandsFreeOS has no add-on by that name.”",
-      "fix": "In apps/worker/src/assistant/tools-settings.ts, add_ons shape: put addonId: i.addonId on each inThisBusiness item and addonId: c.addonId on each availableToAdd item. In the addon.roadmap shape, map comingSoon to {addonId, name}, add addonId to each mostVotes item, and make youVotedFor [{addonId, name}]. Widen the shape’s input types to read addonId.",
-      "status": "open",
+      "fix": "Fixed: get_settings (area add_ons) gives each add-on’s addonId: In this business, Available to add, Coming soon, the most-voted and what the business voted for. read_addon_roadmap gives it on every planned add-on.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1317,8 +1317,8 @@
       "kind": "read",
       "where": "Ideas → an idea → What happened (each status change with the team’s note, who and when, the merged idea’s title, the What’s new entry)",
       "gap": "find_ideas(ideaId) returns story: updates.map(ideaUpdateLine), which only says “Moved to Not planned”, “Shipped” or “Merged into #n”. It leaves out each update’s note (the team’s words in the highlighted box), who it was by, the date, the other idea’s title and the What’s new entry’s title. idea.get returns all of them. So the Assistant can’t answer “why is my idea not planned?” or “what did the team say?”.",
-      "fix": "In apps/worker/src/assistant/tools-extra.ts findIdeas, set story: updates.map(u => ({ line: ideaUpdateLine(u), ...(u.note ? { note: theirs(u.note) } : {}), by: u.by, on: u.createdAt.slice(0,10), ...(u.other ? { other: { number: u.other.number, title: theirs(u.other.title) } } : {}), ...(u.whatsNew ? { whatsNew: u.whatsNew.title } : {}) })). Widen the IdeaGet.updates type to include note, by, createdAt, other.title and whatsNew.title.",
-      "status": "open",
+      "fix": "Fixed: find_ideas’ story gives each update as What happened says it: the line, who made it, the day, the team’s note in their words, the other idea’s number and title, and the What’s new entry.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1327,8 +1327,8 @@
       "kind": "read",
       "where": "Add-ons → a card’s state detail, Testing badge, the note in place of Install (“A paid add-on. HandsFreeOS support can turn it on for you.”, “It needs X, which can’t be added here.”), and the trouble callout (“Not quite finished…” with each failed check); Available to add including add-ons handed to the business to test",
       "gap": "The add_ons shape keeps only name, state and running for installed add-ons. It drops summary, retired, the testing badge and the trouble callout (lastError and failedChecks). availableToAdd filters on c.status === 'available', so add-ons handed to the business to test (c.testing), which the page offers, are left out. Available add-ons carry no offer note, so a paid or blocked one looks installable. The Assistant would offer to install it and be refused, while the page says “A paid add-on. HandsFreeOS support can turn it on for you.”. It can’t answer “why is my add-on stuck?”.",
-      "fix": "In tools-settings.ts add_ons shape, add to inThisBusiness: summary, retired, testing (catalog row’s testing), and trouble: i.lastError ? (i.failedChecks.length ? [ADDON_PAGE_WORDS.troubleChecks, ...i.failedChecks.map(addonCheckWords)] : ADDON_PAGE_WORDS.trouble) : undefined. For availableToAdd, filter (c.status === 'available' || c.testing), add testing: c.testing, and add note: addonOfferNote(addonOffer(null, findAddon(ADDON_CATALOG, c.addonId), c.status, installable.has(c.addonId)), blocked words), where installable comes from list.capabilities.installable[].provider.",
-      "status": "open",
+      "fix": "Fixed: get_settings (area add_ons) says each card in the page’s words: what its state means, paused or retired, the Testing badge, the trouble callout with each failed check, and the note in place of Install. Available to add includes add-ons handed to the business to test, with canInstall.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1337,8 +1337,8 @@
       "kind": "read",
       "where": "Add-ons → an add-on’s What it lets you do / What it needs / Works with (with why) and its longer description; phone: an add-on’s own screen, Does, Needs, Works with",
       "gap": "No Assistant read returns an add-on’s What it needs or Works with (manifest.requires, with the reason for each), or its longer description. find_capabilities gives label and description only for features already here, restricted or turned off. Suggestions (at most two) and planned matches carry capability labels only, with no descriptions. A paid, blocked, testing or uninstalled add-on’s capabilities are never described. What moves with a change appears only on manage_add_on’s confirm card, which is a proposal, not a read.",
-      "fix": "Give get_settings add_ons each item (or an optional addonId detail) does: manifest.capabilities.map(c => ({label, description})), needs and worksWith (the required and optional entries the card shows, as {name, why}), and description from the manifest. Build it from findAddon(ADDON_CATALOG, id) in the worker’s shape.",
-      "status": "open",
+      "fix": "Fixed: each add-on in get_settings (area add_ons) carries its category, longer description, What it lets you do, What it needs and Works with, each with why, from its manifest.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1347,8 +1347,8 @@
       "kind": "read",
       "where": "Add-ons → Vote on what’s next: search, category chips with counts, Group, Sort (Most votes, A to Z), each card’s votes, summary, tags and “Already in HandsFreeOS:” overlap; Coming soon with summary and “Your business voted for this.”",
       "gap": "Finding a planned add-on by words does work: find_capabilities({need, includePlanned: true}) ranks planned add-ons by name, summary, keywords and capability labels, and returns up to 8 with addonId, name, summary and does. What is missing: votes, voted, category, groups and overlap on those matches; any way to list a category or get a named add-on’s vote count unless it is in the top 5; and Coming soon is names only, with no summary or “Your business voted for this”, and isn’t filtered against installed add-ons as the page does.",
-      "fix": "In packages/core/src/addons/ai.ts findCapabilities, add votes, voted, category and overlap to PlannedAddon. These need the vote counts and business votes passed into the capability context, or loaded in the worker’s find_capabilities. In tools-settings.ts addon.roadmap shape, return comingSoon as {addonId, name, summary, youVoted: c.voted}, filtered against installed addon ids.",
-      "status": "open",
+      "fix": "Fixed: read_addon_roadmap reads Vote on what’s next as the page filters it: search, category chips with counts, groups, Sort (votes or A to Z), each add-on’s votes, category, groups and Already in HandsFreeOS, and Coming soon with Your business voted for this, without the add-ons the business has. get_settings’ Coming soon gives summary and youVoted, filtered the same way.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1357,8 +1357,8 @@
       "kind": "do",
       "where": "Ideas → an idea → Comments → Delete (on your own comment)",
       "gap": "do_idea_set_comment_hidden is offered (input {commentId, hidden}), but find_ideas maps comments to {by, on, words} with no id and no sign that a comment is the person’s own, so the Assistant can never take down the person’s comment. The screen shows Delete on your own comments. This is a takedown (hidden), offered on purpose, so it isn’t covered by the never-delete-for-good rule.",
-      "fix": "In apps/worker/src/assistant/tools-extra.ts findIdeas comments map, add id: c.id and mine: c.author.you (add id to the IdeaGet.comments type).",
-      "status": "open",
+      "fix": "Fixed: find_ideas gives each comment its commentId and who wrote it (You for the person’s own), so do_idea_set_comment_hidden can take down their own.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1367,8 +1367,8 @@
       "kind": "do",
       "where": "Ideas → an idea → Edit your idea (Your idea, in a few words / Tell us more / What is it about?, pre-filled)",
       "gap": "do_idea_edit (IdeaEditInput) needs title, body and areaId together, and body defaults to '', so leaving it out wipes the details. The single-idea read from find_ideas joins title and body into one `words` string and returns no areaId and no canEdit. Partly mitigated: list rows carry area: i.areaId; the title can’t contain a blank line, so the words can be split; and idea.edit refuses when the person may no longer edit. Fixing a title still risks wiping the details or moving the idea to another area, and the Assistant can’t tell up front whether editing is still open.",
-      "fix": "In findIdeas’ single-idea result, replace words with title: theirs(idea.title), details: theirs(idea.body), area: idea.areaId and canEdit: idea.canEdit (add canEdit to the IdeaGet type).",
-      "status": "open",
+      "fix": "Fixed: find_ideas’ one idea gives title, details and areaId apart, as do_idea_edit takes them back, plus the area’s name and canEdit.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1377,8 +1377,8 @@
       "kind": "read",
       "where": "Ideas board → Area filter (Every part of HandsFreeOS / an area (n)), Show more ideas, and each row’s comment count and “Name · 3 days ago”",
       "gap": "find_ideas has no areaId or cursor input, though idea.list takes both and the board filters by area and has Show more. It defaults to 10 and caps at 20, reports count: ideas.length and drops nextCursor, so a list that was cut short looks complete. Rows leave out commentCount, the author’s name and the date it was shared, all of which the board shows.",
-      "fix": "In packages/core/src/assistant/tools-extra.ts find_ideas input, add areaId (same regex as manage_idea’s) and cursor. In the worker’s findIdeas, pass them to idea.list, return more: nextCursor !== null and nextCursor, and add comments: i.commentCount, by: i.author.you ? 'You' : i.author.name || 'Someone', shared: i.createdAt.slice(0,10) to each row.",
-      "status": "open",
+      "fix": "Fixed: find_ideas takes areaId and cursor, says more and nextCursor when the page was cut, and each row carries its comment count, who shared it and the day.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1387,8 +1387,8 @@
       "kind": "read",
       "where": "Ideas → an idea’s address, the business-free link the emails use (/app/ideas/<id>), and the board’s filter addresses meant to be sent",
       "gap": "No screen shows or copies a link to an idea. The business-free /app/ideas/<id> link appears only in emails, and the address bar shows the same /app/w/<ws>/ideas/<id> path the Assistant’s card gives. The real part: find_ideas and manage_idea return only a path, and the prompt never gets the web app’s address, so when someone asks for a link to send, the Assistant can give a path or a guessed domain but not a full https link that works for someone in another business.",
-      "fix": "Pass webUrl into find_ideas and manage_idea (as tools-write.ts:861/917 already does for its confirm tools). Return link: `${webUrl}/app/ideas/${id}` on each idea and on manage_idea’s share outcome.",
-      "status": "open",
+      "fix": "Fixed: find_ideas and manage_idea’s share answer give link, the business-free /app/ideas/<id> address on the web app’s own address, which opens the idea for anyone on HandsFreeOS.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1397,8 +1397,8 @@
       "kind": "words",
       "where": "Any refusal about an add-on that points to “Settings → Add-ons” (Add-ons is its own place at the foot of the side menu; phone: More → Add-ons)",
       "gap": "Add-ons is no longer a Settings page: it sits at the foot of the side menu, and the old URL only redirects. Many refusals the Assistant relays, and some it writes itself, still send people to “Settings → Add-ons”, a tab that isn’t in the Settings menu.",
-      "fix": "Replace “Settings → Add-ons” with “Add-ons, at the bottom of the side menu” in: packages/core/src/addons/plan.ts:66; addons/lifecycle.ts:80, 89, 99; kernel/pg-errors.ts:435, 446, 451, 504; queries/addon.ts:154, 237; commands/addon.ts:136, 278; commands/main-offer.ts:75; commands/partners.ts:79; commands/live-meeting.ts:103; apps/worker/src/assistant/tools-addons.ts:85; apps/worker/src/assistant/tools-main-offer.ts:59; apps/worker/src/main-offer/routes.ts:146.",
-      "status": "open",
+      "fix": "Fixed: every refusal that said Settings → Add-ons now says Add-ons, at the bottom of the side menu (done in the Sales Coach step).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1407,8 +1407,8 @@
       "kind": "words",
       "where": "An add-on’s Connections (core’s /addons/<id>/connections, or the add-on’s own tab such as Real Estate’s settings?tab=connections): Sign in with …, Sign in again, Connect…, Use your own account…, Paste a new key → Try it and save, Switch back to HandsFreeOS’s account",
       "gap": "read_addon_connection_list tells the Assistant which services an add-on connects to, how (key, oauth or platform), the field labels and hints, and whether the person may manage them. do_addon_connection_disconnect exists. Nothing tells it where the Connections page is or what to press. Signing in and pasting a key go through the worker’s /v1/addons/connections/* routes, not commands, so they appear in no NEVER list and no handover. The add_ons area has only the delete-data handover, and the prompt’s settings_help list names Google, Outlook, Stripe and Square but not add-on connections. Signing in stays with the person (settled), but the Assistant can’t give the steps or the screen.",
-      "fix": "In packages/core/src/assistant/settings-map.ts add_ons.handovers, add {what: 'connect an add-on’s account with a sign-in or a key', why: 'a sign-in and a key are the person’s own; a key never goes in the chat', steps: ['Open Add-ons, at the bottom of the side menu, then the add-on’s Connections (core’s /addons/<id>/connections, or its own Connections tab).', 'Press Sign in with … or Connect…, or Use your own account… and paste the key, then Try it and save.', 'To go back, press Switch back to HandsFreeOS’s account.']}. Name the path /addons/<addonId>/connections. ADDON_UI is web-only and can’t be imported in core.",
-      "status": "open",
+      "fix": "Fixed: settings-map’s add_ons handovers include connecting an add-on with a sign-in or a key, with the steps and where (the add-on’s Connections, or the link read_addon_connection_list now gives as page). read_addon_connection_list’s description says signing in and keys are the person’s own, a key never goes in the chat and nobody can read one back. settings_help and the prompt name it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1417,8 +1417,8 @@
       "kind": "do",
       "where": "Add-ons → Turn off / Uninstall → confirm dialog: consequence (“anything it had scheduled is cancelled”) and What it holds here (“12 records stay…”, “3 things it had scheduled are cancelled.”, “It lets go of 2 things it holds outside HandsFreeOS.”)",
       "gap": "manage_add_on’s Impact type and card ignore addon.impact’s holds and kept. The turn_off note leaves out that anything it had scheduled is cancelled. The screen’s confirm dialog shows ADDON_MOVE_WORDS.disable.consequence and addonHoldsLines: the records kept, “3 things it had scheduled are cancelled.”, and “It lets go of n things it holds outside HandsFreeOS.”. So the person agrees on the Assistant’s card having been warned less than the dialog would warn them.",
-      "fix": "In apps/worker/src/assistant/tools-settings-more.ts, add holds (and kept) to Impact. In prepare, push addonHoldsLines(LIFECYCLE[act], impact.holds) as caution warnings. Use ADDON_MOVE_WORDS.disable.consequence and ADDON_MOVE_WORDS.uninstall.consequence for the turn_off and uninstall notes.",
-      "status": "open",
+      "fix": "Fixed: manage_add_on’s card uses the page’s own consequence words for Turn off and Uninstall, and adds What it holds here (addonHoldsLines from addon.impact’s holds): the records kept, what it had scheduled that is cancelled, and what it lets go of outside HandsFreeOS.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1427,8 +1427,8 @@
       "kind": "words",
       "where": "Add-ons → Vote on what’s next → Upvote (one vote per business)",
       "gap": "SAY.planned tells the model “Owners and admins vote for what comes next on Add-ons”, pointing the person to do it themselves, and add_ons.canChange doesn’t list voting. do_addon_vote and do_addon_unvote are offered to the same people (addons.manage), and addon.vote’s own description is clear, so the tool is still visible. The Assistant’s words point away from it.",
-      "fix": "In packages/core/src/assistant/settings-map.ts add_ons.canChange, add 'vote for a planned add-on, or take the business’s vote back'. In packages/core/src/addons/ai.ts SAY.planned, replace the last sentence with 'Owners and admins vote for what comes next; you can cast or take back the business’s vote (do_addon_vote, do_addon_unvote).'",
-      "status": "open",
+      "fix": "Fixed: add_ons.canChange lists voting for a planned add-on or taking the vote back, and SAY.planned tells the model it can cast or take back the business’s vote (do_addon_vote, do_addon_unvote) and read the vote with read_addon_roadmap.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1437,8 +1437,8 @@
       "kind": "read",
       "where": "Ideas → an idea → Comments (n), each commenter’s name, and “Shared by <name>”",
       "gap": "find_ideas keeps only the last 10 visible comments (.slice(-10)) and doesn’t say how many there are or that some were left out. Every commenter who isn’t the team or the person becomes “Someone”, though the screen shows their name. The idea’s author name is dropped (only sharedByYou).",
-      "fix": "In findIdeas, add commentCount: visible.length and shown: Math.min(10, visible.length); set by: c.author.team ? 'HandsFreeOS team' : c.author.you ? 'You' : c.author.name || 'Someone'; add author: idea.author.you ? 'You' : idea.author.name || 'Someone'.",
-      "status": "open",
+      "fix": "Fixed: find_ideas gives commentCount and, when only the last 10 are shown, how many earlier ones there are. Each commenter and the author are named as the page names them (You, their name, or Someone, with the team’s badge).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1447,8 +1447,8 @@
       "kind": "read",
       "where": "Ideas → an idea: “The HandsFreeOS team took this idea off the board. Only you can see it.”, “In What’s new: <title> · <day>”, the merged-into title, its area, and Where it stands (status meaning)",
       "gap": "mergedInto returns id and number, so its title is one more find_ideas call away, and the story says “Shipped” when a What’s new entry delivered it. Still missing from find_ideas’ idea: hidden (“The HandsFreeOS team took this idea off the board. Only you can see it.”), shipped (which What’s new entries and when), the area’s name and the date it was shared. So the Assistant can’t explain why the person’s idea vanished from the board, or name the update that shipped it.",
-      "fix": "In findIdeas’ single-idea result, add hidden: idea.hidden, shipped: shipped.map(s => ({ title: s.title, on: s.publishedAt.slice(0,10) })), area (name from idea.areas), sharedOn: idea.createdAt.slice(0,10), and mergedInto.title. Read shipped and hidden from idea.get and widen IdeaGet.",
-      "status": "open",
+      "fix": "Fixed: find_ideas’ one idea says when the team took it off the board (in IDEAS_WORDS.hidden), which What’s new entries shipped it and when, the merged idea’s title, the area’s name and the day it was shared.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1457,8 +1457,8 @@
       "kind": "words",
       "where": "Phone → More (Add-ons row for owners and admins, with each add-on’s moves and Switches); web side menu foot (Add-ons and Ideas above Get help, never arranged or hidden)",
       "gap": "PHONE_APP’s More line leaves out Add-ons, which owners and admins have on the phone (and also Documents and the add-ons’ own places). EVERY_PAGE’s “Bottom of the side menu” leaves out Add-ons and Ideas, which sit there above Get help and can’t be arranged or hidden. The “Only on the web: … the business’s settings” line isn’t wrong, since Add-ons isn’t a Settings page, so dropping add-ons from it isn’t needed. It should instead say Add-ons works on the phone.",
-      "fix": "packages/core/src/assistant/places-map.ts:625: make More 'add-ons’ own places, then Contacts, Tasks, Money, Forms, Documents (who sends them), Approvals, Test your AI teammate, Settings, Add-ons (owners and admins), Ideas, Get help, and Open on the web'. Line 608: add 'Add-ons (owners and admins) and Ideas, above Get help; these two are never moved or hidden'. Line 609: add 'except Add-ons and Ideas'.",
-      "status": "open",
+      "fix": "Fixed: places-map’s side menu line names Add-ons and Ideas at the bottom, never moved or hidden. The phone’s More line already named Add-ons.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1467,8 +1467,8 @@
       "kind": "words",
       "where": "Ideas → an idea → Edit your idea, and Delete on your own comment",
       "gap": "The Ideas place’s canChange lists find, share, vote, comment and follow. It doesn’t list editing your own idea until the team answers it (do_idea_edit) or deleting your own comment (do_idea_set_comment_hidden). onScreen leaves out Delete on your own comments, so the Assistant may say it can’t do either.",
-      "fix": "In packages/core/src/assistant/places-map.ts Ideas entry, add to canChange 'edit your own idea until the team answers it, and delete your own comment'. Change onScreen line 568 to 'An idea: vote, comment, Delete on your own comments, Edit your idea, and Email me updates'.",
-      "status": "open",
+      "fix": "Fixed: the Ideas place lists editing your own idea until the team answers it and deleting your own comment, and its screen lines name Delete on your own comments and Edit your idea.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1477,8 +1477,8 @@
       "kind": "read",
       "where": "Ideas → Roadmap: Planned, In progress, Done lately (up to 100 a column)",
       "gap": "read_idea_roadmap returns the raw columns. Past 16,000 characters (about 80 cards) it is cut from the end, so Done lately goes first, and the cut note asks for a smaller page though idea.roadmap takes no input. Its description says “shipped lately”, not the last 90 days. Partly mitigated: find_ideas with status planned, in_progress or done reads each column by votes or trending, though only up to 20 and with no 90-day bound for done.",
-      "fix": "Either add a roadmap mode to find_ideas that returns {planned, inProgress, done} as {number, title, area, votes, youVoted, on} with counts, or set idea.roadmap’s description (packages/core/src/queries/ideas.ts:420) to say 'what shipped in the last 90 days'. In apps/worker/src/assistant/tools-screen-reads.ts, make the cut note say to use find_ideas with a status when the query takes no input.",
-      "status": "open",
+      "fix": "Fixed: read_idea_roadmap gives Planned, In progress and Done lately (the last 90 days, newest first), each with what it means, its count and its first 15 cards with area names; column reads up to 60 of one, and find_ideas with a status pages through the rest. Done lately is never the part cut for length.",
+      "status": "fixed",
       "pr": null
     }
   ]

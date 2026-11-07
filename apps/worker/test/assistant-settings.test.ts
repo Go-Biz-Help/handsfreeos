@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  ADDON_STATE_WORDS,
   assistantToolByName,
   AssistantCard,
   bookingSiteSetPage,
@@ -187,8 +188,15 @@ describe('get_settings', () => {
     expect(result['where']).toBe('Add-ons');
     // Nothing built yet, as until the first add-on ships; Real Estate Agent is coming soon, and the rest are voted on.
     expect(result['addOns']).toEqual({ inThisBusiness: [], availableToAdd: [] });
-    const vote = result['vote'] as { comingSoon: string[]; mostVotes: unknown[]; planned: number };
-    expect(vote.comingSoon).toContain('Real Estate Agent');
+    const vote = result['vote'] as { comingSoon: unknown[]; mostVotes: unknown[]; planned: number };
+    // Each with its id, which do_addon_vote and do_addon_unvote take.
+    expect(vote.comingSoon).toContainEqual(
+      expect.objectContaining({
+        addonId: 'realestate',
+        name: 'Real Estate Agent',
+        youVoted: false,
+      }),
+    );
     expect(vote.planned).toBeGreaterThan(100);
     expect(JSON.stringify(result['theyDoThemselves'])).toContain('delete an add-on’s data');
 
@@ -200,8 +208,23 @@ describe('get_settings', () => {
     );
     const again = await readTool('get_settings', 'add_ons', owner);
     expect((again.result['addOns'] as { inThisBusiness: unknown[] }).inThisBusiness).toEqual([
-      expect.objectContaining({ addonId: 'realestate', name: 'Real Estate Agent' }),
+      expect.objectContaining({
+        addonId: 'realestate',
+        name: 'Real Estate Agent',
+        // In the page's words, with what it lets the business do.
+        state: ADDON_STATE_WORDS.disabled.label,
+        whatThatMeans: ADDON_STATE_WORDS.disabled.detail,
+        whatItLetsYouDo: expect.arrayContaining([
+          expect.objectContaining({ label: expect.any(String) }),
+        ]),
+      }),
     ]);
+    // Coming soon leaves out the one the business has, as the page does.
+    expect(
+      (again.result['vote'] as { comingSoon: { addonId: string }[] }).comingSoon.map(
+        (c) => c.addonId,
+      ),
+    ).not.toContain('realestate');
   });
 
   it('reads every part without failing, whatever is set up', async () => {

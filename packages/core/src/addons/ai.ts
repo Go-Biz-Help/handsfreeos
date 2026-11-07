@@ -419,7 +419,7 @@ const SAY = {
   suggestions:
     'Add-ons they could add that do what they asked. Mention one only if it answers their request, once, in a sentence, and never push it.',
   planned:
-    'Planned and not available yet: say it is coming, never that they can add it. Owners and admins vote for what comes next on Add-ons, at the bottom of the side menu.',
+    'Planned and not available yet: say it is coming, never that they can add it. Owners and admins vote for what comes next, one vote per business on each: you can cast the business’s vote or take it back (do_addon_vote, do_addon_unvote, with its addonId), and read_addon_roadmap lists the vote with its counts.',
 } as const;
 
 const line = (c: CapabilityView): CapabilityLine => ({
