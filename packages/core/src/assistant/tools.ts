@@ -765,14 +765,46 @@ export const assistantTools = [
   define({
     name: 'update_knowledge_profile',
     description:
-      'Change what your AI knows about the business: what you do, the area you cover, your hours, your policies, how it should sound, how it signs off, and whether it may quote prices. Read it with get_settings first and pass only what changes; each field replaces what is there.',
+      'Change the business profile your AI knows (Knowledge → Overview, Business profile and Tone of voice): what you do, your services with what each is and its price, the area you cover, your hours, your policies, how it should sound, words to use and to avoid, how it signs off, and whether it may quote prices. Read it with get_settings (area knowledge) first and pass only what changes: each field replaces what is there, and an empty one clears it.',
     input: z.object({
-      description: text(2000).optional().describe('What the business does'),
-      serviceArea: text(500).optional(),
-      hours: text(500).optional().describe('In words, as a customer would be told'),
-      policies: text(3000).optional(),
-      tone: text(300).optional().describe('How messages should sound'),
-      signature: text(200).optional().describe('How texts and emails sign off'),
+      description: z.string().trim().max(2000).optional().describe('What the business does'),
+      services: z
+        .array(
+          z.object({
+            name: text(120).describe('The service, as customers know it'),
+            description: z.string().trim().max(500).default('').describe('About it'),
+            price: z
+              .string()
+              .trim()
+              .max(120)
+              .nullable()
+              .default(null)
+              .describe('In words, like "From $89", or null for none'),
+          }),
+        )
+        .max(50)
+        .optional()
+        .describe('The whole list of services, in order, as Business profile → Services shows it'),
+      serviceArea: z.string().trim().max(500).optional(),
+      hours: z
+        .string()
+        .trim()
+        .max(500)
+        .optional()
+        .describe('In words, as a customer would be told'),
+      policies: z.string().trim().max(3000).optional(),
+      tone: z.string().trim().max(300).optional().describe('How messages should sound'),
+      wordsToUse: z
+        .array(z.string().trim().min(1).max(60))
+        .max(30)
+        .optional()
+        .describe('The whole list of words to use'),
+      wordsToAvoid: z
+        .array(z.string().trim().min(1).max(60))
+        .max(30)
+        .optional()
+        .describe('The whole list of words to avoid'),
+      signature: z.string().trim().max(200).optional().describe('How texts and emails sign off'),
       allowPrices: z.boolean().optional().describe('May the AI quote prices from what it knows'),
     }),
     autonomy: 'confirm',
@@ -1786,11 +1818,14 @@ export const assistantTools = [
   define({
     name: 'add_knowledge_item',
     description:
-      'Add an FAQ, fact or article to the knowledge base. It is saved as a draft unless the person asks to publish it; AI steps and you answer only from published items.',
+      'Add an FAQ, fact or article to the knowledge base, with its tags. It is saved as a draft unless the person asks to publish it; AI steps and you answer only from published items. Several FAQs at once are add_knowledge_faqs.',
     input: z.object({
       kind: z.enum(['faq', 'fact', 'article']),
       title: text(300).describe('An FAQ’s question, or the fact’s or article’s title'),
-      body: text(5000).describe('An FAQ’s answer, or the fact’s or article’s text'),
+      body: text(20000).describe(
+        'An FAQ’s answer (up to 5,000 characters), the fact (2,000) or the article’s text (20,000)',
+      ),
+      tags: z.array(text(40)).max(20).optional(),
       publish: z.boolean().default(false),
     }),
     autonomy: 'confirm',

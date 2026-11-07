@@ -10,7 +10,13 @@ import {
   screenPlace,
 } from '@hfos/core/server';
 import { describe, expect, it } from 'vitest';
-import { contextText, lastingText, turnText, type PromptContext } from '../src/assistant/prompt';
+import {
+  contextText,
+  lastingText,
+  SYSTEM,
+  turnText,
+  type PromptContext,
+} from '../src/assistant/prompt';
 import { ADDON_WORKER_MODULES } from '../src/addons/modules';
 import { assistantRequest } from '../src/assistant/runtime';
 import { allAddonActionTools } from '../src/assistant/tools-addons';
@@ -45,6 +51,13 @@ describe('Assistant context (PERF-M20)', () => {
     expect(lastingText(later)).toBe(lastingText(PROMPT));
     expect(lastingText(PROMPT)).toContain('Business: Lone Star HVAC.');
     expect(lastingText(PROMPT)).toContain('<business_profile>');
+    // The knowledge rules cover what customers are told, never the owner asking what they set up.
+    expect(lastingText(PROMPT)).toContain(
+      'Rules for what you say to customers, or write for them, about the business:',
+    );
+    expect(SYSTEM).toContain(
+      'When the person asks what they have set up in Knowledge (a service’s price, their policies as written), read get_settings knowledge and quote the profile exactly as written, prices included',
+    );
     expect(lastingText(PROMPT)).not.toContain('It is ');
     expect(turnText(PROMPT)).toMatch(/^It is Sunday, September 27, 2026/);
     expect(turnText(PROMPT)).toContain('(approval id a1)');
@@ -149,6 +162,10 @@ describe('Assistant context (PERF-M20)', () => {
       `On screen now: An invoice (Money → Invoices, then press the invoice), showing invoice id ${ID}.`,
     );
     expect(on('/audit')).toContain('On screen now: Audit log (Audit log).');
+    // A knowledge item open on screen, by the id get_knowledge_item and manage_knowledge_item take.
+    expect(on(`/knowledge/items/${ID}`)).toContain(
+      `On screen now: A knowledge item (Knowledge → Items, then press the item), showing item id ${ID}.`,
+    );
     // The Calendar's view and day, and whose it is, so "this week" means the week that's open.
     expect(on(`/calendar?view=week&date=2026-11-09&people=${ID}`)).toContain(
       `, on the week view of 2026-11-09, showing user id ${ID}.`,

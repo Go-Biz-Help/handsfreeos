@@ -4,9 +4,12 @@ import {
   catalogAddon,
   executeCommand,
   executeQuery,
+  firstMessagePreview,
   hasWorkspacePermission,
   mainOfferBoxLabel,
   MainOfferParts,
+  offerExamples,
+  offerLineFrom,
   organizationCreate,
   registry,
   type AssistantCard,
@@ -122,7 +125,7 @@ afterAll(closeTestDbs);
 describe('the main offer tools', () => {
   it('each has a step label, and goes only to people who build the offer', () => {
     const names = [...Object.keys(mainOfferAutoTools), ...Object.keys(mainOfferConfirmTools)];
-    expect(names).toHaveLength(5);
+    expect(names).toHaveLength(6);
     for (const name of names) {
       expect(assistantToolByName.get(name), name).toBeTruthy();
       expect(mainOfferStepLabels[name], name).toBeTruthy();
@@ -256,6 +259,61 @@ describe('the main offer tools', () => {
     const done = await confirm('manage_main_offer', parsed);
     expect(done.outcome).toMatch(/^The who is in the draft\./);
     expect((await offer()).draft!.parts.who).not.toEqual(before.who);
+  });
+
+  it('lists this round’s tries in get_settings, with the id to take parts from', async () => {
+    const { result } = await run('get_settings', { area: 'main_offer' });
+    const { tries } = result['tries'] as {
+      tries: { tryId: string; name: string; changed: { part: string; why: string }[] }[];
+    };
+    expect(tries).toHaveLength(1);
+    expect(tries[0]).toMatchObject({ name: 'Try 1', madeBy: 'Olive Owner' });
+    expect(tries[0]!.tryId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(tries[0]!).toHaveProperty('scores.Who');
+    expect(tries[0]!).toHaveProperty('askedFor.who', 'Wider: anyone who lives on leads');
+  });
+
+  it('asks the builder’s AI for niches and better words, saving nothing, and won’t make up a result', async () => {
+    const before = await offer();
+    const niche = await run('suggest_main_offer', { what: 'niche' });
+    expect(niche.result['niches']).toEqual([
+      expect.objectContaining({ work: 'Local businesses', slice: 'like your best customer' }),
+      expect.objectContaining({ work: 'Local businesses owners', slice: 'with a small team' }),
+    ]);
+    expect(niche.result['next']).toContain('Nothing is saved yet');
+
+    const box = await run('suggest_main_offer', { what: 'guarantee.promise', mode: 'improve' });
+    expect(box.result['box']).toBe(mainOfferBoxLabel('guarantee.promise'));
+    expect(box.result['now']).toBe(before.draft!.parts.guarantee.promise);
+    expect(box.result['options']).toHaveLength(3);
+    // Beside it, the builder's Examples to model for the business's line of work.
+    const examples = offerExamples('home_services').examples['guarantee.promise'];
+    expect(examples?.length).toBeGreaterThan(0);
+    expect(box.result['examplesToModel']).toEqual(examples);
+
+    // The one line comes with the line Start again from my answers writes; the outcome in a few words with how a
+    // first message would carry each option.
+    const line = await run('suggest_main_offer', { what: 'line', mode: 'improve' });
+    expect(line.result['fromYourAnswers']).toBe(offerLineFrom(before.draft!.parts));
+    const few = await run('suggest_main_offer', { what: 'inAFewWords.outcome' });
+    expect(few.result['firstMessageReads']).toEqual(
+      (few.result['options'] as string[]).map((o) => firstMessagePreview(o)),
+    );
+    expect(few.result['firstMessageNow']).toBe(
+      firstMessagePreview(before.draft!.parts.inAFewWords.outcome!),
+    );
+
+    // Three sets of steps come back; the one with too few steps is left out.
+    const steps = await run('suggest_main_offer', { what: 'method.steps', mode: 'write' });
+    expect(steps.result['stepSets']).toEqual([
+      ['Look at what they have', 'Make a plan', 'Do the work', 'Check the results'],
+      ['Free call', 'Plan', 'Done for you'],
+    ]);
+
+    await expect(run('suggest_main_offer', { what: 'proof' })).rejects.toMatchObject({
+      rule: 'main_offer_no_proof',
+    });
+    expect((await offer()).draft).toEqual(before.draft);
   });
 
   it('sets the direction and the names, and throws the draft away, each on Confirm', async () => {

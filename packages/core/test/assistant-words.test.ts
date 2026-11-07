@@ -313,6 +313,18 @@ describe('the screen a question is asked from', () => {
         { name: 'earlier document it sends again', id: ID2 },
       ],
     });
+    // A knowledge item open on screen, so "publish this" or "what does this say?" knows which.
+    expect(screenPlace(`/knowledge/items/${ID}`)).toMatchObject({
+      label: 'A knowledge item',
+      way: 'Knowledge → Items, then press the item',
+      area: null,
+      ids: [{ name: 'item', id: ID }],
+    });
+    // The main offer's builder, with the try it shows.
+    expect(screenPlace(`/main-offer/build?step=score&try=${ID}`)).toMatchObject({
+      label: 'Build your main offer',
+      ids: [{ name: 'main offer try', id: ID }],
+    });
   });
 
   it('says which view and day the Calendar shows, and whose, from its address', () => {

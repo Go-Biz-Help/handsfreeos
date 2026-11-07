@@ -503,11 +503,10 @@ export async function seedKnowledge(
   d.step(
     'Lone Star: Dale asks Try it "Do you offer financing?"; nothing answers it, so it waits as a gap',
   );
-  const tried = await tryKnowledge(
-    { ...d.worker, httpDb: d.worker.db, verifyToken: null, webOrigins: [] },
-    d.actor(ws.dale),
-    { workspaceId, question: 'Do you offer financing?' },
-  );
+  const tried = await tryKnowledge({ ...d.worker, httpDb: d.worker.db }, d.actor(ws.dale), {
+    workspaceId,
+    question: 'Do you offer financing?',
+  });
   if (!tried.gap) throw new Error('Try it should have turned the financing question into a gap.');
 
   d.step(

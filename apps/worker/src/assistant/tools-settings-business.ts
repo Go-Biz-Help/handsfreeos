@@ -598,8 +598,22 @@ const manageTag: SettingsConfirmTool = {
 
 // ---------- what the AI knows ----------
 
-interface ProfileGet {
-  profile: Record<string, unknown>;
+interface Service {
+  name: string;
+  description: string;
+  price: string | null;
+}
+interface Profile {
+  description: string;
+  services: Service[];
+  serviceArea: string;
+  hours: string;
+  policies: string;
+  tone: string;
+  wordsToUse: string[];
+  wordsToAvoid: string[];
+  signature: string;
+  allowPrices: boolean;
 }
 
 const FIELD_WORDS: Record<string, string> = {
@@ -612,31 +626,102 @@ const FIELD_WORDS: Record<string, string> = {
 };
 
 const trim = (v: string) => (v.length > 120 ? `${v.slice(0, 117)}…` : v);
+/** A text field as given: empty clears it, so it isn't dropped the way `str` drops it. */
+const given = (v: unknown) => (typeof v === 'string' ? v.trim() : undefined);
+const wordsOf = (v: unknown) =>
+  Array.isArray(v) ? (v as string[]).map((w) => w.trim()).filter(Boolean) : undefined;
+const servicesOf = (v: unknown): Service[] | undefined =>
+  Array.isArray(v)
+    ? (v as Partial<Service>[]).map((x) => ({
+        name: String(x.name ?? '').trim(),
+        description: String(x.description ?? '').trim(),
+        price: typeof x.price === 'string' && x.price.trim() ? x.price.trim() : null,
+      }))
+    : undefined;
+const serviceLine = (x: Service) => [x.name, x.price, x.description].filter(Boolean).join(' · ');
+const sameList = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/** What the person asked to change, each only when it says something new, in the screen's words. */
+function profileChanges(
+  profile: Profile,
+  args: Args,
+): { changed: Partial<Profile>; fields: Field[] } {
+  const changed: Partial<Profile> = {};
+  const fields: Field[] = [];
+  for (const [key, label] of Object.entries(FIELD_WORDS)) {
+    const next = given(args[key]);
+    const was = String(profile[key as keyof Profile] ?? '');
+    if (next === undefined || next === was) continue;
+    (changed as Record<string, unknown>)[key] = next;
+    fields.push({ label, value: next ? trim(next) : `Cleared (was “${trim(was)}”)` });
+  }
+  const services = servicesOf(args['services']);
+  if (services && JSON.stringify(services) !== JSON.stringify(profile.services)) {
+    changed.services = services;
+    fields.push({
+      label: 'Services',
+      value: services.length ? services.map(serviceLine).join('; ') : 'None',
+    });
+  }
+  for (const [key, label] of [
+    ['wordsToUse', 'Words to use'],
+    ['wordsToAvoid', 'Words to avoid'],
+  ] as const) {
+    const next = wordsOf(args[key]);
+    if (!next || sameList(next, profile[key])) continue;
+    changed[key] = next;
+    fields.push({ label, value: next.length ? next.join(', ') : 'None' });
+  }
+  if (typeof args['allowPrices'] === 'boolean' && args['allowPrices'] !== profile.allowPrices) {
+    changed.allowPrices = args['allowPrices'];
+    fields.push({ label: 'May quote prices', value: args['allowPrices'] ? 'Yes' : 'No' });
+  }
+  return { changed, fields };
+}
+
+const profileOf = async (db: Db, ctx: ToolContext) =>
+  (await query<{ profile: Profile }>(db, ctx, 'knowledge.profile')).profile;
 
 const updateKnowledgeProfile: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const fields: Field[] = Object.entries(FIELD_WORDS)
-      .filter(([key]) => str(args[key]))
-      .map(([key, label]) => ({ label, value: trim(str(args[key])!) }));
-    if (typeof args['allowPrices'] === 'boolean')
-      fields.push({
-        label: 'May quote prices',
-        value: args['allowPrices'] ? 'Yes' : 'No',
-      });
+    const profile = await profileOf(db, ctx);
+    const { changed, fields } = profileChanges(profile, args);
+    if (!fields.length)
+      throw HfosError.validation(
+        [],
+        'Nothing would change: the business profile already says that. Read it with get_settings (area knowledge), and pass only what changes.',
+      );
+    if (changed.services?.some((x) => !x.name))
+      throw HfosError.validation(
+        [{ path: 'services', message: 'Name each service.' }],
+        'Name each service.',
+      );
+    const prices = changed.allowPrices ?? profile.allowPrices;
+    const pricesGiven = changed.services?.some((x) => x.price) ?? false;
     return {
       card: settingsCard(toolCallId, 'update_knowledge_profile', {
         title: 'Change what your AI knows about the business',
         fields,
         confirmLabel: 'Save the change',
-        warnings:
-          args['allowPrices'] === true
+        warnings: [
+          ...(changed.allowPrices === true
             ? [
                 {
                   kind: 'note',
                   text: 'It will quote the prices in your knowledge base to customers.',
                 },
               ]
-            : [],
+            : []),
+          ...(pricesGiven && !prices
+            ? [
+                {
+                  kind: 'note',
+                  text: 'The AI doesn’t quote these prices to customers until AI may quote prices is on (Knowledge → Overview).',
+                },
+              ]
+            : []),
+        ],
       }),
       result: { waiting: true, changes: fields.map((f) => f.label) },
     };
@@ -644,16 +729,8 @@ const updateKnowledgeProfile: SettingsConfirmTool = {
 
   async commit(db, ctx, args) {
     // The command takes the whole profile, so the parts nobody mentioned are read back and sent as they were.
-    const { profile } = await query<ProfileGet>(db, ctx, 'knowledge.profile');
-    const changed = defined({
-      description: str(args['description']),
-      serviceArea: str(args['serviceArea']),
-      hours: str(args['hours']),
-      policies: str(args['policies']),
-      tone: str(args['tone']),
-      signature: str(args['signature']),
-      allowPrices: typeof args['allowPrices'] === 'boolean' ? args['allowPrices'] : undefined,
-    });
+    const profile = await profileOf(db, ctx);
+    const { changed } = profileChanges(profile, args);
     await command(db, ctx, 'knowledge.profile_update', {
       profile: { ...profile, ...changed },
     });

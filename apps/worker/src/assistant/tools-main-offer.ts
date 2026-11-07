@@ -9,12 +9,16 @@
  */
 import {
   clearsBar,
+  EXAMPLE_PATHS,
+  firstMessagePreview,
   HfosError,
   MAIN_OFFER_BAR,
   mainOfferBoxLabel,
   MainOfferParts,
   missingParts,
   missingWords,
+  offerExamples,
+  offerLineFrom,
   partSays,
   partWords,
   SCORED_PART_LABELS,
@@ -22,14 +26,22 @@ import {
   settingsPath,
   underBar,
   withPart,
+  type ExamplePath,
   type MainOfferGetOutput,
   type MainOfferScore,
   type MainOfferTryOut,
+  type OfferAssistPath,
   type ScoredPart,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
-import { offerScore, offerTry, type MainOfferDeps } from '../main-offer/routes';
+import {
+  offerAssist,
+  offerNiche,
+  offerScore,
+  offerTry,
+  type MainOfferDeps,
+} from '../main-offer/routes';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { command, query } from './tools-read';
 import { settingsCard } from './tools-settings-calendar';
@@ -613,8 +625,86 @@ const tryMainOffer: MainOfferAutoTool = async (db, ctx, args, deps) => {
   };
 };
 
+/** What the model passes on with three to pick from: nothing is saved until the person picks. */
+const PICK_ONE =
+  'Nothing is saved yet. Show the person these, and save the one they pick with edit_main_offer.';
+
+/**
+ * The builder's own help, as its buttons give it: Find my niche, and Improve or Write it for me on a box. It reads the
+ * draft (or the live version, as the builder starts from it) and counts against the person's AI limit.
+ */
+const suggestMainOffer: MainOfferAutoTool = async (db, ctx, args, deps) => {
+  const offer = await offerOf(db, ctx);
+  inUse(offer);
+  if (!deps?.ai.provider) throw HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
+  const parts = startingParts(offer);
+  const what = String(args['what'] ?? 'niche');
+  if (what === 'niche') {
+    const { options } = await offerNiche(deps, ctx.actor, { workspaceId: ctx.workspaceId, parts });
+    return {
+      result: {
+        niches: options,
+        saveAs: 'Who: work in who.work, slice in who.slice, problem in who.problem',
+        next: PICK_ONE,
+      },
+    };
+  }
+  const path = what as OfferAssistPath;
+  const out = await offerAssist(deps, ctx.actor, {
+    workspaceId: ctx.workspaceId,
+    path,
+    mode: args['mode'] === 'write' ? 'write' : 'improve',
+    parts,
+  });
+  const box = mainOfferBoxLabel(path);
+  if (path === 'method.steps')
+    return {
+      result: {
+        box,
+        now: (parts.method.steps ?? []).filter((x) => x.trim()),
+        stepSets: out.steps,
+        next: `${PICK_ONE} Pass the picked set as steps.`,
+      },
+    };
+  if (path === 'proof')
+    return {
+      result: {
+        box,
+        now: parts.proof.filter((x) => x.trim()),
+        tidied: out.options,
+        next: 'Nothing is saved yet. Show the person these lines; if they want them, pass them as proof with edit_main_offer, every fact as they gave it.',
+      },
+    };
+  // What the builder shows beside the box: Examples to model for the business's line of work, the line Start again
+  // from my answers writes, and How a first message will read.
+  const { workspace } = await query<{ workspace: { industry: string } }>(db, ctx, 'workspace.get');
+  const examples = (EXAMPLE_PATHS as readonly string[]).includes(path)
+    ? offerExamples(workspace.industry).examples[path as ExamplePath]
+    : undefined;
+  const now = partWords(parts, path).trim() || null;
+  return {
+    result: {
+      box,
+      now,
+      options: out.options,
+      ...(examples?.length ? { examplesToModel: examples } : {}),
+      ...(path === 'line' ? { fromYourAnswers: offerLineFrom(parts) } : {}),
+      ...(path === 'inAFewWords.outcome'
+        ? {
+            ...(now ? { firstMessageNow: firstMessagePreview(now) } : {}),
+            firstMessageReads: out.options.map((o) => firstMessagePreview(o)),
+            firstMessageNote:
+              'How a first message carries each, as the builder previews it; Social Outreach writes the real ones.',
+          }
+        : {}),
+      next: `${PICK_ONE} Pass the picked words as the box ${path}.${examples?.length ? ' The examples are to model, never to copy.' : ''}`,
+    },
+  };
+};
+
 export const mainOfferAutoTools: Record<string, MainOfferAutoTool> = {
   score_main_offer: scoreMainOffer,
+  suggest_main_offer: suggestMainOffer,
   try_main_offer: tryMainOffer,
 };
 
@@ -624,5 +714,6 @@ export const mainOfferStepLabels: Record<string, string> = {
   main_offer_go_live: 'Getting your offer ready to go live',
   manage_main_offer: 'Changing your main offer',
   score_main_offer: 'Scoring your offer',
+  suggest_main_offer: 'Asking the AI for ideas',
   try_main_offer: 'Writing a try of your offer',
 };
