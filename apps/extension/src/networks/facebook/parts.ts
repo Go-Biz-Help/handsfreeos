@@ -14,7 +14,7 @@
  * Built from Facebook's usual words for these, not yet from a page outline of them: one that doesn't go in sends the
  * outline of where it stopped, so they can be tuned from the person's own pages.
  */
-import { clean } from './dom';
+import { clean, mainOf } from './dom';
 import { EDITOR_BUTTONS, pause } from './editors';
 import { nameOf, shown, visible } from './fetch';
 import { linkShown, sameLink } from './links';
@@ -31,8 +31,6 @@ import {
   type PartWrote,
 } from '../fill';
 import { waitFor } from '../looking/looks';
-
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 /** Words with no spaces and in lower case, to find one written by the AI however the page draws it. */
 const squash = (text: string | null | undefined): string =>
