@@ -126,7 +126,7 @@ function detailsOf(row: Pick<OutboxRow, 'answer'>): unknown {
 
 /**
  * A refused Start my day as the phone shows it: HandsFreeOS's words, and where it's fixed on the phone. The person's
- * choices and the networks they use are on the network's page of Settings; the business's rules on General, or the
+ * choices and the networks they use are on the network's page of Settings; the business's rules on Team, or the
  * network's own page for a network the business doesn't use (`outreach.manage` only, as `startFix` decides); and
  * Get ready's items under Get ready on Today, which the strip there already sits over (`onToday` null).
  */
@@ -135,7 +135,7 @@ export function startRefusedOf(
   platform: Platform,
   to: {
     readonly manages: boolean;
-    readonly onSettings: (part: 'general' | Platform) => void;
+    readonly onSettings: (part: 'team' | Platform) => void;
     readonly onToday: (() => void) | null;
   },
 ): StartRefusedShown {
@@ -150,7 +150,7 @@ export function startRefusedOf(
     case 'rules':
       return {
         words,
-        fix: () => to.onSettings(rule === 'outreach_sending_off' ? 'general' : platform),
+        fix: () => to.onSettings(rule === 'outreach_sending_off' ? 'team' : platform),
       };
     default:
       return { words, fix: to.onToday };
@@ -341,7 +341,7 @@ export function useLiveProps(
     onWaiting: () => openOutreach(ws, 'today'),
     // What it does on its own is set on the network's own page of Settings; the team's say, on General.
     onSettings: () => openSettingsPart(ws, platform),
-    onGeneral: () => openSettingsPart(ws, 'general'),
+    onGeneral: () => openSettingsPart(ws, 'team'),
     asks: asks.data,
     askActions,
     computerActions,
@@ -513,7 +513,7 @@ export function LiveBody({
               </Button>
             ) : runsOnItsOwn(platform) && manages && onGeneral ? (
               <Button variant="secondary" size="md" onPress={onGeneral} testID="live-general">
-                {W.settingsGeneral}
+                {W.settingsTeam}
               </Button>
             ) : null}
           </>

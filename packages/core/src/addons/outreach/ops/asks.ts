@@ -1001,6 +1001,10 @@ export const profileContact = defineAddonCommand(outreachAddon, {
   ai: {
     tool: 'outreach_add_to_contacts',
     autonomy: 'confirm',
+    what: (input) =>
+      (input as ProfileContactInput).personId
+        ? 'Tie them to the customer picked in Contacts'
+        : 'Add them to Contacts as a customer',
     description: `Add to Contacts: someone the person reached, kept as a profile, becomes a customer in Contacts with their network as the source, or is tied to the customer the person says they are (personId). ${SAME_NAME_FIRST}`,
     keywords: ['add to contacts', 'make a customer'],
     outcome: contactOutcome,

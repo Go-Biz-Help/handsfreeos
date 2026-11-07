@@ -528,7 +528,9 @@ tools. So does every worker action a person presses (its own test holds those). 
 the model asks for together run at the same time; changes run one at a time, in order. An operation's `ai.answer`
 reshapes what the model reads of its answer (a link its screens build written out whole, the short facts ahead of the
 long lists), never more than the person was given, and `ai.outcome` ends a confirmed card in its screen's own words,
-with a page to open. The manifest's `ai.places` says where its pages are, the way core's places are said, and
+with a page to open. A Confirm card's What line is `ai.what` (words, or words from the input) when the description is
+written for the model; else the description's first sentence, without the argument names in brackets, and a test
+holds every card to naming no tool or argument. The manifest's `ai.places` says where its pages are, the way core's places are said, and
 `ai.lookAlikes` the words it shares with core's pages: both are told only where it runs, to people who may open it, and
 name the page a question is asked from (`addonPlaces`, with `queryIds` for what an id in a page's query holds there).
 `ui.settingsPath` is where its business settings are when that isn't its page keyed `settings`, for the card that

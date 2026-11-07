@@ -22,7 +22,7 @@ describe('Social Outreach’s shared words', () => {
     expect(W.sendingOff(false)).toBe(`${W.sendingOffNote} ${W.askToSend}`);
     // An owner or admin, when the business allows only Off: where they allow it, never "ask an owner".
     expect(W.sendingOff(false, true)).toBe(
-      `${W.sendingOffNote} ${W.allowForTeamIn} ${W.settingsGeneral}.`,
+      `${W.sendingOffNote} ${W.allowForTeamIn} ${W.settingsTeam}.`,
     );
     expect(W.sendingOff(true, true)).toBe(W.sendingOff(true));
   });

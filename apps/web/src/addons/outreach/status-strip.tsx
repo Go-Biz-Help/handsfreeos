@@ -258,10 +258,10 @@ export function StatusStrip({
                 {W.allowForTeamIn}{' '}
                 <Link
                   className="font-medium text-accent-text underline-offset-2 hover:underline"
-                  href={outreachHref(workspaceId, { view: 'settings', part: 'general' })}
+                  href={outreachHref(workspaceId, { view: 'settings', part: 'team' })}
                   data-testid={`${testId}-general`}
                 >
-                  {W.settingsGeneral}
+                  {W.settingsTeam}
                 </Link>
                 .
               </>
