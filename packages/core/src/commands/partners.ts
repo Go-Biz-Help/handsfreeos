@@ -368,6 +368,13 @@ export const partnerReferralSet = defineCommand({
           where r.workspace_id = ${ws} and r.person_id = ${person.id}`,
     );
     if (current && current.partner_id === partner?.id) return { referralId: current.id };
+    // The Partner card's picker never offers someone whose partnership has ended, so no door may mark them either.
+    if (partner?.status === 'ended')
+      throw HfosError.rule(
+        'partner_ended',
+        409,
+        `${partner.name}’s partnership has ended, so they can’t be marked as sending anyone. Bring them back first under Settings → Partners.`,
+      );
     if (current) {
       // What a client earned their partner is that partner's: they stay their client. A commission the worker notes
       // meanwhile holds the referral too (its key never cascades), so the delete below is refused rather than lost.

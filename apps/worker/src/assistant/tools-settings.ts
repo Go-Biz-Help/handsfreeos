@@ -11,17 +11,22 @@
  */
 
 import {
+  addressLines,
   binItemDetail,
   binItemWhen,
   binKindLabel,
+  businessAddressOf,
   BUSINESS_PAGE_SETTINGS_WORDS,
   CHAT_BUILDERS,
   chatChannelsOf,
   chatSnippet,
   chatSnippetSrc,
+  checkMoneySettings,
   consentPolicyPath,
   consentTermsPath,
   CUSTOMIZABLE_PERMISSIONS,
+  dayLabel,
+  earningsTotals,
   emailDomainRecords,
   handoverScreen,
   hasWorkspacePermission,
@@ -33,8 +38,14 @@ import {
   metaAccountBadge,
   metaAccountTrouble,
   migrationStatusWords,
+  money,
   notificationStates,
+  PARTNERS_WORDS,
   partSays,
+  PAYMENT_ACCOUNT_BADGES,
+  PAYMENTS_PAGE_WORDS,
+  PRODUCT_KIND_WORDS,
+  readMoneySettings,
   registry,
   SCORED_PART_LABELS,
   SCORED_PARTS,
@@ -48,7 +59,11 @@ import {
   type LeadsAccess,
   type MainOfferTryOut,
   type MetaAccountStateLike,
+  type PartnerEarnings,
+  type PartnerStatus,
+  type PaymentConnectionStatus,
   type Permission,
+  type ProductKind,
   type SettingsArea,
   type SettingsAreaInfo,
 } from '@hfos/core/server';
@@ -59,6 +74,7 @@ import { publicOriginFor } from './full-links';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { query, type ReadTool } from './tools-read';
+import { priceWords } from './tools-settings-money';
 
 type Args = Record<string, unknown>;
 
@@ -238,6 +254,200 @@ export function migrationListRead(v: unknown): unknown {
   };
 }
 
+interface ProductRow {
+  kind: ProductKind;
+  unitPriceCents: number;
+  unitLabel: string;
+  archivedAt: string | null;
+}
+
+/**
+ * Settings → Products as its list shows it: each item with its price per unit and its kind in the screen's words,
+ * then the archived ones Show archived items lists, which stay on the documents they're already on.
+ */
+export function productsRead(v: unknown): unknown {
+  const list = (v as { products?: ProductRow[] } | null)?.products;
+  if (!Array.isArray(list)) return v;
+  const row = (p: ProductRow) => ({
+    ...p,
+    price: priceWords(p),
+    kindLabel: PRODUCT_KIND_WORDS[p.kind] ?? p.kind,
+  });
+  const archived = list.filter((p) => p.archivedAt);
+  const one = archived.length === 1;
+  return {
+    items: list.filter((p) => !p.archivedAt).map(row),
+    archived: archived.map(row),
+    ...(archived.length
+      ? {
+          archivedNote: `${archived.length} archived ${one ? 'item' : 'items'}, still on the documents ${one ? 'it’s' : 'they’re'} already on. manage_product put_back brings one back into the picker.`,
+        }
+      : {}),
+  };
+}
+
+interface PartnerListRow {
+  partnerId: string;
+  personId: string;
+  name: string;
+  email: string | null;
+  status: PartnerStatus;
+  rateBp: number;
+  ownRate: boolean;
+  linkPath: string | null;
+  clients: number;
+  termsAccepted: boolean;
+  earnings: PartnerEarnings;
+}
+
+const EARNING_KEYS = [
+  'earnedCents',
+  'waitingCents',
+  'payableCents',
+  'heldCents',
+  'payingCents',
+  'paidCents',
+] as const;
+
+/** What a partner earned as the screens list it: "Earned $1,200", "Free to pay out $300"… */
+const earningsWords = (e: PartnerEarnings) =>
+  earningsTotals(e).map(([label, cents]) => `${label} ${money(cents)}`);
+
+/**
+ * Your partners as Settings → Partners lists them (part-2): the totals across them at the top, then each partner with
+ * their share, how many clients they sent, whether they still have to accept the terms, what they earned in the
+ * screen's buckets and their link (a path here, which the executor writes out whole on the business's own domain when
+ * one is serving, as Copy their link gives it).
+ */
+export function partnerListRead(v: unknown): unknown {
+  const list = (v as { partners?: PartnerListRow[] } | null)?.partners;
+  if (!Array.isArray(list)) return v;
+  const sum = Object.fromEntries(
+    EARNING_KEYS.map((k) => [k, list.reduce((t, p) => t + (p.earnings?.[k] ?? 0), 0)]),
+  ) as PartnerEarnings;
+  return {
+    totals: list.length ? earningsWords(sum) : [],
+    about: PARTNERS_WORDS.earnings.about,
+    partners: list.map((p) => ({
+      partnerId: p.partnerId,
+      personId: p.personId,
+      name: p.name,
+      email: p.email,
+      status: p.status,
+      sharePercent: p.rateBp / 100,
+      ownShare: p.ownRate,
+      clients: p.clients,
+      ...(!p.termsAccepted && p.status !== 'ended'
+        ? { terms: PARTNERS_WORDS.list.termsWaiting }
+        : {}),
+      earned: earningsWords(p.earnings),
+      earnings: p.earnings,
+      link: p.linkPath,
+    })),
+  };
+}
+
+/** "by 12 March", as an account's row says when Stripe needs more from them; null when it says no date. */
+function needsInfoBy(capabilities: Record<string, unknown>, timezone: string): string | null {
+  const by = capabilities['needsInfoBy'];
+  return typeof by === 'number' && Number.isFinite(by) ? dayLabel(by * 1000, timezone) : null;
+}
+
+interface AccountRow {
+  provider: string;
+  status: PaymentConnectionStatus;
+  capabilities: Record<string, unknown>;
+}
+
+/**
+ * Each account under Accounts you get paid into, as its row says it: its badge, what to do when it needs
+ * reconnecting (the person's own sign-in, pay-2), when the provider needs more details from them and where, and
+ * Square's weekly renewal.
+ */
+export function accountsRead(v: unknown, timezone: string): unknown {
+  const out = v as { connections?: AccountRow[] } | null;
+  if (!out || !Array.isArray(out.connections)) return v;
+  return {
+    ...out,
+    connections: out.connections.map((c) => {
+      const provider = c.provider === 'square' ? 'Square' : 'Stripe';
+      const by = needsInfoBy(c.capabilities ?? {}, timezone);
+      return {
+        ...c,
+        badge: PAYMENT_ACCOUNT_BADGES[c.status] ?? c.status,
+        ...(c.status === 'reauth_required' || c.status === 'error'
+          ? {
+              toFix: `Reconnect it: on Settings → Payments, press Reconnect on this account and sign in to ${provider} again. Only the person can (settings_help, area payments).`,
+            }
+          : {}),
+        ...(c.capabilities?.['needsInfo'] === true
+          ? {
+              needsMoreDetails: `${provider} needs more details from them ${by ? `by ${by}` : 'before they can keep taking payments'}. They sign in to their ${provider} dashboard${c.provider === 'stripe' ? ' (https://dashboard.stripe.com/)' : ''} to finish, or ${provider} stops this account taking payments.`,
+            }
+          : {}),
+        ...(c.provider === 'square' && c.status === 'active'
+          ? { signIn: PAYMENTS_PAGE_WORDS.squareRenews }
+          : {}),
+      };
+    }),
+  };
+}
+
+const oneLine = (address: string) =>
+  address
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(', ');
+
+/**
+ * Settings → Payments as the page reads it (pay-1): the settings, then the address documents show (the setup's until
+ * one is written under Your address), the page's warnings with whether each stops a save and its fixes, and what the
+ * page says about how getting paid works.
+ */
+async function paymentsRead(v: unknown, db: Db, ctx: ToolContext): Promise<unknown> {
+  const got = v as { settings?: unknown } | null;
+  if (!got?.settings) return v;
+  const settings = readMoneySettings(got.settings);
+  // Whether anything has gone out yet: the page's missing-address warning waits for it.
+  const sentAny = (name: string, key: string, status: readonly string[]) =>
+    query<Record<string, unknown>>(db, ctx, name, { limit: 1, status }).then(
+      (r) => Array.isArray(r[key]) && (r[key] as unknown[]).length > 0,
+      () => false,
+    );
+  const [ws, estimate, invoice] = await Promise.all([
+    query<{ workspace: { settings: Record<string, unknown> } }>(db, ctx, 'workspace.get').catch(
+      () => null,
+    ),
+    sentAny('estimate.list', 'estimates', ['sent', 'accepted', 'declined', 'expired']),
+    sentAny('invoice.list', 'invoices', ['sent', 'partly_paid', 'paid', 'overdue']),
+  ]);
+  const setup = businessAddressOf(ws?.workspace.settings);
+  const setupAddress = setup ? addressLines(setup) : null;
+  const { squareRenews: _square, ...words } = PAYMENTS_PAGE_WORDS;
+  return {
+    ...got,
+    addressOnDocuments: settings.businessAddress.trim()
+      ? { address: oneLine(settings.businessAddress), from: 'Your address, on this page' }
+      : setupAddress
+        ? {
+            address: oneLine(setupAddress),
+            from: 'Your setup: until one is written under Your address, documents show this one',
+          }
+        : { address: null, from: 'None: documents go out with only the business name at the top' },
+    issues: checkMoneySettings(settings, {
+      hasSentDocuments: estimate || invoice,
+      setupAddress,
+    }).map((i) => ({
+      message: i.message,
+      saving:
+        i.severity === 'error' ? 'Nothing is saved until this is fixed' : 'Doesn’t stop it saving',
+      fixes: i.fixes.map((f) => f.label),
+    })),
+    howItWorks: Object.values(words),
+  };
+}
+
 /**
  * This round's tries as Review and go live's Versions lists them, newest first: each with its scores, the parts it
  * changed and why, what the person asked for, and who made it, with the id manage_main_offer takes parts from.
@@ -379,43 +589,26 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     },
   ],
   payments: [
-    { name: 'money.settings', as: 'payments' },
-    { name: 'payment_connection.list', as: 'accounts' },
+    { name: 'money.settings', as: 'payments', shape: (v, db, ctx) => paymentsRead(v, db, ctx) },
+    {
+      name: 'payment_connection.list',
+      as: 'accounts',
+      shape: (v, _db, ctx) => accountsRead(v, ctx.timezone),
+    },
   ],
-  products: [{ name: 'product.list', as: 'products' }],
+  products: [
+    {
+      name: 'product.list',
+      as: 'products',
+      // Archived ones too, as Show archived items lists them.
+      input: () => ({ includeArchived: true }),
+      shape: productsRead,
+    },
+  ],
   partners: [
     { name: 'partners.settings', as: 'partners' },
     { name: 'partner.payouts', as: 'payouts' },
-    {
-      name: 'partner.list',
-      as: 'partnerList',
-      // Who each one is, what they earn now and their link, as each row's Copy gives it (a path here, which the
-      // executor writes out whole on the business's own domain when one is serving); their earnings are the page's.
-      shape: (v) =>
-        (
-          (
-            v as {
-              partners?: {
-                partnerId: string;
-                personId: string;
-                name: string;
-                status: string;
-                rateBp: number;
-                ownRate: boolean;
-                linkPath: string | null;
-              }[];
-            }
-          )?.partners ?? []
-        ).map((p) => ({
-          partnerId: p.partnerId,
-          personId: p.personId,
-          name: p.name,
-          status: p.status,
-          sharePercent: p.rateBp / 100,
-          ownShare: p.ownRate,
-          link: p.linkPath,
-        })),
-    },
+    { name: 'partner.list', as: 'partnerList', shape: partnerListRead },
   ],
   usage: [
     { name: 'wallet.get', as: 'balance' },

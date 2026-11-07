@@ -4,6 +4,7 @@ import { isLocalDate } from '../calendar/engine/zoned';
 import { CALENDAR_COLORS, CALENDAR_PRESETS, PRESET_KEYS } from '../calendar/presets';
 import { FORM_STARTERS } from '../forms/starters';
 import { ATTENTION_ASK_ACTIONS } from '../schemas/attention';
+import { PRODUCT_KINDS } from '../schemas/money';
 import { timezone, uuid } from '../schemas/common';
 import { RichInput } from '../schemas/rcs';
 import { IntakeChannelKind } from '../schemas/intake';
@@ -1275,16 +1276,44 @@ export const assistantTools = [
   define({
     name: 'manage_product',
     description:
-      'Add, change or archive something that goes on an estimate or an invoice: its name, price, unit and whether it is taxed.',
+      'Settings → Products: add something that goes on an estimate or an invoice, change it (its name, code, kind, price, what one is called, whether it is taxed, the bookable service it is the price of), archive it, or put an archived one back. get_settings (area products) lists them, archived ones too. A new price never changes a document already sent.',
     input: z.object({
-      action: z.enum(['create', 'change', 'archive']),
-      productId: uuid.optional(),
-      name: text(120).optional(),
+      action: z.enum(['create', 'change', 'archive', 'put_back']),
+      productId: uuid
+        .optional()
+        .describe('change, archive or put_back: the item, from get_settings (area products)'),
+      name: text(160).optional(),
+      code: z
+        .string()
+        .trim()
+        .min(1)
+        .max(64)
+        .nullable()
+        .optional()
+        .describe('Their own code for it, shown on the document and in exports; null takes it off'),
+      kind: z
+        .enum(PRODUCT_KINDS)
+        .optional()
+        .describe(
+          'product: a thing they sell; service: time or labour; fee: a charge like a call-out. A new item is a product unless said',
+        ),
       description: text(1000).optional(),
       priceDollars: dollars.optional(),
-      unitLabel: text(40).optional().describe('each, hour, visit'),
-      taxable: z.boolean().optional(),
-      serviceId: uuid.nullable().optional().describe('The bookable service it matches'),
+      unitLabel: text(40)
+        .optional()
+        .describe('What one is called: each, hour, day, foot, sq ft, visit… (each unless said)'),
+      taxable: z
+        .boolean()
+        .optional()
+        .describe(
+          'Whether sales tax is charged on it. Left out on a new item, it follows Settings → Payments (new items start taxable or not)',
+        ),
+      serviceId: uuid
+        .nullable()
+        .optional()
+        .describe(
+          'The bookable service it is the price of, so customers can book it (one item each); null: not bookable',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'money.manage',

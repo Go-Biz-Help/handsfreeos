@@ -63,7 +63,7 @@
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
     "apps/web/src/components/settings/my-cell-section.tsx": "bcce54a8161d",
     "apps/web/src/components/settings/number-import.tsx": "c09a55fe0fe4",
-    "apps/web/src/components/settings/payment-connection-card.tsx": "e4e25823ce36",
+    "apps/web/src/components/settings/payment-connection-card.tsx": "4c96b59f0ce2",
     "apps/web/src/components/settings/port-letter.tsx": "e91925f63ea4",
     "apps/web/src/components/settings/port-step.tsx": "ef0d80282285",
     "apps/web/src/components/settings/release-number-dialog.tsx": "7bb8208fedb8",

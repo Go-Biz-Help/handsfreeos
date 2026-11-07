@@ -7,6 +7,7 @@
  * Nothing secret is ever here: the query hands over the account id, the label, what it can do and how it stands,
  * and the token columns aren't granted to people at all.
  */
+import { PAYMENT_ACCOUNT_BADGES as B, PAYMENTS_PAGE_WORDS } from '@hfos/core';
 import { Lock, MoreHorizontal, Unplug } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -116,10 +117,10 @@ interface Standing {
 }
 
 function standingOf(c: PaymentConnectionRow): Standing {
-  if (c.status === 'active') return { badge: 'Connected', variant: 'ok', note: null };
+  if (c.status === 'active') return { badge: B.active, variant: 'ok', note: null };
   if (c.status === 'reauth_required')
     return {
-      badge: 'Needs reconnecting',
+      badge: B.reauth_required,
       variant: 'danger',
       note:
         c.lastError ??
@@ -127,11 +128,11 @@ function standingOf(c: PaymentConnectionRow): Standing {
     };
   if (c.status === 'error')
     return {
-      badge: 'Not working',
+      badge: B.error,
       variant: 'danger',
       note: c.lastError ?? 'The last few calls to this account failed. We keep trying.',
     };
-  return { badge: 'Connecting', variant: 'pending', note: 'Finish signing in at the provider.' };
+  return { badge: B.pending, variant: 'pending', note: 'Finish signing in at the provider.' };
 }
 
 export function PaymentConnectionCard({
@@ -297,9 +298,7 @@ export function PaymentConnectionCard({
           </span>
         ) : null}
         {c.provider === 'square' && c.status === 'active' ? (
-          <span className="text-xs text-text-3">
-            Square signs you out every 30 days. HandsFreeOS renews it each week.
-          </span>
+          <span className="text-xs text-text-3">{PAYMENTS_PAGE_WORDS.squareRenews}</span>
         ) : null}
         {c.liveSubscriptions > 0 ? (
           <span className="text-xs text-text-3">

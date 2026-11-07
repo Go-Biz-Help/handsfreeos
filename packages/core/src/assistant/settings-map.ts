@@ -826,7 +826,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Ways to pay',
       'Sales tax',
       'Numbering',
-      'Your address',
+      'Your address (until one is written, documents show the address from your setup)',
       'Terms and notes',
       'Deposits',
       'Invoice reminders, and the nudge for an estimate nobody answered',
@@ -853,6 +853,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Sign in there and finish their questions; you land back here when it is done.',
         ],
       },
+      {
+        what: 'reconnect a payout account that needs it',
+        why: 'Stripe or Square asks you to sign in to them again yourself',
+        steps: [
+          'Open Settings → Payments.',
+          'On the account marked Needs reconnecting or Not working, press Reconnect.',
+          'Sign in to Stripe or Square again; you land back here when it is done.',
+        ],
+      },
     ],
   },
   products: {
@@ -866,8 +875,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/payments/products',
     permission: 'money.manage',
     canChange: [
-      'add, change or archive an item',
-      'its price, unit, tax and the service it matches',
+      'add, change or archive an item, or put an archived one back',
+      'its name, code, kind (product, service or fee), price, what one is called, tax, and the service customers book it as',
       'the maintenance plans you sell: add one, change its price, what it includes or its visits, stop selling it',
     ],
     handovers: [],
@@ -888,15 +897,16 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     canChange: [
       'how partners are paid: their share, the smallest payout, the calendar their links book, and the terms (or taking them off)',
       'make a customer a partner, give one their own share, pause, end or bring one back, and mark which partner sent a customer',
+      'send a partner their page in the portal, or send it again',
       'take the card partner payouts are charged to off (only someone who manages money)',
     ],
     handovers: [
       {
         what: 'put on, or change, the card partner payouts are charged to',
-        why: 'the card is typed on the payment provider’s own page, which only you can do',
+        why: 'the card is typed on the payment provider’s own page, which only you can do. The buttons show only to someone who manages money, and only once HandsFreeOS has opened partner payouts for the business',
         steps: [
           'Open Settings → Partners.',
-          'Under Paying your partners, press Add a card, or Change the card.',
+          'Under Paying your partners, press Add a card, or Change the card. If it says HandsFreeOS doesn’t pay your partners for you yet, there’s no card to add: pay them yourself from what each is owed.',
           'Type the card on Stripe’s page; you come back here when it is done.',
         ],
       },
@@ -1188,10 +1198,11 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     onScreen: [
       'Import a spreadsheet, at the top (Contacts has the same Import button)',
       'Every import so far, with how it went',
+      'Each import’s own page: its progress, result and the rows that did not import',
     ],
     path: '/settings/imports',
     permission: 'records.import',
-    canChange: [],
+    canChange: ['cancel an import that’s still going (rows already in stay)'],
     handovers: [
       {
         what: 'import a spreadsheet of customers',

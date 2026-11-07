@@ -7,7 +7,7 @@
  * Nothing is ever deleted. Archiving keeps an item on every document it is already on and takes it out of the
  * picker, which is why the table can show archived rows and put one back.
  */
-import { money, type MoneySettings } from '@hfos/core';
+import { money, PRODUCT_KIND_HINT, PRODUCT_KIND_WORDS, type MoneySettings } from '@hfos/core';
 import { ArrowUpRight, Plus, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,11 +29,7 @@ import { cn } from '@/lib/utils';
 
 type Kind = ProductRow['kind'];
 
-const KIND_WORDS: Readonly<Record<Kind, string>> = {
-  product: 'Product',
-  service: 'Service',
-  fee: 'Fee',
-};
+const KIND_WORDS = PRODUCT_KIND_WORDS;
 
 /** What one of something is called. A business can type its own. */
 const UNITS = ['each', 'hour', 'day', 'foot', 'sq ft', 'pound', 'gallon', 'visit', 'month'];
@@ -456,10 +452,7 @@ function ProductEditor({
             { value: 'fee', label: 'Fee', testId: 'kind-fee' },
           ]}
         />
-        <p className="mt-1.5 text-[12.5px] text-text-3">
-          A product is a thing you sell, a service is time or labour, and a fee is a charge like a
-          call-out.
-        </p>
+        <p className="mt-1.5 text-[12.5px] text-text-3">{PRODUCT_KIND_HINT}</p>
       </div>
 
       <div className="mt-3 grid grid-cols-[140px_minmax(0,1fr)] gap-3">

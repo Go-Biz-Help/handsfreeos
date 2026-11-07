@@ -245,6 +245,9 @@ describe('settings_help', () => {
     const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
     expect(theirs[0]!.what).toBe('connect Stripe or Square');
     expect(theirs[0]!.steps.length).toBeGreaterThan(1);
+    // An account that needs reconnecting is the person's own sign-in too, with Reconnect's steps.
+    const reconnect = theirs.find((t) => t.what === 'reconnect a payout account that needs it')!;
+    expect(reconnect.steps.join(' ')).toContain('press Reconnect');
 
     expect(card).toBeTruthy();
     expect(AssistantCard.safeParse(card).success).toBe(true);
@@ -1761,6 +1764,138 @@ describe('Settings → Payments: every row', () => {
     expect(plan!.status).toBe('unmanaged');
     await expect(pay({ action: 'make_default', connectionId: main })).rejects.toThrow(
       'No connected payment account has that id.',
+    );
+  });
+});
+
+describe('Settings → Payments as the page reads it', () => {
+  it('says the address documents show, the page’s warnings and how getting paid works', async () => {
+    // Earlier tests took Payments' own address off and gave the business a street address in its setup: documents
+    // show the setup's until one is written here, as the page says under Your address.
+    const { result } = await readTool('get_settings', 'payments', owner);
+    const payments = result['payments'] as {
+      addressOnDocuments: { address: string | null; from: string };
+      issues: { message: string; saving: string; fixes: string[] }[];
+      howItWorks: string[];
+    };
+    expect(payments.addressOnDocuments).toEqual({
+      address: '1600 Larimer St, Denver, CO 80202',
+      from: 'Your setup: until one is written under Your address, documents show this one',
+    });
+    expect(payments.howItWorks).toContain(
+      'Money goes straight to your own account. HandsFreeOS never holds it.',
+    );
+    expect(payments.howItWorks.join(' ')).toContain('Surcharging is banned in four states');
+    // With the setup's address on documents, nothing warns about it; whatever else does says whether it stops a save.
+    expect(payments.issues.map((i) => i.message)).not.toContain(
+      'Estimates and invoices go out without your address on them',
+    );
+    for (const issue of payments.issues)
+      expect(['Nothing is saved until this is fixed', 'Doesn’t stop it saving']).toContain(
+        issue.saving,
+      );
+    const accounts = result['accounts'] as { connections: { badge: string }[] };
+    for (const c of accounts.connections) expect(c.badge).toBeTruthy();
+  });
+});
+
+describe('Settings → Products', () => {
+  interface ProductRow {
+    id: string;
+    name: string;
+    sku: string | null;
+    kind: string;
+    unitPriceCents: number;
+    unitLabel: string;
+    taxable: boolean;
+    archivedAt: string | null;
+  }
+  const product = (args: Record<string, unknown>) =>
+    prepareOn(createToolExecutor(api()), 'manage_product', args);
+  const catalogue = async () =>
+    (await q<{ products: ProductRow[] }>('product.list', { includeArchived: true })).products;
+
+  it('adds an item with its code and kind, reprices it, archives it and puts it back, each on Confirm', async () => {
+    const name = `Duct sealing ${suffix}`;
+    const add = await product({
+      action: 'create',
+      name,
+      code: `DS-${suffix}`,
+      kind: 'service',
+      priceDollars: 125,
+      unitLabel: 'hour',
+      taxable: true,
+    });
+    expect(add.card.title).toBe(`Add ${name}`);
+    expect(fieldOf(add.card, 'Kind')).toBe('Service');
+    expect(fieldOf(add.card, 'Price')).toBe('$125 per hour');
+    expect(fieldOf(add.card, 'Code')).toBe(`DS-${suffix}`);
+    expect(fieldOf(add.card, 'Sales tax')).toContain('Charged');
+    // Nothing is made until Confirm.
+    expect((await catalogue()).some((p) => p.name === name)).toBe(false);
+    const made = await add.done();
+    expect(made.outcome).toBe(`${name} is in the catalogue.`);
+    const item = (await catalogue()).find((p) => p.name === name)!;
+    expect(item).toMatchObject({
+      sku: `DS-${suffix}`,
+      kind: 'service',
+      unitPriceCents: 12_500,
+      unitLabel: 'hour',
+      taxable: true,
+      archivedAt: null,
+    });
+
+    // A second item of the same name is refused before a card.
+    await expect(product({ action: 'create', name, priceDollars: 10 })).rejects.toThrow(
+      'That already exists',
+    );
+
+    const reprice = await product({ action: 'change', productId: item.id, priceDollars: 140 });
+    expect(reprice.card.title).toBe(`Change ${name}`);
+    expect(fieldOf(reprice.card, 'Price')).toBe('$140 per hour (was $125 per hour)');
+    expect(reprice.card.fields.map((f) => f.label)).toEqual(['Item', 'Price']);
+    expect(reprice.card.warnings.map((w) => w.text)).toContain(
+      'Estimates and invoices already sent keep the price they went out with.',
+    );
+    expect((await reprice.done()).outcome).toBe(`${name} saved.`);
+    await expect(
+      product({ action: 'change', productId: item.id, priceDollars: 140 }),
+    ).rejects.toThrow('Nothing would change.');
+
+    const archive = await product({ action: 'archive', productId: item.id });
+    expect(archive.card.title).toBe(`Archive ${name}`);
+    expect(archive.card.warnings[0]!.text).toBe(
+      'It stays on every document it’s already on, and stops showing in the picker.',
+    );
+    expect((await archive.done()).outcome).toBe(
+      'Archived. It stays on the documents it’s already on.',
+    );
+    expect((await catalogue()).find((p) => p.id === item.id)!.archivedAt).not.toBeNull();
+    await expect(product({ action: 'archive', productId: item.id })).rejects.toThrow(
+      'is already archived',
+    );
+
+    // get_settings lists it with the archived ones, as Show archived items does.
+    const { result } = await readTool('get_settings', 'products', owner);
+    const read = result['products'] as {
+      items: { id: string }[];
+      archived: { id: string; price: string }[];
+    };
+    expect(read.items.some((p) => p.id === item.id)).toBe(false);
+    expect(read.archived.find((p) => p.id === item.id)!.price).toBe('$140 per hour');
+
+    const back = await product({ action: 'put_back', productId: item.id });
+    expect(back.card.title).toBe(`Put ${name} back`);
+    expect((await back.done()).outcome).toBe(`${name} is back in the picker.`);
+    expect((await catalogue()).find((p) => p.id === item.id)!.archivedAt).toBeNull();
+  });
+
+  it('says which item it can’t find instead of failing, and asks for a name first', async () => {
+    await expect(
+      product({ action: 'change', productId: randomUUID(), priceDollars: 1 }),
+    ).rejects.toThrow('No item in Settings → Products has that id.');
+    await expect(product({ action: 'create', priceDollars: 1 })).rejects.toThrow(
+      'Give the new item a name',
     );
   });
 });

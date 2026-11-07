@@ -541,4 +541,22 @@ describe('partners', () => {
       earnings: { earnedCents: 1_500 },
     });
   });
+
+  it('can’t be marked as sending anyone once they’ve ended, until they’re brought back', async () => {
+    // The Partner card's picker never offers an ended partner; every other door refuses one the same way.
+    const [pia, cleo] = await Promise.all([contact('Pia'), contact('Cleo')]);
+    const { partnerId } = await run(partnerAdd, { ...ws(), personId: pia }, t.owner);
+    await run(partnerUpdate, { ...ws(), partnerId, status: 'ended' }, t.owner);
+    const set = () => run(partnerReferralSet, { ...ws(), personId: cleo, partnerId }, t.owner);
+    const e = await expectHfos(set, 'partner_ended', 409);
+    expect(e.message).toBe(
+      'Pia Lopez’s partnership has ended, so they can’t be marked as sending anyone. Bring them back first under Settings → Partners.',
+    );
+    expect(
+      (await ask(partnerOfPerson, { ...ws(), personId: cleo }, t.owner)).referredBy,
+    ).toBeNull();
+
+    await run(partnerUpdate, { ...ws(), partnerId, status: 'active' }, t.owner);
+    expect((await set()).referralId).not.toBeNull();
+  });
 });

@@ -1,7 +1,7 @@
 {
   "area": "settings-money-partners",
   "title": "Settings: payments, products, partners, imports and migrations",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/partners/[partnerId].tsx": "f392529733e2",
@@ -18,22 +18,22 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/payments/products/page.tsx": "d04f5eac8abc",
     "apps/web/src/components/migrations/connect.tsx": "b983ac7b52f1",
     "apps/web/src/components/migrations/wizard.tsx": "65ae1c100765",
-    "apps/web/src/components/money/products-page.tsx": "bec9b813582c",
+    "apps/web/src/components/money/products-page.tsx": "f7abebae4173",
     "apps/web/src/components/partners/partner-card.tsx": "b27e21964bf3",
     "apps/web/src/components/partners/partner-detail.tsx": "485bf34fe90f",
     "apps/web/src/components/partners/payouts-section.tsx": "6e34f7fdae98",
     "apps/web/src/components/partners/settings-page.tsx": "0ff4c1bbbd6e",
     "apps/web/src/components/settings/payment-access-dialog.tsx": "aca450d764a2",
-    "apps/web/src/components/settings/payment-connection-card.tsx": "e4e25823ce36",
-    "apps/web/src/components/settings/payments-page.tsx": "97963511aa7c"
+    "apps/web/src/components/settings/payment-connection-card.tsx": "4c96b59f0ce2",
+    "apps/web/src/components/settings/payments-page.tsx": "6e26b7ad79bd"
   },
   "items": [
     {
       "path": "Settings → Payments → problems banner → each issue: message, and Nothing is saved until this is fixed / Doesn’t stop it saving",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:344",
-      "covered": "partly",
-      "by": "get_settings payments returns raw settings, not the issues; update_money_settings card lists only new warnings it causes"
+      "covered": "yes",
+      "by": "get_settings payments → payments.issues[]: message, saving (Nothing is saved until this is fixed / Doesn’t stop it saving) and fixes, from core’s checkMoneySettings"
     },
     {
       "path": "Settings → Payments → problems banner → Fix: buttons (Ask for 25%, No deposit, New items are taxable, Set the rate to 0%, Use EST- for estimates, Remind on the due date…)",
@@ -53,8 +53,8 @@
       "path": "Settings → Payments → footer: Fix the red item above — nothing is saved until it’s sorted / Everything here saves as you change it",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:1053",
-      "covered": "partly",
-      "by": "update_money_settings refuses a $0/0% deposit before Confirm; no read of the blocking state"
+      "covered": "yes",
+      "by": "get_settings payments → payments.issues[].saving says which one stops a save; update_money_settings refuses a $0/0% deposit before Confirm"
     },
     {
       "path": "Settings → Payments → back from Stripe or Square: Connected… / Nothing was connected / A permission was left unticked… / That account didn’t connect",
@@ -67,8 +67,8 @@
       "path": "Settings → Payments → Accounts you get paid into → Money goes straight to your own account. HandsFreeOS never holds it.",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:419",
-      "covered": "no",
-      "by": "not told in any tool description or the settings map"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.accounts, the page’s own words)"
     },
     {
       "path": "Settings → Payments → Accounts you get paid into → each account: provider · its name",
@@ -89,7 +89,7 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:272",
       "covered": "yes",
-      "by": "get_settings payments → accounts[].status"
+      "by": "get_settings payments → accounts.connections[].badge (PAYMENT_ACCOUNT_BADGES, the page’s words) and status"
     },
     {
       "path": "Settings → Payments → Accounts → each account: Test badge",
@@ -116,22 +116,22 @@
       "path": "Settings → Payments → Accounts → each account: Stripe needs more details from you by date… with your Stripe dashboard link",
       "kind": "see",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:280",
-      "covered": "partly",
-      "by": "get_settings payments → capabilities.needsInfo, needsInfoBy; the dashboard link isn’t given"
+      "covered": "yes",
+      "by": "get_settings payments → accounts.connections[].needsMoreDetails: by when, with https://dashboard.stripe.com/"
     },
     {
       "path": "Settings → Payments → Accounts → each account: why it needs reconnecting or isn’t working (last error)",
       "kind": "see",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:294",
       "covered": "yes",
-      "by": "get_settings payments → accounts[].lastError, status"
+      "by": "get_settings payments → accounts.connections[].lastError, and toFix (press Reconnect, the person’s own sign-in)"
     },
     {
       "path": "Settings → Payments → Accounts → Square account: Square signs you out every 30 days. HandsFreeOS renews it each week.",
       "kind": "see",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:299",
-      "covered": "no",
-      "by": "not told anywhere; tokenExpiresAt only"
+      "covered": "yes",
+      "by": "get_settings payments → accounts.connections[].signIn on an active Square account (PAYMENTS_PAGE_WORDS.squareRenews)"
     },
     {
       "path": "Settings → Payments → Accounts → each account: n plans bill through it",
@@ -159,7 +159,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/payment-connection-card.tsx:339",
       "covered": "person",
-      "by": "signing in at Stripe or Square (payment_connection.connect NEVER); settings_help payments"
+      "by": "signing in at Stripe or Square again (payment_connection.connect NEVER); settings_help payments gives Reconnect’s steps, and get_settings payments → toFix says so on the account"
     },
     {
       "path": "Settings → Payments → Accounts → each account → ⋯ → Rename (What do you call this account?)",
@@ -291,8 +291,8 @@
       "path": "Settings → Payments → Ways to pay → Bank transfer: Cheapest, about 1% capped at $5, 1 to 3 business days",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:484",
-      "covered": "no",
-      "by": "its cost and timing aren’t told to the Assistant"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.bankTransfer)"
     },
     {
       "path": "Settings → Payments → Ways to pay → Bank transfer switch",
@@ -319,8 +319,8 @@
       "path": "Settings → Payments → Ways to pay → Nothing is ever added for paying by card. Surcharging is banned in four states…",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:529",
-      "covered": "no",
-      "by": "the no-surcharge rule isn’t told to the Assistant"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.noSurcharge); SETTINGS_NEVER payments.card"
     },
     {
       "path": "Settings → Payments → Sales tax → One rate for the business. Each line on a document is marked taxable or not.",
@@ -361,8 +361,8 @@
       "path": "Settings → Payments → Numbering → Numbers run in order, per business. A voided number is kept and never used again.",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:623",
-      "covered": "partly",
-      "by": "update_numbering_and_ways_to_pay: next number only goes up; voided numbers not told"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.numbering); update_numbering_and_ways_to_pay: next number only goes up"
     },
     {
       "path": "Settings → Payments → Numbering → Invoices start with / Estimates start with (prefix; letters, numbers and hyphens)",
@@ -389,8 +389,8 @@
       "path": "Settings → Payments → Numbering → A document gets its number the moment you press Send",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:696",
-      "covered": "no",
-      "by": "not told to the Assistant"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.numberAtSend)"
     },
     {
       "path": "Settings → Payments → Your address → It shows at the top of every estimate and invoice…",
@@ -410,8 +410,8 @@
       "path": "Settings → Payments → Your address → Until you write one here, documents show the address from your setup: …",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:727",
-      "covered": "partly",
-      "by": "update_money_settings card shows the setup address only when taking it off; get_settings payments lacks it"
+      "covered": "yes",
+      "by": "get_settings payments → payments.addressOnDocuments {address, from}: this page’s, else the setup’s, else none; settings map Your address line"
     },
     {
       "path": "Settings → Payments → Your address → Five lines at most. Without it a customer only sees your business name.",
@@ -438,8 +438,8 @@
       "path": "Settings → Payments → Terms and notes → After this it expires, and the customer’s page says so.",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:783",
-      "covered": "partly",
-      "by": "estimateGoodForDays; the customer page wording isn’t told"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.estimateExpires); update_money_settings estimateGoodForDays"
     },
     {
       "path": "Settings → Payments → Terms and notes → Note at the bottom of an invoice / Note on an estimate",
@@ -501,8 +501,8 @@
       "path": "Settings → Payments → Invoice reminders → by text if agreed, else email, following quiet hours",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:947",
-      "covered": "partly",
-      "by": "update_money_settings says reminders chase; channel and quiet hours not told"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.reminders)"
     },
     {
       "path": "Settings → Payments → Invoice reminders → n days before it’s due switches (3, and any saved)",
@@ -557,8 +557,8 @@
       "path": "Settings → Payments → Invoice reminders → These are the only money messages that go on their own… Home never chases money by itself",
       "kind": "see",
       "file": "apps/web/src/components/settings/payments-page.tsx:1045",
-      "covered": "partly",
-      "by": "prompt: nothing moving money happens on its own; reminders exception not said"
+      "covered": "yes",
+      "by": "get_settings payments → payments.howItWorks (PAYMENTS_PAGE_WORDS.onlyMoneyMessages)"
     },
     {
       "path": "Settings → Products → Products and services: What you put on an estimate or an invoice…",
@@ -571,8 +571,8 @@
       "path": "Settings → Products → New product",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:110",
-      "covered": "partly",
-      "by": "manage_product action create; its prepare reads product.list as items (it returns products), so it throws"
+      "covered": "yes",
+      "by": "manage_product action create (name, code, kind, price, unit, tax, service), rehearsed before its card"
     },
     {
       "path": "Settings → Products → Nothing to sell yet (empty)",
@@ -586,7 +586,7 @@
       "kind": "see",
       "file": "apps/web/src/components/money/products-page.tsx:149",
       "covered": "yes",
-      "by": "get_settings products → product.list name, sku, kind, unitPriceCents, unitLabel, taxable"
+      "by": "get_settings products → products.items[]: name, sku, kindLabel, price (“$89 each”, “$125 per hour”), taxable"
     },
     {
       "path": "Settings → Products → each item: Customers can book it as {service}",
@@ -599,29 +599,29 @@
       "path": "Settings → Products → each archived item: Archived badge, struck through",
       "kind": "see",
       "file": "apps/web/src/components/money/products-page.tsx:170",
-      "covered": "no",
-      "by": "get_settings products calls product.list without includeArchived, so archived items never come back"
+      "covered": "yes",
+      "by": "get_settings products reads product.list with includeArchived → products.archived[] (archivedAt)"
     },
     {
       "path": "Settings → Products → press an item to open its editor",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:161",
-      "covered": "partly",
-      "by": "get_settings products reads live items only; manage_product change throws (items bug)"
+      "covered": "yes",
+      "by": "get_settings products → items and archived with their ids; manage_product action change"
     },
     {
       "path": "Settings → Products → n archived items, still on the documents they’re already on",
       "kind": "see",
       "file": "apps/web/src/components/money/products-page.tsx:257",
-      "covered": "no",
-      "by": "archived items aren’t read (no includeArchived)"
+      "covered": "yes",
+      "by": "get_settings products → products.archivedNote"
     },
     {
       "path": "Settings → Products → Show archived items switch",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:263",
-      "covered": "no",
-      "by": "no tool lists archived products"
+      "covered": "yes",
+      "by": "get_settings products → products.archived lists them apart, as the switch does"
     },
     {
       "path": "Settings → Products → Maintenance plans: Plans that bill themselves live under Money → Plans → Open Plans",
@@ -634,8 +634,8 @@
       "path": "Settings → Products → editor → title (item name / New product) and Archived badge",
       "kind": "see",
       "file": "apps/web/src/components/money/products-page.tsx:406",
-      "covered": "partly",
-      "by": "live items via get_settings products; archived never read"
+      "covered": "yes",
+      "by": "get_settings products → items and archived (archivedAt); manage_product card title names the item"
     },
     {
       "path": "Settings → Products → editor → Close (X) / Cancel",
@@ -648,71 +648,71 @@
       "path": "Settings → Products → editor → Name",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:421",
-      "covered": "partly",
-      "by": "manage_product name (max 120, screen 160); prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product name (up to 160, as the screen)"
     },
     {
       "path": "Settings → Products → editor → Code (Yours to choose. It shows on the document and in exports.)",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:431",
-      "covered": "no",
-      "by": "manage_product has no sku input"
+      "covered": "yes",
+      "by": "manage_product code (sku; null takes it off)"
     },
     {
       "path": "Settings → Products → editor → Kind: Product / Service / Fee, with what each is",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:448",
-      "covered": "no",
-      "by": "manage_product has no kind input; every new item is a Product"
+      "covered": "yes",
+      "by": "manage_product kind (product, service or fee); the card’s Kind row and PRODUCT_KIND_HINT words, shared with the screen"
     },
     {
       "path": "Settings → Products → editor → Price",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:466",
-      "covered": "partly",
-      "by": "manage_product priceDollars; prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product priceDollars; card shows the new price with what it was, and that documents already sent keep theirs"
     },
     {
       "path": "Settings → Products → editor → Per (each, hour, day, foot, sq ft… or typed)",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:479",
-      "covered": "partly",
-      "by": "manage_product unitLabel; prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product unitLabel; card shows “$125 per hour”"
     },
     {
       "path": "Settings → Products → editor → Charge sales tax on it (At n%, the rate in Settings → Payments)",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:497",
-      "covered": "partly",
-      "by": "manage_product taxable; prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product taxable; card says Charged, at n% (the rate in Settings → Payments) / Not charged"
     },
     {
       "path": "Settings → Products → editor → Customers can book it: Not bookable or a service not already taken",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:513",
-      "covered": "partly",
-      "by": "manage_product serviceId; prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product serviceId (null for Not bookable); card names the service; product.create/update refuse a service already taken before the card"
     },
     {
       "path": "Settings → Products → editor → Archive (Archive {name}? It stays on every document…)",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:536",
-      "covered": "partly",
-      "by": "manage_product action archive; prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product action archive; card note: it stays on every document it’s already on"
     },
     {
       "path": "Settings → Products → editor → Put it back (archived item)",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:544",
-      "covered": "no",
-      "by": "manage_product only archives (product.archive archived:false never sent)"
+      "covered": "yes",
+      "by": "manage_product action put_back (product.archive archived: false)"
     },
     {
       "path": "Settings → Products → editor → Save",
       "kind": "do",
       "file": "apps/web/src/components/money/products-page.tsx:550",
-      "covered": "partly",
-      "by": "manage_product create/change; prepare throws (product.list read as items)"
+      "covered": "yes",
+      "by": "manage_product create / change, rehearsed before the card; Nothing would change refused"
     },
     {
       "path": "Settings → Products → editor → Archiving keeps it on every document it is already on.",
@@ -949,29 +949,29 @@
       "path": "Settings → Partners → Your partners → totals across partners: Earned, Waiting 30 days, Free to pay out, Held, On its way, Paid",
       "kind": "see",
       "file": "apps/web/src/components/partners/settings-page.tsx:275",
-      "covered": "partly",
-      "by": "get_settings partners drops earnings from partnerList; only summed one by one with read_partner_get"
+      "covered": "yes",
+      "by": "get_settings partners → partnerList.totals (earningsTotals words: Earned, Waiting 30 days, Free to pay out, Held, On its way, Paid)"
     },
     {
       "path": "Settings → Partners → Your partners → each partner: name, Paused/Ended badge, share (their own)",
       "kind": "see",
       "file": "apps/web/src/components/partners/settings-page.tsx:293",
       "covered": "yes",
-      "by": "get_settings partners → partnerList name, status, sharePercent, ownShare"
+      "by": "get_settings partners → partnerList.partners[] name, status, sharePercent, ownShare"
     },
     {
       "path": "Settings → Partners → Your partners → each partner: n clients, Hasn’t accepted your terms yet",
       "kind": "see",
       "file": "apps/web/src/components/partners/settings-page.tsx:301",
-      "covered": "partly",
-      "by": "partnerList drops clients and termsAccepted; read_partner_get per partner has them"
+      "covered": "yes",
+      "by": "get_settings partners → partnerList.partners[] clients, terms (Hasn’t accepted your terms yet)"
     },
     {
       "path": "Settings → Partners → Your partners → each partner: earned, Free to pay out amount",
       "kind": "see",
       "file": "apps/web/src/components/partners/settings-page.tsx:309",
-      "covered": "partly",
-      "by": "partnerList drops earnings; read_partner_get per partner has them"
+      "covered": "yes",
+      "by": "get_settings partners → partnerList.partners[] earned (the screen’s words) and earnings"
     },
     {
       "path": "Settings → Partners → Your partners → each partner → opens their page",
@@ -984,8 +984,8 @@
       "path": "Settings → Partners → Your partners → Each share is free to pay out 30 days after the client pays…",
       "kind": "see",
       "file": "apps/web/src/components/partners/settings-page.tsx:321",
-      "covered": "partly",
-      "by": "read_partner_get commissions carry payableAt and test; the 30-day rule isn’t told"
+      "covered": "yes",
+      "by": "get_settings partners → partnerList.about (PARTNERS_WORDS.earnings.about); read_partner_get commissions payableAt"
     },
     {
       "path": "Settings → Partners → Your partners → No partners yet. Make someone a partner from…",
@@ -1068,8 +1068,8 @@
       "path": "Settings → Partners → a partner → Their link → the link, Copy their link",
       "kind": "do",
       "file": "apps/web/src/components/partners/partner-detail.tsx:225",
-      "covered": "partly",
-      "by": "read_partner_get → partner.linkPath only, not the full link on the business’s domain"
+      "covered": "yes",
+      "by": "read_partner_get and get_settings partners → link, written out whole on the business’s own domain (or the web app’s) by the executor, as Copy their link gives it"
     },
     {
       "path": "Settings → Partners → a partner → Their link → ended / no calendar takes bookings yet…",
@@ -1097,7 +1097,7 @@
       "kind": "do",
       "file": "apps/web/src/components/partners/partner-detail.tsx:252",
       "covered": "yes",
-      "by": "do_portal_access_give; read_portal_access_get says if sent"
+      "by": "do_portal_access_give by personId (its description names Send their page); read_portal_access_get says if sent; settings map partners canChange"
     },
     {
       "path": "Settings → Partners → a partner → Their page → {name} has no email address… (warning)",
@@ -1236,15 +1236,15 @@
       "path": "Phone → Settings → Partners → Your partners → each: share, n clients, Earned $x, status, terms waiting",
       "kind": "see",
       "file": "apps/mobile/src/partners/screens.tsx:170",
-      "covered": "partly",
-      "by": "partnerList drops clients, earnings and terms; read_partner_get per partner"
+      "covered": "yes",
+      "by": "get_settings partners → partnerList.partners[] sharePercent, clients, earned, status, terms"
     },
     {
       "path": "Phone → a partner → their link shown in full → Share their link",
       "kind": "do",
       "file": "apps/mobile/src/partners/screens.tsx:418",
-      "covered": "partly",
-      "by": "read_partner_get → linkPath only; the full link on the business’s domain isn’t given"
+      "covered": "yes",
+      "by": "read_partner_get → partner.linkPath written out whole by the executor on the business’s address; sharing it is the person’s or a send tool"
     },
     {
       "path": "Phone → a partner → Their share row → sheet: share box, Type a share between 0.01% and 100%., Save their share, Use your share for partners",
@@ -1286,7 +1286,7 @@
       "kind": "do",
       "file": "apps/web/src/app/app/w/[workspaceId]/settings/imports/page.tsx:67",
       "covered": "yes",
-      "by": "read_import_get"
+      "by": "read_import_get: progress and result, then every failed row’s number and why (a wide sheet’s cells left off to fit)"
     },
     {
       "path": "Settings → Migrations → Bring {business} here from the CRM it uses today…",
@@ -1300,7 +1300,7 @@
       "kind": "do",
       "file": "apps/web/src/components/migrations/connect.tsx:74",
       "covered": "person",
-      "by": "signing in at the old CRM (migration.connect NEVER); settings_help migrations"
+      "by": "pasting a private token from GoHighLevel (migration.connect NEVER); settings_help migrations gives the steps, and the token never goes in the chat"
     },
     {
       "path": "Settings → Migrations → Connect a CRM → Connect the CRM you’re leaving: what it does",
@@ -1377,7 +1377,7 @@
       "kind": "see",
       "file": "apps/web/src/app/app/w/[workspaceId]/settings/migrations/page.tsx:100",
       "covered": "yes",
-      "by": "get_settings migrations → migrations name, sourceLabel, status"
+      "by": "get_settings migrations → migrations name, sourceLabel, status and statusLabel (the page’s words)"
     },
     {
       "path": "Settings → Migrations → each migration → opens it",
@@ -1573,7 +1573,7 @@
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:891",
       "covered": "never",
-      "by": "migration.rollback NEVER: takes back everything, for good"
+      "by": "migration.rollback NEVER (risk 4): takes back a whole move at once; what it brought is put away, and Delete this move finishes it off"
     },
     {
       "path": "Settings → Migrations → a migration → Delete this move → what it asks for (being taken back / pause first / put nothing here / take it back first)",
@@ -1611,8 +1611,8 @@
       "kind": "do",
       "where": "Settings → Products → New product / pick an item → Save / Archive",
       "gap": "manage_product.prepare destructures `items` from product.list, which answers `{ products }`. So `items` is undefined, and `items.find(...)` throws a TypeError on every action (create, change, archive) before the card is drawn. The `.catch` only covers a rejected query, not a wrong shape. Nothing else can reach product.create, product.update or product.archive: none of them is in SCREEN_ACTIONS. So the Assistant cannot add, reprice or archive any item, and no test calls manage_product.",
-      "fix": "In apps/worker/src/assistant/tools-settings-money.ts:343-346, use `const { products } = await query<{ products: Product[] }>(db, ctx, 'product.list', { includeArchived: true })` and then `products.find((p) => p.id === args['productId'])`. includeArchived matters because archive and change name items that may already be archived. Add apps/worker/test coverage that prepares and commits create, change and archive through manage_product.",
-      "status": "open",
+      "fix": "Fixed: manage_product reads product.list as { products } with includeArchived, so create, change, archive and the new put_back all reach their card. Each is rehearsed as the person before the card, so a duplicate name or a service already taken is refused first. It now takes code and kind too, and its card shows the price as the screen does (“$140 per hour (was $125 per hour)”). get_settings products reads archived items too. apps/worker/test/assistant-settings.test.ts prepares and commits create, change, archive and put back, and the not-found and no-name refusals.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1621,8 +1621,8 @@
       "kind": "read",
       "where": "Settings → Partners → a partner → Their link (Copy their link); phone: Share their link",
       "gap": "The screen and the phone both build the full link: the business's own domain when it is verified and its certificate is ready, otherwise the web app's address, plus linkPath. The Assistant's only source is read_partner_get, which hands over partner.get's bare `linkPath` (`/book/c/<calendarId>?ref=<code>`), while the tool's description (taken from the query's) calls it a 'link'. get_settings partners drops linkPath altogether. Nothing in prompt.ts or context.ts gives the business's public origin, and the prompt's own link example is https://handsfreeos.com/book/acme, so the model will guess the domain. runScreenRead never gets webUrl: createToolExecutor has it (tools-write.ts:861) but calls runScreenRead(db, tool, args, ctx) without it.",
-      "fix": "Pass `webUrl` from createToolExecutor into runScreenRead (tools-write.ts:878). For partner.get, replace `partner.linkPath` with `partner.link = origin + linkPath` (null when linkPath is null). Work out the origin the way tools-forms.ts:380-388 does (branded_domain.get: verified and certificateReady gives https://<domain>, else webUrl), or reuse the worker's existing publicOrigin(tx, workspaceId, webUrl) in apps/worker/src/hosting/origin.ts:75 rather than writing a new helper. Make readArea take webUrl too, and add `link` to each partner in the partners `partnerList` shape (tools-settings.ts:174-195). Add a settings-map partners howTo: 'Copy a partner’s link: Settings → Partners → the partner → Their link → Copy their link'.",
-      "status": "open",
+      "fix": "Fixed: the executor writes every public path in a tool’s answer out whole (full-links.ts withWholeLinks, on the business’s own domain when it is verified and its certificate is ready, else the web app’s), so read_partner_get’s linkPath and get_settings partners’ link reach the model as the link Copy their link gives. apps/worker/test/assistant-long-reads.test.ts checks a partner link written out whole.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1631,8 +1631,8 @@
       "kind": "read",
       "where": "Settings → Partners → Your partners: the totals (Earned, Waiting 30 days, Free to pay out, Held by a dispute, On its way, Paid), and on each row its earned amount, 'Free to pay out $…', 'N clients' and 'Hasn’t accepted your terms yet'",
       "gap": "Real: get_settings partners cuts partner.list down to partnerId, personId, name, status, sharePercent and ownShare. The six earnings buckets and their totals (Earned, Waiting 30 days, Free to pay out, Held by a dispute, On its way, Paid), each partner's clients count, termsAccepted and email are all dropped. partner.list is not a screen read, so 'who hasn’t accepted the terms?', 'what has each partner earned in all?' and 'how many clients has X sent?' each take one read_partner_get per partner, and nothing gives the page's totals. Refuted: 'how much do I owe my partners?' is answerable. get_settings partners also returns partner.payouts as `payouts`, and its `next` lists each partner's amount owed now: `lines[].amountCents` and `waiting[].owedCents` with why, plus `totals.owedCents`. That covers payable, not in a payout and not disputed, which is the screen's 'Free to pay out', and it is worked out whether or not payouts are open. coverage.ts:904 is therefore right about 'what each partner is owed' and 'the next payout'. Only 'each month’s statement' is wrong: get_settings has each payout's totals, and the per-partner statement is read_partner_payout_get. That text appears only in code and the staff desk's row count, never to the model.",
-      "fix": "In apps/worker/src/assistant/tools-settings.ts:174-195, keep `clients`, `termsAccepted` and `earnings` (earnedCents, waitingCents, payableCents, heldCents, payingCents, paidCents) on each partnerList row. Add a `totals` part that sums them and labels them with earningsTotals from @hfos/core, as PartnersList does at settings-page.tsx:263-271. Reword coverage.ts:904's last clause to: 'what each partner is owed and the next payout are read with get_settings (area partners), a month’s statement with read_partner_payout_get, and one partner’s commissions and payouts with read_partner_get'.",
-      "status": "open",
+      "fix": "Fixed: get_settings partners’ partnerList now reads as the list does: totals across partners in the screen’s words (earningsTotals), PARTNERS_WORDS.earnings.about, and each partner’s share, clients, terms waiting (not for an ended one), what they earned and their link (tools-settings.ts partnerListRead).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1641,8 +1641,8 @@
       "kind": "words",
       "where": "Settings → Migrations → Connect a CRM → the 'Connect the CRM you’re leaving' dialog (GoHighLevel, Private integration token, Location ID, Connect)",
       "gap": "GoHighLevel is the only source, and there is no sign-in: SIGN_IN_SOURCES is []. The person makes a read-only private integration in GoHighLevel (Settings → Private Integrations), pastes its token with the sub-account's Location ID (Settings → Business Profile, or the code after /location/ in the address bar) and presses Connect. The settings-map handover says the opposite: its why is 'you sign in to the old system yourself' and step 2 is 'Pick the system you are coming from and sign in there'. Its onScreen says 'each system signed in to'. That is what settings_help, get_settings and the per-turn settings map give the model. The 'Start a migration' dialog asks 'Call it' and its button is 'Look at GoHighLevel'. It is still a person-only step (a secret pasted on the screen), so only the words are wrong. Lowered to medium because the dialog's own hints say where the token and Location ID are.",
-      "fix": "In packages/core/src/assistant/settings-map.ts:1052-1072, set why to 'the token is a secret from your GoHighLevel account, and it’s pasted on the screen, never in a chat'. Set the steps to: 'Open Settings → Migrations and press Connect a CRM.' / 'In GoHighLevel, go to Settings → Private Integrations, create one with read access, and copy its token; the Location ID is under Settings → Business Profile.' / 'Paste both and press Connect.' / 'Then tell me, and I’ll start looking at it.' Change onScreen to 'Connected: each CRM connected, with Start a migration'. Reword NEVER_FOR_THE_ASSISTANT['migration.connect'] (coverage.ts:366) to 'pasting a private token from the CRM the business is leaving, which only the person does'.",
-      "status": "open",
+      "fix": "Fixed: settings-map migrations’ handover is “connect the system the business is moving from”, with GoHighLevel’s Private Integrations token and Location ID steps, pasted on the screen; migration.connect stays never offered, and no token goes through the chat.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1651,8 +1651,8 @@
       "kind": "words",
       "where": "Settings → Migrations and a migration's page: Start a migration, Look at the old system, Save and choose what to bring, Save what to bring, Bring it across, Pause / Carry on / Try N again, Same as… / Somebody new",
       "gap": "The Assistant is offered do_migration_create, scan, select, map_scopes, start, pause, resume, retry and resolve_merge, plus read_migration_get and read_migration_review_queue. get_settings migrations returns the connections and ids those tools need. Yet settings-map migrations has canChange: [] and one handover covering the whole move ('move a business over from another system', ending 'Press Start a migration … it runs from there'). So settingsMapText tells the model every turn 'They do themselves: move a business over from another system'. get_settings and settings_help return canChange [] for it. prompt.ts:34 and settings_help's description list 'moving in from another system' as the person's own. Everything after Connect is pushed onto the person.",
-      "fix": "Set settings-map migrations.canChange to ['start a migration from a CRM already connected, or look at it again', 'say where each sub-account lands and what to bring', 'start bringing it across, pause it, carry on, or try the failed ones again', 'answer whether an arriving customer is somebody you already have']. Narrow the handover to 'connect GoHighLevel' (see mig-1). In apps/worker/src/assistant/prompt.ts:34 and the settings_help description (packages/core/src/assistant/tools.ts:360), replace 'moving in from another system' with 'connecting the system they are moving from'.",
-      "status": "open",
+      "fix": "Fixed: settings-map migrations.canChange lists counting what’s there, choosing what comes over and where it lands, starting, pausing, carrying on, retrying and settling a duplicate; the prompt and settings_help say only connecting the old system is the person’s.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1661,8 +1661,8 @@
       "kind": "read",
       "where": "A partner's page (What they’ve earned, up to 200 lines; Their clients; Payouts last); an import's page (Rows that did not import, up to 100 with their data); a migration's page",
       "gap": "Real: runScreenRead slices any answer over 16,000 characters of JSON mid-string and tells the model to 'ask it for less (a smaller page, a narrower search)'. partner.get, import.get and migration.get take no limit or page, so it can't. partner.get returns up to 200 commissions (about 270 characters of JSON each) ahead of `payouts`. A partner with more than about 50 commissions loses their payout account ('Hasn’t set up payouts yet' / 'Their bank is in …') and their payout lines. import.get returns up to 100 failed rows, each with the whole raw CSV row, so a wide sheet shows only its first few failures, as a broken JSON fragment. The import's errorCount comes first and survives. Wrong: 'part of the clients list' is lost only when the clients list alone passes 16,000 characters, since `clients` comes before `commissions` in PartnerGetOutput. The migration page was not shown to overflow.",
-      "fix": "In apps/worker/src/assistant/tools-screen-reads.ts:44-54, shorten long arrays before serialising rather than slicing text. Walk the result, cut each array to the first N items with a sibling `{ shown, total }`, and shrink N until JSON.stringify fits MOST. Then the model always gets valid JSON, and the later keys (`payouts`) survive. Alternatively, cap commissions for the Assistant (for example 30), and drop `raw` from import.get errors for the Assistant, keeping rowNumber and message.",
-      "status": "open",
+      "fix": "Fixed: partner.get and import.get are reshaped before the cut (apps/worker/src/assistant/long-reads.ts): a partner reads partner, payouts, then clients and commissions, with the lists cut from their ends to fit and a note saying how many show; an import keeps every failed row’s number and why, dropping a wide sheet’s cells. The answer is always whole JSON. Tested in apps/worker/test/assistant-long-reads.test.ts.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1671,8 +1671,8 @@
       "kind": "read",
       "where": "Settings → Payments → Your address: 'Until you write one here, documents show the address from your setup: …'; the issue banners at the top ('Nothing is saved until this is fixed' / 'Doesn’t stop it saving')",
       "gap": "Real: get_settings payments returns only money.settings and payment_connection.list. When businessAddress is empty, nothing in that area, nor the payments canChange or onScreen words, says that documents fall back to the setup address. The screen shows 'Until you write one here, documents show the address from your setup: …'. The page's issue banners (checkMoneySettings with hasSentDocuments and setupAddress, marked 'Nothing is saved until this is fixed' or 'Doesn’t stop it saving') are not returned either. Overstated: the setup address itself is readable, since get_settings (area business) returns workspace.get whole, settings.address included. It is just never tied to documents outside update_money_settings' warning.",
-      "fix": "Add a shaped workspace.get part to the payments area in apps/worker/src/assistant/tools-settings.ts:162-165: `{ name: 'workspace.get', as: 'addressOnDocuments', shape: v => { const s = v.workspace.settings; const setup = businessAddressOf(s); return setup ? { address: addressLines(setup), from: 'setup' } : null } }`, read only when payments.settings.businessAddress is empty, else `from: 'payments'`. Also add `issues: checkMoneySettings(settings, { hasSentDocuments, setupAddress }).map(i => ({ message: i.message, blocks: i.severity === 'error' }))`. Add to the payments onScreen 'Your address (until one is written, documents show the address from your setup)'.",
-      "status": "open",
+      "fix": "Fixed: get_settings payments now reads as the page does: addressOnDocuments (this page’s address, else the setup’s, else none), the page’s issues with whether each stops a save and its fixes (core’s checkMoneySettings), and howItWorks (PAYMENTS_PAGE_WORDS, now in core and used by the page). Each account has its badge, toFix, needsMoreDetails with the Stripe dashboard link, and Square’s weekly renewal.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1681,8 +1681,8 @@
       "kind": "words",
       "where": "A migration's page under Settings → Migrations, the 'Take it back' button",
       "gap": "The migration.start card warning tells the person 'Taking it all back is Roll back, on the Migrations page'. The button is 'Take it back', on the move's own page (Settings → Migrations → the move), both in the finished card and in 'Delete this move'. 'Roll back' appears nowhere on the screens. The warning is shown to the person on the confirm card.",
-      "fix": "In packages/core/src/assistant/coverage.ts:255, change the warning's last sentence to 'Taking it all back is Take it back, on this move’s page under Settings → Migrations, which only a person presses.'",
-      "status": "open",
+      "fix": "Fixed: the migration.start warning says “Take it back, on the move’s own page (Settings → Migrations or Agency area → Migrations, then the move), which only a person presses.”",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1691,8 +1691,8 @@
       "kind": "never",
       "where": "A migration's page → Take it back",
       "gap": "The reason is wrong. The screen and the command both say taking a move back puts what it made away ('put away, not gone'), and only Delete this move finishes them off. The reason given, '… for good', describes migration.delete. But migration.rollback is risk 4, so never offering it is the settled rule, and the alternative fix (offer it with a warning card) is barred. The reason text reaches only the staff desk's coverage list, never the model.",
-      "fix": "Reword NEVER_FOR_THE_ASSISTANT['migration.rollback'] (packages/core/src/assistant/coverage.ts:357) to 'undoing a whole move from another CRM at once (risk 4), which only a person presses: what it made is put away, and Delete this move finishes it off'. Keep it never offered.",
-      "status": "open",
+      "fix": "Fixed: NEVER_FOR_THE_ASSISTANT['migration.rollback'] says it takes back a whole move at once, putting away what it brought, and Delete this move finishes them off; it stays never offered.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1701,8 +1701,8 @@
       "kind": "words",
       "where": "Settings → Migrations list badges and the status line on a migration's page ('Ready to set up', 'Ready to bring across', 'Needs a look', 'Stopped', 'Keeping up with the old system')",
       "gap": "The list badges and the move's page show STATUS_WORDS, which live only in the web app. The Assistant gets raw codes from get_settings migrations and read_migration_get (scanned, ready, needs_attention, transition, failed, cancelled). It can't match what the person reads: 'Ready to set up' is scanned, and 'Stopped' is both failed and cancelled. Nothing in core or the worker holds those words. This also breaks the one-copy rule for what the web and the phone both show.",
-      "fix": "Move STATUS_WORDS from apps/web/src/lib/agency/migration-words.ts:65-84 into @hfos/core (packages/core/src/migrations), import it in the web from there, and add `statusLabel` to the migration rows of migration.list and migration.get (or map it in the get_settings migrations shape in tools-settings.ts:241-247).",
-      "status": "open",
+      "fix": "Fixed: the status words live in core (packages/core/src/migrations/words.ts, migrationStatusWords), and get_settings migrations and read_migration_get give statusLabel beside status.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1711,8 +1711,8 @@
       "kind": "words",
       "where": "Settings → Payments → an account marked 'Needs reconnecting' or 'Not working' → Reconnect",
       "gap": "An account with status reauth_required ('Needs reconnecting') or error ('Not working') shows a Reconnect button that runs the Stripe or Square sign-in again, which is person-only. The payments area's only handover is 'connect Stripe or Square' (press Connect Stripe or Connect Square). Nothing in the Assistant mentions reconnecting or reauth_required, so settings_help gives the wrong steps for fixing a broken account.",
-      "fix": "Add a handover to settings-map payments (packages/core/src/assistant/settings-map.ts:733-742): what 'reconnect a payout account that needs it', why 'Stripe or Square asks you to sign in again yourself', steps 'Open Settings → Payments.' / 'On the account marked Needs reconnecting or Not working, press Reconnect.' / 'Sign in to Stripe or Square again; you land back here.'",
-      "status": "open",
+      "fix": "Fixed: settings-map payments has the handover “reconnect a payout account that needs it” (press Reconnect, sign in to Stripe or Square again), and each account that needs it says so in toFix.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1721,8 +1721,8 @@
       "kind": "words",
       "where": "Settings → Partners → Paying your partners: Add a card / Change the card",
       "gap": "The handover tells anyone with Manage partners to press Add a card or Change the card under Paying your partners. Those buttons appear only once HandsFreeOS has opened payouts for the business; until then the section shows only 'HandsFreeOS doesn’t pay your partners for you yet…'. They also appear only to someone who manages money; others read 'Only someone who manages money … Ask an owner of this business.' get_settings partners does carry payouts.open, but the handover steps ignore it.",
-      "fix": "In settings-map partners' handover (packages/core/src/assistant/settings-map.ts:778-786), append to why: 'and only once HandsFreeOS has opened partner payouts for you (get_settings, area partners: payouts.open), by someone who manages money'. Add a first step: 'If Paying your partners says HandsFreeOS doesn’t pay them yet, there’s no card to add: pay them yourself from what each is owed.'",
-      "status": "open",
+      "fix": "Fixed: settings-map partners’ card handover says the buttons show only to someone who manages money and only once HandsFreeOS has opened partner payouts, and what to do when it says it doesn’t pay partners yet.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1731,8 +1731,8 @@
       "kind": "words",
       "where": "A partner's page → Their page → Send their page / Send it again; an import's page → Cancel; an import's page with Rows that did not import",
       "gap": "The tools exist, but the words don't tie them to these screens. partners.canChange leaves out sending a partner their portal page, which is do_portal_access_give (the partner page calls portal_access.give), and portal_access.give's description never mentions partners. imports.canChange is [] although do_import_cancel stops a pending or running import (rows already in stay). imports.onScreen leaves out each import's own page with its progress and the rows that failed (read_import_get). get_settings and settings_help thus tell the model it can change nothing under Imports.",
-      "fix": "Add 'send a partner their page in the portal, or send it again' to settings-map partners.canChange (settings-map.ts:775). Add 'cancel an import that’s still going (rows already in stay)' to imports.canChange (settings-map.ts:1039), and 'Each import’s own page: its progress, result and the rows that did not import' to imports.onScreen.",
-      "status": "open",
+      "fix": "Fixed: settings-map partners.canChange lists “send a partner their page in the portal, or send it again”, and portal_access.give’s description names Send their page on the partner’s page.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1741,8 +1741,8 @@
       "kind": "do",
       "where": "A customer's page → Partner card → Sent by → Change (the partner picker)",
       "gap": "The customer's Partner card picker offers only partners whose partnership hasn't ended, unless that partner is the current one. manage_partner set_referral resolves any partner through partner.list with no status check, and partner.referral_set doesn't check status either. So the Assistant (and the API) can mark a customer as sent by an ended partner, which the screen never allows.",
-      "fix": "Put the check in the command so every door refuses it. In packages/core/src/commands/partners.ts, after the same-partner early return at line 370, add: if (partner && partner.status === 'ended') throw HfosError.rule('partner_ended', 409, `${partner.name}’s partnership has ended, so they can’t be marked as sending anyone. Bring them back first under Settings → Partners.`). Optionally refuse the same way early in managePartner.prepare's set_referral case (apps/worker/src/assistant/tools-settings-more.ts:732-746), so no card is drawn.",
-      "status": "open",
+      "fix": "Fixed: partner.referral_set refuses an ended partner in the command (rule partner_ended, 409), so every door refuses it, and manage_partner set_referral rehearses the command before its card. Tested in packages/core/test/partners.test.ts and apps/worker/test/assistant-settings-more.test.ts.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1751,8 +1751,8 @@
       "kind": "words",
       "where": "Settings → Partners (the area as a whole)",
       "gap": "get_settings' description lists the areas it reads and leaves out partners. It also leaves out branded_domain, main_offer, add_ons, relationships, deleted_bin, resources, booking_site, facebook_instagram, action_center and safety. The model is not blind to partners, though: `partners` is in the tool's area enum, settingsMapText lists 'Partners (partners) is at Settings → Partners' every turn, and update_partner_settings says 'Read what is set now with get_settings (area partners)'. So the risk is small.",
-      "fix": "In packages/core/src/assistant/tools.ts:344, add 'partners (their share, terms, what each is owed and the payouts)' to get_settings' description, and add the other missing areas. Better, build the list from SETTINGS_AREAS labels so it can't drift again.",
-      "status": "open",
+      "fix": "Fixed: get_settings’ description lists every area, partners among them.",
+      "status": "fixed",
       "pr": null
     }
   ]

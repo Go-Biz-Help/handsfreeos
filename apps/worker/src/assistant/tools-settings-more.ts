@@ -909,6 +909,12 @@ const managePartner: SettingsConfirmTool = {
         if (!str(args['personId'])) throw need('Say which customer the partner sent.');
         const name = await customerName(db, ctx, args['personId']);
         const partner = args['partnerId'] ? await partnerOf(db, ctx, args['partnerId']) : null;
+        // Tried and rolled back, so a partner whose partnership ended (the Partner card never offers one), a partner
+        // as their own client, or a client who already earned another partner something is refused before a card.
+        await rehearse(db, ctx, 'partner.referral_set', {
+          personId: args['personId'],
+          partnerId: partner?.partnerId ?? null,
+        });
         title = partner
           ? `Mark ${name} as sent by ${partner.name}`
           : `Mark ${name} as sent by no partner`;

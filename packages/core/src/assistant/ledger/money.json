@@ -1,7 +1,7 @@
 {
   "area": "money",
   "title": "Money: estimates, invoices, payments and plans",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "f903866463b2",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
@@ -48,7 +48,7 @@
     "apps/web/src/components/money/plan-visits.tsx": "cca43a62ad16",
     "apps/web/src/components/money/plans-list.tsx": "69bbce72216d",
     "apps/web/src/components/money/product-picker.tsx": "b9dd9fb90b95",
-    "apps/web/src/components/money/products-page.tsx": "bec9b813582c",
+    "apps/web/src/components/money/products-page.tsx": "f7abebae4173",
     "apps/web/src/components/money/public-estimate.tsx": "64dcaab82276",
     "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
     "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
