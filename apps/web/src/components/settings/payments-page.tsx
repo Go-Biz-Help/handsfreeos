@@ -16,6 +16,7 @@ import {
   money,
   numberPreview,
   PAYMENT_TERMS,
+  PAYMENTS_PAGE_WORDS as W,
   readMoneySettings,
   reminderSchedule,
   TERMS_DAYS,
@@ -416,7 +417,7 @@ export function PaymentsSettings({
           <Section
             title="Accounts you get paid into"
             setting="payments.accounts"
-            description="Money goes straight to your own account. HandsFreeOS never holds it."
+            description={W.accounts}
             icon={Wallet}
             testId="pay-accounts"
           >
@@ -487,7 +488,7 @@ export function PaymentsSettings({
                     <Badge variant="ok">Cheapest</Badge>
                   </span>
                 }
-                description="About 1% of the payment, capped at $5, and it takes 1 to 3 business days. It shows first because it costs you the least."
+                description={W.bankTransfer}
               >
                 <Switch
                   checked={settings.bankTransfer}
@@ -526,11 +527,7 @@ export function PaymentsSettings({
                 </span>
               </SetRow>
             </div>
-            <Note>
-              Nothing is ever added to what the customer owes for paying by card. Surcharging is
-              banned in four states and needs 30 days’ notice to your bank, so HandsFreeOS doesn’t
-              do it.
-            </Note>
+            <Note>{W.noSurcharge}</Note>
           </Section>
 
           <Section
@@ -620,7 +617,7 @@ export function PaymentsSettings({
           <Section
             title="Numbering"
             setting="payments.numbering"
-            description="Numbers run in order, per business. A voided number is kept and never used again."
+            description={W.numbering}
             icon={Hash}
             testId="pay-numbering"
           >
@@ -693,9 +690,7 @@ export function PaymentsSettings({
                 </div>
               ))}
             </div>
-            <Note icon={Lock}>
-              A document gets its number the moment you press Send, not while you are writing it.
-            </Note>
+            <Note icon={Lock}>{W.numberAtSend}</Note>
           </Section>
         </div>
 
@@ -780,7 +775,7 @@ export function PaymentsSettings({
                 center
                 setting="payments.estimate_valid"
                 title="Estimates stay good for"
-                description="After this it expires, and the customer’s page says so."
+                description={W.estimateExpires}
               >
                 <span className="flex items-center gap-1.5">
                   <TextBox
@@ -944,7 +939,7 @@ export function PaymentsSettings({
           <Section
             title="Invoice reminders"
             setting="payments.reminders"
-            description="Set when the invoice is sent, on the schedule you agree here. They go by text if the customer agreed to texts, otherwise by email, and they follow quiet hours."
+            description={W.reminders}
             icon={AlertTriangle}
             testId="pay-reminders"
           >
@@ -1042,10 +1037,7 @@ export function PaymentsSettings({
                 ? `${schedule.length} ${schedule.length === 1 ? 'reminder' : 'reminders'} per invoice.`
                 : 'Nobody is reminded about an unpaid invoice.'}
             </p>
-            <Note>
-              These are the only money messages that go on their own, and only because you set them
-              in advance. Home never chases money by itself — it asks you first.
-            </Note>
+            <Note>{W.onlyMoneyMessages}</Note>
           </Section>
         </div>
       </div>

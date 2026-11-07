@@ -23,6 +23,7 @@ import {
   executeQuery,
   funnelGet,
   HfosError,
+  importGet,
   isAuditDetection,
   leadBoard,
   migrationGet,
@@ -31,6 +32,7 @@ import {
   onboardingClients,
   onboardingSetupGet,
   onboardingStatus,
+  partnerGet,
   platformAffiliate,
   platformAffiliates,
   platformBusinessGet,
@@ -54,6 +56,7 @@ import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { addonsPageReads } from './addons-page';
 import { aiSetupRead, clientsRead, gettingStartedRead, setupRead } from './setup-screens';
 import { documentReads } from './tools-documents';
+import { importRead, partnerRead } from './long-reads';
 import { funnelRead } from './tools-funnels';
 import { query } from './tools-read';
 
@@ -490,12 +493,16 @@ export async function runScreenRead(
                                     ? auditRead(got)
                                     : tool.query.name === funnelGet.name
                                       ? funnelRead(got, args['stageId'])
-                                      : // Documents, as their screens say them.
-                                        (documentReads[tool.query.name]?.(
-                                          got,
-                                          args,
-                                          ctx.timezone,
-                                        ) ?? got);
+                                      : tool.query.name === partnerGet.name
+                                        ? partnerRead(got)
+                                        : tool.query.name === importGet.name
+                                          ? importRead(got)
+                                          : // Documents, as their screens say them.
+                                            (documentReads[tool.query.name]?.(
+                                              got,
+                                              args,
+                                              ctx.timezone,
+                                            ) ?? got);
   const json = JSON.stringify(data ?? null);
   // A list's next page, kept when the rest is cut, so it can still be read on from.
   const next = (data as { nextCursor?: unknown } | null)?.nextCursor;

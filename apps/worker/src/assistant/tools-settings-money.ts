@@ -18,16 +18,19 @@ import {
   businessAddressOf,
   checkMoneySettings,
   HfosError,
+  money as exactMoney,
   numberingAtCounter,
+  PRODUCT_KIND_WORDS,
   reminderSchedule,
   type AutomationDef,
   type AttentionSettings,
   type MoneySettings,
+  type ProductKind,
   type TeammateConfig,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
-import { command, query } from './tools-read';
+import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -335,66 +338,232 @@ const updateMoneySettings: SettingsConfirmTool = {
 interface Product {
   id: string;
   name: string;
+  description: string | null;
+  sku: string | null;
+  kind: ProductKind;
   unitPriceCents: number;
+  unitLabel: string;
+  taxable: boolean;
+  serviceId: string | null;
+  archivedAt: string | null;
 }
+
+type ProductAct = 'create' | 'change' | 'archive' | 'put_back';
+
+/** "$89 each" or "$125 per hour", as Settings → Products lists an item's price and what one is. */
+export const priceWords = (p: Pick<Product, 'unitPriceCents' | 'unitLabel'>) =>
+  `${exactMoney(p.unitPriceCents)} ${p.unitLabel === 'each' ? 'each' : `per ${p.unitLabel}`}`;
+
+/** What the model asked for, in the command's own words: anything left out stays as it is. */
+function productInput(args: Args): Record<string, unknown> {
+  const price = num(args['priceDollars']);
+  return {
+    ...(str(args['name']) ? { name: str(args['name']) } : {}),
+    ...(args['code'] === undefined ? {} : { sku: str(args['code']) ?? null }),
+    ...(str(args['kind']) ? { kind: str(args['kind']) } : {}),
+    ...(str(args['description']) ? { description: str(args['description']) } : {}),
+    ...(price === undefined ? {} : { unitPriceCents: cents(price) }),
+    ...(str(args['unitLabel']) ? { unitLabel: str(args['unitLabel']) } : {}),
+    ...(bool(args['taxable']) === undefined ? {} : { taxable: args['taxable'] }),
+    ...(args['serviceId'] === undefined ? {} : { serviceId: args['serviceId'] }),
+  };
+}
+
+/**
+ * The item a change, an archive or a put-back is about, archived ones too: product.list answers `products`, and
+ * leaves archived ones out unless asked (prod-1). A new item needs a name.
+ */
+async function productPlan(db: Db, ctx: ToolContext, args: Args) {
+  const act = action(args) as ProductAct;
+  if (act === 'create') {
+    if (!str(args['name']))
+      throw HfosError.validation(
+        [{ path: 'name', message: 'Give the new item a name.' }],
+        'Give the new item a name, like “Service call”.',
+      );
+    return { act, current: null };
+  }
+  const { products } = await query<{ products: Product[] }>(db, ctx, 'product.list', {
+    includeArchived: true,
+  });
+  const current = products.find((p) => p.id === args['productId']);
+  if (!current)
+    throw HfosError.notFound(
+      'No item in Settings → Products has that id. get_settings (area products) lists them, archived ones too.',
+    );
+  return { act, current };
+}
+
+/**
+ * The card's rows for an item as it would be saved, as its editor names them: all of a new one's, or only what a
+ * change changes.
+ */
+async function productRows(
+  db: Db,
+  ctx: ToolContext,
+  p: Product,
+  only: ReadonlySet<string> | null,
+): Promise<Field[]> {
+  const shows = (key: string) => !only || only.has(key);
+  const rate =
+    shows('taxable') && p.taxable
+      ? await moneySettingsOf(db, ctx).then(
+          (m) => percentWords(m.settings.tax.rateBp),
+          () => null,
+        )
+      : null;
+  const service =
+    shows('serviceId') && p.serviceId
+      ? await query<{ items: { id: string; name: string }[] }>(db, ctx, 'service.list').then(
+          ({ items }) => items.find((x) => x.id === p.serviceId)?.name ?? 'A service',
+          () => 'A service',
+        )
+      : null;
+  const rows: Field[] = [{ label: 'Item', value: p.name }];
+  if (shows('kind')) rows.push({ label: 'Kind', value: PRODUCT_KIND_WORDS[p.kind] });
+  if (shows('unitPriceCents') || shows('unitLabel'))
+    rows.push({ label: 'Price', value: priceWords(p) });
+  if (shows('sku')) rows.push({ label: 'Code', value: p.sku ?? (only ? 'None' : '') });
+  if (shows('description'))
+    rows.push({ label: 'Description', value: p.description ?? (only ? 'None' : '') });
+  if (shows('taxable'))
+    rows.push({
+      label: 'Sales tax',
+      value: p.taxable
+        ? `Charged${rate ? `, at ${rate} (the rate in Settings → Payments)` : ''}`
+        : 'Not charged',
+    });
+  if (shows('serviceId'))
+    rows.push({ label: 'Customers can book it', value: service ?? (only ? 'Not bookable' : '') });
+  return rows;
+}
+
+const PRODUCT_TITLES: Record<ProductAct, (name: string) => string> = {
+  create: (name) => `Add ${name}`,
+  change: (name) => `Change ${name}`,
+  archive: (name) => `Archive ${name}`,
+  put_back: (name) => `Put ${name} back`,
+};
+const PRODUCT_CONFIRMS: Record<ProductAct, string> = {
+  create: 'Add it',
+  change: 'Save the change',
+  archive: 'Archive it',
+  put_back: 'Put it back',
+};
 
 const manageProduct: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const { items } = await query<{ items: Product[] }>(db, ctx, 'product.list').catch(() => ({
-      items: [] as Product[],
-    }));
-    const current = items.find((p) => p.id === args['productId']);
-    const price = num(args['priceDollars']);
+    const { act, current } = await productPlan(db, ctx, args);
+    const fields: Field[] = [];
+    const warnings: Warning[] = [];
+    // Each is tried as the person and rolled back, so a name already taken or a service another item prices is
+    // refused in the command's own words before a card is drawn.
+    if (act === 'create') {
+      const tried = await rehearse<{ product: Product }>(
+        db,
+        ctx,
+        'product.create',
+        productInput(args),
+      );
+      fields.push(...(await productRows(db, ctx, tried.product, null)));
+    } else if (act === 'change') {
+      const was = current!;
+      const tried = await rehearse<{ product: Product; updated: string[] }>(
+        db,
+        ctx,
+        'product.update',
+        { productId: was.id, ...productInput(args) },
+      );
+      if (!tried.updated.length) throw nothingChanges(`${was.name} is already set that way.`);
+      const changed = new Set(tried.updated);
+      for (const row of await productRows(db, ctx, tried.product, changed)) {
+        if (row.label === 'Item' && changed.has('name')) row.value += ` (was ${was.name})`;
+        if (row.label === 'Price') row.value += ` (was ${priceWords(was)})`;
+        fields.push(row);
+      }
+      if (changed.has('unitPriceCents'))
+        warnings.push({
+          kind: 'note',
+          text: 'Estimates and invoices already sent keep the price they went out with.',
+        });
+      if (was.archivedAt)
+        warnings.push({
+          kind: 'note',
+          text: `${was.name} stays archived. Putting it back in the picker is its own step.`,
+        });
+    } else {
+      const was = current!;
+      if (!!was.archivedAt === (act === 'archive'))
+        throw nothingChanges(
+          act === 'archive'
+            ? `${was.name} is already archived.`
+            : `${was.name} is already in the picker.`,
+        );
+      await rehearse(db, ctx, 'product.archive', {
+        productId: was.id,
+        archived: act === 'archive',
+      });
+      fields.push({ label: 'Item', value: was.name }, { label: 'Price', value: priceWords(was) });
+      warnings.push({
+        kind: 'note',
+        text:
+          act === 'archive'
+            ? 'It stays on every document it’s already on, and stops showing in the picker.'
+            : 'It shows in the picker again, for new estimates and invoices.',
+      });
+    }
     return {
       card: settingsCard(toolCallId, 'manage_product', {
-        title:
-          act === 'create'
-            ? `Add ${str(args['name']) ?? 'an item'}`
-            : act === 'archive'
-              ? `Archive ${current?.name ?? 'the item'}`
-              : `Change ${current?.name ?? 'the item'}`,
-        fields: [
-          { label: 'Item', value: str(args['name']) ?? current?.name ?? '' },
-          ...(price === undefined ? [] : [{ label: 'Price', value: money(cents(price)) }]),
-          ...(str(args['unitLabel']) ? [{ label: 'Per', value: str(args['unitLabel'])! }] : []),
-          ...(bool(args['taxable']) === undefined
-            ? []
-            : [{ label: 'Taxed', value: args['taxable'] ? 'Yes' : 'No' }]),
-        ],
-        confirmLabel:
-          act === 'create' ? 'Add it' : act === 'archive' ? 'Archive it' : 'Save the change',
-        warnings:
-          act === 'archive'
-            ? [{ kind: 'note', text: 'Documents that already have it keep it.' }]
-            : [],
+        title: PRODUCT_TITLES[act](current?.name ?? str(args['name']) ?? 'the item'),
+        fields,
+        confirmLabel: PRODUCT_CONFIRMS[act],
+        warnings,
       }),
-      result: { waiting: true, action: act },
+      result: {
+        waiting: true,
+        action: act,
+        changes: fields.filter((f) => f.value).map((f) => `${f.label}: ${f.value}`),
+      },
     };
   },
 
   async commit(db, ctx, args) {
-    const act = action(args);
+    const { act, current } = await productPlan(db, ctx, args);
     const href = `/app/w/${ctx.workspaceId}/settings/payments/products`;
-    if (act === 'archive') {
-      await command(db, ctx, 'product.archive', { productId: args['productId'] });
-      return { outcome: 'Archived', href, command: 'product.archive' };
+    // Each outcome is what the screen's own toast says.
+    if (act === 'archive' || act === 'put_back') {
+      await command(db, ctx, 'product.archive', {
+        productId: current!.id,
+        archived: act === 'archive',
+      });
+      return {
+        outcome:
+          act === 'archive'
+            ? 'Archived. It stays on the documents it’s already on.'
+            : `${current!.name} is back in the picker.`,
+        href,
+        command: 'product.archive',
+      };
     }
-    const price = num(args['priceDollars']);
-    const input = {
-      ...(str(args['name']) ? { name: str(args['name']) } : {}),
-      ...(str(args['description']) ? { description: str(args['description']) } : {}),
-      ...(price === undefined ? {} : { unitPriceCents: cents(price) }),
-      ...(str(args['unitLabel']) ? { unitLabel: str(args['unitLabel']) } : {}),
-      ...(bool(args['taxable']) === undefined ? {} : { taxable: args['taxable'] }),
-      ...(args['serviceId'] === undefined ? {} : { serviceId: args['serviceId'] }),
-    };
     if (act === 'create') {
-      await command(db, ctx, 'product.create', input);
-      return { outcome: `${str(args['name'])} is added`, href, command: 'product.create' };
+      const made = await command<{ productId: string; product: Product }>(
+        db,
+        ctx,
+        'product.create',
+        productInput(args),
+      );
+      return {
+        outcome: `${made.product.name} is in the catalogue.`,
+        href,
+        command: 'product.create',
+        answer: { productId: made.productId },
+      };
     }
-    await command(db, ctx, 'product.update', { productId: args['productId'], ...input });
-    return { outcome: 'Changed', href, command: 'product.update' };
+    const saved = await command<{ product: Product }>(db, ctx, 'product.update', {
+      productId: current!.id,
+      ...productInput(args),
+    });
+    return { outcome: `${saved.product.name} saved.`, href, command: 'product.update' };
   },
 };
 

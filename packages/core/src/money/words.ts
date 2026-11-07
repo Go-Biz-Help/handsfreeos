@@ -15,6 +15,7 @@ import {
   zonedParts,
 } from '../calendar/engine/zoned';
 import { money } from './format';
+import type { PaymentConnectionStatus, ProductKind } from '../schemas/money';
 import type { EstimateState, InvoiceState, PaymentMethod, PaymentStatus } from './status';
 import { PAYMENT_TERMS, type PaymentTerms } from './settings';
 
@@ -94,6 +95,45 @@ export const TERMS_WORDS: Readonly<Record<PaymentTerms, string>> = {
   net_14: 'Net 14',
   net_30: 'Net 30',
 };
+
+/**
+ * What Settings → Payments tells the person about how getting paid works, word for word, so the page and the
+ * Assistant (get_settings, area payments) say the same.
+ */
+export const PAYMENTS_PAGE_WORDS = {
+  accounts: 'Money goes straight to your own account. HandsFreeOS never holds it.',
+  squareRenews: 'Square signs you out every 30 days. HandsFreeOS renews it each week.',
+  bankTransfer:
+    'About 1% of the payment, capped at $5, and it takes 1 to 3 business days. It shows first because it costs you the least.',
+  noSurcharge:
+    'Nothing is ever added to what the customer owes for paying by card. Surcharging is banned in four states and needs 30 days’ notice to your bank, so HandsFreeOS doesn’t do it.',
+  numbering: 'Numbers run in order, per business. A voided number is kept and never used again.',
+  numberAtSend:
+    'A document gets its number the moment you press Send, not while you are writing it.',
+  estimateExpires: 'After this it expires, and the customer’s page says so.',
+  reminders:
+    'Set when the invoice is sent, on the schedule you agree here. They go by text if the customer agreed to texts, otherwise by email, and they follow quiet hours.',
+  onlyMoneyMessages:
+    'These are the only money messages that go on their own, and only because you set them in advance. Home never chases money by itself — it asks you first.',
+} as const;
+
+/** The badge on each account under Settings → Payments → Accounts you get paid into. */
+export const PAYMENT_ACCOUNT_BADGES: Readonly<Record<PaymentConnectionStatus, string>> = {
+  pending: 'Connecting',
+  active: 'Connected',
+  reauth_required: 'Needs reconnecting',
+  error: 'Not working',
+  disconnected: 'Disconnected',
+};
+
+/** What each kind of item is called on Settings → Products, and what each one is, as its editor says it. */
+export const PRODUCT_KIND_WORDS: Readonly<Record<ProductKind, string>> = {
+  product: 'Product',
+  service: 'Service',
+  fee: 'Fee',
+};
+export const PRODUCT_KIND_HINT =
+  'A product is a thing you sell, a service is time or labour, and a fee is a charge like a call-out.';
 
 /** The terms in the order Settings offers them. */
 export const TERMS_OPTIONS: readonly { readonly value: PaymentTerms; readonly label: string }[] =

@@ -97,7 +97,10 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'custom_record.assign': {},
   'custom_record.unassign': {},
   'maintenance.set_schedule': {},
-  'portal_access.give': {},
+  'portal_access.give': {
+    about:
+      'A partner’s page in the portal is sent the same way, by their personId: the partner’s page under Settings → Partners calls it Send their page, or Send it again.',
+  },
   'portal_access.revoke': {},
   'record_hold.place': {},
   'record_hold.lift': {
@@ -1014,7 +1017,7 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'tags.ai_changes':
     'what the AI changed lately and why, to read (ai_tagging_status): nothing to set, and a tag it put on comes off with tag_customers',
   'partners.payouts':
-    'the card partner payouts are charged to is typed on the payment provider’s own page, which only the person can do (do_partner_payout_forget_card takes it off); what each partner is owed, the next payout and each month’s statement are read with get_settings (area partners)',
+    'the card partner payouts are charged to is typed on the payment provider’s own page, which only the person can do (do_partner_payout_forget_card takes it off); what each partner is owed and the next payout are read with get_settings (area partners), a month’s statement with read_partner_payout_get, and one partner’s commissions and payouts with read_partner_get',
   'payments.card':
     'always on, with nothing to switch: every customer can pay by card, Apple Pay or Google Pay, and nothing is ever added for paying that way',
   'payments.cash':

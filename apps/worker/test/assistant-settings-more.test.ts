@@ -207,6 +207,55 @@ describe('the last settings by asking', () => {
     expect(noTerms.card.warnings.map((w) => w.text).join(' ')).not.toContain('accept');
   });
 
+  it('reads Your partners as the page lists them, and won’t mark anyone as sent by an ended partner', async () => {
+    const lee = await customer('Lee');
+    await run(registry.command('partner.add')!, { workspaceId, personId: lee });
+    const { partners } = await q<{ partners: { partnerId: string; name: string }[] }>(
+      'partner.list',
+    );
+    const leeId = partners.find((p) => p.name === 'Lee Test')!.partnerId;
+
+    const read = await createToolExecutor(api()).run(
+      assistantToolByName.get('get_settings')!,
+      { area: 'partners' },
+      ctx(),
+    );
+    const list = (read.result as Record<string, unknown>)['partnerList'] as {
+      totals: string[];
+      about: string;
+      partners: { name: string; clients: number; terms?: string; earned: string[] }[];
+    };
+    // The page's totals: Earned, Waiting 30 days and Free to pay out always show.
+    expect(list.totals.map((t) => t.split(' $')[0])).toEqual([
+      'Earned',
+      'Waiting 30 days',
+      'Free to pay out',
+    ]);
+    expect(list.about).toContain('30 days after the client pays');
+    // Dana sent Sam, and the terms written in the last test wait on her.
+    const dana = list.partners.find((p) => p.name === 'Dana Test')!;
+    expect(dana).toMatchObject({ clients: 1, terms: 'Hasn’t accepted your terms yet' });
+    expect(dana.earned[0]).toBe('Earned $0');
+
+    // An ended partner is never offered on the Partner card, so marking one is refused before a card.
+    await run(registry.command('partner.update')!, {
+      workspaceId,
+      partnerId: leeId,
+      status: 'ended',
+    });
+    const kim = await customer('Kim');
+    await expect(
+      prepare('manage_partner', { action: 'set_referral', personId: kim, partnerId: leeId }),
+    ).rejects.toThrow('Lee Test’s partnership has ended');
+    expect(
+      (
+        await q<{ referredBy: unknown }>('partner.of_person', {
+          personId: kim,
+        })
+      ).referredBy,
+    ).toBeNull();
+  });
+
   it('changes one of an add-on’s own settings on Confirm, keeping the rest as they are', async () => {
     await rows(
       admin(),

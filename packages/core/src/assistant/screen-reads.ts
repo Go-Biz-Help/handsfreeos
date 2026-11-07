@@ -284,6 +284,10 @@ const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
     'These are the agency’s Saved setups (Agency area → Saved setups). do_ai_setup_template_save saves one from any of its businesses, and do_ai_setup_template_rename and do_ai_setup_template_delete rename and remove one; none of them changes a business.',
   'migration.get':
     'Its status comes with statusLabel, the words the move’s page shows, and each thing left to do with the link to its screen.',
+  'partner.get':
+    'Its answer reads as the partner’s page does: who they are, their share, their link and what they’ve earned, then how they’re paid (their bank and each payout), then their clients and each line of what they’ve earned, the newest first. A list too long to read whole is cut from its end, and its note says how many show.',
+  'import.get':
+    'Its answer comes as the import’s page shows it: its progress and result, then the rows that did not import, each with why. A wide sheet’s rows come without their own cells, keeping each row’s number and why. do_import_cancel stops one still going; rows already in stay.',
   'lead.board':
     'Its answer comes summed up as the board shows it: the open leads and their value, each stage’s count and total value (Won and Lost too), then each stage’s first 5 cards in order (shown with a stage’s id and a limit lists more of it). Pipeline ids are in its pipelines.',
   'schedule.team':
