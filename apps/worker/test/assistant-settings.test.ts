@@ -2242,8 +2242,91 @@ describe('your own account', () => {
     });
     expect(me.alerts.find((a) => a.title === 'A customer pays')).toMatchObject({ phone: false });
     expect(me.alwaysOn).toContain('Safety');
-    // No phone signed in to the app yet: phone alerts reach nobody, and the model can say so.
-    expect(result['phonesForAlerts']).toEqual([]);
+    // No phone signed in to the app yet: phone alerts reach nobody, and the note says how to fix it.
+    expect(result['phonesForAlerts']).toEqual({
+      phones: [],
+      note: expect.stringContaining('More, then Settings, then Notifications'),
+    });
+  });
+
+  it('reads only the rows their own screen has, and what else Settings → Account shows them', async () => {
+    const { result } = await readTool('get_settings', 'my_account', owner);
+    const me = result['me'] as Record<string, unknown> & {
+      alerts: { title: string }[];
+      appearance: { web: string; note: string };
+      sideMenu: { summary: string; asDrawn: string };
+      businesses: { name: string; role: string; current?: true; link: string }[];
+      organizations: { name: string; role: string }[];
+    };
+    // A founder owns an organization of one business: no agency digest, and never New support tickets.
+    const titles = me.alerts.map((a) => a.title);
+    expect(titles).not.toContain('Daily agency digest');
+    expect(titles).not.toContain('New support tickets');
+    // The saved settings themselves stay out: only what the screen says.
+    expect(me).not.toHaveProperty('settings');
+    expect(me['emailNote']).toContain('can’t be changed yet');
+    expect(me.appearance).toEqual({
+      web: 'System',
+      note: expect.stringContaining('phone app keeps its own'),
+    });
+    // The side menu as it's drawn, top to bottom.
+    expect(me.sideMenu.asDrawn).toMatch(/^Home, Inbox, .*Settings/);
+    expect(me.sideMenu.summary).toBeTruthy();
+    // The businesses switcher's list, with their role and the one asked from (renamed under "the business itself").
+    expect(me.businesses).toEqual([
+      {
+        name: `${businessName} & Plumbing`,
+        organization: expect.any(String),
+        role: 'Owner',
+        current: true,
+        link: `/app/w/${workspaceId}`,
+      },
+    ]);
+    expect(me.organizations).toEqual([{ name: expect.any(String), role: 'Owner' }]);
+    // No cell yet: the note hands over adding it.
+    expect(result['myCell']).toEqual({
+      number: null,
+      note: expect.stringContaining('My cell phone'),
+    });
+
+    const cell = `+1312555${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.user_phones (user_id, e164) values (${owner.id}, ${cell})`,
+    );
+    const waiting = (await readTool('get_settings', 'my_account', owner)).result['myCell'];
+    expect(waiting).toEqual({
+      number: expect.stringContaining(cell.slice(-4)),
+      state: 'Not verified yet',
+    });
+    await rows(
+      testDbs().admin.db,
+      sql`update app.user_phones set verified_at = '2026-03-04T18:00:00Z' where user_id = ${owner.id}`,
+    );
+    const verified = (await readTool('get_settings', 'my_account', owner)).result['myCell'];
+    expect(verified).toMatchObject({ state: 'Verified Wed, Mar 4' });
+    // Taken off again: the test text below asks for a phone when there's no confirmed cell.
+    await rows(testDbs().admin.db, sql`delete from app.user_phones where user_id = ${owner.id}`);
+  });
+
+  it('gives the steps they asked about: confirming their cell, not the first one', async () => {
+    const help = async (what?: string) => {
+      const tool = assistantToolByName.get('settings_help')!;
+      const args = tool.input.parse({ area: 'my_account', ...(what ? { what } : {}) });
+      const out = await createToolExecutor(api()).run(tool, args as never, ctxFor(owner));
+      return (out as { card: Extract<AssistantCard, { type: 'list' }> }).card;
+    };
+    expect((await help()).title).toBe('Change your password, Google sign-in or passkeys');
+    // Apple sign-in is the iPhone app's own, and the same card says where.
+    expect((await help('sign in with Apple')).items.map((i) => i.title)).toContain(
+      '3. Apple sign-in is on the iPhone app’s sign-in screen (Continue with Apple), not under Sign-in methods.',
+    );
+    // Named as the area says it, or in their own words.
+    expect((await help('confirm your cell number')).title).toBe('Confirm your cell number');
+    const cell = await help('how do I verify my cell?');
+    expect(cell.title).toBe('Confirm your cell number');
+    expect(cell.items.map((i) => i.title)).toContain('3. Answer the call and press 1.');
+    expect((await help('delete my account')).title).toBe('Delete your account');
   });
 
   it('turns one email off without touching the others, and keeps your name', async () => {
@@ -2252,9 +2335,14 @@ describe('your own account', () => {
       { morningEmail: false, appearance: 'dark' },
       owner,
     );
-    expect(card.fields.find((f) => f.label === 'Appearance')!.value).toBe('Dark');
-    expect(card.fields.find((f) => f.label === 'Email when: The morning list')!.value).toBe('No');
-    await confirm(tool!, parsed, owner);
+    // Each named as its row on Notifications, and the look said to be the web app's alone.
+    expect(card.fields.find((f) => f.label === 'Web app’s appearance')!.value).toBe('Dark');
+    expect(card.fields.find((f) => f.label === 'Email: Morning summary')!.value).toBe('Off');
+    expect(card.warnings.map((w) => w.text)).toContain(
+      'This changes the web app, for every browser you sign in on. The phone app keeps its own: set it on the phone under More → Settings → Appearance.',
+    );
+    const saved = await confirm(tool!, parsed, owner);
+    expect(saved.href).toBe(`/app/w/${workspaceId}/settings`);
 
     const me = await q<{ user: { fullName: string; settings: Record<string, unknown> } }>(
       'account.me',
@@ -2264,14 +2352,20 @@ describe('your own account', () => {
     const notifications = me.user.settings['notifications'] as Record<string, boolean>;
     expect(notifications['attentionDigest']).toBe(false);
 
-    // A second change leaves the first alone.
+    // A second change leaves the first alone, and opens Notifications itself, where the phone has a screen of it.
     const again = await prepare('update_my_account', { emailWhenPaid: false }, owner);
-    await confirm(again.tool!, again.parsed, owner);
+    expect(again.card.fields).toEqual([{ label: 'Email: A customer pays', value: 'Off' }]);
+    expect(again.card.warnings).toEqual([]);
+    const second = await confirm(again.tool!, again.parsed, owner);
+    expect(second.href).toBe(`/app/w/${workspaceId}/settings#notifications`);
     const after = await q<{ user: { settings: Record<string, unknown> } }>('account.me');
     const now = after.user.settings['notifications'] as Record<string, boolean>;
     expect(now['attentionDigest']).toBe(false);
     expect(now['paymentEmail']).toBe(false);
     expect(after.user.settings['theme']).toBe('dark');
+
+    // Nothing named, nothing to save: no empty card.
+    await expect(prepare('update_my_account', {}, owner)).rejects.toThrow('Nothing would change.');
   });
 });
 

@@ -1,7 +1,7 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
@@ -20,7 +20,7 @@
     "apps/mobile/src/components/shell/sign-out-sheet.tsx": "fc7991c49743",
     "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
     "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
-    "apps/mobile/src/links/route-map.ts": "adc8f8ea1435",
+    "apps/mobile/src/links/route-map.ts": "9eb25e09ee83",
     "apps/mobile/src/look/calls.ts": "839009430923",
     "apps/mobile/src/push/bell.ts": "05eae2e42ce5",
     "apps/mobile/src/push/buttons.ts": "53fafdb6a0c6",
@@ -171,22 +171,22 @@
       "path": "Web side menu → switcher → Find a workspace",
       "kind": "do",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:99",
-      "covered": "partly",
-      "by": "get_agency_area lists them, owners and admins only"
+      "covered": "yes",
+      "by": "get_settings my_account businesses: each one they’re in, with its organization and their role"
     },
     {
       "path": "Web side menu → switcher → No workspaces match.",
       "kind": "see",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:113",
-      "covered": "partly",
-      "by": "get_agency_area, owners and admins only"
+      "covered": "yes",
+      "by": "get_settings my_account businesses: one not listed isn’t theirs"
     },
     {
       "path": "Web side menu → switcher → organization header, you are Owner/Admin",
       "kind": "see",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:117",
-      "covered": "partly",
-      "by": "get_settings business role; get_agency_area name"
+      "covered": "yes",
+      "by": "get_settings my_account organizations, with their role"
     },
     {
       "path": "Web side menu → switcher → Agency area",
@@ -199,15 +199,15 @@
       "path": "Web side menu → switcher → each business, check on the current one",
       "kind": "see",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:135",
-      "covered": "partly",
-      "by": "get_agency_area (owners/admins); meShape drops the list"
+      "covered": "yes",
+      "by": "get_settings my_account businesses, current on this one"
     },
     {
       "path": "Web side menu → switcher → open another business",
       "kind": "do",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:135",
-      "covered": "no",
-      "by": "the Assistant works in one business; no switch tool"
+      "covered": "partly",
+      "by": "get_settings my_account businesses give each one’s link; settings-map How to: Switch business; the Assistant works in the business asked from"
     },
     {
       "path": "Web side menu → switcher → HandsFreeOS · staff role",
@@ -234,8 +234,8 @@
       "path": "Web side menu → switcher → Add a business → Organization",
       "kind": "do",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:272",
-      "covered": "partly",
-      "by": "add_business uses this business's organization only"
+      "covered": "yes",
+      "by": "add_business organization, by name, from get_settings my_account organizations"
     },
     {
       "path": "Web side menu → switcher → Add a business → Business name",
@@ -283,8 +283,8 @@
       "path": "Web side menu → switcher → Add a business → added toast, opens its setup",
       "kind": "see",
       "file": "apps/web/src/components/shell/workspace-switcher.tsx:250",
-      "covered": "partly",
-      "by": "add_business outcome: /app/w/<new>, not onboarding"
+      "covered": "yes",
+      "by": "add_business outcome and link: the guided setup (/onboarding/<new>)"
     },
     {
       "path": "Web side menu → places (Home, Inbox, Contacts … Settings)",
@@ -333,7 +333,7 @@
       "kind": "see",
       "file": "apps/web/src/components/shell/nav-links.tsx:713",
       "covered": "yes",
-      "by": "get_settings my_account settings.menu"
+      "by": "get_settings my_account sideMenu.asDrawn"
     },
     {
       "path": "Web side menu → foot → Add-ons",
@@ -360,15 +360,15 @@
       "path": "Web Settings → Account → Side menu → intro",
       "kind": "see",
       "file": "apps/web/src/components/settings/menu-section.tsx:16",
-      "covered": "partly",
-      "by": "arrange_my_menu description"
+      "covered": "yes",
+      "by": "get_settings my_account sideMenu note; arrange_my_menu description"
     },
     {
       "path": "Web Settings → Account → Side menu → summary of groups and hidden places",
       "kind": "see",
       "file": "apps/web/src/components/settings/menu-section.tsx:17",
       "covered": "yes",
-      "by": "get_settings my_account settings.menu"
+      "by": "get_settings my_account sideMenu.summary"
     },
     {
       "path": "Web Settings → Account → Side menu → Edit menu",
@@ -388,15 +388,15 @@
       "path": "Edit menu → Add a group",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:212",
-      "covered": "no",
-      "by": "arrange_my_menu can't add groups"
+      "covered": "yes",
+      "by": "arrange_my_menu group: a new group when none is called that"
     },
     {
       "path": "Edit menu → Add a group → limit reached",
       "kind": "see",
       "file": "apps/web/src/components/shell/menu-editor.tsx:217",
-      "covered": "no",
-      "by": "no group tool"
+      "covered": "yes",
+      "by": "arrange_my_menu refuses a sixth group"
     },
     {
       "path": "Edit menu → Use suggested groups",
@@ -417,42 +417,42 @@
       "kind": "see",
       "file": "apps/web/src/components/shell/menu-editor.tsx:242",
       "covered": "yes",
-      "by": "get_settings my_account settings.menu"
+      "by": "get_settings my_account sideMenu.asDrawn"
     },
     {
       "path": "Edit menu → group → name (rename)",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:269",
-      "covered": "no",
-      "by": "arrange_my_menu can't rename groups"
+      "covered": "yes",
+      "by": "arrange_my_menu rename_group"
     },
     {
       "path": "Edit menu → group → N places",
       "kind": "see",
       "file": "apps/web/src/components/shell/menu-editor.tsx:277",
       "covered": "yes",
-      "by": "settings.menu groups"
+      "by": "get_settings my_account sideMenu.asDrawn, each group with its places"
     },
     {
       "path": "Edit menu → group → Ungroup",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:286",
-      "covered": "no",
-      "by": "arrange_my_menu can't ungroup"
+      "covered": "yes",
+      "by": "arrange_my_menu ungroup"
     },
     {
       "path": "Edit menu → group → empty group note",
       "kind": "see",
       "file": "apps/web/src/components/shell/menu-editor.tsx:297",
       "covered": "yes",
-      "by": "settings.menu groups"
+      "by": "an empty group is dropped on save, so a saved menu never has one; arrange_my_menu group makes one with places"
     },
     {
       "path": "Edit menu → place → Move up / Move down",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:50",
-      "covered": "no",
-      "by": "arrange_my_menu can't reorder"
+      "covered": "yes",
+      "by": "arrange_my_menu move: just above another place"
     },
     {
       "path": "Edit menu → place → Move to → In the menu / Hidden",
@@ -465,22 +465,22 @@
       "path": "Edit menu → place → Move to → a group / Add a group",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:122",
-      "covered": "no",
-      "by": "arrange_my_menu can't move into groups"
+      "covered": "yes",
+      "by": "arrange_my_menu group and move"
     },
     {
       "path": "Edit menu → an add-on's row → hide or show",
       "kind": "do",
       "file": "apps/web/src/components/shell/menu-editor.tsx:73",
-      "covered": "no",
-      "by": "MENU_KEYS are core places only"
+      "covered": "yes",
+      "by": "arrange_my_menu places take addon:<id>"
     },
     {
       "path": "Edit menu → Hidden list / Nothing hidden.",
       "kind": "see",
       "file": "apps/web/src/components/shell/menu-editor.tsx:324",
       "covered": "yes",
-      "by": "settings.menu hidden"
+      "by": "get_settings my_account sideMenu.asDrawn: hidden"
     },
     {
       "path": "Edit menu → hidden hint (Home and Settings stay)",
@@ -801,8 +801,8 @@
       "path": "Web Settings → Account → Profile → initials note",
       "kind": "see",
       "file": "apps/web/src/components/settings/profile-form.tsx:45",
-      "covered": "partly",
-      "by": "fullName; initials not said"
+      "covered": "yes",
+      "by": "settings-map my_account onScreen and Not in HandsFreeOS: initials stand in for a photo"
     },
     {
       "path": "Web Settings → Account → Profile → Full name",
@@ -822,8 +822,8 @@
       "path": "Web Settings → Account → Profile → email change hint",
       "kind": "see",
       "file": "apps/web/src/components/settings/profile-form.tsx:64",
-      "covered": "no",
-      "by": "no tool says it"
+      "covered": "yes",
+      "by": "get_settings my_account emailNote; settings-map Not in HandsFreeOS; update_my_account description"
     },
     {
       "path": "Web Settings → Account → Profile → Save changes",
@@ -836,8 +836,8 @@
       "path": "Web Settings → Account → Appearance → words",
       "kind": "see",
       "file": "apps/web/src/components/settings/appearance-section.tsx:33",
-      "covered": "partly",
-      "by": "update_my_account description"
+      "covered": "yes",
+      "by": "get_settings my_account appearance note; update_my_account description and card note"
     },
     {
       "path": "Web Settings → Account → Appearance → Light / Dark / System",
@@ -851,7 +851,7 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/appearance-section.tsx:75",
       "covered": "yes",
-      "by": "get_settings my_account settings.theme"
+      "by": "get_settings my_account appearance.web"
     },
     {
       "path": "Web Settings → Account → Sign-in methods → Keep at least two",
@@ -1109,8 +1109,8 @@
       "path": "Phone Settings → Notifications → This phone section",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/notifications.tsx:110",
-      "covered": "partly",
-      "by": "phonesForAlerts; not this phone's state"
+      "covered": "yes",
+      "by": "places-map PHONE_APP Notifications line; settings-map How to: not getting notifications on the phone"
     },
     {
       "path": "Phone Settings → Notifications → Email only section",
@@ -1145,7 +1145,7 @@
       "kind": "see",
       "file": "apps/mobile/src/components/shell/this-phone.tsx:16",
       "covered": "partly",
-      "by": "phonesForAlerts lists phones, not this one's state"
+      "by": "PHONE_APP Notifications line names each state and its button; the state itself is only on that phone"
     },
     {
       "path": "This phone → Turn on notifications",
@@ -1187,14 +1187,14 @@
       "kind": "see",
       "file": "apps/web/src/components/settings/my-cell-section.tsx:176",
       "covered": "yes",
-      "by": "read_user_phone_get phone, verifiedAt"
+      "by": "get_settings my_account myCell; read_user_phone_get"
     },
     {
       "path": "My cell → Verified badge",
       "kind": "see",
       "file": "apps/web/src/components/settings/my-cell-section.tsx:185",
       "covered": "yes",
-      "by": "read_user_phone_get verifiedAt"
+      "by": "get_settings my_account myCell state: Verified on a day"
     },
     {
       "path": "My cell → Your cell number + Verify my cell",
@@ -1452,8 +1452,8 @@
       "path": "Phone More → person card → Switch",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:88",
-      "covered": "no",
-      "by": "no switch tool"
+      "covered": "partly",
+      "by": "places-map PHONE_APP top-bar line and settings-map How to say where; get_settings my_account businesses give each one’s link"
     },
     {
       "path": "Phone More → add-on places",
@@ -1564,8 +1564,8 @@
       "path": "Phone More → Open on the web",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx:231",
-      "covered": "no",
-      "by": "no web link to the app"
+      "covered": "yes",
+      "by": "asked on the phone, the question’s words give the web app’s address and this business’s Settings → Account on it"
     },
     {
       "path": "Phone Settings → search settings and results",
@@ -1655,15 +1655,15 @@
       "path": "Phone Settings → You → Appearance sheet → words",
       "kind": "see",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:322",
-      "covered": "partly",
-      "by": "update_my_account description"
+      "covered": "yes",
+      "by": "places-map PHONE_APP Settings line; settings-map How to: dark mode on the phone"
     },
     {
       "path": "Phone Settings → You → Appearance sheet → Light / Dark / System",
       "kind": "do",
       "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx:323",
-      "covered": "partly",
-      "by": "update_my_account sets the account theme; phone keeps its own"
+      "covered": "person",
+      "by": "kept on that phone alone: asked on the phone, the Assistant says where (More → Settings → Appearance); update_my_account changes only the web’s and its card says so"
     },
     {
       "path": "Phone Settings → Sign out",
@@ -1718,22 +1718,22 @@
       "path": "Phone switcher → each business: name, org · you are Role",
       "kind": "see",
       "file": "apps/mobile/src/components/shell/business-list.tsx:84",
-      "covered": "partly",
-      "by": "get_agency_area (owners/admins); current via get_settings"
+      "covered": "yes",
+      "by": "get_settings my_account businesses: name, organization and role"
     },
     {
       "path": "Phone switcher → Open a business",
       "kind": "do",
       "file": "apps/mobile/src/components/shell/business-list.tsx:94",
-      "covered": "no",
-      "by": "no switch tool"
+      "covered": "partly",
+      "by": "get_settings my_account businesses give each one’s link; PHONE_APP top-bar line says how"
     },
     {
       "path": "Phone switcher → can't switch while offline toasts",
       "kind": "see",
       "file": "apps/mobile/src/components/shell/business-switcher.tsx:34",
-      "covered": "no",
-      "by": "no switch tool"
+      "covered": "yes",
+      "by": "PHONE_APP top-bar line: a business not kept on this phone opens only with signal"
     },
     {
       "path": "Phone switcher and Settings → Businesses → Keep on this phone switch",
@@ -1760,8 +1760,8 @@
       "path": "Phone app bar → business mark opens the switcher",
       "kind": "do",
       "file": "apps/mobile/src/components/shell/app-bar.tsx:71",
-      "covered": "no",
-      "by": "no switch tool"
+      "covered": "partly",
+      "by": "PHONE_APP top-bar line says the mark opens the Businesses sheet"
     },
     {
       "path": "Phone app bar → Ask",
@@ -1851,8 +1851,8 @@
       "path": "Push button → Still there",
       "kind": "do",
       "file": "apps/mobile/src/push/buttons.ts:111",
-      "covered": "no",
-      "by": "no tool for appointment.still_going"
+      "covered": "yes",
+      "by": "do_appointment_still_going"
     },
     {
       "path": "Push button → I'm OK",
@@ -1921,8 +1921,8 @@
       "path": "Phone links → web-only pages open the browser",
       "kind": "do",
       "file": "apps/mobile/src/links/route-map.ts:174",
-      "covered": "no",
-      "by": "no web link given"
+      "covered": "partly",
+      "by": "asked on the phone, the question’s words give the web app’s address and say what only the web does"
     },
     {
       "path": "Phone links → This phone has no web browser",
@@ -1946,8 +1946,8 @@
       "kind": "words",
       "where": "Settings → Account, Notifications (web) and More → Settings → Notifications (phone): the alert rows. There is no quiet-hours or do-not-disturb setting for a person's own alerts, and the urgent kinds break through Focus.",
       "gap": "Real part: nothing the Assistant has says that a person's own alerts have no quiet hours, or that urgent, customer-waiting and safety pushes are time-sensitive and break through an iPhone's Focus. The only quiet-hours line is LOOK_ALIKES 'Quiet hours: only Settings → Texting & calls, in Texting rules.' A 'stop my notifications at night' question can therefore be steered to the business's customer quiet hours (update_texting_settings quietHoursStart). Refuted part: the Assistant already knows that add-on alerts that aren't critical wait for open hours. get_settings my_account returns every alert with `about` = the row description, which includes 'Critical ones at any hour; the rest while the business is open.' The settings catalogue's 'do not disturb'/'night' words never reach the Assistant; only settings search uses them.",
-      "fix": "In packages/core/src/assistant/places-map.ts LOOK_ALIKES, replace the quiet-hours line with: 'Quiet hours: only for what goes to customers, Settings → Texting & calls, in Texting rules. A person’s own alerts have none: they turn kinds off in Settings → Account (Notifications), or use the phone’s own Focus or Do Not Disturb; on an iPhone, Urgent items, A customer waiting on a reply and safety check-ins still break through Focus.' Add the same 'quiet hours for your own alerts (there are none; use the phone’s Focus)' line to settings-map.ts my_account as notHere.",
-      "status": "open",
+      "fix": "Fixed: LOOK_ALIKES’ quiet-hours line now says quiet hours are only for what goes to customers (Settings → Texting & calls, in Texting rules), that a person’s own alerts have none, and what to do instead: turn a kind off in Settings → Account (Notifications), or on the phone in More → Settings → Notifications, or use the phone’s own Focus or Do Not Disturb; on an iPhone, Urgent items and safety check-ins can still break through Focus. settings-map my_account says the same as a How to line and lists quiet hours for your own alerts under Not in HandsFreeOS; update_my_alerts’ description says it has no quiet hours.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1956,8 +1956,8 @@
       "kind": "words",
       "where": "Phone: More → Settings → Appearance sheet (System / Light / Dark), saved on the phone itself. Web: Settings → Account → Appearance, saved to the account.",
       "gap": "update_my_account's appearance writes only users.settings.theme through user.update_profile. That is the web's setting. The phone keeps its own choice in deviceStore under key 'appearance' and never reads settings.theme. Asked on the phone for dark mode, the Assistant shows a card, the person confirms, the result says 'Saved', and the phone doesn't change. The tool calls it 'whether the app is light or dark'. The card labels system 'Whatever this device is set to', while the screens say 'System'.",
-      "fix": "In packages/core/src/assistant/tools.ts update_my_account, describe appearance as 'the web app’s look, saved to the account for every browser they sign in on; the phone app’s is set on each phone under More → Settings → Appearance'. In apps/worker/src/assistant/tools-settings-me.ts, replace APPEARANCE_WORDS with core's APPEARANCE_LABELS ('System'), and add a card note when appearance is set: 'This changes the web app. On the phone, set it under More → Settings → Appearance.' Add the same fact to PHONE_APP's Settings line.",
-      "status": "open",
+      "fix": "Fixed: update_my_account calls its appearance the web app’s look, saved to the account for every browser they sign in on, never the phone app’s. Its card names the field Web app’s appearance and carries a note that the phone keeps its own, under More → Settings → Appearance. Asked on the phone (acct-4), the question’s words say the phone’s Appearance is kept on that phone and no tool changes it, so the model says where it is rather than writing a value the phone ignores. get_settings my_account reads appearance as the web’s choice with that note, and settings-map has a How to line for dark mode on the phone. apps/worker/test/assistant-settings.test.ts checks the card’s label and note.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1966,8 +1966,8 @@
       "kind": "words",
       "where": "Settings → Account → Notifications, the Email column: 'Urgent items' (email), 'A customer waiting on a reply' (push only, Email —), 'Your appointments', 'A customer pays', 'Morning summary', 'The AI teammate hands you a conversation'",
       "gap": "update_my_account's email fields don't carry the rows' titles. emailWhenCustomerWaiting has no description, but it switches unansweredEmail, which is the 'Urgent items' email (hot leads, unanswered new leads and customers left waiting). The row titled 'A customer waiting on a reply' has no email at all. get_settings returns the rows by their titles, so the model has to guess that 'Urgent items' email = emailWhenCustomerWaiting, and turning it off also stops the hot-lead email. The card labels ('A customer is waiting', 'The morning list', 'Your AI hands a customer over', 'Someone books', 'Someone pays') match neither the rows nor what get_settings says. The 'urgent' kind is labelled correctly only in update_my_alerts. Severity lowered: the switch it toggles does include customers left waiting.",
-      "fix": "In packages/core/src/assistant/tools.ts, describe each update_my_account email field with its row title: emailWhenCustomerWaiting 'The Urgent items email: hot leads, new leads nobody answered, customers left waiting (A customer waiting on a reply has no email)'; morningEmail 'Morning summary'; eveningEmail 'End-of-day email'; emailWhenAiHandsOver 'The AI teammate hands you a conversation'; emailWhenBooked 'Your appointments'; emailWhenPaid 'A customer pays'. In apps/worker/src/assistant/tools-settings-me.ts EMAIL_SWITCHES, take each label from NOTIFICATION_ROWS/EMAIL_ONLY_ROWS by email key, so the card says 'Email: Urgent items'. Optionally rename the input to urgentItemsEmail and update SETTING_TOOLS 'notifications.urgent'.",
-      "status": "open",
+      "fix": "Fixed: each update_my_account email field is described by its row on Notifications: emailWhenCustomerWaiting is the Urgent items email (hot leads, new leads nobody answered and customers left waiting), then Morning summary, End-of-day email, The AI teammate hands you a conversation, Your appointments, A customer pays and An add-on needs you. The card takes each label from NOTIFICATION_ROWS and EMAIL_ONLY_ROWS (“Email: Morning summary”, On or Off). update_my_alerts’ PUSH_WORDS names every kind by its row, add-ons included. apps/worker/test/assistant-settings.test.ts checks “Email: Morning summary” and “Email: A customer pays”.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1976,8 +1976,8 @@
       "kind": "words",
       "where": "The phone app's Ask HandsFreeOS, answering about any of this area's screens (Notifications, Appearance, My cell phone, switching businesses, the side menu)",
       "gap": "The phone and the web post the same body to the same endpoint, /v1/assistant/messages: text, page and spoken. AssistantAskInput has no field for which app asked, and nothing in questionContext or PromptContext records it. The prompt calls the places 'the web app’s screens'. PHONE_APP is in the prompt, but the model can't tell when to use it. A phone user gets web ways ('Settings → Account (Notifications)', 'press the business name at the top of the side menu'), and arrange_my_menu changes a side menu the phone doesn't have.",
-      "fix": "Add `app: z.enum(['web','phone']).default('web')` to AssistantAskInput in packages/core/src/schemas/assistant.ts. Send app: 'phone' from apps/mobile/src/assistant/chat.ts (beside page and spoken), pass it through routes.ts into PromptContext, and add to the per-question part of the prompt: 'They are asking from the phone app: give the phone’s way (the phone app lines) first, and say when something is only on the web (More, then Open on the web).'",
-      "status": "open",
+      "fix": "Fixed: AssistantAskInput takes app, web or phone (the web when it’s left out; one it can’t read counts as the web rather than refusing the question). The phone sends app: 'phone'. The route then adds fromPhone to that question’s words only (turnText), never to the cached lasting part: give the phone’s way first, the web app’s address and this business’s Settings → Account on it for what only the web does, the phone has no side menu, and its Appearance is kept on that phone and no tool changes it. Tests: packages/core/test/assistant-words.test.ts (the field), apps/worker/test/assistant-prompt.test.ts (the words, and the lasting text unchanged) and the phone’s leave.test.tsx (the question says app: 'phone').",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1986,8 +1986,8 @@
       "kind": "read",
       "where": "Settings → Account → Notifications (web) and phone Notifications: 'New support tickets' shows only to HandsFreeOS support people, and 'Daily agency digest' only to owners and admins of an organization with more than one business",
       "gap": "The screens filter rows: the web uses (agency || !row.agencyOnly) && (staff || !row.staffOnly), and the phone does the same. get_settings my_account returns every row, including 'New support tickets' (flagged supportOnly) and 'Daily agency digest', to everyone. update_my_alerts' description, the same for every person, names 'supportTickets: a new HandsFreeOS support ticket (HandsFreeOS support people only)', and its enum accepts it. That breaks the settled rule that staff tools are never mentioned to anyone else. The digest warning checks `!me.organizations.length`, which never fires for a founder, who always owns an organization of one; it should use managesAnAgency. PUSH_WORDS leaves out the `addons` kind, though the enum and PUSH_LABELS have it.",
-      "fix": "In apps/worker/src/assistant/tools-settings.ts meShape, filter notificationStates: drop supportOnly rows unless the context's staffRole is set, and drop agencyOnly rows unless managesAnAgency({ organizations: me.organizations, businesses: me.workspaces }). In packages/core/src/assistant/tools-extra.ts, take supportTickets out of PUSH_WORDS and add 'addons: an add-on the business uses needs them (a duty running late, a deal at risk)'. In the worker's updateMyAlerts.prepare, refuse supportTickets in turnOn/turnOff for anyone who isn't staff, as if it weren't a choice. Replace `digest && !me.organizations.length` with `digest && !managesAnAgency(...)`. Done already, in the staff work: New support tickets. get_settings my_account leaves that row and its switch out for anyone who isn’t HandsFreeOS staff, update_my_alerts no longer takes or names it, and update_my_support_alerts (support.read) does. The agency digest row, its warning and the addons kind are still to do.",
-      "status": "open",
+      "fix": "Fixed: get_settings my_account (apps/worker/src/assistant/my-account.ts) gives only the rows their own Notifications has: New support tickets only to HandsFreeOS support people, and Daily agency digest only when managesAnAgency says they run an organization of more than one business. The raw settings are gone, so neither switch’s key reaches anyone else. update_my_alerts refuses agencyDigestEmail to anyone without the row (rule not_an_agency, on the card and again on Confirm), in place of the note that never fired for a founder. PUSH_WORDS names addons. New support tickets’ switch is on its own staff tool (the HandsFreeOS staff step). Tests: assistant-settings (a founder sees neither row), assistant-extra (refused for one business, turned off once the organization runs two) and assistant-staff.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1996,8 +1996,8 @@
       "kind": "do",
       "where": "Settings → Account → Side menu → Edit menu sheet: Move up / Move down on each place and group, 'Move to' (In the menu / a group / Add a group / Hidden), Add a group, the group's name (rename), Ungroup",
       "gap": "The Edit menu sheet can move places and groups up or down, move a place into or out of a group, add a group, rename one and ungroup it. arrange_my_menu offers only hide, show, use_suggested and start_over. Yet EVERY_PAGE and settings-map my_account onScreen tell the Assistant that people 'reorder, group or hide places'. 'Move Money above Pipeline' or 'put Forms and Reviews in a group called Office' has no tool. No screen action covers it either: user.update_profile is one of the Assistant's own commands, not a do_ tool.",
-      "fix": "Extend arrange_my_menu in packages/core/src/assistant/tools-extra.ts with actions 'move' (places + before/after a MENU_KEY, or direction up/down), 'group' (places + groupLabel ≤ MENU_GROUP_LABEL_MAX; makes the group when it's new, refused past MENU_GROUPS_MAX), 'rename_group' (groupLabel + newLabel) and 'ungroup' (groupLabel). Implement them in nextMenu in apps/worker/src/assistant/tools-extra.ts with core's moveEntry/moveInGroup/moveKey(…, {group})/addGroup/renameGroup/ungroup, finding groups by label, and update settings-map my_account canChange to match.",
-      "status": "open",
+      "fix": "Fixed in the Home step: arrange_my_menu moves places (just above another place, or out of their group), puts places into a group by name (five groups at most), renames or ungroups a group, as well as hiding, showing, the suggested groups and starting over. get_settings my_account now reads the menu as it’s drawn (acct-17).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2006,8 +2006,8 @@
       "kind": "do",
       "where": "Edit menu sheet: an add-on's row (e.g. Real Estate) in the menu, with Hidden in its 'Move to' picker",
       "gap": "The editor holds running add-ons' places (`addon:<id>`, via withAddonPlaces/menuPlaceOpen), each with Hidden in its Move to picker. arrange_my_menu's places is z.enum(MENU_KEYS), core's 17 places only, and MENU_LABELS has no add-on names. So 'hide Real Estate from my menu' can't be done or even named.",
-      "fix": "In packages/core/src/assistant/tools-extra.ts, let places accept `addon:<id>` (z.union of z.enum(MENU_KEYS) and a regex /^addon:[a-z]{2,16}$/). In apps/worker/src/assistant/tools-extra.ts nextMenu, start from withAddonPlaces(menuOf(settings), permissions, menuAddons(workspace.addons)), refuse keys where !menuPlaceOpen(key, permissions, running), and label each from the add-on catalogue's manifest name. List the open add-on places in the tool result or description.",
-      "status": "open",
+      "fix": "Fixed in the Home step: arrange_my_menu’s places take an add-on running here as addon:<its id>, and its card names the add-on. get_settings my_account’s side menu shows add-on places as they’re drawn.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2016,8 +2016,8 @@
       "kind": "read",
       "where": "Web: the business name at the top of the side menu (switcher), which lists every business grouped by organization ('· you are Owner/Admin', Agency area). Phone: More → Switch → Businesses sheet ('<organization> · you are <role>', Open)",
       "gap": "account.me returns organizations and workspaces (name, organizationName, role). meShape keeps only fullName, email, settings and alerts, by design ('the businesses they reach the model never needs'). account.me isn't a screen read, and the context gives only the current business. get_agency_area covers only this business's organization, needs workspace.update, and isn't the person's own list. 'Which businesses am I in?', 'what's my role at Bayou Plumbing?' and a link to another business can't be answered, though the switcher shows all of it. Reading the list isn't 'stepping into another business': the person still presses the link.",
-      "fix": "In apps/worker/src/assistant/tools-settings.ts meShape, add businesses: me.workspaces.map(w => ({ name: w.name, organization: w.organizationName, role: ROLE_LABELS[w.role], current: w.id === ctx.workspaceId, href: `/app/w/${w.id}` })) and organizations: me.organizations.map(o => ({ name: o.name, role: o.role })). meShape will need ctx passed in. Delete the 'never needs' comment, and add 'the businesses you’re in and your role in each' to settings-map my_account onScreen/what.",
-      "status": "open",
+      "fix": "Fixed: get_settings my_account lists the businesses switcher’s list: each business they’re in, with its organization, their role (Owner, Admin or Member), current on the one asked from, and its link; and the organizations they own or run, with their role, which are where add_business can add one. apps/worker/test/assistant-settings.test.ts checks the list for a founder.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2026,8 +2026,8 @@
       "kind": "words",
       "where": "Phone: switching businesses. The business mark at the top left of every screen, or More → Switch, opens the 'Businesses' sheet, each business with Keep on this phone",
       "gap": "The phone switches businesses from the business mark at the top left of every screen, or the Switch button on More's profile card. Either opens the 'Businesses' sheet, where a business not kept on the phone opens only with signal. PHONE_APP says nothing about switching. The only words the Assistant has are EVERY_PAGE's web ones ('the business name… press it to switch businesses'). Lowered to low: Switch sits on the More screen's first card, and this is best fixed in the same PHONE_APP rewrite as acct-10.",
-      "fix": "Add to PHONE_APP in packages/core/src/assistant/places-map.ts: 'Switch business: the business mark at the top left of any screen, or More, then Switch on your card; a business opens with no signal only if it’s kept on this phone (More → Settings → Businesses on this phone).'",
-      "status": "open",
+      "fix": "Fixed: PHONE_APP’s top-bar line says how to switch: the business’s mark, or Switch on their card at the top of More, opens the Businesses sheet with each one’s role, Open and Keep on this phone; a business not kept on the phone opens only with signal, and More → Settings → Businesses on this phone lists the same switches. settings-map my_account has a Switch business How to line for the web and the phone.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2036,8 +2036,8 @@
       "kind": "words",
       "where": "Phone: More screen rows",
       "gap": "PHONE_APP's More line ('Contacts, Tasks, Money, Forms, Approvals, Test your AI teammate, Settings, Ideas, Get help, and Open on the web') leaves out several rows: Switch on the profile card, add-ons' own places at the top, Changes on this phone, Documents (for whoever can send them), Set up your AI teammate, Run quick setup again, View as a teammate (canViewAs), and Add-ons (managesAddons). 'Only on the web: … the AI teammate’s settings' contradicts the phone's quick setup at More → Set up your AI teammate / Run quick setup again. The Assistant will tell phone users these aren't on the phone.",
-      "fix": "Rewrite PHONE_APP's More line in packages/core/src/assistant/places-map.ts from more.tsx, in MORE_WORDS/AI_SETUP_WORDS/VIEW_AS_PHONE_WORDS/ADDON_PHONE_WORDS labels: 'More: your card with Switch; any add-on’s places; Changes on this phone; Contacts, Tasks, Money, Forms, Documents (whoever sends them), Approvals, Set up your AI teammate or Test your AI teammate and Run quick setup again, View as a teammate (owners and admins), Settings; then Add-ons (whoever manages them), Ideas, Get help and Open on the web.' Change 'Only on the web' to say the AI teammate's quick setup is on the phone too, and only its other settings are on the web. Leave out the staff Support desk.",
-      "status": "open",
+      "fix": "Fixed in the Home step: PHONE_APP’s More line lists every row top to bottom: Switch, each add-on’s places, Changes on this phone, Contacts, Tasks, Money, Forms, Documents, Approvals, Set up or Test your AI teammate and Run quick setup again, View as a teammate, Settings, Add-ons, Ideas, Get help and Open on the web.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2046,8 +2046,8 @@
       "kind": "words",
       "where": "Phone: More → Settings (Search settings; This phone: My cell phone, Unlock with Face ID, Businesses on this phone, Documents on mobile data, Changes on this phone; This business: Usage & balance, Main offer, Partners; You: My safety, Notifications, Profile and sign-in (opens the web), Appearance; Sign out; Delete my account)",
       "gap": "Real part: prompt.ts:38 says 'the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web'. The phone's Settings also has This business: Usage & balance, Main offer and Partners. PHONE_APP:626 lists Usage & balance but leaves out Main offer, Partners, My safety, Documents on mobile data, Changes on this phone and 'Profile and sign-in', which opens the web. 'Can I change the main offer on my phone?' gets a wrong 'on the web'. Refuted part: 'where do I pick my safety contacts on the phone' is already answered. settings-map safety howTo says 'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety', and settingsMapText puts it in the prompt.",
-      "fix": "Change prompt.ts:38's last sentence to: 'These are the web app’s screens; the phone app’s Settings holds the person’s own things and this phone’s, plus this business’s balance, main offer and partners, and the rest of the business is set up on the web.' Rewrite PHONE_APP:626 by group: 'Its Settings: This phone (My cell phone, Unlock with Face ID or a fingerprint, Businesses on this phone, Documents on mobile data, Changes on this phone); This business, when they may see it (Usage & balance, Main offer, Partners); You (My safety, Notifications, Profile and sign-in, which opens the web, Appearance); Sign out; Delete my account'.",
-      "status": "open",
+      "fix": "Fixed: the prompt now says the phone app’s Settings holds the person’s own things and this phone’s (their cell, Face ID, the businesses kept on it, My safety, notifications and the phone’s own appearance) and, under This business, Usage & balance, Main offer and Partners. PHONE_APP’s Settings line lists the screen by its groups (This phone, This business, You), then Sign out and Delete my account.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2056,8 +2056,8 @@
       "kind": "words",
       "where": "Phone: More → Settings → Notifications → This phone: 'Notifications on this phone' (On / Off / Not turned on / Waiting for signal / Not added / Not in this build), with Turn on notifications, Open the phone's settings or Try again; the 'On N phones' badge",
       "gap": "The phone's More → Settings → Notifications starts with 'This phone': 'Notifications on this phone' says On, Off, Not turned on, Waiting for signal, Not added or Not in this build, with Turn on notifications, Open the phone’s settings or Try again. Below it are the 'Push and email' grid (with an 'On N phones' badge) and 'Email only'. The Assistant sees only phonesForAlerts (device names and last seen) from push_device.list, and update_my_alerts warns only when there are no phones. settings-map my_account has no howTo, so 'why don't I get notifications on my phone?' can only be sent to the web's Settings → Account.",
-      "fix": "Add howTo to settings-map.ts my_account: 'Not getting notifications on the phone: in the phone app, More, then Settings, then Notifications; This phone says whether it gets them; press Turn on notifications, or Open the phone’s settings when they’re off there'. In tools-settings.ts my_account, have the phonesForAlerts shape add a note when the list is empty: 'No phone gets their alerts yet: they sign in on the HandsFreeOS phone app and allow notifications there.' Mention 'Push and email' and 'Email only' in PHONE_APP's Notifications.",
-      "status": "open",
+      "fix": "Fixed: PHONE_APP has a Notifications line: This phone, with each state it shows and its button (Turn on notifications, Open the phone’s settings, Try again), then Push and email (with On N phones) and Email only, the same switches as the web’s. settings-map my_account has a How to line for not getting notifications on the phone, and get_settings my_account’s phonesForAlerts says how to turn them on there when no phone gets them.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2066,8 +2066,8 @@
       "kind": "words",
       "where": "The bell ('Notifications'): beside the HandsFreeOS mark at the top of the side menu, and in the phone-width header. Its sheet has Needs you (add-ons' alerts), Recent, Show older, 30 days.",
       "gap": "Refuted part: what is in the bell. read_notification_list (screen read notification.list) is described as 'what HandsFreeOS sent to your phone about it in the last 30 days … and how many are new'. Real part: nothing says where the bell is. On the web it's beside the HandsFreeOS mark at the top of the side menu (and in the phone-width header); the phone has it in the app bar. Nothing names its 'Needs you' (add-ons' alerts) and 'Recent' groups or 'Show older' either. EVERY_PAGE's top line skips the bell, and the prompt forbids naming places it isn't given.",
-      "fix": "Add to the start of EVERY_PAGE's top line in packages/core/src/assistant/places-map.ts: 'Beside the HandsFreeOS mark at the top of the side menu: the bell (Notifications), with what HandsFreeOS sent to their phones about this business in the last 30 days, add-ons’ alerts under Needs you, then Recent and Show older; its number is how many are new'. Add 'The bell at the top of the business’s screens: the same Notifications list' to PHONE_APP.",
-      "status": "open",
+      "fix": "Fixed in the Home step: EVERY_PAGE says where the bell is (beside the HandsFreeOS name at the top of the side menu, in the bar along the top on a narrow screen and on the phone) and what Notifications shows.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2076,8 +2076,8 @@
       "kind": "words",
       "where": "Settings → Account: the person-only steps (sign-in methods, confirm your cell number, delete your account)",
       "gap": "settings_help takes only `area`, and helpCard always builds the card from info.handovers[0]. For my_account that's 'Change your password, Google sign-in or passkeys'. Asked 'how do I verify my cell?' or 'how do I delete my account?', the person gets a card with the password steps, while the text, built from the full theyDoThemselves list, says something else. The same goes for every area with more than one handover.",
-      "fix": "In packages/core/src/assistant/tools.ts settings_help, add an optional `what: text(120)` (described 'which of the area’s handovers, in its words, like confirm your cell number'). In apps/worker/src/assistant/tools-settings.ts, have helpCard(workspaceId, info, what) pick info.handovers.find(h => h.what === what) (or the best word match), falling back to handovers[0].",
-      "status": "open",
+      "fix": "Fixed: settings_help takes what (which of the area’s steps they asked about), and its card shows that one: the one named as the area says it, else the one sharing most words with what was asked (“how do I verify my cell?” is confirm your cell number), else the first. apps/worker/test/assistant-settings.test.ts checks the password, cell and delete cards.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2086,8 +2086,8 @@
       "kind": "words",
       "where": "Phone: Open on the web (More) and Profile and sign-in (Settings) open the web app; the delete-account page's 'public page'",
       "gap": "The Assistant is never given the web app's address. Tool hrefs are paths, and webUrl reaches only the forms and write tools that send customer links, never the prompt. When it sends a phone user to the web (sign-in methods, the side menu, Delete my account), it can only say 'More, then Open on the web' and can't write the link. The prompt's one example link, https://handsfreeos.com/book/acme, uses the marketing site's domain. Booking pages are served by apps/web (app/book), which the phone config puts at app.handsfreeos.com.",
-      "fix": "Pass the worker's webUrl into PromptContext and say it once per question: 'The web app is at <webUrl>; this business’s Settings → Account is <webUrl>/app/w/<workspaceId>/settings.' In prompt.ts:49, change the example to a link that really exists, such as 'https://app.handsfreeos.com/book/acme', or a neutral one like https://example.com/page.",
-      "status": "open",
+      "fix": "Fixed: asked on the phone (acct-4), the question’s words give the web app’s address and this business’s Settings → Account on it, with what only the web does there (sign-in methods, the side menu, the web’s Appearance). Asked on the web, the person is already there.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2096,8 +2096,8 @@
       "kind": "words",
       "where": "Foot of the side menu: the person's name opens the account menu with 'Sell HandsFreeOS' and Sign out. Add-ons and Ideas sit above Get help.",
       "gap": "Real part: the name at the foot of the side menu opens the account menu with 'Sell HandsFreeOS' (/affiliate) and Sign out. EVERY_PAGE's bottom line ('Turn on calls…, Get help…, and Sign out') never mentions that menu, and no APP_PLACES entry covers /affiliate. The Assistant can do_affiliate_apply and make codes, but can't say where the page is; affiliate.apply's own warning even says 'on your affiliate page'. Refuted part: Add-ons is located ('Open Add-ons, at the bottom of the side menu', settings-map add_ons), and Ideas is an APP_PLACES place. Lowered to low: the Assistant can do the affiliate steps itself.",
-      "fix": "Change EVERY_PAGE's bottom line in packages/core/src/assistant/places-map.ts to: 'Bottom of the side menu: Add-ons (whoever manages them) and Ideas, Turn on calls in this browser, Get help, and your name, which opens Sell HandsFreeOS and Sign out'. Add an APP_PLACES entry { label: AFFILIATE_PAGE_WORDS.title, where: ['your name at the bottom of the side menu', 'Sell HandsFreeOS'], path: '/affiliate', what from AFFILIATE_PAGE_WORDS.intro, canChange naming do_affiliate_apply/make_code/turn_code }.",
-      "status": "open",
+      "fix": "Fixed in the HandsFreeOS staff step: EVERY_PAGE’s bottom line says pressing their own name opens their account menu, with Sell HandsFreeOS (what it holds) and Sign out.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2106,8 +2106,8 @@
       "kind": "read",
       "where": "Settings → Account: My cell phone (number, 'Verified Tue, Sep 9' / Not verified yet) and Side menu's summary ('9 in the menu · 1 group · 2 hidden')",
       "gap": "Refuted part: the cell is readable. user_phone.get is a screen read (read_user_phone_get) returning e164 and verifiedAt. Real part: get_settings my_account, which says it shows Settings → Account, includes neither the cell nor the menu as drawn. Under settings it returns raw users.settings.menu, which is absent until arranged and uses keys such as 'customers' (Contacts), 'ai-team' and 'audit' rather than the menu's names. So 'what's on my Account page' answers can miss the cell when tools load through search, or misname places.",
-      "fix": "Add { name: 'user_phone.get', as: 'myCell' } to QUERIES.my_account in apps/worker/src/assistant/tools-settings.ts. In meShape, add sideMenu: { summary: menuSummary(menuOf(settings)), entries: menuOf(settings).entries mapped to MENU_LABELS (and add-on names), hidden: labels } and drop the raw settings.menu.",
-      "status": "open",
+      "fix": "Fixed: get_settings my_account reads My cell phone as its card says it (the number, and Verified on a day or Not verified yet; with no cell, where they add it) and the side menu as it’s drawn (the Side menu card’s summary, the menu top to bottom with each group’s places and what’s hidden, and that the phone has none). The raw settings are gone. apps/worker/test/assistant-settings.test.ts reads no cell, one waiting and one verified, and the menu.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2116,8 +2116,8 @@
       "kind": "never",
       "where": "Phone: More → Settings → My safety (who's told if you don't check out): add or change a teammate or an outside contact, Remove",
       "gap": "Real part: the coverage test misses the phone's commands. assistant-coverage.test.ts scans only literal '/v1/commands/<name>' strings, but the phone sends through change('<name>', …), and send.ts builds the path from a template. safety_contact.save and safety_contact.remove are therefore checked nowhere. Neither is in SCREEN_ACTIONS or NEVER_FOR_THE_ASSISTANT, and only the settings row phone.my_safety is excused. The same goes for call.connect_me, call.cancel_connect, form_response.record, push_device.register/remove and safety.help. Not proven: that the Assistant should edit safety contacts. SETTINGS_NEVER 'phone.my_safety' is a deliberate exclusion with a reason. The plan says 'Only the person and their contacts ever see the place', and no owner decision either way was found. Offering it is a call for the owner, not a clear gap; read_safety_mine already lets the Assistant read the list.",
-      "fix": "Widen packages/core/test/assistant-coverage.test.ts's screenCommands scan to also match /change\\(\\s*'([a-z_]+\\.[a-z_.]+)'/gs in apps/mobile/src (multi-line), plus PUSH_BUTTONS' commands from packages/core/src/push.ts. Then list each found command in SCREEN_ACTIONS or NEVER_FOR_THE_ASSISTANT with a reason: safety_contact.save/remove either as SCREEN_ACTIONS {} on a Confirm card, if the owner agrees, or in NEVER_FOR_THE_ASSISTANT with the owner's dated decision; push_device.register/remove as 'the phone adding itself'.",
-      "status": "open",
+      "fix": "Fixed: the coverage test also counts each command a notification’s button runs (PUSH_BUTTONS in packages/core/src/push.ts) as a screen command, beside the phone’s change('…') calls it already read. That found appointment.still_going (acct-19). safety.check_in, safety.help and safety_contact.save and remove stay listed under ASSISTANT_NOT_YET, with why, for the safety step.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2126,8 +2126,8 @@
       "kind": "do",
       "where": "Push 'How did it go?' after a visit: the Still there button (ask again in an hour)",
       "gap": "'Still there' on the 'How did it go?' push runs appointment.still_going (risk 0; asks again in an hour). It isn't in SCREEN_ACTIONS, NEVER_FOR_THE_ASSISTANT or any Assistant tool, unlike the check-in push buttons safety.check_out and safety.extend, which are SCREEN_ACTIONS. The coverage test never sees it, because push buttons and the phone's change() calls aren't scanned. 'I’m still at the Johnson job, ask me later' can't be done.",
-      "fix": "Add 'appointment.still_going': {} to SCREEN_ACTIONS in packages/core/src/assistant/coverage.ts. It becomes do_appointment_still_going, with appointmentId from todays_schedule/list_appointments. Widen the coverage test to PUSH_BUTTONS' commands as in acct-18.",
-      "status": "open",
+      "fix": "Fixed: appointment.still_going is a screen action, do_appointment_still_going (risk 0, so it runs on its own), described as Still there on the “How did it go?” notification does, with the appointment from todays_schedule or list_appointments. The coverage test fails if a notification button’s command is ever left uncovered. apps/worker/test/assistant-calendar.test.ts runs it and checks it’s refused once someone said how the visit went.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2136,8 +2136,8 @@
       "kind": "do",
       "where": "Business switcher → Create workspace → 'Add a business' dialog: Organization picker (when they have more than one), then the guided setup",
       "gap": "add_business always calls workspace.create with ctx.organizationId and needs workspace.update in the current business. The screen's 'Add a business' dialog offers an organization picker when the person has more than one, shows Create workspace to anyone in an organization, and then opens the guided setup at /onboarding/<id>. The Assistant links to /app/w/<id> and says only 'It starts empty, ready to set up', so the new business skips the guided setup.",
-      "fix": "In packages/core/src/assistant/tools-extra.ts add_business, add an optional organizationId (one of the person's organizations where they're owner or admin, listed by get_settings my_account once acct-8 is done). Gate it on that organization role in prepare, since workspace.create's own permission is checked by organization, rather than on the tool's workspace.update. In apps/worker/src/assistant/tools-extra.ts commit, return href `/onboarding/${out.workspaceId}` with outcome '<name> is added. Open it to start its guided setup.'",
-      "status": "open",
+      "fix": "Fixed: add_business takes organization, one of theirs by its name as get_settings my_account lists them (this business’s when left out). Its id is found from their own organizations, never taken from the model, and a name they have none called is refused with the ones they have. Like Create workspace, it then opens the new business’s guided setup (/onboarding/<id>), and its card says so. Who may add one is unchanged: the organization’s owners and admins. apps/worker/test/assistant-extra.test.ts checks the organization by name, the refusals and the link.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2146,8 +2146,8 @@
       "kind": "words",
       "where": "Settings → Account → Profile: Email (read-only, 'Changing your email re-verifies it. Coming with security settings.'), and initials in place of a photo; Delete my account ('Type your email address to confirm', button Delete my account, only-owner notes)",
       "gap": "settings-map my_account has no notHere. Nothing tells the Assistant that the sign-in email can't be changed yet ('Changing your email re-verifies it. Coming with security settings.') or that there's no profile photo ('Your initials stand in for a photo for now.'). The delete handover ends at 'type your email to confirm'. It leaves out pressing Delete my account, the rule that an only owner makes someone else an owner first, and the phone's More → Settings → Delete my account. read_account_deletion_check can show the blockers, but the steps don't mention them.",
-      "fix": "In packages/core/src/assistant/settings-map.ts my_account, add notHere: ['changing the email you sign in with (coming with security settings)', 'a profile photo (your initials stand in for now)']. Change the delete handover's steps to: 'Open Settings → Account.' / 'Under Delete my account, type your email address and press Delete my account.' / 'If you’re a business’s only owner, make someone else an owner first (Members).' / 'On the phone: More → Settings → Delete my account.'",
-      "status": "open",
+      "fix": "Fixed: settings-map my_account’s Not in HandsFreeOS has changing the email you sign in with (coming with the security settings), a profile photo (initials stand in) and quiet hours for your own alerts. get_settings my_account says the email can’t be changed yet, and update_my_account says so too. The delete handover now says to make someone else owner first when they’re a business’s only owner, and gives the phone’s way.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2156,8 +2156,8 @@
       "kind": "words",
       "where": "A Confirm card's link after update_my_alerts, opened in the phone app",
       "gap": "update_my_alerts returns href /app/w/<id>/settings#notifications. The phone's route map turns web 'settings' into the phone's Settings and drops the fragment, so a phone user lands one step short of Settings → Notifications, where the switches are.",
-      "fix": "In apps/worker/src/assistant/tools-extra.ts updateMyAlerts.commit (and updateMyAccount for email switches), return href `/app/w/${ctx.workspaceId}/settings/notifications`, or settings?setting=notifications.<row>. Add a route-map rule { web: 'settings/notifications', phone: 'settings/notifications' }. Keep the web landing on Account's notifications section with a web route or redirect for that path, or pass ?setting= and have the phone's rule send setting=notifications.* to settings/notifications.",
-      "status": "open",
+      "fix": "Fixed: the phone’s route map opens Settings → Notifications for the web’s settings#notifications (a rule may now name the part after # it needs), so update_my_alerts’ link, and update_my_account’s when only emails changed, lands on the switches. apps/mobile/src/links/__tests__/route-map.test.ts checks it.",
+      "status": "fixed",
       "pr": null
     }
   ]

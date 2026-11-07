@@ -2254,8 +2254,8 @@
       "kind": "words",
       "where": "Phone app → More → Settings: the \"This business\" section (Usage & balance, Main offer, Partners), Face ID, Businesses on this phone, My safety",
       "gap": "The SYSTEM sentence is wrong. It says the phone's Settings holds only notifications, appearance and their cell (prompt.ts:38). But the prompt's own PHONE_APP list already says the phone's Settings has My cell phone, Face ID, Businesses on this phone and Usage & balance (places-map.ts:626), so the model gets two contradicting lines. Neither mentions Main offer or Partners, which show under This business (mobile settings/index.tsx:228-246). My safety is named in settings-map.ts:1021.",
-      "fix": "Left open: the my-account step fixes this.",
-      "status": "open",
+      "fix": "Fixed in the my-account step (acct-11): the prompt says the phone app’s Settings holds the person’s own things and this phone’s (their cell, Face ID, the businesses kept on it, My safety, notifications and the phone’s own appearance) and, under This business, Usage & balance, Main offer and Partners, and PHONE_APP’s Settings line lists the screen by its groups, so the two no longer disagree.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2314,8 +2314,8 @@
       "kind": "do",
       "where": "Settings → Account, Side menu → Edit menu: Move up/down, Add group, naming a group, moving a place into a group, Ungroup",
       "gap": "arrange_my_menu's actions are hide, show, use_suggested and start_over (tools-extra.ts:421-434). The sheet also moves entries up and down, moves a place into a group, adds, renames and ungroups groups (menu-editor.tsx:12-17, 187-192, 215-289). Yet the prompt tells people they may have \"moved or grouped\" a place (prompt.ts:38).",
-      "fix": "Left open: the my-account step fixes this.",
-      "status": "open",
+      "fix": "Fixed in the Home step (my-account acct-6): arrange_my_menu moves places up the menu or out of their group, puts places into a group by name (adding one), renames and ungroups a group, as Edit menu does.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2324,8 +2324,8 @@
       "kind": "words",
       "where": "Phone app → Settings → Appearance (this phone only)",
       "gap": "The phone keeps its appearance in deviceStore and ignores the account's (mobile lib/appearance.ts:9-10, 26-31). Its row carries settingKey account.appearance (mobile settings/index.tsx:285), which SETTING_TOOLS maps to update_my_account, and that writes the account theme (tools-settings-me.ts:105). The model can't tell a phone asker from a web one (context.ts has no surface field).",
-      "fix": "Left open: the my-account step fixes this.",
-      "status": "open",
+      "fix": "Fixed in the my-account step (acct-2, acct-4): the question says which app asked, and asked on the phone the model is told the phone’s Appearance is kept on that phone and no tool changes it, so it says where it is (More → Settings → Appearance). update_my_account calls its appearance the web app’s, and its card says the phone keeps its own.",
+      "status": "fixed",
       "pr": null
     },
     {

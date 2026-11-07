@@ -46,6 +46,8 @@ describe('the route map', () => {
       // Ask HandsFreeOS: the app's own links only, since the web has no page for the panel.
       assistant: { href: 'ask', later: false },
       settings: { href: 'settings', later: false },
+      // Its Notifications section, where the Assistant's alert cards land: the phone's Notifications screen.
+      'settings#notifications': { href: 'settings/notifications', later: false },
       // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
       'settings/usage': { href: 'settings/usage', later: false },
       // Settings → Main offer: its Review step and the live version are on the phone too.
@@ -73,10 +75,11 @@ describe('the route map', () => {
       search: { href: 'search', later: false },
     };
     const screens = ROUTES.filter((r) => r.phone !== 'web');
-    expect(screens.map((r) => r.web).sort()).toEqual(Object.keys(expected).sort());
+    const keyOf = (r: (typeof ROUTES)[number]) => (r.hash ? `${r.web}#${r.hash}` : r.web);
+    expect(screens.map(keyOf).sort()).toEqual(Object.keys(expected).sort());
     for (const rule of screens) {
-      const want = expected[rule.web]!;
-      const target = routeFor(exampleOf(rule.web));
+      const want = expected[keyOf(rule)]!;
+      const target = routeFor(`${exampleOf(rule.web)}${rule.hash ? `#${rule.hash}` : ''}`);
       expect({ web: rule.web, target }).toEqual({
         web: rule.web,
         target: expect.objectContaining({

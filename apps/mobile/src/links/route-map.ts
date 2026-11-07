@@ -82,6 +82,11 @@ interface Rule {
    * search there (`/search#q=…&kind=…`, decision 37) so it never reaches a server; on the phone it stays on the phone.
    */
   readonly fragment?: readonly string[];
+  /**
+   * Matches only when the address's `#` names this: a section of a web page that is a screen of its own on the phone
+   * (Settings → Account's `#notifications`, the phone's Notifications).
+   */
+  readonly hash?: string;
 }
 
 /**
@@ -148,7 +153,9 @@ export const ROUTES: readonly Rule[] = [
   // Ask HandsFreeOS. The web has no page of its own for it (it's a panel over whatever page you're on), so this is
   // for the app's own links — `handsfreeos://app/w/<business>/assistant` opens the Assistant full screen.
   { web: 'assistant', phone: 'ask' },
-  // Settings → Account on the web is you and your notifications: the phone's own Settings.
+  // Settings → Account on the web is you and your notifications: the phone's own Settings, and its Notifications
+  // section (`#notifications`, where the Assistant's alert cards land) the phone's Notifications screen.
+  { web: 'settings', phone: 'settings/notifications', hash: 'notifications' },
   { web: 'settings', phone: 'settings' },
   // Settings → Usage & balance: the phone has it too, so the wallet's emails, its notifications and the Action
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
@@ -404,6 +411,7 @@ export function routeFor(pathAndQuery: string): LinkTarget {
     const rest = parts.slice(3);
     if (rest[0] === 'a') return addonTarget(businessId, rest.slice(1), query, pathAndQuery);
     for (const rule of ROUTES) {
+      if (rule.hash !== undefined && fragment[rule.hash] === undefined) continue;
       // The pairs after `#` count only for a rule that names them, and win over the query's.
       const named = Object.fromEntries(
         (rule.fragment ?? [])

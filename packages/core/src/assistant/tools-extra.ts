@@ -98,8 +98,9 @@ const EVERYONES_ALERTS = PUSH_SWITCHES.filter(
   (k): k is Exclude<PushSwitch, 'supportTickets'> => k !== 'supportTickets',
 ) as [Exclude<PushSwitch, 'supportTickets'>, ...Exclude<PushSwitch, 'supportTickets'>[]];
 
+/** Each kind in the words of its row on Settings → Account's Notifications. */
 const PUSH_WORDS =
-  'customerWaiting: a new message nobody has answered; missedCall: a call nobody took; urgent: something that can’t wait; approval: a draft or workflow step waiting for an OK; booking: one of their appointments booked, moved or cancelled; assigned: something given to them; payment: a customer pays; wallet: the balance runs out; jobs: a visit they were on is over; connections: something connected stops working; qualifying: a lead qualifies, or a customer sends a file a qualifying question asked for; documents: a document they sent is signed by everyone, declined or runs out of time';
+  'customerWaiting (A customer waiting on a reply): a new message nobody has answered; missedCall (A call nobody took); urgent (Urgent items): hot leads, new leads nobody answered and customers left waiting; approval (Approvals): a draft or workflow step waiting for an OK; booking (Your appointments): one of theirs booked, moved or cancelled; assigned (Assigned to you); payment (A customer pays); wallet (Your balance runs out); jobs (A job you were on is over); connections (A connection stops working); addons (An add-on needs you): a duty running late, a deal at risk; qualifying (Your AI teammate’s qualifying): a lead qualifies, or a customer sends a file a qualifying question asked for; documents (Documents you sent): signed by everyone, declined or out of time';
 
 /** An add-on's place in the side menu, as the menu keeps it. */
 const MENU_ADDON_PLACE = z.string().regex(/^addon:[a-z]{2,16}$/, 'addon:<the add-on’s id>');
@@ -489,14 +490,16 @@ export const extraTools: readonly AssistantTool[] = [
   // ---------- the person's own account ----------
   define({
     name: 'update_my_alerts',
-    description: `Turn the person’s own phone (push) alerts on or off, one kind at a time, and the daily agency digest email. Theirs alone. Kinds: ${PUSH_WORDS}. Other emails and appearance are update_my_account.`,
+    description: `Turn the person’s own phone (push) alerts on or off, one kind at a time, as Settings → Account’s Notifications (and the phone’s Notifications, under More, then Settings) does, and the daily agency digest email. Theirs alone, on every phone they’re signed in on. Kinds: ${PUSH_WORDS}. There are no quiet hours for these: a kind is on or off, and the phone’s own Focus or Do Not Disturb quiets it. Whether one phone gets notifications at all is set on that phone (This phone), never here. Other emails and appearance are update_my_account.`,
     input: z.object({
       turnOn: z.array(z.enum(EVERYONES_ALERTS)).max(EVERYONES_ALERTS.length).optional(),
       turnOff: z.array(z.enum(EVERYONES_ALERTS)).max(EVERYONES_ALERTS.length).optional(),
       agencyDigestEmail: z
         .boolean()
         .optional()
-        .describe('The 8 AM email about client businesses (agency owners and admins)'),
+        .describe(
+          'Daily agency digest: the 8 AM email about client businesses (owners and admins of an organization with more than one business)',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'assistant.use',
@@ -647,9 +650,14 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'add_business',
     description:
-      'Add another business (workspace) under this business’s organization, the way Create workspace does. Only the organization’s owners and admins can. Ask who runs it: the person themselves (they go on its team), or a client they are setting it up for.',
+      'Add another business (workspace) under one of the person’s organizations, the way Create workspace and its Add a business dialog do; it then opens its guided setup. Only an organization’s owners and admins can, and get_settings my_account lists the organizations they have. Ask who runs it: the person themselves (they go on its team), or a client they are setting it up for.',
     input: z.object({
       name: text(120),
+      organization: text(120)
+        .optional()
+        .describe(
+          'Which of their organizations it goes under, by its name as get_settings my_account lists them; left out, this business’s',
+        ),
       timezone: z
         .string()
         .trim()

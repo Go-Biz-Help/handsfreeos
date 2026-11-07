@@ -31,6 +31,8 @@ export interface AskBody {
   readonly path?: string | null;
   /** Asked out loud: the answer is written to be heard. */
   readonly spoken?: boolean;
+  /** Which app asked: always the phone here, so the answer gives the phone's ways first. */
+  readonly app?: 'phone';
   /** Changes on this phone, which never reached HandsFreeOS, so the Assistant can say what's stuck and why. */
   readonly deviceChanges?: AssistantDeviceChanges;
 }

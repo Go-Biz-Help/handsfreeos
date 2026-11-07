@@ -813,16 +813,14 @@ describe('the form Intake questions sends', () => {
 });
 
 describe('your own alerts and side menu', () => {
-  it('turns phone alerts on and off one kind at a time, and the agency digest', async () => {
+  it('turns phone alerts on and off one kind at a time', async () => {
     const { card, parsed } = await prepare('update_my_alerts', {
       turnOn: ['payment'],
       turnOff: ['missedCall'],
-      agencyDigestEmail: false,
     });
     expect(card.fields).toEqual([
       { label: 'Phone alert: A call nobody took', value: 'Off' },
       { label: 'Phone alert: A customer pays', value: 'On' },
-      { label: 'Email: Daily agency digest', value: 'No' },
     ]);
     // Nobody here has signed in on the phone app.
     expect(card.warnings[0]!.text).toContain('phone alerts start once you are');
@@ -832,10 +830,26 @@ describe('your own alerts and side menu', () => {
     const after = (await me()).user.settings;
     expect(Object.keys(after['push'])).toHaveLength(14);
     expect(pushSwitchesOf(after)).toMatchObject({ payment: true, missedCall: false, urgent: true });
-    expect(after['notifications']).toEqual({ agencyDigest: false });
+    expect(after['notifications']).toBeUndefined();
     await expect(prepare('update_my_alerts', { turnOn: ['payment'] })).rejects.toThrow(
       'Nothing would change.',
     );
+  });
+
+  it('refuses the agency digest to the owner of one business, whose Notifications have no such row', async () => {
+    // A founder owns an organization of one business: Daily agency digest isn't one of their rows.
+    await expect(
+      prepare('update_my_alerts', { turnOn: ['missedCall'], agencyDigestEmail: false }),
+    ).rejects.toMatchObject({
+      rule: 'not_an_agency',
+      message: expect.stringContaining('Nothing was changed'),
+    });
+    // Confirm refuses it too, should such a card ever reach it.
+    await expect(confirm('update_my_alerts', { agencyDigestEmail: false })).rejects.toMatchObject({
+      rule: 'not_an_agency',
+    });
+    expect((await me()).user.settings['notifications']).toBeUndefined();
+    expect(pushSwitchesOf((await me()).user.settings).missedCall).toBe(false);
   });
 
   it('hides and shows places, and never hides Home or Settings', async () => {
@@ -1191,14 +1205,63 @@ describe('adding a business, and the agency area', () => {
     expect(field(card, 'Time zone')!.value).toBe(CHI);
     expect(card.warnings[0]!.text).toContain('You won’t be on its team');
     expect((await me()).workspaces.some((w) => w.name === name)).toBe(false);
+    // Create workspace goes on to the new business's guided setup, and so does the card's link.
+    expect(card.warnings.map((w) => w.text)).toContain(
+      'It opens its guided setup next, one question at a time.',
+    );
     const done = await confirm('add_business', parsed);
     const added = (await me()).workspaces.find((w) => w.name === name)!;
     expect(added.organizationId).toBe(organizationId);
-    expect(done.href).toBe(`/app/w/${added.id}`);
+    expect(done.href).toBe(`/onboarding/${added.id}`);
+    expect(done.outcome).toContain('guided setup');
     newId = added.id;
     await expect(
       prepare('add_business', { name: 'Elsewhere', whoRunsIt: 'me', timezone: 'Mars/Olympus' }),
     ).rejects.toThrow('isn’t a time zone');
+  });
+
+  it('adds it under the organization named as they call it, and refuses one they have none called', async () => {
+    const { organizations } = await q<{ organizations: { id: string; name: string }[] }>(
+      'account.me',
+    );
+    const mine = organizations.find((o) => o.id === organizationId)!;
+    const { card } = await prepare('add_business', {
+      name: `Second ${mark}`,
+      whoRunsIt: 'me',
+      organization: mine.name.toUpperCase(),
+    });
+    expect(field(card, 'Under')!.value).toBe(mine.name);
+    expect(card.confirmLabel).toBe('Add business');
+
+    await expect(
+      prepare('add_business', {
+        name: 'Elsewhere',
+        whoRunsIt: 'me',
+        organization: 'Gulf Holdings',
+      }),
+    ).rejects.toThrow(`You have no organization called “Gulf Holdings”. Yours are “${mine.name}”.`);
+    // Someone who runs no organization is told who can, by this business's organization's name.
+    await expect(
+      prepare(
+        'add_business',
+        { name: 'Side job', whoRunsIt: 'me', organization: mine.name },
+        priya,
+      ),
+    ).rejects.toThrow(`Ask an owner of ${mine.name} to add it.`);
+  });
+
+  it('turns the agency digest off once the organization runs more than one business', async () => {
+    const { card, parsed } = await prepare('update_my_alerts', { agencyDigestEmail: false });
+    expect(card.fields).toEqual([{ label: 'Email: Daily agency digest', value: 'Off' }]);
+    await confirm('update_my_alerts', parsed);
+    expect((await me()).user.settings['notifications']).toEqual({ agencyDigest: false });
+    // get_settings my_account now has the row too, set as it was just saved.
+    const account = (await read('get_settings', { area: 'my_account' })).result['me'] as {
+      alerts: { title: string; email: boolean | 'always' | null }[];
+    };
+    expect(account.alerts.find((a) => a.title === 'Daily agency digest')).toMatchObject({
+      email: false,
+    });
   });
 
   it('lists the agency’s businesses, templates and packs', async () => {
