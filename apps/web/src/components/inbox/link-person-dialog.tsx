@@ -64,7 +64,7 @@ export function LinkPersonDialog({
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent
-        title="Link to an existing customer"
+        title="Link to an existing contact"
         description={`This conversation and ${number} join their record and timeline.`}
       >
         <Label htmlFor="link-person">Customer</Label>

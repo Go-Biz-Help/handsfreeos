@@ -146,7 +146,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'The reply box: Text or Email, Cc and Subject for email, the paperclip for a photo or file, Insert a template, Add buttons or a card, Ask for a video (texts only), then Send text or Send email; in quiet hours it offers Send at the time they end',
       'A call in the thread: its recording and words, and Notes from the call; while you’re on a call, Switch to video on the call bar',
       'Beside it: their name, number, email and tags (press one to change it), Call, Open customer, Edit all details, Open lead (its stage, Set next action, or Start one), Add a note, Open tasks (Add task), Next visits (Book a visit), and Money (New estimate, New invoice)',
-      'For a number that isn’t a customer: Add customer, or Or link to an existing customer',
+      'For a number or email address that isn’t in Contacts: Add contact, or Or link to an existing contact',
     ],
     howTo: [
       'Reply by email instead of text: in the reply box, switch Text to Email',
@@ -158,7 +158,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Start a video call with them: ⋯, then Video call (their link goes by text or email, and the call opens for you)',
       'Ask them for a video: Ask for a video in the reply box, then Send text',
       'Move an email to Other mail or Spam: ⋯, then Move to Other mail or Move to Spam; Always put their mail… does it for their next ones too',
-      'Save a stranger as a customer: type their name beside the conversation and press Add customer, or link them to an existing one',
+      'Save a stranger as a contact: type their name beside the conversation and press Add contact, or link them to an existing one',
       'Move their lead’s stage, book them, add a task or quote them: in the panel beside the conversation',
       'Mark it unread: ⋯, then Mark as unread',
       'Archive it: ⋯, then Archive this conversation (Bring it back undoes it)',
