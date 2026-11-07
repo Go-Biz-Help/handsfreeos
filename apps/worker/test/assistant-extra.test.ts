@@ -37,6 +37,7 @@ import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
 import { extraAutoTools, extraConfirmTools, extraStepLabels } from '../src/assistant/tools-extra';
 import { allScreenActionTools } from '../src/assistant/tools-screen-actions';
+import { finishRun, recordToolCall, startRun } from '../src/assistant/store';
 import { createToolExecutor } from '../src/assistant/tools-write';
 
 /**
@@ -1190,6 +1191,51 @@ describe('Get help', () => {
       await expect(confirm('contact_support', parsed)).rejects.toThrow('Take out');
     }
     expect(await tickets()).toBe(1);
+  });
+
+  it('says which screen they asked from, as Get help sends its page', async () => {
+    const db = testDbs().worker.db;
+    const scope = { workspaceId, organizationId };
+    const { runId, threadId } = await startRun(db, scope, {
+      userId: owner.id,
+      question: 'Tell support my reminders stopped',
+      context: { page: null, screen: '/settings/automations' },
+      model: 'test',
+      correlationId: randomUUID(),
+    });
+    const { parsed } = await prepare('contact_support', {
+      subject: 'Reminders stopped again',
+      details: 'Still no day-before texts.',
+    });
+    const toolCallId = await recordToolCall(db, scope, {
+      userId: owner.id,
+      threadId,
+      runId,
+      providerCallId: `call-${randomUUID()}`,
+      tool: 'contact_support',
+      arguments: parsed,
+      autonomy: 'confirm',
+      status: 'awaiting_confirmation',
+      correlationId: randomUUID(),
+    });
+    await finishRun(db, scope, runId, {
+      status: 'done',
+      usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      toolRounds: 1,
+    });
+    await createToolExecutor(db).commit(
+      assistantToolByName.get('contact_support')!,
+      parsed,
+      ctxFor(owner),
+      { toolCallId },
+    );
+    const [opened] = await rows<{ data: { page: string } }>(
+      admin(),
+      sql`select e.data from platform.ticket_events e join platform.tickets t on t.id = e.ticket_id
+          where t.workspace_id = ${workspaceId} and t.subject = 'Reminders stopped again' and e.kind = 'opened'`,
+    );
+    expect(opened!.data.page).toBe(`Ask HandsFreeOS on /app/w/${workspaceId}/settings/automations`);
+    expect(await tickets()).toBe(2);
   });
 });
 

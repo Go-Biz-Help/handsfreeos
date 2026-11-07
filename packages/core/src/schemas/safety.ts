@@ -97,8 +97,14 @@ export const SafetyCheckInOutput = z.object({ checkIn: SafetyCheckIn });
 export const SafetyMineInput = z.object({ workspaceId: uuid });
 export const SafetyMineOutput = z.object({
   contacts: z.array(SafetyContact),
-  /** The check-in still open, if any. */
-  open: SafetyCheckIn.nullable(),
+  /**
+   * The check-in still open, if any, with whether the phone shares where it is until check-out (Share where I am)
+   * and when it last did.
+   */
+  open: SafetyCheckIn.extend({
+    follows: z.boolean(),
+    locatedAt: isoDateTime.nullable(),
+  }).nullable(),
 });
 
 /** What a teammate who was told sees, while it's theirs to answer. */
@@ -112,6 +118,8 @@ export const SafetyAlertOutput = z.object({
       latitude: z.number().nullable(),
       longitude: z.number().nullable(),
       locatedAt: isoDateTime.nullable(),
+      /** The map link Where their phone was opens; null without a reading. */
+      mapUrl: z.string().nullable(),
       startedAt: isoDateTime,
       plannedEndAt: isoDateTime,
       state: z.enum(['alerted', 'help']),
@@ -198,7 +206,7 @@ export const SafetySettingsInput = z.object({
     .int()
     .min(1, 'Pick at least a minute.')
     .max(60, 'Pick an hour at most.'),
-  /** Told when someone has no contacts; left out, the owners and admins are. */
+  /** Told when someone has nobody to tell (no teammate contact still here, nobody outside who agreed); left out, the owners and admins are. */
   safetyUserId: uuid.nullable(),
 });
 export const SafetySettingsOutput = z.object({

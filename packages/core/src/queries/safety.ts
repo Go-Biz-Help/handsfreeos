@@ -2,7 +2,7 @@
 import { rows, sql } from '@hfos/db/client';
 import { defineQuery } from '../kernel/define';
 import { requireHuman } from '../kernel/actor';
-import { contactStatus, SAFETY_DEFAULTS } from '../safety';
+import { contactStatus, SAFETY_DEFAULTS, safetyMapLink } from '../safety';
 import {
   SafetyAlertOutput,
   SafetyCheckInRef,
@@ -46,9 +46,11 @@ export const safetyMine = defineQuery({
         planned_end_at: string;
         state: 'in' | 'asked' | 'alerted' | 'ok' | 'out' | 'help';
         extended_count: number;
+        follows: boolean;
+        located_at: string | null;
       }>(
         ctx.tx,
-        sql`select id, appointment_id, place, started_at, planned_end_at, state, extended_count
+        sql`select id, appointment_id, place, started_at, planned_end_at, state, extended_count, follows, located_at
             from app.safety_checkins where workspace_id = ${input.workspaceId}::uuid
               and state in ('in', 'asked', 'alerted', 'help')
             order by started_at desc limit 1`,
@@ -77,6 +79,8 @@ export const safetyMine = defineQuery({
             plannedEndAt: iso(o.planned_end_at),
             state: o.state,
             extendedCount: o.extended_count,
+            follows: o.follows,
+            locatedAt: o.located_at ? iso(o.located_at) : null,
           }
         : null,
     };
@@ -108,6 +112,8 @@ export const safetyAlert = defineQuery({
       ctx.tx,
       sql`select * from private.safety_checkin_for_contact(${input.workspaceId}::uuid, ${input.checkInId}::uuid)`,
     );
+    const latitude = a?.latitude == null ? null : Number(a.latitude);
+    const longitude = a?.longitude == null ? null : Number(a.longitude);
     return {
       alert: a
         ? {
@@ -115,9 +121,11 @@ export const safetyAlert = defineQuery({
             personName: a.person_name,
             personPhone: a.person_phone,
             place: a.place,
-            latitude: a.latitude === null ? null : Number(a.latitude),
-            longitude: a.longitude === null ? null : Number(a.longitude),
+            latitude,
+            longitude,
             locatedAt: a.located_at ? iso(a.located_at) : null,
+            // The same link the alert's Where their phone was opens.
+            mapUrl: safetyMapLink(latitude, longitude),
             startedAt: iso(a.started_at),
             plannedEndAt: iso(a.planned_end_at),
             state: a.state,
@@ -131,7 +139,7 @@ export const safetyAlert = defineQuery({
 export const safetySettings = defineQuery({
   name: 'safety.settings',
   description:
-    'How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.',
+    'How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who replied OK and not STOP.',
   input: SafetySettingsGetInput,
   output: SafetySettingsView,
   permission: 'workspace.read',

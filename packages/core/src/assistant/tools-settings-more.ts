@@ -130,7 +130,7 @@ export const moreSettingsTools: readonly AssistantTool[] = [
   define({
     name: 'update_safety_settings',
     description:
-      'Settings → Safety: how many minutes after a check-in’s planned end the person is asked if they are OK, how many minutes more before their contacts are told, and the safety person told when someone has no contacts (null: the owners and admins). Read what is set now with get_settings (area safety). Never anyone’s own contacts: those are theirs, under My safety.',
+      'Settings → Safety: Ask them after (minutes past a check-in’s planned end before the phone asks “Still there?”), Then tell their contacts after (minutes more with no answer before their contacts are told), and Who’s told when someone has nobody to tell (the safety person; null: the owners and admins). Someone has nobody to tell when none of their teammate contacts is still in the business and nobody outside has replied OK and not STOP. Read what is set now with get_settings (area safety). Never anyone else’s contacts: each person’s own are theirs alone (manage_my_safety_contacts, for the person asking).',
     input: z.object({
       askAfterMinutes: z.int().min(0).max(60).optional(),
       alertAfterMinutes: z.int().min(1).max(60).optional(),

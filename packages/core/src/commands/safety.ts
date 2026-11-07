@@ -640,7 +640,7 @@ export const safetyResolveByLink = defineCommand({
 export const safetySettingsSave = defineCommand({
   name: 'safety.settings_save',
   description:
-    'Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.',
+    'Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who replied OK and not STOP.',
   risk: 2,
   input: SafetySettingsInput,
   output: SafetySettingsOutput,

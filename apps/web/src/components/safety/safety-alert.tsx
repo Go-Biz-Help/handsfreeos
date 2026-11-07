@@ -6,7 +6,7 @@
  * while it's theirs to answer (private.safety_checkin_for_contact); after that the page says there's nothing to do.
  * The push and the email both open it (apps/worker/src/safety/ladder.ts).
  */
-import { formatPhone, fmtTime, safetyAlertPushWords } from '@hfos/core';
+import { formatPhone, fmtTime, safetyAlertPushWords, safetyMapLink } from '@hfos/core';
 import { CircleCheck, MapPin, Phone, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
@@ -23,7 +23,7 @@ const firstOf = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 
 /** A map of where the phone was, when it said. */
 export const mapLink = (latitude: number, longitude: number) =>
-  `https://maps.google.com/?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+  safetyMapLink(latitude, longitude) ?? '';
 
 export function SafetyAlertPage({
   workspaceId,

@@ -61552,7 +61552,7 @@
     "/v1/commands/safety.settings_save": {
       "post": {
         "operationId": "command_safety_settings_save",
-        "summary": "Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.",
+        "summary": "Settings → Safety: how long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who replied OK and not STOP.",
         "tags": [
           "commands"
         ],
@@ -183728,6 +183728,21 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "follows": {
+                              "type": "boolean"
+                            },
+                            "locatedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -183737,7 +183752,9 @@
                             "startedAt",
                             "plannedEndAt",
                             "state",
-                            "extendedCount"
+                            "extendedCount",
+                            "follows",
+                            "locatedAt"
                           ],
                           "additionalProperties": false
                         },
@@ -183847,6 +183864,12 @@
                                 }
                               ]
                             },
+                            "mapUrl": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
                             "startedAt": {
                               "type": "string",
                               "format": "date-time",
@@ -183873,6 +183896,7 @@
                             "latitude",
                             "longitude",
                             "locatedAt",
+                            "mapUrl",
                             "startedAt",
                             "plannedEndAt",
                             "state"
@@ -183899,7 +183923,7 @@
     "/v1/queries/safety.settings": {
       "post": {
         "operationId": "query_safety_settings",
-        "summary": "How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has no contacts.",
+        "summary": "How long after a planned end the person is asked, how long before their contacts are told, and who’s told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who replied OK and not STOP.",
         "tags": [
           "queries"
         ],

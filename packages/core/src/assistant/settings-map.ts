@@ -15,7 +15,7 @@
 import { CALENDAR_SECTIONS } from '../calendar/describe';
 import { money } from '../money/format';
 import { RCS_FIRST_YEAR_CENTS } from '../money/rcs-fees';
-import type { Permission } from '../permissions';
+import { PERMISSION_GROUPS, type Permission } from '../permissions';
 
 export const SETTINGS_AREAS = [
   'business',
@@ -287,7 +287,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Permissions'],
     onScreen: [
       'Who can do what',
-      'A card for each of Contacts, Inbox and calls, Calendar, Money, Documents (Send documents to sign, Make document templates), Automations and AI, and Business and team, with an Admins and a Members column',
+      // From the page's own groups, so a card added there is named here too.
+      `A card for each of ${PERMISSION_GROUPS.map((g) => g.title).join(', ')}, with an Admins and a Members column; each permission’s own words are in get_settings (area permissions)`,
       'Back to the defaults: Reset admins, Reset members',
       'People with their own settings (one person’s own are changed in Members: ⋯ beside them, then Permissions)',
     ],
@@ -537,18 +538,28 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/members',
     permission: 'members.invite',
     canChange: [
-      'invite someone',
-      'change what a teammate may do',
-      'remove a teammate',
-      'resend or cancel an invitation',
+      'invite someone (owners and admins)',
+      'change what a teammate may do (owners and admins; only an owner makes or changes an owner)',
+      'remove a teammate (owners and admins)',
+      'resend or cancel an invitation (owners and admins)',
+      'leave the business, for anyone, on a card that says what they lose',
     ],
     handovers: [
       {
         what: 'accept an invitation',
         why: 'the person invited opens the email and accepts it themselves',
         steps: [
-          'They get an email from HandsFreeOS.',
-          'They press Accept and pick how they sign in.',
+          'They open the email from HandsFreeOS and press Accept invitation.',
+          'If they aren’t signed in, they sign in or make an account with that email address.',
+          'They press Accept invitation.',
+        ],
+      },
+      {
+        what: 'view the app as a teammate',
+        why: 'seeing it as someone else is started and stopped only by the person, never by the Assistant',
+        steps: [
+          'Members, ⋯ beside the teammate, then View as <their name> (owners and admins, for someone below them).',
+          'It’s read-only. Stop viewing on the banner ends it.',
         ],
       },
     ],
@@ -558,6 +569,8 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'Let one person do more or less than their role: Members, ⋯ beside them, then Permissions (owners only)',
       'Resend or cancel an invitation: Members, Pending invitations, Resend or Revoke',
       'Remove someone: Members, ⋯ beside them, then Remove from workspace',
+      'Leave the business: Members, ⋯ on your own row, then Leave workspace',
+      'See what a teammate sees, read-only: Members, ⋯ beside them, then View as <their name> (owners and admins); Stop viewing on the banner ends it',
     ],
     notHere: ['changing a teammate’s name or email for them', 'an invite link to share'],
   },
@@ -1188,23 +1201,27 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   safety: {
     label: 'Safety',
-    what: 'check-ins for visits (showings, open houses, tours): how long after someone’s planned end they are asked if they are OK, how long after that their contacts are told, and the business’s safety person, who is told when someone has no contacts',
+    what: 'check-ins for visits (showings, open houses, tours): how long after someone’s planned end they are asked if they are OK, how long after that their contacts are told (then told again every 10 minutes, for an hour, until someone says they’re OK), and who is told when someone has nobody to tell: no teammate contact still in the business, and nobody outside who has replied OK and not STOP',
     where: ['Settings', 'Safety'],
     onScreen: [
-      'Ask after: minutes past the planned end before the person is asked',
-      'Tell their contacts after: minutes with no answer before their contacts are told',
-      'Safety person: who is told when someone has no contacts of their own',
-      'What each person sees',
+      'Ask them after: minutes past their planned end before the phone asks “Still there?”',
+      'Then tell their contacts after: minutes with no answer before their contacts are told; then they’re told again every 10 minutes, for an hour, until someone says the person is OK',
+      'Who’s told when someone has nobody to tell: the safety person (The owners and admins when nobody is picked), then Save',
+      'What each person sees: the times as each person’s own Safety page and the phone show them, with a link to your Safety page',
     ],
     path: '/settings/safety',
     permission: 'workspace.update',
     canChange: [
-      'how long before someone is asked if they are OK, how long before their contacts are told, and the safety person',
+      'how long before someone is asked if they are OK, how long before their contacts are told, and who is told when someone has nobody to tell',
+      'for the person asking, and only them: checking in, adding time and checking out, asking for help on a card that says who is told, and who is told about them',
     ],
     handovers: [],
     howTo: [
       'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety',
-      'Check in for a visit: in the phone app, open the appointment and press Check in',
+      'Check in for a visit: in the phone app, open the appointment and press Check in (Share where I am shares where the phone is until check-out)',
+      'See or end your own check-in on a computer: the Still there? notification under the bell, or Settings → Safety, then your Safety page under What each person sees (I’m OK, check me out; +15 min)',
+      'Ask for help: Help on the phone’s check-in banner tells them at once where you are; in danger, call 911 yourself',
+      'Answer an alert about a teammate: press the Safety notification under the bell, the push on the phone or the email’s link, then I reached them once they’re OK',
     ],
     notHere: [
       'Seeing other people’s safety contacts or where they checked in: only each person sees their own',

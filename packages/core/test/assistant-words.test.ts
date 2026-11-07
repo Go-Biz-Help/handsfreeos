@@ -364,11 +364,19 @@ describe('the screen a question is asked from', () => {
 
   it('never takes Home or Settings for a page under them, and names a page neither map has by its address', () => {
     expect(screenPlace('/settings')).toMatchObject({ label: 'Account', area: 'my_account' });
-    expect(screenPlace('/settings/support-access')).toMatchObject({
+    expect(screenPlace('/settings/action-center')).toMatchObject({
       label: null,
       way: null,
-      path: '/settings/support-access',
+      path: '/settings/action-center',
     });
+    // Support access, off the Settings menu, is named with the way there in words.
+    expect(screenPlace('/settings/support-access')).toMatchObject({ label: 'Support access' });
+    // A safety alert names the check-in it's about, which read_safety_alert takes.
+    expect(screenPlace(`/safety/${ID}`)).toMatchObject({
+      label: 'A safety alert',
+      ids: [{ name: 'check in', id: ID }],
+    });
+    expect(screenPlace('/safety')).toMatchObject({ label: 'My safety' });
     expect(screenPlace(`/a/realestate/deals/${ID}/offers`)).toEqual({
       label: null,
       way: null,

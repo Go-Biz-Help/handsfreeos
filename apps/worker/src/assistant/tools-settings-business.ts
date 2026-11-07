@@ -12,13 +12,18 @@ import {
   BusinessAddress,
   HfosError,
   industryFromText,
+  missingPermissionMessage,
+  ROLE_DESCRIPTIONS,
+  ROLE_LABELS,
   timeZoneForAddress,
   usTimeZoneLabel,
   type IndustryOption,
+  type Permission,
+  type WorkspaceRole,
 } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
-import { command, query } from './tools-read';
+import { command, query, rehearse } from './tools-read';
 import { hoursLine, settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -38,13 +43,15 @@ interface WorkspaceGet {
     timezone: string;
     industry: string | null;
     settings: Record<string, unknown>;
+    role: WorkspaceRole;
+    permissions: string[];
   };
 }
 interface Member {
   userId: string;
   fullName: string;
   email: string;
-  role: string;
+  role: WorkspaceRole;
 }
 interface Stage {
   id: string;
@@ -57,12 +64,6 @@ interface Pipeline {
   name: string;
   stages: Stage[];
 }
-
-const ROLE_WORDS: Record<string, string> = {
-  owner: 'Owner — can do everything, including billing',
-  admin: 'Admin — can change how the business is set up',
-  member: 'Member — works customers, leads and the inbox',
-};
 
 const workspaceOf = (db: Db, ctx: ToolContext) => query<WorkspaceGet>(db, ctx, 'workspace.get');
 const pipelinesOf = (db: Db, ctx: ToolContext) =>
@@ -461,104 +462,268 @@ const managePipeline: SettingsConfirmTool = {
 
 // ---------- the team ----------
 
+interface Invitation {
+  id: string;
+  email: string;
+  role: WorkspaceRole;
+  invitedBy: { userId: string; fullName: string } | null;
+  /** Null while the email is still going out: Members says "Sending…". */
+  sentAt: string | null;
+  expiresAt: string;
+}
+
+/** What each change needs, as the screen's own buttons ask it; leaving needs nothing. */
+const TEAM_NEEDS: Record<string, Permission> = {
+  invite: 'members.invite',
+  resend_invitation: 'members.invite',
+  change_role: 'members.change_role',
+  remove: 'members.remove',
+  cancel_invitation: 'invitations.revoke',
+};
+
+const whoOf = (m: Member) => m.fullName || m.email;
+const aRole = (role: WorkspaceRole) => (role === 'member' ? 'a member' : `an ${role}`);
+const dayOf = (iso: string, ctx: ToolContext) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: ctx.timezone,
+  });
+
+/** "Admin — Manages people and settings. Cannot change or remove Owners.", as Invite teammate says each role. */
+const roleWords = (role: WorkspaceRole) => `${ROLE_LABELS[role]} — ${ROLE_DESCRIPTIONS[role]}`;
+
+/**
+ * What a team change is about, read the way Members shows it, and refused before a card when the person may not
+ * make it, when it isn't there anymore, or when the command itself would say no (the last owner, a role above
+ * theirs, an email already in), by trying it and rolling it back.
+ */
+async function teamPlan(db: Db, ctx: ToolContext, args: Args) {
+  const me = ctx.actor.userId;
+  const asked = action(args);
+  // Taking yourself off is leaving, as the menu on your own row says.
+  const act = asked === 'remove' && args['userId'] === me ? 'leave' : asked;
+  const [{ members }, { workspace }] = await Promise.all([
+    membersOf(db, ctx),
+    workspaceOf(db, ctx),
+  ]);
+  const needs = TEAM_NEEDS[act];
+  if (needs && !workspace.permissions.includes(needs))
+    throw HfosError.forbidden(missingPermissionMessage(needs, workspace.role), 'team_not_yours');
+  if (act === 'invite') {
+    const email = str(args['email']);
+    if (!email)
+      throw HfosError.validation(
+        [{ path: 'email', message: 'Enter their email address.' }],
+        'Say the email address to invite.',
+      );
+    const role = (str(args['role']) ?? 'member') as WorkspaceRole;
+    const input = { email, role };
+    await rehearse(db, ctx, 'membership.invite', input);
+    return { act, workspace, input, email, role } as const;
+  }
+  if (act === 'resend_invitation' || act === 'cancel_invitation') {
+    const { invitations } = await query<{ invitations: Invitation[] }>(
+      db,
+      ctx,
+      'workspace.invitations',
+    );
+    const invitation = invitations.find((i) => i.id === args['invitationId']);
+    if (!invitation)
+      throw HfosError.notFound(
+        'That invitation isn’t pending anymore: it was accepted or cancelled. Refresh Members to see the ones still waiting.',
+      );
+    const input = { invitationId: invitation.id };
+    await rehearse(
+      db,
+      ctx,
+      act === 'resend_invitation' ? 'invitation.resend' : 'invitation.revoke',
+      input,
+    );
+    return { act, workspace, input, invitation } as const;
+  }
+  if (act !== 'change_role' && act !== 'remove' && act !== 'leave')
+    throw HfosError.validation(
+      [{ path: 'action', message: 'Pick what to do.' }],
+      'Say whether to invite, change a role, remove, leave, or resend or cancel an invitation.',
+    );
+  const userId = act === 'leave' ? me : str(args['userId']);
+  const who = members.find((m) => m.userId === userId);
+  if (!who)
+    throw HfosError.notFound(
+      act === 'leave'
+        ? 'You’re not in this business anymore, so there’s nothing to leave.'
+        : 'That person isn’t in this business anymore. They may have left or been removed. list_team has who is here now.',
+    );
+  if (act === 'change_role') {
+    const role = str(args['role']) as WorkspaceRole | undefined;
+    if (!role)
+      throw HfosError.validation(
+        [{ path: 'role', message: 'Pick Owner, Admin or Member.' }],
+        `Say what ${whoOf(who)} should be: Owner, Admin or Member.`,
+      );
+    if (role === who.role)
+      throw HfosError.rule(
+        'nothing_changes',
+        409,
+        `${whoOf(who)} is already ${aRole(role)}. Nothing would change.`,
+      );
+    const input = { userId: who.userId, role };
+    await rehearse(db, ctx, 'membership.change_role', input);
+    return { act, workspace, input, who, role } as const;
+  }
+  const input = { userId: who.userId };
+  await rehearse(db, ctx, 'membership.remove', input);
+  return { act, workspace, input, who } as const;
+}
+
 const manageTeam: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const act = action(args);
-    const [{ members }, { workspace }] = await Promise.all([
-      membersOf(db, ctx),
-      workspaceOf(db, ctx),
-    ]);
-    const who = members.find((m) => m.userId === args['userId']);
-    const role = str(args['role']);
-    const card = (title: string, fields: Field[], confirmLabel: string, warn?: string) =>
-      settingsCard(toolCallId, 'manage_team', {
-        title,
-        fields,
-        confirmLabel,
-        warnings: warn ? [{ kind: 'note', text: warn }] : [],
-      });
-    switch (act) {
+    const plan = await teamPlan(db, ctx, args);
+    const business = plan.workspace.name;
+    const card = (
+      title: string,
+      fields: Field[],
+      confirmLabel: string,
+      warnings: { kind: 'caution' | 'note'; text: string }[] = [],
+    ) => ({
+      card: settingsCard(toolCallId, 'manage_team', { title, fields, confirmLabel, warnings }),
+      result: { waiting: true },
+    });
+    switch (plan.act) {
       case 'invite':
-        return {
-          card: card(
-            `Invite ${str(args['email'])}`,
-            [
-              { label: 'Email', value: str(args['email']) ?? '' },
-              { label: 'Role', value: ROLE_WORDS[role ?? 'member'] ?? 'Member' },
-              { label: 'Business', value: workspace.name },
-            ],
-            'Send the invitation',
-            'They get an email from HandsFreeOS inviting them in.',
-          ),
-          result: { waiting: true },
-        };
+        return card(
+          `Invite ${plan.email}`,
+          [
+            { label: 'Email', value: plan.email },
+            { label: 'Role', value: roleWords(plan.role) },
+            { label: 'Business', value: business },
+          ],
+          'Send the invitation',
+          [
+            {
+              kind: 'note',
+              text: 'They get an email from HandsFreeOS and press Accept invitation to join.',
+            },
+          ],
+        );
+      case 'resend_invitation':
+      case 'cancel_invitation': {
+        const i = plan.invitation;
+        const fields: Field[] = [
+          { label: 'Email', value: i.email },
+          { label: 'Role', value: roleWords(i.role) },
+          ...(i.invitedBy?.fullName ? [{ label: 'Invited by', value: i.invitedBy.fullName }] : []),
+          ...(i.sentAt
+            ? [
+                { label: 'Sent', value: dayOf(i.sentAt, ctx) },
+                { label: 'Expires', value: dayOf(i.expiresAt, ctx) },
+              ]
+            : [{ label: 'Sent', value: 'Sending now' }]),
+        ];
+        return plan.act === 'resend_invitation'
+          ? card(`Send ${i.email}’s invitation again`, fields, 'Send it again', [
+              { kind: 'note', text: 'They get a new email. The old link stops working.' },
+            ])
+          : card(`Cancel ${i.email}’s invitation`, fields, 'Cancel it', [
+              {
+                kind: 'caution',
+                text: 'Its link stops working. Inviting them again sends a new one.',
+              },
+            ]);
+      }
       case 'change_role':
-        return {
-          card: card(
-            `Change what ${who?.fullName ?? 'they'} can do`,
-            [
-              { label: 'Teammate', value: who?.fullName || (who?.email ?? '') },
-              { label: 'Now', value: ROLE_WORDS[role ?? ''] ?? '' },
-              { label: 'Was', value: ROLE_WORDS[who?.role ?? ''] ?? '' },
-            ],
-            'Save the change',
-          ),
-          result: { waiting: true },
-        };
-      case 'remove':
-        return {
-          card: card(
-            `Take ${who?.fullName ?? 'them'} off ${workspace.name}`,
-            [
-              { label: 'Teammate', value: who?.fullName || (who?.email ?? '') },
-              { label: 'Was', value: ROLE_WORDS[who?.role ?? ''] ?? '' },
-            ],
-            'Take them off',
-            'They lose their way in. What they worked on stays.',
-          ),
-          result: { waiting: true },
-        };
+        return card(
+          `Change ${whoOf(plan.who)}’s role`,
+          [
+            { label: 'Teammate', value: whoOf(plan.who) },
+            { label: 'Email', value: plan.who.email },
+            { label: 'Now', value: roleWords(plan.role) },
+            { label: 'Was', value: roleWords(plan.who.role) },
+          ],
+          'Save the change',
+          plan.role === 'owner'
+            ? [{ kind: 'caution', text: `${whoOf(plan.who)} gets full control of ${business}.` }]
+            : [],
+        );
+      case 'leave':
+        return card(
+          `Leave ${business}?`,
+          [
+            { label: 'You', value: plan.who.email },
+            { label: 'Role', value: roleWords(plan.who.role) },
+          ],
+          'Leave',
+          [
+            {
+              kind: 'caution',
+              text: 'You lose access immediately. An Owner can invite you back later.',
+            },
+          ],
+        );
       default:
-        return {
-          card: card(
-            act === 'resend_invitation' ? 'Send the invitation again' : 'Cancel the invitation',
-            [{ label: 'Business', value: workspace.name }],
-            act === 'resend_invitation' ? 'Send it again' : 'Cancel it',
-          ),
-          result: { waiting: true },
-        };
+        return card(
+          `Remove ${whoOf(plan.who)}?`,
+          [
+            { label: 'Teammate', value: whoOf(plan.who) },
+            { label: 'Email', value: plan.who.email },
+            { label: 'Role', value: roleWords(plan.who.role) },
+            { label: 'Business', value: business },
+          ],
+          'Remove them',
+          [
+            {
+              kind: 'caution',
+              text: 'They lose access immediately. Their past activity stays in the audit log.',
+            },
+          ],
+        );
     }
   },
 
   async commit(db, ctx, args) {
-    const act = action(args);
+    const plan = await teamPlan(db, ctx, args);
     const href = `/app/w/${ctx.workspaceId}/members`;
-    switch (act) {
+    switch (plan.act) {
       case 'invite':
-        await command(db, ctx, 'membership.invite', {
-          email: args['email'],
-          ...defined({ role: str(args['role']) }),
-        });
+        await command(db, ctx, 'membership.invite', plan.input);
         return {
-          outcome: `Invitation sent to ${str(args['email'])}`,
+          outcome: `Invitation sent to ${plan.email}`,
           href,
           command: 'membership.invite',
         };
-      case 'change_role':
-        await command(db, ctx, 'membership.change_role', {
-          userId: args['userId'],
-          role: args['role'],
-        });
-        return { outcome: 'Changed', href, command: 'membership.change_role' };
-      case 'remove':
-        await command(db, ctx, 'membership.remove', { userId: args['userId'] });
-        return { outcome: 'Taken off', href, command: 'membership.remove' };
       case 'resend_invitation':
-        await command(db, ctx, 'invitation.resend', { invitationId: args['invitationId'] });
-        return { outcome: 'Sent again', href, command: 'invitation.resend' };
+        await command(db, ctx, 'invitation.resend', plan.input);
+        return {
+          outcome: `Invitation re-sent to ${plan.invitation.email}. The old link no longer works.`,
+          href,
+          command: 'invitation.resend',
+        };
+      case 'cancel_invitation':
+        await command(db, ctx, 'invitation.revoke', plan.input);
+        return {
+          outcome: `Cancelled ${plan.invitation.email}’s invitation`,
+          href,
+          command: 'invitation.revoke',
+        };
+      case 'change_role':
+        await command(db, ctx, 'membership.change_role', plan.input);
+        return {
+          outcome: `${whoOf(plan.who)} is now ${aRole(plan.role)}`,
+          href,
+          command: 'membership.change_role',
+        };
+      case 'leave':
+        await command(db, ctx, 'membership.remove', plan.input);
+        return {
+          outcome: `You left ${plan.workspace.name}`,
+          href: null,
+          command: 'membership.remove',
+        };
       default:
-        await command(db, ctx, 'invitation.revoke', { invitationId: args['invitationId'] });
-        return { outcome: 'Cancelled', href, command: 'invitation.revoke' };
+        await command(db, ctx, 'membership.remove', plan.input);
+        return { outcome: `Removed ${whoOf(plan.who)}`, href, command: 'membership.remove' };
     }
   },
 };

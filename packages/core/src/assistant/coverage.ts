@@ -218,8 +218,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'Its key or sign-in is wiped now, so using it again takes signing in or pasting the key again on the add-on’s Connections. What it already brought in stays.',
   },
-  'safety.check_out': {},
-  'safety.extend': {},
+  // Checking in, adding time and checking out are my_check_in's; asking for help is ask_for_help's (tools-safety.ts).
+  // Sharing where the phone is (safety.where) stays the phone's: only the phone in their hand knows where it is.
   'safety.resolve': {},
   'support_access.decline': {},
   'support_access.end': {},
@@ -536,11 +536,6 @@ export const ASSISTANT_NOT_YET: readonly NotYet[] = [
     actions: ['registration.submit'],
     why: 'Sending the texting registration goes with the ticks on Before it goes that only the business gives, after the checks that step runs on those exact details. The Assistant fills in the answers (fill_in_carrier_registration) and asks HandsFreeOS to check it by hand when it won’t go green (do_registration_request_review); the person sends it from Before it goes.',
   },
-  {
-    page: 'Settings → Safety (phone)',
-    actions: ['safety.check_in', 'safety.help', 'safety_contact.save', 'safety_contact.remove'],
-    why: 'Found when the check began reading the phone’s own changes (6 November). Checking in, asking for help and choosing who is told are the phone’s safety screens, still to be checked for what the Assistant may do there.',
-  },
 ];
 
 // ---------- settings: every row on the Settings pages (settings/catalog.ts) ----------
@@ -680,6 +675,12 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'update_safety_settings', field: 'askAfterMinutes' },
     { tool: 'update_safety_settings', field: 'alertAfterMinutes' },
     { tool: 'update_safety_settings', field: 'safetyUserId' },
+  ],
+  // The person's own, on a card (the owner's rule for safety): nobody changes anyone else's.
+  'phone.my_safety': [
+    { tool: 'manage_my_safety_contacts', field: 'action', value: 'add_teammate' },
+    { tool: 'manage_my_safety_contacts', field: 'action', value: 'add_outside' },
+    { tool: 'manage_my_safety_contacts', field: 'action', value: 'remove' },
   ],
   // ---- Usage & balance: the card itself is typed on the payment provider's page, which only the person does ----
   'usage.balance': [{ tool: 'do_wallet_top_up', field: 'amountCents' }],
@@ -1007,7 +1008,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.businesses': 'a setting of the phone in their hand, set on it',
   'phone.documents_mobile_data': 'a setting of the phone in their hand, set on it',
   'phone.changes': 'a setting of the phone in their hand, set on it',
-  'phone.my_safety': 'the person’s own safety contacts, which only they choose',
   'safety.preview': 'nothing of its own to change: it shows what the check-in times set',
   'usage.card':
     'the card is typed on the payment provider’s own page, which only the person can do (do_wallet_forget_card takes it off)',

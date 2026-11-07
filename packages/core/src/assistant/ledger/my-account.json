@@ -1859,14 +1859,14 @@
       "kind": "do",
       "file": "apps/mobile/src/push/buttons.ts:118",
       "covered": "yes",
-      "by": "do_safety_check_out"
+      "by": "my_check_in action check_out"
     },
     {
       "path": "Push button → +15 min",
       "kind": "do",
       "file": "apps/mobile/src/push/buttons.ts:121",
       "covered": "yes",
-      "by": "do_safety_extend"
+      "by": "my_check_in action add_time (15 when left out)"
     },
     {
       "path": "Push → after a button: sent / done words",
