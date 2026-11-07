@@ -371,9 +371,9 @@ export const assistantTools = [
   define({
     name: 'list_workflows',
     description:
-      'The business’s workflows with ids: whether each is on (active), paused or a draft, what starts it, the calendars it watches, and its runs in the last 30 days. With calendarId, only that calendar’s automations, as its Automations section lists them, and which would remind customers a second time.',
+      'The business’s workflows with ids, as the Workflows list shows them: whether each is on (active), paused or a draft, its description, what starts it, the calendars it watches, its live version, its runs in the last 30 days and going now, its last run (when, the customer, how it ended), the last step that failed with its run id, and where it came from (a recipe, or the agency’s template with its version and whether an update is waiting). Archived ones only with status archived. With calendarId, only that calendar’s automations, as its Automations section lists them, and which would remind customers a second time.',
     input: z.object({
-      status: z.enum(['draft', 'active', 'paused']).optional(),
+      status: z.enum(['draft', 'active', 'paused', 'archived']).optional(),
       calendarId: uuid
         .optional()
         .describe('Only the workflows that start from this calendar or from every calendar'),
@@ -397,7 +397,7 @@ export const assistantTools = [
   define({
     name: 'draft_workflow',
     description:
-      'Draft a new workflow, or a change to one (pass its workflowId; "this" on a workflow page means that one), from the person’s words. It only makes a proposal they open, check and apply: nothing is saved or turned on. Put everything they asked for in the description.',
+      'Draft a new workflow, or a change to one (pass its workflowId; "this" on a workflow page means that one), from the person’s words. It makes a proposal: nothing is saved or turned on until it’s applied. Show it, and once the person agrees, apply it with do_workflow_proposal_apply (or they open it and press Apply). Put everything they asked for in the description.',
     input: z.object({
       description: text(2000).describe(
         'What it should do, or what to change, in the person’s words',
@@ -1680,7 +1680,7 @@ export const assistantTools = [
   define({
     name: 'start_workflow',
     description:
-      'Start a workflow that is on and starts by hand (“When someone starts it”) for one customer; it keeps to the workflow’s re-entry setting. Workflows that start on their own event (a new lead, a missed call) can’t be started this way. The card shows what it does first.',
+      'Start a workflow that is on and starts by hand (“When someone starts it”) for one customer; it keeps to the workflow’s re-entry setting. Workflows that start on their own event (a new lead, a missed call) can’t be started this way. The card shows what it does first, or, as Add to workflow… does, why it can’t start for them now (they went through it already, or are in it).',
     input: z.object({ workflowId: uuid, personId: uuid }),
     autonomy: 'confirm',
     permission: 'records.write',

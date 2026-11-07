@@ -388,7 +388,7 @@ export const workflowRename = defineCommand({
 export const workflowPublish = defineCommand({
   name: 'workflow.publish',
   description:
-    'Publish the draft as a new, unchangeable version that new runs start on. Needs no blocking issues (422) and a passing test of this exact draft revision (409 not_tested).',
+    'Publish the draft as a new version that never changes, which new runs start on. Runs already going finish on the version they started on, and a paused workflow stays paused. It needs nothing red in Checks and a passing test of the draft as it is now.',
   risk: 2,
   input: WorkflowPublishInput,
   output: WorkflowPublishOutput,

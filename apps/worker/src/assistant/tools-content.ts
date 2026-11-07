@@ -14,21 +14,46 @@
 import {
   allSteps,
   applyWorkflowOps,
+  approvalDecidedLine,
   closedStageWords,
+  decisionLines,
+  decisionsOf,
   describeOps,
+  describeSettings,
   DRAFT_WORDS,
   draftDecidedLine,
   describeStep,
   describeTrigger,
+  diffWorkflows,
+  endReasonText,
+  failedStep,
   findStep,
   HfosError,
+  isLiveRun,
   KnowledgeEditableContent,
+  knowledgeUsed,
+  latestRows,
   lineCheckCostWords,
+  messageOf,
   MONEY_DRAFT_ACTIONS,
   normalizeSiteUrl,
   parseDefinition,
   plainSpaces,
+  RUN_STATUS,
+  RUN_STATUS_FILTERS,
+  RUN_STEP_STATUS,
+  runLine,
+  runStepFields,
+  runStepTitle,
+  stepKeyParts,
+  stepNote,
+  testOutcome,
+  unusedPaths,
+  workflowTextsNewLeads,
+  type ApprovalFacts,
   type AssistantCard,
+  type RunStatus,
+  type RunStepRow,
   type WorkflowCatalogs,
   type WorkflowDefinition,
   type WorkflowNames,
@@ -38,6 +63,7 @@ import type { Db } from '@hfos/db/client';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { command, query, quoted, rehearse, when } from './tools-read';
 import type { SettingsConfirmTool } from './tools-settings-calendar';
+import { lastRunOut, sourceOut, type WorkflowItem } from './tools-workflow';
 
 type Args = Record<string, unknown>;
 type ConfirmCard = Extract<AssistantCard, { type: 'confirm' }>;
@@ -2091,26 +2117,40 @@ const manageOffer: SettingsConfirmTool = {
 // Workflows and their runs
 // ================================================================================================
 
+interface Issue {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  fields: string[];
+  /** The step it's about; null for what starts it, the settings or the whole workflow. */
+  stepId: string | null;
+  fixes: { id: string; label: string; ops: WorkflowOp[] }[];
+}
+/** A published version, as History lists it. */
+interface VersionRow {
+  id: string;
+  version: number;
+  diff: string[];
+  publishedBy: { id: string; fullName: string } | null;
+  createdAt: string;
+}
 interface WorkflowGet {
-  workflow: {
-    id: string;
-    name: string;
-    description: string | null;
-    status: 'draft' | 'active' | 'paused' | 'archived';
-    activeRuns: number;
-    /** The draft's: a save is made against it. */
-    revision: number;
-    activeVersion: { id: string; version: number } | null;
+  workflow: WorkflowItem & {
     /** The draft as written. */
     definition: Record<string, unknown>;
-    issues: { severity: 'error' | 'warning'; message: string; stepId: string | null }[];
+    issues: Issue[];
   };
+  versions: VersionRow[];
 }
 interface RunOut {
   id: string;
   workflow: { id: string; name: string };
-  status: 'running' | 'waiting' | 'awaiting_approval' | 'held' | 'completed' | 'stopped' | 'failed';
+  status: RunStatus;
   person: { id: string; fullName: string } | null;
+  version: number | null;
+  isTest: boolean;
+  testMode: 'simulate' | 'send_to_me' | null;
+  testRevision: number | null;
   cursor: string | null;
   endReason: string | null;
   startedAt: string;
@@ -2119,25 +2159,33 @@ interface RunOut {
 interface RunGet {
   run: RunOut & { visits: Record<string, number> };
   definition: Record<string, unknown> | null;
-  steps: {
-    stepKey: string;
-    status: 'running' | 'done' | 'skipped' | 'waiting' | 'failed' | 'dead';
-    attempt: number;
-    error: Record<string, unknown> | null;
-  }[];
+  steps: (RunStepRow & { id: string; startedAt: string })[];
+  approvals: (ApprovalFacts & { stepKey: string })[];
 }
 
-const RUN_STATUS: Record<RunOut['status'], string> = {
-  running: 'Running',
-  waiting: 'Waiting',
-  awaiting_approval: 'Waiting on an approval',
-  held: 'Held while the workflow is paused',
-  completed: 'Finished',
-  stopped: 'Stopped',
-  failed: 'A step failed',
-};
-const LIVE_RUN = ['running', 'waiting', 'awaiting_approval', 'held'];
-const customerOf = (r: RunOut) => r.person?.fullName ?? 'no customer';
+/** A run's status as the badges and filters on Runs say it, with a held run's reason. */
+const statusWord = (s: RunStatus) => RUN_STATUS[s].label;
+const HELD_NOTE = 'Held while the workflow is paused: it carries on once the workflow is resumed';
+const testWords = (r: Pick<RunOut, 'testMode' | 'testRevision'>) =>
+  `Test (${r.testMode === 'send_to_me' ? 'Send to me' : 'Simulate'}) of draft revision ${r.testRevision ?? '?'}`;
+const customerOf = (r: RunOut) => r.person?.fullName ?? (r.isTest ? 'Test run' : 'No customer');
+
+/** One run in a list, as Runs shows its row: the status, the version or the test, and why it ended. */
+function runRow(r: RunOut, timezone: string) {
+  const ended = isLiveRun(r.status) ? null : endReasonText(r.endReason);
+  return {
+    id: r.id,
+    workflow: r.workflow.name,
+    workflowId: r.workflow.id,
+    customer: customerOf(r),
+    status: statusWord(r.status),
+    ...(r.status === 'held' ? { note: HELD_NOTE } : {}),
+    ...(r.isTest ? { test: testWords(r) } : { version: r.version }),
+    ...(ended ? { whyItEnded: ended } : {}),
+    started: when(r.startedAt, timezone),
+    ...(r.endedAt ? { ended: when(r.endedAt, timezone) } : {}),
+  };
+}
 
 /** Where a run is, and the failed step it's stuck on (the run page's Retry and Skip), if any. */
 async function runState(db: Db, ctx: ToolContext, runId: unknown) {
@@ -2156,67 +2204,93 @@ async function runState(db: Db, ctx: ToolContext, runId: unknown) {
       // A definition that no longer reads is still a run someone can stop.
     }
   }
+  return { run, what: what ?? 'A step', stuck: stuckOn(got) };
+}
+
+/** The failed step a run is stuck on, which Retry and Skip act on; null when none is. */
+function stuckOn(got: Pick<RunGet, 'run' | 'steps'>) {
+  const run = got.run;
   const key = run.cursor ? `${run.cursor}#${run.visits[run.cursor] ?? 1}` : null;
   const row = key ? got.steps.find((s) => s.stepKey === key) : undefined;
   const ended = run.status === 'completed' || run.status === 'stopped';
-  const stuck =
-    row && !ended && (row.status === 'failed' || row.status === 'dead')
-      ? {
-          stepKey: row.stepKey,
-          attempt: row.attempt,
-          error:
-            typeof row.error?.['message'] === 'string'
-              ? (row.error['message'] as string)
-              : 'It didn’t work',
-        }
-      : null;
-  return { run, what: what ?? 'A step', stuck };
+  return row && !ended && (row.status === 'failed' || row.status === 'dead')
+    ? {
+        stepKey: row.stepKey,
+        attempt: row.attempt,
+        error:
+          typeof row.error?.['message'] === 'string'
+            ? (row.error['message'] as string)
+            : 'It didn’t work',
+      }
+    : null;
 }
+
+/** The Started filter on Runs. */
+const STARTED_WITHIN: Record<string, number | null> = {
+  '1d': 86_400_000,
+  '7d': 7 * 86_400_000,
+  '30d': 30 * 86_400_000,
+  all: null,
+};
+
+/** The Runs filter each `show` is; needs_attention is Failed, Needs approval and Held together. */
+const SHOW_STATUSES: Record<string, readonly RunStatus[] | null> = {
+  needs_attention: ['failed', 'awaiting_approval', 'held'],
+  going: RUN_STATUS_FILTERS.waiting,
+  needs_approval: RUN_STATUS_FILTERS.awaiting_approval,
+  failed: RUN_STATUS_FILTERS.failed,
+  completed: RUN_STATUS_FILTERS.completed,
+  stopped: RUN_STATUS_FILTERS.stopped,
+  all: null,
+};
+
+/** How many failed runs in a page get their failed step and why. */
+const FAILED_DETAIL = 5;
 
 async function listWorkflowRuns(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const show = str(args['show']) ?? 'needs_attention';
-  const lim = Number(args['limit'] ?? 10);
-  const base = {
-    ...(str(args['workflowId']) ? { workflowId: args['workflowId'] } : {}),
-    ...(str(args['personId']) ? { personId: args['personId'] } : {}),
-  };
-  const runsWith = async (status: string[] | null) =>
-    (
-      await query<{ items: RunOut[] }>(db, ctx, 'workflow.run_list', {
-        ...base,
-        ...(status ? { status } : {}),
-        limit: lim,
-      })
-    ).items;
+  const statuses = SHOW_STATUSES[show] ?? null;
+  const within = STARTED_WITHIN[str(args['startedWithin']) ?? 'all'] ?? null;
+  const tests = args['tests'] === true;
+  const { items, nextCursor } = await query<{ items: RunOut[]; nextCursor: string | null }>(
+    db,
+    ctx,
+    'workflow.run_list',
+    {
+      ...(str(args['workflowId']) ? { workflowId: args['workflowId'] } : {}),
+      ...(str(args['personId']) ? { personId: args['personId'] } : {}),
+      ...(statuses ? { status: [...statuses] } : {}),
+      ...(tests ? { onlyTests: true } : {}),
+      ...(within ? { startedAfter: new Date(Date.now() - within).toISOString() } : {}),
+      ...(str(args['cursor']) ? { cursor: args['cursor'] } : {}),
+      limit: Number(args['limit'] ?? 10),
+    },
+  );
+  // What needs attention most comes first in the page: the failed ones, then those waiting on someone.
   const runs =
     show === 'needs_attention'
-      ? [...(await runsWith(['failed'])), ...(await runsWith(['awaiting_approval', 'held']))].slice(
-          0,
-          lim,
-        )
-      : await runsWith(show === 'going' ? LIVE_RUN : null);
-  // The failed step and why, for the few that failed.
+      ? [...items].sort((a, b) => Number(b.status === 'failed') - Number(a.status === 'failed'))
+      : items;
+  // The failed step and why, for the first few that failed.
+  const failed = runs.filter((r) => r.status === 'failed');
   const stuck = new Map(
     await Promise.all(
-      runs
-        .filter((r) => r.status === 'failed')
-        .slice(0, 5)
+      failed
+        .slice(0, FAILED_DETAIL)
         .map(async (r) => [r.id, await runState(db, ctx, r.id).catch(() => null)] as const),
     ),
   );
   const p = contentPaths(ctx.workspaceId);
+  const none =
+    show === 'needs_attention'
+      ? 'No run needs attention.'
+      : `No ${tests ? 'test ' : ''}runs${show === 'all' ? '' : ` that are ${SHOW_WORD[show] ?? show}`}${within ? ' started then' : ''}.`;
   return {
     result: {
       runs: runs.map((r) => {
         const s = stuck.get(r.id);
         return {
-          id: r.id,
-          workflow: r.workflow.name,
-          workflowId: r.workflow.id,
-          customer: customerOf(r),
-          status: RUN_STATUS[r.status],
-          started: when(r.startedAt, ctx.timezone),
-          ...(r.endedAt ? { ended: when(r.endedAt, ctx.timezone) } : {}),
+          ...runRow(r, ctx.timezone),
           ...(s?.stuck
             ? {
                 failedStep: s.what,
@@ -2227,20 +2301,25 @@ async function listWorkflowRuns(db: Db, ctx: ToolContext, args: Args): Promise<T
             : {}),
         };
       }),
-      ...(runs.length
-        ? {}
-        : { note: show === 'needs_attention' ? 'No run needs attention.' : 'No runs.' }),
+      shown: runs.length,
+      ...(nextCursor ? { more: true, nextCursor } : {}),
+      ...(failed.length > FAILED_DETAIL
+        ? { note: 'get_workflow_run says what went wrong in the other failed runs.' }
+        : {}),
+      ...(runs.length ? {} : { note: none }),
     },
     card: runs.length
       ? {
           type: 'list',
           title:
-            show === 'needs_attention' ? 'Runs that need attention' : plural(runs.length, 'run'),
+            show === 'needs_attention'
+              ? 'Runs that need attention'
+              : `${plural(runs.length, tests ? 'test run' : 'run')}${nextCursor ? ' and more' : ''}`,
           items: runs.slice(0, 12).map((r) => ({
             title: `${customerOf(r)} · ${r.workflow.name}`,
             detail: stuck.get(r.id)?.stuck
               ? `Failed at: ${clip(stuck.get(r.id)!.what, 100)}`
-              : RUN_STATUS[r.status],
+              : runLine(r),
             tone: (r.status === 'failed'
               ? 'danger'
               : r.status === 'awaiting_approval' || r.status === 'held'
@@ -2250,6 +2329,155 @@ async function listWorkflowRuns(db: Db, ctx: ToolContext, args: Args): Promise<T
           })),
         }
       : null,
+  };
+}
+
+/** A filter's word for "No runs that are …". */
+const SHOW_WORD: Record<string, string> = {
+  going: 'going',
+  needs_approval: 'waiting on an approval',
+  failed: 'failed',
+  completed: 'completed',
+  stopped: 'stopped',
+};
+
+/** An approval decided at a step, as the run page's Approval line says it. */
+function runApprovalLine(a: ApprovalFacts, timezone: string): string {
+  if (a.status === 'pending') return 'Waiting for a decision';
+  return `${approvalDecidedLine(a)}${a.decidedAt ? `, ${when(a.decidedAt, timezone)}` : ''}`;
+}
+
+/**
+ * One run as its page shows it: the header (the customer, the workflow, the version or the test, started, ended and
+ * why), what it's stuck on, the paths it didn't take, and each step it reached in the order it got there, with every
+ * visit's status, time, tries, note, message, checks, knowledge, input and output and error, and the step's approvals.
+ */
+async function getWorkflowRun(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
+  const [got, cats] = await Promise.all([
+    query<RunGet>(db, ctx, 'workflow.run_get', { runId: args['runId'] }),
+    query<{ catalogs: WorkflowCatalogs }>(db, ctx, 'workflow.catalogs').catch(() => null),
+  ]);
+  const run = got.run;
+  const names: WorkflowNames = cats?.catalogs ?? {};
+  const tz = ctx.timezone;
+  let def: WorkflowDefinition | null = null;
+  try {
+    def = got.definition ? parseDefinition(got.definition) : null;
+  } catch {
+    // The steps it took are still in the log.
+  }
+  const live = isLiveRun(run.status);
+  const titleOf = (stepId: string) => {
+    const step = def ? findStep(def, stepId)?.step : undefined;
+    return step && def ? describeStep(step, names, def) : 'A step no longer in the workflow';
+  };
+  // The steps in the order the run first reached them, each with its visits.
+  const order: string[] = [];
+  for (const row of got.steps) {
+    const { stepId } = stepKeyParts(row.stepKey);
+    if (!order.includes(stepId)) order.push(stepId);
+  }
+  const steps = order.map((stepId) => {
+    const step = def ? findStep(def, stepId)?.step : undefined;
+    const visits = got.steps.filter((s) => stepKeyParts(s.stepKey).stepId === stepId);
+    const decided = got.approvals.filter((a) => stepKeyParts(a.stepKey).stepId === stepId);
+    return {
+      stepId,
+      step: titleOf(stepId),
+      visits: visits.map((row) => {
+        const message = messageOf(row);
+        const checks = decisionLines(decisionsOf(row.output), tz);
+        const knowledge = knowledgeUsed(row.output);
+        const setTo = runStepFields(row.input, names, tz);
+        const cameBack = runStepFields(row.output, names, tz);
+        const error = typeof row.error?.['message'] === 'string' ? row.error['message'] : null;
+        return {
+          ...(visits.length > 1 ? { visit: stepKeyParts(row.stepKey).visit } : {}),
+          status: RUN_STEP_STATUS[row.status],
+          when: when(row.startedAt, tz),
+          ...(row.attempt > 1 ? { tries: row.attempt } : {}),
+          what: stepNote(step, row, { timeZone: tz, names, def }),
+          ...(message ? { message: { it_sent: message } } : {}),
+          ...(checks.length ? { checksBeforeTheText: checks } : {}),
+          ...(knowledge.length ? { knowledgeUsed: knowledge } : {}),
+          ...(setTo.length
+            ? { whatItWasSetToDo: Object.fromEntries(setTo.map((f) => [f.label, f.value])) }
+            : {}),
+          ...(cameBack.length
+            ? { whatCameBack: Object.fromEntries(cameBack.map((f) => [f.label, f.value])) }
+            : {}),
+          ...(row.status === 'failed' || row.status === 'dead'
+            ? { error: error ?? 'Something went wrong.' }
+            : {}),
+        };
+      }),
+      ...(decided.length ? { approval: decided.map((a) => runApprovalLine(a, tz)) } : {}),
+    };
+  });
+  const reached = new Set(order);
+  const notReached = def
+    ? allSteps(def)
+        .filter((l) => !reached.has(l.step.id))
+        .map((l) => describeStep(l.step, names, def))
+    : [];
+  const stuck = stuckOn(got);
+  const unused = def ? unusedPaths(def, latestRows(got.steps)) : null;
+  const ended = live ? null : endReasonText(run.endReason);
+  const p = contentPaths(ctx.workspaceId);
+  return {
+    result: {
+      id: run.id,
+      customer: customerOf(run),
+      ...(run.person ? { personId: run.person.id } : {}),
+      workflow: run.workflow.name,
+      workflowId: run.workflow.id,
+      status: statusWord(run.status),
+      ...(run.status === 'held' ? { note: HELD_NOTE } : {}),
+      ...(run.isTest ? { test: testWords(run) } : { version: run.version }),
+      started: when(run.startedAt, tz),
+      ...(run.endedAt ? { ended: when(run.endedAt, tz) } : {}),
+      ...(ended
+        ? {
+            [run.status === 'completed'
+              ? 'finished'
+              : run.status === 'failed'
+                ? 'failedBecause'
+                : 'stoppedBecause']: ended,
+          }
+        : {}),
+      ...(stuck
+        ? {
+            stuckAt: {
+              step: run.cursor ? titleOf(run.cursor) : 'A step',
+              whatWentWrong: stuck.error,
+              tries: stuck.attempt,
+              canRetryOrSkip: 'manage_workflow_run retry_step or skip_step (owners and admins)',
+            },
+          }
+        : {}),
+      ...(unused ? { pathsNotTaken: unused } : {}),
+      steps,
+      ...(notReached.length ? { [live ? 'notReachedYet' : 'neverReached']: notReached } : {}),
+      ...(def ? {} : { note: 'The steps this run followed aren’t available, only its log.' }),
+    },
+    card: {
+      type: 'list',
+      title: `${customerOf(run)} · ${run.workflow.name}`,
+      items: [
+        {
+          title: runLine(run),
+          detail: run.isTest
+            ? testWords(run)
+            : `Version ${run.version ?? '?'} · started ${when(run.startedAt, tz)}`,
+          tone: (run.status === 'failed'
+            ? 'danger'
+            : run.status === 'awaiting_approval' || run.status === 'held'
+              ? 'warning'
+              : 'muted') as Tone,
+          href: p.run(run.id),
+        },
+      ],
+    },
   };
 }
 
@@ -2347,11 +2575,11 @@ const DRAFT_MOST = 20_000;
 
 /** A workflow's draft, read as its editor reads it, with the names of what its steps point at. */
 async function workflowDraft(db: Db, ctx: ToolContext, workflowId: unknown) {
-  const [{ workflow: wf }, names] = await Promise.all([
+  const [{ workflow: wf, versions }, names] = await Promise.all([
     query<WorkflowGet>(db, ctx, 'workflow.get', { workflowId }),
     query<{ catalogs: WorkflowCatalogs }>(db, ctx, 'workflow.catalogs').catch(() => null),
   ]);
-  return { wf, def: parseDefinition(wf.definition), names: names?.catalogs ?? {} };
+  return { wf, versions, def: parseDefinition(wf.definition), names: names?.catalogs ?? {} };
 }
 
 /**
@@ -2417,19 +2645,152 @@ export function draftSaved(issues: readonly { severity: string; message: string 
     : 'Saved the draft.';
 }
 
+/** The header's gate beside Publish: what still stands in the way, or that it's ready. */
+export function publishGate(errors: number, tested: boolean): string {
+  return errors
+    ? `Fix ${plural(errors, 'red item')} first`
+    : !tested
+      ? 'Run a test first'
+      : 'Tested, ready to publish';
+}
+
+/**
+ * How the newest test of a workflow came out, in the Test tab's words: passed (and whether the draft changed since),
+ * failed (which step, and why), outdated, stopped, or still running. Null when it was never tested.
+ */
+async function latestTest(
+  db: Db,
+  ctx: ToolContext,
+  wf: Pick<WorkflowItem, 'id' | 'revision'>,
+  names: WorkflowNames,
+) {
+  const { items } = await query<{ items: RunOut[] }>(db, ctx, 'workflow.run_list', {
+    workflowId: wf.id,
+    onlyTests: true,
+    limit: 1,
+  });
+  const run = items[0];
+  if (!run) return null;
+  const got = await query<RunGet>(db, ctx, 'workflow.run_get', { runId: run.id });
+  let def: WorkflowDefinition | null = null;
+  try {
+    def = got.definition ? parseDefinition(got.definition) : null;
+  } catch {
+    // How it came out still reads from its log.
+  }
+  const outcome = testOutcome(got.run, got.steps);
+  const current = run.testRevision === wf.revision;
+  const failed = outcome === 'failed' ? failedStep(def, got.steps) : null;
+  const failure =
+    typeof failed?.row.error?.['message'] === 'string'
+      ? failed.row.error['message']
+      : 'something went wrong';
+  return {
+    runId: run.id,
+    mode: run.testMode === 'send_to_me' ? 'Send to me' : 'Simulate',
+    draftRevision: run.testRevision,
+    started: when(run.startedAt, ctx.timezone),
+    outcome,
+    says:
+      outcome === 'running'
+        ? 'The test is still running.'
+        : outcome === 'passed'
+          ? current
+            ? 'Test passed, ready to publish.'
+            : 'This test passed, but the draft changed since. Run it again to publish.'
+          : outcome === 'failed'
+            ? failed
+              ? `The test didn’t pass. “${failed.step && def ? runStepTitle(failed.step, names, def) : 'A step'}” failed: ${failure}`
+              : 'The test didn’t pass. A step failed.'
+            : outcome === 'outdated'
+              ? 'The draft changed during the test, so it can’t count. Run it again.'
+              : 'The test was stopped before it finished.',
+    ...(outcome === 'running'
+      ? { canStop: 'manage_workflow_run stop, with this runId (Stop the test)' }
+      : {}),
+  };
+}
+
+/** A check as Checks lists it: what's wrong, the step it's about, whether it blocks publishing, and its fixes. */
+function checkOut(i: Issue, def: WorkflowDefinition, names: WorkflowNames) {
+  const step = i.stepId ? findStep(def, i.stepId)?.step : undefined;
+  return {
+    message: i.message,
+    ...(step
+      ? { step: runStepTitle(step, names, def), stepId: i.stepId }
+      : i.fields.some((f) => f.startsWith('trigger'))
+        ? { step: 'The trigger' }
+        : {}),
+    blocksPublishing: i.severity === 'error',
+    ...(i.fixes.length ? { fixes: i.fixes.map((f) => ({ label: f.label, ops: f.ops })) } : {}),
+  };
+}
+
+/** What the draft changes from a version, in the editor's words (the Publish dialog's "What changes from version N"). */
+function changesFrom(from: WorkflowDefinition, to: WorkflowDefinition, names: WorkflowNames) {
+  return describeOps(diffWorkflows(from, to), from, names);
+}
+
 async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
-  const { wf, def, names } = await workflowDraft(db, ctx, args['workflowId']);
+  const { wf, versions, def, names } = await workflowDraft(db, ctx, args['workflowId']);
+  const p = contentPaths(ctx.workspaceId);
+  const asked = typeof args['version'] === 'number' ? args['version'] : null;
+  if (asked !== null) return versionToRead(db, ctx, wf, def, names, asked);
   const startsWhen = describeTrigger(def.trigger, names);
   const errors = wf.issues.filter((i) => i.severity === 'error');
   const main = def.steps.map((s) => describeStep(s, names, def));
+  const live = wf.activeVersion?.version ?? null;
+  const [test, liveDef] = await Promise.all([
+    latestTest(db, ctx, wf, names).catch(() => null),
+    live
+      ? query<{ version: { definition: unknown } }>(db, ctx, 'workflow.version_get', {
+          workflowId: wf.id,
+          version: live,
+        })
+          .then((v) => parseDefinition(v.version.definition))
+          .catch(() => null)
+      : Promise.resolve(null),
+  ]);
+  const sinceLive = liveDef ? changesFrom(liveDef, def, names) : null;
   return {
     result: {
       id: wf.id,
       name: wf.name,
       status: wf.status,
+      ...(wf.description ? { description: wf.description } : {}),
       startsWhen,
-      liveVersion: wf.activeVersion?.version ?? null,
-      checksToFix: errors.map((i) => i.message),
+      liveVersion: live,
+      publishGate: publishGate(errors.length, wf.tested),
+      tested: wf.tested,
+      testedRevision: wf.testedRevision,
+      latestTest: test ?? 'Never tested',
+      checks: wf.issues.length ? wf.issues.map((i) => checkOut(i, def, names)) : 'All clear',
+      ...(workflowTextsNewLeads(def)
+        ? {
+            textsNewLeads:
+              'It texts new leads. If the AI teammate’s Respond skill also messages new leads (get_settings ai_teammate), customers could get two first texts; Checks warns about it, and it doesn’t block publishing.',
+          }
+        : {}),
+      versions: versions.length
+        ? versions.map((v) => ({
+            version: v.version,
+            ...(v.id === wf.activeVersion?.id ? { live: true } : {}),
+            changes: v.diff,
+            published: when(v.createdAt, ctx.timezone),
+            publishedBy: v.publishedBy?.fullName ?? 'HandsFreeOS',
+          }))
+        : 'Nothing is published yet',
+      ...(sinceLive
+        ? {
+            changesSinceLive: sinceLive.length
+              ? sinceLive
+              : `Nothing changed since version ${live}, so there’s nothing to publish.`,
+          }
+        : {}),
+      runsLast30Days: wf.runs30d,
+      runsGoingNow: wf.activeRuns,
+      ...lastRunOut(wf, ctx.timezone),
+      source: sourceOut(wf.source),
       ...draftToRead(wf.definition, def, names, wf.revision),
     },
     card: {
@@ -2445,7 +2806,43 @@ async function getWorkflow(db: Db, ctx: ToolContext, args: Args): Promise<ToolOu
       issues: errors.length,
       issueNote: errors[0]?.message ?? null,
       unsupported: [],
-      href: contentPaths(ctx.workspaceId).workflow(wf.id),
+      href: p.workflow(wf.id),
+    },
+  };
+}
+
+/** One published version as History → View shows it: its steps as published, and what restoring it would change. */
+async function versionToRead(
+  db: Db,
+  ctx: ToolContext,
+  wf: WorkflowGet['workflow'],
+  draft: WorkflowDefinition,
+  names: WorkflowNames,
+  version: number,
+): Promise<ToolOutcome> {
+  const { version: v } = await query<{
+    version: VersionRow & { definition: unknown };
+  }>(db, ctx, 'workflow.version_get', { workflowId: wf.id, version });
+  const def = parseDefinition(v.definition);
+  const restoring = changesFrom(draft, def, names);
+  return {
+    result: {
+      workflow: wf.name,
+      version: v.version,
+      ...(v.id === wf.activeVersion?.id ? { live: true } : {}),
+      published: when(v.createdAt, ctx.timezone),
+      publishedBy: v.publishedBy?.fullName ?? 'HandsFreeOS',
+      changes: v.diff,
+      startsWhen: describeTrigger(def.trigger, names),
+      steps: allSteps(def).map((l) => ({
+        id: l.step.id,
+        depth: l.depth,
+        says: describeStep(l.step, names, def),
+      })),
+      settings: describeSettings(def.settings),
+      whatRestoringChangesInTheDraft: restoring.length
+        ? restoring
+        : 'The draft already matches this version.',
     },
   };
 }
@@ -2509,7 +2906,7 @@ const manageWorkflowRun: SettingsConfirmTool = {
     ];
     const result = { workflow: run.workflow.name, customer: who, status: run.status };
     if (act === 'stop') {
-      const blocked = LIVE_RUN.includes(run.status)
+      const blocked = isLiveRun(run.status)
         ? null
         : run.status === 'failed'
           ? 'It already ended when a step failed. Retry or skip that step instead.'
@@ -2520,7 +2917,7 @@ const manageWorkflowRun: SettingsConfirmTool = {
           personId: run.person?.id ?? null,
           fields: [
             ...fields,
-            { label: 'Where it is', value: `${RUN_STATUS[run.status]}: ${what}` },
+            { label: 'Where it is', value: `${statusWord(run.status)}: ${what}` },
           ],
           ...orBlocked(blocked, 'Stop the run', [
             {
@@ -3011,6 +3408,7 @@ export const contentAutoTools: Record<
   list_offers: listOffers,
   get_workflow: getWorkflow,
   list_workflow_runs: listWorkflowRuns,
+  get_workflow_run: getWorkflowRun,
   list_teammate_drafts: listTeammateDrafts,
 };
 
@@ -3053,6 +3451,7 @@ export const contentStepLabels: Record<string, string> = {
   get_workflow: 'Looking at the workflow',
   edit_workflow_steps: 'Getting the steps ready',
   list_workflow_runs: 'Looking at workflow runs',
+  get_workflow_run: 'Looking at the run',
   manage_workflow_run: 'Looking at the run',
   list_teammate_drafts: 'Looking at what the AI teammate wrote',
   decide_teammate_draft: 'Getting the draft ready',

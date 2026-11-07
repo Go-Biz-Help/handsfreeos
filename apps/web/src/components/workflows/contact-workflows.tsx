@@ -1,4 +1,5 @@
 'use client';
+import { workflowAvailability } from '@hfos/core';
 import { Workflow as WorkflowIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -26,31 +27,19 @@ async function personRuns(workspaceId: string, personId: string) {
   ).items;
 }
 
-function dateText(iso: string, timeZone: string) {
-  return new Intl.DateTimeFormat('en-US', { timeZone, month: 'short', day: 'numeric' }).format(
-    new Date(iso),
-  );
-}
-
-/** Whether a workflow can take this customer now, and a line saying why or what happens. */
-function availability(
+/** Whether a workflow can take this customer now, and a line saying why or what happens (core's, as the Assistant says it). */
+const availability = (
   w: WorkflowSummary,
   runs: readonly WorkflowRunSummary[],
   first: string,
   timeZone: string,
-): { ok: boolean; note: string } {
-  if (w.status === 'paused') return { ok: false, note: 'Paused. Resume it to add people.' };
-  const theirs = runs.filter((r) => r.workflow.id === w.id);
-  const live = theirs.find((r) => isLive(r.status));
-  if (w.reentry === 'once' && theirs.length)
-    return {
-      ok: false,
-      note: `${first} went through it on ${dateText(theirs[0]!.startedAt, timeZone)}. It runs once for each customer.`,
-    };
-  if (live && w.reentry !== 'always')
-    return { ok: false, note: `Already in it. It can start again after ${first} finishes.` };
-  return { ok: true, note: w.description || 'Starts at its first step right away.' };
-}
+) =>
+  workflowAvailability(
+    w,
+    runs.filter((r) => r.workflow.id === w.id),
+    first,
+    timeZone,
+  );
 
 /** "Add to workflow…" on a customer or lead page: workflows that start by hand, then one click to add them. */
 export function AddToWorkflowButton({

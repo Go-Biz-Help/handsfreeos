@@ -67,6 +67,29 @@ describe('Assistant context (PERF-M20)', () => {
     ).toContain('- Sales (pipeline id p1): New [open] (stage id s1)');
   });
 
+  it('says when there are more workflows than it lists, and how to read a run on screen', () => {
+    const flows = Array.from({ length: 25 }, (_, i) => ({
+      id: `w${i}`,
+      name: `Flow ${i}`,
+      status: 'active',
+      trigger: 'When someone starts it',
+    }));
+    expect(lastingText({ ...PROMPT, workflows: flows, workflowsTotal: 31 })).toContain(
+      'Workflows (the first 25 of 31; list_workflows has the rest; their ids start, pause and resume them):',
+    );
+    expect(lastingText({ ...PROMPT, workflows: flows })).toContain(
+      'Workflows (their ids start, pause and resume them):',
+    );
+    expect(
+      turnText({
+        ...PROMPT,
+        page: { type: 'workflow_run', id: 'r1', label: 'a run of Follow-up', next: null },
+      }),
+    ).toContain(
+      'On screen now: a run of Follow-up (workflow_run id r1). get_workflow_run reads it step by step.',
+    );
+  });
+
   it('says which page or setting is open when no record is, with the ids in its address', () => {
     const ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
     const on = (path: string) => turnText({ ...PROMPT, place: screenPlace(path) });

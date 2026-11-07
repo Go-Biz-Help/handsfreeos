@@ -1,10 +1,10 @@
 'use client';
 import {
-  allSteps,
   findStep,
   parseDefinition,
-  refName,
-  type RefKind,
+  runStepFields,
+  unusedPaths,
+  type RunStepField,
   type WorkflowDefinition,
   type WorkflowNames,
 } from '@hfos/core';
@@ -37,7 +37,6 @@ import {
   runOverlays,
   stepKeyParts,
   stepNote,
-  truncate,
   whenText,
 } from '@/lib/workflows/run-words';
 import { stepLines, stepTone } from '@/lib/workflows/steps';
@@ -423,155 +422,7 @@ export function RunDetail({
   );
 }
 
-/** "“Emergency” and “Other” weren’t used", for branches the run went through. */
-function unusedPaths(def: WorkflowDefinition, rows: Map<string, WorkflowRunStep>): string | null {
-  const names: string[] = [];
-  for (const { step } of allSteps(def)) {
-    if (step.type !== 'branch') continue;
-    const row = rows.get(step.id);
-    if (!row || row.status !== 'done') continue;
-    const took = row.output?.['branchId'];
-    for (const b of step.branches) if (b.id !== took) names.push(`“${b.name}”`);
-  }
-  if (!names.length) return null;
-  const list =
-    names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-  return `${list} ${names.length === 1 ? 'wasn’t' : 'weren’t'} used`;
-}
-
 // ---- One step ----
-
-const REF_KEYS: Record<string, RefKind> = {
-  assigneeUserId: 'user',
-  stageId: 'stage',
-  pipelineId: 'pipeline',
-  tagId: 'tag',
-  workflowId: 'workflow',
-};
-
-const LABELS: Record<string, string> = {
-  channel: 'Channel',
-  to: 'To',
-  subject: 'Subject',
-  title: 'Title',
-  notes: 'Notes',
-  dueAt: 'Due',
-  assigneeUserId: 'Assigned to',
-  stageId: 'Stage',
-  pipelineId: 'Pipeline',
-  tagId: 'Tag',
-  target: 'On the',
-  mode: 'Change',
-  workflowId: 'Workflow',
-  message: 'Message',
-  text: 'Text',
-  lostReason: 'Lost reason',
-  url: 'Address',
-  wakeAt: 'Wakes',
-  wokeAt: 'Woke',
-  until: 'Until',
-  expiresAt: 'Expires',
-  value: 'Answer',
-  status: 'Answer',
-  instead: 'Instead, because',
-  would: 'Would',
-  emailed: 'Emailed',
-  completed: 'Completed',
-  updated: 'Updated',
-  stopped: 'Stopped',
-  fields: 'Changes',
-  kind: 'Kind',
-  timedOut: 'Timed out',
-  branch: 'Path',
-  matched: 'Chosen by',
-  key: 'Saved as',
-  task: 'Task',
-  model: 'Model',
-  tokens: 'AI tokens',
-  reason: 'Why',
-  note: 'Note',
-  sentToTester: 'Sent to',
-  via: 'By',
-  missing: 'Missing',
-  rule: 'Rule',
-};
-
-/** Keys shown elsewhere (the message, the checks, knowledge) or that only mean something to the engine. */
-const HIDDEN = new Set([
-  'decisions',
-  'items',
-  'body',
-  'simulated',
-  'messageId',
-  'conversationId',
-  'taskId',
-  'taskIds',
-  'tagIds',
-  'runId',
-  'activityId',
-  'deliveryId',
-  'approvalId',
-  'approvers',
-  'branchId',
-  'duplicate',
-  'held',
-  'fastForwarded',
-  'manualRetries',
-  'retryRequestedBy',
-  'skippedBy',
-  'skipped',
-  'end',
-  'autoApproved',
-  'events',
-  'leadId',
-  'fallback',
-  'assumed',
-  'workspaceId',
-  'personId',
-]);
-
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
-const humanize = (k: string) => {
-  const s = k
-    .replace(/([A-Z])/g, ' $1')
-    .replace(/_/g, ' ')
-    .trim()
-    .toLowerCase();
-  return s ? s[0]!.toUpperCase() + s.slice(1) : k;
-};
-
-function fieldValue(
-  key: string,
-  v: unknown,
-  names: WorkflowNames,
-  timeZone: string,
-): string | null {
-  if (v === null || v === undefined || v === '') return null;
-  const kind = REF_KEYS[key];
-  if (kind && typeof v === 'string') return refName(kind, v, names);
-  if (key === 'channel') return v === 'sms' ? 'Text' : v === 'email' ? 'Email' : String(v);
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
-  if (typeof v === 'number') return String(v);
-  if (typeof v === 'string') return ISO.test(v) ? whenText(v, timeZone) : v;
-  if (Array.isArray(v)) {
-    const out = v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(', ');
-    return out || null;
-  }
-  return truncate(JSON.stringify(v), 200);
-}
-
-function fieldEntries(
-  obj: Record<string, unknown> | null | undefined,
-  names: WorkflowNames,
-  timeZone: string,
-): [string, string][] {
-  if (!obj) return [];
-  return Object.entries(obj).flatMap(([k, v]) => {
-    if (HIDDEN.has(k)) return [];
-    const value = fieldValue(k, v, names, timeZone);
-    return value === null ? [] : [[k, value] as [string, string]];
-  });
-}
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -584,12 +435,12 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Fields({ entries }: { entries: [string, string][] }) {
+function Fields({ entries }: { entries: RunStepField[] }) {
   return (
     <dl className="grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12.5px]">
-      {entries.map(([k, v]) => (
+      {entries.map(({ key: k, label, value: v }) => (
         <Fragment key={k}>
-          <dt className="text-text-3">{LABELS[k] ?? humanize(k)}</dt>
+          <dt className="text-text-3">{label}</dt>
           <dd className="min-w-0 whitespace-pre-wrap break-words">{v}</dd>
         </Fragment>
       ))}
@@ -651,8 +502,8 @@ function StepDetail({
         const message = messageOf(row);
         const decisions = decisionLines(decisionsOf(row.output), timeZone);
         const knowledge = knowledgeUsed(row.output);
-        const input = fieldEntries(row.input, names, timeZone);
-        const output = fieldEntries(row.output, names, timeZone);
+        const input = runStepFields(row.input, names, timeZone);
+        const output = runStepFields(row.output, names, timeZone);
         const error = row.error ?? null;
         const status = STEP_STATUS[row.status];
         return (

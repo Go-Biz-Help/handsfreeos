@@ -2,11 +2,13 @@
 import {
   describeStep,
   describeTrigger,
+  RECIPE_CARDS,
   recipeDefinition,
   resolvePlaceholders,
   suggestMapping,
   TRIGGER_EVENTS,
   WORKFLOW_RECIPES,
+  type RecipeCategory,
   type RecipeKey,
   type WorkflowCatalogs,
   type WorkflowRecipe,
@@ -30,51 +32,10 @@ import { cn } from '@/lib/utils';
 import { KindTile, recipeIcon } from './chips';
 import { DescribeNew, shownFromRecord } from './describe-new';
 
-type Category = 'Leads' | 'Appointments' | 'Sales';
+type Category = RecipeCategory;
 
-/** The design's card copy for each recipe. */
-const RECIPE_META: Record<RecipeKey, { category: Category; short: string; note: string }> = {
-  speed_to_lead: {
-    category: 'Leads',
-    short: 'Text new leads within a minute.',
-    note: 'Stops as soon as they reply or book.',
-  },
-  missed_call_text_back: {
-    category: 'Leads',
-    short: 'Text back, then AI sorts the reply.',
-    note: 'The AI sorts each reply into a path: emergency, book, question or other.',
-  },
-  appointment_follow_up_review: {
-    category: 'Appointments',
-    short: 'Say thanks, then ask for a review.',
-    note: 'Happy customers get the review link. An AI reply to an unhappy one waits for an approval.',
-  },
-  no_show_rebook: {
-    category: 'Appointments',
-    short: 'Text the booking link after a no-show.',
-    note: 'Workflows can’t book for customers yet, so it sends the link.',
-  },
-  estimate_follow_up: {
-    category: 'Sales',
-    short: 'A text, an email, then a task.',
-    note: 'Stops when the lead is won or lost, or they reply.',
-  },
-  speed_to_lead_ai: {
-    category: 'Leads',
-    short: 'Your AI teammate messages new leads right away.',
-    note: 'It asks your qualifying questions; a task goes out if the lead isn’t qualified in a day.',
-  },
-  missed_call_text_back_ai: {
-    category: 'Leads',
-    short: 'Your AI teammate texts back and offers to book.',
-    note: 'If they don’t reply within a day, their owner gets a task to call.',
-  },
-  speed_to_lead_phone: {
-    category: 'Leads',
-    short: 'Your AI teammate calls new leads right away.',
-    note: 'Only leads who agreed to calls. A task goes out if they haven’t booked in a day.',
-  },
-};
+/** The design's card copy for each recipe (core's, which the Assistant reads too). */
+const RECIPE_META = RECIPE_CARDS;
 
 type BlankKind = 'event' | 'schedule' | 'date' | 'webhook' | 'manual';
 const BLANK: {

@@ -81,6 +81,9 @@ const NEW_TOOLS = {
   remove_contact_from_workflow: 'confirm',
   answer_workflow_approval: 'confirm',
   add_knowledge_item: 'confirm',
+  list_workflow_recipes: 'auto',
+  review_template_update: 'auto',
+  apply_template_update: 'confirm',
 } as const;
 
 async function ask(
@@ -281,6 +284,9 @@ describe('workflows and knowledge in the Assistant', () => {
       'pause_workflow',
       'resume_workflow',
       'add_knowledge_item',
+      'list_workflow_recipes',
+      'review_template_update',
+      'apply_template_update',
     ])
       expect(memberTools).not.toContain(name);
   });
@@ -396,12 +402,24 @@ describe('workflows and knowledge in the Assistant', () => {
   });
 
   it('starts a customer on a workflow only after Confirm', async () => {
-    const events = await ask(ownerToken, 'Put him in Follow-up call', { type: 'person', id: mike });
+    const dana = (
+      await executeCommand(
+        api(),
+        personCreate,
+        { workspaceId: ws, firstName: 'Dana', lastName: 'Reyes', phone: '(713) 555-0177' },
+        actor(owner),
+        meta(),
+      )
+    ).output as { personId: string };
+    const events = await ask(ownerToken, 'Put her in Follow-up call', {
+      type: 'person',
+      id: dana.personId,
+    });
     const card = cardOf(events, 'confirm')!;
     expect(card).toMatchObject({
       tool: 'start_workflow',
-      title: 'Start “Follow-up call” for Mike Johnson?',
-      personId: mike,
+      title: 'Start “Follow-up call” for Dana Reyes?',
+      personId: dana.personId,
       confirmLabel: 'Start',
       warnings: [],
     });
@@ -418,16 +436,39 @@ describe('workflows and knowledge in the Assistant', () => {
     const res = await confirm(ownerToken, card.toolCallId);
     expect(res.json()).toMatchObject({
       status: 'confirmed',
-      outcome: 'Started “Follow-up call” for Mike Johnson.',
+      outcome: '“Follow-up call” starts for Dana Reyes in a moment.',
       href: `/app/w/${ws}/workflows/runs?workflow=${followUp}`,
     });
-    expect((await enrolled()).map((e) => e.payload.personId)).toEqual([mike]);
+    expect((await enrolled()).map((e) => e.payload.personId)).toEqual([dana.personId]);
     expect(
       await rows(
         admin(),
         sql`select channel from app.audit_logs where action = 'workflow.enrol' and entity_id = ${followUp}`,
       ),
     ).toEqual([{ channel: 'assistant' }]);
+  });
+
+  it('won’t start someone already in it, as Add to workflow… says, where the engine would skip it', async () => {
+    // Mike's run of Follow-up call is still going (it waits on an approval), and it lets him in again only after.
+    const events = await ask(ownerToken, 'Put him in Follow-up call', { type: 'person', id: mike });
+    const card = cardOf(events, 'confirm')!;
+    const why = 'Already in it. It can start again after Mike finishes.';
+    expect(card).toMatchObject({
+      tool: 'start_workflow',
+      confirmLabel: '',
+      warnings: [{ kind: 'blocked', text: why }],
+    });
+    expect((await confirm(ownerToken, card.toolCallId)).json()).toMatchObject({
+      status: 'failed',
+      error: `Nothing was changed. ${why}`,
+    });
+    expect(
+      await rows(
+        admin(),
+        sql`select 1 from app.events where event_type = 'workflow.enrol_requested'
+            and entity_id = ${followUp} and payload ->> 'personId' = ${mike}`,
+      ),
+    ).toEqual([]);
   });
 
   it('won’t start a workflow that starts on its own, and says why', async () => {
@@ -645,20 +686,45 @@ describe('workflows and knowledge in the Assistant', () => {
         sql`select organization_id from app.workspaces where id = ${ws}`,
       )
     )[0]!.organization_id;
-    const done = await createToolExecutor(api()).commit(
-      screenActionToolByName('do_workflow_test')!,
-      { workflowId: followUp, mode: 'simulate' },
+    const ctx: ToolContext = {
+      actor: actor(owner),
+      workspaceId: ws,
+      organizationId,
+      correlationId: randomUUID(),
+      timezone: 'America/Chicago',
+    };
+    const test = screenActionToolByName('do_workflow_test')!;
+    // The card says it as the Test tab does: how, which draft, whose details, and that no customer hears of it.
+    const { card } = await createToolExecutor(api()).prepare(
+      test,
+      { workflowId: followUp, mode: 'simulate', personId: mike },
+      ctx,
+      randomUUID(),
+    );
+    expect(card).toMatchObject({
+      type: 'confirm',
+      title: 'Test “Follow-up call”?',
+      confirmLabel: 'Run test',
+      warnings: [{ kind: 'note', text: 'Tests never reach your customers or count in the stats.' }],
+    });
+    expect((card as Extract<AssistantCard, { type: 'confirm' }>).fields).toEqual([
+      { label: 'Simulate', value: 'Sends nothing and skips the waits. AI steps run for real.' },
+      { label: 'Draft', value: expect.stringMatching(/^Revision \d+$/) },
       {
-        actor: actor(owner),
-        workspaceId: ws,
-        organizationId,
-        correlationId: randomUUID(),
-        timezone: 'America/Chicago',
+        label: 'Test contact',
+        value: 'Mike Johnson: their details fill in the messages. They aren’t contacted',
       },
+    ]);
+    const done = await createToolExecutor(api()).commit(
+      test,
+      { workflowId: followUp, mode: 'simulate' },
+      ctx,
       { toolCallId: randomUUID() },
     );
     expect(done).toMatchObject({
-      outcome: 'Done',
+      outcome:
+        'The test of “Follow-up call” is running. Ask me how it went, or watch it on its Test tab.',
+      href: `/app/w/${ws}/workflows/${followUp}`,
       command: 'workflow.test',
       answer: { workflowId: followUp, mode: 'simulate', requested: true },
     });
@@ -671,6 +737,49 @@ describe('workflows and knowledge in the Assistant', () => {
       ),
     ).toEqual([{ event_type: 'workflow.test_requested' }]);
     expect(done.shownOnce).toBeUndefined();
+  });
+
+  it('reads the recipes as New workflow shows them, with Fill in for the business picked as it does', async () => {
+    const organizationId = (
+      await rows<{ organization_id: string }>(
+        admin(),
+        sql`select organization_id from app.workspaces where id = ${ws}`,
+      )
+    )[0]!.organization_id;
+    const tool = assistantToolByName.get('list_workflow_recipes')!;
+    const { result } = await createToolExecutor(api()).run(
+      tool,
+      {},
+      {
+        actor: actor(owner),
+        workspaceId: ws,
+        organizationId,
+        correlationId: randomUUID(),
+        timezone: 'America/Chicago',
+      },
+    );
+    const recipes = (result as { recipes: Record<string, unknown>[] }).recipes;
+    expect(recipes.find((r) => r['recipeKey'] === 'speed_to_lead')).toMatchObject({
+      name: expect.any(String),
+      category: 'Leads',
+      short: 'Text new leads within a minute.',
+      note: 'Stops as soon as they reply or book.',
+      startsWhen: expect.any(String),
+      steps: expect.arrayContaining([expect.any(String)]),
+      fillIn: 'Nothing to fill in',
+    });
+    // Each detail to fill in says what it asks for and what the page picks; the mapping is what to pass on.
+    const missed = recipes.find((r) => r['recipeKey'] === 'missed_call_text_back')!;
+    const fill = missed['fillIn'] as { key: string; asks: string; picked: unknown }[];
+    expect(fill.map((f) => [f.key, f.asks])).toEqual([
+      ['on_call_user', 'Who takes emergencies'],
+      ['booking_calendar', 'Booking calendar'],
+      ['office_user', 'Who answers questions'],
+    ]);
+    // Someone on the team is picked for a person, as the page does.
+    const onCall = fill[0]!.picked as { id: string; name: string };
+    expect(onCall).toEqual({ id: expect.any(String), name: expect.any(String) });
+    expect(missed['mapping']).toMatchObject({ on_call_user: onCall.id });
   });
 
   it('never lets a member reach a workflows.manage tool', async () => {

@@ -27,7 +27,7 @@ When a name matches more than one customer, or a stage, teammate, calendar, serv
 
 The calendar: the context lists each calendar with its id, services and people. For open times use find_availability, with a whole local date or times with the business's offset. To book, find the customer first, then call book_appointment with a start time from find_availability or the time they said; leave out who works it unless they named someone, and the calendar picks. "Move it" or "cancel it" means the appointment on screen, else the customer's next appointment in the context, else one from get_customer. For today, use todays_schedule.
 
-Workflows: the context lists them with their ids, and the approvals waiting on this person. draft_workflow drafts a new workflow, or a change to one, from the person's words; it only makes a proposal they open, check and apply, and a workflow needs a passing test before it's published, so never say it's on. To change its steps yourself, read it with get_workflow and change its draft with edit_workflow_steps. On a workflow's page, "it" or "this" means that workflow.
+Workflows: the context lists them with their ids, and the approvals waiting on this person. draft_workflow drafts a new workflow, or a change to one, from the person's words; it makes a proposal, and once the person agrees, you can apply it, as its description says. A workflow needs nothing red in Checks and a passing test before it's published, so never say it's on until it is: get_workflow says how its latest test went and what still stands in the way, and you can run the test and publish it on cards for their OK. To change its steps yourself, read it with get_workflow and change its draft with edit_workflow_steps. On a workflow's page, "it" or "this" means that workflow.
 
 Tags and customer details: "tag everyone who…" means gather the customers with list_customers (and get_customer when you need their history), then tag_customers with all of their ids at once and a reason. When it can't be told from the list alone (what customers said, bought or asked about), or they mean the whole list, ai_tag_customers has the AI go through each customer in the background, with what to look for in their words. update_customer changes, adds or takes off any detail; take a detail off only when they asked. merge_customers joins two records for the same customer into one: find both with search_customers, and ask which one to keep when they didn't say. Every tag and detail change is kept in the audit log with its reason, so give the one they said. ai_tagging_status says how the AI's tagging is going and what it changed lately, and why.
 
@@ -144,6 +144,8 @@ export interface PromptContext {
     readonly status: string;
     readonly trigger: string;
   }[];
+  /** How many workflows there are when more than the 25 listed. */
+  readonly workflowsTotal?: number;
   /** Workflow approvals this person can decide now: the newest 10 waiting. */
   readonly approvals?: readonly {
     readonly id: string;
@@ -215,7 +217,7 @@ function pageLines(page: NonNullable<PromptContext['page']>): string[] {
     ];
   if (page.type === 'workflow_run')
     return [
-      `On screen now: ${page.label} (workflow_run id ${page.id}).`,
+      `On screen now: ${page.label} (workflow_run id ${page.id}). get_workflow_run reads it step by step.`,
       ...(page.related ? [page.related] : []),
     ];
   if (page.type === 'appointment')
@@ -312,7 +314,9 @@ export function lastingText(c: PromptContext): string {
     ...(c.workflows
       ? c.workflows.length
         ? [
-            'Workflows (their ids start, pause and resume them):',
+            c.workflowsTotal
+              ? `Workflows (the first 25 of ${c.workflowsTotal}; list_workflows has the rest; their ids start, pause and resume them):`
+              : 'Workflows (their ids start, pause and resume them):',
             ...c.workflows.map(
               (w) => `- ${w.name} [${w.status}] (workflow id ${w.id}): ${w.trigger}`,
             ),
