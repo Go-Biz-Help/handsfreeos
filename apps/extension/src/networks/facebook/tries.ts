@@ -47,7 +47,7 @@ import {
   withTheirName,
 } from './auto';
 import { composer, POST, startButton } from './compose';
-import { clean, labelOf } from './dom';
+import { clean, labelOf, mainOf } from './dom';
 import { cancelBy, gone, newBoxAfter, saveBy, textOf as boxText } from './editors';
 import { FETCH_PLANS, findStep, shown, visible, waitingForPerson } from './fetch';
 import { CONFIRM, requestRows, requestsPage } from './friends';
@@ -92,7 +92,6 @@ export const FACEBOOK_TRY_STEPS = [
 ] as const satisfies readonly TryStep[];
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 const BUTTONS = '[role="button"], button';
 
 /** Looks for something till it shows, or `ms` is up. */

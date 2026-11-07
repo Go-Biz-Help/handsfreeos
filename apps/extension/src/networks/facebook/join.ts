@@ -4,7 +4,7 @@
  * the AI, writes the AI's answers into their boxes, ticks that the person agrees to the group's rules, and presses
  * **Submit**. Nothing else is pressed. A question to pick from a list it leaves to the person: the ask fails, saying so.
  */
-import { clean, labelOf } from './dom';
+import { clean, labelOf, mainOf } from './dom';
 import { shown } from './fetch';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -20,8 +20,6 @@ const SUBMIT = /^(submit|submit answers|send|done)$/i;
 const AGREE = /\bagree\b/i;
 /** Words in a box to write in that say nothing about the question. */
 const PLACEHOLDER = /^(write an answer|your answer|answer)\b/i;
-
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 /** The box over the page with the group's questions, while it's open. */
 function questionsBox(doc: Document): Element | null {
