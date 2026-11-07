@@ -47,7 +47,12 @@ import { moneyConfirmTools, moneyReadTools } from './tools-money';
 import { command, dueWords, money, paths, query, readTools, rehearse, when } from './tools-read';
 import { settingsReadTools } from './tools-settings';
 import { settingsBusinessConfirmTools } from './tools-settings-business';
-import { numberSearchTools, settingsChannelConfirmTools } from './tools-settings-channels';
+import {
+  channelReadServiceTools,
+  numberSearchTools,
+  settingsChannelAutoTools,
+  settingsChannelConfirmTools,
+} from './tools-settings-channels';
 import { settingsMeConfirmTools } from './tools-settings-me';
 import { settingsMoneyConfirmTools } from './tools-settings-money';
 import { settingsCalendarConfirmTools, type SettingsDeps } from './tools-settings-calendar';
@@ -72,6 +77,8 @@ const serviceTools = {
   test_ai_teammate: testAiTeammate,
   // A document's PDF read and opened from the file store, as the editor's pages and Open the signed copy do.
   ...documentServiceTools,
+  // The phone account, numbers in Twilio and RCS senders, read through the worker as Texting & calls reads them.
+  ...channelReadServiceTools,
 };
 
 /** The rest of what people do on the screens, one file an area: run on their own. */
@@ -82,6 +89,7 @@ const moreAutoTools = {
   ...contentAutoTools,
   ...setupAutoTools,
   ...extraAutoTools,
+  ...settingsChannelAutoTools,
 };
 
 /** The same choices as the pipeline's lost-reason dialog (apps/web/src/components/pipeline/lost-reason-dialog.tsx). */
@@ -1797,10 +1805,12 @@ export function createToolExecutor(
     // Home's items, with the link each one opens.
     const attention = attentionAutoTools[tool.name];
     if (attention) return attention(db, ctx, args, webUrl);
+    // How the business is set up, with the worker's own address on what it gives to paste.
+    const settings = settingsReadTools[tool.name];
+    if (settings) return settings(db, ctx, args, addonActions?.services ?? null);
     const run =
       readTools[tool.name] ??
       contactReadTools[tool.name] ??
-      settingsReadTools[tool.name] ??
       autoWrites[tool.name] ??
       moneyReadTools[tool.name] ??
       moreAutoTools[tool.name];
@@ -1913,6 +1923,8 @@ export function createToolExecutor(
         tool.name in numberSearchTools ||
         // A document's PDF is read and opened, never changed.
         tool.name in documentServiceTools ||
+        // The phone account and what's in Twilio are read, never changed.
+        tool.name in channelReadServiceTools ||
         tool.name in capabilityTools
       );
     },

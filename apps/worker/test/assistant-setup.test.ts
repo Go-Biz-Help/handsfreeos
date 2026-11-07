@@ -30,7 +30,7 @@ import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
 import { setupAutoTools, setupConfirmTools, setupStepLabels } from '../src/assistant/tools-setup';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
-import { systemActor, workerMeta } from '../src/services';
+import { systemActor, workerMeta, type WorkerServices } from '../src/services';
 
 const CHI = 'America/Chicago';
 const api = () => testDbs().api.db;
@@ -684,7 +684,8 @@ describe('manage_template', () => {
     expect((await templates()).find((t) => t.id === late.id)!.body).toBe('Running a little late.');
 
     const archive = await prepare('manage_template', { action: 'archive', templateId: late.id });
-    expect(archive.card.title).toBe('Archive the Running late template?');
+    expect(archive.card.title).toBe('Put away the Running late template?');
+    expect(archive.card.confirmLabel).toBe('Put it away');
     await commit('manage_template', { action: 'archive', templateId: late.id });
     expect((await templates()).find((t) => t.id === late.id)!.archivedAt).not.toBeNull();
     const archived = await read('list_archived_setup');
@@ -1125,6 +1126,59 @@ describe('manage_lead_form', () => {
     expect(field(card, 'Most a day')).toBe('40');
     await commit('manage_lead_form', args);
     expect(await source()).toMatchObject({ name: 'Website quotes', daily_cap: 40 });
+  });
+
+  it('gives a new form’s snippet to paste on the worker’s address, and the new one after a new key', async () => {
+    const WORKER = 'https://worker.example.test';
+    const withWorker = () =>
+      createToolExecutor(api(), null, null, '', undefined, {
+        services: { publicUrl: WORKER } as unknown as WorkerServices,
+      });
+    const name = `Contact form ${randomUUID().slice(0, 6)}`;
+    const keyOf = async () =>
+      (
+        await rows<{ id: string; public_key: string }>(
+          admin(),
+          sql`select id, public_key from app.intake_sources
+              where workspace_id = ${workspaceId} and name = ${name}`,
+        )
+      )[0]!;
+    const made = await withWorker().commit(
+      tool('manage_lead_form'),
+      argsOf('manage_lead_form', { action: 'create', name, websites: ['example.com'] }),
+      ctx(),
+      { toolCallId: randomUUID() },
+    );
+    const first = await keyOf();
+    expect(made.outcome).toContain(
+      `<form action="${WORKER}/intake/f/${first.public_key}" method="POST">`,
+    );
+
+    const turned = await withWorker().commit(
+      tool('manage_lead_form'),
+      argsOf('manage_lead_form', { action: 'new_key', sourceId: first.id }),
+      ctx(),
+      { toolCallId: randomUUID() },
+    );
+    const after = await keyOf();
+    expect(after.public_key).not.toBe(first.public_key);
+    expect(turned.outcome).toContain('The old snippet stops working');
+    expect(turned.outcome).toContain(`${WORKER}/intake/f/${after.public_key}`);
+
+    // get_settings gives the same snippet, and where it posts, as Lead intake's Copy the snippet does.
+    const settings = tool('get_settings');
+    const got = await withWorker().run(
+      settings,
+      settings.input.parse({ area: 'lead_intake' }) as Record<string, unknown>,
+      ctx(),
+    );
+    const listed = (
+      got.result as {
+        leadIntake: { sources: { sourceId: string; postsTo?: string; snippet?: string }[] };
+      }
+    ).leadIntake.sources.find((x) => x.sourceId === first.id)!;
+    expect(listed.postsTo).toBe(`${WORKER}/intake/f/${after.public_key}`);
+    expect(listed.snippet).toContain('<button type="submit">Send</button>');
   });
 
   it('retires it only on Confirm, saying it can’t come back, and never touches a channel', async () => {

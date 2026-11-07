@@ -113,9 +113,11 @@ export async function onPublicOrigin(
 
 /**
  * A file the web app hands out to the team, by its path alone: the browser extension's zip (Social Outreach's Download
- * it). Served only on our own address, never a business's domain.
+ * it). Served only on our own address, never a business's domain. A website chat's Try it page is the same: a
+ * signed-in page of ours, never the business's.
  */
-const APP_FILE = /^\/downloads\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const APP_FILE =
+  /^\/(?:downloads\/[A-Za-z0-9][A-Za-z0-9._-]*|chat-preview\/wk_[A-Za-z0-9]{20}\?w=[0-9a-f-]{36})$/;
 
 /**
  * What a tool found, with each value that is one of the web app's own files by its path written out whole on the web

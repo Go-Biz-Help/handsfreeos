@@ -49,14 +49,20 @@ const MAX_LISTED = 500;
 /** Carrier lookups cost money per number, so one person gets a handful a minute and no more. */
 const LOOKUPS_PER_MINUTE = 10;
 
-const HostInput = z.strictObject({ workspaceId: z.uuid(), e164: phoneRequired });
+export const HostInput = z.strictObject({ workspaceId: z.uuid(), e164: phoneRequired });
 const ConnectionInput = z.strictObject({ workspaceId: z.uuid(), connectionId: z.uuid() });
 const WorkspaceInput = z.strictObject({ workspaceId: z.uuid() });
 
 type ConnectionRow = typeof twilioConnections.$inferSelect;
 
+/**
+ * What these steps need of the worker, so the Assistant reaches them the way the screen does: the same checks, as
+ * the person, through the worker that holds the provider keys.
+ */
+export type NumberImportDeps = Pick<HttpDeps, 'httpDb' | 'telephony' | 'sealer' | 'publicUrl'>;
+
 /** The organization a business belongs to, or a 404 for one that does not exist. */
-async function organizationOf(deps: HttpDeps, workspaceId: string): Promise<string> {
+async function organizationOf(deps: NumberImportDeps, workspaceId: string): Promise<string> {
   const [row] = await asWorker(deps.httpDb, {}, (tx) =>
     rows<{ organization_id: string | null }>(
       tx,
@@ -73,7 +79,7 @@ async function organizationOf(deps: HttpDeps, workspaceId: string): Promise<stri
  * the organization, since every route below needs it next.
  */
 async function requireConnector(
-  deps: HttpDeps,
+  deps: NumberImportDeps,
   userId: string,
   workspaceId: string,
 ): Promise<string> {
@@ -114,7 +120,11 @@ const connectionOut = (c: ConnectionRow) => ({
  * Every number in the account, and where each stands for this organization: already one of its numbers, on its
  * way to one of its businesses, or free to bring in. A number another organization holds says only that.
  */
-async function listNumbers(deps: HttpDeps, organizationId: string, creds: ExternalTwilioCreds) {
+async function listNumbers(
+  deps: NumberImportDeps,
+  organizationId: string,
+  creds: ExternalTwilioCreds,
+) {
   const found = await deps.telephony.listAccountNumbers(creds, { limit: MAX_LISTED + 1 });
   const numbers = found.slice(0, MAX_LISTED);
   const [held, waiting] = await asWorker(deps.httpDb, {}, async (tx) => [
@@ -165,41 +175,96 @@ async function listNumbers(deps: HttpDeps, organizationId: string, creds: Extern
   };
 }
 
-export function registerNumberImportRoutes(app: FastifyInstance, deps: HttpDeps): void {
-  const recentLookups = new Map<string, number[]>();
+/** Lookups per person in the last minute, the screen's and the Assistant's together. */
+const recentLookups = new Map<string, number[]>();
 
-  /** Who hosts a number today, and so whether it can move account to account inside Twilio. */
+/** Who hosts a number today, and so whether it can move account to account inside Twilio. */
+export async function lookupNumberHost(
+  deps: NumberImportDeps,
+  userId: string,
+  input: z.infer<typeof HostInput>,
+) {
+  await requirePermission(deps, userId, input.workspaceId, 'channels.manage');
+  const now = Date.now();
+  const mine = (recentLookups.get(userId) ?? []).filter((t) => now - t < 60_000);
+  if (mine.length >= LOOKUPS_PER_MINUTE)
+    throw HfosError.rule(
+      'too_many_lookups',
+      429,
+      'That is a lot of numbers in a minute. Wait a moment and try again.',
+    );
+  recentLookups.set(userId, [...mine, now]);
+
+  const found = await deps.telephony.lookupNumber(input.e164);
+  const [held] = await asWorker(deps.httpDb, {}, (tx) =>
+    rows<{ workspace_id: string }>(
+      tx,
+      sql`select workspace_id from private.number_held_by(${input.e164})`,
+    ),
+  );
+  return {
+    e164: input.e164,
+    display: formatPhone(input.e164),
+    numberType: numberTypeOf(input.e164),
+    carrierName: found.carrierName,
+    lineType: found.lineType,
+    hostedInTwilio: !!found.carrierName && /twilio/i.test(found.carrierName),
+    // Already one of this business's numbers, or somebody else's here: either way there is nothing to bring.
+    alreadyHere: held ? (held.workspace_id === input.workspaceId ? 'yours' : 'elsewhere') : null,
+  };
+}
+
+/** A connected account's numbers, listed again; a refused sign-in is said on the connection. */
+export async function connectedTwilioNumbers(
+  deps: NumberImportDeps,
+  userId: string,
+  input: z.infer<typeof ConnectionInput>,
+) {
+  const organizationId = await requireConnector(deps, userId, input.workspaceId);
+  const scope = { workspaceId: input.workspaceId, organizationId };
+  const [row] = await asWorker(deps.httpDb, scope, (tx) =>
+    tx
+      .select()
+      .from(twilioConnections)
+      .where(
+        and(
+          eq(twilioConnections.id, input.connectionId),
+          eq(twilioConnections.organizationId, organizationId),
+        ),
+      ),
+  );
+  if (!row || row.status === 'disconnected' || !row.secretEnc)
+    throw HfosError.notFound('That Twilio account is not connected any more. Connect it again.');
+  const creds: ExternalTwilioCreds = {
+    accountSid: row.accountSid,
+    username: row.apiKeySid ?? row.accountSid,
+    secret: deps.sealer.open(row.secretEnc),
+  };
+  try {
+    return {
+      connection: connectionOut(row),
+      ...(await listNumbers(deps, organizationId, creds)),
+    };
+  } catch (e) {
+    if (!refused(e)) throw e;
+    // Revoked in Twilio, or the token was rotated. Say so on the connection, where the screen shows it.
+    const reason =
+      'Twilio no longer accepts the credentials this account was connected with. Connect it again with a current auth token or API key.';
+    await executeCommand(
+      deps.httpDb,
+      twilioConnectionFail,
+      { organizationId, connectionId: row.id, reason },
+      systemActor(scope, userId),
+      workerMeta(),
+    );
+    throw HfosError.rule('twilio_credentials', 409, reason);
+  }
+}
+
+export function registerNumberImportRoutes(app: FastifyInstance, deps: HttpDeps): void {
   app.post('/v1/telephony/number-host', async (req) => {
     const actor = await authenticate(deps, req);
-    const input = parseBody(HostInput, req.body);
-    await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
-    const now = Date.now();
-    const mine = (recentLookups.get(actor.userId) ?? []).filter((t) => now - t < 60_000);
-    if (mine.length >= LOOKUPS_PER_MINUTE)
-      throw HfosError.rule(
-        'too_many_lookups',
-        429,
-        'That is a lot of numbers in a minute. Wait a moment and try again.',
-      );
-    recentLookups.set(actor.userId, [...mine, now]);
-
-    const found = await deps.telephony.lookupNumber(input.e164);
-    const [held] = await asWorker(deps.httpDb, {}, (tx) =>
-      rows<{ workspace_id: string }>(
-        tx,
-        sql`select workspace_id from private.number_held_by(${input.e164})`,
-      ),
-    );
-    return {
-      e164: input.e164,
-      display: formatPhone(input.e164),
-      numberType: numberTypeOf(input.e164),
-      carrierName: found.carrierName,
-      lineType: found.lineType,
-      hostedInTwilio: !!found.carrierName && /twilio/i.test(found.carrierName),
-      // Already one of this business's numbers, or somebody else's here: either way there is nothing to bring.
-      alreadyHere: held ? (held.workspace_id === input.workspaceId ? 'yours' : 'elsewhere') : null,
-    };
+    return lookupNumberHost(deps, actor.userId, parseBody(HostInput, req.body));
   });
 
   /** Signs in to the business's own Twilio account, keeps it sealed, and lists what is in it. */
@@ -272,46 +337,7 @@ export function registerNumberImportRoutes(app: FastifyInstance, deps: HttpDeps)
   /** A connected account's numbers, listed again. */
   app.post('/v1/telephony/twilio/numbers', async (req) => {
     const actor = await authenticate(deps, req);
-    const input = parseBody(ConnectionInput, req.body);
-    const organizationId = await requireConnector(deps, actor.userId, input.workspaceId);
-    const scope = { workspaceId: input.workspaceId, organizationId };
-    const [row] = await asWorker(deps.httpDb, scope, (tx) =>
-      tx
-        .select()
-        .from(twilioConnections)
-        .where(
-          and(
-            eq(twilioConnections.id, input.connectionId),
-            eq(twilioConnections.organizationId, organizationId),
-          ),
-        ),
-    );
-    if (!row || row.status === 'disconnected' || !row.secretEnc)
-      throw HfosError.notFound('That Twilio account is not connected any more. Connect it again.');
-    const creds: ExternalTwilioCreds = {
-      accountSid: row.accountSid,
-      username: row.apiKeySid ?? row.accountSid,
-      secret: deps.sealer.open(row.secretEnc),
-    };
-    try {
-      return {
-        connection: connectionOut(row),
-        ...(await listNumbers(deps, organizationId, creds)),
-      };
-    } catch (e) {
-      if (!refused(e)) throw e;
-      // Revoked in Twilio, or the token was rotated. Say so on the connection, where the screen shows it.
-      const reason =
-        'Twilio no longer accepts the credentials this account was connected with. Connect it again with a current auth token or API key.';
-      await executeCommand(
-        deps.httpDb,
-        twilioConnectionFail,
-        { organizationId, connectionId: row.id, reason },
-        systemActor(scope, actor.userId),
-        workerMeta(),
-      );
-      throw HfosError.rule('twilio_credentials', 409, reason);
-    }
+    return connectedTwilioNumbers(deps, actor.userId, parseBody(ConnectionInput, req.body));
   });
 
   /**
@@ -329,84 +355,100 @@ export function registerNumberImportRoutes(app: FastifyInstance, deps: HttpDeps)
    */
   app.post('/v1/telephony/own-numbers', async (req) => {
     const actor = await authenticate(deps, req);
-    const input = parseBody(WorkspaceInput, req.body);
-    await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
-    const scope = { workspaceId: input.workspaceId };
-    const account = await asWorker(deps.httpDb, scope, (tx) =>
-      loadAccount(tx, input.workspaceId, deps.sealer),
-    );
-    if (!account) return { accountSid: null, numbers: [], alreadyHere: 0, truncated: false };
-
-    const found = await deps.telephony.listOwnedNumbers(account, { limit: MAX_LISTED + 1 });
-    const numbers = found.slice(0, MAX_LISTED);
-    const [held, waiting] = await Promise.all([
-      numbers.length
-        ? asWorker(deps.httpDb, {}, (tx) =>
-            rows<{ e164: string; workspace_id: string }>(
-              tx,
-              sql`select x.e164, h.workspace_id
-                  from jsonb_array_elements_text(${JSON.stringify(numbers.map((n) => n.e164))}::jsonb) as x(e164)
-                  cross join lateral private.number_held_by(x.e164) h`,
-            ),
-          )
-        : [],
-      asWorker(deps.httpDb, scope, (tx) =>
-        tx
-          .select({ id: numberImports.id, e164: numberImports.e164 })
-          .from(numberImports)
-          .where(
-            and(
-              eq(numberImports.workspaceId, input.workspaceId),
-              eq(numberImports.status, 'waiting'),
-            ),
-          ),
-      ),
-    ]);
-    const heldBy = new Map(held.map((h) => [h.e164, h.workspace_id]));
-    const watchedBy = new Map(waiting.map((w) => [w.e164, w.id]));
-    const mine = numbers.filter((n) => heldBy.get(n.e164) === input.workspaceId);
-    return {
-      accountSid: account.sid,
-      truncated: found.length > MAX_LISTED,
-      // Already one of this business's numbers (bought, ported or brought here): nothing to do.
-      alreadyHere: mine.length,
-      numbers: numbers
-        .filter((n) => heldBy.get(n.e164) !== input.workspaceId)
-        .map((n) => {
-          const importId = watchedBy.get(n.e164) ?? null;
-          return {
-            sid: n.sid,
-            e164: n.e164,
-            display: formatPhone(n.e164),
-            friendlyName: n.friendlyName,
-            numberType: numberTypeOf(n.e164),
-            capabilities: n.capabilities,
-            usedBy: numberUsedBy(n, deps.publicUrl),
-            // `elsewhere`: another business here still holds it live, so setting it up would fail. `coming`: an
-            // import is already watching for it, and looking now finishes it. `new`: nothing here knows it.
-            state: heldBy.has(n.e164)
-              ? ('elsewhere' as const)
-              : importId
-                ? ('coming' as const)
-                : ('new' as const),
-            importId,
-          };
-        }),
-    };
+    return ownAccountNumbers(deps, actor.userId, parseBody(WorkspaceInput, req.body));
   });
 
   /** Lets a connected account go. Numbers already on their way keep coming: they are watched for here. */
   app.post('/v1/telephony/twilio/disconnect', async (req) => {
     const actor = await authenticate(deps, req);
-    const input = parseBody(ConnectionInput, req.body);
-    const organizationId = await requireConnector(deps, actor.userId, input.workspaceId);
-    const { output } = await executeCommand(
-      deps.httpDb,
-      twilioConnectionDisconnect,
-      { organizationId, connectionId: input.connectionId },
-      systemActor({ workspaceId: input.workspaceId, organizationId }, actor.userId),
-      workerMeta(),
-    );
-    return output;
+    return disconnectTwilioAccount(deps, actor.userId, parseBody(ConnectionInput, req.body));
   });
+}
+
+/** The numbers in this business's own subaccount that are not set up here yet (the own-numbers route says why). */
+export async function ownAccountNumbers(
+  deps: NumberImportDeps,
+  userId: string,
+  input: z.infer<typeof WorkspaceInput>,
+) {
+  await requirePermission(deps, userId, input.workspaceId, 'channels.manage');
+  const scope = { workspaceId: input.workspaceId };
+  const account = await asWorker(deps.httpDb, scope, (tx) =>
+    loadAccount(tx, input.workspaceId, deps.sealer),
+  );
+  if (!account) return { accountSid: null, numbers: [], alreadyHere: 0, truncated: false };
+
+  const found = await deps.telephony.listOwnedNumbers(account, { limit: MAX_LISTED + 1 });
+  const numbers = found.slice(0, MAX_LISTED);
+  const [held, waiting] = await Promise.all([
+    numbers.length
+      ? asWorker(deps.httpDb, {}, (tx) =>
+          rows<{ e164: string; workspace_id: string }>(
+            tx,
+            sql`select x.e164, h.workspace_id
+                from jsonb_array_elements_text(${JSON.stringify(numbers.map((n) => n.e164))}::jsonb) as x(e164)
+                cross join lateral private.number_held_by(x.e164) h`,
+          ),
+        )
+      : [],
+    asWorker(deps.httpDb, scope, (tx) =>
+      tx
+        .select({ id: numberImports.id, e164: numberImports.e164 })
+        .from(numberImports)
+        .where(
+          and(
+            eq(numberImports.workspaceId, input.workspaceId),
+            eq(numberImports.status, 'waiting'),
+          ),
+        ),
+    ),
+  ]);
+  const heldBy = new Map(held.map((h) => [h.e164, h.workspace_id]));
+  const watchedBy = new Map(waiting.map((w) => [w.e164, w.id]));
+  const mine = numbers.filter((n) => heldBy.get(n.e164) === input.workspaceId);
+  return {
+    accountSid: account.sid,
+    truncated: found.length > MAX_LISTED,
+    // Already one of this business's numbers (bought, ported or brought here): nothing to do.
+    alreadyHere: mine.length,
+    numbers: numbers
+      .filter((n) => heldBy.get(n.e164) !== input.workspaceId)
+      .map((n) => {
+        const importId = watchedBy.get(n.e164) ?? null;
+        return {
+          sid: n.sid,
+          e164: n.e164,
+          display: formatPhone(n.e164),
+          friendlyName: n.friendlyName,
+          numberType: numberTypeOf(n.e164),
+          capabilities: n.capabilities,
+          usedBy: numberUsedBy(n, deps.publicUrl),
+          // `elsewhere`: another business here still holds it live, so setting it up would fail. `coming`: an
+          // import is already watching for it, and looking now finishes it. `new`: nothing here knows it.
+          state: heldBy.has(n.e164)
+            ? ('elsewhere' as const)
+            : importId
+              ? ('coming' as const)
+              : ('new' as const),
+          importId,
+        };
+      }),
+  };
+}
+
+/** Lets a connected account go, and wipes what it was opened with. Numbers already on their way keep coming. */
+export async function disconnectTwilioAccount(
+  deps: NumberImportDeps,
+  userId: string,
+  input: z.infer<typeof ConnectionInput>,
+) {
+  const organizationId = await requireConnector(deps, userId, input.workspaceId);
+  const { output } = await executeCommand(
+    deps.httpDb,
+    twilioConnectionDisconnect,
+    { organizationId, connectionId: input.connectionId },
+    systemActor({ workspaceId: input.workspaceId, organizationId }, userId),
+    workerMeta(),
+  );
+  return output;
 }

@@ -3,24 +3,44 @@
  * carrier registration, email, and the chat box on the website.
  *
  * This is where the Assistant touches money and reach, so the cards do the work: getting a number says it costs
- * every month, giving one up says customers who call it reach nobody, and the registration is read back in full
- * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
+ * every month, giving one up says customers who call it reach nobody, and the registration is filled in where its
+ * steps pick it up and sent by the person from Before it goes, after the checks that step runs.
  */
 
 import {
   businessAddressOf,
+  CHAT_DEFAULT_GREETING,
+  chatChannelsOf,
   chatSnippet,
   chatSnippetSrc,
+  emailDomainRecords,
   HfosError,
   money,
+  movesWithSidsAlone,
   normalizeChatOrigins,
+  transferRequestText,
+  whoAnswersChat,
+  type EmailDnsRecord,
+  type EmailDomainRecordsLike,
 } from '@hfos/core';
+import { emailAddressReassign } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
-import { hasPermission } from '../http/common';
+import { hasPermission, parseBody } from '../http/common';
+import {
+  connectedTwilioNumbers,
+  disconnectTwilioAccount,
+  HostInput,
+  lookupNumberHost,
+  ownAccountNumbers,
+  type NumberImportDeps,
+} from '../http/number-import';
+import { phoneAccountOf, rcsSendersOf } from '../http/telephony-reads';
+import type { WorkerServices } from '../services';
 import type { TelephonyProvider } from '../telephony/provider';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
+import type { ScreenActionCard } from './tools-workflow';
 
 type Args = Record<string, unknown>;
 type Field = { label: string; value: string };
@@ -193,23 +213,55 @@ function routingFrom(args: Args, status: PhoneStatus | null) {
 
 // ---------- the business number ----------
 
+/**
+ * What a number costs a month, as Settings → Usage & balance prices it, read as the person: null when their role may
+ * not see prices, and then the card says only that it costs money every month.
+ */
+async function numberMonthly(
+  db: Db,
+  ctx: ToolContext,
+  numberType: 'local' | 'toll_free',
+): Promise<string | null> {
+  const prices = await query<{ items: { key: string | null; cents: number }[] }>(
+    db,
+    ctx,
+    'usage.prices',
+  ).catch(() => null);
+  const key = numberType === 'toll_free' ? 'number.tollfree.month' : 'number.local.month';
+  const cents = prices?.items.find((i) => i.key === key)?.cents;
+  return cents === undefined ? null : `${money(cents)} a month`;
+}
+
 const managePhoneNumber: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const getting = action(args) === 'get';
     const status = await phoneStatus(db, ctx);
     const number = str(args['number']) ?? status?.number?.e164 ?? '';
+    const numberType = args['numberType'] === 'toll_free' ? 'toll_free' : 'local';
+    // The price it will cost, as the person may see it: the number and the price are both on the card.
+    const monthly = getting ? await numberMonthly(db, ctx, numberType) : null;
     return {
       card: settingsCard(toolCallId, 'manage_phone_number', {
         title: getting ? `Get ${phoneLine(number)}` : `Give up ${phoneLine(number)}`,
         fields: [
           { label: 'Number', value: phoneLine(number) },
           ...(getting
-            ? [{ label: 'Kind', value: args['numberType'] === 'toll_free' ? 'Toll-free' : 'Local' }]
+            ? [
+                { label: 'Kind', value: numberType === 'toll_free' ? 'Toll-free' : 'Local' },
+                ...(monthly ? [{ label: 'Costs', value: monthly }] : []),
+              ]
             : []),
         ],
         confirmLabel: getting ? 'Get this number' : 'Give it up',
         warnings: getting
-          ? [{ kind: 'note', text: 'A business number costs money every month.' }]
+          ? [
+              {
+                kind: 'caution',
+                text: monthly
+                  ? `This costs ${monthly}, from your balance, every month you keep it.`
+                  : 'A business number costs money every month, from your balance, for as long as you keep it.',
+              },
+            ]
           : [
               {
                 kind: 'blocked',
@@ -217,7 +269,7 @@ const managePhoneNumber: SettingsConfirmTool = {
               },
             ],
       }),
-      result: { waiting: true, number },
+      result: { waiting: true, number, ...(monthly ? { costs: monthly } : {}) },
     };
   },
 
@@ -328,10 +380,12 @@ async function findPhoneNumbers(
         ]
           .filter(Boolean)
           .join(' · ') || 'Anywhere';
+  const monthly = found.length ? await numberMonthly(db, ctx, numberType) : null;
   return {
     result: {
       searched: where,
       numberType,
+      ...(monthly ? { eachCosts: monthly } : {}),
       numbers: found.map((n) => ({
         number: n.e164,
         shown: phoneLine(n.e164),
@@ -339,7 +393,7 @@ async function findPhoneNumbers(
         ...(n.region ? { state: n.region } : {}),
       })),
       note: found.length
-        ? 'Free right now, and not held: read them to the person, and get the one they pick with manage_phone_number (it costs money every month, so it waits for their OK).'
+        ? `Free right now, and not held: read them to the person${monthly ? ` with what each costs (${monthly})` : ''}, and get the one they pick with manage_phone_number (it costs money every month, so it waits for their OK on a card that says the number and the price).`
         : 'Nothing free matches all of that right now. Carriers sell only what they have on hand: ask for less (the area code alone, or anywhere) and look again.',
     },
   };
@@ -358,6 +412,317 @@ export const numberSearchTools: Record<
   find_phone_numbers: findPhoneNumbers,
 };
 
+// ---------- the phone account, and numbers brought from Twilio or HighLevel ----------
+
+/** The worker's side of Settings → Texting & calls, reached as the person the way the screen reaches it. */
+const numberDeps = (db: Db, services: WorkerServices | null): NumberImportDeps => {
+  if (!services)
+    throw HfosError.rule(
+      'telephony_unavailable',
+      503,
+      'The phone carrier can’t be reached from here right now. Try again in a minute, or open Settings → Texting & calls.',
+    );
+  return {
+    httpDb: db,
+    telephony: services.telephony,
+    sealer: services.sealer,
+    publicUrl: services.publicUrl,
+  };
+};
+
+const PHONE_STATE_WORDS = {
+  on: 'On',
+  turning_on: 'Turning on',
+  off: 'Off',
+} as const;
+const OWN_NUMBER_WORDS = {
+  new: 'Not set up here yet: do_number_import_start brings it in',
+  coming: 'On its way here: do_number_import_check_now finishes it',
+  elsewhere: 'Another business here still has it, so it can’t be set up here',
+} as const;
+
+/** The numbers moving here from HighLevel or Twilio, each with the request to send their support, filled in. */
+async function transferRequests(
+  db: Db,
+  ctx: ToolContext,
+  parentAccountSid: string | null,
+): Promise<{ number: string; from: string; request: string }[]> {
+  const list = await query<{
+    imports: {
+      display: string;
+      source: 'highlevel' | 'twilio';
+      status: string;
+      sourceAccountSid: string | null;
+      destinationAccountSid: string | null;
+    }[];
+  }>(db, ctx, 'number_import.list').catch(() => null);
+  const name = await query<{ workspace: { name: string } }>(db, ctx, 'workspace.get').then(
+    (w) => w.workspace.name,
+    () => null,
+  );
+  return (list?.imports ?? [])
+    .filter((i) => i.status === 'waiting' && i.destinationAccountSid)
+    .map((i) => ({
+      number: i.display,
+      from: i.source === 'highlevel' ? 'HighLevel' : 'Twilio',
+      request: transferRequestText({
+        source: i.source,
+        display: i.display,
+        toAccountSid: i.destinationAccountSid!,
+        parentAccountSid,
+        fromAccountSid: i.sourceAccountSid,
+        businessName: name,
+      }),
+    }));
+}
+
+/** The ones that read through the worker's own services, as the screen's worker routes do. */
+export const channelReadServiceTools: Record<
+  string,
+  (db: Db, ctx: ToolContext, args: Args, services: WorkerServices | null) => Promise<ToolOutcome>
+> = {
+  async get_phone_account(db, ctx, _args, services) {
+    const deps = numberDeps(db, services);
+    if (!(await hasPermission(deps, ctx.actor.userId, ctx.workspaceId, 'channels.manage')))
+      throw HfosError.forbidden(
+        'Only people who manage texting and calls here can see the phone account. Ask an owner or admin of this business.',
+      );
+    const account = await phoneAccountOf(deps, ctx.workspaceId);
+    const own =
+      account.state === 'on'
+        ? await ownAccountNumbers(deps, ctx.actor.userId, { workspaceId: ctx.workspaceId })
+        : null;
+    const moving = await transferRequests(db, ctx, account.parentAccountSid);
+    return {
+      result: {
+        phoneAndTexting: PHONE_STATE_WORDS[account.state],
+        ...(account.lastError ? { problem: account.lastError } : {}),
+        ...(account.accountSid
+          ? { accountSid: account.accountSid, parentAccountSid: account.parentAccountSid }
+          : {}),
+        ...(own
+          ? {
+              alreadySetUpHere: own.alreadyHere,
+              numbersInTheAccount: own.numbers.map((n) => ({
+                number: n.e164,
+                shown: n.display,
+                type: n.numberType === 'toll_free' ? 'Toll-free' : 'Local',
+                usedBy: n.usedBy,
+                ...(n.friendlyName ? { name: n.friendlyName } : {}),
+                sid: n.sid,
+                state: OWN_NUMBER_WORDS[n.state],
+                ...(n.importId ? { importId: n.importId } : {}),
+              })),
+              ...(own.truncated ? { more: 'Only the first 500 are listed.' } : {}),
+            }
+          : {}),
+        ...(moving.length
+          ? {
+              transferRequests: moving,
+              aboutTransferRequests:
+                'Each is the request the person sends the support of where the number is now, filled in, as Bring a number shows it. A preferred cutover window can be added at its end.',
+            }
+          : {}),
+      },
+    };
+  },
+
+  async check_number_host(db, ctx, args, services) {
+    const found = await lookupNumberHost(
+      numberDeps(db, services),
+      ctx.actor.userId,
+      parseBody(HostInput, { workspaceId: ctx.workspaceId, e164: String(args['e164'] ?? '') }),
+    );
+    return {
+      result: {
+        number: found.display,
+        carrier: found.carrierName ?? 'Not known',
+        ...(found.lineType ? { lineType: found.lineType } : {}),
+        inTwilio: found.hostedInTwilio,
+        alreadyHere:
+          found.alreadyHere === 'yours'
+            ? 'It’s already one of this business’s numbers.'
+            : found.alreadyHere === 'elsewhere'
+              ? 'Another business here already has it, so it can’t come here too.'
+              : null,
+        note: found.alreadyHere
+          ? 'Nothing to bring.'
+          : found.hostedInTwilio
+            ? 'It sits in Twilio, so it can move account to account in days: do_number_import_start, with source highlevel for a HighLevel or LeadConnector number. Then the person opens a HighLevel support ticket and pastes in the request get_phone_account gives (transferRequests), and leaves everything running in HighLevel until it lands.'
+            : 'It isn’t in Twilio, so it comes over by a carrier port, which takes a few weeks: do_number_port_start.',
+        ...(found.alreadyHere
+          ? {}
+          : {
+              keepIt:
+                'Tell the person to keep the number where it is: not to release or delete it there. A released number goes back to the carrier and can be gone for good; it has to move while it’s still active.',
+            }),
+        ...(!found.alreadyHere && !movesWithSidsAlone(found.e164)
+          ? {
+              outsideUsAndCanada:
+                'Numbers outside the US and Canada also need a Regulatory Bundle SID and an Address SID in the account they move to. HandsFreeOS doesn’t set those up yet, so the person talks to HandsFreeOS before asking HighLevel to move it.',
+            }
+          : {}),
+      },
+    };
+  },
+
+  async list_twilio_numbers(db, ctx, args, services) {
+    const found = await connectedTwilioNumbers(numberDeps(db, services), ctx.actor.userId, {
+      workspaceId: ctx.workspaceId,
+      connectionId: String(args['connectionId'] ?? ''),
+    });
+    return {
+      result: {
+        account: found.connection.friendlyName ?? found.connection.accountSid,
+        numbers: found.numbers.map((n) => ({
+          number: n.e164,
+          shown: n.display,
+          sid: n.sid,
+          ...(n.friendlyName ? { name: n.friendlyName } : {}),
+          usedBy: n.usedBy,
+          ...(n.heldBy ? { alreadyHere: n.heldBy.workspaceName ?? 'Another business here' } : {}),
+          ...(n.comingTo ? { comingTo: n.comingTo.workspaceName } : {}),
+        })),
+        ...(found.truncated ? { more: 'Only the first 500 are listed.' } : {}),
+        note: 'One that is neither here nor on its way comes here with do_number_import_start (source twilio, with its sid and the connection). The person keeps it in their Twilio account until it lands: releasing or deleting it there can lose it for good.',
+      },
+    };
+  },
+
+  async list_rcs_senders(db, ctx, _args, services) {
+    const deps = numberDeps(db, services);
+    if (!(await hasPermission(deps, ctx.actor.userId, ctx.workspaceId, 'channels.manage')))
+      throw HfosError.forbidden(
+        'Only people who manage texting and calls here can see the RCS senders. Ask an owner or admin of this business.',
+      );
+    const found = await rcsSendersOf(deps, ctx.workspaceId);
+    return {
+      result: {
+        senders: found.senders.map((x) => ({
+          senderId: x.senderId,
+          name: x.displayName,
+          state: x.state,
+        })),
+        note: found.accountSid
+          ? found.senders.length
+            ? 'Connect the one HandsFreeOS made with do_rcs_sender_connect and its senderId.'
+            : 'There’s no RCS sender in the business’s account yet. HandsFreeOS makes it once the person asks for one on Settings → Texting & calls, which is paid on Stripe’s page.'
+          : 'Phone & texting is off, so there’s no account to look in. Turn it on first (do_telephony_enable).',
+      },
+    };
+  },
+};
+
+/** Letting a connected Twilio account go, as its Disconnect does: HandsFreeOS forgets it; numbers here stay. */
+const disconnectTwilio: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const list = await query<{
+      connections: {
+        id: string;
+        accountSid: string;
+        friendlyName: string | null;
+        status: string;
+      }[];
+    }>(db, ctx, 'twilio_connection.list').catch(() => null);
+    const c = list?.connections.find((x) => x.id === str(args['connectionId']));
+    if (!c || c.status === 'disconnected')
+      throw HfosError.notFound(
+        'That Twilio account isn’t connected. The connected ones are on Settings → Texting & calls, under Bring a number.',
+      );
+    return {
+      card: settingsCard(toolCallId, 'disconnect_twilio_account', {
+        title: `Disconnect ${c.friendlyName ?? c.accountSid}?`,
+        fields: [{ label: 'Twilio account', value: c.accountSid }],
+        confirmLabel: 'Disconnect it',
+        warnings: [
+          {
+            kind: 'caution',
+            text: 'HandsFreeOS forgets this Twilio account and what it was connected with. Numbers already brought here, or on their way, stay. Bringing more from it means connecting it again, which is the person’s own.',
+          },
+        ],
+      }),
+      result: { waiting: true },
+    };
+  },
+  async commit(db, ctx, args, { services }) {
+    await disconnectTwilioAccount(numberDeps(db, services ?? null), ctx.actor.userId, {
+      workspaceId: ctx.workspaceId,
+      connectionId: String(args['connectionId'] ?? ''),
+    });
+    return {
+      outcome: 'Disconnected. Numbers already here stay.',
+      href: `/app/w/${ctx.workspaceId}/settings/texting`,
+      command: 'twilio_connection.disconnect',
+    };
+  },
+};
+
+// ---------- Text me a test ----------
+
+/** Where the test goes and what it says, as Text me a test sends it: the person's own confirmed cell by default. */
+async function testTextOf(db: Db, ctx: ToolContext, args: Args) {
+  const typed = str(args['toPhone']);
+  let toPhone = typed;
+  if (!toPhone) {
+    const mine = await query<{ phone: { e164: string; verifiedAt: string | null } | null }>(
+      db,
+      ctx,
+      'user_phone.get',
+    ).catch(() => null);
+    if (!mine?.phone?.verifiedAt)
+      throw HfosError.rule(
+        'no_cell',
+        409,
+        'You haven’t confirmed a cell yet, so I don’t know where to text the test. Tell me the phone to text, or confirm your cell under Account.',
+      );
+    toPhone = mine.phone.e164;
+  }
+  const { workspace } = await query<{ workspace: { name: string } }>(db, ctx, 'workspace.get');
+  return {
+    toPhone,
+    body: `This is a test text from ${workspace.name} on HandsFreeOS. Replies land in the inbox.`,
+  };
+}
+
+const sendTestText: SettingsConfirmTool = {
+  async prepare(db, ctx, args, toolCallId) {
+    const t = await testTextOf(db, ctx, args);
+    return {
+      card: settingsCard(toolCallId, 'send_test_text', {
+        title: `Text a test to ${phoneLine(t.toPhone)}`,
+        fields: [
+          { label: 'To', value: phoneLine(t.toPhone) },
+          { label: 'Says', value: t.body },
+        ],
+        confirmLabel: 'Send the test',
+        warnings: [
+          {
+            kind: 'note',
+            text: bool(args['duringQuietHours'])
+              ? 'It’s quiet hours, and this goes now anyway, as you asked. It’s a real text from your business number.'
+              : 'It’s a real text from your business number. Replies land in the inbox.',
+          },
+        ],
+      }),
+      result: { waiting: true },
+    };
+  },
+  async commit(db, ctx, args) {
+    const t = await testTextOf(db, ctx, args);
+    await command(db, ctx, 'message.send', {
+      toPhone: t.toPhone,
+      channel: 'sms',
+      body: t.body,
+      acknowledgeQuietHours: bool(args['duringQuietHours']) ?? false,
+    });
+    return {
+      outcome: `Texted a test to ${phoneLine(t.toPhone)}`,
+      href: `/app/w/${ctx.workspaceId}/settings/texting`,
+      command: 'message.send',
+    };
+  },
+};
+
 // ---------- the carrier registration ----------
 
 const VOLUME_WORDS: Record<string, string> = {
@@ -367,115 +732,184 @@ const VOLUME_WORDS: Record<string, string> = {
   over_100000: 'Over 100,000 a month',
 };
 const USE_WORDS: Record<string, string> = {
-  customer_care: 'Answering customers',
+  customer_care: 'Appointments and customer care',
   mixed: 'Answering customers and some marketing',
   marketing: 'Marketing',
 };
+const OPT_IN_WORDS: Record<string, string> = {
+  hosted: 'The sign-up page HandsFreeOS hosts',
+  own_site: 'A box on their own website',
+  in_person: 'In person or on the phone',
+};
 
-/** What the carriers are sent, built the same way for the card and for the send. */
-function registrationInput(args: Args) {
+/**
+ * The registration's answers as its steps in Settings → Texting & calls keep them (a2p-wizard.tsx WizardForm), with
+ * the words each goes by there. Never the ticks on Before it goes: those are only the business's to give.
+ */
+const REGISTRATION_ANSWERS: Readonly<Record<string, string>> = {
+  legalName: 'Legal name',
+  businessType: 'Kind of business',
+  ein: 'EIN',
+  website: 'Website',
+  line1: 'Street',
+  city: 'City',
+  state: 'State',
+  postalCode: 'ZIP',
+  contactFirst: 'Contact’s first name',
+  contactLast: 'Contact’s last name',
+  contactEmail: 'Contact’s email',
+  contactPhone: 'Contact’s phone',
+  useCase: 'Texts are for',
+  volume: 'How many',
+  sensitive: 'Topics the carriers treat differently',
+  samples: 'Example texts',
+  optInPath: 'How customers agree',
+  optIn: 'In their words',
+  optInUrl: 'The page with the box',
+  optInProofUrl: 'Proof of how they agree',
+  ownPolicyUrl: 'Privacy policy',
+  ownTermsUrl: 'Terms',
+  policyEmail: 'Email on the policy',
+  policyPhone: 'Phone on the policy',
+};
+/** The steps the screen opens at (its STEPS): How customers agree to get texts, and Before it goes. */
+const STEP_HOW_THEY_AGREE = { at: 5, title: 'How customers agree to get texts' } as const;
+const STEP_BEFORE_IT_GOES = { at: 7, title: 'Before it goes' } as const;
+
+/** One answer as the person reads it back. */
+function answerLine(key: string, value: unknown): string {
+  if (key === 'useCase') return USE_WORDS[String(value)] ?? String(value);
+  if (key === 'volume') return VOLUME_WORDS[String(value)] ?? String(value);
+  if (key === 'optInPath') return OPT_IN_WORDS[String(value)] ?? String(value);
+  if (key === 'businessType') return String(value).replace('_', ' ');
+  if ((key === 'ownPolicyUrl' || key === 'ownTermsUrl') && value === '')
+    return 'The one HandsFreeOS hosts';
+  if (key === 'sensitive')
+    return Array.isArray(value) && value.length ? value.join(', ') : 'None of these';
+  if (key === 'samples') return (value as string[]).filter(Boolean).join(' / ');
+  return String(value);
+}
+
+/**
+ * Fills in the registration the way its steps do: into the answers they save as the person types
+ * (registration.save_draft, `{form, at}`), so the screen opens with them. Nothing goes to the carriers: Before it goes
+ * runs its checks on those exact details and takes the person's ticks, and they send it from there.
+ */
+async function fillInCarrierRegistration(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+): Promise<ToolOutcome> {
+  const draft = await query<{ answers: Record<string, unknown> | null }>(
+    db,
+    ctx,
+    'registration.get_draft',
+  );
+  const savedForm = (draft.answers?.['form'] ?? {}) as Record<string, unknown>;
+  const given: Record<string, unknown> = {};
+  for (const key of Object.keys(REGISTRATION_ANSWERS)) {
+    const value = args[key];
+    if (value === undefined) continue;
+    if (key === 'ownPolicyUrl' || key === 'ownTermsUrl') given[key] = value ?? '';
+    else if (key === 'samples') {
+      // The screen keeps two; one given keeps the other as it was.
+      const was = Array.isArray(savedForm['samples']) ? (savedForm['samples'] as unknown[]) : [];
+      const now = value as string[];
+      given[key] = [now[0] ?? '', now[1] ?? (typeof was[1] === 'string' ? was[1] : '')];
+    } else given[key] = value;
+  }
+  if (!Object.keys(given).length)
+    throw HfosError.rule(
+      'nothing_to_fill_in',
+      400,
+      'There’s nothing to fill in yet. Ask the person for an answer first, such as the business’s legal name.',
+    );
+  const form = { ...savedForm, ...given };
+  const step = form['optInPath'] ? STEP_BEFORE_IT_GOES : STEP_HOW_THEY_AGREE;
+  await command(db, ctx, 'registration.save_draft', { answers: { form, at: step.at } });
+  const has = (key: string) => {
+    const v = form[key];
+    return Array.isArray(v) ? v.length > 0 && v.every((x) => x !== '') : !!v || v === null;
+  };
+  const needed = [
+    'legalName',
+    'businessType',
+    ...(form['businessType'] === 'sole_proprietor' ? [] : ['ein']),
+    'website',
+    'line1',
+    'city',
+    'state',
+    'postalCode',
+    'contactFirst',
+    'contactLast',
+    'contactEmail',
+    'contactPhone',
+    'useCase',
+    'volume',
+    'samples',
+    'optInPath',
+    ...(form['optInPath'] === 'own_site' ? ['optInUrl'] : []),
+    ...(form['optInPath'] === 'in_person' ? ['optInProofUrl'] : []),
+  ].filter((key) => !has(key));
+  // "None of these" is an answer ([]); never answered is not.
+  if (!Array.isArray(form['sensitive'])) needed.push('sensitive');
+  const back = `/app/w/${ctx.workspaceId}/settings/texting`;
+  const lines = Object.entries(given).map(
+    ([key, value]) => `${REGISTRATION_ANSWERS[key]}: ${answerLine(key, value)}`,
+  );
   return {
-    kind: str(args['kind']) ?? 'a2p_10dlc',
-    business: {
-      legalName: args['legalName'],
-      businessType: args['businessType'],
-      ein: args['ein'] === undefined ? undefined : (str(args['ein']) ?? null),
-      website: args['website'],
-      address: {
-        line1: args['addressLine1'],
-        city: args['city'],
-        state: args['state'],
-        postalCode: args['postalCode'],
-      },
-      contact: {
-        firstName: args['contactFirstName'],
-        lastName: args['contactLastName'],
-        email: args['contactEmail'],
-        phone: args['contactPhone'],
-      },
-      useCase: args['useCase'],
-      messageSamples: args['messageSamples'],
-      optInDescription: args['optInDescription'],
-      monthlyVolume: args['monthlyVolume'],
+    result: {
+      saved: Object.fromEntries(
+        Object.entries(given).map(([key, value]) => [
+          REGISTRATION_ANSWERS[key],
+          answerLine(key, value),
+        ]),
+      ),
+      opensAt: step.title,
+      ...(needed.length ? { stillToAnswer: needed.map((key) => REGISTRATION_ANSWERS[key]) } : {}),
+      sent: false,
+      note: needed.length
+        ? 'Saved, and nothing has gone to the carriers. Read back what you saved, then ask for what’s still to answer.'
+        : 'Saved, and nothing has gone to the carriers. Read back what you saved. The person sends it from Before it goes in Settings → Texting & calls: it checks the website, privacy policy and terms and the sign-up page, and takes the ticks only they give. If something won’t go green there, do_registration_request_review asks HandsFreeOS to check it by hand.',
     },
+    card: {
+      type: 'done',
+      toolCallId: '00000000-0000-0000-0000-000000000000',
+      kind: 'note',
+      title: 'Filled in your texting registration',
+      detail: `${lines.join('; ')}. Nothing has gone to the carriers: it opens at ${step.title} in Settings → Texting & calls.`,
+      href: back,
+      undoable: false,
+    },
+    command: 'registration.save_draft',
+    record: { outcome: 'Filled in your texting registration', href: back },
   };
 }
 
-const submitCarrierRegistration: SettingsConfirmTool = {
-  async prepare(_db, _ctx, args, toolCallId) {
-    const samples = list<string>(args['messageSamples']) ?? [];
-    return {
-      card: settingsCard(toolCallId, 'submit_carrier_registration', {
-        title: 'Send your texting registration',
-        fields: [
-          { label: 'Business', value: str(args['legalName']) ?? '' },
-          { label: 'Kind', value: String(args['businessType'] ?? '').replace('_', ' ') },
-          ...(str(args['ein']) ? [{ label: 'EIN', value: str(args['ein'])! }] : []),
-          { label: 'Website', value: str(args['website']) ?? '' },
-          {
-            label: 'Address',
-            value: [args['addressLine1'], args['city'], args['state'], args['postalCode']]
-              .filter(Boolean)
-              .join(', '),
-          },
-          {
-            label: 'Contact',
-            value:
-              `${str(args['contactFirstName']) ?? ''} ${str(args['contactLastName']) ?? ''}, ${str(args['contactEmail']) ?? ''}`.trim(),
-          },
-          { label: 'Texts are for', value: USE_WORDS[String(args['useCase'])] ?? '' },
-          { label: 'How many', value: VOLUME_WORDS[String(args['monthlyVolume'])] ?? '' },
-          {
-            label: 'Examples',
-            value: samples.length === 1 ? samples[0]! : `${samples.length} example texts`,
-          },
-          { label: 'How customers agree', value: str(args['optInDescription']) ?? '' },
-        ],
-        confirmLabel: 'Send it to the carriers',
-        warnings: [
-          {
-            kind: 'note',
-            text: 'The carriers review this, which takes a few days. Texting turns on once they approve it.',
-          },
-          // 0105: a local registration's carrier fees are the business's, paid before it goes.
-          ...((str(args['kind']) ?? 'a2p_10dlc') === 'a2p_10dlc'
-            ? [
-                {
-                  kind: 'note' as const,
-                  text: 'A local-number registration has carrier fees, passed on at cost. You pay them in Settings → Texting & calls, and it goes to the carriers once they’re paid.',
-                },
-              ]
-            : []),
-        ],
-      }),
-      result: { waiting: true },
-    };
-  },
-
-  async commit(db, ctx, args) {
-    const sent = await command<{ fee: { amountCents: number } | null }>(
-      db,
-      ctx,
-      'registration.submit',
-      registrationInput(args),
-    );
-    return {
-      // With fees to pay, it waits for them: say where, rather than that it went.
-      outcome: sent.fee
-        ? `Saved. Pay ${money(sent.fee.amountCents)} in Settings → Texting & calls to send it to the carriers`
-        : 'Sent to the carriers',
-      href: `/app/w/${ctx.workspaceId}/settings/texting`,
-      command: 'registration.submit',
-    };
-  },
+/** The settings of these channels that change on their own (risk 0–1). */
+export const settingsChannelAutoTools: Record<
+  string,
+  (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>
+> = {
+  fill_in_carrier_registration: fillInCarrierRegistration,
 };
 
 // ---------- email ----------
 
 interface EmailStatus {
   sharedDomain: string;
-  addresses: { id: string; address: string; displayName: string; isDefault: boolean }[];
-  domains: { id: string; domain: string; status: string }[];
+  inboundMxHost: string;
+  addresses: {
+    id: string;
+    address: string;
+    displayName: string;
+    isDefault: boolean;
+    emailDomainId: string | null;
+    ownerUserId?: string | null;
+    ownerName?: string | null;
+    ownerLeft?: boolean;
+  }[];
+  domains: (EmailDomainRecordsLike & { id: string; status: string })[];
 }
 
 const emailStatus = (db: Db, ctx: ToolContext) =>
@@ -496,9 +930,34 @@ const personNamed = async (db: Db, ctx: ToolContext, userId: string | undefined)
     );
   return m.fullName || m.email;
 };
-/** Said on the card when an address becomes one person's own. */
+/** Said on the card when an address becomes one person's own: what the rest of the team stops getting. */
 const ownWarning = (name: string) =>
-  `Only ${name} sends from it, and mail to it reaches only them.`;
+  `Only ${name} sends from it, and mail to it reaches only them: the rest of the team stops seeing it in the Inbox. It stays ${name}’s while they work here.`;
+
+/**
+ * What a domain's removal takes with it, said on its card: its addresses, and for one that is a person's own, that they
+ * stop getting the mail sent to it (email_domain.remove deletes the addresses on it; their conversations stay).
+ */
+function domainLosses(status: EmailStatus | null, domainId: string | undefined): string[] {
+  const on = (status?.addresses ?? []).filter((a) => a.emailDomainId === domainId);
+  if (!on.length) return [];
+  const owned = on.filter((a) => a.ownerUserId && !a.ownerLeft);
+  return [
+    `Its addresses go with it: ${on.map((a) => a.address).join(', ')}. Mail sent to them stops arriving here, and nobody can send from them. Their conversations stay in the inbox.`,
+    ...owned.map(
+      (a) =>
+        `${a.ownerName ?? 'Its person'} stops getting the mail sent to ${a.address}, their own address.`,
+    ),
+  ];
+}
+
+/** The records to add for a domain, as Use your own domain lists them, from email.setup_status. */
+const recordsOf = (status: EmailStatus | null, domainName: string) => {
+  const d = status?.domains.find((x) => x.domain === domainName);
+  return d ? emailDomainRecords(d, status!.inboundMxHost) : [];
+};
+const recordLine = (r: EmailDnsRecord) =>
+  `${r.type} record, host ${r.host}, value ${r.value}${r.priority ? `, priority ${r.priority}` : ''} (${r.purpose})`;
 
 const manageEmailSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -507,13 +966,21 @@ const manageEmailSettings: SettingsConfirmTool = {
     const address = status?.addresses.find((a) => a.id === args['emailAddressId']);
     const domain = status?.domains.find((d) => d.id === args['emailDomainId']);
     const owner = await personNamed(db, ctx, str(args['ownerUserId']));
-    const card = (title: string, fields: Field[], confirmLabel: string, warn?: string) =>
+    const card = (
+      title: string,
+      fields: Field[],
+      confirmLabel: string,
+      warn?: string | readonly string[],
+    ) =>
       settingsCard(toolCallId, 'manage_email_settings', {
         title,
         fields,
         confirmLabel,
         warnings: [
-          ...(warn ? [{ kind: 'note', text: warn }] : []),
+          ...(typeof warn === 'string' ? [warn] : (warn ?? [])).map((text) => ({
+            kind: 'note',
+            text,
+          })),
           ...(owner ? [{ kind: 'note', text: ownWarning(owner) }] : []),
         ],
       });
@@ -540,14 +1007,38 @@ const manageEmailSettings: SettingsConfirmTool = {
           ),
           result: { waiting: true },
         };
-      case 'change_address':
+      case 'change_address': {
+        // Name customers see is one name, saved on every address, as the screen's Save does.
+        const every = (status?.addresses.length ?? 0) > 1;
+        const localPart = str(args['localPart']);
+        // Only the name changes: it's the business's, not one address's, so the card names no address.
+        const onlyName =
+          every && !!str(args['displayName']) && !localPart && !owner && args['isDefault'] !== true;
         return {
           card: card(
-            `Change ${address?.address ?? 'the address'}`,
+            onlyName
+              ? 'Change the name customers see'
+              : `Change ${address?.address ?? 'the address'}`,
             [
-              { label: 'Address', value: address?.address ?? '' },
+              ...(address && !onlyName
+                ? [
+                    {
+                      label: 'Address',
+                      value: localPart
+                        ? `${address.address} → ${localPart}@${address.address.split('@')[1] ?? ''}`
+                        : address.address,
+                    },
+                  ]
+                : []),
               ...(str(args['displayName'])
-                ? [{ label: 'From', value: str(args['displayName'])! }]
+                ? [
+                    {
+                      label: 'Name customers see',
+                      value: every
+                        ? `${str(args['displayName'])!} (on every address)`
+                        : str(args['displayName'])!,
+                    },
+                  ]
                 : []),
               ...(args['isDefault'] === true ? [{ label: 'Default', value: 'Yes' }] : []),
               ...whose,
@@ -556,6 +1047,7 @@ const manageEmailSettings: SettingsConfirmTool = {
           ),
           result: { waiting: true },
         };
+      }
       case 'add_domain':
         return {
           card: card(
@@ -581,7 +1073,10 @@ const manageEmailSettings: SettingsConfirmTool = {
             `Stop sending from ${domain?.domain ?? 'the domain'}`,
             [{ label: 'Domain', value: domain?.domain ?? '' }],
             'Remove it',
-            'Mail goes out from the shared address again.',
+            [
+              ...domainLosses(status, domain?.id),
+              `Mail goes out from ${status?.sharedDomain ? `the shared address on ${status.sharedDomain}` : 'the shared address'} again.`,
+            ],
           ),
           result: { waiting: true },
         };
@@ -614,25 +1109,42 @@ const manageEmailSettings: SettingsConfirmTool = {
         });
         return { outcome: `Sending from ${out.address}`, href, command: 'email_address.create' };
       }
-      case 'change_address':
-        await command(db, ctx, 'email_address.update', {
-          emailAddressId: args['emailAddressId'],
-          ...defined({
-            displayName: str(args['displayName']),
-            localPart: str(args['localPart']),
-            isDefault: bool(args['isDefault']),
-            ownerUserId: str(args['ownerUserId']),
-          }),
+      case 'change_address': {
+        const name = str(args['displayName']);
+        const rest = defined({
+          localPart: str(args['localPart']),
+          isDefault: bool(args['isDefault']),
+          ownerUserId: str(args['ownerUserId']),
         });
+        if (Object.keys(rest).length || !name)
+          await command(db, ctx, 'email_address.update', {
+            emailAddressId: args['emailAddressId'],
+            ...rest,
+            ...(name ? { displayName: name } : {}),
+          });
+        // The name customers see goes on every address, as the screen's Save puts it.
+        if (name)
+          for (const a of (await emailStatus(db, ctx))?.addresses ?? [])
+            if (a.displayName !== name)
+              await command(db, ctx, 'email_address.update', {
+                emailAddressId: a.id,
+                displayName: name,
+              });
         return { outcome: 'Changed', href, command: 'email_address.update' };
-      case 'add_domain':
+      }
+      case 'add_domain': {
+        const domainName = str(args['domain'])?.toLowerCase() ?? '';
         await command(db, ctx, 'email_domain.add', { domain: args['domain'] });
-        // The records themselves are on the Email screen: they are long, and they are copied, not read out.
+        // The records to copy, as Use your own domain lists them, once Postmark has made them (usually a moment).
+        const records = recordsOf(await emailStatus(db, ctx), domainName);
         return {
-          outcome: `${str(args['domain'])} is added. The records to copy are on the Email screen.`,
+          outcome: records.length
+            ? `${domainName} is added. Add these where you bought the domain, then ask me to check it: ${records.map(recordLine).join('; ')}.`
+            : `${domainName} is added. Its records are being made: ask me for them in a minute (they’re also under Use your own domain on Settings → Email).`,
           href,
           command: 'email_domain.add',
         };
+      }
       case 'check_domain': {
         await command(db, ctx, 'email_domain.verify', { emailDomainId: args['emailDomainId'] });
         return { outcome: 'Checked', href, command: 'email_domain.verify' };
@@ -647,6 +1159,59 @@ const manageEmailSettings: SettingsConfirmTool = {
         return { outcome: 'Unblocked', href, command: 'email_suppression.release' };
     }
   },
+};
+
+/**
+ * The address of someone who has left, given to the team or to someone else, as its box on Settings → Email does: the
+ * card names the address, whose it was and who gets it, and says what changes for whom. Removing it with its mail is
+ * never offered (coverage.ts), so it stays the person's.
+ */
+const reassignCard: ScreenActionCard = {
+  async prepare(db, ctx, args, tool) {
+    const status = await emailStatus(db, ctx);
+    const a = status?.addresses.find((x) => x.id === args['emailAddressId']);
+    if (!a)
+      throw HfosError.notFound(
+        'That isn’t one of this business’s addresses. Its addresses are in get_settings (area email).',
+      );
+    const was = a.ownerName ?? 'Its person';
+    const to = args['to'] === 'person' ? await personNamed(db, ctx, str(args['userId'])) : null;
+    return {
+      card: settingsCard(tool.toolCallId, tool.name, {
+        title: to ? `Give ${a.address} to ${to}` : `Give ${a.address} to the team`,
+        fields: [
+          { label: 'Address', value: a.address },
+          { label: 'Was', value: `${was}’s, who no longer works here` },
+          { label: 'Goes to', value: to ? `Only ${to}` : 'The team, in the Inbox' },
+        ],
+        confirmLabel: 'Give it',
+        warnings: [
+          {
+            kind: 'caution',
+            text: to
+              ? `The mail ${was} had on it, sealed until now, becomes ${to}’s alone, and new mail to it reaches only ${to}: the team’s Inbox stops getting it. It stays ${to}’s while they work here.`
+              : `The mail ${was} had on it, sealed until now, opens to everyone who reads email here, and new mail to it keeps coming to the team’s Inbox.`,
+          },
+        ],
+      }),
+      result: { waiting: true },
+    };
+  },
+  async done(db, ctx, args, output) {
+    const status = await emailStatus(db, ctx);
+    const address = status?.addresses.find((x) => x.id === args['emailAddressId'])?.address;
+    const threads = typeof output['threads'] === 'number' ? output['threads'] : null;
+    const to = args['to'] === 'person' ? await personNamed(db, ctx, str(args['userId'])) : null;
+    return {
+      outcome: `${address ?? 'The address'} and its mail${threads === null ? '' : ` (${threads} ${threads === 1 ? 'conversation' : 'conversations'})`} are ${to ? `${to}’s` : 'the team’s'} now`,
+      href: `/app/w/${ctx.workspaceId}/settings/email`,
+    };
+  },
+};
+
+/** The Email screen's commands drawn on cards of their own, by the commands' own names: they stay screen actions. */
+export const emailScreenCards: Readonly<Record<string, ScreenActionCard>> = {
+  [emailAddressReassign.name]: reassignCard,
 };
 
 // ---------- the chat box on the website ----------
@@ -722,7 +1287,13 @@ const siteWords = (origins: readonly string[]) =>
  * Who answers, as the screen's Who answers sets it: the business's AI teammate, or only the team. A new chat box
  * starts with the teammate when there is one, as the screen's set-up does. Undefined leaves it as it is.
  */
-async function answerer(db: Db, ctx: ToolContext, ai: boolean | undefined, creating: boolean) {
+async function answerer(
+  db: Db,
+  ctx: ToolContext,
+  ai: boolean | undefined,
+  creating: boolean,
+  widgetId: string | null,
+) {
   if (ai === false) return { teammateId: null, who: 'Only your team', note: null };
   if (ai === undefined && !creating) return undefined;
   const { teammate } = await query<ChatTeammate>(db, ctx, 'ai_teammate.get');
@@ -734,14 +1305,18 @@ async function answerer(db: Db, ctx: ToolContext, ai: boolean | undefined, creat
       'This business has no AI teammate yet, so only your team can answer website chats. Set one up under AI teammate first, then I can have it answer.',
     );
   }
-  // The screen's own note: an AI teammate that is off, or whose Website chat channel is off, leaves it to the team.
-  const note =
-    teammate.status === 'off'
-      ? `${teammate.name} is off, so your team answers for now. Turn it on from the AI teammate page.`
-      : teammate.config?.channels?.chat !== true
-        ? `${teammate.name}’s Website chat channel is off, so your team answers for now. Turn on Website chat under Channels on the AI teammate page.`
-        : null;
-  return { teammateId: teammate.id, who: `${teammate.name} (AI)`, note };
+  // The screen's own note: an AI teammate that is off, whose Website chat channel is off, or that answers another
+  // chat, leaves this one to the team.
+  const now = whoAnswersChat(
+    { id: widgetId ?? '', teammate: { id: teammate.id } },
+    {
+      ...chatChannelsOf(teammate.config),
+      id: teammate.id,
+      name: teammate.name,
+      status: teammate.status,
+    },
+  );
+  return { teammateId: teammate.id, who: `${teammate.name} (AI)`, note: now.ai ? null : now.words };
 }
 
 const CORNER_WORDS = { right: 'Bottom right', left: 'Bottom left' } as const;
@@ -769,7 +1344,8 @@ function lookOf(args: Args) {
   const whenAway = str(args['whenNobodyAnswers']) as 'chat' | 'away_form' | undefined;
   const fields = defined({
     name,
-    greeting: str(args['greeting']),
+    // Empty or null shows no greeting, as clearing the box does.
+    greeting: args['greeting'] === null || args['greeting'] === '' ? null : str(args['greeting']),
     launcherLabel: str(args['buttonLabel']),
     accentColor: str(args['color']),
     textColor,
@@ -793,7 +1369,11 @@ function lookOf(args: Args) {
     ...(num(args['dailyCap'])
       ? [{ label: 'New chats a day', value: String(args['dailyCap']) }]
       : []),
-    ...(str(args['greeting']) ? [{ label: 'Greeting', value: str(args['greeting'])! }] : []),
+    ...(str(args['greeting'])
+      ? [{ label: 'Greeting', value: str(args['greeting'])! }]
+      : args['greeting'] === null || args['greeting'] === ''
+        ? [{ label: 'Greeting', value: 'None' }]
+        : []),
     ...(str(args['buttonLabel']) ? [{ label: 'Button', value: str(args['buttonLabel'])! }] : []),
     ...(str(args['color']) ? [{ label: 'Colour', value: str(args['color'])! }] : []),
     ...(textColor === undefined
@@ -889,7 +1469,13 @@ const manageWebsiteChat: SettingsConfirmTool = {
         [{ path: 'websites', message: 'Say which website the chat goes on, like acme.com.' }],
         'Say which website the chat goes on, like acme.com.',
       );
-    const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
+    const who = await answerer(
+      db,
+      ctx,
+      bool(args['answeredByAi']),
+      creating,
+      creating ? null : (box?.id ?? null),
+    );
     const { words } = lookOf(args);
     const fields: Field[] = [
       ...(sites ? [{ label: 'Shows on', value: siteWords(sites) }] : []),
@@ -948,14 +1534,26 @@ const manageWebsiteChat: SettingsConfirmTool = {
       };
     }
     const sites = sitesOf(args);
-    const who = await answerer(db, ctx, bool(args['answeredByAi']), creating);
+    const who = await answerer(
+      db,
+      ctx,
+      bool(args['answeredByAi']),
+      creating,
+      creating ? null : (box?.id ?? null),
+    );
     const { fields } = lookOf(args);
     if (creating) {
       const made = await command<{ widgetId: string; publicKey: string }>(
         db,
         ctx,
         'chat_widget.create',
-        { allowedOrigins: sites ?? [], teammateId: who?.teammateId ?? null, ...fields },
+        // A new chat starts with the greeting the screen's set-up fills in.
+        {
+          allowedOrigins: sites ?? [],
+          teammateId: who?.teammateId ?? null,
+          greeting: CHAT_DEFAULT_GREETING,
+          ...fields,
+        },
       );
       // The snippet as Add it to your site copies it. Its address is a path here, which the executor writes out whole
       // on the business's own domain when one is serving (full-links.ts), as the screen does.
@@ -1170,9 +1768,10 @@ const manageLeadIntake: SettingsConfirmTool = {
 };
 
 export const settingsChannelConfirmTools: Record<string, SettingsConfirmTool> = {
+  send_test_text: sendTestText,
+  disconnect_twilio_account: disconnectTwilio,
   update_texting_settings: updateTextingSettings,
   manage_phone_number: managePhoneNumber,
-  submit_carrier_registration: submitCarrierRegistration,
   manage_email_settings: manageEmailSettings,
   manage_website_chat: manageWebsiteChat,
   manage_lead_intake: manageLeadIntake,

@@ -61,6 +61,8 @@ export * from './messaging/sms';
 export * from './messaging/rcs';
 // Facebook Messenger and Instagram direct messages (20261025000200).
 export * from './messaging/social';
+// The DNS records for a business's own email domain, as Settings → Email lists them.
+export * from './messaging/email-records';
 // Facebook and Instagram lead ads' answers, consent boxes and access (funnels).
 export * from './messaging/lead-ads';
 export * from './messaging/video-link';
@@ -111,6 +113,7 @@ export * from './ai-team/index';
 export * from './funnels/index';
 // The ways a lead comes in, for a funnel's "came in by" rule (teammate funnels).
 export { INTAKE_KINDS, INTAKE_NAMES, type IntakeKind } from './crm/intake-kinds';
+export * from './crm/intake-snippet';
 // Quick setup: a few simple questions that set up a working AI teammate.
 export * from './ai-setup/index';
 export * from './chat/index';

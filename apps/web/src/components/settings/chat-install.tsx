@@ -4,7 +4,7 @@
  * install check ("Seen on acme.com 3 min ago"). Settings → Website chat shows them, and so does the texting
  * registration's "Let us collect it for you", whose chat goes in the footer of the business's own site.
  */
-import { chatSnippet, chatSnippetSrc } from '@hfos/core';
+import { CHAT_BUILDERS, chatSnippet, chatSnippetSrc } from '@hfos/core';
 import { CircleCheck, Clock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -13,62 +13,8 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import type { ChatWidget } from '@/lib/api/types';
 import { cn, relativeTime } from '@/lib/utils';
 
-export const PLATFORMS = [
-  {
-    key: 'wordpress',
-    name: 'WordPress',
-    steps: [
-      'In WordPress, go to Plugins, Add New, and install a header and footer plugin (like WPCode).',
-      'Paste the snippet into its footer box and save.',
-      'Open your site and click the chat button once. The check above turns green within a minute.',
-    ],
-  },
-  {
-    key: 'wix',
-    name: 'Wix',
-    steps: [
-      'In your Wix dashboard, go to Settings, then Custom code.',
-      'Add the snippet, choose “All pages” and “Body - end”, and apply.',
-      'Publish, then open your site and click the chat button once.',
-    ],
-  },
-  {
-    key: 'squarespace',
-    name: 'Squarespace',
-    steps: [
-      'Go to Settings, Advanced, then Code injection.',
-      'Paste the snippet into the Footer box and save.',
-      'Code injection needs a Squarespace business plan or higher.',
-    ],
-  },
-  {
-    key: 'gohighlevel',
-    name: 'GoHighLevel',
-    steps: [
-      'Open Sites, then your website or funnel, and go to its Settings.',
-      'Paste the snippet into “Footer tracking code” and save.',
-      'Publish, then open the site and click the chat button once.',
-    ],
-  },
-  {
-    key: 'webflow',
-    name: 'Webflow',
-    steps: [
-      'Open Site settings, then Custom code.',
-      'Paste the snippet into “Footer code” and save.',
-      'Publish the site, then open it and click the chat button once.',
-    ],
-  },
-  {
-    key: 'other',
-    name: 'Something else',
-    steps: [
-      'Paste the snippet just before </body> on every page.',
-      'If your site uses a template, add it to the template once.',
-      'Your web person can do this in a minute. Send them this page.',
-    ],
-  },
-] as const;
+/** The site builders Add it to your site has steps for (core's, as the Assistant gives them). */
+export const PLATFORMS = CHAT_BUILDERS;
 
 /** The snippet a business pastes: `<script async src="…/embed/v1/<key>.js"></script>` (core's, as the Assistant gives it). */
 export const snippetOf = chatSnippet;

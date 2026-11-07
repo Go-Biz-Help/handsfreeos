@@ -6,6 +6,7 @@
  * what it asks visitors for and the texts box.
  */
 import {
+  CHAT_DEFAULT_GREETING,
   chatWidgetName,
   contrastRatio,
   logoBox,
@@ -395,7 +396,7 @@ function SetUp({
             teammateId: teammate?.id ?? null,
             ...(name.trim() ? { name: name.trim() } : {}),
             // A greeting to start from; it's the first thing visitors read, and Look changes it.
-            greeting: 'Hi, thanks for stopping by. How can we help?',
+            greeting: CHAT_DEFAULT_GREETING,
           },
         }),
       );

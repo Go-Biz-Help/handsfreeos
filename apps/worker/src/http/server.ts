@@ -27,8 +27,6 @@ import {
   type PreflightCheck,
 } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { scheduledJobs, telephonyAccounts } from '@hfos/db/schema';
-import { and, desc, eq } from 'drizzle-orm';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { registerTeammateRoutes } from '../ai-team/routes';
@@ -39,8 +37,7 @@ import { registerMoneyLinkRoutes } from '../money/link-routes';
 import { registerWalletCardRoutes } from '../money/wallet-card-routes';
 import { registerPartnerPayoutRoutes } from '../partners/payout-routes';
 import { registerFakePaymentRoutes } from '../payments/fake-routes';
-import { ACCOUNT_JOBS } from '../telephony/account-switch';
-import { loadAccount } from '../telephony/accounts';
+import { phoneAccountOf, rcsSendersOf } from './telephony-reads';
 import { ProviderError } from '../telephony/provider';
 import { renewAfterRefusal } from '../telephony/tokens';
 import { systemActor, workerMeta } from '../services';
@@ -461,21 +458,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     const actor = await authenticate(deps, req);
     const input = parseBody(RcsSendersInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
-    const account = await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
-      loadAccount(tx, input.workspaceId, deps.sealer),
-    );
-    if (!account) return { accountSid: null, senders: [] };
-    const senders = await deps.telephony.listRcsSenders(account);
-    return {
-      accountSid: account.sid,
-      senders: senders.map((x) => ({
-        sid: x.sid,
-        senderId: x.senderId,
-        displayName: x.displayName,
-        state: x.state,
-        providerStatus: x.providerStatus,
-      })),
-    };
+    return rcsSendersOf(deps, input.workspaceId);
   });
 
   /**
@@ -487,74 +470,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
     const actor = await authenticate(deps, req);
     const input = parseBody(TelephonyAccountInput, req.body);
     await requirePermission(deps, actor.userId, input.workspaceId, 'channels.manage');
-    const [row, opening] = await asWorker(
-      deps.httpDb,
-      { workspaceId: input.workspaceId },
-      async (tx) =>
-        [
-          (
-            await tx
-              .select({
-                status: telephonyAccounts.status,
-                accountSid: telephonyAccounts.accountSid,
-                lastError: telephonyAccounts.lastError,
-                updatedAt: telephonyAccounts.updatedAt,
-              })
-              .from(telephonyAccounts)
-              .where(eq(telephonyAccounts.workspaceId, input.workspaceId))
-          )[0],
-          // The latest press of On: the account is only written once Twilio has made it, so until then this is
-          // what knows it is turning on, or why it gave up.
-          (
-            await tx
-              .select({
-                status: scheduledJobs.status,
-                payload: scheduledJobs.payload,
-                finishedAt: scheduledJobs.finishedAt,
-              })
-              .from(scheduledJobs)
-              .where(
-                and(
-                  eq(scheduledJobs.workspaceId, input.workspaceId),
-                  eq(scheduledJobs.kind, ACCOUNT_JOBS.open),
-                ),
-              )
-              .orderBy(desc(scheduledJobs.createdAt))
-              .limit(1)
-          )[0],
-        ] as const,
-    );
-    const open = !!row && row.status !== 'closed';
-    // Gave up since the account last changed: nothing made it on since, by the switch or by buying a number.
-    const gaveUp =
-      opening?.status === 'failed' &&
-      row?.status !== 'active' &&
-      (!row || !opening.finishedAt || opening.finishedAt > row.updatedAt);
-    const state =
-      row?.status === 'active'
-        ? 'on'
-        : opening?.status === 'pending'
-          ? 'turning_on'
-          : gaveUp
-            ? 'off'
-            : open
-              ? 'turning_on'
-              : 'off';
-    const problem = (opening?.payload as { problem?: unknown } | undefined)?.problem;
-    return {
-      state,
-      accountSid: state !== 'off' && open ? row.accountSid : null,
-      // HandsFreeOS's own parent account, which every business's sits under. HighLevel's move form asks for
-      // it beside the sub-account's. An identifier like the other, never a key.
-      parentAccountSid: deps.telephony.masterAccountSid,
-      lastError: gaveUp
-        ? typeof problem === 'string'
-          ? problem
-          : 'Phone & texting couldn’t be turned on: Twilio, our phone carrier, kept refusing. Try again in a few minutes, or ask HandsFreeOS support.'
-        : state === 'off'
-          ? null
-          : (row?.lastError ?? null),
-    };
+    return phoneAccountOf(deps, input.workspaceId);
   });
 
   app.post('/v1/telephony/registration-preflight', async (req) => {
