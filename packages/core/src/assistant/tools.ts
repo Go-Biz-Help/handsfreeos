@@ -384,12 +384,17 @@ export const assistantTools = [
   define({
     name: 'list_workflows',
     description:
-      'The business’s workflows with ids, as the Workflows list shows them: whether each is on (active), paused or a draft, its description, what starts it, the calendars it watches, its live version, its runs in the last 30 days and going now, its last run (when, the customer, how it ended), the last step that failed with its run id, and where it came from (a recipe, or the agency’s template with its version and whether an update is waiting). Archived ones only with status archived. With calendarId, only that calendar’s automations, as its Automations section lists them, and which would remind customers a second time.',
+      'The business’s workflows with ids, as the Workflows list shows them: whether each is on (active), paused or a draft, its description, what starts it, the calendars it watches, its live version, its runs in the last 30 days and going now, its last run (when, the customer, how it ended), the last step that failed with its run id, and where it came from (a recipe, or the agency’s template with its version and whether an update is waiting). Archived ones only with status archived. With calendarId, only that calendar’s automations, as its Automations section lists them, and which would remind customers a second time. With personId, as Add to workflow… on that customer’s page lists them: only the published ones that start by hand, each with whether it can take them now and, if not, why (paused, they went through it, they’re in it).',
     input: z.object({
       status: z.enum(['draft', 'active', 'paused', 'archived']).optional(),
       calendarId: uuid
         .optional()
         .describe('Only the workflows that start from this calendar or from every calendar'),
+      personId: uuid
+        .optional()
+        .describe(
+          'A customer: the workflows Add to workflow… offers them, and whether each can take them now',
+        ),
     }),
     autonomy: 'auto',
     permission: 'workspace.read',

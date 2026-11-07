@@ -6,6 +6,7 @@
  */
 import type { QualifyingQuestion } from '../ai-team/config';
 import type { TestOutcome } from '../ai-team/test-console';
+import { chatSnippet, chatSnippetSrc } from '../chat/snippet';
 import {
   AI_SETUP_STEP_FIELDS,
   AI_SETUP_STEPS,
@@ -227,9 +228,9 @@ export const aiSetupFindingsOf = (
     .map((s) => ({ id: s.id, kind: s.kind, title: s.proposed.title, body: s.proposed.body }))
     .reverse();
 
-/** The code a business pastes on its website for the chat Save added. */
+/** The code a business pastes on its website for the chat Save added: the website chat's own snippet (chat/snippet.ts). */
 export const aiSetupChatSnippet = (origin: string, publicKey: string): string =>
-  `<script async src="${origin}/embed/v1/${publicKey}.js"></script>`;
+  chatSnippet(chatSnippetSrc(origin, publicKey));
 
 // ---- Qualifying questions ----
 

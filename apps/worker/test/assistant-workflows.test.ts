@@ -473,6 +473,62 @@ describe('workflows and knowledge in the Assistant', () => {
     ).toEqual([]);
   });
 
+  it('lists what Add to workflow… offers a customer, and whether each can take them now', async () => {
+    const organizationId = (
+      await rows<{ organization_id: string }>(
+        admin(),
+        sql`select organization_id from app.workspaces where id = ${ws}`,
+      )
+    )[0]!.organization_id;
+    const ctx: ToolContext = {
+      actor: actor(owner),
+      workspaceId: ws,
+      organizationId,
+      correlationId: randomUUID(),
+      timezone: 'America/Chicago',
+    };
+    const tool = assistantToolByName.get('list_workflows')!;
+    // Mike's run of Follow-up call still waits on its approval; Speed to lead isn't published, so it isn't offered.
+    const mikes = await createToolExecutor(api()).run(tool, { personId: mike }, ctx);
+    expect(mikes.result).toEqual({
+      customer: 'Mike Johnson',
+      workflows: [
+        {
+          id: followUp,
+          name: 'Follow-up call',
+          status: 'active',
+          canAddThem: false,
+          forThem: 'Already in it. It can start again after Mike finishes.',
+        },
+      ],
+    });
+    expect(mikes.card).toMatchObject({
+      type: 'list',
+      title: 'Add Mike to a workflow',
+      items: [{ title: 'Follow-up call', tone: 'muted' }],
+    });
+    // Someone in no workflow can join it, starting at its first step.
+    const { personId: rosa } = (
+      await executeCommand(
+        api(),
+        personCreate,
+        { workspaceId: ws, firstName: 'Rosa', lastName: 'Diaz', phone: '(713) 555-0188' },
+        actor(owner),
+        meta(),
+      )
+    ).output as { personId: string };
+    const rosas = await createToolExecutor(api()).run(tool, { personId: rosa }, ctx);
+    expect(rosas.result).toMatchObject({
+      workflows: [
+        {
+          id: followUp,
+          canAddThem: true,
+          forThem: 'Starts at its first step right away.',
+        },
+      ],
+    });
+  });
+
   it('won’t start a workflow that starts on its own, and says why', async () => {
     const run = <T>(cmd: Parameters<typeof executeCommand>[1], input: unknown) =>
       executeCommand(api(), cmd, input, actor(owner), meta()).then((r) => r.output as T);

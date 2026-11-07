@@ -1,7 +1,7 @@
 {
   "area": "pipeline-tasks",
   "title": "Pipeline, Tasks and Approvals",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/approvals.tsx": "2c9c246bd2a4",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/tasks.tsx": "f094f03c9b02",
@@ -56,7 +56,7 @@
     "apps/web/src/components/timeline/log-activity-sheet.tsx": "7f502a2a0c95",
     "apps/web/src/components/timeline/timeline.tsx": "f3bb029639b3",
     "apps/web/src/components/video-call/call-notes.tsx": "571d64d4cdef",
-    "apps/web/src/components/workflows/contact-workflows.tsx": "2a656efb1da1"
+    "apps/web/src/components/workflows/contact-workflows.tsx": "c02d89fd21dd"
   },
   "items": [
     {
@@ -643,7 +643,7 @@
     {
       "path": "Lead (page) → Add to workflow…",
       "kind": "do",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:77",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:66",
       "covered": "yes",
       "by": "start_workflow"
     },
@@ -1120,8 +1120,8 @@
       "path": "Lead → Book → Location, Customer’s address",
       "kind": "do",
       "file": "apps/web/src/components/calendar/appointment-dialog.tsx:743",
-      "covered": "partly",
-      "by": "not on book_appointment; update_appointment location after"
+      "covered": "yes",
+      "by": "book_appointment location: one of the calendar’s places, the customer’s address on file unless another is given"
     },
     {
       "path": "Lead → Book → warnings (outside hours, busy, time off)",
@@ -1238,49 +1238,49 @@
     {
       "path": "Lead (page) → Workflows → run count",
       "kind": "see",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:337",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:326",
       "covered": "yes",
       "by": "list_workflow_runs personId, show all"
     },
     {
       "path": "Lead (page) → Workflows → each run: workflow name and status line",
       "kind": "see",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:359",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:348",
       "covered": "yes",
       "by": "list_workflow_runs → workflow, status, started, ended"
     },
     {
       "path": "Lead (page) → Workflows → open a run",
       "kind": "do",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:357",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:346",
       "covered": "yes",
-      "by": "list_workflow_runs; get_workflow"
+      "by": "list_workflow_runs; get_workflow_run"
     },
     {
       "path": "Lead (page) → Workflows → Remove → Take {first} out of “{workflow}”?",
       "kind": "do",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:368",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:357",
       "covered": "yes",
       "by": "remove_contact_from_workflow"
     },
     {
       "path": "Add {first} to a workflow → workflows that start by hand, each with whether they can join",
       "kind": "see",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:200",
-      "covered": "partly",
-      "by": "list_workflows trigger; re-entry only checked on the start_workflow card"
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:189",
+      "covered": "yes",
+      "by": "list_workflows personId: canAddThem and forThem, the dialog’s line (core’s workflowAvailability)"
     },
     {
       "path": "Add {first} to a workflow → No workflow starts by hand yet / Open Workflows",
       "kind": "see",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:178",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:167",
       "covered": "yes",
-      "by": "list_workflows"
+      "by": "list_workflows personId: its note says it in the dialog’s words"
     },
     {
       "path": "Add {first} to a workflow → Add {first} / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/workflows/contact-workflows.tsx:238",
+      "file": "apps/web/src/components/workflows/contact-workflows.tsx:227",
       "covered": "yes",
       "by": "start_workflow (Confirm)"
     },
