@@ -7,7 +7,7 @@
  */
 import { isConversation, readChat, readChatIn, type ChatOptions } from './chat';
 import { readChats } from './chats';
-import { clean } from './dom';
+import { clean, mainOf } from './dom';
 import { peopleLinked } from './people';
 import type { ChatPage, ProfileRef, ThreadRef } from './types';
 import { classifyUrl, facebookUrl, threadFromUrl } from './urls';
@@ -120,7 +120,7 @@ export function readReplies(
   options: ChatOptions = {},
 ): ReplySighting[] {
   const address = classifyUrl(href);
-  const main = doc.querySelector('[role="main"]') ?? doc.body;
+  const main = mainOf(doc);
   const found: ReplySighting[] = [];
 
   // Messenger's list of chats, wherever on the page it is.
