@@ -6,6 +6,7 @@ import {
   addonPlacesText,
   allAddonAiTools,
   assistantTools,
+  deskSectionsFor,
   screenPlace,
 } from '@hfos/core/server';
 import { describe, expect, it } from 'vitest';
@@ -180,6 +181,26 @@ describe('Assistant context (PERF-M20)', () => {
       `On screen now: Coached (AI Sales Coach → Coached), showing coached call id ${ID}.`,
     );
     expect(on('/a/salescoach')).toContain('On screen now: Live call (AI Sales Coach → Live call)');
+  });
+
+  it('tells HandsFreeOS’s own support people the Admin area’s menu for their role and the way in, and nobody else', () => {
+    const agent = lastingText({
+      ...PROMPT,
+      staffRole: 'Support agent',
+      staffSections: deskSectionsFor(['support.read', 'platform.businesses.read']).map(
+        (s) => s.label,
+      ),
+    });
+    expect(agent).toContain(
+      'Its menu, for them: Tickets, Businesses, Getting started, Saved replies, Support people, Demo player.',
+    );
+    expect(agent).toContain(
+      'The way in: press the business name at the top of the side menu, then Admin area; on the phone, More, then Support desk. The way back: Back to the app, under its menu.',
+    );
+    expect(agent).toContain('the Admin area’s Support people, not Members');
+    expect(agent).not.toContain('Founding');
+    // Nobody else is told it exists (the owner, 2026-10-27).
+    expect(lastingText(PROMPT)).not.toMatch(/Admin area|Support desk|Support people/);
   });
 });
 

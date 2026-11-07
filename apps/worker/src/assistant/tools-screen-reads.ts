@@ -13,6 +13,8 @@ import {
   chatSnippet,
   chatSnippetSrc,
   chatWidgetGet,
+  DESK_ONBOARDING_DEFAULT_WINDOW,
+  deskMatomoPagesUrl,
   executeQuery,
   HfosError,
   leadBoard,
@@ -24,6 +26,10 @@ import {
   onboardingStatus,
   platformAffiliate,
   platformAffiliates,
+  platformBusinessGet,
+  platformOnboardingCounts,
+  platformProblemReportGet,
+  problemForClaude,
   registry,
   scheduleTeam,
   screenReadTools,
@@ -248,6 +254,7 @@ function labelsOf(schema: unknown): { labels?: Record<string, string> } {
 interface ScreenTool {
   readonly input: z.ZodObject;
   readonly scope: readonly ScopeKey[];
+  readonly staff: boolean;
   readonly agencyDoor: boolean;
   readonly forBusiness?: boolean;
   readonly agencyOnly?: boolean;
@@ -262,6 +269,15 @@ const agencyAdminsOnly = (agency: string) =>
   `Only the owners and admins of ${agency} can do that, in its Agency area. Ask one of them.`;
 
 /** The arguments the screen's own query or command takes: never the business ids, nor the door it's asked through. */
+/**
+ * A staff screen's arguments as the model gave them, business ids included: it looks across businesses, so the model
+ * names the one (`workspaceId`), and the kernel checks the staff permission. Only what its input declares is kept.
+ */
+export function staffArguments(tool: Pick<ScreenTool, 'input'>, args: Record<string, unknown>) {
+  const declared = new Set(Object.keys(tool.input.shape));
+  return Object.fromEntries(Object.entries(args).filter(([k]) => declared.has(k)));
+}
+
 export function ownArguments(tool: ScreenTool, args: Record<string, unknown>) {
   const own = addonToolArguments(tool, args);
   if (tool.agencyDoor) delete own['wholeAgency'];
@@ -316,6 +332,46 @@ export async function scopeIds(
   return { ...ids, workspaceId: named };
 }
 
+/**
+ * A business's page in the Admin area, with its Add-ons in testing as the page lists them: each add-on still being
+ * built that staff can hand it to try, and whether it has been (they can add it) or not (not handed out).
+ */
+function withAddonsInTesting(got: unknown): unknown {
+  const grants = (got as { addonGrants?: { addonId: string }[] } | null)?.addonGrants;
+  if (!Array.isArray(grants)) return got;
+  const handed = new Set(grants.map((g) => g.addonId));
+  // First, so an answer cut short for length still has it.
+  return {
+    addonsInTesting: ADDON_CATALOG.filter((m) =>
+      ['development', 'beta', 'built'].includes(m.catalog.status),
+    ).map((m) => ({
+      addonId: m.id,
+      name: m.name,
+      handedOut: handed.has(m.id) ? 'they can add it' : 'not handed out',
+    })),
+    ...(got as object),
+  };
+}
+
+/**
+ * A problem report with what its Copy for Claude copies: the report, and the page's outline when one was kept, ready
+ * to paste into a session on the code. The outline goes there alone, so it is read once.
+ */
+function forClaude(got: unknown): unknown {
+  if (!got || typeof got !== 'object' || !('reportId' in got)) return got;
+  const { outline: _outline, ...report } = got as Record<string, unknown>;
+  return { ...report, forClaude: problemForClaude(got as Parameters<typeof problemForClaude>[0]) };
+}
+
+/**
+ * Getting started's counts with the page's Open the pages report in Matomo, over the days counted. First, so an answer
+ * cut short for length still has it.
+ */
+function withMatomo(got: unknown, args: Record<string, unknown>): unknown {
+  const days = typeof args['days'] === 'number' ? args['days'] : DESK_ONBOARDING_DEFAULT_WINDOW;
+  return { matomoUrl: deskMatomoPagesUrl(days), ...(got as object) };
+}
+
 /** A migration's status as its page says it, and each thing left to do with the link to its screen. */
 function migrationRead(got: unknown, webUrl: string): unknown {
   const m = (got as { migration?: Record<string, unknown> | null } | null)?.migration;
@@ -347,7 +403,9 @@ export async function runScreenRead(
   /** The web app's address, for the join address a video call's answer adds. */
   webUrl = '',
 ): Promise<ToolOutcome> {
-  const input = { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
+  const input = tool.staff
+    ? staffArguments(tool, args)
+    : { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
   const got = await executeQuery(db, tool.query, input, ctx.actor, {
     correlationId: ctx.correlationId,
     channel: 'assistant',
@@ -378,7 +436,13 @@ export async function runScreenRead(
                           ? clientsRead(got, webUrl)
                           : tool.query.name === migrationGet.name
                             ? migrationRead(got, webUrl)
-                            : got;
+                            : tool.query.name === platformBusinessGet.name
+                              ? withAddonsInTesting(got)
+                              : tool.query.name === platformProblemReportGet.name
+                                ? forClaude(got)
+                                : tool.query.name === platformOnboardingCounts.name
+                                  ? withMatomo(got, args)
+                                  : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

@@ -1,7 +1,7 @@
 {
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
     "apps/mobile/src/app/app/admin/affiliates.tsx": "59d1ab54b59a",
@@ -80,7 +80,7 @@
       "kind": "do",
       "file": "apps/web/src/components/admin/admin-shell.tsx:126",
       "covered": "no",
-      "by": "no panel in the Admin area or /affiliate; only inside a business (adm-1)"
+      "by": "no panel in the Admin area or /affiliate; only inside a business (adm-1, left open)"
     },
     {
       "path": "Admin area → banner → HandsFreeOS and your role",
@@ -93,8 +93,8 @@
       "path": "Admin area → menu → Tickets … Support people sections",
       "kind": "do",
       "file": "apps/web/src/components/admin/admin-shell.tsx:64",
-      "covered": "partly",
-      "by": "staff line names 7 of 13 sections; places-map has no Admin area (adm-8)"
+      "covered": "yes",
+      "by": "the staff line names the Admin area’s menu for their role (deskSectionsFor in context.ts) and the way in and back (prompt.ts)"
     },
     {
       "path": "Admin area → menu → Demo player",
@@ -107,15 +107,15 @@
       "path": "Admin area → menu → Back to the app",
       "kind": "do",
       "file": "apps/web/src/components/admin/admin-shell.tsx:138",
-      "covered": "partly",
-      "by": "way in and out not in places-map (adm-8)"
+      "covered": "yes",
+      "by": "the staff line says the way in (business name, then Admin area; phone More, then Support desk) and back (Back to the app)"
     },
     {
       "path": "Admin area → account menu → Sell HandsFreeOS",
       "kind": "do",
       "file": "apps/web/src/components/shell/user-menu.tsx:46",
-      "covered": "partly",
-      "by": "not in places-map (adm-9)"
+      "covered": "yes",
+      "by": "EVERY_PAGE: pressing their own name opens the account menu with Sell HandsFreeOS (places-map.ts)"
     },
     {
       "path": "Admin area → account menu → Sign out",
@@ -248,7 +248,7 @@
       "kind": "do",
       "file": "apps/web/src/components/admin/ticket-view.tsx:218",
       "covered": "yes",
-      "by": "do_support_ticket_reply (Confirm card shows raw ids, adm-4)"
+      "by": "do_support_ticket_reply: its card names the ticket, and says an answer is emailed to whoever wrote in (staffCautions)"
     },
     {
       "path": "Ticket → Internal note checkbox",
@@ -709,8 +709,8 @@
       "path": "Business page → Their balance → what the stage means",
       "kind": "see",
       "file": "apps/web/src/components/admin/wallet-block.tsx:159",
-      "covered": "partly",
-      "by": "wallet.set_stage words differ from the screen (adm-12)"
+      "covered": "yes",
+      "by": "wallet.set_stage’s description names Warned, Stopped at zero and Paid by the agency; its card says Move to in DESK_WALLET_STAGES’ words (staff-cards.ts)"
     },
     {
       "path": "Business page → Their balance → Move to … buttons",
@@ -723,8 +723,8 @@
       "path": "Business page → Their balance → Move dialog: write-off line, enforce warning",
       "kind": "see",
       "file": "apps/web/src/components/admin/wallet-block.tsx:191",
-      "covered": "partly",
-      "by": "tool words lack the write-off and enforce lines (adm-12)"
+      "covered": "yes",
+      "by": "the card adds the write-off line when it leaves Paid by the agency owing, and the enforce warning (staffCautions)"
     },
     {
       "path": "Business page → Their balance → Move dialog: Why?, Move them, Cancel",
@@ -737,8 +737,8 @@
       "path": "Business page → Their balance → Put a credit on → Put it on",
       "kind": "do",
       "file": "apps/web/src/components/admin/wallet-block.tsx:177",
-      "covered": "partly",
-      "by": "do_wallet_adjust; reference has to be invented (adm-5)"
+      "covered": "yes",
+      "by": "do_wallet_adjust; the worker puts on one reference per card, so the same card confirmed twice is one credit (staffKept)"
     },
     {
       "path": "Business page → Their balance → credit dialog: How much",
@@ -800,8 +800,8 @@
       "path": "Business page → Add-ons in testing → each add-on: they can add it / not handed out",
       "kind": "see",
       "file": "apps/web/src/components/admin/addon-testing-block.tsx:66",
-      "covered": "partly",
-      "by": "business.get addonGrants lists only granted ones (adm-11)"
+      "covered": "yes",
+      "by": "read_platform_business_get addonsInTesting: each add-on in testing, they can add it / not handed out"
     },
     {
       "path": "Business page → Add-ons in testing → Let them try it / Take back",
@@ -884,8 +884,8 @@
       "path": "Getting started → How far people get → Open Matomo",
       "kind": "do",
       "file": "apps/web/src/app/admin/getting-started/page.tsx:106",
-      "covered": "no",
-      "by": "link built on screen, never returned (adm-14)"
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts matomoUrl, over the same days"
     },
     {
       "path": "Health → since, oldest pending",
@@ -1010,15 +1010,15 @@
       "path": "Problem report → Copy for Claude",
       "kind": "do",
       "file": "apps/web/src/components/admin/problem-reports.tsx:526",
-      "covered": "partly",
-      "by": "read_platform_problem_report_get has the data, not the copy text"
+      "covered": "yes",
+      "by": "read_platform_problem_report_get forClaude: what Copy for Claude copies"
     },
     {
       "path": "Problem report → Download outline",
       "kind": "do",
       "file": "apps/web/src/components/admin/problem-reports.tsx:530",
-      "covered": "partly",
-      "by": "outline in read_platform_problem_report_get; no file"
+      "covered": "yes",
+      "by": "read_platform_problem_report_get forClaude carries the outline; the file is the screen’s own"
     },
     {
       "path": "Problem report → Mark handled / Reopen",
@@ -1080,71 +1080,71 @@
       "path": "Assistant coverage → not for your role",
       "kind": "see",
       "file": "apps/web/src/app/admin/assistant/page.tsx:12",
-      "covered": "no",
-      "by": "no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage (staff with platform.health.read, as the page asks)"
     },
     {
       "path": "Assistant coverage → intro, count cards",
       "kind": "see",
       "file": "apps/web/src/components/admin/assistant-coverage.tsx:35",
-      "covered": "no",
-      "by": "computed in the browser; no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage (staff with platform.health.read, as the page asks)"
     },
     {
       "path": "Assistant coverage → Copy gaps",
       "kind": "do",
       "file": "apps/web/src/components/admin/assistant-coverage.tsx:37",
-      "covered": "no",
-      "by": "no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage (staff with platform.health.read, as the page asks)"
     },
     {
       "path": "Assistant coverage → not yet, by page",
       "kind": "see",
       "file": "apps/web/src/components/admin/assistant-coverage.tsx:65",
-      "covered": "no",
-      "by": "no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage (staff with platform.health.read, as the page asks)"
     },
     {
       "path": "Assistant coverage → settings to check",
       "kind": "see",
       "file": "apps/web/src/components/admin/assistant-coverage.tsx:84",
-      "covered": "no",
-      "by": "no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage (staff with platform.health.read, as the page asks)"
     },
     {
       "path": "Assistant coverage → What it never does, and why",
       "kind": "see",
       "file": "apps/web/src/components/admin/assistant-coverage.tsx:108",
-      "covered": "no",
-      "by": "no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage (staff with platform.health.read, as the page asks)"
     },
     {
       "path": "Assistant coverage → ledger → cards",
       "kind": "see",
       "file": "apps/web/src/components/admin/assistant-ledger.tsx:109",
-      "covered": "no",
-      "by": "platform.assistant_ledger not in SCREEN_READS"
+      "covered": "yes",
+      "by": "read_platform_assistant_ledger"
     },
     {
       "path": "Assistant coverage → ledger → view Items / Gaps / Screens",
       "kind": "do",
       "file": "apps/web/src/components/admin/assistant-ledger.tsx:135",
-      "covered": "no",
-      "by": "platform.assistant_ledger not in SCREEN_READS"
+      "covered": "yes",
+      "by": "read_platform_assistant_ledger"
     },
     {
       "path": "Assistant coverage → ledger → area, state selects, search",
       "kind": "do",
       "file": "apps/web/src/components/admin/assistant-ledger.tsx:145",
-      "covered": "no",
-      "by": "platform.assistant_ledger not in SCREEN_READS"
+      "covered": "yes",
+      "by": "read_platform_assistant_ledger"
     },
     {
       "path": "Assistant coverage → ledger → showing count, items, gaps, screens, More",
       "kind": "see",
       "file": "apps/web/src/components/admin/assistant-ledger.tsx:196",
-      "covered": "no",
-      "by": "platform.assistant_ledger not in SCREEN_READS"
+      "covered": "yes",
+      "by": "read_platform_assistant_ledger"
     },
     {
       "path": "Rates → measured line",
@@ -1297,8 +1297,8 @@
       "path": "Founding → claim link dialog: link, works until, Copy, I've sent it",
       "kind": "see",
       "file": "apps/web/src/components/admin/founding-page.tsx:307",
-      "covered": "no",
-      "by": "approve's claim token is dropped by commitScreenAction (adm-2)"
+      "covered": "yes",
+      "by": "do_founding_approve shows a paid seat’s claim link once on its card after Confirm (shownOnce)"
     },
     {
       "path": "Founding → Give dialog: search, business, offer, Why them, Give the seat",
@@ -1353,8 +1353,8 @@
       "path": "Affiliates → House codes list",
       "kind": "see",
       "file": "apps/web/src/components/admin/affiliates-page.tsx:179",
-      "covered": "partly",
-      "by": "read_platform_affiliates codes; links only as codes (adm-3)"
+      "covered": "yes",
+      "by": "the affiliate reads add each link and each code’s link that is on (withAffiliateLinks in tools-screen-reads.ts)"
     },
     {
       "path": "Affiliates → House codes → make a code",
@@ -1388,8 +1388,8 @@
       "path": "Affiliates → row: name, link, share, clicks, businesses, status",
       "kind": "see",
       "file": "apps/web/src/components/admin/affiliates-page.tsx:280",
-      "covered": "partly",
-      "by": "read_platform_affiliates; link only as code (adm-3)"
+      "covered": "yes",
+      "by": "the affiliate reads add each link and each code’s link that is on (withAffiliateLinks in tools-screen-reads.ts)"
     },
     {
       "path": "Affiliate → back link, name, email, applied, decided by, terms, status",
@@ -1402,8 +1402,8 @@
       "path": "Affiliate → Link copy field",
       "kind": "see",
       "file": "apps/web/src/components/admin/affiliate-detail.tsx:133",
-      "covered": "partly",
-      "by": "code only, no link (adm-3)"
+      "covered": "yes",
+      "by": "the affiliate reads add each link and each code’s link that is on (withAffiliateLinks in tools-screen-reads.ts)"
     },
     {
       "path": "Affiliate → clicks",
@@ -1465,8 +1465,8 @@
       "path": "Affiliate → code list",
       "kind": "see",
       "file": "apps/web/src/components/admin/affiliate-detail.tsx:289",
-      "covered": "partly",
-      "by": "read_platform_affiliate codes; links only as codes (adm-3)"
+      "covered": "yes",
+      "by": "the affiliate reads add each link and each code’s link that is on (withAffiliateLinks in tools-screen-reads.ts)"
     },
     {
       "path": "Affiliate → Make a code",
@@ -1535,8 +1535,8 @@
       "path": "Codes → row → Copy link",
       "kind": "do",
       "file": "apps/web/src/components/affiliate/affiliate-codes.tsx:65",
-      "covered": "partly",
-      "by": "code only, no link (adm-3)"
+      "covered": "yes",
+      "by": "the affiliate reads add each link and each code’s link that is on (withAffiliateLinks in tools-screen-reads.ts)"
     },
     {
       "path": "Codes → row → Turn off / Turn on",
@@ -1634,7 +1634,7 @@
       "kind": "do",
       "file": "apps/web/src/app/affiliate/page.tsx:29",
       "covered": "no",
-      "by": "no panel on /affiliate (adm-1)"
+      "by": "no panel on /affiliate (adm-1, left open)"
     },
     {
       "path": "Sell HandsFreeOS → title, standing, apply-again date",
@@ -1668,8 +1668,8 @@
       "path": "Sell HandsFreeOS → approved → Your link",
       "kind": "see",
       "file": "apps/web/src/components/affiliate/affiliate-self.tsx:147",
-      "covered": "partly",
-      "by": "code only, no link (adm-3)"
+      "covered": "yes",
+      "by": "the affiliate reads add each link and each code’s link that is on (withAffiliateLinks in tools-screen-reads.ts)"
     },
     {
       "path": "Sell HandsFreeOS → approved → Your share, Clicks, Sign-ups",
@@ -2067,15 +2067,15 @@
       "path": "Idea → Comments: author, team tag, Taken down, ago, body",
       "kind": "see",
       "file": "apps/web/src/components/admin/idea-team-view.tsx:283",
-      "covered": "partly",
-      "by": "find_ideas: last 10 shown only, names masked, no taken-down ones"
+      "covered": "yes",
+      "by": "find_ideas: each comment’s commentId, author’s name, the team’s tag, and to the team the taken-down ones; allComments for more than the last 10"
     },
     {
       "path": "Idea → comment → Take down / Put back",
       "kind": "do",
       "file": "apps/web/src/components/admin/idea-team-view.tsx:283",
-      "covered": "partly",
-      "by": "do_idea_set_comment_hidden needs a commentId nothing returns (adm-6)"
+      "covered": "yes",
+      "by": "do_idea_set_comment_hidden with the commentId find_ideas gives"
     },
     {
       "path": "Idea → Answer and Post answer",
@@ -2123,15 +2123,15 @@
       "path": "Idea areas → row: name, Archived, description, open count",
       "kind": "see",
       "file": "apps/web/src/components/admin/idea-areas-admin.tsx:75",
-      "covered": "partly",
-      "by": "find_ideas gives non-archived names only (adm-10)"
+      "covered": "yes",
+      "by": "read_idea_areas: every area with its description, sort, archived and open count"
     },
     {
       "path": "Idea areas → Archive / Bring back",
       "kind": "do",
       "file": "apps/web/src/components/admin/idea-areas-admin.tsx:88",
-      "covered": "partly",
-      "by": "do_idea_area_save needs description, sort it can't read (adm-10)"
+      "covered": "yes",
+      "by": "do_idea_area_save keeps the description, sort and archived state left out (staffKept); read_idea_areas lists them"
     },
     {
       "path": "Idea areas → Add: name, description, Add",
@@ -2347,15 +2347,15 @@
       "path": "Support people → How you sign off: your name, sign-off as saved",
       "kind": "see",
       "file": "apps/web/src/components/admin/staff-page.tsx:236",
-      "covered": "no",
-      "by": "platform.me is NOT_FOR_THE_ASSISTANT (adm-7)"
+      "covered": "yes",
+      "by": "read_platform_me (staff only): their name to customers and sign-off as saved"
     },
     {
       "path": "Support people → How you sign off → name, Sign-off, Save",
       "kind": "do",
       "file": "apps/web/src/components/admin/staff-page.tsx:236",
-      "covered": "partly",
-      "by": "do_support_staff_save_profile; can wipe a sign-off it can't read (adm-7)"
+      "covered": "yes",
+      "by": "do_support_staff_save_profile keeps the sign-off when it is left out (staffKept)"
     },
     {
       "path": "Support people → Invite someone: email, role and help, Send the invitation",
@@ -2389,15 +2389,15 @@
       "path": "Phone desk → home → sections",
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/index.tsx:71",
-      "covered": "partly",
-      "by": "staff line names 7 of 13; no More → Support desk in places-map (adm-8)"
+      "covered": "yes",
+      "by": "the staff line names the desk’s sections for their role, and on the phone More, then Support desk"
     },
     {
       "path": "Phone desk → home → Open the desk on the web",
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/index.tsx:104",
-      "covered": "partly",
-      "by": "places-map has no Admin area (adm-8)"
+      "covered": "yes",
+      "by": "the staff line says the way in on the web: the business name, then Admin area"
     },
     {
       "path": "Phone desk → home → Sign out",
@@ -2418,7 +2418,7 @@
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/notifications.tsx:83",
       "covered": "yes",
-      "by": "update_my_alerts supportTickets (also told to non-staff, adm-13)"
+      "by": "update_my_support_alerts, offered to HandsFreeOS’s support people alone"
     },
     {
       "path": "Phone desk → Notifications → note",
@@ -2473,29 +2473,29 @@
       "path": "Phone desk → founding → claim link → Share",
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/founding.tsx:945",
-      "covered": "no",
-      "by": "claim token dropped (adm-2)"
+      "covered": "yes",
+      "by": "do_founding_approve shows the claim link once on its card after Confirm (shownOnce)"
     },
     {
       "path": "Phone desk → affiliates → affiliate → Share link",
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/affiliates.tsx:392",
-      "covered": "partly",
-      "by": "code only, no link (adm-3)"
+      "covered": "yes",
+      "by": "read_platform_affiliate gives their link (withAffiliateLinks)"
     },
     {
       "path": "Phone desk → problems → Share for Claude",
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/problems.tsx:380",
-      "covered": "partly",
-      "by": "read_platform_problem_report_get has the data, not the text"
+      "covered": "yes",
+      "by": "read_platform_problem_report_get forClaude: what Share for Claude shares"
     },
     {
       "path": "Phone desk → Assistant coverage → Share gaps",
       "kind": "do",
       "file": "apps/mobile/src/app/app/admin/assistant.tsx:51",
-      "covered": "no",
-      "by": "no read tool (adm-15)"
+      "covered": "yes",
+      "by": "read_assistant_coverage copyGaps: what Share gaps shares"
     }
   ],
   "gaps": [
@@ -2505,7 +2505,7 @@
       "kind": "read",
       "where": "Every Admin area page (web /admin/*, phone More → Support desk) and the Sell HandsFreeOS page (/affiliate): there is no Ask HandsFreeOS on them at all",
       "gap": "Real: the Ask HandsFreeOS panel is mounted only in the business layout (apps/web/src/app/app/w/[workspaceId]/layout.tsx:134). AdminShell, the phone's /app/admin screens and /affiliate have no panel. Every Assistant route needs a workspaceId with assistant.use (routes.ts:129, 235, 286). So a support person who isn't in any business gets no Assistant. The phone sends that person straight to the desk (apps/mobile/src/app/app/index.tsx:50); the web sends them to /onboarding (apps/web/src/app/app/page.tsx:8). The same goes for an affiliate who isn't a customer, even though affiliate.apply, make_code and turn_code are offered to everyone (coverage.ts:331-341). Overstated: 'from inside a business it can't know which ticket is on screen'. Inside a business no Admin record is ever on screen, so the missing page types only matter once the panel is mounted in the Admin area. Inside any business they belong to, staff already get every staff read_ and do_ tool (context.ts:339-341) and the staff line (prompt.ts:279). They can name a ticket or business and find its id with read_support_ticket_list or read_platform_business_list. That workaround and the small audience make this medium, not high.",
-      "fix": "Mount AssistantPanel/AssistantProvider in apps/web/src/components/admin/admin-shell.tsx, in the phone's app/admin/_layout.tsx, and on apps/web/src/app/affiliate/page.tsx. In routes.ts, make workspaceId optional on AssistantAskInput. When it's absent, check platform.me (staff) or allow the affiliate tools only. questionContext then builds a context with no business: the staff tools (isStaffPermission) plus do_affiliate_apply/make_code/turn_code and read_affiliate_mine. Wallet charging for that context needs its own decision, since no business pays. Then extend AssistantPageRecord (schemas/assistant.ts:319) with 'ticket', 'admin_business', 'affiliate', 'idea', 'problem_report' and 'founding_application'. Give each a pageLines label in context.ts.",
+      "fix": "Left open: it needs the owner’s decision on who pays for questions asked outside any business (the Assistant charges a business’s wallet), and then workspaceId made optional on every Assistant route and the panel mounted in AdminShell, the phone’s admin layout and /affiliate. Inside any business they belong to, staff already get every staff tool and the staff line.",
       "status": "open",
       "pr": null
     },
@@ -2525,8 +2525,8 @@
       "kind": "read",
       "where": "Sell HandsFreeOS (/affiliate): 'Your link' copy field and each code's 'Copy link'; Admin area → Affiliates: each row's link, and an affiliate's page Link card and code links",
       "gap": "The screens show full links: affiliateLink(code) = `${AFFILIATE_SITE}/?ref=<code>` (affiliates/words.ts:23) and affiliateCodeLink(code) with the code parameter (affiliates/codes.ts:20). They appear at affiliate-self.tsx:154, affiliates-page.tsx:289, affiliate-detail.tsx:135 and affiliate-codes.tsx:90. read_affiliate_mine, read_platform_affiliates and read_platform_affiliate return the queries' output unchanged (tools-screen-reads.ts has no link handling). That output carries only `code`: rowOut at queries/affiliates.ts:92-115, affiliate.mine at :368-384, and AffiliateCodeRow at schemas/affiliates.ts:151-167. The '?ref=' shape is only in a code comment (schemas/affiliates.ts:53), which the model never sees. Nothing in the prompt or places-map gives the link's form. The prompt's only link example is https://handsfreeos.com/book/acme (prompt.ts:49), which invites a guessed path.",
-      "fix": "In packages/core/src/queries/affiliates.ts, add `link: affiliateLink(r.code)` in rowOut and in affiliate.mine's affiliate object. In codesWhere's mapping, add `link: c.status === 'on' ? affiliateCodeLink(c.code) : null`. Add `link: z.string()` to AffiliateRow and to affiliate.mine's output schema, and `link: z.string().nullable()` to AffiliateCodeRow (all strictObject, so the schema has to change too). Every read then returns the full https link.",
-      "status": "open",
+      "fix": "Fixed: read_affiliate_mine, read_platform_affiliates and read_platform_affiliate add each affiliate’s link, and each code’s link while it’s on, on HandsFreeOS’s own website (withAffiliateLinks in tools-screen-reads.ts, from the public-links work). An affiliate’s own link shows only once they are approved and have agreed to the terms, as their page shows it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2535,8 +2535,8 @@
       "kind": "words",
       "where": "Confirm cards for every Admin area action: Put a credit on <business>, Move <business> to…, Give <business> a founding seat, Revoke, an affiliate's share, Send it on a ticket, and others",
       "gap": "Staff screen actions keep their ids in the input on purpose (screen-actions.ts:42: staff gives { input, scope: [] }). prepareScreenAction draws the card with cardFields(tool, args) (tools-screen-actions.ts:118). cardFields labels each key with labelOf ('workspaceId' becomes 'Workspace id', 'amountCents' becomes 'Amount cents', 'maxDiscountBp' becomes 'Max discount bp') and prints the value raw: a UUID, a number of cents or basis points, or an enum like 'enforce' (tools-addons.ts:118-156). Nothing resolves a name. So the Confirm card for risk-4 wallet.adjust, wallet.set_stage, founding.approve/give/revoke and affiliate.set_rate/set_max_discount shows a UUID and raw units, not the business or person, an amount in dollars, or a percentage. These risk-4 actions are offered deliberately (owner 2026-10-27, coverage.ts:261; the test requires a warning on each, assistant-coverage.test.ts:136), so the settled risk-4 rule doesn't refute this.",
-      "fix": "In apps/worker/src/assistant/tools-screen-actions.ts, when tool.staff is true, map fields before cardFields: workspaceId → the business name from read query platform.business.glance (or platform.business.get); organizationId → the business name; affiliateId → the name from platform.affiliate; userId → the displayName from support.staff.list; ticketId → the ticket number and subject from support.ticket.get; applicationId and grantId → the businessName from platform.founding. Replace each '<X> id' line with 'Business', 'Affiliate', 'Person' or 'Ticket'. Show keys ending in Cents with money() from packages/core/src/money/format.ts:29 (signed: 'Credit $25.00' / 'Take back $25.00'). Show keys ending in Bp with affiliateRateWords(). Show stage with DESK_WALLET_STAGES[stage].label and ticket status with TICKET_STATUS_WORDS.",
-      "status": "open",
+      "fix": "Fixed: a staff confirm card names what it acts on (staffCardFields in staff-cards.ts): the business, person, ticket, affiliate, application, seat, offer, invitation, idea and add-on by name, an amount in dollars (Credit or Take back for a balance), a share as a percentage, and a stage, status, priority or role in the screens’ words. The ids never show; a name that can’t be looked up falls back to the plain line.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2545,8 +2545,8 @@
       "kind": "do",
       "where": "Admin area → Businesses → a business → Their balance → Put a credit on (How much, Why?)",
       "gap": "WalletAdjustInput.reference is required and has no .describe() (the explanation is only a JSDoc comment, invisible to the model), so do_wallet_adjust makes the model invent one (schemas/wallet.ts:150-152). The screen makes a fresh one per dialog with deskCreditReference(workspaceId) = admin:<workspaceId>:<now> (business-words.ts:260; wallet-block.tsx:111). private.staff_credit_wallet writes idempotency_key 'credit:'||reference with on conflict do nothing and returns recorded=false (20260930001200_support_can_credit_a_balance.sql). commitScreenAction ignores the output and says 'Done' (tools-screen-actions.ts:135). So a second credit with a reused reference like 'goodwill' is silently not recorded.",
-      "fix": "Take reference out of the do_wallet_adjust input: in screenActionTools, omit it for wallet.adjust, or add an action-level 'fill' in SCREEN_ACTIONS. Set it in the worker as `assistant:${workspaceId}:${toolCallId}` at both prepare and commit. commit already receives extra.toolCallId at tools-write.ts:912, so pass it through. In commitScreenAction for wallet.adjust, read output.recorded. When it's false, return outcome 'That credit was already on their statement, so nothing new went on.' Otherwise return 'Done. Their balance is now <money(balanceCents)>.'",
-      "status": "open",
+      "fix": "Fixed: wallet.adjust’s reference is filled (SCREEN_ACTIONS filled), so the model never gives it. The worker puts on assistant:<business>:<card id> at prepare and at Confirm (staffKept), so the same card confirmed twice is one credit and says so; a new card is a new credit. Done says the new balance.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2555,8 +2555,8 @@
       "kind": "do",
       "where": "Admin area → Ideas → an idea → Comments: each comment's Take down / Put back, with the author's name and the Taken down tag",
       "gap": "do_idea_set_comment_hidden is offered to everyone (coverage.ts:117) and needs commentId. The only read of comments is find_ideas with ideaId, which calls idea.get. idea.get returns each comment's id, author name and hidden flag, and includes hidden comments for moderators (queries/ideas.ts:243-255, 314-325). findIdeas drops hidden comments, keeps only .slice(-10) without saying so, drops id and hidden, and labels authors 'HandsFreeOS team', 'You' or 'Someone' (tools-extra.ts:1471-1478). idea.get isn't in SCREEN_READS, and idea.triage and idea.team_view have no comments. So no tool yields a commentId: neither a person taking down their own comment nor staff moderating can do it, and staff can't see what was taken down, although the team screen shows it (idea-team-view.tsx:304-314).",
-      "fix": "In apps/worker/src/assistant/tools-extra.ts findIdeas, return each comment's `id`. Return `hidden: true` and include hidden comments when the reader has platform.ideas.moderate: check ctx's staff permissions, or keep the ones idea.get returned, since it already filters by moderator. Use c.author.name for staff, and keep 'You' for the reader's own. Add `cutShort: true, total: comments.length` when there are more than 10, or take an `allComments` boolean input.",
-      "status": "open",
+      "fix": "Fixed: find_ideas gives each comment its commentId (what do_idea_set_comment_hidden takes), the author’s name or You, the HandsFreeOS team tag, and to the team the taken-down ones marked takenDown (idea.get gives those only to moderators). It shows the last 10 and says how many earlier ones there are; allComments gives every one.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2565,8 +2565,8 @@
       "kind": "never",
       "where": "Admin area → Support people → 'How you sign off' (Your name to customers, Sign-off, Save)",
       "gap": "The 'How you sign off' card loads displayName and signature from platform.me (apps/web/src/app/admin/staff/page.tsx:11-21). platform.me is kept from the Assistant (screen-reads.ts:146) because it 'already knows' staff status. But the context reads only role and permissions from it (context.ts:120-123, 337), and nothing passes the signature on. support.staff.list's StaffMember has displayName but no signature (schemas/support.ts:198-207). StaffProfileInput.signature defaults to '' (schemas/support.ts:240-243), and the handler writes both fields (support-staff.ts:297-300). So do_support_staff_save_profile with only a new displayName wipes the sign-off, and the Assistant can't read the current one to keep it.",
-      "fix": "Add `signature: z.string()` to StaffMember and fill it only for the reader's own row (empty for others), in the support.staff.list query. Or move platform.me from NOT_FOR_THE_ASSISTANT into SCREEN_READS, where it's offered to staff only since its data is only theirs. Then make StaffProfileInput.signature `.optional()` and, in support-staff.ts:299, set signature only when it's given (`...(input.signature !== undefined ? { signature: input.signature } : {})`), so leaving it out keeps it.",
-      "status": "open",
+      "fix": "Fixed: platform.me is a screen read now, offered to staff alone (support.read): their name to customers, sign-off as saved, role and permissions. do_support_staff_save_profile keeps the saved sign-off when the model leaves it out (staffKept), so changing only the name never wipes it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2575,8 +2575,8 @@
       "kind": "words",
       "where": "Getting to the Admin area (press the business name at the top of the side menu, then Admin area; on the phone, More → Support desk) and its menu: Tickets, Ideas, Add-on votes, Businesses, Getting started, Health, Problem reports, Assistant coverage, Rates, Founding, Affiliates, Saved replies, Support people, Demo player",
       "gap": "The staff line (prompt.ts:279) lists only 'support tickets, saved replies, the team, businesses, founding seats, ideas and What’s new'. DESK_SECTIONS also has Add-on votes, Getting started, Health, Problem reports, Assistant coverage, Rates, Affiliates and Support people (desk-words.ts:13-31), and the web has Demo player (apps/web/src/app/admin/demo). The line calls Support people 'the team' and gives no way in. places-map has no Admin area: EVERY_PAGE's business-name line lists only switching, Create workspace and the Agency area (places-map.ts:604). LOOK_ALIKES says 'Team, teammates, staff: the side menu calls it Members.' (places-map.ts:656), which sends a support person asking about staff to Members. The way in is the business-name menu → Admin area link (workspace-switcher.tsx:160-175), or More → Support desk on the phone (more.tsx:195).",
-      "fix": "In apps/worker/src/assistant/prompt.ts:279, build the list from deskSectionsFor(staff.permissions).map(s => s.label), adding 'Demo player (web)'. This needs the staff permissions passed into PromptContext next to staffRole. Add to that staff-only line: 'The way in: press the business name at the top of the side menu, then Admin area; on the phone, More → Support desk. HandsFreeOS’s own support people are Admin area → Support people, not Members.' Keep all of this in the staff-only line, never in EVERY_PAGE or LOOK_ALIKES, so nobody else hears of it.",
-      "status": "open",
+      "fix": "Fixed: the staff line (prompt.ts, staff only) lists the Admin area’s menu for their role from deskSectionsFor (passed in by context.ts as staffSections) plus Demo player, and says the way in (the business name, then Admin area; on the phone, More, then Support desk) and back (Back to the app). Nobody else is told it exists; the prompt test checks both.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2585,8 +2585,8 @@
       "kind": "words",
       "where": "Account menu at the foot of the side menu (press your name) → Sell HandsFreeOS (/affiliate)",
       "gap": "The account menu (press your name at the foot of the side menu) has 'Sell HandsFreeOS' and Sign out (user-menu.tsx:46-58; AFFILIATE_PAGE_WORDS.menuItem at affiliates/words.ts:209). EVERY_PAGE's bottom-of-menu line names Turn on calls, Get help and Sign out only (places-map.ts:607). No APP_PLACES entry, prompt line or settings-map row mentions Sell HandsFreeOS or /affiliate (grep finds none). do_affiliate_apply's warning says 'on your affiliate page' with no way there (coverage.ts:335). This isn't staff-only: the affiliate tools are offered to everyone (offeredTo 'assistant.use', coverage.ts:331-341), so naming the page to everyone is right.",
-      "fix": "In packages/core/src/assistant/places-map.ts EVERY_PAGE, change the bottom-of-menu line to add: 'press your own name there for the account menu: Sell HandsFreeOS (apply to sell HandsFreeOS, your link and codes, getting paid, and agreeing to the affiliate terms) and Sign out'. Change the coverage.ts:335 warning's end to '…You agree to the affiliate terms yourself, on Sell HandsFreeOS: press your name at the foot of the side menu.'",
-      "status": "open",
+      "fix": "Fixed: EVERY_PAGE says pressing their own name at the foot of the side menu opens the account menu: Sell HandsFreeOS (applying, their link and codes, getting paid, agreeing to the affiliate terms) and Sign out. affiliate.apply’s warning says where to agree to the terms themselves.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2595,8 +2595,8 @@
       "kind": "do",
       "where": "Admin area → Ideas → Areas: each area's description and open count, the Archived tag, Archive / Bring back, and Add an area",
       "gap": "The Areas screen resends id, name, description, sort and archived from what it read (idea-areas-admin.tsx:92-99). idea_area.save upserts every column, setting description and sort from the input (commands/ideas.ts:632-640). IdeaAreaSaveInput defaults description to '' and sort to 500 (schemas/ideas.ts:294-301). The Assistant's only read of areas is find_ideas, which keeps archived=false areas and returns only { id, name } (tools-extra.ts:1500-1502). idea.areas already returns description, sort, archived and openCount (queries/ideas.ts:472-506), but it isn't in SCREEN_READS. So archiving or renaming through do_idea_area_save wipes the description and moves the area to 500, and an archived area can't be found to bring back.",
-      "fix": "Add 'idea.areas' to SCREEN_READS in packages/core/src/assistant/screen-reads.ts (permission null, so it's assistant.use, which is fine because the ideas board is for everyone). read_idea_areas then returns every area with description, sort, archived and openCount. Also add to idea_area.save's command description (commands/ideas.ts:617-618): 'Send its description and sort as they are now (read_idea_areas) or they reset.' Or make description and sort optional in IdeaAreaSaveInput and use coalesce on update.",
-      "status": "open",
+      "fix": "Fixed: idea.areas is a screen read (read_idea_areas): every area with its description, sort, archived state and open count. do_idea_area_save keeps the description, sort and archived state the model leaves out as they are now (staffKept), and says so in its description.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2605,8 +2605,8 @@
       "kind": "read",
       "where": "Admin area → Businesses → a business → Add-ons in testing: each add-on still being built, with 'they can add it' / 'not handed out' and Let them try it / Take back",
       "gap": "The Add-ons in testing block lists ADDON_CATALOG filtered to development, beta and built (addon-testing-block.tsx:9-11). platform.business.get returns only the grants already given, as addonGrants (queries/platform.ts:227-241). get_settings add_ons shows only 'available' add-ons, without ids (tools-settings.ts:45-66). addon_pick.overview's comingSoon covers only add-ons picked by vote. So the Assistant can't say which add-ons can be handed out. do_addon_grant_give takes a bare addonId regex (schemas/addon.ts:11), so the model has to guess. Lowered to low because a wrong guess fails safely: it's refused with addon_unknown 'HandsFreeOS has no add-on by that name. Pick one from the list.' (addon-grant.ts:24-30), and ids are usually the lowercased name.",
-      "fix": "In platform.business.get (packages/core/src/queries/platform.ts:237), add `grantable: catalog.filter(m => ['development','beta','built'].includes(effectiveStatus(m, overrides))).map(m => ({ addonId: m.id, name: m.name, status: effectiveStatus(m, overrides), granted: grants.some(g => g.addon_id === m.id) }))` and its schema in BusinessGetOutput. Then change addon-grant.ts:29's words to 'Pick one from Add-ons in testing on their page under Admin area → Businesses.'",
-      "status": "open",
+      "fix": "Fixed: read_platform_business_get adds addonsInTesting: every add-on still being built (development, beta or built), each with they can add it or not handed out, as the page lists them. addon_grant.give’s refusal for an unknown add-on says where that list is.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2615,8 +2615,8 @@
       "kind": "words",
       "where": "Admin area → a business → Their balance: Move to warned / Move to stopped at zero / Move to paid by the agency, with the dialog's write-off line and the enforce warning",
       "gap": "wallet.set_stage's description, which is the tool's description, says 'silent, warned, or stopped when the balance runs out' (commands/wallet.ts:695). Silent can't be chosen (WalletMoveStageValue = warn, enforce, agency at schemas/support.ts:491-492), and 'Paid by the agency' isn't mentioned. The card's fixed warning, 'This changes what happens when their balance runs out.' (coverage.ts:314), leaves out what the screen's dialog says. Leaving agency with a negative balance shows DESK_WALLET_WORDS.writtenOff(-balance), and moving to enforce shows enforceWarning (wallet-block.tsx:196-206).",
-      "fix": "Rewrite commands/wallet.ts:695 description as 'Support: move one business to Warned, Stopped at zero, or Paid by the agency (DESK_WALLET_STAGES labels) for when their balance runs out.' In tools-screen-actions.ts prepareScreenAction, for wallet.set_stage read platform.wallet.get for args.workspaceId. Add a caution with DESK_WALLET_WORDS.writtenOff(-balanceCents) when the current stage is 'agency' and balanceCents < 0, and DESK_WALLET_WORDS.enforceWarning when args.stage === 'enforce'.",
-      "status": "open",
+      "fix": "Fixed: wallet.set_stage’s description names the screen’s stages (Warned, Stopped at zero, Paid by the agency) and no longer offers Silent. Its card says Move to in DESK_WALLET_STAGES’ words, and adds the screen’s write-off line when the business leaves Paid by the agency owing, and the enforce warning for Stopped at zero (staffCautions).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2625,8 +2625,8 @@
       "kind": "words",
       "where": "Settings → Account → Notifications: 'New support tickets' is shown only to HandsFreeOS support people",
       "gap": "update_my_alerts is offered to everyone (permission 'assistant.use'). Its description includes PUSH_WORDS, which names 'supportTickets: a new HandsFreeOS support ticket (HandsFreeOS support people only)', and its enum is all of PUSH_SWITCHES, supportTickets included (tools-extra.ts:95-96, 406-418). Nothing in context.ts or tools-write.ts filters it for people who aren't staff. That tells every business user about a staff-only switch, which goes against the owner's rule (prompt.ts:146-147) that nobody else is told staff tools exist.",
-      "fix": "In packages/core/src/assistant/tools-extra.ts, drop the supportTickets clause from PUSH_WORDS, and use z.enum(PUSH_SWITCHES.filter(s => s !== 'supportTickets')) for update_my_alerts. Add a staff-only twin (e.g. permission 'support.read', name update_my_support_alerts, or a staff variant swapped in by the context when staff is set) whose description and enum include supportTickets.",
-      "status": "open",
+      "fix": "Fixed: update_my_alerts no longer takes or mentions supportTickets. update_my_support_alerts, offered only with support.read, turns New support tickets on or off, and the settings catalog points notifications.support_tickets at it. get_settings my_account leaves the row and its saved switch out for anyone who isn’t staff (platform.me). The core test checks nobody else is offered it or told of it, and assistant-staff.test.ts that get_settings doesn’t tell them.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2635,8 +2635,8 @@
       "kind": "read",
       "where": "Admin area → Getting started → 'How far people get through it' → Open Matomo",
       "gap": "The Getting started page builds the 'Open Matomo' link itself with deskMatomoPagesUrl(window) (getting-started/page.tsx:114-120; helper at support/health-words.ts:174). read_platform_onboarding_counts returns counts only ('Counts only.', queries/onboarding.ts:117-119). Nothing in the Assistant mentions Matomo.",
-      "fix": "Add `matomoUrl: deskMatomoPagesUrl(input days or the page's default window)` to platform.onboarding.counts' output and its OnboardingCountsOutput schema. Change its description to end 'Counts, and the Matomo link for how far people get.'",
-      "status": "open",
+      "fix": "Fixed: read_platform_onboarding_counts adds matomoUrl, the Matomo pages report over the same days (deskMatomoPagesUrl), which the page’s Open the pages report in Matomo opens. The query itself is unchanged.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2645,8 +2645,8 @@
       "kind": "read",
       "where": "Admin area → Assistant coverage: the counts, what it can't do yet by page, the settings to check, and 'What it never does, and why'",
       "gap": "The Assistant coverage page is computed in the browser from code with assistantCoverage() and coverageCards (assistant-coverage.tsx:3-20). It runs no query, so no read_ tool exists for it. Nothing outside coverage.ts in the assistant dirs reads NEVER_FOR_THE_ASSISTANT, SETTINGS_NEVER or assistantCoverage. A support person asking what it never does, and why, gets an answer from memory.",
-      "fix": "Add a staff-only tool in packages/core/src/assistant/tools-extra.ts (e.g. 'read_assistant_coverage', permission 'platform.health.read', autonomy auto) with a worker run in apps/worker/src/assistant/tools-extra.ts. It returns assistantCoverage(): its cards counts, notYet by page, settingsToCheck, and never as [{ what, why }] from NEVER_FOR_THE_ASSISTANT and SETTINGS_NEVER.",
-      "status": "open",
+      "fix": "Fixed: read_assistant_coverage (staff with platform.health.read, runs on its own) gives the page’s counts, what can’t be done yet page by page, the settings to check, what is never done and why, and the copy-gaps text, all from assistantCoverage(). Its note points to read_platform_assistant_ledger for every item and the audit’s gaps.",
+      "status": "fixed",
       "pr": null
     }
   ]

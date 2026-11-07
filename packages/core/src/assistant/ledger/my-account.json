@@ -1075,7 +1075,7 @@
       "kind": "do",
       "file": "packages/core/src/account/notification-rows.ts:168",
       "covered": "yes",
-      "by": "update_my_alerts supportTickets"
+      "by": "update_my_support_alerts, offered to HandsFreeOS’s support people alone; get_settings my_account lists the row only to them"
     },
     {
       "path": "Notifications → Morning summary → email",
@@ -1986,7 +1986,7 @@
       "kind": "read",
       "where": "Settings → Account → Notifications (web) and phone Notifications: 'New support tickets' shows only to HandsFreeOS support people, and 'Daily agency digest' only to owners and admins of an organization with more than one business",
       "gap": "The screens filter rows: the web uses (agency || !row.agencyOnly) && (staff || !row.staffOnly), and the phone does the same. get_settings my_account returns every row, including 'New support tickets' (flagged supportOnly) and 'Daily agency digest', to everyone. update_my_alerts' description, the same for every person, names 'supportTickets: a new HandsFreeOS support ticket (HandsFreeOS support people only)', and its enum accepts it. That breaks the settled rule that staff tools are never mentioned to anyone else. The digest warning checks `!me.organizations.length`, which never fires for a founder, who always owns an organization of one; it should use managesAnAgency. PUSH_WORDS leaves out the `addons` kind, though the enum and PUSH_LABELS have it.",
-      "fix": "In apps/worker/src/assistant/tools-settings.ts meShape, filter notificationStates: drop supportOnly rows unless the context's staffRole is set, and drop agencyOnly rows unless managesAnAgency({ organizations: me.organizations, businesses: me.workspaces }). In packages/core/src/assistant/tools-extra.ts, take supportTickets out of PUSH_WORDS and add 'addons: an add-on the business uses needs them (a duty running late, a deal at risk)'. In the worker's updateMyAlerts.prepare, refuse supportTickets in turnOn/turnOff for anyone who isn't staff, as if it weren't a choice. Replace `digest && !me.organizations.length` with `digest && !managesAnAgency(...)`.",
+      "fix": "In apps/worker/src/assistant/tools-settings.ts meShape, filter notificationStates: drop supportOnly rows unless the context's staffRole is set, and drop agencyOnly rows unless managesAnAgency({ organizations: me.organizations, businesses: me.workspaces }). In packages/core/src/assistant/tools-extra.ts, take supportTickets out of PUSH_WORDS and add 'addons: an add-on the business uses needs them (a duty running late, a deal at risk)'. In the worker's updateMyAlerts.prepare, refuse supportTickets in turnOn/turnOff for anyone who isn't staff, as if it weren't a choice. Replace `digest && !me.organizations.length` with `digest && !managesAnAgency(...)`. Done already, in the staff work: New support tickets. get_settings my_account leaves that row and its switch out for anyone who isn’t HandsFreeOS staff, update_my_alerts no longer takes or names it, and update_my_support_alerts (support.read) does. The agency digest row, its warning and the addons kind are still to do.",
       "status": "open",
       "pr": null
     },

@@ -11,6 +11,7 @@ import {
   assistantTools,
   ATTENTION_KIND_LABELS,
   briefFromProfile,
+  deskSectionsFor,
   executeQuery,
   groundingRules,
   holds,
@@ -519,6 +520,7 @@ export async function questionContext(
         workspace.permissions,
       ),
       staffRole: staff ? STAFF_ROLE_LABELS[staff.role] : null,
+      ...(staff ? { staffSections: deskSectionsFor(staff.permissions).map((s) => s.label) } : {}),
     },
   };
 }

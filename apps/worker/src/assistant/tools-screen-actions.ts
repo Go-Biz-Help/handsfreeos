@@ -13,11 +13,13 @@ import {
   FOUNDING_WORDS,
   foundingClaimPath,
   HfosError,
+  money,
   registry,
   rehearseCommand,
   screenActionTools,
   VIDEO_LINK_DAYS,
   videoLinkCreate,
+  walletAdjust,
   type CommandDef,
   type Permission,
   type RequestMeta,
@@ -27,9 +29,10 @@ import type { Db } from '@hfos/db/client';
 import { keptAnswer } from './committed';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { setupCard, setupInput, setupOutcome } from './setup-screens';
+import { staffCardFields, staffCautions, staffKept } from './staff-cards';
 import { cardFields } from './tools-addons';
 import { query } from './tools-read';
-import { ownArguments, scopeIds } from './tools-screen-reads';
+import { ownArguments, scopeIds, staffArguments } from './tools-screen-reads';
 import { settingsCard } from './tools-settings-calendar';
 import { workflowScreenCards } from './tools-workflow';
 
@@ -73,10 +76,7 @@ async function inputOf(
   args: Args,
   ctx: ToolContext,
 ): Promise<Args> {
-  if (tool.staff) {
-    const declared = new Set(Object.keys(tool.input.shape));
-    return Object.fromEntries(Object.entries(args).filter(([k]) => declared.has(k)));
-  }
+  if (tool.staff) return staffArguments(tool, args);
   return { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
 }
 
@@ -147,7 +147,11 @@ export async function prepareScreenAction(
   webUrl = '',
 ): Promise<PreparedAction> {
   // The guided setup's saves take the screens' whole answers: the model's go over the ones kept (setup-screens.ts).
-  const given = await inputOf(db, tool, args, ctx);
+  // A staff command gets what its screen puts on, and keeps what the model leaves out (staff-cards.ts).
+  const given = {
+    ...(await inputOf(db, tool, args, ctx)),
+    ...(tool.staff ? await staffKept(db, ctx, tool, args, toolCallId) : {}),
+  };
   const setup = await setupInput(db, ctx, tool, given, webUrl);
   const input = setup?.input ?? given;
   const checked = tool.command.input.safeParse(input);
@@ -169,15 +173,22 @@ export async function prepareScreenAction(
   const own = workflowScreenCards[tool.command.name];
   if (own) return own.prepare(db, ctx, args, { name: tool.name, toolCallId });
   const shown = tool.input.safeParse(args);
-  // Which business it's in goes on its own line, by name, never as the id or the door it was asked through.
-  const fields = cardFields(tool, ownArguments(tool, shown.success ? (shown.data as Args) : args));
+  // Which business it's in goes on its own line, by name, never as the id or the door it was asked through. A staff
+  // card names the business, person, ticket or affiliate by name, from what will run, and says amounts in dollars.
+  const fields = tool.staff
+    ? await staffCardFields(db, ctx, tool, checked.data as Args)
+    : cardFields(tool, ownArguments(tool, shown.success ? (shown.data as Args) : args));
   const where = await whereLine(db, ctx, tool, input);
+  const cautions = [
+    ...(tool.warning ? [tool.warning] : []),
+    ...(tool.staff ? await staffCautions(db, ctx, tool, input) : []),
+  ];
   return {
     card: settingsCard(toolCallId, tool.name, {
       title: 'Do this?',
       fields: where ? [...fields.slice(0, 1), where, ...fields.slice(1, 9)] : fields,
       confirmLabel: 'Confirm',
-      warnings: tool.warning ? [{ kind: 'caution', text: tool.warning }] : [],
+      warnings: cautions.map((text) => ({ kind: 'caution', text })),
     }),
     result: { waiting: true, what: tool.description },
   };
@@ -229,6 +240,13 @@ const SAID_WHEN_DONE: Readonly<Record<string, (output: Args) => string | null>> 
     typeof o['publicKey'] === 'string'
       ? `Done. The snippet on the site stopped working: paste this one in its place, just before </body> on every page. ${chatSnippet(chatSnippetSrc('', o['publicKey']))}`
       : null,
+  // The same card confirmed twice is the same credit, recorded once (its reference is the card's).
+  [walletAdjust.name]: (o) =>
+    o['recorded'] === false
+      ? 'That credit was already on their statement, so nothing new went on.'
+      : typeof o['balanceCents'] === 'number'
+        ? `Done. Their balance is now ${money(o['balanceCents'])}.`
+        : null,
 };
 
 /** Any other command's one-time link or code, should one be offered: said the same plain way. */
@@ -259,9 +277,14 @@ export async function commitScreenAction(
   ctx: ToolContext,
   /** The web app's address, for a link that is the app's own (the founding claim link). */
   webUrl = '',
+  /** The card's own id, which a staff credit's reference is made from, as it was when the card was drawn. */
+  toolCallId = '',
 ): Promise<CommittedAction> {
   // Over the answers kept now, so only what the card showed changing changes.
-  const given = await inputOf(db, tool, args, ctx);
+  const given = {
+    ...(await inputOf(db, tool, args, ctx)),
+    ...(tool.staff ? await staffKept(db, ctx, tool, args, toolCallId) : {}),
+  };
   const setup = await setupInput(db, ctx, tool, given, webUrl);
   const done = await executeCommand(db, tool.command, setup?.input ?? given, ctx.actor, meta(ctx));
   // The command has run by now, so a look-up for its words that fails falls back to the plain answer below, never

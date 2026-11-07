@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import {
   ADDON_CATALOG,
   applyTeammatePatch,
+  assistantCoverage,
   attentionSettingsOf,
   AUTOMATION_GROUP_TITLES,
   automationCounts,
@@ -25,6 +26,8 @@ import {
   automationRow,
   automationRows,
   automationSettingsOf,
+  coverageCards,
+  coverageGapsForClaude,
   DEFAULT_MENU,
   diffTeammateConfigs,
   effectiveMapping,
@@ -1239,7 +1242,11 @@ function nextPush(now: PushSwitches, args: Args): PushSwitches {
 const notificationsOf = (settings: Record<string, unknown>) =>
   (settings['notifications'] as Record<string, boolean> | undefined) ?? {};
 
-const updateMyAlerts: SettingsConfirmTool = {
+/**
+ * The person's own phone alerts, as Settings → Account under Notifications saves them: one tool for everyone's, and
+ * HandsFreeOS's support people's New support tickets on a tool of its own, so nobody else is told it exists.
+ */
+const myAlerts = (name: string): SettingsConfirmTool => ({
   async prepare(db, ctx, args, toolCallId) {
     const me = await meOf(db, ctx);
     const now = pushSwitchesOf(me.user.settings);
@@ -1271,7 +1278,7 @@ const updateMyAlerts: SettingsConfirmTool = {
         text: 'That email only goes to an agency’s owners and admins.',
       });
     return {
-      card: settingsCard(toolCallId, 'update_my_alerts', {
+      card: settingsCard(toolCallId, name, {
         title: 'Change your alerts',
         fields,
         confirmLabel: 'Save the change',
@@ -1302,7 +1309,7 @@ const updateMyAlerts: SettingsConfirmTool = {
       command: 'user.update_profile',
     };
   },
-};
+});
 
 /** Each place in the side menu's own words (the web's nav-links). */
 const MENU_LABELS: Record<MenuKey, string> = {
@@ -1456,6 +1463,7 @@ interface IdeaGet {
     mergedInto: { id: string; number: number; title: string } | null;
   };
   comments: {
+    id: string;
     body: string;
     author: { name: string; you: boolean; team: boolean };
     hidden: boolean;
@@ -1471,10 +1479,14 @@ const ideaHref = (ctx: ToolContext, id: string) => `/app/w/${ctx.workspaceId}/id
 const ideaOf = (db: Db, ctx: ToolContext, ideaId: unknown) =>
   query<IdeaGet>(db, ctx, 'idea.get', { ideaId });
 
+/** The comments an idea's read gives unless every one is asked for: the latest. */
+const LAST_COMMENTS = 10;
+
 async function findIdeas(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
   const ideaId = str(args['ideaId']);
   if (ideaId) {
     const { idea, comments, updates } = await ideaOf(db, ctx, ideaId);
+    const shown = args['allComments'] === true ? comments : comments.slice(-LAST_COMMENTS);
     return {
       result: {
         idea: {
@@ -1491,14 +1503,22 @@ async function findIdeas(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutc
             : {}),
           words: theirs(`${idea.title}\n\n${idea.body}`.trim()),
         },
-        comments: comments
-          .filter((c) => !c.hidden)
-          .slice(-10)
-          .map((c) => ({
-            by: c.author.team ? 'HandsFreeOS team' : c.author.you ? 'You' : 'Someone',
-            on: c.createdAt.slice(0, 10),
-            words: theirs(c.body),
-          })),
+        // As the idea's page shows them: who wrote each, the team's marked, and to the team the ones taken down too
+        // (idea.get gives those only to them). commentId is what do_idea_set_comment_hidden takes.
+        comments: shown.map((c) => ({
+          commentId: c.id,
+          by: c.author.you ? 'You' : c.author.name || 'Someone',
+          ...(c.author.team ? { team: 'HandsFreeOS team' } : {}),
+          ...(c.hidden ? { takenDown: true } : {}),
+          on: c.createdAt.slice(0, 10),
+          words: theirs(c.body),
+        })),
+        ...(shown.length < comments.length
+          ? {
+              earlierComments: comments.length - shown.length,
+              note: `Only the last ${LAST_COMMENTS} comments are here. Ask again with allComments for every one.`,
+            }
+          : {}),
         story: updates.map(ideaUpdateLine),
       },
     };
@@ -2549,6 +2569,25 @@ const pushToClientBusinesses: SettingsConfirmTool = {
   },
 };
 
+/**
+ * Assistant coverage as the Admin area's page shows it (staff only): its counts, what can't be done yet page by page,
+ * the settings pages still to check, and what is never done and why, all from the lists the checks hold the
+ * Assistant to, so it says what the code says rather than what it remembers.
+ */
+async function readAssistantCoverage(): Promise<ToolOutcome> {
+  const c = assistantCoverage();
+  return {
+    result: {
+      counts: coverageCards(c).map((card) => ({ what: card.label, count: card.value })),
+      notYet: c.notYet.map((p) => ({ page: p.page, why: p.why, actions: p.actions })),
+      settingsToCheck: c.settingsToCheck.map((p) => ({ page: p.label, rows: p.rows })),
+      never: c.never.map((n) => ({ what: n.command, why: n.why })),
+      copyGaps: coverageGapsForClaude(c),
+      note: 'Every item on every screen, marked off with how you cover it, and the audit’s gaps are Every item, marked off, on the same page: read_platform_assistant_ledger.',
+    },
+  };
+}
+
 export const extraAutoTools: Record<
   string,
   (db: Db, ctx: ToolContext, args: Args) => Promise<ToolOutcome>
@@ -2556,6 +2595,7 @@ export const extraAutoTools: Record<
   list_automations: listAutomations,
   find_ideas: findIdeas,
   get_agency_area: getAgencyArea,
+  read_assistant_coverage: readAssistantCoverage,
 };
 
 /** Of those, the ones whose answer links to the web app's own pages, so the executor gives them its address. */
@@ -2569,7 +2609,8 @@ export const extraWebTools: Record<
 export const extraConfirmTools: Record<string, SettingsConfirmTool> = {
   update_ai_teammate_rules: updateAiTeammateRules,
   update_automations: updateAutomations,
-  update_my_alerts: updateMyAlerts,
+  update_my_alerts: myAlerts('update_my_alerts'),
+  update_my_support_alerts: myAlerts('update_my_support_alerts'),
   arrange_my_menu: arrangeMyMenu,
   manage_idea: manageIdea,
   contact_support: contactSupport,
@@ -2584,8 +2625,10 @@ export const extraStepLabels: Record<string, string> = {
   list_automations: 'Looking at your automations',
   update_automations: 'Changing your automations',
   update_my_alerts: 'Changing your alerts',
+  update_my_support_alerts: 'Changing your alerts',
   arrange_my_menu: 'Arranging your menu',
   find_ideas: 'Looking at ideas',
+  read_assistant_coverage: 'Looking at Assistant coverage',
   manage_idea: 'Getting the idea ready',
   contact_support: 'Writing to support',
   add_business: 'Adding the business',

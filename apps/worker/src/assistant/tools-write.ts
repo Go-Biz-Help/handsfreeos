@@ -1813,7 +1813,8 @@ export function createToolExecutor(
     if (isAddonAiTool(tool)) return commitAddonTool(db, tool, await addressed(args, ctx), ctx);
     if (isAddonActionTool(tool))
       return commitAddonActionTool(addonActions, db, tool, await addressed(args, ctx), ctx);
-    if (isScreenActionTool(tool)) return commitScreenAction(db, tool, args, ctx, webUrl);
+    if (isScreenActionTool(tool))
+      return commitScreenAction(db, tool, args, ctx, webUrl, extra.toolCallId);
     const offer = mainOfferConfirmTools[tool.name];
     if (offer) return offer.commit(db, ctx, args, offerDeps);
     const t = confirmTools[tool.name];

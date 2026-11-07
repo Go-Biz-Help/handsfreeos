@@ -175,6 +175,8 @@ export interface PromptContext {
    * anyone else, who are never told those tools exist (the owner, 2026-10-27).
    */
   readonly staffRole?: string | null;
+  /** The Admin area's sections their staff role opens, in its menu's order (deskSectionsFor). Staff only, too. */
+  readonly staffSections?: readonly string[];
   /** The Action Center's top items in Home's order, with their ids (the attention tools act on them). */
   readonly attention?: {
     readonly scope: 'mine' | 'everyone';
@@ -334,7 +336,7 @@ export function lastingText(c: PromptContext): string {
     ...(c.addonPlaces ?? []),
     ...(c.staffRole
       ? [
-          `${c.personName} also works for HandsFreeOS itself, as ${c.staffRole}: you can help with the Admin area too (support tickets, saved replies, the team, businesses, founding seats, ideas and What’s new), across every business, as their role allows.`,
+          `${c.personName} also works for HandsFreeOS itself, as ${c.staffRole}: you can help with the Admin area too, across every business, as their role allows. Its menu, for them: ${[...(c.staffSections ?? []), 'Demo player'].join(', ')}. The way in: press the business name at the top of the side menu, then Admin area; on the phone, More, then Support desk. The way back: Back to the app, under its menu. HandsFreeOS’s own support people are the Admin area’s Support people, not Members.`,
         ]
       : []),
     CAPABILITIES_NOTE,
