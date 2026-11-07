@@ -54,7 +54,8 @@ function briefPlaybook(p: unknown): unknown {
 /**
  * The playbooks as the model reads them: each whole with its kind in the screens' words, while they fit; past that,
  * each in brief (its steps by title, the objections it answers, how many talking points), to read one whole by its
- * id. One asked for by its id is always whole.
+ * id. One asked for by its id comes with its steps, objections and talking points as lists of their own, so one too
+ * long to read whole (a long pasted script) loses only its last rows, and says how many, rather than all of it.
  */
 export function playbooksAnswer(output: unknown, input: unknown): unknown {
   if (!isObject(output) || !Array.isArray(output['playbooks'])) return output;
@@ -62,6 +63,16 @@ export function playbooksAnswer(output: unknown, input: unknown): unknown {
     isObject(p) ? { ...p, kindLabel: kindLabel(p['kind']) } : p,
   );
   const one = isObject(input) && typeof input['playbookId'] === 'string';
+  if (one && all.length === 1 && isObject(all[0])) {
+    const { details, ...playbook } = all[0];
+    const parts = isObject(details) ? details : {};
+    return {
+      playbook,
+      steps: listOf(parts['steps']),
+      objections: listOf(parts['objections']),
+      points: listOf(parts['points']),
+    };
+  }
   if (one || JSON.stringify(all).length <= PLAYBOOKS_WHOLE) return { playbooks: all };
   return {
     brief: true,
@@ -143,10 +154,17 @@ function callRow(row: unknown): unknown {
   return Object.fromEntries(Object.entries(kept).filter(([, v]) => v !== null && v !== undefined));
 }
 
-/** The coached calls as the model reads them: each row as the list shows it, so fifty fit. */
+/**
+ * The coached calls as the model reads them: each rep once, with the id that userId takes (for one rep's calls or
+ * trends), then each row as the list shows it, its rep by name, so fifty fit.
+ */
 export function callListAnswer(output: unknown): unknown {
   if (!isObject(output) || !Array.isArray(output['calls'])) return output;
-  return { calls: output['calls'].map(callRow) };
+  const reps = new Map<string, { id: string; name: unknown }>();
+  for (const row of output['calls'])
+    if (isObject(row) && isObject(row['rep']) && typeof row['rep']['id'] === 'string')
+      reps.set(row['rep']['id'], { id: row['rep']['id'], name: row['rep']['name'] });
+  return { reps: [...reps.values()], calls: output['calls'].map(callRow) };
 }
 
 /**

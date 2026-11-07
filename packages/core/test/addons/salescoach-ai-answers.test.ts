@@ -94,8 +94,23 @@ describe('playbooks as the model reads them', () => {
     const one = playbooksAnswer(
       { playbooks: [many.playbooks[0]] },
       { workspaceId: WS, playbookId: PB },
-    ) as { playbooks: Playbook[] };
-    expect(one.playbooks[0]!.details.steps[0]!.say).toBe('w'.repeat(300));
+    ) as { playbook: Record<string, unknown> } & PlaybookDetails;
+    expect(one.playbook).toMatchObject({ id: PB, name: 'Script 0', kindLabel: 'Booked call' });
+    expect('details' in one.playbook).toBe(false);
+    expect(one.steps[0]!.say).toBe('w'.repeat(300));
+    expect(one.objections).toHaveLength(10);
+    expect(one.points).toEqual([{ id: 'p1', topic: 'Warranty', fact: 'Ten years on parts.' }]);
+  });
+
+  it('reads one asked for by its id by its own lists, so one too long loses only its last rows', () => {
+    const long = playbook({ details: details(20, 40, 600) });
+    const one = playbooksAnswer({ playbooks: [long] }, { workspaceId: WS, playbookId: PB });
+    expect(JSON.stringify(one).length).toBeGreaterThan(16_000);
+    expect(Object.keys(one as object)).toEqual(['playbook', 'steps', 'objections', 'points']);
+    // No playbook by that id: nothing to read, as it came.
+    expect(playbooksAnswer({ playbooks: [] }, { workspaceId: WS, playbookId: PB })).toEqual({
+      playbooks: [],
+    });
   });
 });
 
@@ -195,8 +210,10 @@ describe('a coached call as the model reads it', () => {
         },
       ],
     });
-    // English goes without saying, as on the list; another language is said.
+    // English goes without saying, as on the list; another language is said. Each rep comes once with their id,
+    // which userId takes for one rep's calls or trends.
     expect(got).toEqual({
+      reps: [{ id: REP, name: 'Sam Rep' }],
       calls: [
         {
           id: CALL,

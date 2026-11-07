@@ -1,3 +1,4 @@
+import { playbooksAnswer } from '@hfos/core/addons/salescoach/ai-answers';
 import { describe, expect, it } from 'vitest';
 import { ADDON_WORKER_MODULES } from '../src/addons/modules';
 import {
@@ -90,5 +91,45 @@ describe('an answer too long to read whole', () => {
       details: { steps: [{ id: 's1', title: 'Say hello' }], objections: [], points: [] },
       saved: false,
     });
+  });
+
+  it('reads one AI Sales Coach playbook too long to read whole by its first rows, never none of it', () => {
+    const playbook = {
+      id: 'pb-1',
+      name: 'Pasted script',
+      kind: 'any',
+      isDefault: true,
+      archivedAt: null,
+      details: {
+        steps: Array.from({ length: 20 }, (_, i) => ({
+          id: `s${i + 1}`,
+          title: `Step ${i + 1}`,
+          say: 'w'.repeat(500),
+        })),
+        objections: Array.from({ length: 40 }, (_, i) => ({
+          id: `o${i + 1}`,
+          objection: `Objection ${i + 1}`,
+          answer: 'a'.repeat(700),
+        })),
+        points: [{ id: 'p1', topic: 'Warranty', fact: 'Ten years on parts.' }],
+      },
+    };
+    const got = answerFrom(
+      ADDON,
+      playbooksAnswer({ playbooks: [playbook] }, { playbookId: 'pb-1' }),
+    ) as {
+      data: {
+        playbook: { name: string };
+        steps: unknown[];
+        objections: unknown[];
+        points: unknown[];
+      };
+      dropped: Record<string, number>;
+    };
+    expect(got.data.playbook.name).toBe('Pasted script');
+    expect(got.data.points).toHaveLength(1);
+    expect(got.data.steps.length).toBeGreaterThan(0);
+    expect(got.data.objections.length).toBeGreaterThan(0);
+    expect(got.dropped['objections']).toBe(40 - got.data.objections.length);
   });
 });

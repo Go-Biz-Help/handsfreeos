@@ -108,7 +108,7 @@ export const playbookList = defineAddonQuery(salescoachAddon, {
   ai: {
     tool: 'salescoach_list_playbooks',
     description:
-      'The business’s sales playbooks, each with the kind of call it’s for and whether it’s the usual one: the steps of a sales call, the objections customers raise with the business’s answers, and talking points. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold call), else the usual one. When there are too many to read whole, each comes in brief; pass playbookId to read one whole.',
+      'The business’s sales playbooks, each with the kind of call it’s for and whether it’s the usual one: the steps of a sales call, the objections customers raise with the business’s answers, and talking points. A call uses the playbook for how it started (a booked call, a new lead, an older lead or a cold call), else the usual one. When there are too many to read whole, each comes in brief; pass playbookId to read one whole, its steps, objections and talking points each a list of its own.',
     answer: playbooksAnswer,
   },
   async handler(ctx, input) {

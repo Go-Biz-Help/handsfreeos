@@ -1133,7 +1133,7 @@
       "kind": "read",
       "where": "AI Sales Coach → Playbooks: each playbook’s name, kind, Usual / Archived badges, step/objection/talking-point counts, and (for non-managers) its steps and objection answers",
       "gap": "salescoach_list_playbooks takes only the business. It returns every playbook with full details: in use first, then archived (playbooks.ts:106-119). The builder writes four kinds (new lead, booked call, older lead, cold call), each up to a 6,000-token draft, so the answer passes the 16,000-character cut after one or two playbooks. Nothing else reads one playbook. That leaves later playbooks' objection answers unreadable, and salescoach_playbook_save needs their full details resent.",
-      "fix": "Fixed: salescoach.playbook.list takes playbookId (one, whole), and its ai.answer (playbooksAnswer) reads every playbook whole while they fit, else each in brief (kind, usual, step titles, the objections it answers, how many talking points) with a note to pass playbookId. Each has its kind in the screens’ words.",
+      "fix": "Fixed: salescoach.playbook.list takes playbookId (one, whole), and its ai.answer (playbooksAnswer) reads every playbook whole while they fit, else each in brief (kind, usual, step titles, the objections it answers, how many talking points) with a note to pass playbookId. Each has its kind in the screens’ words. One read by its id comes with its steps, objections and talking points as lists of their own, so one too long to read whole loses only its last rows, with dropped, rather than all of it.",
       "status": "fixed",
       "pr": null
     },
@@ -1223,7 +1223,7 @@
       "kind": "read",
       "where": "AI Sales Coach → Coached: the list of 50 calls and written conversations",
       "gap": "salescoach_list_calls defaults to 50 rows. Each CallSummary is about 450-480 characters of JSON (id, callId, conversationId, channel, liveMeetingId, rep {id,name}, person {id,name}, playbookName, both dates, score, wonHow, language). So any business with more than about 34 coached calls gets the default answer cut mid-row, and the model has to call again with a smaller limit. The ai.description says 'Coached sales calls', but the list also includes write-ups of texts, emails and chats (channel and conversationId).",
-      "fix": "Fixed: salescoach.call.list’s ai.answer (callListAnswer) gives each row as the list shows it (the rep by name, nothing empty, English left unsaid), so fifty fit, and a longer answer is cut by whole rows with dropped. Its description says it holds written conversations too, with their channel, when they show, and how to narrow it. The screen’s default of 50 is unchanged.",
+      "fix": "Fixed: salescoach.call.list’s ai.answer (callListAnswer) gives each rep once with their id (for userId), then each row as the list shows it (the rep by name, nothing empty, English left unsaid), so fifty fit, and a longer answer is cut by whole rows with dropped. Its description says it holds written conversations too, with their channel, when they show, and how to narrow it. The screen’s default of 50 is unchanged.",
       "status": "fixed",
       "pr": null
     }

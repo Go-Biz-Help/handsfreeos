@@ -875,7 +875,7 @@ export const callList = defineAddonQuery(salescoachAddon, {
   ai: {
     tool: 'salescoach_list_calls',
     description:
-      'Coached sales calls and written conversations (texts, emails, chats, with their channel), newest first, with the rep, the customer, the score out of 100 and how it was won: your own, or everyone’s for people who review calls. A call shows once a coached rep takes one; a written conversation once one they answered goes quiet. Pass userId or personId for one rep’s or one customer’s, and limit for more (up to 100).',
+      'Coached sales calls and written conversations (texts, emails, chats, with their channel), newest first, with the rep, the customer, the score out of 100 and how it was won: your own, or everyone’s for people who review calls. A call shows once a coached rep takes one; a written conversation once one they answered goes quiet. Each rep comes once in reps, with their id: pass it as userId, or a customer’s as personId, for one rep’s or one customer’s, and limit for more (up to 100).',
     answer: callListAnswer,
   },
   async handler(ctx, input) {
