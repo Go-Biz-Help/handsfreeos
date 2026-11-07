@@ -3,6 +3,7 @@ import {
   aiTeammateCreate,
   assistantToolByName,
   AUTOMATIONS,
+  DEFAULT_INTAKE_MESSAGE,
   DEFAULT_MENU,
   executeCommand,
   executeQuery,
@@ -530,6 +531,8 @@ describe('Settings → Automations', () => {
     ]);
     await confirm('update_automations', parsed);
     expect((await settings())['automations'].calls.businessLandlines).toBe(true);
+    // list_automations says where it stands, as the switch on the page does.
+    expect((await read('list_automations', {})).result['callsBusinessLandlines']).toBe(true);
   });
 
   it('says so when turning one on reaches customers, and what it still needs', async () => {
@@ -564,6 +567,19 @@ describe('Settings → Automations', () => {
             '{automations,switches,reengage}', 'false'::jsonb), '{automations,reengage,reviewedAt}', 'null'::jsonb)
           where id = ${workspaceId}`,
     );
+
+    // Only an owner reads the message and turns it on: the screen shows Looks good, turn on to owners alone.
+    const asAdmin = await prepare('update_automations', { turnOn: ['reengage_dead_leads'] }, priya);
+    expect(asAdmin.card.confirmLabel).toBe('');
+    expect(asAdmin.card.warnings[0]).toEqual({
+      kind: 'blocked',
+      text: 'Re-engage dead leads goes on only once an owner has read its message and chosen Looks good, turn on. Ask an owner of this business.',
+    });
+    expect(asAdmin.result).toMatchObject({ blocked: true });
+    await expect(confirm('update_automations', asAdmin.parsed, priya)).rejects.toThrow(
+      'Ask an owner of this business',
+    );
+    expect((await settings())['automations'].switches.reengage).toBe(false);
 
     const locked = await prepare('update_automations', { turnOff: ['drafts_awaiting_review'] });
     expect(locked.card.confirmLabel).toBe('');
@@ -645,6 +661,48 @@ describe('Settings → Automations', () => {
       }),
     ).rejects.toThrow('No open stage with that id');
   });
+
+  it('changes when the Maintenance due texts go and how many a day, only on Confirm', async () => {
+    const before = await read('list_automations', {});
+    expect(before.result['maintenanceDue']).toMatchObject({
+      daysBefore: 14,
+      daysBetween: 7,
+      mostPerDay: 20,
+    });
+    const { card, parsed } = await prepare('update_automations', {
+      maintenanceDaysBefore: 10,
+      maintenanceDaysBetween: 5,
+      maintenanceMostPerDay: 1,
+    });
+    // As its Adjust sheet says them.
+    expect(card.fields).toEqual([
+      { label: 'Maintenance due: first text', value: '10 days before the visit is due' },
+      { label: 'Maintenance due: second text, then a card', value: '5 days after, each time' },
+      { label: 'Maintenance due: at most a day', value: '1 first text' },
+    ]);
+    expect((await read('list_automations', {})).result['maintenanceDue']).toMatchObject({
+      daysBefore: 14,
+    });
+
+    await confirm('update_automations', parsed);
+    expect((await settings())['automations'].maintenance).toMatchObject({
+      leadDays: 10,
+      secondAfterDays: 5,
+      maxPerDay: 1,
+    });
+    expect((await read('list_automations', {})).result['maintenanceDue']).toMatchObject({
+      daysBefore: 10,
+      daysBetween: 5,
+      mostPerDay: 1,
+    });
+    const onTheDay = await prepare('update_automations', { maintenanceDaysBefore: 0 });
+    expect(onTheDay.card.fields).toEqual([
+      { label: 'Maintenance due: first text', value: 'On the day the visit is due' },
+    ]);
+    await expect(prepare('update_automations', { maintenanceMostPerDay: 1 })).rejects.toThrow(
+      'already set that way',
+    );
+  });
 });
 
 describe('Settings → Migrations', () => {
@@ -719,6 +777,38 @@ describe('the form Intake questions sends', () => {
     await expect(prepare('update_automations', { intakeFormId: randomUUID() })).rejects.toThrow(
       'No form with that id',
     );
+  });
+
+  it('changes the message the form goes with, and puts the standard wording back', async () => {
+    expect((await read('list_automations', {})).result).toMatchObject({
+      intakeMessage: DEFAULT_INTAKE_MESSAGE,
+      intakeMessageIsStandard: true,
+    });
+    const wording = 'Hi {firstName}, a few questions before we come out: {link}';
+    const { card, parsed } = await prepare('update_automations', { intakeMessage: wording });
+    expect(card.fields).toEqual([{ label: 'Intake message', value: wording }]);
+    // A form is picked, so the new words go to first-time customers on their own.
+    expect(card.warnings[0]!.text).toContain('The intake message reaches customers');
+    expect((await read('list_automations', {})).result['intakeMessage']).toBe(
+      DEFAULT_INTAKE_MESSAGE,
+    );
+    await confirm('update_automations', parsed);
+    expect((await settings())['automations'].intake.message).toBe(wording);
+    expect((await read('list_automations', {})).result).toMatchObject({
+      intakeMessage: wording,
+      intakeMessageIsStandard: false,
+    });
+
+    // null is Use the standard wording.
+    const standard = await prepare('update_automations', { intakeMessage: null });
+    expect(standard.card.fields).toEqual([
+      { label: 'Intake message', value: `${DEFAULT_INTAKE_MESSAGE} (the standard wording)` },
+    ]);
+    await confirm('update_automations', standard.parsed);
+    expect((await read('list_automations', {})).result['intakeMessageIsStandard']).toBe(true);
+    await expect(
+      prepare('update_automations', { intakeMessage: 'Hi {firstName}, a few questions for you.' }),
+    ).rejects.toThrow('Put {link} where the form’s link goes');
   });
 });
 

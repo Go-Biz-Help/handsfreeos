@@ -10,6 +10,7 @@ import {
   executeCommand,
   executeQuery,
   hasWorkspacePermission,
+  leadCreate,
   organizationCreate,
   personCreate,
   registry,
@@ -273,10 +274,16 @@ describe('settings_help', () => {
     );
   });
 
-  it('leaves only the card to the person on Usage & balance: topping up and the AI limit are its to do', async () => {
+  it('leaves only paying on the provider’s page to the person on Usage & balance: topping up and the AI limit are its to do', async () => {
     const { result } = await readTool('settings_help', 'usage', owner);
-    const theirs = result['theyDoThemselves'] as { what: string }[];
-    expect(theirs.map((t) => t.what)).toEqual(['add a card, or use a different one']);
+    const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
+    expect(theirs.map((t) => t.what)).toEqual([
+      'add a card, or use a different one',
+      'pay a refused founding plan renewal with another card',
+    ]);
+    expect(theirs[1]!.steps).toContain(
+      'On Your founding spot, press Pay with another card, then pay on Stripe’s page.',
+    );
     expect(result['canChange']).toEqual(
       expect.arrayContaining([
         'top up the balance now, from the card on file',
@@ -683,9 +690,16 @@ describe('the booking page', () => {
       terms: `${web}/legal/${slug}/terms`,
     });
 
+    expect((await read('business'))['yourPage']).toMatchObject({ yourPageLink: null });
+
     await run(bookingSiteSetPage, { workspaceId, on: true }, owner);
     const after = (await read('booking_site'))['bookingSite']!;
     expect(after.yourPage).toContain(`Showing at ${web}/book/${slug}`);
+    // Settings → Workspace's Your page card: the link Copy the link copies, written out whole.
+    expect((await read('business'))['yourPage']).toEqual({
+      yourPage: expect.stringContaining(`Showing at ${web}/book/${slug}.`),
+      yourPageLink: `${web}/book/${slug}`,
+    });
 
     // Texting's registration links to the same two.
     expect((await read('texting'))['privacyAndTerms']).toMatchObject({
@@ -1038,6 +1052,37 @@ describe('the business itself', () => {
       prepare('update_business', { address: { line1: '1 Main St', city: 'Nowhere' } }, owner),
     ).rejects.toThrow();
   });
+
+  it('takes the website and review link off, as an emptied box does, and keeps the other links', async () => {
+    const set = await prepare(
+      'update_business',
+      { reviewLink: 'https://g.page/settings-hvac/review' },
+      owner,
+    );
+    await confirm(set.tool!, set.parsed, owner);
+    // Another link kept by name, as a workflow might keep one: a change to the review link leaves it.
+    await rows(
+      testDbs().admin.db,
+      sql`update app.workspaces
+          set settings = jsonb_set(settings, '{links,booking}', '"https://book.settingshvac.example"')
+          where id = ${workspaceId}`,
+    );
+
+    const { card, parsed, tool } = await prepare(
+      'update_business',
+      { website: null, reviewLink: null },
+      owner,
+    );
+    expect(fieldOf(card, 'Website')).toBe('None (taken off)');
+    expect(fieldOf(card, 'Review link')).toBe('None (taken off)');
+    await confirm(tool!, parsed, owner);
+    const after = await q<{ workspace: { settings: Record<string, unknown> } }>('workspace.get');
+    expect(after.workspace.settings['website']).toBeNull();
+    expect(after.workspace.settings['links']).toEqual({
+      booking: 'https://book.settingshvac.example',
+      review: null,
+    });
+  });
 });
 
 describe('pipelines and stages', () => {
@@ -1092,6 +1137,95 @@ describe('pipelines and stages', () => {
     expect(
       end.pipelines.find((p) => p.id === pipeline.id)!.stages.map((s) => s.name),
     ).not.toContain('Quoted');
+  });
+
+  it('changes what an empty stage counts as on a card that says so, and keeps a stage with leads as it is', async () => {
+    type Stages = {
+      pipelines: {
+        id: string;
+        name: string;
+        stages: { id: string; name: string; kind: string; leadCount: number }[];
+      }[];
+    };
+    const stagesOf = async () => (await q<Stages>('pipeline.list')).pipelines[0]!;
+    const pipeline = await stagesOf();
+    const added = await prepare(
+      'manage_pipeline',
+      { action: 'add_stage', pipelineId: pipeline.id, name: 'On hold', stageKind: 'open' },
+      owner,
+    );
+    await confirm(added.tool!, added.parsed, owner);
+    const onHold = (await stagesOf()).stages.find((s) => s.name === 'On hold')!;
+
+    const change = await prepare(
+      'manage_pipeline',
+      { action: 'rename_stage', stageId: onHold.id, stageKind: 'lost' },
+      owner,
+    );
+    expect(change.card.title).toBe('Change On hold');
+    expect(fieldOf(change.card, 'Counts as')).toBe('lost');
+    expect(fieldOf(change.card, 'Counted as')).toBe('open');
+    expect(change.card.warnings[0]!.text).toContain('nothing there now changes');
+    const done = await confirm(change.tool!, change.parsed, owner);
+    expect(done.outcome).toBe('Saved. It counts as lost now');
+    expect((await stagesOf()).stages.find((s) => s.id === onHold.id)!.kind).toBe('lost');
+
+    // A stage with a lead in it keeps its kind, as the screen's Edit locks it.
+    const { personId } = (await run(
+      personCreate,
+      { workspaceId, firstName: 'Lena', lastName: 'Stage', email: `lena-${suffix}@example.com` },
+      owner,
+    )) as { personId: string };
+    const contacted = pipeline.stages.find((s) => s.name === 'Contacted')!;
+    await run(
+      leadCreate,
+      {
+        workspaceId,
+        title: 'Furnace swap',
+        personId,
+        pipelineId: pipeline.id,
+        stageId: contacted.id,
+      },
+      owner,
+    );
+    await expect(
+      prepare(
+        'manage_pipeline',
+        { action: 'rename_stage', stageId: contacted.id, stageKind: 'won' },
+        owner,
+      ),
+    ).rejects.toThrow('Contacted has a lead in it, so it keeps counting as open.');
+
+    // Deleting a stage with leads takes them to the first other stage of its kind, unless another is named.
+    const del = await prepare(
+      'manage_pipeline',
+      { action: 'delete_stage', stageId: contacted.id },
+      owner,
+    );
+    const firstOpen = pipeline.stages.find((s) => s.kind === 'open' && s.id !== contacted.id)!;
+    expect(fieldOf(del.card, 'Leads in it')).toBe('1');
+    expect(fieldOf(del.card, 'Leads in it go to')).toBe(firstOpen.name);
+    await expect(
+      prepare(
+        'manage_pipeline',
+        { action: 'delete_stage', stageId: contacted.id, moveLeadsToStageId: onHold.id },
+        owner,
+      ),
+    ).rejects.toThrow('can only go to another open stage');
+
+    // The only won stage can't go: every pipeline keeps one of each kind.
+    const won = pipeline.stages.find((s) => s.kind === 'won')!;
+    await expect(
+      prepare('manage_pipeline', { action: 'delete_stage', stageId: won.id }, owner),
+    ).rejects.toThrow(`${won.name} is the only won stage`);
+
+    // Tidy up: On hold goes again, so the board is as the other tests expect.
+    const tidy = await prepare(
+      'manage_pipeline',
+      { action: 'delete_stage', stageId: onHold.id },
+      owner,
+    );
+    await confirm(tidy.tool!, tidy.parsed, owner);
   });
 });
 
@@ -1550,7 +1684,17 @@ describe('Settings → Payments: every row', () => {
 });
 
 describe('what Home watches for', () => {
-  it('turns a kind off without touching the others, and refuses automatic follow-ups it cannot turn on', async () => {
+  let ada: TestUser;
+  beforeAll(async () => {
+    ada = await createTestUser('aset-ada', { fullName: 'Ada Admin' });
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${ada.id}, 'admin')`,
+    );
+  });
+
+  it('turns a kind off without touching the others, and lets only an owner turn follow-ups on, after reading them', async () => {
     const { card, parsed, tool } = await prepare(
       'update_action_center_settings',
       { kindsOff: ['overdue_task'], bigJobDollars: 7500, ignoreBalancesUnderDollars: 25 },
@@ -1571,14 +1715,146 @@ describe('what Home watches for', () => {
     expect(after.settings.hot.minValueCents).toBe(750_000);
     expect(after.settings.money.minBalanceCents).toBe(2_500);
 
-    // Follow-ups stay off until someone has read the wording, so the card offers no Confirm at all.
+    // Follow-ups stay off until an owner has read the wording. Anyone else is told to ask an owner, with no Confirm,
+    // and a Confirm sent anyway is refused.
+    const asAdmin = await prepare(
+      'update_action_center_settings',
+      { followUpOnQuietLeads: true },
+      ada,
+    );
+    expect(asAdmin.card.confirmLabel).toBe('');
+    expect(asAdmin.card.warnings[0]!.text).toBe(
+      'An owner turns follow-ups on after reading the wording. Ask an owner of this business.',
+    );
+    await expect(confirm(asAdmin.tool!, asAdmin.parsed, ada)).rejects.toThrow(
+      'An owner turns follow-ups on after reading the wording.',
+    );
+
+    // An owner reads the wording first on the card: their Confirm is the screen's Looks good, turn on.
+    const wording = (await q<{ settings: { nudge: { template: string } } }>('attention.settings'))
+      .settings.nudge.template;
     const nudges = await prepare(
       'update_action_center_settings',
       { followUpOnQuietLeads: true },
       owner,
     );
-    expect(nudges.card.confirmLabel).toBe('');
-    expect(nudges.card.warnings[0]!.text).toContain('read and agreed');
+    expect(nudges.card.title).toBe('Turn on follow-ups');
+    expect(nudges.card.fields[0]).toEqual({ label: 'Follow-up wording', value: wording });
+    expect(nudges.card.confirmLabel).toBe('Looks good, turn on');
+    expect(nudges.card.warnings[0]!.text).toContain('Read the wording above first');
+    await confirm(nudges.tool!, nudges.parsed, owner);
+    const on = await q<{ settings: { auto: { nudges: boolean; nudgeReviewedAt: string | null } } }>(
+      'attention.settings',
+    );
+    expect(on.settings.auto.nudges).toBe(true);
+    expect(on.settings.auto.nudgeReviewedAt).not.toBeNull();
+
+    // Once read, switching them is anyone's who may change the settings, as the screen's switch is.
+    const off = await prepare(
+      'update_action_center_settings',
+      { followUpOnQuietLeads: false },
+      ada,
+    );
+    expect(off.card.confirmLabel).toBe('Save the change');
+    await confirm(off.tool!, off.parsed, ada);
+    const after2 = await q<{
+      settings: { auto: { nudges: boolean; nudgeReviewedAt: string | null } };
+    }>('attention.settings');
+    expect(after2.settings.auto.nudges).toBe(false);
+    expect(after2.settings.auto.nudgeReviewedAt).toBe(on.settings.auto.nudgeReviewedAt);
+
+    // Turned back on, or customers asked to confirm again, the card says it reaches customers on its own.
+    const backOn = await prepare(
+      'update_action_center_settings',
+      { followUpOnQuietLeads: true },
+      ada,
+    );
+    expect(backOn.card.confirmLabel).toBe('Save the change');
+    expect(backOn.card.warnings).toEqual([
+      {
+        kind: 'caution',
+        text: expect.stringContaining('HandsFreeOS texts quiet leads a follow-up on its own'),
+      },
+    ]);
+    const quiet = await prepare(
+      'update_action_center_settings',
+      { askCustomersToConfirmVisits: false },
+      owner,
+    );
+    // Turning something off reaches nobody.
+    expect(quiet.card.warnings).toEqual([]);
+    await confirm(quiet.tool!, quiet.parsed, owner);
+    const askAgain = await prepare(
+      'update_action_center_settings',
+      { askCustomersToConfirmVisits: true },
+      owner,
+    );
+    expect(askAgain.card.warnings[0]!.text).toContain('asks customers to confirm their visits');
+    await confirm(askAgain.tool!, askAgain.parsed, owner);
+  });
+
+  it('sets gone quiet by open stage, as the screen does, and says which stages keep their own number', async () => {
+    const { pipelines } = await q<{
+      pipelines: { stages: { id: string; name: string; kind: string }[] }[];
+    }>('pipeline.list');
+    const first = pipelines[0]!.stages.find((s) => s.kind === 'open')!;
+    const stale = async () =>
+      (
+        await q<{ settings: { stale: { days: number; stageDays: Record<string, number> } } }>(
+          'attention.settings',
+        )
+      ).settings.stale;
+
+    const byStage = await prepare(
+      'update_action_center_settings',
+      { goneQuietByStage: [{ stageId: first.id, days: 3 }] },
+      owner,
+    );
+    expect(fieldOf(byStage.card, 'Gone quiet after, by stage')).toBe(`${first.name}: 3 days`);
+    await confirm(byStage.tool!, byStage.parsed, owner);
+    expect((await stale()).stageDays).toEqual({ [first.id]: 3 });
+
+    // get_settings lists each open stage by name, with its number and whether it is its own.
+    const { result } = await readTool('get_settings', 'action_center', owner);
+    const listed = (result['actionCenter'] as { goneQuietByStage: unknown[] }).goneQuietByStage;
+    expect(listed).toContainEqual(
+      expect.objectContaining({ stageId: first.id, days: 3, ownNumber: true }),
+    );
+
+    const every = await prepare('update_action_center_settings', { goneQuietAfterDays: 10 }, owner);
+    expect(fieldOf(every.card, 'Gone quiet after')).toBe(
+      `10 days, in every open stage without its own number (${first.name} keeps 3 days)`,
+    );
+    await confirm(every.tool!, every.parsed, owner);
+    expect(await stale()).toEqual({ days: 10, stageDays: { [first.id]: 3 } });
+
+    // Back to every stage's number: its own is dropped, as the screen drops it.
+    const back = await prepare(
+      'update_action_center_settings',
+      { goneQuietByStage: [{ stageId: first.id, days: null }] },
+      owner,
+    );
+    expect(fieldOf(back.card, 'Gone quiet after, by stage')).toBe(`${first.name}: 10 days`);
+    await confirm(back.tool!, back.parsed, owner);
+    expect(await stale()).toEqual({ days: 10, stageDays: {} });
+
+    const won = pipelines[0]!.stages.find((s) => s.kind === 'won')!;
+    await expect(
+      prepare(
+        'update_action_center_settings',
+        { goneQuietByStage: [{ stageId: won.id, days: 5 }] },
+        owner,
+      ),
+    ).rejects.toThrow('Won and lost stages never go quiet');
+  });
+
+  it('tells an admin who can see the Deleted bin, from the permission it needs', async () => {
+    const { result } = await readTool('get_settings', 'deleted_bin', ada);
+    expect(result['deletedBin']).toBeNull();
+    // Delete for good is the owners’ unless an owner gives it, so “An owner or admin can” would be wrong here.
+    expect(result['note']).toContain(
+      'deletedBin. An owner can, or someone an owner gave “Delete for good” to in Settings → Permissions.',
+    );
   });
 
   it('won’t switch off what the screen always shows', async () => {

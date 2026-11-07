@@ -11,26 +11,36 @@
  */
 
 import {
+  binItemDetail,
+  binItemWhen,
+  binKindLabel,
+  BUSINESS_PAGE_SETTINGS_WORDS,
   chatSnippet,
   chatSnippetSrc,
   consentPolicyPath,
   consentTermsPath,
+  CUSTOMIZABLE_PERMISSIONS,
   handoverScreen,
+  hasWorkspacePermission,
   migrationStatusWords,
   notificationStates,
   partSays,
+  registry,
   SCORED_PART_LABELS,
   SCORED_PARTS,
   screenPlace,
   settingsArea,
   settingsWhere,
   type AssistantCard,
+  type BinItemLike,
   type MainOfferTryOut,
+  type Permission,
   type SettingsArea,
   type SettingsAreaInfo,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { addOnsRead, addOnsTidy, voteRead } from './addons-page';
+import { publicOriginFor } from './full-links';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { query, type ReadTool } from './tools-read';
@@ -42,8 +52,11 @@ interface AreaQuery {
   readonly as: string;
   /** What it needs besides the workspace (migrations are listed by organization). */
   readonly input?: (ctx: ToolContext) => Record<string, unknown>;
-  /** The part of the answer the model needs, when the query says much more. */
-  readonly shape?: (value: unknown) => unknown;
+  /**
+   * The part of the answer the model needs, when the query says much more. It may read more as the person (the
+   * address their pages are on), and says times in the business's own time zone.
+   */
+  readonly shape?: (value: unknown, db: Db, ctx: ToolContext) => unknown;
 }
 
 const DAY = 86_400_000;
@@ -76,6 +89,107 @@ export function teammateRead(v: unknown): unknown {
 
 type Site = { slug: string; path: string; page: boolean } | null;
 const siteOf = (v: unknown): Site => (v as { site?: Site } | null)?.site ?? null;
+
+/**
+ * Your page (Settings → Workspace), as its card shows it: on or off, and the link Copy the link copies. On the
+ * business's own domain, once it is serving, that is the domain's start page; otherwise the booking site's own address,
+ * a path here, which the executor writes out whole. `serving` is that domain's address, or '' when none is serving.
+ */
+export function yourPageRead(site: Site, serving: string) {
+  const W = BUSINESS_PAGE_SETTINGS_WORDS;
+  if (!site)
+    return {
+      yourPage: `Off: there’s no booking site yet. ${W.label}, on Settings → Workspace, turns it on and makes one.`,
+      yourPageLink: null,
+    };
+  if (!site.page)
+    return {
+      yourPage: `Off: ${W.label} on Settings → Workspace turns it on. Until then ${site.path} shows the booking page.`,
+      yourPageLink: null,
+    };
+  return serving
+    ? {
+        yourPage: `Showing at ${serving}, the start page of the business’s own web address, and at ${site.path} too. ${W.fill}`,
+        yourPageLink: serving,
+      }
+    : { yourPage: `Showing at ${site.path}. ${W.fill}`, yourPageLink: site.path };
+}
+
+/** Your page from what booking_site.get answered, on the address the business's pages are on now. */
+const yourPageOf = async (v: unknown, db: Db, ctx: ToolContext) =>
+  yourPageRead(siteOf(v), await publicOriginFor(db, ctx, ''));
+
+/**
+ * What Home watches for, with Gone quiet after as Settings → Automations sets it: by open stage, each with its own
+ * number or every stage's. Won and lost stages never go quiet, so they aren't listed.
+ */
+const actionCenterOf = async (v: unknown, db: Db, ctx: ToolContext) => {
+  const got = v as {
+    settings: {
+      stale: { days: number; stageDays: Record<string, number> };
+      auto: { nudgeReviewedAt: string | null };
+    };
+  };
+  const pipes = await query<{
+    pipelines: { name: string; stages: { id: string; name: string; kind: string }[] }[];
+  }>(db, ctx, 'pipeline.list').catch(() => null);
+  const own = new Map(Object.entries(got.settings.stale.stageDays));
+  return {
+    ...got,
+    goneQuietByStage: pipes?.pipelines.flatMap((p) =>
+      p.stages
+        .filter((st) => st.kind === 'open')
+        .map((st) => ({
+          stageId: st.id,
+          stage: `${st.name} (${p.name})`,
+          days: own.get(st.id) ?? got.settings.stale.days,
+          ownNumber: own.has(st.id),
+        })),
+    ),
+    ...(got.settings.auto.nudgeReviewedAt
+      ? {}
+      : {
+          followUps:
+            'Off until an owner reads the wording: turning them on puts the wording on a card, and an owner’s Confirm is Looks good, turn on.',
+        }),
+  };
+};
+
+/** How many the Deleted bin lists at once: the most bin.list gives in one page. */
+const BIN_LISTED = 100;
+
+/**
+ * The Deleted bin as Settings → Deleted bin lists it, newest first: what each thing is in the screen's words, what went
+ * with it, who deleted it, and when it goes for good or that it is being deleted now. The binItemId is what
+ * restore_from_bin brings back; one older than these it finds by name.
+ */
+export function binRead(v: unknown, timeZone: string, now = Date.now()) {
+  const out = v as {
+    items?: (BinItemLike & { id: string; name: string })[];
+    nextCursor?: string | null;
+  } | null;
+  const items = (out?.items ?? []).map((i) => ({
+    binItemId: i.id,
+    kind: binKindLabel(i),
+    name: i.name,
+    detail: binItemDetail(i, timeZone),
+    deleted: binItemWhen(i, timeZone, now),
+    deletedBy: i.deletedBy?.name ?? null,
+    deletedAt: i.deletedAt,
+    goneForGoodAt: i.purgeAfter,
+    ...(i.emptying ? { beingDeletedNow: true } : {}),
+  }));
+  const more = !!out?.nextCursor;
+  return {
+    items,
+    more,
+    ...(more
+      ? {
+          note: `These are the newest ${items.length}; there are more, older ones (Show more under the list). restore_from_bin finds an older one by its name.`,
+        }
+      : {}),
+  };
+}
 
 /**
  * The privacy policy and terms HandsFreeOS hosts for the business, which its simple page, its chat's agreement box and
@@ -137,7 +251,11 @@ export function triesRead(v: unknown): unknown {
 
 /** What one area is read with: the same queries the screen behind it runs. */
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
-  business: [{ name: 'workspace.get', as: 'business' }],
+  business: [
+    { name: 'workspace.get', as: 'business' },
+    // Your page, on the same screen: on or off, and its whole link as Copy the link gives it.
+    { name: 'booking_site.get', as: 'yourPage', shape: yourPageOf },
+  ],
   branded_domain: [{ name: 'branded_domain.get', as: 'brandedDomain' }],
   main_offer: [
     { name: 'main_offer.get', as: 'mainOffer' },
@@ -167,32 +285,14 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'custom_record_type.list', as: 'kindsOfRecords' },
     { name: 'relationship_type.list', as: 'relationshipTypes' },
   ],
-  // What's in the bin, by name, when it was deleted and when it goes for good; never what's inside. The id is what
-  // restore_from_bin brings back.
+  // What's in the bin as its screen lists it: what each is, what went with it, who deleted it and when it goes for
+  // good. The id is what restore_from_bin brings back.
   deleted_bin: [
     {
       name: 'bin.list',
       as: 'deletedBin',
-      shape: (v) =>
-        (
-          (
-            v as {
-              items?: {
-                id: string;
-                kind: string;
-                name: string;
-                deletedAt: string;
-                purgeAfter: string;
-              }[];
-            }
-          )?.items ?? []
-        ).map((i) => ({
-          binItemId: i.id,
-          kind: i.kind,
-          name: i.name,
-          deletedAt: i.deletedAt,
-          goneForGoodAt: i.purgeAfter,
-        })),
+      input: () => ({ limit: BIN_LISTED }),
+      shape: (v, _db, ctx) => binRead(v, ctx.timezone),
     },
   ],
   // Archived ones too, listed last with their status, as Settings → Calendars shows them.
@@ -206,18 +306,11 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
       as: 'bookingSite',
       // Your page (Settings → Workspace) is the booking site's own address once it's on, and the start page of the
       // business's own web address while one is working.
-      shape: (v) => {
-        const site = siteOf(v);
-        return {
-          ...(v as object),
-          yourPage: !site
-            ? 'Off: there’s no booking site yet.'
-            : site.page
-              ? `Showing at ${site.path}, and at the start of the business’s own web address while one is working`
-              : 'Off: Show your page on Settings → Workspace turns it on.',
-          privacyAndTerms: legalPages(site),
-        };
-      },
+      shape: async (v, db, ctx) => ({
+        ...(v as object),
+        ...(await yourPageOf(v, db, ctx)),
+        privacyAndTerms: legalPages(siteOf(v)),
+      }),
     },
   ],
   team: [
@@ -311,7 +404,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'usage.statement', as: 'statement' },
     { name: 'founding.mine', as: 'founding' },
   ],
-  action_center: [{ name: 'attention.settings', as: 'actionCenter' }],
+  action_center: [{ name: 'attention.settings', as: 'actionCenter', shape: actionCenterOf }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate', shape: teammateRead }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
   my_account: [
@@ -415,6 +508,28 @@ const TIDY: Partial<
 > = { add_ons: addOnsTidy };
 
 /**
+ * Who sees what a permission opens, by default: owners and admins, owners alone, or owners and whoever an owner gave
+ * it to on Settings → Permissions (Delete for good, which the Deleted bin needs, is one).
+ */
+export function whoSees(permission: Permission | null | undefined): string {
+  if (!permission || hasWorkspacePermission('admin', permission)) return 'An owner or admin can.';
+  const given = CUSTOMIZABLE_PERMISSIONS.find((c) => c.permission === permission);
+  return given
+    ? `An owner can, or someone an owner gave “${given.label}” to in Settings → Permissions.`
+    : 'Only an owner can.';
+}
+
+/** What the person couldn't see in an area, and who can, part by part when they differ. */
+function hiddenNote(area: SettingsArea, missing: readonly string[]): string {
+  const who = (as: string) =>
+    whoSees(registry.query(QUERIES[area].find((q) => q.as === as)?.name ?? '')?.permission);
+  const sayings = [...new Set(missing.map(who))];
+  return `Not this person's to see: ${missing.join(', ')}. ${
+    sayings.length === 1 ? sayings[0] : missing.map((as) => `${as}: ${who(as)}`).join(' ')
+  }`;
+}
+
+/**
  * Reads one area. A query the person's role refuses answers `null` for that part rather than failing the tool: the
  * model then says who can see it, which is what the screen does by not showing the tab.
  */
@@ -429,7 +544,7 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
   const parts = await Promise.all(
     QUERIES[info.area].map(async (q) => {
       const value = await query<unknown>(db, ctx, q.name, q.input?.(ctx)).catch(() => null);
-      const shaped = value === null ? null : q.shape ? q.shape(value) : value;
+      const shaped = value === null ? null : q.shape ? await q.shape(value, db, ctx) : value;
       return [q.as, q.as === 'me' ? meShape(value, await answersSupport) : shaped] as const;
     }),
   );
@@ -442,9 +557,7 @@ async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promi
       canChange: info.canChange,
       theyDoThemselves: info.handovers.map((h) => h.what),
       ...(TIDY[info.area]?.(read) ?? read),
-      ...(missing.length
-        ? { note: `Not this person's to see: ${missing.join(', ')}. An owner or admin can.` }
-        : {}),
+      ...(missing.length ? { note: hiddenNote(info.area, missing) } : {}),
     },
   };
 }

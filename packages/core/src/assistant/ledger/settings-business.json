@@ -1,7 +1,7 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
@@ -406,15 +406,15 @@
       "path": "Business → Website",
       "kind": "do",
       "file": "apps/web/src/components/settings/workspace-form.tsx:135",
-      "covered": "partly",
-      "by": "update_business sets it; empty dropped, cannot clear"
+      "covered": "yes",
+      "by": "update_business website (null takes it off)"
     },
     {
       "path": "Business → Review link",
       "kind": "do",
       "file": "apps/web/src/components/settings/workspace-form.tsx:154",
-      "covered": "partly",
-      "by": "update_business sets it; cannot clear"
+      "covered": "yes",
+      "by": "update_business reviewLink (null takes it off)"
     },
     {
       "path": "Business → Business hours (each day open/close/closed)",
@@ -456,7 +456,7 @@
       "kind": "do",
       "file": "apps/web/src/components/look/look-editor.tsx:253",
       "covered": "person",
-      "by": "file from device (look.begin_upload NEVER)"
+      "by": "file from device (look.begin_upload NEVER); settings_help business hands over Upload a logo under Logo and colour"
     },
     {
       "path": "Business → Look → Remove logo",
@@ -504,15 +504,15 @@
       "path": "Business → Your page → link + Copy + Open",
       "kind": "see",
       "file": "apps/web/src/components/settings/page-card.tsx:80",
-      "covered": "partly",
-      "by": "get_settings booking_site gives /book/<slug>, not full address"
+      "covered": "yes",
+      "by": "get_settings business yourPage.yourPageLink, written out whole (the own domain’s start page once it serves)"
     },
     {
       "path": "Business → Your page → fill note / cannot change",
       "kind": "see",
       "file": "apps/web/src/components/settings/page-card.tsx:96",
-      "covered": "partly",
-      "by": "booking_site readable; note not given"
+      "covered": "yes",
+      "by": "get_settings business yourPage says the fill note; do_booking_site_set_page refuses whoever can’t"
     },
     {
       "path": "Business → Getting started → show/hide switch",
@@ -575,7 +575,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/branded-domain-card.tsx:264",
       "covered": "yes",
-      "by": "manage_web_address check"
+      "by": "check_web_address (runs on its own)"
     },
     {
       "path": "Business → Branded domain → Remove + confirm",
@@ -645,7 +645,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/pipelines-editor.tsx:177",
       "covered": "yes",
-      "by": "manage_pipeline rename_stage"
+      "by": "manage_pipeline rename_stage (name, and Counts as on the card)"
     },
     {
       "path": "Pipelines → Delete stage",
@@ -784,8 +784,8 @@
       "path": "Tags → What the AI changed lately → customer, when, trigger, change, reason",
       "kind": "see",
       "file": "apps/web/src/components/settings/ai-tagging.tsx:311",
-      "covered": "partly",
-      "by": "ai_tagging_status latestLooks: 10 of the 15 shown"
+      "covered": "yes",
+      "by": "ai_tagging_status latestLooks: the same 15; older ones through read_audit_list"
     },
     {
       "path": "Tags → What the AI changed lately → open the customer",
@@ -819,15 +819,15 @@
       "path": "Fields → Move up / Move down",
       "kind": "do",
       "file": "apps/web/src/components/settings/fields-settings.tsx:180",
-      "covered": "no",
-      "by": "manage_custom_field has no position"
+      "covered": "yes",
+      "by": "manage_custom_field move (order)"
     },
     {
       "path": "Fields → Edit",
       "kind": "do",
       "file": "apps/web/src/components/settings/fields-settings.tsx:197",
       "covered": "yes",
-      "by": "manage_custom_field change"
+      "by": "manage_custom_field change (renameChoices keeps the answers)"
     },
     {
       "path": "Fields → Retire + confirm",
@@ -1303,28 +1303,28 @@
       "kind": "see",
       "file": "apps/web/src/components/bin/deleted-bin.tsx:201",
       "covered": "yes",
-      "by": "get_settings deleted_bin name, kind"
+      "by": "get_settings deleted_bin name, kind in the screen’s words"
     },
     {
       "path": "Deleted bin → item detail (what went with it)",
       "kind": "see",
       "file": "apps/web/src/components/bin/deleted-bin.tsx:205",
-      "covered": "no",
-      "by": "get_settings deleted_bin drops contents"
+      "covered": "yes",
+      "by": "get_settings deleted_bin detail"
     },
     {
       "path": "Deleted bin → Deleted by whom, on date",
       "kind": "see",
       "file": "apps/web/src/components/bin/deleted-bin.tsx:207",
-      "covered": "partly",
-      "by": "deletedAt given; deletedBy dropped"
+      "covered": "yes",
+      "by": "get_settings deleted_bin deletedBy, deleted"
     },
     {
       "path": "Deleted bin → Gone for good on / Being deleted now",
       "kind": "see",
       "file": "apps/web/src/components/bin/deleted-bin.tsx:207",
-      "covered": "partly",
-      "by": "goneForGoodAt given; emptying dropped"
+      "covered": "yes",
+      "by": "get_settings deleted_bin deleted, beingDeletedNow"
     },
     {
       "path": "Deleted bin → Bring back",
@@ -1351,8 +1351,8 @@
       "path": "Deleted bin → Show more",
       "kind": "do",
       "file": "apps/web/src/components/bin/deleted-bin.tsx:246",
-      "covered": "partly",
-      "by": "get_settings deleted_bin first page only"
+      "covered": "yes",
+      "by": "get_settings deleted_bin: the newest 100 and more; restore_from_bin finds older ones by name"
     },
     {
       "path": "Usage → Balance amount + headline",
@@ -1443,7 +1443,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/usage-page.tsx:407",
       "covered": "person",
-      "by": "typing a card on the provider page"
+      "by": "typing a card on the provider page; settings_help usage hands it over"
     },
     {
       "path": "Usage → Remove card",
@@ -1485,7 +1485,7 @@
       "kind": "do",
       "file": "apps/web/src/components/settings/founding-plan-card.tsx:93",
       "covered": "person",
-      "by": "card payment (founding.pay_renewal NEVER)"
+      "by": "card payment on Stripe’s page (founding.pay_renewal NEVER); settings_help usage hands it over"
     },
     {
       "path": "Usage → Founding plan: Stop renewing + dialog",
@@ -1743,15 +1743,15 @@
       "path": "Adjust → Intake: message, placeholders, Save",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:887",
-      "covered": "no",
-      "by": "update_automations has no intake message"
+      "covered": "yes",
+      "by": "update_automations intakeMessage"
     },
     {
       "path": "Adjust → Intake: Use the standard wording",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:928",
-      "covered": "no",
-      "by": "no intake message field"
+      "covered": "yes",
+      "by": "update_automations intakeMessage null"
     },
     {
       "path": "Adjust → Intake: preview",
@@ -1778,22 +1778,22 @@
       "path": "Adjust → Maintenance: first text days before",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:1034",
-      "covered": "no",
-      "by": "update_automations has no leadDays"
+      "covered": "yes",
+      "by": "update_automations maintenanceDaysBefore"
     },
     {
       "path": "Adjust → Maintenance: days between texts and card",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:1049",
-      "covered": "no",
-      "by": "no secondAfterDays"
+      "covered": "yes",
+      "by": "update_automations maintenanceDaysBetween"
     },
     {
       "path": "Adjust → Maintenance: at most a day",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:1064",
-      "covered": "no",
-      "by": "no maxPerDay"
+      "covered": "yes",
+      "by": "update_automations maintenanceMostPerDay"
     },
     {
       "path": "Adjust → Invoices: days after due",
@@ -1869,15 +1869,15 @@
       "path": "Wording editor → Looks good, turn on (owner only)",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:1588",
-      "covered": "partly",
-      "by": "yes for re-engage (update_automations turnOn card); not for quiet-lead follow-ups"
+      "covered": "yes",
+      "by": "update_automations turnOn reengage_dead_leads and update_action_center_settings followUpOnQuietLeads: the wording on the card, an owner’s Confirm"
     },
     {
       "path": "Adjust → Gone quiet: per-stage days",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:1668",
-      "covered": "partly",
-      "by": "goneQuietAfterDays sets one number, not per stage"
+      "covered": "yes",
+      "by": "update_action_center_settings goneQuietByStage"
     },
     {
       "path": "Adjust → Gone quiet: Every stage",
@@ -1890,8 +1890,8 @@
       "path": "Adjust → Gone quiet: Follow up on leads that went quiet",
       "kind": "do",
       "file": "apps/web/src/components/settings/automations/panels.tsx:1717",
-      "covered": "partly",
-      "by": "followUpOnQuietLeads refused until wording read on screen"
+      "covered": "yes",
+      "by": "update_action_center_settings followUpOnQuietLeads (the wording on the card for an owner the first time)"
     },
     {
       "path": "Adjust → Gone quiet: follow-up wording",
@@ -2174,8 +2174,8 @@
       "kind": "words",
       "where": "Settings → Workspace, \"Your page\" card: the full link with \"Copy the link\" and Open (and every booking or calendar link the person asks for)",
       "gap": "No read gives a whole public link. Read tools get only (db, ctx, args), and ToolContext has no webUrl (runtime.ts:91-98), so get_settings cannot build an origin. business returns workspace.get, and booking_site returns booking_site.get, whose only address is path \"/book/<slug>\" (calendar.ts:1068). manage_booking_site's card and outcome also give only \"/book/<slug>\" (tools-settings-calendar.ts:939, 968). The only sample link the model sees is https://handsfreeos.com/book/acme (prompt.ts:49), but the real origin is https://app.handsfreeos.com (worker fly.toml:45 WEB_URL), or https://<domain> once a branded domain is verified with its certificate. When a branded domain is serving, Your page's link is the domain root with no /book path (page-card.tsx:59). The \"handsfreeos.com\" wording in manage_web_address (tools-setup.ts:1747, 1797, 1842) and settings-map.ts:141 names the site loosely, not as a URL. It is a lesser fix than the missing link.",
-      "fix": "Add webUrl to ToolContext (or pass extra.webUrl to read tools). In tools-settings.ts QUERIES.booking_site, and in the business area through a booking_site.get + branded_domain.get pair, return `link` built the same way as tools-forms.ts:385-389: branded origin when status==='verified' && certificateReady, else webUrl, plus site.path. For Your page, return `pageLink`: the branded origin alone when serving, else webUrl + path, and null when site.page is false. Return the same full link in manage_booking_site's outcome (tools-settings-calendar.ts:968). Change prompt.ts:49's example to a neutral https://acme.com/book.",
-      "status": "open",
+      "fix": "Fixed: get_settings (area business) gives Your page as its card shows it: on or off, and yourPageLink, the link Copy the link copies. That is the start page of the business’s own web address once it serves, or else the booking site’s own address. The executor writes every public path in a result out whole on the address the business’s pages are on, so the booking_site area’s links come whole too.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2184,8 +2184,8 @@
       "kind": "words",
       "where": "Settings → Usage & balance, the Top up button (and the phone's Usage & balance)",
       "gap": "The SYSTEM prompt's list of things only the person can do includes \"topping up their balance\" and tells the model to call settings_help (prompt.ts:34). settings_help's own description says the same (tools.ts:360). The Assistant can in fact top up: wallet.top_up is a SCREEN_ACTION (coverage.ts:161), SETTING_TOOLS maps usage.balance to do_wallet_top_up (coverage.ts:561), and usage.canChange includes \"top up the balance now, from the card on file\" (settings-map.ts:808). Only the auto top-up tool's description says top-ups go through do_wallet_top_up (tools-billing.ts:318), and the model doesn't see it unless that tool is loaded.",
-      "fix": "In prompt.ts:34 and tools.ts:360, replace \"topping up their balance\" with \"adding or changing the card on file\". Add to prompt.ts:34: \"a top-up from the card on file is do_wallet_top_up, on a card\".",
-      "status": "open",
+      "fix": "Fixed: the SYSTEM prompt’s list of the person’s own steps says putting a card on their balance, not topping it up. settings_help says a top-up from the card on file is do_wallet_top_up, on a card. Its handovers for usage are adding or changing the card and paying a refused founding renewal, both on the payment provider’s page.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2194,8 +2194,8 @@
       "kind": "read",
       "where": "Settings → Deleted bin: each row's name, kind, \"Deleted by X on <date>\", what went with it, \"Being deleted now\", and Show more",
       "gap": "bin.list returns deletedBy, emptying, contents and nextCursor (bin.ts:97-112). The deleted_bin shape keeps only id, kind, name, deletedAt and purgeAfter (tools-settings.ts:104-128). It drops who deleted each item, though settings-map onScreen promises \"who deleted it\" (settings-map.ts:304). It also drops \"Being deleted now\" and what went with each item, returns the raw kind (custom_record, appointment), and gives no sign that more items exist past the first page of 50 (crm.ts:16). restore_from_bin pages through every item (tools-settings-more.ts:413-429), but its binItemId has to come from that capped list. Severity is lowered: most businesses' 30-day bin holds under 50 items, and nothing can be lost.",
-      "fix": "In the tools-settings.ts deleted_bin shape, add per item: deletedBy: i.deletedBy?.name ?? null, beingDeletedNow: i.emptying, kind: binKindLabel(i), and detail: binItemDetail(i, timezone) from packages/core/src/bin-words.ts:278-290. Return { items, more: nextCursor !== null }. Either add `name`/`cursor` inputs to get_settings for deleted_bin, or let restore_from_bin take a name and search all pages, as binItemOf already does.",
-      "status": "open",
+      "fix": "Fixed: get_settings (area deleted_bin) lists the newest 100, as the screen does: what each is in the screen’s words (a record’s own kind, Booking), what went with it, who deleted it, “Deleted by X on <day> · Gone for good on <day>” or Being deleted now, and more with a note when there are older ones. restore_from_bin finds an older one by its name, and by its kind when two share a name.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2204,8 +2204,8 @@
       "kind": "words",
       "where": "Settings → Workspace: the \"Logo and colour\", \"Your page\" (link and Show your page switch) and \"Getting started guide\" cards",
       "gap": "Two cards are real gaps. \"Logo and colour\" and \"Your page\" are not in business.onScreen or business.canChange (settings-map.ts:125-133), and \"Your page\" appears nowhere in the settings map. The tools exist: do_look_set, do_look_find and do_booking_site_set_page (coverage.ts:143-144,212,502-506). Uploading a logo is NEVER (coverage.ts:397), and no handover says where to do it. The Getting started guide part is already covered: places-map.ts:48 names \"Settings → Workspace, Getting started guide\", and do_onboarding_set_enabled is mapped (coverage.ts:507).",
-      "fix": "Add to business.onScreen: \"Logo and colour: Upload a logo, Find it from my website, Remove, and the colour\", \"Your page: Show your page switch, the link with Copy the link and Open\" and \"Getting started guide\". Add to business.canChange: \"the business colour, finding the logo from its website, or taking the logo off\" and \"show or hide the one-page site (Your page)\". Add a handover { what: 'upload a logo', why: 'it is a picture from your own computer or phone', steps: ['Open Settings → Workspace.', 'In Logo and colour, press Upload a logo and pick the picture.'] }.",
-      "status": "open",
+      "fix": "Fixed: Logo and colour, Your page and Getting started are on business.onScreen and canChange. Uploading a logo has a handover saying where (Settings → Workspace, Logo and colour, Upload a logo), and the SYSTEM prompt names a logo on their computer among the person’s own steps.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2214,8 +2214,8 @@
       "kind": "do",
       "where": "Settings → Automations, intake panel: the \"Intake message\" box with Save and \"Use the standard wording\"",
       "gap": "update_automations has intakeFormId but no input for the message (tools-extra.ts core:285-410). list_automations returns only the intake form's name (worker tools-extra.ts:754-756). The screen edits intake.message, with Save and the standard wording (panels.tsx:884-900; automations/settings.ts:107-118). The only way to read it is the raw workspace.settings.automations.intake.message inside get_settings(business), which exists only after the Automations page has been saved once. Nothing points the model there.",
-      "fix": "In listAutomations (worker tools-extra.ts:754), return intake: { form, message: a.intake.message, standard: a.intake.message === DEFAULT_INTAKE_MESSAGE }. Add intakeMessage: text(480).nullable().optional() to update_automations, with null meaning DEFAULT_INTAKE_MESSAGE, validated with intakeMessageProblem. Plan it in planAutomations as intake: { ...now.intake, message }, and show it on the card as \"Intake message\".",
-      "status": "open",
+      "fix": "Fixed: list_automations gives intakeMessage and intakeMessageIsStandard. update_automations takes intakeMessage, where null puts the standard wording back as Use the standard wording does. The settings’ own rules check it, and the card shows it as Intake message, warning that it reaches customers once a form is picked.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2224,8 +2224,8 @@
       "kind": "do",
       "where": "Settings → Automations, maintenance panel: days before it is due, days between each step, at most a day",
       "gap": "The maintenance panel sets leadDays, secondAfterDays and maxPerDay (panels.tsx:1027-1060; settings.ts:133-137). list_automations returns only template and planTemplate (worker tools-extra.ts:766), and update_automations has no input for any of the three. They are reachable only as raw settings.automations.maintenance through get_settings(business), after a save. These rows have no setting= key, which is why the coverage test never flagged them.",
-      "fix": "In listAutomations, return maintenanceDue: { message, planMessage, daysBefore: leadDays, daysBetween: secondAfterDays, mostPerDay: maxPerDay }. Add to update_automations maintenanceDaysBefore: z.int().min(0).max(60), maintenanceDaysBetween: z.int().min(1).max(30) and maintenanceMostPerDay: z.int().min(1).max(200), merged into maintenance at tools-extra.ts:1002-1030. Add setting keys to the three panel rows so coverage checks them.",
-      "status": "open",
+      "fix": "Fixed: update_automations takes maintenanceDaysBefore, maintenanceDaysBetween and maintenanceMostPerDay, shown on the card in the Adjust sheet’s words, and list_automations’ maintenanceDue gives daysBefore, daysBetween and mostPerDay. These rows still have no settings catalogue key (they aren’t in settings search), so the coverage test can’t flag them; the tool description and settings-map name them instead.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2234,8 +2234,8 @@
       "kind": "never",
       "where": "Settings → Automations, \"Text leads that went quiet\": the owner-only \"Looks good, turn on\"",
       "gap": "update_action_center_settings blocks followUpOnQuietLeads=true until nudgeReviewedAt is set (tools-settings-money.ts:699-725). Re-engage dead leads, which has the same review-first shape, shows its message on the card, and Confirm counts as Looks good, turn on (worker tools-extra.ts:870-882, 1114-1117). docs/operations.md:6970 records the owner's decision that every Automations row can be done this way. The screen keeps this to owners (\"Chris's rule\": an owner reads the words; panels.tsx:1384, 1423, 1579-1590). Any fix must keep that gate. The re-engage path doesn't check for an owner either.",
-      "fix": "In tools-settings-money.ts prepare: when followUpOnQuietLeads===true and nudgeReviewedAt is null, and the person is an owner, put next.nudge.template on the card as a \"Follow-up wording\" field with the caution \"Read the wording above: saving is your Looks good, turn on.\" In commit, set auto.nudgeReviewedAt = now. For a non-owner, keep the block, reworded as \"An owner turns follow-ups on after reading the wording.\" Add the same owner check to the reengage readFirst branch (tools-extra.ts:870).",
-      "status": "open",
+      "fix": "Fixed: turning on Text leads that went quiet the first time puts the follow-up wording first on a card titled Turn on follow-ups, with Looks good, turn on. An owner’s Confirm is the screen’s Looks good, turn on, and it stamps the review. Anyone else gets a blocked card saying an owner turns it on, and Confirm refuses them too. Re-engage dead leads now has the same owner gate, as the screen shows that button to owners alone.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2244,8 +2244,8 @@
       "kind": "do",
       "where": "Settings → Automations, \"Text leads that went quiet\": one gone-quiet box per open stage",
       "gap": "Changing it is a real gap. update_action_center_settings sets only stale.days (goneQuietAfterDays, tools-settings-money.ts:610). The screen keeps a number per open stage in stale.stageDays (panels.tsx:1612-1623), and SETTING_TOOLS maps adjust.gone_quiet to the overall number only (coverage.ts:542). The card says \"Gone quiet after N days\" without saying that stages with their own number keep it. Reading it is not a gap: get_settings(action_center) returns attention.settings unshaped, stale.stageDays included, keyed by stage id, and the context lists stage ids and names.",
-      "fix": "Add goneQuietByStage: z.array(z.object({ stageId: uuid, days: z.int().min(1).max(365).nullable() })).max(50) to update_action_center_settings. null, or days equal to stale.days, deletes the override, as setStale does. On the card, list each stage's change by name. When goneQuietAfterDays changes while overrides exist, add a note: \"<stage> keeps its own N days.\"",
-      "status": "open",
+      "fix": "Fixed: update_action_center_settings takes goneQuietByStage: an open stage’s own number, or null to go back to every stage’s. It refuses won, lost or unknown stages and names the open ones. When goneQuietAfterDays changes, the card says which stages keep their own number. get_settings (area action_center) lists goneQuietByStage with each open stage’s name, days and whether the number is its own. SETTING_TOOLS maps adjust.gone_quiet to both fields.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2254,7 +2254,7 @@
       "kind": "words",
       "where": "Phone app → More → Settings: the \"This business\" section (Usage & balance, Main offer, Partners), Face ID, Businesses on this phone, My safety",
       "gap": "The SYSTEM sentence is wrong. It says the phone's Settings holds only notifications, appearance and their cell (prompt.ts:38). But the prompt's own PHONE_APP list already says the phone's Settings has My cell phone, Face ID, Businesses on this phone and Usage & balance (places-map.ts:626), so the model gets two contradicting lines. Neither mentions Main offer or Partners, which show under This business (mobile settings/index.tsx:228-246). My safety is named in settings-map.ts:1021.",
-      "fix": "In prompt.ts:38, replace \"the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web\" with \"the phone app's own Settings is listed under The phone app below; the rest of the business is set up on the web\". In places-map.ts:626, add \"My safety, and under This business: Usage & balance, Main offer and Partners (while an add-on that uses them is on)\".",
+      "fix": "Left open: the my-account step fixes this.",
       "status": "open",
       "pr": null
     },
@@ -2264,8 +2264,8 @@
       "kind": "do",
       "where": "Settings → Fields: Move up / Move down on each field",
       "gap": "The screen reorders fields with custom_field.update { position } (fields-settings.tsx:71-88). manage_custom_field has no position input (core tools-setup.ts:82-104), and the worker's commit never sends position (worker tools-setup.ts:674-683).",
-      "fix": "Add 'move' to manage_custom_field's action enum, with `order: uuid[]` (every field of that record type, in order). At commit, renumber from 0 and call custom_field.update { customFieldId, position } only for the fields whose position changes, as fields-settings.tsx move() does. The card shows Order: A → B → C.",
-      "status": "open",
+      "fix": "Fixed: manage_custom_field has action move, with order: every field of one place, each once. The card shows the new order and the old one, and Confirm renumbers them through custom_field.update position, as Move up and Move down do.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2274,8 +2274,8 @@
       "kind": "do",
       "where": "Settings → Fields, a choice field's choices: editing a choice's label",
       "gap": "optionsFor matches choices by label (worker tools-setup.ts:469-474), so a renamed choice gets a new value. The card shows the old label under \"Taken off\" with \"stays on the records that already have it\" (tools-setup.ts:613-626), and records with the old value no longer match any choice. The screen keeps ChoiceDraft.value when a label is edited, so records keep their answer (fields-settings.tsx:227-231, 247-249).",
-      "fix": "Add renameChoices: z.array(z.object({ from: text(60), to: text(60) })).max(50).optional() to manage_custom_field. In optionsFor, keep the value of the option labelled `from` under the new `to` label. On the card, show \"Renamed: Old → New\" and leave renamed choices out of \"Taken off\".",
-      "status": "open",
+      "fix": "Fixed: manage_custom_field change takes renameChoices ({from, to}). A renamed choice keeps its stored value, so records keep their answer under the new name. The card shows Renamed “from → to”. It refuses a from that isn’t one of the choices, and a to left out of choices.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2284,8 +2284,8 @@
       "kind": "do",
       "where": "Settings → Pipelines, a stage's Edit dialog: the Kind select (open, won, lost)",
       "gap": "rename_stage commits stageKind (tools-settings-business.ts:282-287), but its card shows only Pipeline, Now and Was (215-226), so a kind change goes through unseen. The description doesn't say rename_stage can change a stage's kind (tools.ts:536), and neither does pipelines.canChange (settings-map.ts:244). archive_pipeline's card says \"nothing new can be added to it\", where the screen says \"It disappears from the board; its won and lost leads keep their history\" (pipelines-editor.tsx:80). The delete card falls back to \"the first stage\" (tools-settings-business.ts:236). The screen defaults to the first stage of the same kind (pipelines-editor.tsx:417-418), and stage.delete refuses when leads exist and no target is given (stage.delete.ts:36-40).",
-      "fix": "In the rename_stage card, add { label: 'Counts as', value } and a Was row whenever stageKind differs from found.stage.kind. Retitle it \"Change <stage>\", and refuse when leadCount>0, saying \"A stage with leads keeps its kind. Move the leads out first.\" Add \"rename_stage can also change what it counts as (open, won, lost)\" to the manage_pipeline description, and \"change what a stage counts as\" to pipelines.canChange. Reword the archive note to the screen's words. In delete_stage, default to the first other stage of the same kind, or block when leads exist and there is no target.",
-      "status": "open",
+      "fix": "Fixed: rename_stage’s card shows Counts as and Counted as when the kind changes, titled Change X. A stage with leads keeps its kind (rule stage_has_leads), and a pipeline’s only open, won or lost stage can’t change or go (last_stage_of_kind), both said before any card. archive_pipeline’s card says it comes off the board and its won and lost leads keep their history. delete_stage moves the leads to the stage named, or to the first other one of the same kind as the screen does, and the card says how many leads move and where.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2294,8 +2294,8 @@
       "kind": "words",
       "where": "Settings → Deleted bin, who can see it",
       "gap": "readArea adds the same note to every hidden part: \"Not this person's to see… An owner or admin can.\" (tools-settings.ts:290-292). deleted_bin needs records.delete, which only owners have by default (permissions.ts:35-37; admin's list has no records.delete). Owner-only permissions.manage (the permissions area) is wrong the same way. An admin is told that an admin can.",
-      "fix": "Add `whoCan` to SettingsAreaInfo, or work it out from info.permission and ROLE_PERMISSIONS: \"an owner\" when only owners hold it, otherwise \"an owner or admin\". For deleted_bin, override it to \"an owner, or someone an owner gave Delete for good to\". Use it in the note at tools-settings.ts:291.",
-      "status": "open",
+      "fix": "Fixed: a part the person can’t see says who can, from the permission it needs and who holds that by default: “An owner or admin can.”, “An owner can, or someone an owner gave “Delete for good” to in Settings → Permissions.” for the Deleted bin, or “Only an owner can.” for permissions.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2304,8 +2304,8 @@
       "kind": "do",
       "where": "Settings → Workspace, the business form: Website and Review link (clearing them, and the other saved links)",
       "gap": "website and reviewLink are z.url().optional() (tools.ts:524-525), so neither can be cleared. The screen saves an empty box as null (workspace-form.tsx:62-67). The commit writes settings.links = { review } (tools-settings-business.ts:134), and workspace.update merges settings only one level deep (workspace.update.ts:33), so links is replaced whole. Today review is the only key anyone writes under links (workspace-form.tsx:66, onboarding-setup.ts:328), so nothing is lost yet. Severity is lowered for that reason.",
-      "fix": "Change both to z.url().max(500).nullable().optional() (null clears). In the commit, read workspace.settings.links and write links: { ...now.links, review: args.reviewLink }, and website: args.website as given, null included, rather than through str(). On the card, show \"None\" for a cleared value.",
-      "status": "open",
+      "fix": "Fixed: update_business takes null for website or reviewLink to take it off, as an empty box does on the screen, and the card says None (taken off). Saving the review link keeps the other saved links, since workspace.update merges settings only one level deep.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2314,7 +2314,7 @@
       "kind": "do",
       "where": "Settings → Account, Side menu → Edit menu: Move up/down, Add group, naming a group, moving a place into a group, Ungroup",
       "gap": "arrange_my_menu's actions are hide, show, use_suggested and start_over (tools-extra.ts:421-434). The sheet also moves entries up and down, moves a place into a group, adds, renames and ungroups groups (menu-editor.tsx:12-17, 187-192, 215-289). Yet the prompt tells people they may have \"moved or grouped\" a place (prompt.ts:38).",
-      "fix": "Add actions to arrange_my_menu: move (place, before/after a place or group), group (name, places; at most MENU_GROUPS_MAX), rename_group (group, name) and ungroup (group). Apply them with core's moveKey, renameGroup and ungroup from packages/core/src/account/menu.ts, and save through the same menu setting.",
+      "fix": "Left open: the my-account step fixes this.",
       "status": "open",
       "pr": null
     },
@@ -2324,7 +2324,7 @@
       "kind": "words",
       "where": "Phone app → Settings → Appearance (this phone only)",
       "gap": "The phone keeps its appearance in deviceStore and ignores the account's (mobile lib/appearance.ts:9-10, 26-31). Its row carries settingKey account.appearance (mobile settings/index.tsx:285), which SETTING_TOOLS maps to update_my_account, and that writes the account theme (tools-settings-me.ts:105). The model can't tell a phone asker from a web one (context.ts has no surface field).",
-      "fix": "Change the update_my_account description to \"whether the web app is light or dark (the phone app keeps its own, in More → Settings → Appearance)\". Give the phone row its own key, phone.appearance, in SETTINGS_NEVER, with the reason \"kept on the phone itself: More → Settings → Appearance\".",
+      "fix": "Left open: the my-account step fixes this.",
       "status": "open",
       "pr": null
     },
@@ -2334,8 +2334,8 @@
       "kind": "read",
       "where": "Settings → Automations, AI calls panel: \"Call business landlines without a yes\"",
       "gap": "list_automations' calls section returns voicemail, hours, tries and askConsent but not businessLandlines (worker tools-extra.ts:758-765), which update_automations does change (998-1001). It is reachable only as raw settings.automations.calls.businessLandlines through get_settings(business), which returns workspace.settings unshaped, and only after the Automations page has been saved once. Nothing tells the model to look there.",
-      "fix": "Add callsBusinessLandlines: a.calls.businessLandlines to listAutomations' result, next to asksForOkToCall (tools-extra.ts:765).",
-      "status": "open",
+      "fix": "Fixed: list_automations gives callsBusinessLandlines.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2344,8 +2344,8 @@
       "kind": "read",
       "where": "Settings → Tags, \"What the AI changed lately\"",
       "gap": "ai_tagging_status asks contact_ai.reviews for limit 10 (tools-contacts.ts:131-138). The page asks for 15 (tags/page.tsx:27-28) and has no Show more of its own, so the two lists differ by 5 rows. \"This week\" questions aren't stuck: every tag change goes to the audit log with its reason (prompt.ts:26), and audit.list is a screen read (screen-reads.ts SCREEN_READS includes audit.list), so read_audit_list can answer.",
-      "fix": "Change limit: 10 to 15 in tools-contacts.ts:137 to match the screen. Return `more: true` when contact_ai.reviews gives a next cursor, and say in the description that older changes are in the audit log.",
-      "status": "open",
+      "fix": "Fixed: ai_tagging_status reads the latest 15, as Settings → Tags lists them. When there are older ones it says so, and that read_audit_list finds every older tag change with its reason.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2354,8 +2354,8 @@
       "kind": "words",
       "where": "Settings → Deleted bin, the page's own description and the kind on each row",
       "gap": "deleted_bin.what says \"customers, conversations and bookings\" (settings-map.ts:301). The screen's BIN_WORDS.about and move_to_bin also cover leads, companies and records (bin-words.ts:83; tools-settings-more.ts:58). restore_from_bin's card labels the kind with its own KIND_WORDS, which says \"Appointment\" where the screen says \"Booking\" and \"Record\" where the screen gives the custom record's own kind (tools-settings-more.ts:402-409, 444).",
-      "fix": "Set deleted_bin.what to 'customers, conversations, bookings, leads, companies and records deleted for good, kept 30 days so they can be brought back, then gone' (BIN_WORDS.about's list). In restore_from_bin, delete KIND_WORDS and label the card field binKindLabel(item) from bin-words.ts:278. That needs contents added to the local BinItem type.",
-      "status": "open",
+      "fix": "Fixed: deleted_bin.what names customers, conversations, bookings, leads, companies and records. restore_from_bin’s card labels the kind in the screen’s words (binKindLabel): Booking, and a record’s own kind.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2364,8 +2364,8 @@
       "kind": "words",
       "where": "Settings → Usage & balance: the founding plan card above the balance (renewing on or off, Pay with another card after a refused renewal)",
       "gap": "Renewing is already covered: usage.canChange has \"whether the founding plan renews\" (settings-map.ts:811), and SETTING_TOOLS maps usage.founding to do_founding_set_renewing (coverage.ts:569). founding.mine is read in the usage area (tools-settings.ts:202). Two parts are real. The card is not in usage.onScreen (settings-map.ts:796-803). founding.pay_renewal is NEVER (coverage.ts:386) with no handover, so the model can't say where to pay a refused renewal.",
-      "fix": "Add 'The founding plan, above the balance: when it renews and for how much, Stop renewing or Keep renewing, and Pay with another card after a refused renewal' to usage.onScreen. Add a usage handover { what: 'pay a refused founding plan renewal with another card', why: 'it is paid on Stripe’s page, which only you can do', steps: ['Open Settings → Usage & balance.', 'On the founding plan card, press Pay with another card, then pay on Stripe’s page.'] }.",
-      "status": "open",
+      "fix": "Fixed: usage.onScreen has Your founding spot: what it costs, when it renews, Stop renewing or Keep it renewing, and Pay with another card. Paying a refused renewal with another card has a handover: Settings → Usage & balance, Your founding spot, Pay with another card, then pay on Stripe’s page.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2374,8 +2374,8 @@
       "kind": "words",
       "where": "Settings → Pipelines: stage rows with Move up/down, Edit and Delete, the Default badge, lead counts",
       "gap": "\"Which pipeline is the default\" and the lead counts can already be answered: get_settings(pipelines) returns pipeline.list unshaped, with isDefault and each stage's leadCount (pipeline.list.ts:38,47). There is no way to set the default on the screen, only a Default badge on the first active pipeline (pipelines-editor.tsx:103). The suggested how-to for setting it would invent a button. The real gap is that onScreen leaves out each stage row's Move up, Move down, Edit (name and kind) and Delete, and the counts (pipelines-editor.tsx:151-172).",
-      "fix": "Change pipelines.onScreen's first line to 'Pipelines and stages: a card for each pipeline (the first one is the Default, with its badge), its lead count, Rename, Add stage and Archive; each stage with its leads, Move up and Move down, Edit (name and Kind) and Delete'. Add no set-default how-to.",
-      "status": "open",
+      "fix": "Fixed: pipelines.onScreen names the Default badge on the first pipeline, its lead count, and each stage row’s kind, leads, Move up, Move down, Edit (name and Kind) and Delete. canChange says what a stage counts as can change while no leads are in it. No how-to invents a way to set the default.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2384,8 +2384,8 @@
       "kind": "do",
       "where": "Settings → Workspace, Branded domain: Check now and the DNS records table",
       "gap": "Check waiting for Confirm is real: manage_web_address is autonomy 'confirm' (tools-setup.ts:249), but branded_domain.verify is risk 1 (branded-domain.ts:128), which the settled rules let run on its own. The 4-record limit only affects the card: prepare's result already gives the model every record (tools-setup.ts:1777-1782), and the handover says the domain needs \"usually one, sometimes two\".",
-      "fix": "Split check out of manage_web_address into an auto tool (check_web_address) that runs branded_domain.verify and returns status and all records. Or have the worker run action==='check' straight away without a card. If the card stays, drop .slice(0, 4) at tools-setup.ts:1771.",
-      "status": "open",
+      "fix": "Fixed: check_web_address runs Check now on its own (branded_domain.verify, risk 1), as the screen’s button does. It says where the domain stands, its last problem and every DNS record still needed, which are the person’s to put in. manage_web_address keeps add and remove on a card.",
+      "status": "fixed",
       "pr": null
     }
   ]

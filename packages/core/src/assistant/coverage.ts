@@ -628,7 +628,11 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'update_action_center_settings', field: 'ignoreBalancesUnderDollars' },
   ],
   'adjust.stage_meanings': [{ tool: 'update_automations', field: 'stageMeanings' }],
-  'adjust.gone_quiet': [{ tool: 'update_action_center_settings', field: 'goneQuietAfterDays' }],
+  // The screen sets it by open stage once there are any; every stage's own number is goneQuietByStage.
+  'adjust.gone_quiet': [
+    { tool: 'update_action_center_settings', field: 'goneQuietAfterDays' },
+    { tool: 'update_action_center_settings', field: 'goneQuietByStage' },
+  ],
   'adjust.gone_cold': [{ tool: 'update_automations', field: 'reengageAfterDays' }],
   'adjust.voicemail_box': [{ tool: 'update_automations', field: 'whenVoicemailAnswers' }],
   'adjust.how_you_tag': [{ tool: 'update_automations', field: 'howYouTag' }],

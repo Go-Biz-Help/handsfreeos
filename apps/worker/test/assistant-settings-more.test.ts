@@ -7,6 +7,7 @@ import {
   BIN_WORDS,
   binDeletedWords,
   catalogAddon,
+  companyCreate,
   executeCommand,
   executeQuery,
   hasWorkspacePermission,
@@ -385,6 +386,62 @@ describe('the last settings by asking', () => {
     const { items } = await q<{ items: { id: string }[] }>('bin.list');
     expect(items.map((i) => i.id)).not.toContain(binItemId);
     expect(assistantToolByName.has('empty_bin')).toBe(false);
+  });
+
+  it('reads the bin as its screen lists it, and brings one back by its name, asking which when two share it', async () => {
+    const [sam, ari, ari2] = [await customer('Sam'), await customer('Ari'), await customer('Ari')];
+    const { companyId } = (await run(companyCreate, { workspaceId, name: 'Ari Test' })) as {
+      companyId: string;
+    };
+    await run(registry.command('person.delete')!, { workspaceId, personIds: [sam, ari, ari2] });
+    await run(registry.command('company.delete')!, { workspaceId, companyIds: [companyId] });
+
+    // get_settings says what each is in the screen's words, who deleted it and when it goes for good.
+    const tool = assistantToolByName.get('get_settings')!;
+    const { result } = (await createToolExecutor(api()).run(
+      tool,
+      { area: 'deleted_bin' },
+      ctx(),
+    )) as { result: Record<string, unknown> };
+    const bin = result['deletedBin'] as {
+      items: {
+        binItemId: string;
+        kind: string;
+        name: string;
+        deletedBy: string | null;
+        deleted: string;
+      }[];
+      more: boolean;
+    };
+    expect(bin.more).toBe(false);
+    expect(bin.items.find((i) => i.name === 'Sam Test')).toMatchObject({
+      kind: 'Customer',
+      deletedBy: 'Morgan Owner',
+      deleted: expect.stringContaining('Deleted by Morgan Owner'),
+    });
+    expect(bin.items.find((i) => i.kind === 'Company')!.name).toBe('Ari Test');
+
+    // By its name, as the bin shows it, without its id.
+    const byName = await prepare('restore_from_bin', { name: 'sam test' });
+    expect(byName.card.title).toBe('Bring back Sam Test');
+    expect(field(byName.card, 'Customer')).toBe('Sam Test');
+    expect((await confirm('restore_from_bin', byName.parsed)).outcome).toBe('Sam Test is back');
+
+    // Three things called Ari Test: which kind, then the screen for two customers by one name.
+    await expect(prepare('restore_from_bin', { name: 'Ari Test' })).rejects.toThrow(
+      /3 things in the Deleted bin are called Ari Test: .*Say which kind it is\./,
+    );
+    await expect(prepare('restore_from_bin', { name: 'Ari Test', kind: 'person' })).rejects.toThrow(
+      '2 customers in the Deleted bin are called Ari Test. Bring the right one back on Settings → Deleted bin',
+    );
+    const company = await prepare('restore_from_bin', { name: 'Ari Test', kind: 'company' });
+    expect(field(company.card, 'Company')).toBe('Ari Test');
+    expect((await confirm('restore_from_bin', company.parsed)).outcome).toBe('Ari Test is back');
+
+    await expect(prepare('restore_from_bin', { name: 'Nobody Here' })).rejects.toThrow(
+      'Nothing called Nobody Here is in the Deleted bin',
+    );
+    await expect(prepare('restore_from_bin', {})).rejects.toThrow('Say which thing to bring back');
   });
 
   it('moves a customer to the Deleted bin on Confirm, saying what goes with them', async () => {

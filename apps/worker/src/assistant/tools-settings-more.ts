@@ -13,12 +13,14 @@ import {
   binContentsTotal,
   binDeleteBox,
   binDeletedWords,
+  binKindLabel,
   HfosError,
   type BinContents,
   type BinKind,
 } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
+import { toolCallDrawnAt } from './store';
 import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
@@ -510,39 +512,79 @@ const updateAddonSettings: SettingsConfirmTool = {
 
 interface BinItem {
   id: string;
-  kind: string;
+  kind: BinKind;
   name: string;
+  contents: BinContents;
   deletedBy: { name: string } | null;
   deletedAt: string;
   purgeAfter: string;
   emptying: boolean;
 }
 
-const KIND_WORDS: Record<string, string> = {
-  person: 'Customer',
-  conversation: 'Conversation',
-  appointment: 'Appointment',
-  lead: 'Lead',
-  company: 'Company',
-  custom_record: 'Record',
-};
+const sameName = (a: string, b: string) =>
+  a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 
-async function binItemOf(db: Db, ctx: ToolContext, id: unknown): Promise<BinItem> {
+/**
+ * The one thing in the bin the card is about: by its id, or by its name (and kind) when it was older than the 100
+ * get_settings lists. Two by the same name are told apart by kind; two of one kind by one name are the screen's to
+ * tell apart, where each shows who deleted it and when.
+ */
+async function binItemOf(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  /** On Confirm: only what was in the bin when the card was drawn, so it is the one the card named. */
+  drawnAt: Date | null = null,
+): Promise<BinItem> {
+  const id = str(args['binItemId']);
+  const name = str(args['name']);
+  const kind = str(args['kind']) as BinKind | undefined;
+  if (!id && !name)
+    throw HfosError.validation(
+      [{ path: 'binItemId', message: 'Say which one.' }],
+      'Say which thing to bring back: its binItemId from get_settings (area deleted_bin), or its name.',
+    );
   const items: BinItem[] = [];
   let cursor: string | null = null;
   // The bin holds 30 days of deletes; a page at a time, as the screen reads it.
   for (let page = 0; page < 20; page++) {
     const got: { items: BinItem[]; nextCursor: string | null } = await query(db, ctx, 'bin.list', {
+      limit: 100,
       ...(cursor ? { cursor } : {}),
     });
     items.push(...got.items);
-    const found = items.find((i) => i.id === id);
+    const found = id ? items.find((i) => i.id === id) : undefined;
     if (found) return found;
     if (!got.nextCursor) break;
     cursor = got.nextCursor;
   }
+  const named =
+    !id && name
+      ? items.filter(
+          (i) =>
+            sameName(i.name, name) &&
+            (!kind || i.kind === kind) &&
+            (!drawnAt || new Date(i.deletedAt) <= drawnAt),
+        )
+      : [];
+  if (named.length === 1) return named[0]!;
+  if (named.length > 1)
+    throw HfosError.rule(
+      'bin_name_shared',
+      409,
+      [...new Set(named.map((i) => i.kind))].length > 1
+        ? `${named.length} things in the Deleted bin are called ${name}: ${named
+            .map(
+              (i) =>
+                `a ${binKindLabel(i).toLowerCase()} deleted ${dateWords(i.deletedAt, ctx.timezone)}`,
+            )
+            .join(', ')}. Say which kind it is.`
+        : `${named.length} ${binKindLabel(named[0]!).toLowerCase()}s in the Deleted bin are called ${name}. Bring the right one back on Settings → Deleted bin, where each shows who deleted it and when.`,
+    );
   throw HfosError.notFound(
-    'That isn’t in the Deleted bin anymore: it may have been brought back, or its 30 days are up. Look under Settings → Deleted bin.',
+    name && !id
+      ? `Nothing called ${name} is in the Deleted bin: it may have been brought back already, or its 30 days are up. Look under Settings → Deleted bin.`
+      : 'That isn’t in the Deleted bin anymore: it may have been brought back, or its 30 days are up. Look under Settings → Deleted bin.',
   );
 }
 
@@ -553,7 +595,7 @@ const dateWords = (iso: string, timezone: string) =>
 
 const restoreFromBin: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const item = await binItemOf(db, ctx, args['binItemId']);
+    const item = await binItemOf(db, ctx, args);
     if (item.emptying)
       throw HfosError.conflict(
         `${item.name} is being deleted for good right now, so it can’t come back.`,
@@ -563,7 +605,7 @@ const restoreFromBin: SettingsConfirmTool = {
       card: settingsCard(toolCallId, 'restore_from_bin', {
         title: `Bring back ${item.name}`,
         fields: [
-          { label: KIND_WORDS[item.kind] ?? 'Item', value: item.name },
+          { label: binKindLabel(item), value: item.name },
           {
             label: 'Deleted',
             value: `${dateWords(item.deletedAt, ctx.timezone)}${item.deletedBy ? ` by ${item.deletedBy.name}` : ''}`,
@@ -581,9 +623,20 @@ const restoreFromBin: SettingsConfirmTool = {
     };
   },
 
-  async commit(db, ctx, args) {
+  async commit(db, ctx, args, extra) {
+    // A name is looked up again, among what was in the bin when the card was drawn: the one the card showed.
+    const binItemId =
+      str(args['binItemId']) ??
+      (
+        await binItemOf(
+          db,
+          ctx,
+          args,
+          await toolCallDrawnAt(db, ctx, extra.toolCallId).catch(() => null),
+        )
+      ).id;
     const back = await command<{ name: string; joined: number }>(db, ctx, 'bin.restore', {
-      binItemId: args['binItemId'],
+      binItemId,
     });
     return {
       outcome: `${back.name} is back${back.joined ? ', joined to the conversation that carried on' : ''}`,

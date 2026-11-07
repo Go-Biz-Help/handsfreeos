@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { PARTNER_TERMS_MOST } from '../partners/settings';
 import { BinKind } from '../schemas/bin';
 import { uuid } from '../schemas/common';
-import { define, dollars, type AssistantTool } from './tool-kit';
+import { define, dollars, text, type AssistantTool } from './tool-kit';
 
 const share = z
   .number()
@@ -72,8 +72,14 @@ export const moreSettingsTools: readonly AssistantTool[] = [
   define({
     name: 'restore_from_bin',
     description:
-      'Bring something back from the Deleted bin, as it was: a customer with what was theirs, a conversation, a lead, an appointment, a company or a record. Its id is in get_settings (area deleted_bin). The bin keeps things 30 days; the AI never empties it or deletes anything in it for good.',
-    input: z.object({ binItemId: uuid }),
+      'Bring something back from the Deleted bin, as it was: a customer with what was theirs, a conversation, a lead, a booking, a company or a record. Its binItemId is in get_settings (area deleted_bin), which lists the newest 100; one older than those is found by its name (and kind, when two share a name). The bin keeps things 30 days; the AI never empties it or deletes anything in it for good.',
+    input: z.object({
+      binItemId: uuid.optional(),
+      name: text(200)
+        .optional()
+        .describe('Its name as the bin shows it, when its binItemId isn’t in what you read'),
+      kind: BinKind.optional().describe('With name: person is a customer, appointment a booking'),
+    }),
     autonomy: 'confirm',
     permission: 'records.delete',
   }),

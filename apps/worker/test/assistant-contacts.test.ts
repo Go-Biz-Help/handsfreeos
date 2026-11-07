@@ -303,6 +303,29 @@ describe('ai_tag_customers', () => {
     );
     expect(sweep).toEqual({ status: 'cancelled', cancelled_by: owner.id });
   });
+
+  it('reads the latest 15 changes, as Settings → Tags lists them, and says where the older ones are', async () => {
+    const status = async () =>
+      (
+        (await tools().run(tool('ai_tagging_status'), argsOf('ai_tagging_status', {}), ctx())) as {
+          result: { latestLooks: { customer: string }[]; more?: boolean; olderChanges?: string };
+        }
+      ).result;
+    // Sixteen changes, a minute apart, as the AI's looks after each message leave them.
+    await rows(
+      admin(),
+      sql`insert into app.contact_ai_reviews (workspace_id, person_id, trigger, outcome, applied, created_at)
+          select ${workspaceId}::uuid, ${people['Ann']}::uuid, 'activity', 'changed',
+            '{"addTags":[{"name":"VIP","reason":"Asked for the premium plan"}]}'::jsonb,
+            now() - make_interval(mins => g)
+          from generate_series(1, 16) as g`,
+    );
+    const read = await status();
+    expect(read.latestLooks).toHaveLength(15);
+    expect(read.latestLooks[0]!.customer).toContain('Ann');
+    expect(read.more).toBe(true);
+    expect(read.olderChanges).toContain('read_audit_list');
+  });
 });
 
 describe('Settings → Tags: manage_tag', () => {

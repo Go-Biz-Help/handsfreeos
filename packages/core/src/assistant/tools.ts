@@ -114,7 +114,7 @@ export const assistantTools = [
   define({
     name: 'ai_tagging_status',
     description:
-      'How the AI’s upkeep of customers’ tags and details is going: the pass over the whole list going now (how far, what it changed), the last few passes, whether it tags and fixes details on its own after each message, call, visit or payment, and its latest changes with their reasons (one customer’s with personId).',
+      'How the AI’s upkeep of customers’ tags and details is going: the pass over the whole list going now (how far, what it changed), the last few passes, whether it tags and fixes details on its own after each message, call, visit or payment, and its latest 15 changes with their reasons, as Settings → Tags lists them (one customer’s with personId). Older ones are in the audit log, with their reasons.',
     input: z.object({
       personId: uuid.optional(),
       changedOnly: z.boolean().default(true).describe('Only the looks that changed something'),
@@ -436,7 +436,7 @@ export const assistantTools = [
   define({
     name: 'get_settings',
     description:
-      'How one part of the business is set up right now, and where it is on screen: its calendars, services, territories, pipelines, tags, fields, members, permissions, texting, email, website chat, templates, lead intake, payments, products, balance, automations, AI teammate, knowledge base, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
+      'How one part of the business is set up right now, and where it is on screen: the business itself (with its logo and colour, and Your page with its link), its own web address, its calendars, services, territories, pipelines, tags, fields, kinds of records and relationships, the Deleted bin, members, permissions, texting, email, website chat, templates, lead intake, payments, products, balance, automations, AI teammate, knowledge base, imports and migrations, or the person’s own account and hours. Call it before proposing any change to settings, so what you propose is a change to what is really there, and to answer "what are my…" questions about the setup.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup to read'),
       toChange: z
@@ -452,7 +452,7 @@ export const assistantTools = [
   define({
     name: 'settings_help',
     description:
-      'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, connecting an add-on to another service with a sign-in or a key, deleting an add-on’s data or starting one fresh (only an owner), the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, topping up the balance, importing a spreadsheet, connecting the CRM they’re leaving, or deleting their account. Returns the exact way to the screen, what is on it and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
+      'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, connecting an add-on to another service with a sign-in or a key, deleting an add-on’s data or starting one fresh (only an owner), the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, putting a card on the balance (a top-up from the card already on file is do_wallet_top_up, on a card), uploading a logo, paying a founding plan renewal with another card, importing a spreadsheet, connecting the CRM they’re leaving, or deleting their account. Returns the exact way to the screen, what is on it and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup they are asking about'),
     }),
@@ -689,8 +689,13 @@ export const assistantTools = [
       industry: text(80)
         .optional()
         .describe('The kind of business, in a word or two: Plumbing, HVAC, Dog grooming, Dental'),
-      website: z.url().max(500).optional(),
-      reviewLink: z.url().max(500).optional().describe('Where customers leave a review'),
+      website: z.url().max(500).nullable().optional().describe('null takes it off'),
+      reviewLink: z
+        .url()
+        .max(500)
+        .nullable()
+        .optional()
+        .describe('Where customers leave a review; null takes it off'),
       openHours: WeeklyHoursInput.nullable()
         .optional()
         .describe('When the business is open; null puts it back to weekdays 8–5'),
@@ -702,7 +707,7 @@ export const assistantTools = [
   define({
     name: 'manage_pipeline',
     description:
-      'Change the pipelines leads move through: add, rename or archive a pipeline, and add, rename, reorder or delete a stage. Stage kinds are open, won or lost. Deleting a stage moves its leads to another one, so say which.',
+      'Change the pipelines leads move through: add, rename or archive a pipeline, and add, rename, reorder or delete a stage. Stage kinds are open, won or lost; rename_stage with stageKind also changes what a stage counts as, but only for a stage with no leads in it, as the screen’s Edit allows. Archiving a pipeline takes it off the board; its won and lost leads keep their history. Deleting a stage with leads moves them to another stage of the same kind in its pipeline: say which, or the first other one of its kind is taken.',
     input: z.object({
       action: z.enum([
         'create_pipeline',
@@ -1231,7 +1236,28 @@ export const assistantTools = [
       bigJobDollars: dollars.optional().describe('A lead worth at least this counts as big'),
       hotLeadUrgentAfterMinutes: z.int().min(1).max(240).optional(),
       newLeadWaitingAfterMinutes: z.int().min(1).max(480).optional(),
-      goneQuietAfterDays: z.int().min(1).max(365).optional(),
+      goneQuietAfterDays: z
+        .int()
+        .min(1)
+        .max(365)
+        .optional()
+        .describe('Every open stage without a number of its own (goneQuietByStage)'),
+      goneQuietByStage: z
+        .array(
+          z.object({
+            stageId: uuid.describe('An open stage, from get_settings pipelines'),
+            days: z
+              .int()
+              .min(1)
+              .max(365)
+              .nullable()
+              .describe('null: it goes back to the number every other stage uses'),
+          }),
+        )
+        .min(1)
+        .max(50)
+        .optional()
+        .describe('Gone quiet after, for one stage at a time, as the screen sets it by stage'),
       unconfirmedVisitWindowHours: z.int().min(1).max(168).optional(),
       estimateWaitingDays: z.int().min(1).max(60).optional(),
       invoiceOverdueDays: z.int().min(0).max(60).optional(),
@@ -1247,7 +1273,9 @@ export const assistantTools = [
       followUpOnQuietLeads: z
         .boolean()
         .optional()
-        .describe('Only turns on after the follow-up wording has been read and agreed'),
+        .describe(
+          'Turning it on the first time puts the follow-up wording on the card for an owner to read: their Confirm is the screen’s Looks good, turn on. Anyone else asks an owner',
+        ),
       followUpMessage: text(480).optional(),
       followUpCooldownDays: z.int().min(1).max(90).optional(),
     }),

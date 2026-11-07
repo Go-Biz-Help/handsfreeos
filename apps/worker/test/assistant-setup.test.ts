@@ -130,6 +130,7 @@ describe('the tools', () => {
     'manage_numbers',
     'set_inbox_visibility',
     'manage_web_address',
+    'check_web_address',
     'list_unmatched_email',
     'sort_unmatched_email',
     'list_blocked_email',
@@ -138,7 +139,7 @@ describe('the tools', () => {
     'manage_lead_form',
   ];
 
-  it('each have their executor and their words, and only look-ups run on their own', () => {
+  it('each have their executor and their words, and only look-ups and a domain check run on their own', () => {
     for (const name of names) {
       expect(executorFor(name), name).toBeTruthy();
       expect(setupStepLabels[name], name).toBeTruthy();
@@ -341,6 +342,66 @@ describe('manage_custom_field', () => {
         holds: 'text',
       }),
     ).rejects.toThrow('What a field holds never changes');
+  });
+
+  it('renames a choice so the customers who have it keep it, under its new name', async () => {
+    const heating = (await fields()).find((f) => f.label === 'Heating')!;
+    const pump = heating.options.find((o) => o.label === 'Heat pump')!.value;
+    const args = {
+      action: 'change',
+      customFieldId: heating.id,
+      renameChoices: [{ from: 'Heat pump', to: 'Air source heat pump' }],
+    };
+    const { card } = await prepare('manage_custom_field', args);
+    expect(field(card, 'Choices')).toBe('Gas, Air source heat pump');
+    expect(field(card, 'Renamed')).toBe('Heat pump → Air source heat pump');
+    // Renamed is not taken off: nothing is left behind on the records that have it.
+    expect(field(card, 'Taken off')).toBeUndefined();
+    expect(warned(card, 'note')).toEqual([
+      'The customers that have a renamed choice keep it, under its new name.',
+    ]);
+    await commit('manage_custom_field', args);
+    const after = (await fields()).find((f) => f.id === heating.id)!;
+    expect(after.options.map((o) => o.label)).toEqual(['Gas', 'Air source heat pump']);
+    expect(after.options[1]!.value).toBe(pump);
+
+    await expect(
+      prepare('manage_custom_field', {
+        action: 'change',
+        customFieldId: heating.id,
+        renameChoices: [{ from: 'Oil', to: 'Heating oil' }],
+      }),
+    ).rejects.toThrow('“Oil” isn’t one of the Heating choices: Gas, Air source heat pump.');
+    await expect(
+      prepare('manage_custom_field', {
+        action: 'change',
+        customFieldId: heating.id,
+        choices: ['Gas'],
+        renameChoices: [{ from: 'Gas', to: 'Natural gas' }],
+      }),
+    ).rejects.toThrow('so list it in choices too');
+  });
+
+  it('puts the fields on customers in a new order, as Move up and Move down do', async () => {
+    const mine = (await fields()).filter((f) => f.entity === 'person');
+    expect(mine.map((f) => f.label)).toEqual(['Gate code', 'Heating']);
+    const args = { action: 'move', order: [mine[1]!.id, mine[0]!.id] };
+    const { card } = await prepare('manage_custom_field', args);
+    expect(card.title).toBe('Put the fields on customers in order');
+    expect(field(card, 'Order')).toBe('Heating → Gate code');
+    expect(field(card, 'Was')).toBe('Gate code → Heating');
+    expect((await fields()).filter((f) => f.entity === 'person')[0]!.label).toBe('Gate code');
+    const done = await commit('manage_custom_field', args);
+    expect(done.href).toBe(`/app/w/${workspaceId}/settings/fields?for=person`);
+    expect((await fields()).filter((f) => f.entity === 'person').map((f) => f.label)).toEqual([
+      'Heating',
+      'Gate code',
+    ]);
+    await expect(prepare('manage_custom_field', args)).rejects.toThrow('Nothing would change.');
+    // Every field of that place, each once: a field left out or given twice is refused before a card.
+    await expect(
+      prepare('manage_custom_field', { action: 'move', order: [mine[0]!.id, mine[0]!.id] }),
+    ).rejects.toThrow('Give every field on customers once');
   });
 
   it('retires a field only on Confirm, saying it can’t come back', async () => {
@@ -835,7 +896,7 @@ describe('manage_web_address', () => {
     ).rejects.toThrow('Stop using that one first.');
   });
 
-  it('reads the records out once the host has said them, and checks again on Confirm', async () => {
+  it('reads the records out once the host has said them, and checks again on its own, as Check now does', async () => {
     const d = (await current())!;
     await executeCommand(
       testDbs().worker.db,
@@ -855,16 +916,38 @@ describe('manage_web_address', () => {
       systemActor({ workspaceId, organizationId }),
       workerMeta(),
     );
-    const { card, result } = await prepare('manage_web_address', { action: 'check', domain });
-    expect(field(card, 'Where it stands')).toBe('Waiting for your DNS');
-    expect(field(card, `CNAME ${domain}`)).toBe('sites.hfos-edge.example.net');
-    // The claim's own TXT comes first until the business has proved the name is its own (SEC-M11).
-    const records = result['records'] as { kind: string; host: string }[];
+    // A risk-1 look at the DNS, so it runs without a card, as the screen's Check now does.
+    expect(tool('check_web_address').autonomy).toBe('auto');
+    const out = await tools().run(
+      tool('check_web_address'),
+      argsOf('check_web_address', { domain }),
+      ctx(),
+    );
+    expect(out.command).toBe('branded_domain.verify');
+    const result = out.result as Record<string, unknown>;
+    expect(result['status']).toBe('Waiting for your DNS');
+    // The claim's own TXT comes first until the business has proved the name is its own (SEC-M11), and every
+    // record comes back, not only the first few.
+    const records = result['records'] as { kind: string; host: string; value: string }[];
     expect(records).toHaveLength(2);
     expect(records[0]).toMatchObject({ kind: 'TXT', host: `_hfos-verify.${domain}` });
-    expect(warned(card, 'caution')[0]).toContain(`_hfos-verify.${domain}`);
-    const done = await commit('manage_web_address', { action: 'check', domain });
-    expect(done.outcome).toContain('sites.hfos-edge.example.net');
+    expect(records[1]).toMatchObject({
+      kind: 'CNAME',
+      host: domain,
+      value: 'sites.hfos-edge.example.net',
+    });
+    expect(String(result['lastProblem'])).toContain(`_hfos-verify.${domain}`);
+    expect(String(result['yoursToDo'])).toContain('yours to do');
+    expect(AssistantCard.safeParse(out.card).success).toBe(true);
+    expect(out.card).toMatchObject({ type: 'done', title: `Checking ${domain} now` });
+    expect((out.card as { detail: string }).detail).toContain('sites.hfos-edge.example.net');
+    await expect(
+      tools().run(
+        tool('check_web_address'),
+        argsOf('check_web_address', { domain: `www.other-${suffix}.example.com` }),
+        ctx(),
+      ),
+    ).rejects.toThrow(`The business is on ${domain}`);
   });
 
   it('never calls a domain working because it points here, until the business proves it is theirs', async () => {
