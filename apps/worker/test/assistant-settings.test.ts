@@ -2385,7 +2385,7 @@ describe('the phone account, numbers from elsewhere, RCS senders and a test text
     );
     expect(card.title).toBe('Text a test to (713) 555-0123');
     expect(card.fields.find((f) => f.label === 'Says')!.value).toBe(
-      `This is a test text from ${businessName} on HandsFreeOS. Replies land in the inbox.`,
+      `This is a test text from ${businessName} & Plumbing on HandsFreeOS. Replies land in the inbox.`,
     );
     expect(card.warnings[0]!.text).toContain('real text from your business number');
     expect(AssistantCard.safeParse(card).success).toBe(true);
