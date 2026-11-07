@@ -36,7 +36,7 @@ export default function Ask() {
   const page = React.useMemo(() => pageRecordOf(params), [params.type, params.id]);
   // Changes on this phone go with each question: they never reached HandsFreeOS, so only the phone can say.
   const changeList = useChangeList();
-  const deviceChanges = changeList.loading ? null : deviceChangesOf(changeList);
+  const deviceChanges = changeList.loading ? null : deviceChangesOf(changeList, business.id);
   const chat = useAssistantChat(
     business.id,
     userId,

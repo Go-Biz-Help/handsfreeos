@@ -6,7 +6,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4bb840d5dff6",
-    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "2a48aa9428a2",
+    "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "6c212d4c2517",
     "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx": "b0639b60a073",
     "apps/mobile/src/app/app/w/[workspaceId]/search.tsx": "1a959c92bf8a",
     "apps/mobile/src/components/add-ons/news-card.tsx": "6d1402bba2e5",
@@ -2736,7 +2736,7 @@
       "kind": "read",
       "where": "Phone: Changes on this phone (Needs you, Waiting, Sent just now) and Home's waiting-changes banner",
       "gap": "Changes on this phone (changes.tsx: 'Needs you · N' with Fix and Discard, then waiting and sent) reads the phone's own outbox. The rows never reached the server, so no query can return them. Phone Ask sends only the page record (chat.ts:521; schemas/assistant.ts:333-339). 'Did my note to Dana send?' or 'why is something stuck?' can't be answered from what the person sees.",
-      "fix": "Fixed: a question asked on the phone carries deviceChanges, what Changes on this phone shows (how many wait, up to 10 that need the person with their title and why, how many more, and what was sent just now; never what was written). AssistantAskInput takes it (dropped rather than refused when it can’t be read), the phone fills it from its outbox (apps/mobile/src/assistant/device-changes.ts), and the turn’s context lists it as the phone’s own words, with where to fix one.",
+      "fix": "Fixed: a question asked on the phone carries deviceChanges, what Changes on this phone shows for the business it’s asked in, never another one the phone also holds (how many wait, up to 10 that need the person with their title and why, how many more, and what was sent just now; never what was written). AssistantAskInput takes it (dropped rather than refused when it can’t be read), the phone fills it from its outbox (apps/mobile/src/assistant/device-changes.ts), and the turn’s context lists it as the phone’s own words, with where to fix one.",
       "status": "fixed",
       "pr": null
     }

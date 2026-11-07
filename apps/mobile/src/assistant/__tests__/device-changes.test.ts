@@ -65,6 +65,7 @@ describe('what the phone tells the Assistant about its changes', () => {
       sent: [
         {
           key: 'p1',
+          workspaceId: 'ws',
           title: '2 changes for Maria Lopez',
           line: 'A note · moved to Won',
           count: 2,
@@ -73,7 +74,7 @@ describe('what the phone tells the Assistant about its changes', () => {
       ],
       unsent: 3,
     };
-    const said = deviceChangesOf(list);
+    const said = deviceChangesOf(list, 'ws');
     expect(said).toEqual({
       waiting: 1,
       needsYou: [
@@ -95,11 +96,55 @@ describe('what the phone tells the Assistant about its changes', () => {
     const many = Array.from({ length: 12 }, (_, n) =>
       item(`Text ${n} ${'x'.repeat(400)}`, { state: 'refused', reason: null }),
     );
-    const said = deviceChangesOf({ needsYou: many, waiting: [], sent: [], unsent: 12 });
+    const said = deviceChangesOf({ needsYou: many, waiting: [], sent: [], unsent: 12 }, 'ws');
     expect(said.needsYou).toHaveLength(10);
     expect(said.moreNeedYou).toBe(2);
     expect(said.needsYou[0]!.why).toBe('Refused: HandsFreeOS couldn’t do this.');
     expect(said.needsYou[0]!.title.endsWith('…')).toBe(true);
     expect(() => AssistantDeviceChanges.parse(said)).not.toThrow();
+  });
+
+  it('keeps to the business the question is asked in, never another one the phone also holds', () => {
+    const list: ChangeList = {
+      needsYou: [
+        item('Text to Dana Reyes', { state: 'refused', reason: 'Dana texted STOP.' }),
+        item('Text to Sam Ortiz', {
+          workspace_id: 'other',
+          state: 'refused',
+          reason: 'Sam texted STOP.',
+        }),
+      ],
+      waiting: [
+        item('Note for Rosa Diaz', {}),
+        item('Note for Lee Park', { workspace_id: 'other' }),
+      ],
+      sent: [
+        {
+          key: 'p1',
+          workspaceId: 'ws',
+          title: 'A note for Maria Lopez',
+          line: '',
+          count: 1,
+          lastSentAt: 2,
+        },
+        {
+          key: 'p2',
+          workspaceId: 'other',
+          title: 'A note for Ann Fox',
+          line: '',
+          count: 1,
+          lastSentAt: 1,
+        },
+      ],
+      unsent: 4,
+    };
+    const said = deviceChangesOf(list, 'ws');
+    expect(said).toEqual({
+      waiting: 1,
+      needsYou: [{ title: 'Text to Dana Reyes', why: 'Refused: Dana texted STOP.' }],
+      moreNeedYou: 0,
+      sentJustNow: ['A note for Maria Lopez'],
+    });
+    expect(JSON.stringify(said)).not.toMatch(/Sam Ortiz|Lee Park|Ann Fox/);
   });
 });

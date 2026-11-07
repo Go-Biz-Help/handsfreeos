@@ -27,16 +27,22 @@ export function whyItNeedsYou(item: ChangeItem): string {
   return row.reason ? `Needs them to decide: ${row.reason}` : 'Needs them to decide.';
 }
 
-/** What Changes on this phone shows now, for the Assistant. */
-export function deviceChangesOf(list: ChangeList): AssistantDeviceChanges {
+/**
+ * What Changes on this phone shows now, for the Assistant, in the business the question is asked in. The screen lists
+ * every business the person is signed in to, so another business's changes stay out of this one's chat.
+ */
+export function deviceChangesOf(list: ChangeList, workspaceId: string): AssistantDeviceChanges {
+  const mine = (item: ChangeItem) => item.row.workspace_id === workspaceId;
+  const needsYou = list.needsYou.filter(mine);
   return {
-    waiting: list.waiting.length,
-    needsYou: list.needsYou.slice(0, DEVICE_CHANGES_LISTED).map((item) => ({
+    waiting: list.waiting.filter(mine).length,
+    needsYou: needsYou.slice(0, DEVICE_CHANGES_LISTED).map((item) => ({
       title: cut(item.words.title),
       why: cut(whyItNeedsYou(item)),
     })),
-    moreNeedYou: Math.max(0, list.needsYou.length - DEVICE_CHANGES_LISTED),
+    moreNeedYou: Math.max(0, needsYou.length - DEVICE_CHANGES_LISTED),
     sentJustNow: list.sent
+      .filter((group) => group.workspaceId === workspaceId)
       .slice(0, DEVICE_CHANGES_LISTED)
       .map((group) => cut(group.line ? `${group.title} · ${group.line}` : group.title)),
   };

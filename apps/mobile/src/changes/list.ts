@@ -23,6 +23,8 @@ export interface ChangeItem {
 
 export interface SentGroup {
   readonly key: string;
+  /** The business they were made in: a phone signed in to several keeps one list for all of them. */
+  readonly workspaceId: string;
   readonly title: string;
   readonly line: string;
   readonly count: number;
@@ -96,10 +98,19 @@ export function listChanges(input: {
     else waiting.push(item);
   }
 
-  const groups = new Map<string, { title: string; parts: string[]; count: number; last: number }>();
+  const groups = new Map<
+    string,
+    { title: string; parts: string[]; count: number; last: number; workspaceId: string }
+  >();
   for (const { row, words, at } of sentRows) {
     const key = words.about?.key ?? row.id;
-    const group = groups.get(key) ?? { title: '', parts: [], count: 0, last: 0 };
+    const group = groups.get(key) ?? {
+      title: '',
+      parts: [],
+      count: 0,
+      last: 0,
+      workspaceId: row.workspace_id,
+    };
     group.count += 1;
     group.parts.push(words.part);
     group.last = Math.max(group.last, at);
@@ -112,6 +123,7 @@ export function listChanges(input: {
   const sent = [...groups.entries()]
     .map(([key, g]) => ({
       key,
+      workspaceId: g.workspaceId,
       title: g.title,
       line: capital([...new Set(g.parts)].join(' · ')),
       count: g.count,
