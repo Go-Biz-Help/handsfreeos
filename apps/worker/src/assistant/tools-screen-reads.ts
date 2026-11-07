@@ -250,11 +250,16 @@ interface ScreenTool {
   readonly scope: readonly ScopeKey[];
   readonly agencyDoor: boolean;
   readonly forBusiness?: boolean;
+  readonly agencyOnly?: boolean;
 }
 
 /** What only the agency's owners and admins may ask, said to anyone else. */
 const AGENCY_ONLY =
   'Only the agency’s owners and admins can do that for the whole agency or another of its businesses. Ask one of them, or ask about this business’s own.';
+
+/** The agency's own screens (Client businesses, Templates, Saved setups…), said to anyone else. */
+const agencyAdminsOnly = (agency: string) =>
+  `Only the owners and admins of ${agency} can do that, in its Agency area. Ask one of them.`;
 
 /** The arguments the screen's own query or command takes: never the business ids, nor the door it's asked through. */
 export function ownArguments(tool: ScreenTool, args: Record<string, unknown>) {
@@ -269,7 +274,8 @@ export function ownArguments(tool: ScreenTool, args: Record<string, unknown>) {
  * organization and the business asked in. Asked of the whole agency (`wholeAgency`, on one either door takes), only the
  * organization's, so the kernel checks the agency's own permission and answers as its page does. Naming one of its
  * client businesses (`businessId`, on an agency's change that takes one), that business, once it is checked to be one
- * of the agency's. Either is only for the agency's owners and admins (account.me's organizations are those).
+ * of the agency's. Either is only for the agency's owners and admins (account.me's organizations are those), and so is
+ * the agency's own look-up or change (`agencyOnly`): anyone else is told who can, never that the agency isn't there.
  */
 export async function scopeIds(
   db: Db,
@@ -278,25 +284,36 @@ export async function scopeIds(
   args: Record<string, unknown>,
 ): Promise<{ workspaceId?: string; organizationId?: string }> {
   const ids = tool.scope.includes('organizationId') ? { organizationId: ctx.organizationId } : {};
-  if (!tool.scope.includes('workspaceId')) return ids;
-  const whole = tool.agencyDoor && args['wholeAgency'] === true;
+  const inBusiness = tool.scope.includes('workspaceId');
+  const here = inBusiness ? { ...ids, workspaceId: ctx.workspaceId } : ids;
+  const whole = inBusiness && tool.agencyDoor && args['wholeAgency'] === true;
   const named =
-    tool.forBusiness && typeof args['businessId'] === 'string' ? args['businessId'] : null;
-  if (!whole && (!named || named === ctx.workspaceId))
-    return { ...ids, workspaceId: ctx.workspaceId };
+    inBusiness &&
+    tool.forBusiness &&
+    typeof args['businessId'] === 'string' &&
+    args['businessId'] !== ctx.workspaceId
+      ? args['businessId']
+      : null;
+  if (!whole && !named && !tool.agencyOnly) return here;
   const me = await query<{
     organizations: { id: string }[];
-    workspaces: { id: string; organizationId: string }[];
+    workspaces: { id: string; organizationId: string; organizationName: string }[];
   }>(db, ctx, 'account.me');
-  if (!me.organizations.some((o) => o.id === ctx.organizationId))
-    throw HfosError.forbidden(AGENCY_ONLY, 'agency_only');
+  if (!me.organizations.some((o) => o.id === ctx.organizationId)) {
+    if (whole || named) throw HfosError.forbidden(AGENCY_ONLY, 'agency_only');
+    const agency =
+      me.workspaces.find((w) => w.organizationId === ctx.organizationId)?.organizationName ??
+      'this agency';
+    throw HfosError.forbidden(agencyAdminsOnly(agency), 'agency_only');
+  }
   if (whole) return ids;
+  if (!named) return here;
   if (!me.workspaces.some((w) => w.id === named && w.organizationId === ctx.organizationId))
     throw HfosError.validation(
       [{ path: 'businessId', message: 'Not one of this agency’s businesses.' }],
       'That business isn’t one of this agency’s. Its id comes from get_agency_area.',
     );
-  return { ...ids, workspaceId: named! };
+  return { ...ids, workspaceId: named };
 }
 
 /** A migration's status as its page says it, and each thing left to do with the link to its screen. */

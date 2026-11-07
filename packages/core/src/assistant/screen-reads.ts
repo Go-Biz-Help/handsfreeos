@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { scopedInput, type ScopeKey } from '../addons/ai';
 import type { Registry } from '../kernel/registry';
 import type { QueryDef } from '../kernel/types';
-import { isStaffPermission, type Permission } from '../permissions';
+import { isOrgPermission, isStaffPermission, type Permission } from '../permissions';
 import type { AssistantTool } from './tool-kit';
 
 /** The screens' queries the Assistant reads through these tools, by name. */
@@ -216,6 +216,11 @@ export interface ScreenReadTool extends AssistantTool<z.ZodObject> {
   readonly scope: readonly ScopeKey[];
   /** Either door: it may be asked of the whole agency (`wholeAgency`). */
   readonly agencyDoor: boolean;
+  /**
+   * The agency's own (an `org.*` permission): only its owners and admins see it. The executor checks that first, so
+   * anyone else is told who can, not that the agency isn't there.
+   */
+  readonly agencyOnly: boolean;
 }
 
 /** Whether an offered tool is one of these (it runs through the one executor for them). */
@@ -247,6 +252,7 @@ export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTo
         query,
         scope: view.scope,
         agencyDoor,
+        agencyOnly: !!query.permission && isOrgPermission(query.permission),
       },
     ];
   });

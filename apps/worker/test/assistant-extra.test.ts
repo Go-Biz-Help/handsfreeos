@@ -1229,9 +1229,50 @@ describe('adding a business, and the agency area', () => {
     await expect(
       tools.prepare(remind, { businessId: randomUUID() }, ctxFor(owner), randomUUID()),
     ).rejects.toThrow('isn’t one of this agency’s');
-    // A business's admin who isn't one of the agency's is told who can.
+    // A business's admin who isn't one of the agency's is told who can, whether or not they name a business.
+    expect(remind.agencyOnly).toBe(true);
     await expect(
       tools.prepare(remind, { businessId: newId }, ctxFor(priya), randomUUID()),
+    ).rejects.toMatchObject({ rule: 'agency_only' });
+    await expect(tools.prepare(remind, {}, ctxFor(priya), randomUUID())).rejects.toMatchObject({
+      rule: 'agency_only',
+      message: expect.stringContaining('Only the owners and admins of'),
+    });
+  });
+
+  it('saves a setup from the business it names, and the card says which', async () => {
+    const save = allScreenActionTools().find((t) => t.name === 'do_ai_setup_template_save')!;
+    expect(save.forBusiness).toBe(true);
+    expect(Object.keys(save.input.shape)).toContain('businessId');
+    const tools = createToolExecutor(api());
+    const from = (await me()).workspaces.find((w) => w.id === workspaceId)!.name;
+    // Asked in the client's business, it saves the answers of the one named, which has Ava.
+    const there = { ...ctxFor(owner), workspaceId: newId };
+    const args = { businessId: workspaceId, name: `Home services ${mark}` };
+    const out = await tools.prepare(save, args, there, randomUUID());
+    expect(field(out.card as ConfirmCard, 'Business')!.value).toBe(from);
+    // The client's own has no AI teammate yet, so its answers can't be saved: the one named is the one read.
+    await expect(
+      tools.prepare(
+        save,
+        { businessId: newId, name: `Bayou ${mark}` },
+        ctxFor(owner),
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ rule: 'no_teammate' });
+    await tools.commit(save, args, there, { toolCallId: randomUUID() });
+    const { items } = await q<{
+      items: { name: string; from: { workspaceId: string; name: string } | null }[];
+    }>('ai_setup_template.list', { organizationId });
+    expect(items).toContainEqual(
+      expect.objectContaining({
+        name: `Home services ${mark}`,
+        from: { workspaceId, name: from },
+      }),
+    );
+    // Only the agency's owners and admins save one.
+    await expect(
+      tools.prepare(save, { name: `Mine ${mark}` }, ctxFor(priya), randomUUID()),
     ).rejects.toMatchObject({ rule: 'agency_only' });
   });
 });

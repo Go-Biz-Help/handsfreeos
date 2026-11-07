@@ -226,7 +226,20 @@ describe('what the Assistant can see', () => {
     await expect(
       read('migration.get', { migrationId: randomUUID(), wholeAgency: true }, admin),
     ).rejects.toMatchObject({ rule: 'agency_only' });
-    await expect(read('onboarding.clients', {}, admin)).rejects.toThrow();
+    // The agency's own screens: told who can, never that the agency isn't there.
+    expect(
+      allScreenReadTools().find((t) => t.query.name === 'onboarding.clients')!.agencyOnly,
+    ).toBe(true);
+    expect(allScreenReadTools().find((t) => t.query.name === 'timeline.list')!.agencyOnly).toBe(
+      false,
+    );
+    await expect(read('onboarding.clients', {}, admin)).rejects.toMatchObject({
+      rule: 'agency_only',
+      message: expect.stringContaining('Only the owners and admins of'),
+    });
+    await expect(read('ai_setup_template.list', {}, admin)).rejects.toMatchObject({
+      rule: 'agency_only',
+    });
   });
 
   it('reads the team’s hours in words, as the Calendar’s Team view shows them, without the day-by-day list', async () => {

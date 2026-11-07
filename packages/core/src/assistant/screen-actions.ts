@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { scopedInput, type ScopeKey } from '../addons/ai';
 import type { Registry } from '../kernel/registry';
 import type { CommandDef } from '../kernel/types';
-import { isStaffPermission, type Permission } from '../permissions';
+import { isOrgPermission, isStaffPermission, type Permission } from '../permissions';
 import { uuid } from '../schemas/common';
 import { SCREEN_ACTIONS } from './coverage';
 import { withAgencyDoor } from './screen-reads';
@@ -25,6 +25,11 @@ export interface ScreenActionTool extends AssistantTool<z.ZodObject> {
   readonly agencyDoor: boolean;
   /** It names one of the agency's client businesses (`businessId`), checked by the executor before it's put on. */
   readonly forBusiness: boolean;
+  /**
+   * The agency's own (an `org.*` permission): only its owners and admins may. The executor checks that first, so
+   * anyone else is told who can, not that the agency isn't there.
+   */
+  readonly agencyOnly: boolean;
 }
 
 /** Whether an offered tool is one of these (it runs through the one executor for them). */
@@ -81,6 +86,7 @@ export function screenActionTools(registry: Pick<Registry, 'command'>): ScreenAc
         staff,
         agencyDoor,
         forBusiness,
+        agencyOnly: !!command.permission && isOrgPermission(command.permission),
       },
     ];
   });
