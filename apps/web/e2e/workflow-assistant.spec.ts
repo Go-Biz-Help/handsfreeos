@@ -138,8 +138,9 @@ test('workflow assistant: draft and apply, start, pause and resume, an approval,
   await expect(start).toContainText('Step 1, create a task “Call them back”');
   expect(await runState(api, workspaceId, followUp, mike)).toBeNull();
   await start.getByTestId('assistant-confirm').click();
+  // The engine picks the run up, so the card says it starts in a moment; the poll below sees it run.
   await expect(start.getByTestId('assistant-result')).toContainText(
-    'Started “Follow-up call” for Mike Johnson.',
+    '“Follow-up call” starts for Mike Johnson in a moment.',
   );
   await expect
     .poll(() => runState(api, workspaceId, followUp, mike), {
