@@ -183,6 +183,19 @@ const SCREEN_READ_WAYS: Readonly<Record<string, ScreenReadWay>> = {
         ),
     },
   },
+  // A template can be longer than one answer holds: one page of it always reads whole.
+  'document_template.get': {
+    more: {
+      page: z
+        .int()
+        .min(0)
+        .max(99)
+        .optional()
+        .describe(
+          'Only this page’s fields and changes to its words, read whole: counted from 0. Left out, the whole template, or its outline when it is too long to read whole',
+        ),
+    },
+  },
   'ai_setup_template.list': { offeredTo: 'workspace.update' },
   'onboarding.clients': { offeredTo: 'workspace.update' },
   'migration.get': { agencyDoor: true },
@@ -233,6 +246,13 @@ const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
     'The Calendar’s Team, Week and Day views show it. Its answer comes summed up, each person with their weekly hours (or that none are saved, so weekdays 9 to 5 apply) and the zone they’re in, their time off and extra open time with its note and exceptionId (update_my_hours takes it out), when they’re busy in their own Google or Outlook calendar, on a private deal or in another business, and how their calendar link stands. userIds narrows it to some teammates (list_team).',
   'funnel.get':
     'Its answer comes as the funnel’s builder shows it: its definition whole while it fits, with inWords saying who gets in and each stage’s messages and moves in the builder’s words. A funnel too long to read whole comes as an outline, each message cut short, and stageId then reads one stage whole. do_funnel_save takes the whole definition back, with the revision read here, so read every stage whole before saving a long one.',
+  'document.get':
+    'Its answer comes as the document’s page shows it: its state (Out for signing, Making the signed copy, Signed, Declined, Voided, Out of time) and the note under it, then Who signs, each with their state in the screen’s words (Not their turn yet, Link on its way, Signs with you in person, Opened, Signed, Gets a copy) and theirTurn, then What happened, the proof trail in words. What’s filled in comes in words: a signature only as whose it is, never its picture. get_document_file opens the signed copy, get_signing_link gives a signer’s own link, and do_document_remind and do_document_void remind and void it.',
+  'document.list': 'Each document and signer comes with its state as the Sent tab’s badges say it.',
+  'document_template.get':
+    'Its answer comes as the template’s editor shows it: what stops it going out (Before it can go out), When it’s sent, Who signs with each one’s key, then each field and each change to the PDF’s words, with the ids change_document_template takes. A template too long to read whole comes as an outline, and page reads one page whole. get_document_pages reads the PDF’s own words.',
+  'document.prefill':
+    'Its answer comes as the Send screen shows it: what stops it going out and who each role suggests first, then the fields filled in before it goes, When it’s sent, and the template’s changes to the words whole, as do_document_send’s edits take them.',
   'video_call.get':
     'Its answer adds join, the address the team joins the call at, and for a webinar linkAnyoneCanUse, its Link anyone can use as the screen copies it. The customer’s own link went to them by text or email and is never shown. A call that isn’t for an appointment is found by its callId: start_video_call’s answer has it, and once it has been held it is on the customer’s timeline (read_timeline_list, a call’s meta.videoCallId).',
 };

@@ -57,6 +57,7 @@ import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from '
 import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
 import { extraAutoTools, extraConfirmTools, extraWebTools } from './tools-extra';
+import { documentConfirmTools, documentServiceTools } from './tools-documents';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
 import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
 import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling';
@@ -69,6 +70,8 @@ import { testAiTeammate } from './teammate-test';
 /** Tools that run on the worker's own services: trying the AI teammate as a customer, as its Test console does. */
 const serviceTools = {
   test_ai_teammate: testAiTeammate,
+  // A document's PDF read and opened from the file store, as the editor's pages and Open the signed copy do.
+  ...documentServiceTools,
 };
 
 /** The rest of what people do on the screens, one file an area: run on their own. */
@@ -1707,6 +1710,7 @@ const confirmTools: Record<string, ConfirmTool> = {
   ...setupConfirmTools,
   ...moreSettingsConfirmTools,
   ...extraConfirmTools,
+  ...documentConfirmTools,
 };
 
 /**
@@ -1746,7 +1750,12 @@ export function createToolExecutor(
   // The main offer's score and tries are the builder's own, which ask the model with the worker's AI services.
   const offerDeps = workflows ? { ...workflows, httpDb: db } : null;
   // The map, for a service area so many miles from an address: the worker's own, when it has its services.
-  const settingsDeps: SettingsDeps = { geocoder: addonActions?.services.geocoder ?? null, webUrl };
+  // Place fields for me asks the worker's AI about the template's PDF, from its file store.
+  const settingsDeps: SettingsDeps = {
+    geocoder: addonActions?.services.geocoder ?? null,
+    webUrl,
+    services: addonActions?.services ?? null,
+  };
   // A customer's own link is minted with the worker's link key, as Copy link mints it.
   const moneyLinks = addonActions?.services.moneyLinks ?? null;
   // A public page's path in what a tool found goes to the model as a whole link, never a path it must finish.
@@ -1898,6 +1907,8 @@ export function createToolExecutor(
         tool.name in billingLinkTools ||
         // The carrier's free numbers are looked at, never held or bought.
         tool.name in numberSearchTools ||
+        // A document's PDF is read and opened, never changed.
+        tool.name in documentServiceTools ||
         tool.name in capabilityTools
       );
     },

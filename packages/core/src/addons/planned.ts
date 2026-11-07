@@ -856,6 +856,8 @@ const ENTRIES: readonly PlannedEntry[] = [
     groups: ['Contracts & E-Signature'],
     summary:
       'Builds contracts and agreements from reusable templates and automatically fills them with CRM data.',
+    overlap:
+      'HandsFreeOS’s Documents already makes templates from your PDF and fills them in from HandsFreeOS when they’re sent. This adds writing the contract itself in HandsFreeOS.',
   },
   {
     id: 'esignature',
@@ -865,7 +867,7 @@ const ENTRIES: readonly PlannedEntry[] = [
     summary:
       'Adds reusable signature workflows, signer order, document tracking, and completed agreement storage.',
     overlap:
-      'Customers already approve estimates by typing their name. This adds signing for any document.',
+      'HandsFreeOS’s Documents already sends any PDF to sign, in order or all at once, with reminders, a proof trail and the signed copy filed on the customer. This adds signing steps inside workflows.',
   },
   {
     id: 'compliance',

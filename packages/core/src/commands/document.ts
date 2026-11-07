@@ -572,7 +572,7 @@ export const documentRemind = defineCommand({
 export const documentVoid = defineCommand({
   name: 'document.void',
   description:
-    'Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told. Send a corrected one after.',
+    'Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told, with the reason. Send a corrected one after.',
   risk: 2,
   input: DocumentVoidInput,
   output: DocumentOkOutput,

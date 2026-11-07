@@ -117,6 +117,13 @@ export const CORE_CAPABILITIES: readonly CoreCapability[] = [
     permission: 'money.read',
   },
   {
+    id: 'documents.signing',
+    label: 'Documents to sign',
+    description:
+      'Contracts and agreements customers sign online: make a template from your PDF, fill it in from HandsFreeOS, and send it to sign one after another or all at once, with reminders, a 6-digit code, voiding, and the signed copy filed on their Files.',
+    permission: 'documents.send',
+  },
+  {
     id: 'marketing.campaigns',
     label: 'Campaigns',
     description: 'Email, text and call campaigns to a list of customers.',

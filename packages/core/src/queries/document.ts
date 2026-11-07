@@ -199,7 +199,7 @@ function aboutOf(d: DocumentRow, names: Map<string, string>) {
 export const documentList = defineQuery({
   name: 'document.list',
   description:
-    'Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out, signed, declined, voided, out of time), with who signs each and how far they’ve got.',
+    'Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out: Out for signing; completed: Signed; declined; voided; expired: Out of time), with who signs each and how far they’ve got.',
   input: DocumentListInput,
   output: DocumentListOutput,
   permission: 'records.read',

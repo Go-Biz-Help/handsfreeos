@@ -127,13 +127,17 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'workflow.test': {},
   'workflow_proposal.apply': {},
   // ---- Documents to sign (20261027015200): sending waits for a Confirm card, like every change ----
+  // Changing what's on a template is change_document_template, a piece at a time, and Place fields for me is
+  // place_template_fields: both save it, so the whole definition is never the model's to copy back.
   'document_template.create': {},
-  'document_template.save': {},
   'document_template.rename': {},
   'document_template.archive': {},
   'document_template.restore': {},
   'document_template.duplicate': {},
-  'document.send': {},
+  'document.send': {
+    about:
+      'Read read_document_prefill first, for who each role suggests and what stops it going out; pass each signer by roleKey. Values are only the fields you fill in or change. edits replaces the template’s word changes for this customer whole: pass every one to keep (read_document_template_get lists them), plus theirs, with each line’s box from get_document_pages. To correct a voided one, pass replacesDocumentId.',
+  },
   'document.remind': {},
   'document.void': {},
   // ---- Forms and reviews ----

@@ -48,6 +48,7 @@ import {
 import { screenActionStep } from './tools-screen-actions';
 import { screenReadStep } from './tools-screen-reads';
 import { billingStepLabels } from './tools-billing';
+import { documentStepLabels } from './tools-documents';
 import { contentStepLabels } from './tools-content';
 import { extraStepLabels } from './tools-extra';
 import { inboxCrmStepLabels } from './tools-inbox-crm';
@@ -303,6 +304,7 @@ const MORE_STEP_LABELS: Record<string, string> = {
   ...mainOfferStepLabels,
   ...moreSettingsStepLabels,
   ...extraStepLabels,
+  ...documentStepLabels,
   ...addonStepLabels,
 };
 const stepLabel = (tool: OfferedTool) =>

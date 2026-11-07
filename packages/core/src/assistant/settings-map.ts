@@ -249,7 +249,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Permissions'],
     onScreen: [
       'Who can do what',
-      'A card for each of Contacts, Inbox and calls, Calendar, Money, Automations and AI, and Business and team, with an Admins and a Members column',
+      'A card for each of Contacts, Inbox and calls, Calendar, Money, Documents (Send documents to sign, Make document templates), Automations and AI, and Business and team, with an Admins and a Members column',
       'Back to the defaults: Reset admins, Reset members',
       'People with their own settings (one person’s own are changed in Members: ⋯ beside them, then Permissions)',
     ],
@@ -259,6 +259,9 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'turn one permission on or off for admins or members',
       'set what one person may do',
       'put a role or a person back to the defaults',
+    ],
+    howTo: [
+      'Let someone send documents to sign, or make document templates: Settings → Permissions, the Documents card (Send documents to sign, Make document templates)',
     ],
     handovers: [],
   },

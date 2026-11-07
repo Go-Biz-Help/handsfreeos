@@ -296,6 +296,23 @@ describe('the screen a question is asked from', () => {
     });
     expect(screenPlace('/audit')).toMatchObject({ label: 'Audit log', way: 'Audit log' });
     expect(screenPlace('/audit')).not.toHaveProperty('shows');
+    // A document and a template, on the web and the phone alike, so "remind them" or "void this" knows which.
+    expect(screenPlace(`/documents/${ID}`)).toMatchObject({
+      label: 'A document',
+      way: 'Documents, then press the document',
+      ids: [{ name: 'document', id: ID }],
+    });
+    expect(screenPlace(`/documents/templates/${ID}`)).toMatchObject({
+      label: 'A document template',
+      ids: [{ name: 'template', id: ID }],
+    });
+    expect(screenPlace(`/documents/send?template=${ID}&from=${ID2}`)).toMatchObject({
+      label: 'Send a document',
+      ids: [
+        { name: 'document template', id: ID },
+        { name: 'voided document it corrects', id: ID2 },
+      ],
+    });
   });
 
   it('says which view and day the Calendar shows, and whose, from its address', () => {

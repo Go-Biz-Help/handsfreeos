@@ -278,7 +278,14 @@ export const DocumentSignNowOutput = z.object({
 export const DocumentVoidInput = z.object({
   workspaceId: uuid,
   documentId: uuid,
-  reason: z.string().trim().max(500).optional(),
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .describe(
+      'Why, in a sentence the signers read in the notice they’re sent, like “The start date was wrong. A corrected copy is on its way.”',
+    ),
 });
 export const DocumentOkOutput = z.object({ documentId: uuid, changed: z.boolean() });
 

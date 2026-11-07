@@ -3,20 +3,25 @@
  * the colours under them, kept beside the PDF so it's drawn once; a PDF just uploaded read for its page sizes; and
  * "Place fields for me" finding the spots on the template's own PDF when the phone sends none.
  */
-import { randomInt } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import {
+  AssistantCard,
+  assistantToolByName,
   documentTemplateBeginUpload,
   documentTemplateCreate,
   documentTemplateSetSource,
   fileConfirm,
   type DocumentField,
 } from '@hfos/core/server';
-import { closeTestDbs, signInTestUser } from '@hfos/db/testing';
+import { rows, sql } from '@hfos/db/client';
+import { closeTestDbs, signInTestUser, testDbs } from '@hfos/db/testing';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { scriptedAi } from '../src/ai/scripted';
+import type { ToolContext } from '../src/assistant/runtime';
+import { createToolExecutor } from '../src/assistant/tools-write';
 import { drawPdfPages, removeDrawnPages } from '../src/documents/pages';
-import { makeWorld, run, type World } from './booking-world';
+import { admin, makeWorld, run, type World } from './booking-world';
 
 let w: World;
 let bearer: string;
@@ -244,4 +249,107 @@ describe('placing the fields from the phone', () => {
     // On the line drawn after the label.
     expect(fields[0]!.x).toBeCloseTo(170 / 612, 2);
   }, 30_000);
+});
+
+describe('the Assistant', () => {
+  const ctx = (): ToolContext => ({
+    actor: { type: 'human', userId: w.owner.id, email: w.owner.email, claims: w.owner.claims },
+    workspaceId: w.workspaceId,
+    organizationId: w.organizationId,
+    correlationId: randomUUID(),
+    timezone: 'America/Chicago',
+  });
+  // As the runtime runs them: with the worker's services, for its file store and its AI.
+  const tools = () =>
+    createToolExecutor(testDbs().worker.db, null, null, '', undefined, { services: w.s });
+  const tool = (name: string) => assistantToolByName.get(name)!;
+  const argsOf = (name: string, args: Record<string, unknown>) =>
+    tool(name).input.parse(args) as Record<string, unknown>;
+  const savedFields = async (templateId: string) => {
+    const [t] = await rows<{ definition: { fields: DocumentField[] } }>(
+      admin(),
+      sql`select definition from app.document_templates where id = ${templateId}`,
+    );
+    return t!.definition.fields;
+  };
+
+  it('reads the PDF’s words a few pages at a time, with each line’s box', async () => {
+    const { templateId } = await template();
+    const got = (
+      await tools().run(
+        tool('get_document_pages'),
+        argsOf('get_document_pages', { templateId }),
+        ctx(),
+      )
+    ).result as {
+      pageCount: number;
+      pages: { page: number; lines: { text: string; x: number; background: string }[] }[];
+      more?: string;
+    };
+    expect(got.pageCount).toBe(1);
+    expect(got.more).toBeUndefined();
+    expect(got.pages[0]!.page).toBe(0);
+    expect(got.pages[0]!.lines.map((l) => l.text)).toContain('Client signature:');
+    expect(got.pages[0]!.lines[0]).toMatchObject({
+      text: 'Service agreement',
+      background: '#ffffff',
+    });
+    // No picture links: the words are what the Assistant reads.
+    expect(JSON.stringify(got)).not.toContain('picture');
+    // Without the worker's file store, it says where to look instead.
+    await expect(
+      createToolExecutor(testDbs().worker.db).run(
+        tool('get_document_pages'),
+        argsOf('get_document_pages', { templateId }),
+        ctx(),
+      ),
+    ).rejects.toMatchObject({ rule: 'documents_unavailable' });
+  }, 30_000);
+
+  it('places the fields for the person, on a card first, and keeps the ones already there', async () => {
+    const { templateId } = await template();
+    const card = await tools().prepare(
+      tool('place_template_fields'),
+      { templateId },
+      ctx(),
+      randomUUID(),
+    );
+    expect(AssistantCard.safeParse(card.card).success).toBe(true);
+    expect(card.card).toMatchObject({
+      title: 'Place fields for me on “Service agreement”?',
+      confirmLabel: 'Place fields for me',
+    });
+    // Nothing is asked of the AI or saved until Confirm.
+    expect(await savedFields(templateId)).toEqual([]);
+
+    const done = await tools().commit(tool('place_template_fields'), { templateId }, ctx(), {
+      toolCallId: randomUUID(),
+    });
+    expect(done).toMatchObject({
+      outcome: 'Placed 2 fields. Check each one and who it’s for.',
+      href: `/app/w/${w.workspaceId}/documents/templates/${templateId}`,
+      command: 'document_template.save',
+    });
+    const placed = await savedFields(templateId);
+    expect(placed.map((f) => [f.type, f.role])).toEqual([
+      ['signature', 'customer'],
+      ['checkbox', 'customer'],
+    ]);
+    // Asked again, the spots already have their fields: nothing is added or saved.
+    const again = await tools().commit(tool('place_template_fields'), { templateId }, ctx(), {
+      toolCallId: randomUUID(),
+    });
+    expect(again.outcome).toBe('The fields the AI found are already there.');
+    expect(await savedFields(templateId)).toEqual(placed);
+
+    // Without the worker's AI, it says to use the template's own button.
+    await expect(
+      createToolExecutor(testDbs().worker.db).prepare(
+        tool('place_template_fields'),
+        { templateId },
+        ctx(),
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ rule: 'ai_not_configured' });
+  }, 60_000);
 });

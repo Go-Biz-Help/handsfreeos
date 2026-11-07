@@ -3227,7 +3227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told. Send a corrected one after.
+         * Void a document still out for signing: nobody can sign it anymore, and anyone who had their link is told, with the reason. Send a corrected one after.
          * @description Risk level 2. Requires documents.send. Emits document.voided.
          */
         post: operations["command_document_void"];
@@ -18127,7 +18127,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out, signed, declined, voided, out of time), with who signs each and how far they’ve got.
+         * Documents sent to sign, newest first: all of them, one customer’s, company’s, lead’s or record’s, one template’s, or only those in one state (out: Out for signing; completed: Signed; declined; voided; expired: Out of time), with who signs each and how far they’ve got.
          * @description Requires records.read.
          */
         post: operations["query_document_list"];
@@ -31553,6 +31553,7 @@ export interface operations {
                 "application/json": {
                     /** Format: uuid */
                     documentId: string;
+                    /** @description Why, in a sentence the signers read in the notice they’re sent, like “The start date was wrong. A corrected copy is on its way.” */
                     reason?: string;
                     /** Format: uuid */
                     workspaceId: string;

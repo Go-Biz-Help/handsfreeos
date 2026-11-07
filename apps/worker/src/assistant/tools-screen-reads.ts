@@ -52,6 +52,7 @@ import { z } from 'zod';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { aiSetupRead, clientsRead, gettingStartedRead, setupRead } from './setup-screens';
+import { documentReads } from './tools-documents';
 import { funnelRead } from './tools-funnels';
 import { query } from './tools-read';
 
@@ -485,7 +486,8 @@ export async function runScreenRead(
                                     ? auditRead(got)
                                     : tool.query.name === funnelGet.name
                                       ? funnelRead(got, args['stageId'])
-                                      : got;
+                                      : // Documents, as their screens say them.
+                                        (documentReads[tool.query.name]?.(got, args) ?? got);
   const json = JSON.stringify(data ?? null);
   // A list's next page, kept when the rest is cut, so it can still be read on from.
   const next = (data as { nextCursor?: unknown } | null)?.nextCursor;
