@@ -130,20 +130,21 @@ export async function command<T>(
 
 /**
  * A command tried as the person and rolled back whole, so a card is drawn only for a change its own rules would
- * take now: one that doesn't fit, or a record someone changed since, is refused before anyone presses Confirm.
+ * take now: one that doesn't fit, or a record someone changed since, is refused before anyone presses Confirm. What it
+ * would have answered comes back, for the card.
  */
-export async function rehearse(
+export async function rehearse<T = unknown>(
   db: Db,
   ctx: ToolContext,
   name: string,
   input: Record<string, unknown>,
-): Promise<void> {
+): Promise<T> {
   const def = registry.command(name);
   if (!def) throw new Error(`Unknown command ${name}`);
-  await rehearseCommand(db, def, { ...input, workspaceId: ctx.workspaceId }, ctx.actor, {
+  return (await rehearseCommand(db, def, { ...input, workspaceId: ctx.workspaceId }, ctx.actor, {
     correlationId: ctx.correlationId,
     channel: 'assistant',
-  });
+  })) as T;
 }
 
 type Ref = { id: string; fullName: string } | null;

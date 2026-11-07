@@ -18,10 +18,14 @@ import {
   handoverScreen,
   migrationStatusWords,
   notificationStates,
+  partSays,
+  SCORED_PART_LABELS,
+  SCORED_PARTS,
   screenPlace,
   settingsArea,
   settingsWhere,
   type AssistantCard,
+  type MainOfferTryOut,
   type SettingsArea,
   type SettingsAreaInfo,
 } from '@hfos/core/server';
@@ -99,6 +103,37 @@ export function migrationListRead(v: unknown): unknown {
   };
 }
 
+/**
+ * This round's tries as Review and go live's Versions lists them, newest first: each with its scores, the parts it
+ * changed and why, what the person asked for, and who made it, with the id manage_main_offer takes parts from.
+ */
+export function triesRead(v: unknown): unknown {
+  const out = v as { round?: number; tries?: MainOfferTryOut[] } | null;
+  if (!out || !Array.isArray(out.tries)) return v;
+  return {
+    round: out.round,
+    tries: out.tries.map((t) => ({
+      tryId: t.id,
+      name: `Try ${t.number}`,
+      lowest: t.lowest,
+      scores: Object.fromEntries(
+        SCORED_PARTS.map((p) => [SCORED_PART_LABELS[p], t.score.parts[p].score]),
+      ),
+      changed: SCORED_PARTS.filter((p) => t.why[p]).map((p) => ({
+        part: p,
+        says: partSays(t.parts, p),
+        why: t.why[p],
+      })),
+      ...(t.parts.line ? { line: t.parts.line } : {}),
+      ...(Object.keys(t.notes).length ? { askedFor: t.notes } : {}),
+      ...(t.keep.length ? { keptAsIs: t.keep } : {}),
+      ...(t.direction ? { followed: t.direction } : {}),
+      madeBy: t.madeBy?.name ?? null,
+      madeAt: t.madeAt,
+    })),
+  };
+}
+
 /** What one area is read with: the same queries the screen behind it runs. */
 const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   business: [{ name: 'workspace.get', as: 'business' }],
@@ -106,6 +141,7 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   main_offer: [
     { name: 'main_offer.get', as: 'mainOffer' },
     { name: 'main_offer.versions', as: 'versions' },
+    { name: 'main_offer.tries', as: 'tries', shape: triesRead },
   ],
   add_ons: [
     {

@@ -467,7 +467,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'file.confirm': 'a file from the person’s own computer or phone',
   'knowledge_document.begin_upload': 'a file from the person’s own computer or phone',
   'knowledge_document.add': 'a file from the person’s own computer or phone',
-  'knowledge_item.import_faqs': 'a spreadsheet from the person’s own computer',
   'import.create': 'a spreadsheet from the person’s own computer',
   'import.start': 'a spreadsheet from the person’s own computer',
   'look.begin_upload': 'a picture from the person’s own computer or phone',

@@ -24,6 +24,7 @@ import {
   findStep,
   HfosError,
   isLiveRun,
+  KnowledgeWritableContent,
   parseDefinition,
   placeholderChoices,
   planTemplateUpdate,
@@ -1123,15 +1124,34 @@ const KIND_WORD = { faq: 'FAQ', fact: 'fact', article: 'article' } as const;
 type WritableKind = keyof typeof KIND_WORD;
 const kindOf = (v: unknown): WritableKind => (v === 'fact' || v === 'article' ? v : 'faq');
 
+/** What the person asked to add, checked against the knowledge base's own limits so the card never shows what can't be saved. */
+function newItemOf(args: Record<string, unknown>) {
+  const kind = kindOf(args['kind']);
+  const title = String(args['title'] ?? '').trim();
+  const body = String(args['body'] ?? '').trim();
+  const tags = Array.isArray(args['tags']) ? (args['tags'] as string[]) : [];
+  const parsed = KnowledgeWritableContent.safeParse(
+    kind === 'faq' ? { kind, question: title, answer: body, tags } : { kind, title, body, tags },
+  );
+  if (!parsed.success)
+    throw HfosError.validation(
+      parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
+      parsed.error.issues[0]?.message ??
+        'That can’t be saved as it is. Check the title, text and tags, then try again.',
+    );
+  return { kind, title, body, tags, content: parsed.data };
+}
+
 const addKnowledgeItem: WorkflowConfirmTool = {
   async prepare(_db, _ctx, args, toolCallId) {
-    const kind = kindOf(args['kind']);
+    const { kind, title, body, tags } = newItemOf(args);
     const publish = args['publish'] === true;
     return {
       card: confirmCard(toolCallId, 'add_knowledge_item', {
         title: `Add this ${KIND_WORD[kind]} to your knowledge base?`,
         fields: [
-          { label: kind === 'faq' ? 'Question' : 'Title', value: String(args['title']) },
+          { label: kind === 'faq' ? 'Question' : 'Title', value: title },
+          ...(tags.length ? [{ label: 'Tags', value: tags.join(', ') }] : []),
           {
             label: 'Saved as',
             value: publish
@@ -1139,22 +1159,16 @@ const addKnowledgeItem: WorkflowConfirmTool = {
               : 'A draft: nothing uses it until it’s published',
           },
         ],
-        body: String(args['body']),
+        body,
         warnings: [],
         confirmLabel: publish ? 'Publish' : 'Save draft',
       }),
-      result: { kind, title: args['title'], status: publish ? 'published' : 'draft' },
+      result: { kind, title, status: publish ? 'published' : 'draft' },
     };
   },
   async commit(db, ctx, args) {
-    const kind = kindOf(args['kind']);
+    const { title, content } = newItemOf(args);
     const publish = args['publish'] === true;
-    const title = String(args['title']);
-    const body = String(args['body']);
-    const content =
-      kind === 'faq'
-        ? { kind, question: title, answer: body, tags: [] }
-        : { kind, title, body, tags: [] };
     const { itemId } = await command<{ itemId: string }>(db, ctx, 'knowledge_item.create', {
       content,
       status: publish ? 'published' : 'draft',

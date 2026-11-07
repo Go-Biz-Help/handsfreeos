@@ -219,6 +219,24 @@ export async function getToolCall(db: Db, scope: Scope, id: string): Promise<Too
   return row ?? null;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * When a card was drawn, so a change that gathers what waits (Accept all) takes only what its card listed, never
+ * something that arrived after. Null for a call that was never kept.
+ */
+export async function toolCallDrawnAt(db: Db, scope: Scope, id: string): Promise<Date | null> {
+  if (!UUID.test(id)) return null;
+  const [row] = await asWorker(db, scope, (tx) =>
+    rows<{ created_at: Date | string }>(
+      tx,
+      sql`select created_at from app.assistant_tool_calls
+          where id = ${id} and workspace_id = ${scope.workspaceId}`,
+    ),
+  );
+  return row ? new Date(row.created_at) : null;
+}
+
 /** Moves a waiting card to its answer, once: a double click or a second tab finds it already answered. */
 export async function claimToolCall(
   db: Db,

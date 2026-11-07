@@ -1094,6 +1094,43 @@ describe('what the AI knows about the business', () => {
     expect(profile['description']).toBe('Residential heating and cooling in Houston.');
     expect(profile['tone']).toBe('Plain and friendly.');
   });
+
+  it('sets the services and the words to use and avoid, clears a field, and says when nothing would change', async () => {
+    const services = [
+      { name: 'AC tune-up', description: 'Clean, check and top up.', price: '$89' },
+      { name: 'Duct cleaning' },
+    ];
+    const { card, parsed, tool } = await prepare(
+      'update_knowledge_profile',
+      { services, wordsToUse: ['comfort', 'on time'], wordsToAvoid: ['cheap'], tone: '' },
+      owner,
+    );
+    const value = (label: string) => card.fields.find((f) => f.label === label)?.value;
+    expect(value('Services')).toBe('AC tune-up · $89 · Clean, check and top up.; Duct cleaning');
+    expect(value('Words to use')).toBe('comfort, on time');
+    expect(value('Words to avoid')).toBe('cheap');
+    expect(value('How it sounds')).toBe('Cleared (was “Plain and friendly.”)');
+    await confirm(tool!, parsed, owner);
+
+    const { profile } = await q<{ profile: Record<string, unknown> }>('knowledge.profile');
+    expect(profile['services']).toEqual([
+      { name: 'AC tune-up', description: 'Clean, check and top up.', price: '$89' },
+      { name: 'Duct cleaning', description: '', price: null },
+    ]);
+    expect(profile['wordsToUse']).toEqual(['comfort', 'on time']);
+    expect(profile['wordsToAvoid']).toEqual(['cheap']);
+    expect(profile['tone']).toBe('');
+    // The rest stays as it was.
+    expect(profile['description']).toBe('Residential heating and cooling in Houston.');
+    expect(profile['allowPrices']).toBe(true);
+
+    await expect(
+      prepare('update_knowledge_profile', { wordsToAvoid: ['cheap'], tone: '' }, owner),
+    ).rejects.toMatchObject({
+      code: 'validation',
+      message: expect.stringContaining('get_settings'),
+    });
+  });
 });
 
 describe('texting and calls', () => {

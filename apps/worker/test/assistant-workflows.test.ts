@@ -302,7 +302,9 @@ describe('workflows and knowledge in the Assistant', () => {
     const text = contextText(context.prompt);
     expect(text).toContain('<business_profile>');
     expect(text).toContain('What they do: Heating and air conditioning in Houston.');
-    expect(text).toContain('Rules for what you say about the business:');
+    expect(text).toContain(
+      'Rules for what you say to customers, or write for them, about the business:',
+    );
     expect(text).toContain('State only facts found in the business profile');
     expect(text).toContain(
       `- Follow-up call [active] (workflow id ${followUp}): When someone starts it`,
@@ -677,6 +679,64 @@ describe('workflows and knowledge in the Assistant', () => {
             where workspace_id = ${ws} and title = 'Do you work weekends?'`,
       ),
     ).toEqual([{ status: 'draft', body: 'Yes, Saturdays from 9 to 1.' }]);
+  });
+
+  it('adds an item with its tags and a long article whole, and holds each kind to its own length', async () => {
+    const organizationId = (
+      await rows<{ organization_id: string }>(
+        admin(),
+        sql`select organization_id from app.workspaces where id = ${ws}`,
+      )
+    )[0]!.organization_id;
+    const ctx: ToolContext = {
+      actor: actor(owner),
+      workspaceId: ws,
+      organizationId,
+      correlationId: randomUUID(),
+      timezone: 'America/Chicago',
+    };
+    const tool = assistantToolByName.get('add_knowledge_item')!;
+    const args = (a: Record<string, unknown>) => tool.input.parse(a) as Record<string, unknown>;
+    // Over the 5,000 an FAQ's answer takes, and well under an article's 20,000.
+    const long = 'Every new system comes with a ten-year parts warranty and one year of labor. '
+      .repeat(80)
+      .trim();
+    const article = args({
+      kind: 'article',
+      title: 'Our warranty, in full',
+      body: long,
+      tags: ['warranty', 'new systems'],
+    });
+    const { card } = await createToolExecutor(api()).prepare(tool, article, ctx, randomUUID());
+    expect(card).toMatchObject({
+      title: 'Add this article to your knowledge base?',
+      body: long,
+      confirmLabel: 'Save draft',
+    });
+    expect((card as Extract<AssistantCard, { type: 'confirm' }>).fields).toContainEqual({
+      label: 'Tags',
+      value: 'warranty, new systems',
+    });
+    await createToolExecutor(api()).commit(tool, article, ctx, { toolCallId: randomUUID() });
+    expect(
+      await rows(
+        admin(),
+        sql`select kind::text as kind, status::text as status, tags, length(body)::int as length
+            from app.knowledge_items where workspace_id = ${ws} and title = 'Our warranty, in full'`,
+      ),
+    ).toEqual([
+      { kind: 'article', status: 'draft', tags: ['warranty', 'new systems'], length: long.length },
+    ]);
+
+    // An FAQ's answer that long is refused before any card, saying how long it may be.
+    await expect(
+      createToolExecutor(api()).prepare(
+        tool,
+        args({ kind: 'faq', title: 'What does the warranty cover?', body: long }),
+        ctx,
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: 'validation', message: expect.stringContaining('5000') });
   });
 
   it('keeps what a test answered once it’s confirmed, so the next question can find the test run', async () => {

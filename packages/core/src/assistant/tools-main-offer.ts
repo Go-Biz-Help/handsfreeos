@@ -8,6 +8,7 @@
  * keep what the AI said beside it, as the builder's buttons do.
  */
 import { z } from 'zod';
+import { OFFER_ASSIST_MODES, OFFER_ASSIST_PATH_KEYS } from '../main-offer/assist';
 import { MAIN_OFFER_LIMITS, MainOfferNotes, SCORED_PARTS } from '../main-offer/parts';
 import { OFFER_STEP_WORDS, OFFER_STEPS } from '../main-offer/words';
 import { uuid } from '../schemas/common';
@@ -45,7 +46,7 @@ export const mainOfferTools: readonly AssistantTool[] = [
   define({
     name: 'edit_main_offer',
     description:
-      'Change the business’s main offer (Settings → Main offer): any of its boxes, the method’s steps or the real results. It starts from the draft, or from the live version when there is none, saves the change to the draft and has the AI score it. With goLive, it then puts it live as the next version when every part scores 7 or more. Read the offer first with get_settings (area main_offer) and pass only what changes. Write in the business’s own words, plainly; results only as the person gave them to you, never made up. Social Outreach’s messages carry the outcome in a few words, never the guarantee or the price.',
+      'Change the business’s main offer (Settings → Main offer): any of its boxes, the method’s steps or the real results. It starts from the draft, or from the live version when there is none, saves the change to the draft and has the AI score it. With goLive, it then puts it live as the next version when every part scores 7 or more. Read the offer first with get_settings (area main_offer) and pass only what changes. Write in the business’s own words, plainly; results only as the person gave them to you, never made up. Social Outreach’s messages use the outcome and the guarantee in a few words each: a first message carries the outcome, and a reply gives the guarantee when someone asks about one. Messages never say the price.',
     input: z.object({
       boxes: z
         .array(
@@ -93,7 +94,7 @@ export const mainOfferTools: readonly AssistantTool[] = [
   define({
     name: 'manage_main_offer',
     description:
-      'The rest of Settings → Main offer: throw the draft away (the live version stays), set the owner’s direction for the whole offer that every score and try follows, set the names the business goes by on people’s profiles, or take parts from one of the AI’s tries into the draft (its id from try_main_offer).',
+      'The rest of Settings → Main offer: throw the draft away (the live version stays), set the owner’s direction for the whole offer that every score and try follows, set the names the business goes by on people’s profiles, or take parts from one of the AI’s tries into the draft (its id from try_main_offer, or from get_settings main_offer, whose tries lists this round’s, as Review and go live’s Versions does).',
     input: z.object({
       action: z.enum(['discard_draft', 'set_direction', 'set_names', 'take_from_try']),
       direction: z
@@ -109,7 +110,11 @@ export const mainOfferTools: readonly AssistantTool[] = [
         .describe(
           'set_names: the company and the brand it sells, the whole list; none means the business’s name here',
         ),
-      tryId: uuid.optional().describe('take_from_try: which try'),
+      tryId: uuid
+        .optional()
+        .describe(
+          'take_from_try: which try, from try_main_offer or get_settings main_offer (tries)',
+        ),
       take: z
         .array(z.enum(SCORED_PARTS))
         .min(1)
@@ -125,6 +130,22 @@ export const mainOfferTools: readonly AssistantTool[] = [
     description:
       'Have the AI score the main offer’s draft as it is kept: each part from 1 to 10 with why, what’s holding it back and the fix. Keeps the score with the draft, as Score my offer does. Changes nothing in the offer.',
     input: z.object({}),
+    autonomy: 'auto',
+    permission: 'main_offer.manage',
+  }),
+  define({
+    name: 'suggest_main_offer',
+    description:
+      'Ask the builder’s AI for three to pick from, as its buttons do (Settings → Main offer, Change your offer): niche is Find my niche (three niches, each a line of work, the slice of it, their problem and why; Suggest niches for me when they have no best customer yet); a box’s path is Improve (improve) or Write it for me (write) on that box; method.steps gives three sets of steps; proof tidies the real results the person gave, and is refused with none, since the AI never makes one up. A box also comes with the builder’s Examples to model for the business’s line of work, line with the line Start again from my answers writes, and the outcome in a few words with how a first message would read each option. It reads the draft (or the live version), follows the owner’s direction and costs AI from the daily limit. Nothing is saved: show the person the options, and save the one they pick with edit_main_offer.',
+    input: z.object({
+      what: z
+        .enum(['niche', ...OFFER_ASSIST_PATH_KEYS])
+        .describe('niche, or the box (its path) to help with'),
+      mode: z
+        .enum(OFFER_ASSIST_MODES)
+        .default('improve')
+        .describe('A box: improve what it says, or write it afresh'),
+    }),
     autonomy: 'auto',
     permission: 'main_offer.manage',
   }),

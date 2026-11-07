@@ -34,16 +34,20 @@ import { asService, closeTestDbs, createTestUser, testDbs, type TestUser } from 
 import { installRealestate } from '../../../packages/core/test/addons/realestate-fixture';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
+import { scriptedAi } from '../src/ai/scripted';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
+import { finishRun, recordToolCall, startRun } from '../src/assistant/store';
 import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import {
   contentAutoTools,
   contentConfirmTools,
   contentStepLabels,
+  knowledgeServiceTools,
 } from '../src/assistant/tools-content';
 import { createToolExecutor, executorFor } from '../src/assistant/tools-write';
+import { testServices } from './helpers';
 
 const CHI = 'America/Chicago';
 const api = () => testDbs().api.db;
@@ -97,6 +101,47 @@ const prepare = async (name: string, args: Record<string, unknown>, u: TestUser 
 };
 const commit = (name: string, args: Record<string, unknown>, u: TestUser = owner) =>
   tools().commit(tool(name), argsOf(name, args), ctx(u), { toolCallId: randomUUID() });
+/**
+ * Confirmed on the worker's own connection, as the Assistant runs: Accept all reads when its card was drawn, so it
+ * takes only what the card listed.
+ */
+const commitOnWorker = (
+  name: string,
+  args: Record<string, unknown>,
+  toolCallId: string = randomUUID(),
+) =>
+  createToolExecutor(testDbs().worker.db).commit(tool(name), argsOf(name, args), ctx(), {
+    toolCallId,
+  });
+/** A card kept as the runtime keeps one while it waits for Confirm, drawn now; its id is what Confirm hands over. */
+const drawCard = async (name: string, args: Record<string, unknown>) => {
+  const db = testDbs().worker.db;
+  const scope = { workspaceId, organizationId };
+  const { runId, threadId } = await startRun(db, scope, {
+    userId: owner.id,
+    question: 'Accept the website’s suggestions',
+    context: {},
+    model: 'test',
+    correlationId: randomUUID(),
+  });
+  const id = await recordToolCall(db, scope, {
+    userId: owner.id,
+    threadId,
+    runId,
+    providerCallId: `call-${randomUUID()}`,
+    tool: name,
+    arguments: argsOf(name, args),
+    autonomy: 'confirm',
+    status: 'awaiting_confirmation',
+    correlationId: randomUUID(),
+  });
+  await finishRun(db, scope, runId, {
+    status: 'done',
+    usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    toolRounds: 1,
+  });
+  return id;
+};
 const read = async (name: string, args: Record<string, unknown> = {}, u: TestUser = owner) => {
   const out = await tools().run(tool(name), argsOf(name, args), ctx(u));
   if (out.card) expect(AssistantCard.safeParse(out.card).success, `${name} card`).toBe(true);
@@ -1048,6 +1093,353 @@ describe('the knowledge base', () => {
     expect(blocked(again.card)).toContain('A scan is already');
   });
 
+  it('reads one item whole or a part at a time, and lists by tag a page at a time', async () => {
+    const long = 'Every unit gets a ten-year parts warranty. '.repeat(70).trim();
+    const warranty = (
+      await run(knowledgeItemCreate, {
+        workspaceId,
+        status: 'draft',
+        content: { kind: 'article', title: 'Our warranty', body: long, tags: ['warranty'] },
+      })
+    ).itemId;
+    const plan = (
+      await run(knowledgeItemCreate, {
+        workspaceId,
+        status: 'published',
+        content: {
+          kind: 'fact',
+          title: 'Maintenance plan',
+          body: 'Two visits a year for $189.',
+          tags: ['warranty'],
+        },
+      })
+    ).itemId;
+
+    // As its page shows it: the whole text, where it came from and who added it.
+    const whole = await read('get_knowledge_item', { itemId: warranty });
+    expect(whole.result).toMatchObject({
+      kind: 'article',
+      title: 'Our warranty',
+      status: 'A draft: nothing uses it until it’s published',
+      tags: ['warranty'],
+      text: long,
+      cameFrom: 'Added by hand',
+      used: 'The AI can’t use it until it’s published',
+    });
+    expect(whole.result['added']).toContain('by Dale Owner');
+    expect(whole.result).not.toHaveProperty('cut');
+    const rest = await read('get_knowledge_item', { itemId: warranty, from: 1000 });
+    expect(rest.result['text']).toBe(long.slice(1000));
+    expect(rest.result['cut']).toBe(`Characters 1001 to ${long.length} of ${long.length}`);
+    expect(rest.result).not.toHaveProperty('nextFrom');
+
+    // The tag chips' filter, newest change first, a page at a time; the Overview's tiles on the first page only.
+    const first = await read('list_knowledge_items', { tags: ['warranty'], limit: 1 });
+    expect((first.result['items'] as { id: string }[]).map((i) => i.id)).toEqual([plan]);
+    expect(first.result['byKind']).toMatchObject({
+      articles: { published: 0, drafts: 1 },
+      facts: { published: 1, drafts: 0 },
+    });
+    expect(first.result['wholeKnowledgeBase']).toMatchObject({ draft: 1, archived: 0 });
+    const next = await read('list_knowledge_items', {
+      tags: ['warranty'],
+      limit: 1,
+      cursor: first.result['nextCursor'],
+    });
+    expect((next.result['items'] as { id: string }[]).map((i) => i.id)).toEqual([warranty]);
+    expect(next.result).not.toHaveProperty('nextCursor');
+    expect(next.result).not.toHaveProperty('byKind');
+  });
+
+  it('adds many FAQs at once on Confirm, skipping the questions already there', async () => {
+    const faqs = [
+      { question: 'Do you work weekends?', answer: 'Sometimes.' },
+      { question: 'Do you clean vents?', answer: 'Yes, every visit.', tags: ['vents'] },
+      { question: 'Do you sell filters?', answer: 'Yes, at cost.' },
+    ];
+    const count = async () =>
+      (
+        await one<{ n: number }>(
+          sql`select count(*)::int as n from app.knowledge_items
+              where workspace_id = ${workspaceId} and title in ('Do you clean vents?', 'Do you sell filters?')`,
+        )
+      ).n;
+
+    const { card, result } = await prepare('add_knowledge_faqs', { faqs });
+    expect(card.title).toBe('Add 2 FAQs to your knowledge base?');
+    expect(field(card, 'Already there')).toBe('1 question, skipped');
+    expect(field(card, 'Saved as')).toBe('Drafts: nothing uses them until they’re published');
+    expect(card.body).toContain('(Already there, skipped) Q: Do you work weekends?');
+    expect(card.body).toContain('Q: Do you clean vents?\nA: Yes, every visit.\nTags: vents');
+    expect(card.confirmLabel).toBe('Add 2 drafts');
+    expect(result).toMatchObject({ adds: 2, alreadyThere: ['Do you work weekends?'] });
+    // Tried and rolled back: nothing is saved before Confirm.
+    expect(await count()).toBe(0);
+
+    const done = await commit('add_knowledge_faqs', { faqs });
+    expect(done.outcome).toBe(
+      'Added 2 FAQs as drafts. 1 question was already there, so it was skipped.',
+    );
+    expect(
+      await rows(
+        admin(),
+        sql`select title, status::text as status, tags from app.knowledge_items
+            where workspace_id = ${workspaceId} and title in ('Do you clean vents?', 'Do you sell filters?')
+            order by title`,
+      ),
+    ).toEqual([
+      { title: 'Do you clean vents?', status: 'draft', tags: ['vents'] },
+      { title: 'Do you sell filters?', status: 'draft', tags: [] },
+    ]);
+
+    const again = await prepare('add_knowledge_faqs', { faqs: faqs.slice(2), publish: true });
+    expect(blocked(again.card)).toBe(
+      'Every one of these questions is already in the knowledge base.',
+    );
+    expect(again.card.confirmLabel).toBe('');
+  });
+
+  it('reads the newest scan as Website shows it, and accepts its suggestions a page or the site at a time', async () => {
+    const hours = (
+      await run(knowledgeItemCreate, {
+        workspaceId,
+        status: 'published',
+        content: { kind: 'fact', title: 'Hours', body: 'Mon to Fri 9 to 5', tags: [] },
+      })
+    ).itemId;
+    const scanId = (
+      await one<{ id: string }>(
+        sql`update app.knowledge_scans
+            set status = 'done', started_by = ${owner.id}, started_at = now(), finished_at = now(),
+              suggestion_count = 3,
+              pages = ${JSON.stringify([
+                { url: 'https://example.com/', title: 'Home', status: 'changed', suggestions: 1 },
+                {
+                  url: 'https://example.com/services',
+                  title: 'Services',
+                  status: 'new',
+                  suggestions: 2,
+                  truncated: true,
+                },
+                { url: 'https://example.com/old', title: 'Old', status: 'removed', suggestions: 0 },
+                { url: 'https://example.com/broken', title: '', status: 'error', suggestions: 0 },
+              ])}::jsonb,
+              errors = ${JSON.stringify([
+                { url: 'https://example.com/broken', message: 'The page took too long to answer.' },
+                { message: 'Its robots.txt asks not to read /private.' },
+              ])}::jsonb
+            where workspace_id = ${workspaceId}
+            returning id`,
+      )
+    ).id;
+    const suggest = async (
+      kind: string,
+      title: string,
+      body: string,
+      url: string,
+      itemId: string | null = null,
+    ) =>
+      (
+        await one<{ id: string }>(
+          sql`insert into app.knowledge_suggestions (workspace_id, kind, proposed, reason, source, scan_id, item_id)
+              values (${workspaceId}, ${kind}::app.knowledge_item_kind,
+                ${JSON.stringify({ title, body, tags: [] })}::jsonb, 'scan',
+                ${JSON.stringify({ url })}::jsonb, ${scanId}, ${itemId})
+              returning id`,
+        )
+      ).id;
+    const changeHours = await suggest(
+      'fact',
+      'Hours',
+      'Mon to Fri 8 to 5',
+      'https://example.com/',
+      hours,
+    );
+    await suggest('faq', 'Do you install heat pumps?', 'Yes.', 'https://example.com/services');
+    await suggest(
+      'article',
+      'Our services',
+      'Heating and cooling.',
+      'https://example.com/services/',
+    );
+    const gap = (
+      await one<{ id: string }>(
+        sql`insert into app.knowledge_suggestions (workspace_id, kind, proposed, reason, source, group_key, similar_count)
+            values (${workspaceId}, 'faq', ${JSON.stringify({ title: 'Do you do gas lines?', body: '', tags: [] })}::jsonb,
+              'gap', ${JSON.stringify({ question: 'Do you do gas lines?', via: 'try_it' })}::jsonb, 'gas lines', 3)
+            returning id`,
+      )
+    ).id;
+
+    const { result } = await read('list_knowledge_suggestions');
+    expect(result['waiting']).toEqual({ all: 4, websiteScan: 3, gaps: 1, goBizHelp: 0 });
+    expect(result['lastScan']).toMatchObject({
+      status: 'finished',
+      startedBy: 'Dale Owner',
+      pagesRead: 2,
+      found: 3,
+      stillWaiting: 3,
+      whatChanged: { changed: 1, new: 1, same: 0, gone: 1 },
+      pages: [
+        { page: 'https://example.com/', title: 'Home', sinceLastScan: 'Changed', suggestions: 1 },
+        {
+          page: 'https://example.com/services',
+          sinceLastScan: 'New page',
+          suggestions: 2,
+          note: 'Only the start of this page was read',
+        },
+        { page: 'https://example.com/old', sinceLastScan: 'Gone since last time' },
+      ],
+      pagesCouldNotRead: [
+        { page: 'https://example.com/broken', why: 'The page took too long to answer.' },
+      ],
+      siteProblem: 'Its robots.txt asks not to read /private.',
+    });
+    const list = result['suggestions'] as Record<string, unknown>[];
+    expect(list.find((s) => s['id'] === changeHours)).toMatchObject({
+      changesItemId: hours,
+      itemNow: { kind: 'fact', title: 'Hours', text: 'Mon to Fri 9 to 5' },
+      page: 'https://example.com/',
+    });
+    expect(list.find((s) => s['id'] === gap)).toMatchObject({ askedTimes: 3, askedIn: 'Try it' });
+    const latest = await read('list_knowledge_suggestions', { latestScanOnly: true });
+    expect((latest.result['suggestions'] as unknown[]).length).toBe(3);
+
+    // Accept all on this page: one page's, both of its spellings, published on Confirm.
+    const page = { fromWebsite: 'latest_scan', page: 'https://example.com/services' };
+    const onPage = await prepare('accept_knowledge_suggestions', page);
+    expect(onPage.card.title).toBe('Accept all 2 from the website?');
+    expect(field(onPage.card, 'New items')).toBe('2');
+    expect(onPage.card.body).toContain('FAQ: Do you install heat pumps?');
+    expect(onPage.card.body).toContain('Article: Our services');
+    expect(onPage.card.confirmLabel).toBe('Accept all');
+    const waiting = async () =>
+      (
+        await one<{ n: number }>(
+          sql`select count(*)::int as n from app.knowledge_suggestions
+              where workspace_id = ${workspaceId} and status = 'pending' and reason = 'scan'`,
+        )
+      ).n;
+    expect(await waiting()).toBe(3);
+    const done = await commitOnWorker('accept_knowledge_suggestions', page);
+    expect(done.outcome).toBe('Accepted 2 and published them.');
+    expect(
+      await rows(
+        admin(),
+        sql`select title, status::text as status from app.knowledge_items
+            where workspace_id = ${workspaceId} and title in ('Do you install heat pumps?', 'Our services')
+            order by title`,
+      ),
+    ).toEqual([
+      { title: 'Do you install heat pumps?', status: 'published' },
+      { title: 'Our services', status: 'published' },
+    ]);
+
+    // A question customers asked needs its answer, so it isn't accepted as it is.
+    await expect(
+      prepare('accept_knowledge_suggestions', { suggestionIds: [changeHours, gap] }),
+    ).rejects.toMatchObject({
+      code: 'validation',
+      message: expect.stringContaining('decide_knowledge_suggestion'),
+    });
+
+    // Accept all from the website: the change to an item updates it.
+    const site = await prepare('accept_knowledge_suggestions', { fromWebsite: 'every_scan' });
+    expect(site.card.title).toBe('Accept all 1 from the website?');
+    expect(field(site.card, 'Updates')).toBe('1 item the website changed');
+    expect(site.card.body).toBe('(Updates an item) Fact: Hours');
+    await commitOnWorker('accept_knowledge_suggestions', { fromWebsite: 'every_scan' });
+    expect(
+      await one(
+        sql`select body, status::text as status from app.knowledge_items where id = ${hours}`,
+      ),
+    ).toEqual({ body: 'Mon to Fri 8 to 5', status: 'published' });
+    await expect(
+      prepare('accept_knowledge_suggestions', { fromWebsite: 'every_scan' }),
+    ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('accepts on Confirm only what its card listed, never a suggestion that came after it', async () => {
+    const newest = await one<{ id: string; source_id: string }>(
+      sql`select id, source_id from app.knowledge_scans where workspace_id = ${workspaceId}
+          order by created_at desc limit 1`,
+    );
+    // `later`: found a second on, so it can't share the card's millisecond however fast the database answers.
+    const suggest = async (title: string, later = false) =>
+      (
+        await one<{ id: string }>(
+          sql`insert into app.knowledge_suggestions (workspace_id, kind, proposed, reason, source, scan_id, created_at)
+              values (${workspaceId}, 'faq', ${JSON.stringify({ title, body: 'Yes.', tags: [] })}::jsonb, 'scan',
+                ${JSON.stringify({ url: 'https://example.com/boilers' })}::jsonb, ${newest.id},
+                now() + ${later ? '1 second' : '0 seconds'}::interval)
+              returning id`,
+        )
+      ).id;
+    const status = async (id: string) =>
+      (
+        await one<{ status: string }>(
+          sql`select status::text as status from app.knowledge_suggestions where id = ${id}`,
+        )
+      ).status;
+
+    const boilers = await suggest('Do you fix boilers?');
+    const site = { fromWebsite: 'every_scan' };
+    const shown = await prepare('accept_knowledge_suggestions', site);
+    expect(shown.card.body).toBe('FAQ: Do you fix boilers?');
+    const card = await drawCard('accept_knowledge_suggestions', site);
+    // The scan finds one more before the person presses Confirm: it waits for a card of its own.
+    const late = await suggest('Do you fix water heaters?', true);
+    const done = await commitOnWorker('accept_knowledge_suggestions', site, card);
+    expect(done.outcome).toBe('Accepted 1 and published them.');
+    expect(await status(boilers)).toBe('accepted');
+    expect(await status(late)).toBe('pending');
+
+    // The newest scan's, once a newer scan started after the card: refused, so the person asks again.
+    const latest = { fromWebsite: 'latest_scan' };
+    expect((await prepare('accept_knowledge_suggestions', latest)).card.body).toBe(
+      'FAQ: Do you fix water heaters?',
+    );
+    const second = await drawCard('accept_knowledge_suggestions', latest);
+    await rows(
+      admin(),
+      sql`insert into app.knowledge_scans (workspace_id, source_id, status, started_by, started_at, finished_at,
+            created_at)
+          values (${workspaceId}, ${newest.source_id}, 'done', ${owner.id}, now(), now(), now() + interval '2 seconds')`,
+    );
+    await expect(
+      commitOnWorker('accept_knowledge_suggestions', latest, second),
+    ).rejects.toMatchObject({ rule: 'suggestions_changed' });
+    expect(await status(late)).toBe('pending');
+  });
+
+  it('changes only the website’s address when asked not to scan, as Save does', async () => {
+    const scans = async () =>
+      (
+        await one<{ n: number }>(
+          sql`select count(*)::int as n from app.knowledge_scans where workspace_id = ${workspaceId}`,
+        )
+      ).n;
+    const before = await scans();
+    const args = { website: 'example.org', scanNow: false };
+    const { card } = await prepare('scan_website', args);
+    expect(card.title).toBe('Change the website to example.org?');
+    expect(field(card, 'Website')).toBe('https://example.org/');
+    expect(field(card, 'Was')).toBe('https://example.com/');
+    expect(card.confirmLabel).toBe('Save the address');
+    expect(card.warnings).toEqual([]);
+    const done = await commit('scan_website', args);
+    expect(done.command).toBe('knowledge_source.set');
+    expect(
+      await one(sql`select url from app.knowledge_sources where workspace_id = ${workspaceId}`),
+    ).toEqual({ url: 'https://example.org/' });
+    expect(await scans()).toBe(before);
+
+    await expect(prepare('scan_website', args)).rejects.toMatchObject({ code: 'validation' });
+    await expect(prepare('scan_website', { scanNow: false })).rejects.toMatchObject({
+      code: 'validation',
+    });
+  });
+
   it('adds, changes and takes off an offer', async () => {
     const create = {
       action: 'create',
@@ -1077,6 +1469,54 @@ describe('the knowledge base', () => {
       sql`select archived_at is not null as archived from app.offers where id = ${offerId}`,
     );
     expect(gone.archived).toBe(true);
+  });
+
+  it('asks a question as Try it does, and one it can’t answer waits in Suggestions', async () => {
+    const s = testServices({ ai: { provider: scriptedAi() } });
+    // Try it runs on the worker's own reads and AI, as its route does.
+    const withAi = createToolExecutor(testDbs().worker.db, {
+      ai: s.ai,
+      log: s.log,
+      wallet: s.wallet,
+    });
+    const name = 'try_knowledge_question';
+    const ask = async (question: string, u: TestUser = owner) =>
+      (await withAi.run(tool(name), argsOf(name, { question }), ctx(u))) as {
+        result: Record<string, unknown>;
+        card?: AssistantCard | null;
+      };
+    expect(tool(name).autonomy).toBe('auto');
+    expect(executorFor(name)).toBe(knowledgeServiceTools[name]);
+    expect(contentStepLabels[name]).toBeTruthy();
+    expect(toolsFor((p) => hasWorkspacePermission('member', p)).map((t) => t.name)).not.toContain(
+      name,
+    );
+
+    const answered = await ask('Do you do ductwork?');
+    expect(answered.result).toMatchObject({
+      answer: 'Yes, repairs and new runs.',
+      couldNotAnswer: false,
+      used: [expect.objectContaining({ id: itemId, kind: 'FAQ', title: 'Do you do ductwork?' })],
+    });
+    expect(answered.result).not.toHaveProperty('gap');
+    expect(AssistantCard.safeParse(answered.card).success).toBe(true);
+
+    const unanswered = await ask('Can you tune a harpsichord?');
+    expect(unanswered.result).toMatchObject({ couldNotAnswer: true, used: [] });
+    expect(unanswered.result['gap']).toContain('waits in Knowledge → Suggestions');
+    expect(
+      await one(
+        sql`select reason::text as reason, status::text as status, source ->> 'via' as via
+            from app.knowledge_suggestions where id = ${unanswered.result['gapId'] as string}`,
+      ),
+    ).toEqual({ reason: 'gap', status: 'pending', via: 'try_it' });
+
+    // Only for people who manage the knowledge base, as the screen's Try it is.
+    await expect(ask('Do you do ductwork?', member)).rejects.toMatchObject({ code: 'forbidden' });
+    // Without the worker's AI, it says so.
+    await expect(
+      tools().run(tool(name), argsOf(name, { question: 'Do you do ductwork?' }), ctx()),
+    ).rejects.toMatchObject({ rule: 'ai_not_configured' });
   });
 });
 

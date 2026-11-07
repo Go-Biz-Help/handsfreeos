@@ -55,7 +55,7 @@ import { formAutoTools, formConfirmTools, type FormToolDeps } from './tools-form
 import { onPublicOrigin, publicOriginFor, withAppFiles, withWholeLinks } from './full-links';
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
-import { contentAutoTools, contentConfirmTools } from './tools-content';
+import { contentAutoTools, contentConfirmTools, knowledgeServiceTools } from './tools-content';
 import { extraAutoTools, extraConfirmTools, extraWebTools } from './tools-extra';
 import { documentConfirmTools, documentServiceTools } from './tools-documents';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
@@ -1732,6 +1732,7 @@ export const executorFor = (name: string) =>
   capabilityTools[name] ??
   mainOfferAutoTools[name] ??
   mainOfferConfirmTools[name] ??
+  knowledgeServiceTools[name] ??
   serviceTools[name as keyof typeof serviceTools] ??
   confirmTools[name];
 
@@ -1779,6 +1780,9 @@ export function createToolExecutor(
     if (capabilities) return capabilities(db, ctx, args, addonCatalog);
     const offer = mainOfferAutoTools[tool.name];
     if (offer) return offer(db, ctx, args, offerDeps);
+    // Try it on the knowledge base, on the same AI services.
+    const tryIt = knowledgeServiceTools[tool.name];
+    if (tryIt) return tryIt(db, ctx, args, offerDeps);
     const link = billingLinkTools[tool.name];
     if (link) return link(db, ctx, args, moneyLinks);
     // The carrier's free numbers, through the worker's own telephony.

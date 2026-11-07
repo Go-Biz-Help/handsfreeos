@@ -113,8 +113,11 @@ function tryError(e: unknown): unknown {
   }
 }
 
+/** What Try it runs on: the worker's database, AI, log and wallet (its route's, or the Assistant's). */
+export type TryDeps = Pick<HttpDeps, 'httpDb' | 'ai' | 'log' | 'wallet'>;
+
 export async function tryKnowledge(
-  deps: HttpDeps,
+  deps: TryDeps,
   actor: HumanActor,
   input: { readonly workspaceId: string; readonly question: string },
 ): Promise<TryAnswer> {
