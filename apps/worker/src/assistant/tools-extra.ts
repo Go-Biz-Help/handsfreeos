@@ -29,6 +29,7 @@ import {
   automationSettingsOf,
   coverageCards,
   coverageGapsForClaude,
+  DEFAULT_INTAKE_MESSAGE,
   DEFAULT_MENU,
   diffTeammateConfigs,
   effectiveMapping,
@@ -696,6 +697,11 @@ interface AutomationState {
   readonly ctx: AutomationContext;
   readonly teammate: TeammateGet['teammate'];
   readonly canManageTeammate: boolean;
+  /**
+   * Whether the person asking is an owner of the business: only an owner reads an automatic message's wording and
+   * turns it on (Looks good, turn on), as the screen shows that button to owners alone.
+   */
+  readonly owner: boolean;
   /** For Intake questions: the forms it could send (null when they couldn't be read). */
   readonly forms: { formId: string; name: string; status: string }[] | null;
   /** For Business landlines: what checking a number costs, as the page shows it (null when it can't see prices). */
@@ -707,7 +713,11 @@ interface AutomationState {
 /** Everything the page reads to draw its rows, read the way the page reads it. */
 async function automationState(db: Db, ctx: ToolContext): Promise<AutomationState> {
   const [{ workspace }, team, services, plans, forms, prices, pipelines] = await Promise.all([
-    query<{ workspace: { settings: Record<string, unknown> } }>(db, ctx, 'workspace.get'),
+    query<{ workspace: { settings: Record<string, unknown>; role: string | null } }>(
+      db,
+      ctx,
+      'workspace.get',
+    ),
     teammateOf(db, ctx).catch(() => null),
     query<{ items: { repeatMonths: number | null }[] }>(db, ctx, 'service.list').catch(() => null),
     query<{ plans: { serviceId: string | null; archivedAt: string | null }[] }>(
@@ -753,6 +763,7 @@ async function automationState(db: Db, ctx: ToolContext): Promise<AutomationStat
     },
     teammate,
     canManageTeammate: team?.canManage ?? false,
+    owner: workspace.role === 'owner',
     forms: forms?.items ?? null,
     lineCheckCents: line !== undefined && owner !== undefined ? { line, owner } : null,
     // The open stages the page lists, as it lists them.
@@ -818,6 +829,9 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
       intakeForm: a.intake.formId
         ? (state.forms?.find((f) => f.formId === a.intake.formId)?.name ?? 'A form')
         : null,
+      // What Intake questions sends with the form, as its Adjust sheet shows it; null puts the standard back.
+      intakeMessage: a.intake.message,
+      intakeMessageIsStandard: a.intake.message === DEFAULT_INTAKE_MESSAGE,
       endOfDayEmailAt: a.briefings.eveningAt,
       whenVoicemailAnswers: a.calls.voicemail,
       callsToLeads: {
@@ -827,7 +841,14 @@ async function listAutomations(db: Db, ctx: ToolContext, args: Args): Promise<To
         tries: a.calls.tries,
       },
       asksForOkToCall: a.calls.askConsent,
-      maintenanceDue: { message: a.maintenance.template, planMessage: a.maintenance.planTemplate },
+      callsBusinessLandlines: a.calls.businessLandlines,
+      maintenanceDue: {
+        message: a.maintenance.template,
+        planMessage: a.maintenance.planTemplate,
+        daysBefore: a.maintenance.leadDays,
+        daysBetween: a.maintenance.secondAfterDays,
+        mostPerDay: a.maintenance.maxPerDay,
+      },
       stageMeanings: state.stages?.map((st) => ({
         stageId: st.id,
         stage: `${st.name} (${st.pipeline})`,
@@ -877,6 +898,10 @@ const VOICEMAIL_WORDS: Record<string, string> = {
   message: 'Leave a short message',
   hang_up: 'Just hang up',
 };
+
+/** The screen's own words to someone who isn't an owner: only an owner reads the wording and turns it on. */
+const OWNER_READS_FIRST = (label: string) =>
+  `${label} goes on only once an owner has read its message and chosen Looks good, turn on. Ask an owner of this business.`;
 
 /** Every switch through `automationPatch`, one after another, so each store is saved once with all of its changes. */
 function planAutomations(state: AutomationState, args: Args): AutomationPlan {
@@ -931,6 +956,10 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
         continue;
       }
       if (row.on === on) continue;
+      if (on && row.awaitingReview && id === 'reengage_dead_leads' && !state.owner) {
+        blocked.push(OWNER_READS_FIRST(def.label));
+        continue;
+      }
       if (on && row.awaitingReview && id === 'reengage_dead_leads') {
         at = {
           ...at,
@@ -1066,7 +1095,15 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
   const maintenance = {
     template: straight(str(args['maintenanceMessage'])) ?? now.maintenance.template,
     planTemplate: straight(str(args['maintenancePlanMessage'])) ?? now.maintenance.planTemplate,
+    leadDays: num(args['maintenanceDaysBefore']) ?? now.maintenance.leadDays,
+    secondAfterDays: num(args['maintenanceDaysBetween']) ?? now.maintenance.secondAfterDays,
+    maxPerDay: num(args['maintenanceMostPerDay']) ?? now.maintenance.maxPerDay,
   };
+  // null puts the standard wording back, as Use the standard wording does.
+  const intakeMessage =
+    args['intakeMessage'] === null
+      ? DEFAULT_INTAKE_MESSAGE
+      : (straight(str(args['intakeMessage'])) ?? now.intake.message);
   const guide = str(args['howYouTag'])?.trim() ?? now.contactAi.guide;
   // A stage set back to the guess from its name drops the pick, as the page does.
   const roles = { ...now.pipeline.roles };
@@ -1092,6 +1129,7 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     briefings: { ...now.briefings, eveningAt },
     calls: { ...now.calls, voicemail, askConsent, hours, tries, businessLandlines },
     maintenance: { ...now.maintenance, ...maintenance },
+    intake: { ...now.intake, message: intakeMessage },
     pipeline: { ...now.pipeline, roles },
     contactAi: { ...now.contactAi, guide },
   };
@@ -1146,6 +1184,35 @@ function planAutomations(state: AutomationState, args: Args): AutomationPlan {
     fields.push({ label: 'For customers on a maintenance plan', value: maintenance.planTemplate });
   if ((newText || newPlanText) && automationRow(automationDef('maintenance_due'), at).on)
     reaching.push('The maintenance due text');
+  if (maintenance.leadDays !== now.maintenance.leadDays)
+    fields.push({
+      label: 'Maintenance due: first text',
+      value:
+        maintenance.leadDays === 0
+          ? 'On the day the visit is due'
+          : `${plural(maintenance.leadDays, 'day')} before the visit is due`,
+    });
+  if (maintenance.secondAfterDays !== now.maintenance.secondAfterDays)
+    fields.push({
+      label: 'Maintenance due: second text, then a card',
+      value: `${plural(maintenance.secondAfterDays, 'day')} after, each time`,
+    });
+  if (maintenance.maxPerDay !== now.maintenance.maxPerDay)
+    fields.push({
+      label: 'Maintenance due: at most a day',
+      value: plural(maintenance.maxPerDay, 'first text'),
+    });
+  if (intakeMessage !== now.intake.message) {
+    fields.push({
+      label: 'Intake message',
+      value:
+        intakeMessage === DEFAULT_INTAKE_MESSAGE
+          ? `${intakeMessage} (the standard wording)`
+          : intakeMessage,
+    });
+    if (automationRow(automationDef('intake_questions'), at).working)
+      reaching.push('The intake message');
+  }
   fields.push(...stageFields);
   if (guide !== now.contactAi.guide)
     fields.push({ label: 'How you tag customers', value: guide || 'Nothing written' });

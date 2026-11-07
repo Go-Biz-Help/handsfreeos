@@ -388,6 +388,7 @@ interface CustomField {
   options: { value: string; label: string }[];
   help: string;
   alwaysShow: boolean;
+  position: number;
 }
 interface Kind {
   id: string;
@@ -466,12 +467,46 @@ function checkChoices(type: CustomFieldType, given: string[] | undefined, path =
   }
 }
 
-/** The whole list as the command keeps it: a choice already there keeps its value, so records keep their answer. */
-const optionsFor = (given: string[], current: CustomField['options']) =>
+type Rename = { from: string; to: string };
+
+/**
+ * The whole list as the command keeps it: a choice already there keeps its value, so records keep their answer, and a
+ * renamed one keeps the value of the choice it was, so the records that had it now show its new name.
+ */
+const optionsFor = (given: string[], current: CustomField['options'], renames: Rename[] = []) =>
   given.map((label) => {
-    const kept = current.find((o) => same(o.label, label));
+    const was = renames.find((r) => same(r.to, label))?.from;
+    const kept = current.find((o) => same(o.label, was ?? label));
     return kept ? { value: kept.value, label } : { label };
   });
+
+/**
+ * The choices after a change: those given, or, when only renames are given, the ones there now under their new names.
+ * A rename names a choice there now, and its new name is among the choices.
+ */
+function choicesAfter(field: CustomField, args: Args) {
+  const renames = (list<Rename>(args['renameChoices']) ?? []).filter((r) => !same(r.from, r.to));
+  const now = field.options.map((o) => o.label);
+  for (const r of renames)
+    if (!now.some((l) => same(l, r.from)))
+      throw need(
+        'renameChoices',
+        `“${r.from}” isn’t one of the ${field.label} choices${now.length ? `: ${now.join(', ')}` : ''}. Rename one that’s there.`,
+        'Not one of the choices.',
+      );
+  const asked = list<string>(args['choices']);
+  const given =
+    asked ??
+    (renames.length ? now.map((l) => renames.find((r) => same(r.from, l))?.to ?? l) : undefined);
+  for (const r of renames)
+    if (given && !given.some((g) => same(g, r.to)))
+      throw need(
+        'choices',
+        `“${r.to}” is the new name for “${r.from}”, so list it in choices too, where it should be.`,
+        'List the new name in choices too.',
+      );
+  return { given, renames };
+}
 
 const typeWords = (t: CustomFieldType) => CUSTOM_FIELD_TYPE_LABELS[t] ?? t;
 
@@ -485,6 +520,42 @@ async function liveField(db: Db, ctx: ToolContext, id: unknown) {
     ? (await kindsOf(db, ctx, true)).find((k) => k.id === field.recordTypeId)
     : undefined;
   return { field, target: targetOf(field.entity, kind) };
+}
+
+/**
+ * A new order for the fields of one place (customers, companies or one kind of record), as Move up and Move down
+ * make one: every field there, each once. `place` is the order they show in now.
+ */
+async function fieldOrder(db: Db, ctx: ToolContext, args: Args) {
+  const ids = list<string>(args['order']) ?? [];
+  const all = await fieldsOf(db, ctx);
+  const first = all.find((f) => f.id === ids[0]);
+  if (!first)
+    throw need(
+      'order',
+      'Say the new order: every field of that place, first to last, by the ids in get_settings (area fields).',
+      'Give the fields in their new order.',
+    );
+  const place = all.filter(
+    (f) => f.entity === first.entity && (f.recordTypeId ?? null) === (first.recordTypeId ?? null),
+  );
+  const kind = first.recordTypeId
+    ? (await kindsOf(db, ctx, true)).find((k) => k.id === first.recordTypeId)
+    : undefined;
+  const target = targetOf(first.entity, kind);
+  const byId = new Map(place.map((f) => [f.id, f]));
+  const order = ids.flatMap((id) => byId.get(id) ?? []);
+  if (
+    order.length !== ids.length ||
+    new Set(ids).size !== ids.length ||
+    ids.length !== place.length
+  )
+    throw need(
+      'order',
+      `Give every field on ${target.many} once, in the order they should show. There ${place.length === 1 ? 'is' : 'are'} ${plural(place.length, 'field')}: ${place.map((f) => f.label).join(', ')}.`,
+      'List every field of that place once.',
+    );
+  return { place, order, target };
 }
 
 const NO_SUCH_KIND =
@@ -555,6 +626,26 @@ const manageCustomField: SettingsConfirmTool = {
       };
     }
 
+    if (act === 'move') {
+      const { place, order, target } = await fieldOrder(db, ctx, args);
+      if (order.every((f, i) => f.id === place[i]!.id))
+        throw nothing(`The fields on ${target.many} are already in that order.`);
+      return {
+        card: card(
+          toolCallId,
+          tool,
+          `Put the fields on ${target.many} in order`,
+          [
+            { label: 'On', value: cap(target.many) },
+            { label: 'Order', value: order.map((f) => f.label).join(' → ') },
+            { label: 'Was', value: place.map((f) => f.label).join(' → ') },
+          ],
+          'Save the order',
+        ),
+        result: { waiting: true },
+      };
+    }
+
     const { field, target } = await liveField(db, ctx, args['customFieldId']);
     if (act === 'retire')
       return {
@@ -603,12 +694,25 @@ const manageCustomField: SettingsConfirmTool = {
       fields.push({ label: 'Name', value: name });
       changes++;
     }
-    if (given) {
-      checkChoices(field.type, given);
+    const { given: after, renames } = choicesAfter(field, args);
+    if (after) {
+      checkChoices(field.type, after, renames.length && !given ? 'renameChoices' : 'choices');
       const now = field.options.map((o) => o.label);
-      if (now.join('\n') !== given.join('\n')) {
-        fields.push({ label: 'Choices', value: given.join(', ') });
-        const gone = now.filter((l) => !given.some((g) => same(g, l)));
+      if (now.join('\n') !== after.join('\n')) {
+        fields.push({ label: 'Choices', value: after.join(', ') });
+        if (renames.length)
+          fields.push({
+            label: 'Renamed',
+            value: renames.map((r) => `${r.from} → ${r.to}`).join(', '),
+          });
+        const gone = now.filter(
+          (l) => !after.some((g) => same(g, l)) && !renames.some((r) => same(r.from, l)),
+        );
+        if (renames.length)
+          warnings.push({
+            kind: 'note',
+            text: `The ${target.many} that have a renamed choice keep it, under its new name.`,
+          });
         if (gone.length) {
           fields.push({ label: 'Taken off', value: gone.join(', ') });
           warnings.push({
@@ -666,18 +770,31 @@ const manageCustomField: SettingsConfirmTool = {
         command: 'custom_field.create',
       };
     }
+    if (act === 'move') {
+      // Checked again: a field added since the card was drawn isn't in its order, so the order is refused.
+      const { order, target } = await fieldOrder(db, ctx, args);
+      // As Move up and Move down number them: from the top, changing only those whose place moves.
+      for (const [position, f] of order.entries())
+        if (f.position !== position)
+          await command(db, ctx, 'custom_field.update', { customFieldId: f.id, position });
+      return {
+        outcome: `The fields on ${target.many} are in the new order`,
+        href: href(ctx, `settings/fields?for=${target.key}`),
+        command: 'custom_field.update',
+      };
+    }
     const { field, target } = await liveField(db, ctx, args['customFieldId']);
     const back = href(ctx, `settings/fields?for=${target.key}`);
     if (act === 'retire') {
       await command(db, ctx, 'custom_field.archive', { customFieldId: field.id });
       return { outcome: `${field.label} is retired`, href: back, command: 'custom_field.archive' };
     }
-    const given = list<string>(args['choices']);
+    const { given, renames } = choicesAfter(field, args);
     await command(db, ctx, 'custom_field.update', {
       customFieldId: field.id,
       ...defined({
         label: str(args['name']),
-        options: given ? optionsFor(given, field.options) : undefined,
+        options: given ? optionsFor(given, field.options, renames) : undefined,
         help: typeof args['help'] === 'string' ? args['help'].trim() : undefined,
         alwaysShow: bool(args['showWhenEmpty']),
       }),
@@ -1753,37 +1870,6 @@ const manageWebAddress: SettingsConfirmTool = {
     }
 
     const d = await theDomain(db, ctx, domain);
-    if (act === 'check') {
-      if (serving(d))
-        throw need(
-          'domain',
-          `${d.domain} is already working, so there’s nothing to check.`,
-          `${d.domain} is already working.`,
-        );
-      return {
-        card: card(
-          toolCallId,
-          tool,
-          `Check ${d.domain} now`,
-          [
-            { label: 'Domain', value: d.domain },
-            { label: 'Where it stands', value: DOMAIN_WORDS[d.status] },
-            ...d.records.slice(0, 4).map((r) => ({ label: `${r.kind} ${r.host}`, value: r.value })),
-          ],
-          'Check now',
-          [
-            ...(d.lastError ? [{ kind: 'caution', text: clip(d.lastError, 200) }] : []),
-            { kind: 'note', text: DNS_IS_YOURS },
-          ],
-        ),
-        result: {
-          waiting: true,
-          status: DOMAIN_WORDS[d.status],
-          records: d.records,
-          yoursToDo: DNS_IS_YOURS,
-        },
-      };
-    }
     return {
       card: card(
         toolCallId,
@@ -1826,17 +1912,6 @@ const manageWebAddress: SettingsConfirmTool = {
       };
     }
     const d = await theDomain(db, ctx, domain);
-    if (act === 'check') {
-      await command(db, ctx, 'branded_domain.verify', { domainId: d.id });
-      const records = recordLines(d);
-      return {
-        outcome: records.length
-          ? `Checking now. Until these are in where you bought the domain, it waits: ${records.join('; ')}`
-          : 'Checking now. The records show on Settings → Workspace once they’re worked out.',
-        href: back,
-        command: 'branded_domain.verify',
-      };
-    }
     await command(db, ctx, 'branded_domain.remove', { domainId: d.id });
     return {
       outcome: `Removed. Your forms, payment links and booking page are back on app.handsfreeos.com. The DNS records for ${d.domain} can come out whenever you like.`,
@@ -2542,6 +2617,46 @@ export const setupAutoTools: Record<
     };
   },
 
+  /**
+   * The business's own web address checked now, as Check now on Settings → Workspace does: a risk-1 look at its DNS
+   * records, so it runs on its own. Putting the records in stays the person's, where they bought the domain.
+   */
+  async check_web_address(db, ctx, args) {
+    const d = await theDomain(db, ctx, args['domain']);
+    if (serving(d))
+      throw need(
+        'domain',
+        `${d.domain} is already working, so there’s nothing to check.`,
+        `${d.domain} is already working.`,
+      );
+    await command(db, ctx, 'branded_domain.verify', { domainId: d.id });
+    const records = recordLines(d);
+    const back = href(ctx, 'settings/workspace');
+    return {
+      result: {
+        domain: d.domain,
+        checking: 'Now. The answer shows on Settings → Workspace in a minute or two.',
+        status: DOMAIN_WORDS[d.status],
+        ...(d.lastError ? { lastProblem: clip(d.lastError, 300) } : {}),
+        records: d.records,
+        yoursToDo: DNS_IS_YOURS,
+      },
+      card: {
+        type: 'done',
+        toolCallId: '00000000-0000-0000-0000-000000000000',
+        kind: 'note',
+        title: `Checking ${d.domain} now`,
+        detail: records.length
+          ? `Until these are in where you bought the domain, it waits: ${records.join('; ')}`
+          : 'The records show on Settings → Workspace once they’re worked out.',
+        href: back,
+        undoable: false,
+      },
+      command: 'branded_domain.verify',
+      record: { outcome: `Checking ${d.domain} now`, href: back },
+    };
+  },
+
   async list_unmatched_email(db, ctx) {
     const { items } = await query<{ items: Unmatched[]; nextCursor: string | null }>(
       db,
@@ -2641,6 +2756,7 @@ export const setupStepLabels: Record<string, string> = {
   manage_numbers: 'Changing your number',
   set_inbox_visibility: 'Changing who sees which conversations',
   manage_web_address: 'Setting up your web address',
+  check_web_address: 'Checking your web address',
   list_unmatched_email: 'Looking at mail from people not in Contacts',
   sort_unmatched_email: 'Sorting the email',
   list_blocked_email: 'Looking at blocked addresses',

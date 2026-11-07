@@ -399,14 +399,15 @@ export const contactReadTools: Record<
         switches: { tags: boolean; details: boolean };
         lastWeek: { reviewed: number; changed: number };
       }>(db, ctx, 'contact_ai.status'),
-      query<{ items: ReviewOut[] }>(
+      // As many as Settings → Tags lists under its latest changes.
+      query<{ items: ReviewOut[]; nextBefore: string | null }>(
         db,
         ctx,
         'contact_ai.reviews',
         defined({
           personId: str(args['personId']),
           changedOnly: args['changedOnly'] !== false,
-          limit: 10,
+          limit: 15,
         }),
       ),
     ]);
@@ -430,6 +431,13 @@ export const contactReadTools: Record<
           details: r.details,
           leftAlone: r.skipped,
         })),
+        ...(reviews.nextBefore
+          ? {
+              more: true,
+              olderChanges:
+                'These are the latest. Every older tag change is in the audit log with its reason: read_audit_list finds them.',
+            }
+          : {}),
       },
     };
   },

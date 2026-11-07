@@ -342,7 +342,7 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'update_automations',
     description:
-      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change when each of the AI teammate’s Follow-ups after silence goes and how many monthly ones come after, re-engaging dead leads’ timing and message, which form Intake questions sends, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, whether its pages ask for an OK to call, the Maintenance due texts, what each pipeline stage means and how the business tags customers. Turning on re-engaging dead leads the first time puts its message on the card to read before Confirm. new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
+      'Turn automations on or off by their id from list_automations — any row on Settings → Automations, whether its switch lives there, in what Home watches for, or in the AI teammate — and change when each of the AI teammate’s Follow-ups after silence goes and how many monthly ones come after, re-engaging dead leads’ timing and message, which form Intake questions sends and the message it goes with, when the end-of-day email goes, what the AI does when a voicemail box answers its call, the calling hours and tries for campaign and workflow calls to leads, whether its pages ask for an OK to call, the Maintenance due texts and when and how many go, what each pipeline stage means and how the business tags customers. Turning on re-engaging dead leads the first time puts its message on the card for an owner to read before Confirm (only an owner turns it on, as on the screen). new_lead_greeting is only the AI teammate’s first message to a brand-new lead, and it goes out only while the teammate’s Respond switch is on too (manage_ai_teammate’s repliesToLeads, which is the whole section).',
     input: z.object({
       turnOn: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
       turnOff: z.array(z.enum(AUTOMATION_IDS)).max(49).optional(),
@@ -383,6 +383,12 @@ export const extraTools: readonly AssistantTool[] = [
         .optional()
         .describe(
           'The live form a first-time customer gets after booking, from list_forms; null for none',
+        ),
+      intakeMessage: text(480)
+        .nullable()
+        .optional()
+        .describe(
+          'The text or email Intake questions sends with the form. Placeholders: {firstName}, {businessName}, {link}; it must have {link}. null puts back the standard wording',
         ),
       endOfDayEmailAt: clock.optional().describe('24-hour, between 12:00 and 22:00'),
       whenVoicemailAnswers: z
@@ -433,6 +439,26 @@ export const extraTools: readonly AssistantTool[] = [
         .describe(
           'The same text for a customer whose maintenance plan covers the service: {plan} too, and it must have {link}',
         ),
+      maintenanceDaysBefore: z
+        .int()
+        .min(0)
+        .max(60)
+        .optional()
+        .describe('Maintenance due: the first text goes this many days before the visit is due'),
+      maintenanceDaysBetween: z
+        .int()
+        .min(1)
+        .max(30)
+        .optional()
+        .describe(
+          'Maintenance due: if they haven’t booked, the second text this long after the first, and a card on Home the same again after that',
+        ),
+      maintenanceMostPerDay: z
+        .int()
+        .min(1)
+        .max(200)
+        .optional()
+        .describe('Maintenance due: at most this many first texts a day'),
       stageMeanings: z
         .array(
           z.object({

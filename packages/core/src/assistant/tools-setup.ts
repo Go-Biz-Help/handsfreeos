@@ -81,9 +81,13 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_custom_field',
     description:
-      'Add, change or retire one of the business’s own fields on customers, companies or a kind of record (a gate code, a breed, an account number). What a field holds never changes once it is made. Retiring one takes its answers off every record and can’t be undone. Field ids are in get_settings (area fields); kinds of records in get_settings (area relationships).',
+      'Add, change, put in order or retire one of the business’s own fields on customers, companies or a kind of record (a gate code, a breed, an account number). What a field holds never changes once it is made. Retiring one takes its answers off every record and can’t be undone. Field ids are in get_settings (area fields); kinds of records in get_settings (area relationships).',
     input: z.object({
-      action: z.enum(['create', 'change', 'retire']),
+      action: z
+        .enum(['create', 'change', 'move', 'retire'])
+        .describe(
+          'move: put the fields of one place in the order given, as Move up and Move down do',
+        ),
       recordType: z
         .enum(['person', 'company', 'custom_record'])
         .optional()
@@ -98,6 +102,22 @@ export const setupTools: readonly AssistantTool[] = [
         .optional()
         .describe('What it holds, for a new field (text if left out)'),
       choices: choices.optional(),
+      renameChoices: z
+        .array(z.object({ from: text(60), to: text(60) }))
+        .min(1)
+        .max(50)
+        .optional()
+        .describe(
+          'change: choices whose name changes, so the records that have one keep it under its new name. List the new name in choices too',
+        ),
+      order: z
+        .array(uuid)
+        .min(2)
+        .max(100)
+        .optional()
+        .describe(
+          'move: every field of that place (customers, companies or one kind of record), in the order they should show',
+        ),
       help: z.string().trim().max(200).optional().describe('A line shown under it'),
       showWhenEmpty: z.boolean().optional().describe('Show it on every record even when empty'),
     }),
@@ -241,12 +261,22 @@ export const setupTools: readonly AssistantTool[] = [
   define({
     name: 'manage_web_address',
     description:
-      'The business’s own web address for its forms, payment links, estimates, invoices, website chat and booking page (like go.lonestarhvac.com instead of app.handsfreeos.com): add it, check it now, or stop using it. Putting the DNS records in is the person’s own job, with whoever sold them the domain; say so, and read the records out once there are some. What is there now is in get_settings (area branded_domain).',
+      'The business’s own web address for its forms, payment links, estimates, invoices, website chat and booking page (like go.lonestarhvac.com instead of app.handsfreeos.com): add it, or stop using it. Checking it now is check_web_address. Putting the DNS records in is the person’s own job, with whoever sold them the domain; say so, and read the records out once there are some. What is there now is in get_settings (area branded_domain).',
     input: z.object({
-      action: z.enum(['add', 'check', 'remove']),
+      action: z.enum(['add', 'remove']),
       domain: hostname.describe('The address, like go.lonestarhvac.com'),
     }),
     autonomy: 'confirm',
+    permission: 'channels.manage',
+  }),
+  define({
+    name: 'check_web_address',
+    description:
+      'Check the business’s own web address now, as Check now on Settings → Workspace does, rather than waiting for the daily check. It changes nothing: it says where the domain stands and every DNS record it still needs, which are the person’s to put in with whoever sold them the domain.',
+    input: z.object({
+      domain: hostname.describe('The address being checked, like go.lonestarhvac.com'),
+    }),
+    autonomy: 'auto',
     permission: 'channels.manage',
   }),
 

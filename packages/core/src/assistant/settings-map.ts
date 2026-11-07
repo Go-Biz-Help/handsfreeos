@@ -155,14 +155,23 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     permission: 'workspace.update',
     canChange: [
       'the name, time zone and industry',
-      'the website and review link',
+      'the website and review link, or take either off',
       'open hours',
       'the business’s street address, which the setup’s Your business asks (it isn’t on this screen): estimates and invoices show it unless Settings → Payments gives another',
       'the colour, taking the logo off, or looking for the logo on the website again; adding one from their own computer or phone is theirs, under Logo and colour',
       'turn your page on or off',
       'turn Getting started on or off for everyone in the business',
     ],
-    handovers: [],
+    handovers: [
+      {
+        what: 'upload a logo',
+        why: 'it is a picture from your own computer or phone, which only you can pick',
+        steps: [
+          'Open Settings → Workspace.',
+          'In Logo and colour, press Upload a logo (Change, once there is one) and pick the picture.',
+        ],
+      },
+    ],
     howTo: [
       'Copy your page’s link: Settings → Workspace, then Copy the link under Your page is at (Show your page has to be on)',
     ],
@@ -299,12 +308,16 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'the pipelines leads move through, and their stages',
     where: ['Settings', 'Pipelines'],
     onScreen: [
-      'Pipelines and stages: a card for each pipeline, with Rename, Add stage and Archive',
+      'Pipelines and stages: a card for each pipeline (the first one is the Default, with its badge), with how many leads it holds, Rename, Add stage and Archive; under it each stage with what it counts as (Open, Won or Lost), its leads, Move up, Move down, Edit (its name and Kind) and Delete',
       'New pipeline, at the bottom',
     ],
     path: '/settings/pipelines',
     permission: 'pipelines.manage',
-    canChange: ['add, rename or archive a pipeline', 'add, rename, reorder or delete a stage'],
+    canChange: [
+      'add, rename or archive a pipeline',
+      'add, rename, reorder or delete a stage',
+      'change what a stage counts as (open, won or lost), while no leads are in it',
+    ],
     handovers: [],
   },
   tags: {
@@ -331,13 +344,14 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     where: ['Settings', 'Fields'],
     onScreen: [
       'Fields for: Contacts, Companies, or one of your own kinds of records',
-      'Fields: the list, and Add field (Name, What it holds, Choices, Help)',
+      'Fields: the list, each with Move up, Move down, Edit and Retire, and Add field (Name, What it holds, Choices, Help)',
     ],
     path: '/settings/fields',
     permission: 'fields.manage',
     canChange: [
       'add a field to customers, companies or a kind of record',
-      'rename it, or change its choices, help line or whether it shows when empty',
+      'rename it, or change its choices (renaming one keeps it on the records that have it), help line or whether it shows when empty',
+      'put the fields in another order',
       'retire a field',
     ],
     handovers: [],
@@ -361,10 +375,10 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   // an owner gives Delete for good to someone.
   deleted_bin: {
     label: 'Deleted bin',
-    what: 'customers, conversations and bookings deleted for good, kept 30 days so they can be brought back, then gone',
+    what: 'customers, conversations, bookings, leads, companies and records deleted for good, kept 30 days so they can be brought back, then gone',
     where: ['Settings', 'Deleted bin'],
     onScreen: [
-      'Deleted bin: each thing deleted, who deleted it and when it goes for good, with Bring back',
+      'Deleted bin: each thing deleted, newest first, with what it is, what went with it, who deleted it and when it goes for good (or Being deleted now), with Bring back, and Show more under the list',
       'Empty the bin',
     ],
     path: '/settings/deleted-bin',
@@ -871,6 +885,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'what the business pays HandsFreeOS: the balance texts, calls, phone numbers and AI replies come out of, top-ups, the daily AI limit, the card and the statement',
     where: ['Settings', 'Usage & balance'],
     onScreen: [
+      'Your founding spot, while the business has one: what it costs, when it renews (or stops), Stop renewing or Keep it renewing, and Pay with another card after a renewal is refused',
       'Your balance: Top up now',
       'Automatic top-up',
       'Daily AI limit: the most the AI may spend in a day, and what it has spent today',
@@ -894,6 +909,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         steps: [
           'Open Settings → Usage & balance.',
           'Under Card on file, press Add a card, or Use a different card.',
+          'Type the card on the payment provider’s page; you come back here when it is done.',
+        ],
+      },
+      {
+        what: 'pay a refused founding plan renewal with another card',
+        why: 'it is paid on Stripe’s page, which only you can do',
+        steps: [
+          'Open Settings → Usage & balance.',
+          'On Your founding spot, press Pay with another card, then pay on Stripe’s page.',
         ],
       },
     ],
@@ -911,13 +935,15 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     path: '/settings/automations',
     permission: 'workspace.update',
     canChange: [
-      'turn any automation on or off, except Drafts awaiting review, Connection broke and Texting turned down, which are always on; Re-engage dead leads the first time with its message on the card to read',
+      'turn any automation on or off, except Drafts awaiting review, Connection broke and Texting turned down, which are always on; Re-engage dead leads and Text leads that went quiet the first time with their message on the card for an owner to read, as only an owner sees Looks good, turn on',
       'which kinds of thing Home looks for',
       'how fast a lead counts as waiting, and what a big job is',
+      'when a lead has gone quiet, for every stage or one open stage at a time',
       'what HandsFreeOS does on its own, and how it words it',
       'when each of the AI teammate’s follow-ups after silence goes, and how many monthly ones come after',
       'when a dead lead counts as cold, how many a day are re-engaged, and the message they get',
-      'which form Intake questions sends after a first booking',
+      'which form Intake questions sends after a first booking, and the message it goes with',
+      'when the Maintenance due texts go (how many days before, and between), and how many a day',
       'when the end-of-day email goes out',
       'what the AI does when a voicemail box answers its call',
     ],

@@ -50,6 +50,7 @@ interface Stage {
   id: string;
   name: string;
   kind: string;
+  leadCount: number;
 }
 interface Pipeline {
   id: string;
@@ -94,7 +95,55 @@ const stageIn = (pipelines: Pipeline[], stageId: unknown) => {
   return null;
 };
 
+const leadsWord = (n: number) => (n === 1 ? 'a lead' : `${n} leads`);
+
+/** Every pipeline keeps one stage of each kind, so its only one of a kind can't go or become another. */
+const lastOfKind = ({ pipeline, stage }: { pipeline: Pipeline; stage: Stage }) =>
+  HfosError.rule(
+    'last_stage_of_kind',
+    409,
+    `${stage.name} is the only ${stage.kind} stage in ${pipeline.name}, and every pipeline keeps at least one open, one won and one lost stage. Add another ${stage.kind} stage first.`,
+  );
+
+/** The stage a change names, refused before a card when it isn't there. */
+function theStage(pipelines: Pipeline[], stageId: unknown) {
+  const found = stageIn(pipelines, stageId);
+  if (!found)
+    throw HfosError.notFound(
+      'No stage has that id, or it was deleted. Stage ids are in get_settings (area pipelines).',
+    );
+  return found;
+}
+
+/**
+ * Where a deleted stage's leads go, as Delete stage picks: another stage of the same kind in its pipeline, the one
+ * asked for or else the first. Null when there's none, which the command refuses only while leads are in it.
+ */
+function leadsGoTo(found: { pipeline: Pipeline; stage: Stage }, asked: unknown) {
+  const others = found.pipeline.stages.filter(
+    (s) => s.id !== found.stage.id && s.kind === found.stage.kind,
+  );
+  if (asked === undefined) return others[0] ?? null;
+  const to = others.find((s) => s.id === asked);
+  if (!to)
+    throw HfosError.validation(
+      [{ path: 'moveLeadsToStageId', message: `Pick another ${found.stage.kind} stage.` }],
+      `The leads in ${found.stage.name} can only go to another ${found.stage.kind} stage in ${found.pipeline.name}${
+        others.length ? `: ${others.map((s) => s.name).join(', ')}` : ', and it has none yet'
+      }.`,
+    );
+  return to;
+}
+
 // ---------- the business ----------
+
+/** The links the business keeps by name ({{links.review}}), as the screen reads them. */
+const linksOf = (settings: Record<string, unknown>): Record<string, unknown> => {
+  const links = settings['links'];
+  return links && typeof links === 'object' && !Array.isArray(links)
+    ? (links as Record<string, unknown>)
+    : {};
+};
 
 /** The street address given, as the setup's Your business keeps it; null when none was, or it doesn't read. */
 function addressOf(args: Args): BusinessAddress | null {
@@ -129,6 +178,8 @@ const updateBusiness: SettingsConfirmTool = {
     ] as const) {
       const value = str(args[key]);
       if (value) fields.push({ label, value });
+      // Taken off: workflows that text it ({{business.website}}, {{links.review}}) have nothing to put in.
+      else if (args[key] === null) fields.push({ label, value: 'None (taken off)' });
     }
     if (args['openHours'] !== undefined)
       fields.push({
@@ -168,9 +219,17 @@ const updateBusiness: SettingsConfirmTool = {
   },
 
   async commit(db, ctx, args) {
+    // The other links the business keeps stay, as the screen's Save keeps them: only the review link changes.
+    const review =
+      args['reviewLink'] === undefined
+        ? undefined
+        : {
+            ...linksOf((await workspaceOf(db, ctx)).workspace.settings),
+            review: str(args['reviewLink']) ?? null,
+          };
     const settings = defined({
-      website: str(args['website']),
-      ...(str(args['reviewLink']) ? { links: { review: str(args['reviewLink']) } } : {}),
+      website: args['website'] === null ? null : str(args['website']),
+      ...(review ? { links: review } : {}),
       ...(args['openHours'] === undefined ? {} : { openHours: args['openHours'] }),
       address: addressOf(args) ?? undefined,
     });
@@ -197,7 +256,6 @@ const managePipeline: SettingsConfirmTool = {
     const act = action(args);
     const { pipelines } = await pipelinesOf(db, ctx);
     const pipeline = pipelines.find((p) => p.id === args['pipelineId']);
-    const found = stageIn(pipelines, args['stageId']);
     const name = str(args['name']);
     const card = (title: string, fields: Field[], confirmLabel: string, warn?: string) =>
       settingsCard(toolCallId, 'manage_pipeline', {
@@ -237,7 +295,7 @@ const managePipeline: SettingsConfirmTool = {
             `Archive ${pipeline?.name ?? 'the pipeline'}`,
             [{ label: 'Pipeline', value: pipeline?.name ?? '' }],
             'Archive it',
-            'The leads in it stay; nothing new can be added to it.',
+            'It comes off the board and nothing new can be added to it. Its won and lost leads keep their history.',
           ),
           result: { waiting: true },
         };
@@ -254,32 +312,70 @@ const managePipeline: SettingsConfirmTool = {
           ),
           result: { waiting: true },
         };
-      case 'rename_stage':
+      case 'rename_stage': {
+        const { stage, pipeline: p } = theStage(pipelines, args['stageId']);
+        const kind = str(args['stageKind']);
+        const kindChanges = !!kind && kind !== stage.kind;
+        // As the screen's Edit locks Kind: a stage with leads keeps what it counts as.
+        if (kindChanges && stage.leadCount > 0)
+          throw HfosError.rule(
+            'stage_has_leads',
+            409,
+            `${stage.name} has ${leadsWord(stage.leadCount)} in it, so it keeps counting as ${stage.kind}. Move the leads to another stage on the Pipeline first, then change it.`,
+          );
+        if (kindChanges && !p.stages.some((s) => s.id !== stage.id && s.kind === stage.kind))
+          throw lastOfKind({ pipeline: p, stage });
+        const renamed = !!name && name !== stage.name;
+        if (!renamed && !kindChanges)
+          throw HfosError.validation(
+            [],
+            `Nothing would change. ${stage.name} already has that name and counts as ${stage.kind}.`,
+          );
         return {
           card: card(
-            `Rename ${found?.stage.name ?? 'the stage'}`,
+            kindChanges ? `Change ${stage.name}` : `Rename ${stage.name}`,
             [
-              { label: 'Pipeline', value: found?.pipeline.name ?? '' },
-              { label: 'Now', value: name ?? '' },
-              { label: 'Was', value: found?.stage.name ?? '' },
+              { label: 'Pipeline', value: p.name },
+              ...(renamed
+                ? [
+                    { label: 'Now', value: name! },
+                    { label: 'Was', value: stage.name },
+                  ]
+                : [{ label: 'Stage', value: stage.name }]),
+              ...(kindChanges
+                ? [
+                    { label: 'Counts as', value: kind },
+                    { label: 'Counted as', value: stage.kind },
+                  ]
+                : []),
             ],
-            'Rename it',
+            kindChanges ? 'Save the change' : 'Rename it',
+            kindChanges
+              ? `It has no leads in it, so nothing there now changes. Leads moved into it from now on count as ${kind}.`
+              : undefined,
           ),
           result: { waiting: true },
         };
+      }
       case 'delete_stage': {
-        const to = found ? stageIn(pipelines, args['moveLeadsToStageId'])?.stage : null;
+        const doomed = theStage(pipelines, args['stageId']);
+        const { stage } = doomed;
+        const to = leadsGoTo(doomed, args['moveLeadsToStageId']);
+        if (!to) throw lastOfKind(doomed);
         return {
           card: card(
-            `Delete ${found?.stage.name ?? 'the stage'}`,
+            `Delete ${stage.name}`,
             [
-              { label: 'Pipeline', value: found?.pipeline.name ?? '' },
-              { label: 'Stage', value: found?.stage.name ?? '' },
-              { label: 'Leads in it go to', value: to?.name ?? 'the first stage' },
+              { label: 'Pipeline', value: doomed.pipeline.name },
+              { label: 'Stage', value: stage.name },
+              ...(stage.leadCount > 0
+                ? [{ label: 'Leads in it', value: String(stage.leadCount) }]
+                : []),
+              { label: 'Leads in it go to', value: to.name },
             ],
             'Delete it',
           ),
-          result: { waiting: true },
+          result: { waiting: true, leadsGoTo: to.name },
         };
       }
       default: {
@@ -324,16 +420,26 @@ const managePipeline: SettingsConfirmTool = {
           ...defined({ kind: str(args['stageKind']), afterStageId: args['afterStageId'] }),
         });
         return { outcome: `${str(args['name'])} is added`, href, command: 'stage.create' };
-      case 'rename_stage':
-        await command(db, ctx, 'stage.update', {
+      case 'rename_stage': {
+        const out = await command<{ updated?: string[] }>(db, ctx, 'stage.update', {
           stageId: args['stageId'],
           ...defined({ name: str(args['name']), kind: str(args['stageKind']) }),
         });
-        return { outcome: 'Renamed', href, command: 'stage.update' };
+        return {
+          outcome: out.updated?.includes('kind')
+            ? `Saved. It counts as ${str(args['stageKind'])} now`
+            : 'Renamed',
+          href,
+          command: 'stage.update',
+        };
+      }
       case 'delete_stage': {
+        // Where the card said the leads go: the stage asked for, or the first other one of its kind.
+        const doomed = theStage((await pipelinesOf(db, ctx)).pipelines, args['stageId']);
+        const to = leadsGoTo(doomed, args['moveLeadsToStageId']);
         const out = await command<{ movedLeads: number }>(db, ctx, 'stage.delete', {
-          stageId: args['stageId'],
-          ...defined({ moveLeadsToStageId: args['moveLeadsToStageId'] }),
+          stageId: doomed.stage.id,
+          ...(to ? { moveLeadsToStageId: to.id } : {}),
         });
         return {
           outcome: out.movedLeads

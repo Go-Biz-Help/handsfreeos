@@ -13,6 +13,7 @@
 import {
   addressLines,
   applyTeammatePatch,
+  AUTO_CANCEL_WINDOW_MINUTES,
   AUTOMATIONS,
   businessAddressOf,
   checkMoneySettings,
@@ -589,7 +590,72 @@ const ALWAYS_WATCHED: ReadonlyMap<string, string> = new Map(
   ),
 );
 
-function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
+/** An open stage, as Settings → Automations lists it under Gone quiet after. */
+type OpenStage = { id: string; name: string; pipeline: string };
+
+/** The open stages of the pipelines in use: won and lost stages never go quiet, so they have no number. */
+async function openStagesOf(db: Db, ctx: ToolContext): Promise<OpenStage[]> {
+  const { pipelines } = await query<{
+    pipelines: { name: string; stages: { id: string; name: string; kind: string }[] }[];
+  }>(db, ctx, 'pipeline.list');
+  return pipelines.flatMap((p) =>
+    p.stages
+      .filter((st) => st.kind === 'open')
+      .map((st) => ({ id: st.id, name: st.name, pipeline: p.name })),
+  );
+}
+
+type StageDays = { stageId: string; days: number | null };
+
+/** Each stage the change names, refused when it isn't an open stage (its number would never be used). */
+function stagesNamed(args: Args, open: readonly OpenStage[]): (OpenStage & StageDays)[] {
+  const byId = new Map(open.map((st) => [st.id, st]));
+  return (list<StageDays>(args['goneQuietByStage']) ?? []).map((a) => {
+    const st = byId.get(a.stageId);
+    if (!st)
+      throw HfosError.validation(
+        [{ path: 'goneQuietByStage', message: 'Not an open stage.' }],
+        `Won and lost stages never go quiet, and that stage isn’t an open one in any pipeline in use. ${
+          open.length
+            ? `Pick one of ${open.map((o) => o.name).join(', ')}.`
+            : 'Add an open stage on Settings → Pipelines first.'
+        }`,
+      );
+    return { ...st, ...a };
+  });
+}
+
+/**
+ * Each stage's own number, as the screen keeps them: a stage set back to every stage's number (or to null) drops its
+ * own, so it follows that number again.
+ */
+function nextStageDays(now: AttentionSettings, args: Args, days: number): Record<string, number> {
+  const byStage = new Map(Object.entries(now.stale.stageDays));
+  for (const s of list<StageDays>(args['goneQuietByStage']) ?? []) {
+    if (s.days === null || s.days === days) byStage.delete(s.stageId);
+    else byStage.set(s.stageId, s.days);
+  }
+  return Object.fromEntries(byStage);
+}
+
+/** Whether the person asking is an owner: only an owner reads the follow-up wording and turns it on. */
+const isOwner = async (db: Db, ctx: ToolContext) =>
+  (await query<{ workspace: { role: string | null } }>(db, ctx, 'workspace.get')).workspace.role ===
+  'owner';
+
+/** What someone who isn't an owner is told, as the screen tells them. */
+const NUDGE_OWNER_ONLY =
+  'An owner turns follow-ups on after reading the wording. Ask an owner of this business.';
+
+/**
+ * The settings after the change. `reviewNudges` is an owner's Looks good, turn on, given on the card that showed the
+ * wording: the server keeps the first review and stamps it on its own clock.
+ */
+function nextAttention(
+  now: AttentionSettings,
+  args: Args,
+  reviewNudges = false,
+): AttentionSettings {
   const on = list<string>(args['kindsOn']) ?? [];
   const off = (list<string>(args['kindsOff']) ?? []).filter((k) => !ALWAYS_WATCHED.has(k));
   const kinds = { ...now.kinds } as Record<string, boolean>;
@@ -598,6 +664,7 @@ function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
   const bigJob = num(args['bigJobDollars']);
   const typical = args['typicalJobValueDollars'];
   const ignoreUnder = num(args['ignoreBalancesUnderDollars']);
+  const staleDays = num(args['goneQuietAfterDays']) ?? now.stale.days;
   return {
     ...now,
     kinds: kinds as AttentionSettings['kinds'],
@@ -608,7 +675,7 @@ function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
     unanswered: {
       afterOpenMinutes: num(args['newLeadWaitingAfterMinutes']) ?? now.unanswered.afterOpenMinutes,
     },
-    stale: { ...now.stale, days: num(args['goneQuietAfterDays']) ?? now.stale.days },
+    stale: { days: staleDays, stageDays: nextStageDays(now, args, staleDays) },
     appointments: {
       windowHours: num(args['unconfirmedVisitWindowHours']) ?? now.appointments.windowHours,
     },
@@ -628,6 +695,7 @@ function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
       ...now.auto,
       confirmRequests: bool(args['askCustomersToConfirmVisits']) ?? now.auto.confirmRequests,
       nudges: bool(args['followUpOnQuietLeads']) ?? now.auto.nudges,
+      nudgeReviewedAt: now.auto.nudgeReviewedAt ?? (reviewNudges ? new Date().toISOString() : null),
     },
     nudge: {
       template: str(args['followUpMessage']) ?? now.nudge.template,
@@ -637,11 +705,42 @@ function nextAttention(now: AttentionSettings, args: Args): AttentionSettings {
   };
 }
 
+/**
+ * What the change does with follow-ups: turning them on while nobody has read the wording yet is an owner's Looks
+ * good, turn on (the card shows the wording to read), and anyone else is told to ask an owner, as the screen does.
+ */
+async function attentionPlan(db: Db, ctx: ToolContext, args: Args) {
+  const { settings } = await attentionOf(db, ctx);
+  const unread = bool(args['followUpOnQuietLeads']) === true && !settings.auto.nudgeReviewedAt;
+  const owner = unread ? await isOwner(db, ctx) : false;
+  const named = list(args['goneQuietByStage'])?.length
+    ? stagesNamed(args, await openStagesOf(db, ctx))
+    : [];
+  // Stages that keep their own number when every stage's number changes, so the card says so.
+  const kept =
+    num(args['goneQuietAfterDays']) !== undefined && Object.keys(settings.stale.stageDays).length
+      ? (await openStagesOf(db, ctx)).filter(
+          (st) =>
+            Object.hasOwn(settings.stale.stageDays, st.id) &&
+            !named.some((n) => n.stageId === st.id),
+        )
+      : [];
+  return {
+    settings,
+    named,
+    kept,
+    reviewing: unread && owner,
+    nudgeBlocked: unread && !owner,
+    next: nextAttention(settings, args, unread && owner),
+  };
+}
+
 const updateActionCenterSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const { settings } = await attentionOf(db, ctx);
-    const next = nextAttention(settings, args);
+    const { named, kept, reviewing, nudgeBlocked, next } = await attentionPlan(db, ctx, args);
     const fields: Field[] = [];
+    // The wording first, so an owner reads it before anything else: confirming is their Looks good, turn on.
+    if (reviewing) fields.push({ label: 'Follow-up wording', value: next.nudge.template });
     const on = list<string>(args['kindsOn']);
     const off = list<string>(args['kindsOff']);
     if (on?.length) fields.push({ label: 'Watching for', value: on.join(', ').replace(/_/g, ' ') });
@@ -660,7 +759,23 @@ const updateActionCenterSettings: SettingsConfirmTool = {
         value: `${next.unanswered.afterOpenMinutes} min of open hours`,
       });
     if (num(args['goneQuietAfterDays']) !== undefined)
-      fields.push({ label: 'Gone quiet after', value: days(next.stale.days) });
+      fields.push({
+        label: 'Gone quiet after',
+        value: kept.length
+          ? `${days(next.stale.days)}, in every open stage without its own number (${kept
+              .map(
+                (st) => `${st.name} keeps ${days(next.stale.stageDays[st.id] ?? next.stale.days)}`,
+              )
+              .join(', ')})`
+          : days(next.stale.days),
+      });
+    if (named.length)
+      fields.push({
+        label: 'Gone quiet after, by stage',
+        value: named
+          .map((st) => `${st.name}: ${days(next.stale.stageDays[st.id] ?? next.stale.days)}`)
+          .join(', '),
+      });
     if (num(args['estimateWaitingDays']) !== undefined)
       fields.push({
         label: 'An estimate waits for a decision after',
@@ -694,42 +809,52 @@ const updateActionCenterSettings: SettingsConfirmTool = {
         label: 'Follows up quiet leads',
         value: next.auto.nudges ? 'Yes, on its own' : 'No',
       });
+    if (str(args['followUpMessage']) && !reviewing)
+      fields.push({ label: 'Follow-up wording', value: next.nudge.template });
+    if (num(args['followUpCooldownDays']) !== undefined)
+      fields.push({
+        label: 'No automatic message to the same lead again for',
+        value: days(next.nudge.cooldownDays),
+      });
     if (bool(args['replyCToConfirm']) !== undefined)
       fields.push({ label: 'Reply C to confirm', value: next.replyToConfirm ? 'On' : 'Off' });
-    const nudgeBlocked =
-      bool(args['followUpOnQuietLeads']) === true && !settings.auto.nudgeReviewedAt;
     // The screen has no switch for these, so a change that turns one off can't be saved here either.
     const lockedOff = [...new Set((off ?? []).flatMap((k) => ALWAYS_WATCHED.get(k) ?? []))];
     const why = lockedOff.length
       ? `${lockedOff.join(' and ')} ${lockedOff.length === 1 ? 'is' : 'are'} always on; Settings → Automations has no switch for ${lockedOff.length === 1 ? 'it' : 'them'}.`
       : nudgeBlocked
-        ? 'Automatic follow-ups can only be turned on from Settings → Automations, where the message is shown to read first.'
+        ? NUDGE_OWNER_ONLY
         : null;
     return {
       card: settingsCard(toolCallId, 'update_action_center_settings', {
-        title: 'Change what Home watches for',
+        title: reviewing ? 'Turn on follow-ups' : 'Change what Home watches for',
         fields,
-        confirmLabel: why ? '' : 'Save the change',
-        warnings: lockedOff.length
-          ? [{ kind: 'blocked', text: why! }]
-          : nudgeBlocked
+        confirmLabel: why ? '' : reviewing ? 'Looks good, turn on' : 'Save the change',
+        warnings: why
+          ? [{ kind: 'blocked', text: why }]
+          : reviewing
             ? [
                 {
-                  kind: 'blocked',
-                  text: 'Automatic follow-ups need the wording read and agreed first, on Settings → Automations.',
+                  kind: 'caution',
+                  text: `Read the wording above first: confirming is your Looks good, turn on. Each follow-up then goes to a quiet lead on its own, after a ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait in which it can be cancelled on Home.`,
                 },
               ]
             : [],
       }),
-      result: why ? { blocked: true, why } : { waiting: true, changes: fields.map((f) => f.label) },
+      result: why
+        ? { blocked: true, why }
+        : {
+            waiting: true,
+            changes: fields.map((f) => f.label),
+            ...(reviewing ? { wordingShownToRead: true } : {}),
+          },
     };
   },
 
   async commit(db, ctx, args) {
-    const { settings } = await attentionOf(db, ctx);
-    await command(db, ctx, 'attention.save_settings', {
-      settings: nextAttention(settings, args),
-    });
+    const { nudgeBlocked, next } = await attentionPlan(db, ctx, args);
+    if (nudgeBlocked) throw HfosError.forbidden(NUDGE_OWNER_ONLY);
+    await command(db, ctx, 'attention.save_settings', { settings: next });
     return {
       outcome: 'Saved',
       href: `/app/w/${ctx.workspaceId}/settings/automations`,
