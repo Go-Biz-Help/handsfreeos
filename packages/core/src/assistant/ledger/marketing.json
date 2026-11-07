@@ -1,7 +1,7 @@
 {
   "area": "marketing",
   "title": "Campaigns, Reviews, Forms, surveys, quizzes and website chats",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/forms.tsx": "ec0ccb8ac910",
     "apps/mobile/src/app/app/w/[workspaceId]/forms/[formId]/answers/[responseId].tsx": "ee23933f5989",
@@ -59,9 +59,9 @@
     "apps/web/src/components/forms/website-chats.tsx": "7b25ec4e137e",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/reviews/reviews-board.tsx": "685e5ab4c16c",
-    "apps/web/src/components/settings/chat-install.tsx": "02a8f68d64c4",
+    "apps/web/src/components/settings/chat-install.tsx": "5a08b1500b10",
     "apps/web/src/components/settings/chat-look-parts.tsx": "f7a53fa395ae",
-    "apps/web/src/components/settings/website-chat-page.tsx": "8bd466f15db8"
+    "apps/web/src/components/settings/website-chat-page.tsx": "46b8ece2f22d"
   },
   "items": [
     {
@@ -795,189 +795,189 @@
     {
       "path": "Forms → New website chat → Name",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:421",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:422",
       "covered": "yes",
       "by": "manage_website_chat create name"
     },
     {
       "path": "Forms → New website chat → Your sites: add or remove a site",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:221",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:222",
       "covered": "yes",
       "by": "manage_website_chat create websites"
     },
     {
       "path": "Forms → New website chat → Turn on website chat",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:470",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:471",
       "covered": "yes",
       "by": "manage_website_chat create"
     },
     {
       "path": "Forms → a website chat → On / Paused switch",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:594",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:595",
       "covered": "yes",
       "by": "manage_website_chat turn_on / turn_off"
     },
     {
       "path": "Forms → a website chat → who answers (the teammate, team can join; or the team from the inbox)",
       "kind": "see",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:585",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:586",
       "covered": "yes",
       "by": "get_settings website_chat teammate"
     },
     {
       "path": "Forms → a website chat → Paused callout",
       "kind": "see",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:604",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:605",
       "covered": "yes",
       "by": "get_settings website_chat paused"
     },
     {
       "path": "Forms → a website chat → Seen on <site> N min ago / Not seen yet",
       "kind": "see",
-      "file": "apps/web/src/components/settings/chat-install.tsx:219",
+      "file": "apps/web/src/components/settings/chat-install.tsx:165",
       "covered": "yes",
       "by": "get_settings website_chat install"
     },
     {
       "path": "Forms → a website chat → install check → Check again",
       "kind": "do",
-      "file": "apps/web/src/components/settings/chat-install.tsx:202",
+      "file": "apps/web/src/components/settings/chat-install.tsx:150",
       "covered": "yes",
       "by": "read_chat_widget_get"
     },
     {
       "path": "Forms → a website chat → Who answers: the teammate (AI) or Only your team",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:614",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:615",
       "covered": "yes",
       "by": "manage_website_chat answeredByAi"
     },
     {
       "path": "Forms → a website chat → Want an AI teammate? / the teammate is off / its Website chat channel is off, with links",
       "kind": "see",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:554",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:555",
       "covered": "yes",
       "by": "get_settings ai_teammate (status, channels)"
     },
     {
       "path": "Forms → a website chat → Daily limit (new chats a day)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:634",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:635",
       "covered": "yes",
       "by": "manage_website_chat dailyCap"
     },
     {
       "path": "Forms → a website chat → Your sites: each site, Installed on the one it was seen on",
       "kind": "see",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:340",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:341",
       "covered": "yes",
       "by": "get_settings website_chat allowedOrigins, install.lastSeenOrigin"
     },
     {
       "path": "Forms → a website chat → Your sites: Remove a site",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:348",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:349",
       "covered": "yes",
       "by": "manage_website_chat websites"
     },
     {
       "path": "Forms → a website chat → Your sites: Add a site (already listed, too many)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:273",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:274",
       "covered": "yes",
       "by": "manage_website_chat websites"
     },
     {
       "path": "Forms → a website chat → Add it to your site: the snippet, Copy",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:766",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:767",
       "covered": "yes",
       "by": "get_settings website_chat snippet; read_chat_widget_get snippet; setting one up says it"
     },
     {
       "path": "Forms → a website chat → Add it to your site: steps for WordPress, Wix, Squarespace and the rest",
       "kind": "see",
-      "file": "apps/web/src/components/settings/chat-install.tsx:109",
-      "covered": "partly",
-      "by": "settings_help website_chat: general paste steps, not each site builder’s"
+      "file": "apps/web/src/components/settings/chat-install.tsx:55",
+      "covered": "yes",
+      "by": "settings_help website_chat onEachBuilder: each builder’s steps as Add it to your site shows them (core’s CHAT_BUILDERS)"
     },
     {
       "path": "Forms → a website chat → pasting the snippet on their own site",
       "kind": "do",
-      "file": "apps/web/src/components/settings/chat-install.tsx:109",
+      "file": "apps/web/src/components/settings/chat-install.tsx:55",
       "covered": "person",
       "by": "their website lives outside HandsFreeOS (settings_help handover)"
     },
     {
       "path": "Forms → a website chat → New key → Get a new key? → Get a new key / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:779",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:780",
       "covered": "yes",
       "by": "do_chat_widget_rotate_key widgetId"
     },
     {
       "path": "Forms → a website chat → Try it (preview page)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:827",
-      "covered": "never",
-      "by": "SETTINGS_NEVER website_chat.try: test chats create and send nothing"
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:828",
+      "covered": "yes",
+      "by": "get_settings website_chat tryIt: the link Try it opens (test chats create and send nothing, so nothing to set)"
     },
     {
       "path": "Forms → a website chat → Look → Name",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:967",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:968",
       "covered": "yes",
       "by": "manage_website_chat name"
     },
     {
       "path": "Forms → a website chat → Look → Greeting",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:985",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:986",
       "covered": "yes",
       "by": "manage_website_chat greeting"
     },
     {
       "path": "Forms → a website chat → Look → Button label",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:998",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:999",
       "covered": "yes",
       "by": "manage_website_chat buttonLabel"
     },
     {
       "path": "Forms → a website chat → Look → button colour swatches, Any colour",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1024",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1025",
       "covered": "yes",
       "by": "manage_website_chat color"
     },
     {
       "path": "Forms → a website chat → Look → Words on the button and top bar (Automatic or pick), hard-to-read warning",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1054",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1055",
       "covered": "yes",
       "by": "manage_website_chat textColor"
     },
     {
       "path": "Forms → a website chat → Look → Top bar of the chat (Same as the button or pick)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1067",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1068",
       "covered": "yes",
       "by": "manage_website_chat topBarColor"
     },
     {
       "path": "Forms → a website chat → Look → Show your logo",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1078",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1079",
       "covered": "yes",
       "by": "manage_website_chat showLogo"
     },
     {
       "path": "Forms → a website chat → Look → the preview of the button and open chat",
       "kind": "see",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1092",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1093",
       "covered": "partly",
       "by": "get_settings website_chat gives the values, not the picture"
     },
@@ -998,42 +998,42 @@
     {
       "path": "Forms → a website chat → When nobody is answering: when that is",
       "kind": "see",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1135",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1136",
       "covered": "yes",
       "by": "manage_website_chat whenNobodyAnswers description"
     },
     {
       "path": "Forms → a website chat → Let them chat anyway / Show the away message and a short form",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1140",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1141",
       "covered": "yes",
       "by": "manage_website_chat whenNobodyAnswers"
     },
     {
       "path": "Forms → a website chat → Away message",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1165",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1166",
       "covered": "yes",
       "by": "manage_website_chat awayMessage"
     },
     {
       "path": "Forms → a website chat → What to ask visitors for: Name, Mobile, Email (Don’t ask, When needed, After their first message, Before the chat starts)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1193",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1194",
       "covered": "yes",
       "by": "manage_website_chat askFor"
     },
     {
       "path": "Forms → a website chat → Offer a box to get texts",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1220",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1221",
       "covered": "yes",
       "by": "manage_website_chat askForSmsConsent"
     },
     {
       "path": "Forms → a website chat → Save (Unsaved changes / All changes saved)",
       "kind": "do",
-      "file": "apps/web/src/components/settings/website-chat-page.tsx:1247",
+      "file": "apps/web/src/components/settings/website-chat-page.tsx:1248",
       "covered": "yes",
       "by": "manage_website_chat change"
     },

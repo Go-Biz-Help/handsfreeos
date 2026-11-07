@@ -219,7 +219,8 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       'Its key or sign-in is wiped now, so using it again takes signing in or pasting the key again on the add-on’s Connections. What it already brought in stays.',
   },
   // Checking in, adding time and checking out are my_check_in's; asking for help is ask_for_help's (tools-safety.ts).
-  // Sharing where the phone is (safety.where) stays the phone's: only the phone in their hand knows where it is.
+  // Sharing where the phone is (safety.where) stays the phone's: only the phone in their hand knows where it is
+  // (NEVER_FOR_THE_ASSISTANT).
   'safety.resolve': {},
   'support_access.decline': {},
   'support_access.end': {},
@@ -309,7 +310,9 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.pause': {},
   'funnel.archive': {},
   // ---- AI quick setup and onboarding setup: a screen's answers at a time, from read_ai_setup_get or read_onboarding_setup_get ----
-  'ai_setup.save': { about: AI_SETUP_ANSWERS_ABOUT },
+  'ai_setup.save': {
+    about: `${AI_SETUP_ANSWERS_ABOUT} On What <name> learned from your website (the learned screen), the findings are the newest website scan’s suggestions, by id from list_knowledge_suggestions with latestScanOnly: as the screen saves them, every one goes in keepFindings (ticked) or dropFindings (unticked), and Keep all keeps them all.`,
+  },
   'ai_setup.finish': {
     about: `${AI_SETUP_ANSWERS_ABOUT} baseRevision is state.teammate.revision as read_ai_setup_get gave it, or null with no teammate.`,
     filled: ['pageOrigin'],
@@ -491,6 +494,8 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'call.cancel_connect': 'hanging up a call through the person’s own cell, on its call sheet',
   'push_device.register': 'the phone signing itself up for notifications, which only the app does',
   'push_device.remove': 'the phone signing itself out of notifications, which only the app does',
+  'safety.where':
+    'the phone saying where it is during a check-in with Share where I am on, which only the phone in the person’s hand knows',
   'founding.buy': 'paying on Stripe’s page, which only the person can do',
   'founding.start_checkout': 'paying on Stripe’s page, which only the person can do',
   'founding.pay_renewal': 'paying on Stripe’s page, which only the person can do',

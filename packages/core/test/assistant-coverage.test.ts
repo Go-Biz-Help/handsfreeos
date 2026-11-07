@@ -68,7 +68,8 @@ const NOT_A_LINK: Readonly<Record<string, string>> = {
 
 /**
  * Each command the web and the phone run, with the files that run it: by its address, by the phone's own
- * `change('…')` (which sends it once there's signal), through one of the worker's routes above, or from a button on a
+ * `change('…')` (which sends it once there's signal), sent by the phone straight away as `{ name: '…', commandId }`
+ * (where a check-in's phone is, safety/follow.ts), through one of the worker's routes above, or from a button on a
  * notification (`PUSH_BUTTONS` in packages/core/src/push.ts: Still there, I’m OK, Reply…), which the phone runs.
  */
 const screenCommands = (() => {
@@ -82,6 +83,8 @@ const screenCommands = (() => {
       const source = readFileSync(file, 'utf8');
       for (const m of source.matchAll(/\/v1\/commands\/([a-z_]+\.[a-z_.]+)/g)) add(m[1]!, file);
       for (const m of source.matchAll(/\bchange(?:<[^>]*>)?\(\s*'([a-z_]+\.[a-z_.]+)'/g))
+        add(m[1]!, file);
+      for (const m of source.matchAll(/\bname: '([a-z_]+\.[a-z_.]+)',\s*commandId:/g))
         add(m[1]!, file);
       for (const [route, name] of Object.entries(WORKER_ROUTES))
         if (source.includes(`'${route}'`)) add(name, file);

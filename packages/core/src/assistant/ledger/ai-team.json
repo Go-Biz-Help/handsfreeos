@@ -62,12 +62,12 @@
     "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
     "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
     "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
-    "packages/core/src/assistant/coverage.ts": "ef2373dbadeb",
-    "packages/core/src/assistant/screen-reads.ts": "d068ffbd4104",
-    "packages/core/src/assistant/settings-map.ts": "df1a6f0130ad",
-    "packages/core/src/assistant/tools-content.ts": "0748b6b1605b",
-    "packages/core/src/assistant/tools-extra.ts": "b974b342c749",
-    "packages/core/src/assistant/tools.ts": "a2354862767b"
+    "packages/core/src/assistant/coverage.ts": "513d0d3dbdb9",
+    "packages/core/src/assistant/screen-reads.ts": "48542a02a00d",
+    "packages/core/src/assistant/settings-map.ts": "66e51332b66a",
+    "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
+    "packages/core/src/assistant/tools-extra.ts": "0386a2cd32e4",
+    "packages/core/src/assistant/tools.ts": "74c944826a17"
   },
   "items": [
     {
@@ -2223,8 +2223,8 @@
       "path": "Quick setup → reading your website banner",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/screens.tsx:245",
-      "covered": "partly",
-      "by": "knowledge_scan.get isn’t a screen read; list_knowledge_suggestions shows results"
+      "covered": "yes",
+      "by": "read_ai_setup_get state.reading; list_knowledge_suggestions lastScan (its status, pages read)"
     },
     {
       "path": "Quick setup → About → description (2000), area",
@@ -2272,15 +2272,15 @@
       "path": "Quick setup → Learned → findings ticks, Keep all",
       "kind": "do",
       "file": "apps/web/src/components/ai-setup/screens.tsx:452",
-      "covered": "partly",
-      "by": "list_knowledge_suggestions; dropFindings in answers"
+      "covered": "yes",
+      "by": "list_knowledge_suggestions latestScanOnly (the findings, by id); do_ai_setup_save keepFindings / dropFindings, every finding in one, as its about says"
     },
     {
       "path": "Quick setup → Learned → scan running / failed / none notes",
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/screens.tsx:480",
-      "covered": "partly",
-      "by": "knowledge_scan.get isn’t read"
+      "covered": "yes",
+      "by": "read_ai_setup_get state.scan (none, running, done or failed, and pending) and state.website; list_knowledge_suggestions lastScan"
     },
     {
       "path": "Quick setup → Learned → top questions: question, answer, remove, add",
@@ -2350,7 +2350,7 @@
       "kind": "see",
       "file": "apps/web/src/components/ai-setup/try-ava.tsx:527",
       "covered": "yes",
-      "by": "read_chat_widget_get; settings_help gives the snippet"
+      "by": "read_chat_widget_get snippet, the same as the screen’s (core’s chatSnippet); the more ways link is the chat’s page: settings_help website_chat onEachBuilder"
     },
     {
       "path": "Quick setup → try → Ask these questions",

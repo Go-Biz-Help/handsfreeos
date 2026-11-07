@@ -2924,7 +2924,7 @@
       "kind": "read",
       "where": "Home → Getting started: \"Sign in faster\" shows done for someone who signs in with Google or a passkey; the count \"N of M done\" and \"You’re set up\" follow it",
       "gap": "'Sign in faster' is done only when device.signIn===true. The web asks again with signIn from the browser, but the worker never fills `device`. The model could pass device.signIn itself (it's in the screen-read input), but no read tells it the person's sign-in methods; get_settings my_account's meShape has only name, email, settings and alerts. So read_onboarding_status counts differ from the card, and do_onboarding_finish is refused with onboarding_not_finished.",
-      "fix": "Left open: whether a person signs in with Google or a passkey lives in auth.identities and the passkeys table, which the worker’s database roles can’t read; it needs Supabase’s admin API in a step of its own, so sign_in can still differ from the card.",
+      "fix": "Left open: not a small step. The worker’s AuthAdmin (apps/worker/src/account/auth-admin.ts) could read a person’s Google sign-in with getUserById and their passkeys with Supabase’s admin passkey API, but read_onboarding_status and do_onboarding_finish (both take device) run through the screen-read and screen-action executors, which aren’t given the worker’s services; wiring them in, with a test against Supabase Auth, is a step of its own. Until then the person’s word can be passed as device.signIn.",
       "status": "open",
       "pr": null
     },

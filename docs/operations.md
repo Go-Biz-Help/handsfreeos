@@ -6981,7 +6981,7 @@ For HandsFreeOS's own staff, it also does the Admin area: support tickets, saved
 
 The owner's rule (2026-10-26 and 2026-10-27) is that the Assistant can do everything a person can, settings inside settings too, and stays that way as HandsFreeOS changes. `packages/core/test/assistant-coverage.test.ts` holds it, from the code, so CI fails the moment a screen gets a button or a setting the Assistant can't use:
 
-- **Every command a screen runs** (each `/v1/commands/…` in `apps/web/src` and `apps/mobile/src`) is one of the Assistant's own tools, an add-on's, a screen action, or listed in `packages/core/src/assistant/coverage.ts` with the reason.
+- **Every command a screen runs** (each `/v1/commands/…` in `apps/web/src` and `apps/mobile/src`, each change the phone queues with `change('…')` or sends straight away as `{ name: '…', commandId }`, and each notification button's) is one of the Assistant's own tools, an add-on's, a screen action, or listed in `packages/core/src/assistant/coverage.ts` with the reason.
 - **Every setting row** (`SETTINGS` in `packages/core/src/settings/catalog.ts`) names the tool and the field that change it in `SETTING_TOOLS`, says why it doesn't in `SETTINGS_NEVER`, or sits on a page still to check in `SETTINGS_NOT_YET`.
 
 When the test fails on a new command, pick one, in this order:

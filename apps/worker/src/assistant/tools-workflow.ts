@@ -448,6 +448,8 @@ export const workflowAutoTools: Record<string, WorkflowAutoTool> = {
   },
 
   async list_workflows(db, ctx, args) {
+    const personId = str(args['personId']);
+    if (personId) return forCustomer(db, ctx, personId);
     const calendarId = str(args['calendarId']);
     const { items } = await query<{ items: WorkflowItem[] }>(db, ctx, 'workflow.list', {
       ...(str(args['status']) ? { status: [args['status']] } : {}),
@@ -759,6 +761,81 @@ async function notAgain(
     ctx.timezone,
   );
   return ok ? null : note;
+}
+
+/** The wait between someone's starts of a workflow that lets them start any time, from its published version. */
+async function cooldownOf(db: Db, ctx: ToolContext, w: WorkflowItem) {
+  if (w.reentry !== 'always' || !w.activeVersion) return null;
+  const { version } = await query<{ version: { definition: unknown } }>(
+    db,
+    ctx,
+    'workflow.version_get',
+    { workflowId: w.id, version: w.activeVersion.version },
+  );
+  const reentry = parseDefinition(version.definition).settings.reentry;
+  return reentry.mode === 'always' ? reentry.cooldown : null;
+}
+
+/**
+ * "Add to workflow…" on a customer's page, as its dialog lists them: the published workflows that start by hand, on or
+ * paused, each with whether it takes them now and why not, in the dialog's words (core's, which start_workflow's card
+ * uses too).
+ */
+async function forCustomer(db: Db, ctx: ToolContext, personId: string): Promise<ToolOutcome> {
+  const [{ items }, { person }, { items: runs }] = await Promise.all([
+    query<{ items: WorkflowItem[] }>(db, ctx, 'workflow.list', { status: ['active', 'paused'] }),
+    query<{ person: { fullName: string } }>(db, ctx, 'person.get', { personId }),
+    query<{ items: { workflow: { id: string }; status: RunStatus; startedAt: string }[] }>(
+      db,
+      ctx,
+      'workflow.run_list',
+      { personId, limit: 20 },
+    ),
+  ]);
+  const first = firstName(person.fullName);
+  const offered = await Promise.all(
+    items
+      .filter((w) => w.trigger.kind === 'manual' && w.activeVersion)
+      .map(async (w) => ({
+        w,
+        ...workflowAvailability(
+          { ...w, cooldown: await cooldownOf(db, ctx, w) },
+          runs.filter((r) => r.workflow.id === w.id),
+          first,
+          ctx.timezone,
+        ),
+      })),
+  );
+  const p = workflowPaths(ctx.workspaceId);
+  return {
+    result: {
+      customer: person.fullName,
+      workflows: offered.map(({ w, ok, note }) => ({
+        id: w.id,
+        name: w.name,
+        status: w.status,
+        canAddThem: ok,
+        forThem: note,
+      })),
+      ...(offered.length
+        ? {}
+        : {
+            note: 'No workflow starts by hand yet. A published workflow whose trigger is “Started by hand” shows here.',
+          }),
+    },
+    card: offered.length
+      ? {
+          type: 'list',
+          title: `Add ${first} to a workflow`,
+          items: offered.slice(0, 12).map(({ w, ok, note }) => ({
+            title: w.name,
+            detail: note,
+            tone: ok ? 'accent' : 'muted',
+            href: p.workflow(w.id),
+          })),
+        }
+      : null,
+  };
 }
 
 const startWorkflow: WorkflowConfirmTool = {
