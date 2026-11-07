@@ -67,6 +67,7 @@ import { AI_UNAVAILABLE_MESSAGE } from '../ai/ask';
 import { hasPermission } from '../http/common';
 import { tryKnowledge, type TryDeps } from '../knowledge/try';
 import type { ToolContext, ToolOutcome } from './runtime';
+import { toolCallDrawnAt } from './store';
 import { command, query, quoted, rehearse, when } from './tools-read';
 import type { SettingsConfirmTool } from './tools-settings-calendar';
 import { wholeFormLink } from './tools-forms';
@@ -1538,6 +1539,7 @@ interface Suggestion {
   scanId: string | null;
   itemId: string | null;
   similarCount: number;
+  createdAt: string;
 }
 interface ScanGet {
   source: { url: string } | null;
@@ -2297,11 +2299,15 @@ const decideKnowledgeSuggestion: SettingsConfirmTool = {
 const ACCEPT_MOST = 100;
 const samePage = (a: string, b: string) => a.replace(/\/+$/, '') === b.replace(/\/+$/, '');
 
-/** The suggestions one Accept all takes, as the screen gathers them, and whether more wait beyond them. */
+/**
+ * The suggestions one Accept all takes, as the screen gathers them, and whether more wait beyond them. On Confirm,
+ * `drawnAt` is when the card was drawn: only what waited then is taken, so nothing the card didn't list is published.
+ */
 async function toAccept(
   db: Db,
   ctx: ToolContext,
   args: Args,
+  drawnAt: Date | null = null,
 ): Promise<{ list: Suggestion[]; more: boolean; from: string; onWebsite: boolean }> {
   const named = new Set(ids(args['suggestionIds']));
   const fromWebsite = str(args['fromWebsite']);
@@ -2317,18 +2323,25 @@ async function toAccept(
       throw need(
         'The website hasn’t been scanned yet, so nothing from it waits. Scan it first (scan_website).',
       );
+    if (drawnAt && new Date(site.scan.createdAt) > drawnAt)
+      throw HfosError.conflict(
+        'A new scan of the website started after this card was drawn, so its suggestions aren’t the ones the card listed. Ask again for a fresh card.',
+        'suggestions_changed',
+      );
     scanId = site.scan.id;
   }
   const keep = (s: Suggestion) =>
-    named.size
+    (!drawnAt || new Date(s.createdAt) <= drawnAt) &&
+    (named.size
       ? named.has(s.id)
-      : !page || (typeof s.source['url'] === 'string' && samePage(s.source['url'], page));
+      : !page || (typeof s.source['url'] === 'string' && samePage(s.source['url'], page)));
   const list: Suggestion[] = [];
   let cursor: string | undefined;
   let left = 0;
   let unread = false;
-  // The named ones, or one page's, may be anywhere in what waits; the rest are the newest 100, as the screen loads them.
-  const pages = named.size || page ? 5 : 1;
+  // The named ones, or one page's, may be anywhere in what waits; the rest are the newest 100, as the screen loads them
+  // (on Confirm, past any that came after the card).
+  const pages = named.size || page || drawnAt ? 5 : 1;
   for (let i = 0; i < pages; i += 1) {
     const got = await query<SuggestionPage>(db, ctx, 'knowledge_suggestion.list', {
       status: 'pending',
@@ -2407,8 +2420,10 @@ const acceptKnowledgeSuggestions: SettingsConfirmTool = {
       result: { accepts: list.length, updates, ...(more ? { moreWaiting: true } : {}) },
     };
   },
-  async commit(db, ctx, args) {
-    const { list, onWebsite } = await toAccept(db, ctx, args);
+  async commit(db, ctx, args, extra) {
+    // Only what the card listed: a suggestion that arrived after it was drawn waits for its own card.
+    const drawnAt = await toolCallDrawnAt(db, ctx, extra.toolCallId);
+    const { list, onWebsite } = await toAccept(db, ctx, args, drawnAt);
     let accepted = 0;
     let failed = 0;
     let firstProblem: unknown = null;

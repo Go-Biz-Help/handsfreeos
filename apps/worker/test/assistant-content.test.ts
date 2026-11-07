@@ -37,6 +37,7 @@ import type { z } from 'zod';
 import { scriptedAi } from '../src/ai/scripted';
 import { toolsFor } from '../src/assistant/context';
 import type { ToolContext } from '../src/assistant/runtime';
+import { finishRun, recordToolCall, startRun } from '../src/assistant/store';
 import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { allScreenReadTools } from '../src/assistant/tools-screen-reads';
 import {
@@ -100,6 +101,47 @@ const prepare = async (name: string, args: Record<string, unknown>, u: TestUser 
 };
 const commit = (name: string, args: Record<string, unknown>, u: TestUser = owner) =>
   tools().commit(tool(name), argsOf(name, args), ctx(u), { toolCallId: randomUUID() });
+/**
+ * Confirmed on the worker's own connection, as the Assistant runs: Accept all reads when its card was drawn, so it
+ * takes only what the card listed.
+ */
+const commitOnWorker = (
+  name: string,
+  args: Record<string, unknown>,
+  toolCallId: string = randomUUID(),
+) =>
+  createToolExecutor(testDbs().worker.db).commit(tool(name), argsOf(name, args), ctx(), {
+    toolCallId,
+  });
+/** A card kept as the runtime keeps one while it waits for Confirm, drawn now; its id is what Confirm hands over. */
+const drawCard = async (name: string, args: Record<string, unknown>) => {
+  const db = testDbs().worker.db;
+  const scope = { workspaceId, organizationId };
+  const { runId, threadId } = await startRun(db, scope, {
+    userId: owner.id,
+    question: 'Accept the website’s suggestions',
+    context: {},
+    model: 'test',
+    correlationId: randomUUID(),
+  });
+  const id = await recordToolCall(db, scope, {
+    userId: owner.id,
+    threadId,
+    runId,
+    providerCallId: `call-${randomUUID()}`,
+    tool: name,
+    arguments: argsOf(name, args),
+    autonomy: 'confirm',
+    status: 'awaiting_confirmation',
+    correlationId: randomUUID(),
+  });
+  await finishRun(db, scope, runId, {
+    status: 'done',
+    usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+    toolRounds: 1,
+  });
+  return id;
+};
 const read = async (name: string, args: Record<string, unknown> = {}, u: TestUser = owner) => {
   const out = await tools().run(tool(name), argsOf(name, args), ctx(u));
   if (out.card) expect(AssistantCard.safeParse(out.card).success, `${name} card`).toBe(true);
@@ -1279,7 +1321,7 @@ describe('the knowledge base', () => {
         )
       ).n;
     expect(await waiting()).toBe(3);
-    const done = await commit('accept_knowledge_suggestions', page);
+    const done = await commitOnWorker('accept_knowledge_suggestions', page);
     expect(done.outcome).toBe('Accepted 2 and published them.');
     expect(
       await rows(
@@ -1306,7 +1348,7 @@ describe('the knowledge base', () => {
     expect(site.card.title).toBe('Accept all 1 from the website?');
     expect(field(site.card, 'Updates')).toBe('1 item the website changed');
     expect(site.card.body).toBe('(Updates an item) Fact: Hours');
-    await commit('accept_knowledge_suggestions', { fromWebsite: 'every_scan' });
+    await commitOnWorker('accept_knowledge_suggestions', { fromWebsite: 'every_scan' });
     expect(
       await one(
         sql`select body, status::text as status from app.knowledge_items where id = ${hours}`,
@@ -1315,6 +1357,59 @@ describe('the knowledge base', () => {
     await expect(
       prepare('accept_knowledge_suggestions', { fromWebsite: 'every_scan' }),
     ).rejects.toMatchObject({ code: 'not_found' });
+  });
+
+  it('accepts on Confirm only what its card listed, never a suggestion that came after it', async () => {
+    const newest = await one<{ id: string; source_id: string }>(
+      sql`select id, source_id from app.knowledge_scans where workspace_id = ${workspaceId}
+          order by created_at desc limit 1`,
+    );
+    // `later`: found a second on, so it can't share the card's millisecond however fast the database answers.
+    const suggest = async (title: string, later = false) =>
+      (
+        await one<{ id: string }>(
+          sql`insert into app.knowledge_suggestions (workspace_id, kind, proposed, reason, source, scan_id, created_at)
+              values (${workspaceId}, 'faq', ${JSON.stringify({ title, body: 'Yes.', tags: [] })}::jsonb, 'scan',
+                ${JSON.stringify({ url: 'https://example.com/boilers' })}::jsonb, ${newest.id},
+                now() + ${later ? '1 second' : '0 seconds'}::interval)
+              returning id`,
+        )
+      ).id;
+    const status = async (id: string) =>
+      (
+        await one<{ status: string }>(
+          sql`select status::text as status from app.knowledge_suggestions where id = ${id}`,
+        )
+      ).status;
+
+    const boilers = await suggest('Do you fix boilers?');
+    const site = { fromWebsite: 'every_scan' };
+    const shown = await prepare('accept_knowledge_suggestions', site);
+    expect(shown.card.body).toBe('FAQ: Do you fix boilers?');
+    const card = await drawCard('accept_knowledge_suggestions', site);
+    // The scan finds one more before the person presses Confirm: it waits for a card of its own.
+    const late = await suggest('Do you fix water heaters?', true);
+    const done = await commitOnWorker('accept_knowledge_suggestions', site, card);
+    expect(done.outcome).toBe('Accepted 1 and published them.');
+    expect(await status(boilers)).toBe('accepted');
+    expect(await status(late)).toBe('pending');
+
+    // The newest scan's, once a newer scan started after the card: refused, so the person asks again.
+    const latest = { fromWebsite: 'latest_scan' };
+    expect((await prepare('accept_knowledge_suggestions', latest)).card.body).toBe(
+      'FAQ: Do you fix water heaters?',
+    );
+    const second = await drawCard('accept_knowledge_suggestions', latest);
+    await rows(
+      admin(),
+      sql`insert into app.knowledge_scans (workspace_id, source_id, status, started_by, started_at, finished_at,
+            created_at)
+          values (${workspaceId}, ${newest.source_id}, 'done', ${owner.id}, now(), now(), now() + interval '2 seconds')`,
+    );
+    await expect(
+      commitOnWorker('accept_knowledge_suggestions', latest, second),
+    ).rejects.toMatchObject({ rule: 'suggestions_changed' });
+    expect(await status(late)).toBe('pending');
   });
 
   it('changes only the website’s address when asked not to scan, as Save does', async () => {
