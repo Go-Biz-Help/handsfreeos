@@ -80,14 +80,16 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
         const here = new Set((list?.installed ?? []).map((i) => i.addonId));
         const catalog = (list?.catalog ?? []).filter((c) => !here.has(c.addonId));
         return {
+          // Its id too: manage_add_on and update_addon_settings take it.
           inThisBusiness: (list?.installed ?? []).map((i) => ({
+            addonId: i.addonId,
             name: i.name,
             state: i.state,
             running: i.running,
           })),
           availableToAdd: catalog
             .filter((c) => c.status === 'available')
-            .map((c) => ({ name: c.name, summary: c.summary })),
+            .map((c) => ({ addonId: c.addonId, name: c.name, summary: c.summary })),
         };
       },
     },

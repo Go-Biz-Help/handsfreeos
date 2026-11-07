@@ -14,6 +14,7 @@ import { and, desc, eq, inArray, isNull, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { appointments, companies } from '@hfos/db/schema';
 import { companyCreate } from '../../../commands/company.create';
+import { companyUpdate } from '../../../commands/company.update';
 import { HfosError } from '../../../errors';
 import { executeCommandWithin, scopeCan } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
@@ -146,6 +147,45 @@ async function vendorRows(
 
 const vendorOut = (v: Vendor) => ({ vendorId: v.id, companyId: v.companyId, approved: v.approved });
 
+const digitsOf = (phone: string) => phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+
+/**
+ * A vendor's name, email or phone number, changed: they're the company's in Contacts, so the change goes there, as
+ * Contacts would make it, and only when it differs from what the company has (the Change dialog sends email and
+ * phone back as they were).
+ */
+async function contactsOf(
+  ctx: CommandContext,
+  companyId: string,
+  input: {
+    readonly name?: string | undefined;
+    readonly email?: string | undefined;
+    readonly phone?: string | undefined;
+  },
+) {
+  if (!input.name && !input.email && !input.phone) return;
+  const [c] = await ctx.tx
+    .select({ name: companies.name, email: companies.email, phone: companies.phone })
+    .from(companies)
+    .where(and(eq(companies.id, companyId), eq(companies.workspaceId, ctx.scope.workspaceId!)));
+  if (!c) return;
+  const name = input.name && input.name !== c.name ? input.name : undefined;
+  const email =
+    input.email && input.email.toLowerCase() !== String(c.email ?? '').toLowerCase()
+      ? input.email
+      : undefined;
+  const phone =
+    input.phone && digitsOf(input.phone) !== digitsOf(c.phone ?? '') ? input.phone : undefined;
+  if (name === undefined && email === undefined && phone === undefined) return;
+  await executeCommandWithin(ctx, companyUpdate, {
+    workspaceId: ctx.scope.workspaceId!,
+    companyId,
+    ...(name !== undefined ? { name } : {}),
+    ...(email !== undefined ? { email } : {}),
+    ...(phone !== undefined ? { phone } : {}),
+  });
+}
+
 // ---------- the directory ----------
 
 export const vendorSave = defineAddonCommand(realestateAddon, {
@@ -156,12 +196,17 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
   input: VendorSaveInput,
   output: VendorOutput,
   permission: 'realestate.use',
-  ai: { tool: 'realestate_vendor_save', autonomy: 'confirm' },
+  ai: {
+    tool: 'realestate_vendor_save',
+    autonomy: 'confirm',
+    description:
+      'Add a vendor to the directory (Real Estate Agent → Vendors), or change one (vendorId, from realestate_vendors): what they do (services) and where (areas), each the whole list as it should end up; a part left out of a change stays as it is. A disclosure the client must be told of, and a note for the team. A new name, email or phone number goes on their company in Contacts. One archived is brought back by adding them again. A new vendor, or a changed disclosure, waits for someone who runs the deal settings to approve them.',
+  },
   scope: inWorkspace,
   // Adding works with no signal, with the phone's id for a new one; approving one needs an owner or admin with signal
   // (board 89).
   offline: 'anytime',
-  emits: ['realestate.vendor.saved', 'company.created'],
+  emits: ['realestate.vendor.saved', 'company.created', 'company.updated'],
   async handler(ctx, input) {
     // A new one sent again after its answer was lost: the vendor it added.
     if (!input.vendorId && input.id) {
@@ -172,15 +217,19 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
       if (had) return vendorOut(had);
     }
     const at = changeMoment(ctx.meta);
+    // Only what's given: a change that leaves out what they do or where keeps it as it is.
     const facts = {
-      services: [...new Set(input.services)],
-      areas: [...new Set(input.areas.map((a) => a.trim()))].filter(Boolean),
+      ...(input.services ? { services: [...new Set(input.services)] } : {}),
+      ...(input.areas
+        ? { areas: [...new Set(input.areas.map((a) => a.trim()))].filter(Boolean) }
+        : {}),
       ...(input.disclosure !== undefined ? { disclosure: input.disclosure } : {}),
       ...(input.note !== undefined ? { note: input.note } : {}),
     };
     let v: Vendor;
     if (input.vendorId) {
       const was = await loadVendor(ctx, input.vendorId);
+      await contactsOf(ctx, was.companyId, input);
       // A new disclosure is something the approver should see again.
       const disclosureChanged =
         input.disclosure !== undefined && (input.disclosure ?? null) !== was.disclosure;
@@ -232,32 +281,49 @@ export const vendorSave = defineAddonCommand(realestateAddon, {
           ).output.companyId;
       }
       const [already] = await ctx.tx
-        .select({ id: vendors.id })
+        .select()
         .from(vendors)
         .where(
           and(eq(vendors.workspaceId, ctx.scope.workspaceId!), eq(vendors.companyId, companyId)),
-        );
-      if (already)
+        )
+        .for('update');
+      if (already && !already.archivedAt)
         throw HfosError.rule(
           'realestate_vendor_exists',
           409,
           'That company is in the directory already. Change it there instead.',
         );
-      [v] = (await withPhoneId('vendors', () =>
-        ctx.tx
-          .insert(vendors)
-          .values({
-            ...(input.id ? { id: input.id } : {}),
-            workspaceId: ctx.scope.workspaceId!,
-            companyId,
-            services: facts.services,
-            areas: facts.areas,
-            disclosure: input.disclosure ?? null,
-            note: input.note ?? null,
-            createdBy: actorUserId(ctx),
+      if (already) {
+        // Archived, and added again: back in the directory with what they do now, waiting to be approved again.
+        [v] = (await ctx.tx
+          .update(vendors)
+          .set({
+            ...facts,
+            archivedAt: null,
+            archivedBy: null,
+            approved: false,
+            approvedAt: null,
+            approvedBy: null,
+            updatedAt: at,
           })
-          .returning(),
-      )) as [Vendor];
+          .where(eq(vendors.id, already.id))
+          .returning()) as [Vendor];
+      } else
+        [v] = (await withPhoneId('vendors', () =>
+          ctx.tx
+            .insert(vendors)
+            .values({
+              ...(input.id ? { id: input.id } : {}),
+              workspaceId: ctx.scope.workspaceId!,
+              companyId,
+              services: facts.services ?? [],
+              areas: facts.areas ?? [],
+              disclosure: input.disclosure ?? null,
+              note: input.note ?? null,
+              createdBy: actorUserId(ctx),
+            })
+            .returning(),
+        )) as [Vendor];
     }
     await ctx.emit({
       type: 'realestate.vendor.saved',
@@ -288,7 +354,7 @@ export const vendorApprove = defineAddonCommand(realestateAddon, {
       throw HfosError.rule(
         'realestate_vendor_archived',
         409,
-        'That vendor is archived. Bring it back before approving it.',
+        'That vendor is archived, so duties don’t offer them. Add them again under Real Estate Agent → Vendors (Add a vendor), then approve them.',
       );
     if (was.approved === input.approved) return vendorOut(was);
     const at = changeMoment(ctx.meta);
@@ -527,7 +593,9 @@ export const dutyPickVendor = defineAddonCommand(realestateAddon, {
       throw HfosError.rule(
         'realestate_vendor_not_approved',
         409,
-        `${row!.name} isn’t approved for your deals${v.archivedAt ? ' any more' : ' yet'}. Ask someone who runs the deal settings to approve them under Vendors.`,
+        v.archivedAt
+          ? `${row!.name} isn’t in the vendors directory any more. Add them again under Real Estate Agent → Vendors, and ask someone who runs the deal settings to approve them.`
+          : `${row!.name} isn’t approved for your deals yet. Ask someone who runs the deal settings to approve them under Real Estate Agent → Vendors.`,
       );
     const service = input.service ?? serviceForDuty(duty.title) ?? v.services[0]!;
     if (!v.services.includes(service))

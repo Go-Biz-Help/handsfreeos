@@ -12,8 +12,10 @@ import {
   listingCampaignCard,
   listingCampaignOutcome,
   lockboxCard,
+  overrideCard,
   photoChanges,
   photosArrangeCard,
+  templateListAnswer,
   termsConfirmCard,
 } from '../../src/addons/realestate/ai-answers';
 import { dealHistoryWords } from '../../src/addons/realestate/history-words';
@@ -238,5 +240,88 @@ describe('the lockbox card', () => {
         lockbox: { kindLabel: 'SentriLock', place: null, serial: null, hasCode: false },
       })?.title,
     ).toBe('Add a lockbox to 12 Oak St?');
+  });
+});
+
+describe('the duty list', () => {
+  const definition = {
+    due: { kind: 'none' },
+    proof: null,
+    accountable: 'agent',
+    materiality: 'critical',
+    reminders: [3],
+    stages: ['offer'],
+  };
+  const list = {
+    published: 4,
+    unpublished: true,
+    counts: { all: 1, listing: 0, buyer: 1, both: 0, own: 0, changed: 1, off: 0 },
+    items: [
+      {
+        key: 'B-07',
+        title: 'Order the inspection',
+        side: 'buyer',
+        enabled: true,
+        own: false,
+        changed: true,
+        definition,
+      },
+    ],
+  };
+
+  it('reads each duty as the table shows it, and one asked for by its id with its whole rules', () => {
+    expect(templateListAnswer(list, {})).toEqual({
+      published: 4,
+      unpublished: true,
+      counts: list.counts,
+      items: [
+        {
+          key: 'B-07',
+          title: 'Order the inspection',
+          side: 'buyer',
+          on: true,
+          own: false,
+          changed: true,
+          due: 'No deadline',
+          proof: 'Saying it’s done',
+          accountable: 'Main agent',
+          matters: 'Could stop the closing',
+          reminders: '3 days before',
+        },
+      ],
+    });
+    const one = templateListAnswer(list, { dutyKey: 'B-07' }) as {
+      items: { definition?: unknown }[];
+    };
+    expect(one.items[0]!.definition).toEqual(definition);
+  });
+
+  it('carries a card that says each part that changes, what goes back, and everything changed on it', () => {
+    const card = overrideCard(
+      {
+        dutyKey: 'B-07',
+        title: 'Order the inspection',
+        on: false,
+        changed: ['its reminders', 'how much it matters'],
+      },
+      { dutyKey: 'B-07', enabled: false, patch: { materiality: 'critical' }, clear: ['due'] },
+    )!;
+    expect(card.title).toBe('Change B-07 · Order the inspection on the duty list?');
+    expect(card.lines).toEqual([
+      { label: 'New deals get it', value: 'No: turned off' },
+      { label: 'How much it matters', value: 'Could stop the closing' },
+      { label: 'Back as the list has it', value: 'When it’s due' },
+      { label: 'Changed from the list', value: 'its reminders, how much it matters' },
+      {
+        label: 'When',
+        value: 'A draft until the duty list is published; it’s off for new deals then',
+      },
+    ]);
+    expect(
+      overrideCard(
+        { dutyKey: 'B-07', title: 'Order the inspection', on: true, changed: [] },
+        { dutyKey: 'B-07' },
+      )!.lines,
+    ).toContainEqual({ label: 'Changed from the list', value: 'Nothing: it’s as the list has it' });
   });
 });

@@ -16,7 +16,7 @@ import {
 } from '@hfos/core';
 import type { Db } from '@hfos/db/client';
 import type { ToolContext } from './runtime';
-import { command, query } from './tools-read';
+import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
 type Args = Record<string, unknown>;
@@ -466,6 +466,9 @@ const updateAddonSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const plan = await addonSettingsPlan(db, ctx, args);
     if (!plan.fields.length) throw nothingChanges(`${plan.m.name} is already set that way.`);
+    // Tried as the person and rolled back, so what the save itself refuses (someone picked who can't count for a
+    // setting) is said before any card.
+    await rehearse(db, ctx, 'addon.save_settings', plan.save);
     return {
       card: settingsCard(toolCallId, 'update_addon_settings', {
         title: `Change ${plan.m.name}’s settings`,

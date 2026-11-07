@@ -163,6 +163,37 @@ describe('the directory', () => {
     ]);
     expect(list[0].disclosureWords).toBe('Disclosure: owned in part by Dana Reyes');
   });
+
+  it('changes only what’s given, and puts a new phone number on the company in Contacts', async () => {
+    await runAs(agent, 'realestate.vendor.save', {
+      vendorId: ids['cheap'],
+      phone: '(512) 555-0142',
+      note: 'Weekends too',
+    });
+    const v = (await runAs(agent, 'realestate.vendor.list', {})).vendors.find(
+      (x: Any) => x.id === ids['cheap'],
+    );
+    expect(v).toMatchObject({
+      services: ['inspection'],
+      areas: ['Round Rock'],
+      note: 'Weekends too',
+    });
+    expect(String(v.phone).replace(/\D/g, '')).toMatch(/5125550142$/);
+    // A new name goes on the company too, never dropped.
+    await runAs(agent, 'realestate.vendor.save', {
+      vendorId: ids['cheap'],
+      name: 'Quick Look Inspections',
+    });
+    const [renamed] = await rows<{ name: string }>(
+      admin(),
+      sql`select name from app.companies where id = ${v.companyId}`,
+    );
+    expect(renamed!.name).toBe('Quick Look Inspections');
+    // A new vendor still says what they do.
+    expect(await refused(runAs(agent, 'realestate.vendor.save', { name: 'No Services Co' }))).toBe(
+      'validation',
+    );
+  });
 });
 
 describe('a vendor on a duty', () => {
@@ -259,5 +290,30 @@ describe('a vendor on a duty', () => {
     expect(
       (await runAs(agent, 'realestate.vendor.list', {})).vendors.map((x: Any) => x.name),
     ).not.toContain('Lone Star Inspections');
+  });
+
+  it('brings an archived vendor back when they’re added again, waiting to be approved', async () => {
+    expect(
+      await refused(
+        runAs(owner, 'realestate.vendor.approve', { vendorId: ids['lone'], approved: true }),
+      ),
+    ).toBe('realestate_vendor_archived');
+    const back = await runAs(agent, 'realestate.vendor.save', {
+      name: 'Lone Star Inspections',
+      services: ['inspection', 'repairs'],
+    });
+    expect(back).toMatchObject({ vendorId: ids['lone'], approved: false });
+    const listed = (await runAs(agent, 'realestate.vendor.list', {})).vendors.find(
+      (x: Any) => x.id === ids['lone'],
+    );
+    expect(listed).toMatchObject({
+      archived: false,
+      approved: false,
+      services: ['inspection', 'repairs'],
+      areas: ['Austin metro'],
+    });
+    await runAs(owner, 'realestate.vendor.approve', { vendorId: ids['lone'], approved: true });
+    const v = await runAs(agent, 'realestate.duty.vendors', { dutyId: inspections });
+    expect(v.fits.map((f: Any) => f.name)).toEqual(['Lone Star Inspections']);
   });
 });

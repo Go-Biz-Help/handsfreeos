@@ -175,5 +175,28 @@ describe('the Real Estate Agent’s places', () => {
       ],
     });
     expect(screenPlace('/a/realestate/settings?tab=alerts', places)?.label).toBe('Deal settings');
+    // A duty's drawer, open over My duties or Coordinate, keeps its id in the address.
+    const duty = '5e4d3c2b-1a09-4f8e-8d7c-6b5a4f3e2d1c';
+    expect(screenPlace(`/a/realestate/duties?duty=${duty}`, places)).toMatchObject({
+      label: 'My duties',
+      ids: [{ name: 'duty', id: duty }],
+    });
+    expect(screenPlace(`/a/realestate/coordinate?duty=${duty}`, places)).toMatchObject({
+      label: 'Coordinate',
+      ids: [{ name: 'duty', id: duty }],
+    });
+  });
+
+  it('says how the duty list is changed and published, and that connecting an account is the person’s', () => {
+    const settings = REALESTATE_PLACES.find((p) => p.label === 'Deal settings')!;
+    const howTo = settings.howTo.join('\n');
+    expect(howTo).toContain('Publish version N; new deals take it and open deals keep theirs');
+    expect(howTo).toMatch(/Sign in with DocuSign \(or Dotloop\).*the person does it/);
+    expect(howTo).toMatch(/paste its key there: the person does it/);
+    expect(settings.onScreen.join(' ')).toContain('the owners when none is picked');
+    const deal = REALESTATE_PLACES.find((p) => p.label === 'A deal')!;
+    expect(deal.howTo.join(' ')).toContain('Apply the newest duty list…');
+    const vendors = REALESTATE_PLACES.find((p) => p.label === 'Vendors')!;
+    expect(vendors.howTo.join(' ')).toMatch(/Add a vendor with the same company/);
   });
 });

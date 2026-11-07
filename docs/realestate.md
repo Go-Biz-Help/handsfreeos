@@ -184,7 +184,8 @@ The owner's decisions (Chris, 2026-09-30) are settled; ask before going against 
 - **Changing the duty list changes new deals only.** Open deals keep their version until an owner or admin applies
   the new one to one deal, after seeing what it changes.
 - **Alerts:** Home cards, push and email; critical any time, the rest in working hours; critical ones also go to
-  the business's alert people (owners or people who see every deal; the owners when nobody is picked).
+  the business's alert people (owners or people who see every deal; the owners when nobody is picked, or nobody
+  picked still sees every deal). Picking someone who doesn't see every deal is refused as it's saved.
   Acknowledging stops an alert climbing. A changed wire raises a critical alert at once and a duty finished only by
   a phone check.
 - **The Assistant** looks things up on its own and changes things only with a person's OK. Everything a person does

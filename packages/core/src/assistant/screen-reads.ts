@@ -159,6 +159,8 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
 
 /** What a look-up's answer adds to what the screen shows, said after its description. */
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
+  'addon.settings':
+    'Its settings come as the add-on’s settings page shows them, its defaults filled in where nothing was saved yet, and labels says what each one is in the page’s words. update_addon_settings changes them.',
   'lead.board':
     'Its answer comes summed up as the board shows it: the open leads and their value, each stage’s count and total value (Won and Lost too), then each stage’s first 5 cards in order (shown with a stage’s id and a limit lists more of it). Pipeline ids are in its pipelines.',
   'schedule.team':

@@ -801,6 +801,23 @@ describe('Archiving and the lists', () => {
     );
     expect(row).toMatchObject({ datesToConfirm: 1, mine: false });
     expect(row.headline).toMatch(/\S/);
+    // The Needs attention tab, the Health filter and a stage by the words its column shows.
+    const ids = async (input: Record<string, unknown>) =>
+      (await ask(owner, 'realestate.deal.list', input)).deals.map((d: Any) => d.dealId);
+    expect(await ids({ needsAttention: true })).toContain(deal);
+    expect(await ids({ needsAttention: false })).not.toContain(deal);
+    expect(await ids({ health: row.health })).toContain(deal);
+    expect(await ids({ stage: 'Under contract' })).toContain(deal);
+    expect(await ids({ stage: 'under_contract', side: 'listing' })).not.toContain(deal);
+    expect(await refused(ask(owner, 'realestate.deal.list', { stage: 'Pending' }))).toBe(
+      'realestate_bad_stage',
+    );
+    const overview = await ask(owner, 'realestate.overview', {});
+    expect(overview.datesToConfirm).toBeGreaterThan(0);
+    expect(overview.needsAttentionTab).toBe(
+      (await ids({ needsAttention: true, limit: 200 })).length,
+    );
+    expect(overview.healthy + overview.needsAttention + overview.atRisk).toBe(overview.openDeals);
     const mine = (await ask(agent, 'realestate.deal.list', {})).deals.find(
       (d: Any) => d.dealId === deal,
     );

@@ -145,7 +145,7 @@ function saidPlainly(tool: Pick<AddonAiTool, 'addonName'>, e: unknown): unknown 
     return new HfosError(
       e.code,
       e.status,
-      `${tool.addonName} is turned off for this business, so nothing was done. An owner or admin can turn it back on in Settings → Add-ons.`,
+      `${tool.addonName} is turned off for this business, so nothing was done. An owner or admin can turn it back on in Add-ons, at the bottom of the side menu.`,
       e.details,
       e.rule,
     );

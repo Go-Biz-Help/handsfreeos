@@ -482,6 +482,28 @@ describe('A duty written on one deal', () => {
     );
     const mine = await ask(agent, 'realestate.duty.list', { mine: true, dealId: deal });
     expect(mine.duties.map((d: Any) => d.key)).toEqual(expect.arrayContaining(['W-01', 'W-02']));
+    // The totals group them as My duties does, whatever the page holds, and offset turns the page.
+    const t = mine.totals;
+    expect(t.open).toBe(mine.duties.length);
+    expect(t.overdue).toBeGreaterThan(0);
+    expect(t.noDeadline).toBeGreaterThan(0);
+    expect(t.overdue + t.today + t.thisWeek + t.later + t.noDeadline + t.waiting + t.blocked).toBe(
+      t.open,
+    );
+    const page = await ask(agent, 'realestate.duty.list', {
+      mine: true,
+      dealId: deal,
+      limit: 1,
+      offset: 1,
+    });
+    expect(page.duties.map((d: Any) => d.dutyId)).toEqual([mine.duties[1].dutyId]);
+    expect(page.totals).toEqual(t);
+    // I'm watching: the rest of the deal's duties, those someone else answers for.
+    const everyone = await ask(agent, 'realestate.duty.list', { mine: false, dealId: deal });
+    const watching = await ask(agent, 'realestate.duty.list', { watching: true, dealId: deal });
+    expect(watching.duties.length + mine.duties.length).toBe(everyone.duties.length);
+    expect(watching.duties.every((d: Any) => d.accountable?.userId !== agent.id)).toBe(true);
+    expect(watching.totals.open).toBe(watching.duties.length);
     const view = await ask(agent, 'realestate.deal.get', { dealId: deal });
     expect(view.duties.find((d: Any) => d.key === 'W-01').proofMissing).toBe('a file');
   });

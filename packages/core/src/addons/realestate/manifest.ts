@@ -1479,7 +1479,18 @@ export const realestateAddon = defineAddon({
       reveal: 'realestate.use',
     },
   ],
-  settings: { version: 1, permission: 'realestate.manage', workspace: RealestateSettingsSchema },
+  settings: {
+    version: 1,
+    permission: 'realestate.manage',
+    workspace: RealestateSettingsSchema,
+    // Alerts go to the people picked only while they see every deal (round four): someone else is never picked.
+    people: {
+      alertPersonUserIds: {
+        permission: 'realestate.all_deals',
+        why: 'doesn’t see every deal, so they wouldn’t hear its alerts. Pick an owner, or give them See every deal in Settings → Permissions first.',
+      },
+    },
+  },
   // Free while it's tested (Chris, 2026-09-30); what it's used for is counted.
   billing: { model: 'free' },
   // Search everything (HANDSFREEOS_SEARCH_IMPLEMENTATION_PLAN.md, Search 4b): listings by address or MLS number, deals

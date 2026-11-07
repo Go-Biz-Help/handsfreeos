@@ -167,6 +167,54 @@ function checked(
   return parsed.data;
 }
 
+/**
+ * The people a save newly picks for a setting that picks people (`settings.people`), each held to the permission it
+ * needs: the first one who doesn't hold it here (an owner holds every one) is refused by name. Those picked before
+ * stay as they are, so a save that changes something else still goes. When the person saving can't see who holds
+ * what, it's left to the add-on, which only ever counts those who do.
+ */
+async function checkPeople(
+  ctx: CommandContext,
+  m: AddonManifest,
+  settings: unknown,
+): Promise<void> {
+  const keys = Object.entries(m.settings?.people ?? {});
+  if (!keys.length || !settings || typeof settings !== 'object') return;
+  const ws = ctx.scope.workspaceId!;
+  const [stored] = await rows<{ settings: Record<string, unknown> | null }>(
+    ctx.tx,
+    sql`select settings from app.addon_installations where workspace_id = ${ws}::uuid and addon_id = ${m.id}`,
+  );
+  const held = await rows<{ user_id: string; role: string; permissions: string[] | null }>(
+    ctx.tx,
+    sql`select user_id, role, permissions from private.workspace_member_permissions(${ws}::uuid)`,
+  );
+  if (!held.length) return;
+  const ids = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+  for (const [key, need] of keys) {
+    const before = new Set(ids(stored?.settings?.[key]));
+    const may = new Set(
+      held
+        .filter((h) => h.role === 'owner' || (h.permissions ?? []).includes(need.permission))
+        .map((h) => h.user_id),
+    );
+    const wrong = ids((settings as Record<string, unknown>)[key]).find(
+      (id) => !before.has(id) && !may.has(id),
+    );
+    if (!wrong) continue;
+    const [who] = await rows<{ name: string }>(
+      ctx.tx,
+      sql`select coalesce(nullif(btrim(full_name), ''), email::text) as name from app.users
+          where id = ${wrong}::uuid`,
+    );
+    throw HfosError.rule(
+      'addon_setting_person',
+      409,
+      `${who?.name ?? 'Someone not on this business’s team'} ${need.why}`,
+    );
+  }
+}
+
 /** The lifecycle commands, over a catalogue. */
 export function addonLifecycleCommands(catalog: Catalog) {
   const scope = (i: { workspaceId: string }) => ({
@@ -321,6 +369,7 @@ export function addonLifecycleCommands(catalog: Catalog) {
         input.settings === undefined
           ? null
           : checked(m.settings?.workspace, input.settings, 'business settings', m.name);
+      await checkPeople(ctx, m, settings);
       const declared = m.settings?.flags ?? {};
       for (const key of Object.keys(input.flags ?? {}))
         if (!Object.hasOwn(declared, key))

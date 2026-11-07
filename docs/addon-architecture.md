@@ -416,7 +416,9 @@ grant), marked Testing.
   offers no move; the page redraws on every add-on event and asks again every few seconds meanwhile. Trouble is
   said in the checks' own words, and only while it's current.
 - **Settings.** Its switches are saved one at a time. An add-on's own settings form is `settings` in the web's
-  registry, loaded when it's opened and drawn in its own error boundary.
+  registry, loaded when it's opened and drawn in its own error boundary. A setting that picks people names the
+  permission each one needs in `settings.people`: `addon.save_settings` refuses someone newly picked without it, by
+  name, and keeps those picked before, so the screen and the Assistant are held to the same rule.
 
 **Home's card.** Now and then Home suggests one add-on that fits the business (`suggestAddon`): only to owners and
 admins, only an available, free add-on that `recommendAddons` would name from the business's name, its line of work

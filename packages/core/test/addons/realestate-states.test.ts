@@ -10,6 +10,8 @@ import {
   stageAfterEvent,
   stageMove,
   stagesBetween,
+  stageKeyOf,
+  stageKeyWords,
   stagesOf,
   underContract,
 } from '../../src/addons/realestate/states';
@@ -38,6 +40,17 @@ describe('a deal’s stages', () => {
 
   it('passes through every stage between two, so skipped stages still bring their duties', () => {
     expect(stagesBetween('buyer', 'searching', 'offer')).toEqual(['searching', 'touring', 'offer']);
+  });
+
+  it('takes a stage by its key or by the words a screen shows, and names each side’s for a tool', () => {
+    expect(stageKeyOf('under_contract')).toBe('under_contract');
+    expect(stageKeyOf(' Under contract ')).toBe('under_contract');
+    expect(stageKeyOf('Seller lead')).toBe('seller_lead');
+    expect(stageKeyOf('Pending-ish')).toBeNull();
+    expect(stageKeyWords('buyer')).toMatch(/^Lead \(lead\), /);
+    expect(stageKeyWords('listing')).toContain('Withdrawn (withdrawn)');
+    expect(stageKeyWords('listing', false)).not.toContain('withdrawn');
+    expect(stageKeyWords('listing', false).split(', ')).toHaveLength(16);
   });
 });
 
