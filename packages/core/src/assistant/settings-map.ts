@@ -1125,6 +1125,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
         steps: [
           'Open Settings → Account (on the phone: More, then Settings, then Profile and sign-in, which opens it on the web).',
           'Use Sign-in methods to change any of them, and keep at least two.',
+          'Apple sign-in is on the iPhone app’s sign-in screen (Continue with Apple), not under Sign-in methods.',
         ],
       },
       {

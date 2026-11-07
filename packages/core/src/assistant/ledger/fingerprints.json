@@ -1463,10 +1463,10 @@
   "packages/core/src/addons/realestate/manifest.ts": "ac6b56db1cf6",
   "packages/core/src/assistant/coverage.ts": "ccae707b6916",
   "packages/core/src/assistant/screen-reads.ts": "7b1c9fbeab27",
-  "packages/core/src/assistant/settings-map.ts": "60ae5aaf94b8",
+  "packages/core/src/assistant/settings-map.ts": "91c56a71f5dd",
   "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
   "packages/core/src/assistant/tools-extra.ts": "0386a2cd32e4",
-  "packages/core/src/assistant/tools.ts": "5cebbe54156b",
+  "packages/core/src/assistant/tools.ts": "e52e8c8578c4",
   "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
   "packages/core/src/bin-words.ts": "d60313191585"
 }

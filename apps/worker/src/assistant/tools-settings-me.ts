@@ -204,6 +204,12 @@ const updateMyAccount: SettingsConfirmTool = {
       if (value !== undefined)
         fields.push({ label: `Email: ${label}`, value: value ? 'On' : 'Off' });
     }
+    // A card with nothing on it would save nothing: say what it can change instead.
+    if (!fields.length)
+      throw HfosError.validation(
+        [],
+        'Nothing would change. Say what to change: your name, the web app’s light or dark, or which emails you get.',
+      );
     return {
       card: settingsCard(toolCallId, 'update_my_account', {
         title: 'Change your account',

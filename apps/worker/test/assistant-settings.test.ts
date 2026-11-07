@@ -2272,10 +2272,10 @@ describe('your own account', () => {
     // The side menu as it's drawn, top to bottom.
     expect(me.sideMenu.asDrawn).toMatch(/^Home, Inbox, .*Settings/);
     expect(me.sideMenu.summary).toBeTruthy();
-    // The businesses switcher's list, with their role and the one asked from.
+    // The businesses switcher's list, with their role and the one asked from (renamed under "the business itself").
     expect(me.businesses).toEqual([
       {
-        name: businessName,
+        name: `${businessName} & Plumbing`,
         organization: expect.any(String),
         role: 'Owner',
         current: true,
@@ -2305,6 +2305,8 @@ describe('your own account', () => {
     );
     const verified = (await readTool('get_settings', 'my_account', owner)).result['myCell'];
     expect(verified).toMatchObject({ state: 'Verified Wed, Mar 4' });
+    // Taken off again: the test text below asks for a phone when there's no confirmed cell.
+    await rows(testDbs().admin.db, sql`delete from app.user_phones where user_id = ${owner.id}`);
   });
 
   it('gives the steps they asked about: confirming their cell, not the first one', async () => {
@@ -2315,6 +2317,10 @@ describe('your own account', () => {
       return (out as { card: Extract<AssistantCard, { type: 'list' }> }).card;
     };
     expect((await help()).title).toBe('Change your password, Google sign-in or passkeys');
+    // Apple sign-in is the iPhone app's own, and the same card says where.
+    expect((await help('sign in with Apple')).items.map((i) => i.title)).toContain(
+      '3. Apple sign-in is on the iPhone app’s sign-in screen (Continue with Apple), not under Sign-in methods.',
+    );
     // Named as the area says it, or in their own words.
     expect((await help('confirm your cell number')).title).toBe('Confirm your cell number');
     const cell = await help('how do I verify my cell?');
@@ -2357,6 +2363,9 @@ describe('your own account', () => {
     expect(now['attentionDigest']).toBe(false);
     expect(now['paymentEmail']).toBe(false);
     expect(after.user.settings['theme']).toBe('dark');
+
+    // Nothing named, nothing to save: no empty card.
+    await expect(prepare('update_my_account', {}, owner)).rejects.toThrow('Nothing would change.');
   });
 });
 
@@ -2624,7 +2633,7 @@ describe('the phone account, numbers from elsewhere, RCS senders and a test text
     );
     expect(card.title).toBe('Text a test to (713) 555-0123');
     expect(card.fields.find((f) => f.label === 'Says')!.value).toBe(
-      `This is a test text from ${businessName} on HandsFreeOS. Replies land in the inbox.`,
+      `This is a test text from ${businessName} & Plumbing on HandsFreeOS. Replies land in the inbox.`,
     );
     expect(card.warnings[0]!.text).toContain('real text from your business number');
     expect(AssistantCard.safeParse(card).success).toBe(true);
