@@ -276,6 +276,14 @@ export const workflowTemplatePublish = defineCommand({
     const me = requireHuman(ctx).userId;
     const t = await loadTemplate(ctx, input.templateId, true);
     const def = parseStoredDefinition(t.definition);
+    // What the editor's Publish waits on: nothing red in Checks, so no business gets a draft with broken steps.
+    const errors = templateIssues(def).filter((i) => i.severity === 'error');
+    if (errors.length)
+      throw HfosError.rule(
+        'template_has_errors',
+        409,
+        `“${t.name}” has ${errors.length === 1 ? 'a red item' : `${errors.length} red items`} in its Checks: ${errors[0]!.message.replace(/\.$/, '')}. Fix ${errors.length === 1 ? 'it' : 'them'} in the template’s editor, then publish it.`,
+      );
     const [prev] = await ctx.tx
       .select({
         version: workflowTemplateVersions.version,

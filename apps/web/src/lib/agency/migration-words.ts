@@ -61,24 +61,5 @@ export function stepOf(status: string, mapped: boolean): MigrationStep {
   return mapped ? 'review' : 'map';
 }
 
-/** What a person is told a migration is doing, in their words rather than the database's. */
-export const STATUS_WORDS: Record<string, string> = {
-  draft: 'Not started',
-  connected: 'Connected',
-  scanning: 'Looking at the old system',
-  scanned: 'Ready to set up',
-  ready: 'Ready to bring across',
-  importing: 'Bringing it across',
-  paused: 'Paused',
-  verifying: 'Checking it',
-  imported: 'Brought across',
-  transition: 'Keeping up with the old system',
-  finalizing: 'Finishing',
-  completed: 'Finished',
-  needs_attention: 'Needs a look',
-  failed: 'Stopped',
-  cancelling: 'Stopping',
-  cancelled: 'Stopped',
-  rolling_back: 'Taking it back',
-  rolled_back: 'Taken back',
-};
+/** What a person is told a migration is doing, in their words rather than the database's: core's, the Assistant's too. */
+export { MIGRATION_STATUS_WORDS as STATUS_WORDS } from '@hfos/core';

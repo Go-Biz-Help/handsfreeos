@@ -510,8 +510,12 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'get_agency_area',
     description:
-      'The agency area of this business’s organization: its client businesses, workflow templates and knowledge packs, with the ids push_to_client_businesses needs. With a templateId, that template as its editor shows it: each step in plain words with its id, the checks to fix, its draft as written with the draft’s revision (for edit_template_steps), the details each business picks, and which businesses have it. Agency owners and admins only.',
-    input: z.object({ templateId: uuid.optional() }),
+      'The agency area of this business’s organization, with whole links to its pages: its client businesses (each with how many templates it has and how many are behind), workflow templates (who has each, who’s behind, who couldn’t install), knowledge packs, archived ones too (each business’s accepted, waiting and rejected), and its migrations, with the ids push_to_client_businesses needs. With a templateId, that template as its editor shows it: each step in plain words with its id, the checks to fix, its draft as written with the draft’s revision (for edit_template_steps), its versions and what changed, the details each business picks, and each business’s copy. With a packId, that pack’s every item. With a businessId, that client business’s workflows and published knowledge, to save one as a template or copy them into a pack. How far each business has got setting up is read_onboarding_clients; Saved setups is read_ai_setup_template_list. Agency owners and admins only.',
+    input: z.object({
+      templateId: uuid.optional(),
+      packId: uuid.optional(),
+      businessId: uuid.optional().describe('One of the agency’s businesses, from this tool'),
+    }),
     autonomy: 'auto',
     permission: 'workspace.update',
   }),
@@ -535,12 +539,29 @@ export const extraTools: readonly AssistantTool[] = [
   define({
     name: 'push_to_client_businesses',
     description:
-      'Push a published workflow template, or a knowledge pack, to client businesses from the agency area. A template lands as a draft in each business, which picks its own details (a calendar, a tag…) and tests it before publishing; a pack lands as suggestions each business accepts or rejects. Ids from get_agency_area.',
+      'Push a published workflow template, or a knowledge pack, to client businesses from the agency area. A template lands as a draft in each business, which tests it before publishing; each detail it names (a stage, a tag, a calendar…) is matched in each business by name, as Match details does, or kept as that business had it, and the answer lists what each matched and the business’s choices. To pick one for a business, or leave it for that business to pick, call again with matches. A pack lands as suggestions each business accepts or rejects. Ids from get_agency_area.',
     input: z.object({
       what: z.enum(['template', 'pack']),
       templateId: uuid.optional(),
       packId: uuid.optional(),
       businessIds: z.array(uuid).min(1).max(100).describe('Workspace ids from get_agency_area'),
+      matches: z
+        .array(
+          z.object({
+            businessId: uuid,
+            detail: z.string().describe('The detail’s key, from detailsEachBusinessPicks'),
+            id: uuid
+              .nullable()
+              .describe(
+                'One of that business’s choices for it, from this tool’s answer; null leaves it for the business to pick',
+              ),
+          }),
+        )
+        .max(200)
+        .optional()
+        .describe(
+          'A template only, and only what was asked to change from what the answer matched',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'workspace.update',

@@ -204,7 +204,16 @@ describe('what the Assistant can do', () => {
       expect(isOrgPermission(t.permission), t.name).toBe(false);
       if (t.staff) expect(hasWorkspacePermission('owner', t.permission), t.name).toBe(false);
       else expect(isStaffPermission(t.permission), t.name).toBe(false);
+      // The kernel checks the agency's own, so the executor tells anyone else who can before it asks.
+      expect(t.agencyOnly, t.name).toBe(
+        !!t.command.permission && isOrgPermission(t.command.permission),
+      );
     }
+    const agencyOnly = actions.filter((t) => t.agencyOnly).map((t) => t.name);
+    expect(agencyOnly).toContain('do_onboarding_remind');
+    expect(agencyOnly).toContain('do_ai_setup_template_save');
+    // A migration takes either door, so it asks the agency or the business in its own words.
+    expect(agencyOnly).not.toContain('do_migration_start');
     const member = actions.filter((t) => hasWorkspacePermission('member', t.permission));
     const owner = actions.filter((t) => hasWorkspacePermission('owner', t.permission));
     expect(member.map((t) => t.name)).toContain('do_conversation_close_all');

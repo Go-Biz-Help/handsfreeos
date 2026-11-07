@@ -1,7 +1,7 @@
 {
   "area": "agency",
   "title": "The agency side: businesses, AI setups, packs, templates and migrations for an organization",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/web/src/app/app/org/[orgId]/ai-setups/page.tsx": "7efa22a9b2ba",
     "apps/web/src/app/app/org/[orgId]/businesses/page.tsx": "959e700302ba",
@@ -46,7 +46,7 @@
     "apps/web/src/lib/agency/draft.ts": "784ad42b27a5",
     "apps/web/src/lib/agency/installs.ts": "92a46b90b839",
     "apps/web/src/lib/agency/load.ts": "b56c8ee41263",
-    "apps/web/src/lib/agency/migration-words.ts": "d85f3816bdce",
+    "apps/web/src/lib/agency/migration-words.ts": "b06d8a26ac6e",
     "apps/web/src/lib/agency/migrations.ts": "b869566d0969",
     "apps/web/src/lib/agency/org.ts": "90d6165ce4d9",
     "apps/web/src/lib/agency/simulate.ts": "09480f83ddfc",
@@ -64,8 +64,8 @@
       "path": "Agency area → opens on Templates",
       "kind": "do",
       "file": "apps/web/src/app/app/org/[orgId]/page.tsx:7",
-      "covered": "partly",
-      "by": "the way there in words; get_agency_area reads it from any of its businesses"
+      "covered": "yes",
+      "by": "the way there in words; get_agency_area links.templates"
     },
     {
       "path": "Agency shell → Switcher → agency name, Agency · N businesses",
@@ -85,8 +85,8 @@
       "path": "Agency shell → Switcher → Open a business (switch into it)",
       "kind": "do",
       "file": "apps/web/src/components/agency/agency-shell.tsx:105",
-      "covered": "no",
-      "by": "it works inside the business it’s asked in only"
+      "covered": "partly",
+      "by": "get_agency_area businesses link opens it; most tools still act in the business asked in"
     },
     {
       "path": "Agency shell → Switcher → Other agencies: each name, open it",
@@ -99,8 +99,8 @@
       "path": "Agency shell → Nav → Client businesses, Templates, Knowledge packs, Saved setups, Migrations (current one marked)",
       "kind": "do",
       "file": "apps/web/src/components/agency/agency-shell.tsx:50",
-      "covered": "partly",
-      "by": "the way there in words, no link"
+      "covered": "yes",
+      "by": "places-map Agency area lists all five; get_agency_area links"
     },
     {
       "path": "Agency shell → Phone top bar → Open menu, section title, drawer",
@@ -134,8 +134,8 @@
       "path": "Client businesses → Header → summary: N businesses · N stuck on setup · N still setting up",
       "kind": "see",
       "file": "apps/web/src/app/app/org/[orgId]/businesses/page.tsx:37",
-      "covered": "no",
-      "by": "read_onboarding_clients needs org.templates.manage, which no business permission holds, so it’s never offered"
+      "covered": "yes",
+      "by": "read_onboarding_clients counts (offered on workspace.update; the kernel checks the organization)"
     },
     {
       "path": "Client businesses → Header → Each business’s templates, the version it has, and whether it’s behind",
@@ -155,15 +155,15 @@
       "path": "Client businesses → Filter All / Stuck / Setting up / Done, each with its count",
       "kind": "do",
       "file": "apps/web/src/components/agency/businesses.tsx:52",
-      "covered": "no",
-      "by": "read_onboarding_clients (groups, counts) never offered"
+      "covered": "yes",
+      "by": "read_onboarding_clients group filter and counts"
     },
     {
       "path": "Client businesses → No businesses here right now (filter empty)",
       "kind": "see",
       "file": "apps/web/src/components/agency/businesses.tsx:138",
-      "covered": "no",
-      "by": "filters not offered"
+      "covered": "yes",
+      "by": "read_onboarding_clients group filter, businesses empty"
     },
     {
       "path": "Client businesses → each row: business name",
@@ -176,29 +176,29 @@
       "path": "Client businesses → each row: N templates · N behind / up to date / No templates yet",
       "kind": "see",
       "file": "apps/web/src/components/agency/businesses.tsx:82",
-      "covered": "partly",
-      "by": "get_agency_area templateId per template: businesses, behind; no per-business tally"
+      "covered": "yes",
+      "by": "get_agency_area businesses templates (N templates · N behind / up to date / No templates yet)"
     },
     {
       "path": "Client businesses → each row: Setup bar, N of N, badge, note",
       "kind": "see",
       "file": "apps/web/src/components/agency/businesses.tsx:99",
-      "covered": "partly",
-      "by": "read_onboarding_clients never offered; read_onboarding_status only for the business asked in"
+      "covered": "yes",
+      "by": "read_onboarding_clients setup, group, badge, note"
     },
     {
       "path": "Client businesses → each row: press Setup to open its steps",
       "kind": "do",
       "file": "apps/web/src/components/agency/businesses.tsx:93",
-      "covered": "partly",
-      "by": "read_onboarding_status only for the business asked in"
+      "covered": "yes",
+      "by": "read_onboarding_clients businessId: its stillOpen steps"
     },
     {
       "path": "Client businesses → each row: template chips (name, version, current / behind / installing / failed)",
       "kind": "see",
       "file": "apps/web/src/components/agency/businesses.tsx:115",
-      "covered": "partly",
-      "by": "get_agency_area templateId businesses status, behind; no installed version"
+      "covered": "yes",
+      "by": "get_agency_area templateId businesses status, hasVersion, versionsBehind, couldntInstall"
     },
     {
       "path": "Client businesses → each row: template chip opens the template",
@@ -211,8 +211,8 @@
       "path": "Client businesses → each row: Open (the business)",
       "kind": "do",
       "file": "apps/web/src/components/agency/businesses.tsx:127",
-      "covered": "no",
-      "by": "it works inside the business it’s asked in only"
+      "covered": "yes",
+      "by": "get_agency_area businesses link; read_onboarding_clients openTheirWorkspace"
     },
     {
       "path": "Client businesses → Add a client business",
@@ -267,50 +267,50 @@
       "path": "Client businesses → Setup sheet → business name; owner, N of N done, last signed in",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:73",
-      "covered": "no",
-      "by": "read_onboarding_clients (owner, lastSignInAt) never offered"
+      "covered": "yes",
+      "by": "read_onboarding_clients owner, setup, ownerLastSignedIn"
     },
     {
       "path": "Client businesses → Setup sheet → badge and note",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:84",
-      "covered": "no",
-      "by": "read_onboarding_clients (badge, note) never offered"
+      "covered": "yes",
+      "by": "read_onboarding_clients badge, note"
     },
     {
       "path": "Client businesses → Setup sheet → needs-a-fix box: step title and what’s wrong",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:87",
-      "covered": "partly",
-      "by": "read_onboarding_status steps needs_fix, only for the business asked in"
+      "covered": "yes",
+      "by": "read_onboarding_clients stillOpen needsAFix, step, line"
     },
     {
       "path": "Client businesses → Setup sheet → The basics / When they’re ready groups",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:101",
-      "covered": "partly",
-      "by": "read_onboarding_status steps mustDo, only for the business asked in"
+      "covered": "yes",
+      "by": "read_onboarding_clients stillOpen basics"
     },
     {
       "path": "Client businesses → Setup sheet → each step: state, title, detail or The owner’s call / The owner signs in to Stripe or Square, badge",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:176",
       "covered": "partly",
-      "by": "read_onboarding_status steps key, state, note; only the business asked in"
+      "by": "read_onboarding_clients stillOpen: each open step’s title, line and The owner’s call; done ones only counted"
     },
     {
       "path": "Client businesses → Setup sheet → each open step: Do it for them",
       "kind": "do",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:188",
-      "covered": "partly",
-      "by": "its tools do the step only in the business asked in; no link to the client’s screen"
+      "covered": "yes",
+      "by": "read_onboarding_clients stillOpen doItForThem (a whole link to the client’s screen)"
     },
     {
       "path": "Client businesses → Setup sheet → Email {first name} a reminder",
       "kind": "do",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:121",
-      "covered": "partly",
-      "by": "do_onboarding_remind, but workspaceId is put on: only the business asked in"
+      "covered": "yes",
+      "by": "do_onboarding_remind businessId, checked to be the agency’s; the card names the business"
     },
     {
       "path": "Client businesses → Setup sheet → Reminder sent to {emails}",
@@ -323,29 +323,29 @@
       "path": "Client businesses → Setup sheet → already got a reminder today",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:142",
-      "covered": "partly",
-      "by": "refusal onboarding_reminded_today; remindedAt not readable beforehand"
+      "covered": "yes",
+      "by": "read_onboarding_clients remindedToday; refusal onboarding_reminded_today"
     },
     {
       "path": "Client businesses → Setup sheet → Nobody owns {business} yet… invite its owner",
       "kind": "see",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:144",
-      "covered": "partly",
-      "by": "refusal onboarding_no_owner; owner not readable beforehand"
+      "covered": "yes",
+      "by": "read_onboarding_clients noOwner; refusal onboarding_no_owner"
     },
     {
       "path": "Client businesses → Setup sheet → Open the setup",
       "kind": "do",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:130",
-      "covered": "partly",
-      "by": "read_onboarding_setup_get, do_onboarding_setup_save in the business asked in only"
+      "covered": "yes",
+      "by": "read_onboarding_clients openTheSetup"
     },
     {
       "path": "Client businesses → Setup sheet → Open their workspace",
       "kind": "do",
       "file": "apps/web/src/components/agency/setup-sheet.tsx:137",
-      "covered": "no",
-      "by": "it works inside the business it’s asked in only"
+      "covered": "yes",
+      "by": "read_onboarding_clients openTheirWorkspace; get_agency_area businesses link"
     },
     {
       "path": "Templates → Header → title, Build a workflow once and push it… Each gets a draft…",
@@ -386,8 +386,8 @@
       "path": "Templates → each row: description, or N details to match / Nothing to match",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-list.tsx:220",
-      "covered": "partly",
-      "by": "get_agency_area templateId detailsEachBusinessPicks; no description anywhere"
+      "covered": "yes",
+      "by": "get_agency_area templates description; templateId detailsEachBusinessPicks"
     },
     {
       "path": "Templates → each row: Version column, vN or Not published",
@@ -400,8 +400,8 @@
       "path": "Templates → each row: Installed in chips (business, vN, current / behind / installing / couldn’t install with its error)",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-list.tsx:238",
-      "covered": "partly",
-      "by": "get_agency_area templateId businesses status, behind; no version or error"
+      "covered": "yes",
+      "by": "get_agency_area templates installs; templateId businesses hasVersion, versionsBehind, couldntInstall"
     },
     {
       "path": "Templates → each row: No businesses yet",
@@ -414,8 +414,8 @@
       "path": "Templates → each row: Who’s behind (X is N behind / N businesses are behind / X couldn’t install / Installing… / All up to date / Not installed yet)",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-list.tsx:245",
-      "covered": "partly",
-      "by": "get_agency_area templateId status, behind flag; not how many versions behind"
+      "covered": "yes",
+      "by": "get_agency_area templates whosBehind"
     },
     {
       "path": "Templates → each row: Push… (off until published: Publish it first)",
@@ -470,15 +470,15 @@
       "path": "Templates → Save as an agency template → Business",
       "kind": "do",
       "file": "apps/web/src/components/agency/save-as-template.tsx:182",
-      "covered": "partly",
-      "by": "workflowId any business’s, but list_workflows lists only the business asked in"
+      "covered": "yes",
+      "by": "get_agency_area businessId: that business’s workflows"
     },
     {
       "path": "Templates → Save as an agency template → Workflow (Loading…, This business has no workflows yet)",
       "kind": "do",
       "file": "apps/web/src/components/agency/save-as-template.tsx:207",
-      "covered": "partly",
-      "by": "do_workflow_template_create_from_workflow workflowId; list_workflows only here"
+      "covered": "yes",
+      "by": "get_agency_area businessId workflows; do_workflow_template_create_from_workflow"
     },
     {
       "path": "Templates → Save as an agency template → Template name",
@@ -519,8 +519,8 @@
       "path": "Push dialog → steps Pick businesses / Match details / Review and push; Cancel, Back, Next",
       "kind": "do",
       "file": "apps/web/src/components/agency/push-stepper.tsx:475",
-      "covered": "partly",
-      "by": "push_to_client_businesses is one confirm card; no match step"
+      "covered": "yes",
+      "by": "push_to_client_businesses: one card with the businesses, each one’s matches and the review; matches changes them"
     },
     {
       "path": "Push dialog → Pick businesses → each business box (all ticked)",
@@ -533,8 +533,8 @@
       "path": "Push dialog → Pick businesses → each: Not yet / Couldn’t install / Has version N / Installing",
       "kind": "see",
       "file": "apps/web/src/components/agency/push-stepper.tsx:252",
-      "covered": "partly",
-      "by": "get_agency_area templateId businesses status; no installed version"
+      "covered": "yes",
+      "by": "get_agency_area templateId businesses status, hasVersion, couldntInstall"
     },
     {
       "path": "Push dialog → Pick businesses → N of N client businesses; one with its copy keeps it and sees Update available",
@@ -547,22 +547,22 @@
       "path": "Push dialog → Match details → Matched by name where we could… / names nothing to match",
       "kind": "see",
       "file": "apps/web/src/components/agency/push-stepper.tsx:273",
-      "covered": "partly",
-      "by": "card note: each business picks its own; install suggests by name"
+      "covered": "yes",
+      "by": "push_to_client_businesses matched: by name, or what the business had, as the install does"
     },
     {
       "path": "Push dialog → Match details → each business: N not matched / All matched",
       "kind": "see",
       "file": "apps/web/src/components/agency/push-stepper.tsx:305",
-      "covered": "partly",
-      "by": "get_agency_area templateId stillToPick, for businesses already in"
+      "covered": "yes",
+      "by": "push_to_client_businesses card line per business; note naming who has some left to pick"
     },
     {
       "path": "Push dialog → Match details → each detail (label · kind): Leave for them to pick, or the business’s stage, tag, calendar, service, person or workflow",
       "kind": "do",
       "file": "apps/web/src/components/agency/push-stepper.tsx:331",
-      "covered": "partly",
-      "by": "push sends no mappings: kept ones stay, the rest left for each business"
+      "covered": "yes",
+      "by": "push_to_client_businesses matches (one of the business’s choices, or null to leave it)"
     },
     {
       "path": "Push dialog → Match details → You can push now and let them pick the rest later",
@@ -596,15 +596,15 @@
       "path": "Push dialog → Progress → each business: Making its draft… / Couldn’t install: error / Version N",
       "kind": "see",
       "file": "apps/web/src/components/agency/push-stepper.tsx:439",
-      "covered": "partly",
-      "by": "get_agency_area templateId businesses status; no error or version"
+      "covered": "yes",
+      "by": "get_agency_area templateId businesses status, hasVersion, couldntInstall"
     },
     {
       "path": "Push dialog → Progress → Open its draft",
       "kind": "do",
       "file": "apps/web/src/components/agency/push-stepper.tsx:452",
-      "covered": "no",
-      "by": "get_agency_area returns no workflowId or link"
+      "covered": "yes",
+      "by": "get_agency_area templateId businesses theirCopy"
     },
     {
       "path": "Push dialog → Progress → Close (it keeps going) / Done, Pushed. Each business tests and publishes its copy",
@@ -638,8 +638,8 @@
       "path": "Template editor → Header → Templates crumb",
       "kind": "do",
       "file": "apps/web/src/components/workflows/editor.tsx:362",
-      "covered": "partly",
-      "by": "the way there in words"
+      "covered": "yes",
+      "by": "get_agency_area links.templates"
     },
     {
       "path": "Template editor → Header → name, rename inline",
@@ -960,8 +960,8 @@
       "path": "Template editor → Checks → Before it can publish",
       "kind": "see",
       "file": "apps/web/src/components/workflows/checks.tsx:223",
-      "covered": "partly",
-      "by": "checksToFix; publish refusal"
+      "covered": "yes",
+      "by": "checksToFix; workflow_template.publish refuses red items (template_has_errors), as the editor does"
     },
     {
       "path": "Template editor → Test → Simulate walks the steps here with sample details… (Simulate only)",
@@ -1016,15 +1016,15 @@
       "path": "Template editor → Installed in → each: chip, business, Couldn’t install: error / Installing… / N behind / Up to date",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-editor.tsx:270",
-      "covered": "partly",
-      "by": "get_agency_area templateId businesses status, behind; no error, no count"
+      "covered": "yes",
+      "by": "get_agency_area templateId businesses status, versionsBehind, couldntInstall"
     },
     {
       "path": "Template editor → Installed in → each: Their copy",
       "kind": "do",
       "file": "apps/web/src/components/agency/template-editor.tsx:290",
-      "covered": "no",
-      "by": "get_agency_area returns no workflowId or link"
+      "covered": "yes",
+      "by": "get_agency_area templateId businesses theirCopy"
     },
     {
       "path": "Template editor → Installed in → Not pushed to any business yet / Publish it, then push it…",
@@ -1037,8 +1037,8 @@
       "path": "Template editor → Versions → each: Version N, who published it, date, what changed (…and N more)",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-editor.tsx:315",
-      "covered": "no",
-      "by": "get_agency_area returns no versions"
+      "covered": "yes",
+      "by": "get_agency_area templateId versions (version, publishedBy, on, changes, andMore)"
     },
     {
       "path": "Template editor → Versions → Nothing published yet",
@@ -1051,36 +1051,36 @@
       "path": "A business’s copy → Review update",
       "kind": "do",
       "file": "apps/web/src/components/agency/template-update.tsx:33",
-      "covered": "no",
-      "by": "worker route /v1/workflows/template-update has no tool"
+      "covered": "yes",
+      "by": "review_template_update (the workflows step)"
     },
     {
       "path": "A business’s copy → Update available → {agency} updated X to version N; you’re on version N",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-update.tsx:147",
-      "covered": "no",
-      "by": "template-update preview not offered"
+      "covered": "yes",
+      "by": "review_template_update"
     },
     {
       "path": "A business’s copy → Update available → What changes, Your changes stay, These go, edited but ends up the same, already newest",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-update.tsx:162",
-      "covered": "no",
-      "by": "template-update preview not offered"
+      "covered": "yes",
+      "by": "review_template_update"
     },
     {
       "path": "A business’s copy → Update available → Afterwards, pick … in Checks; Applying makes a draft…",
       "kind": "see",
       "file": "apps/web/src/components/agency/template-update.tsx:187",
-      "covered": "no",
-      "by": "template-update preview not offered"
+      "covered": "yes",
+      "by": "review_template_update pickAfterwards; apply_template_update card"
     },
     {
       "path": "A business’s copy → Update available → Apply the update (or Not now)",
       "kind": "do",
       "file": "apps/web/src/components/agency/template-update.tsx:204",
-      "covered": "no",
-      "by": "/v1/workflows/template-update/apply has no tool"
+      "covered": "yes",
+      "by": "apply_template_update (confirm)"
     },
     {
       "path": "Knowledge packs → Header → title, Starter FAQs, articles and facts. A push arrives as suggestions…",
@@ -1107,8 +1107,8 @@
       "path": "Knowledge packs → each row: N FAQs, N articles and N facts / No items yet · version N · description",
       "kind": "see",
       "file": "apps/web/src/components/agency/packs.tsx:89",
-      "covered": "partly",
-      "by": "get_agency_area packs items count, version; no kinds, no description"
+      "covered": "yes",
+      "by": "get_agency_area packs description, items, version; packId items by kind"
     },
     {
       "path": "Knowledge packs → each row: Edit",
@@ -1128,8 +1128,8 @@
       "path": "Knowledge packs → each row: each business: N accepted, N waiting, N rejected / nothing yet",
       "kind": "see",
       "file": "apps/web/src/components/agency/packs.tsx:204",
-      "covered": "no",
-      "by": "get_agency_area drops knowledge_pack.list businesses"
+      "covered": "yes",
+      "by": "get_agency_area packs businesses (accepted, waiting, rejected)"
     },
     {
       "path": "Knowledge packs → No packs yet (Write a few FAQs once, or copy them…)",
@@ -1142,8 +1142,8 @@
       "path": "Knowledge packs → Archived (N) / Back to your packs, Nothing archived",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:140",
-      "covered": "no",
-      "by": "get_agency_area lists live packs only"
+      "covered": "yes",
+      "by": "get_agency_area packs, archived ones too (archived)"
     },
     {
       "path": "Knowledge packs → Pack editor → title Edit “X” / New knowledge pack, Version N; saving makes N+1",
@@ -1170,71 +1170,71 @@
       "path": "Knowledge packs → Pack editor → Items · N",
       "kind": "see",
       "file": "apps/web/src/components/agency/packs.tsx:424",
-      "covered": "partly",
-      "by": "get_agency_area packs items count; contents not readable"
+      "covered": "yes",
+      "by": "get_agency_area packId items"
     },
     {
       "path": "Knowledge packs → Pack editor → each item: kind (FAQ, Article, Fact)",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:451",
-      "covered": "partly",
-      "by": "create items kind; on a pack, update replaces items it can’t read"
+      "covered": "yes",
+      "by": "get_agency_area packId items kind; do_knowledge_pack_update items (the whole list, its description says)"
     },
     {
       "path": "Knowledge packs → Pack editor → each item: question / title / fact",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:473",
-      "covered": "partly",
-      "by": "items title; existing items not readable"
+      "covered": "yes",
+      "by": "get_agency_area packId items title; do_knowledge_pack_update items"
     },
     {
       "path": "Knowledge packs → Pack editor → each item: answer / article / details",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:482",
-      "covered": "partly",
-      "by": "items body; existing items not readable"
+      "covered": "yes",
+      "by": "get_agency_area packId items body; do_knowledge_pack_update items"
     },
     {
       "path": "Knowledge packs → Pack editor → each item: Remove",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:464",
-      "covered": "partly",
-      "by": "update replaces the whole list, blind"
+      "covered": "yes",
+      "by": "do_knowledge_pack_update items without it, from get_agency_area packId"
     },
     {
       "path": "Knowledge packs → Pack editor → Add an item",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:495",
-      "covered": "partly",
-      "by": "update replaces the whole list, blind"
+      "covered": "yes",
+      "by": "do_knowledge_pack_update items with it added, from get_agency_area packId"
     },
     {
       "path": "Knowledge packs → Pack editor → Copy from a business",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:426",
-      "covered": "partly",
-      "by": "list_knowledge_items only in the business asked in, then items"
+      "covered": "yes",
+      "by": "get_agency_area businessId publishedKnowledge; do_knowledge_pack_create / _update items"
     },
     {
       "path": "Knowledge packs → Copy from a business → Business to copy from",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:251",
-      "covered": "partly",
-      "by": "only the business asked in"
+      "covered": "yes",
+      "by": "get_agency_area businessId, checked to be the agency’s"
     },
     {
       "path": "Knowledge packs → Copy from a business → its published items (title, kind) with boxes; Loading… / none yet",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:278",
-      "covered": "partly",
-      "by": "list_knowledge_items, business asked in only"
+      "covered": "yes",
+      "by": "get_agency_area businessId publishedKnowledge (kind, title, body)"
     },
     {
       "path": "Knowledge packs → Copy from a business → Add N items, Cancel",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:296",
-      "covered": "partly",
-      "by": "copied by hand into items"
+      "covered": "yes",
+      "by": "do_knowledge_pack_create / _update items"
     },
     {
       "path": "Knowledge packs → Pack editor → Give the pack a name / Item N needs its question and answer",
@@ -1254,8 +1254,8 @@
       "path": "Knowledge packs → Pack editor → Restore (archived pack)",
       "kind": "do",
       "file": "apps/web/src/components/agency/packs.tsx:520",
-      "covered": "partly",
-      "by": "do_knowledge_pack_update archived false; archived packs not listed, so no id"
+      "covered": "yes",
+      "by": "get_agency_area packs archived ids; do_knowledge_pack_update archived false"
     },
     {
       "path": "Knowledge packs → Pack editor → Save pack (Saved as version N / Nothing changed / Push it when it’s ready)",
@@ -1296,50 +1296,50 @@
       "path": "Saved setups → Save from a business (header and empty state)",
       "kind": "do",
       "file": "apps/web/src/components/agency/ai-setups.tsx:46",
-      "covered": "partly",
-      "by": "do_ai_setup_template_save; workspaceId put on: only the business asked in"
+      "covered": "yes",
+      "by": "do_ai_setup_template_save businessId, checked to be the agency’s"
     },
     {
       "path": "Saved setups → each row: name, kind badge",
       "kind": "see",
       "file": "apps/web/src/components/agency/ai-setups.tsx:65",
-      "covered": "partly",
-      "by": "read_ai_setup_template_list never offered (org.templates.manage); read_ai_setup_get templates while no teammate"
+      "covered": "yes",
+      "by": "read_ai_setup_template_list name, kind (offered on workspace.update)"
     },
     {
       "path": "Saved setups → each row: basics line, about line",
       "kind": "see",
       "file": "apps/web/src/components/agency/ai-setups.tsx:68",
-      "covered": "partly",
-      "by": "read_ai_setup_get templates basics, about, only before a teammate"
+      "covered": "yes",
+      "by": "read_ai_setup_template_list basics, about"
     },
     {
       "path": "Saved setups → each row: From {business} · Saved {date}",
       "kind": "see",
       "file": "apps/web/src/components/agency/ai-setups.tsx:71",
-      "covered": "partly",
-      "by": "read_ai_setup_get updatedAt; from only in the never-offered list"
+      "covered": "yes",
+      "by": "read_ai_setup_template_list from, updatedAt"
     },
     {
       "path": "Saved setups → No saved setups yet (Set up one of your businesses, then save…)",
       "kind": "see",
       "file": "apps/web/src/components/agency/ai-setups.tsx:100",
-      "covered": "no",
-      "by": "read_ai_setup_template_list never offered"
+      "covered": "yes",
+      "by": "read_ai_setup_template_list items empty"
     },
     {
       "path": "Saved setups → each row: Rename",
       "kind": "do",
       "file": "apps/web/src/components/agency/ai-setups.tsx:75",
-      "covered": "partly",
-      "by": "do_ai_setup_template_rename; ids only via read_ai_setup_get"
+      "covered": "yes",
+      "by": "do_ai_setup_template_rename, its id from read_ai_setup_template_list"
     },
     {
       "path": "Saved setups → each row: Remove",
       "kind": "do",
       "file": "apps/web/src/components/agency/ai-setups.tsx:84",
-      "covered": "partly",
-      "by": "do_ai_setup_template_delete; ids only via read_ai_setup_get"
+      "covered": "yes",
+      "by": "do_ai_setup_template_delete, its id from read_ai_setup_template_list"
     },
     {
       "path": "Saved setups → Save dialog → title, Saves what its AI teammate helps with… Nothing about the business",
@@ -1352,8 +1352,8 @@
       "path": "Saved setups → Save dialog → Business",
       "kind": "do",
       "file": "apps/web/src/components/agency/ai-setups.tsx:181",
-      "covered": "partly",
-      "by": "workspaceId put on: the business asked in"
+      "covered": "yes",
+      "by": "do_ai_setup_template_save businessId; the card names the business"
     },
     {
       "path": "Saved setups → Save dialog → Name",
@@ -1380,8 +1380,8 @@
       "path": "Saved setups → Rename dialog → Rename",
       "kind": "do",
       "file": "apps/web/src/components/agency/ai-setups.tsx:278",
-      "covered": "partly",
-      "by": "do_ai_setup_template_rename; needs an id it can rarely read"
+      "covered": "yes",
+      "by": "do_ai_setup_template_rename, its id from read_ai_setup_template_list"
     },
     {
       "path": "Saved setups → Remove dialog → Remove “X”? Your businesses can’t start from these answers anymore…",
@@ -1394,8 +1394,8 @@
       "path": "Saved setups → Remove dialog → Remove",
       "kind": "do",
       "file": "apps/web/src/components/agency/ai-setups.tsx:329",
-      "covered": "partly",
-      "by": "do_ai_setup_template_delete; needs an id it can rarely read"
+      "covered": "yes",
+      "by": "do_ai_setup_template_delete, its id from read_ai_setup_template_list"
     },
     {
       "path": "Migrations → Header → title, Bring a business here from the CRM it uses today… never changed or cancelled",
@@ -1409,7 +1409,7 @@
       "kind": "do",
       "file": "apps/web/src/components/migrations/connect.tsx:74",
       "covered": "person",
-      "by": "signing in at the old CRM (migration.connect NEVER); settings_help migrations"
+      "by": "pasting a private token from the old CRM (migration.connect NEVER); settings_help migrations"
     },
     {
       "path": "Migrations → Connect a CRM → Connect the CRM you’re leaving: what it does",
@@ -1478,8 +1478,8 @@
       "path": "Migrations → Connected → Start a migration",
       "kind": "do",
       "file": "apps/web/src/components/migrations/connect.tsx:364",
-      "covered": "partly",
-      "by": "do_migration_create through the business’s door; an agency-wide source not tied to it is refused"
+      "covered": "yes",
+      "by": "do_migration_create (wholeAgency for a source of the whole agency’s)"
     },
     {
       "path": "Migrations → Start a migration → title, We’ll look at X and count everything… Read-only",
@@ -1499,8 +1499,8 @@
       "path": "Migrations → Start a migration → Look at X (create, then scan; opens it)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/connect.tsx:387",
-      "covered": "partly",
-      "by": "do_migration_create, do_migration_scan via the business’s door only"
+      "covered": "yes",
+      "by": "do_migration_create, do_migration_scan (wholeAgency)"
     },
     {
       "path": "Migrations → Nothing moving yet (Connect the CRM you’re leaving…)",
@@ -1520,8 +1520,8 @@
       "path": "Migrations → each migration → opens it",
       "kind": "do",
       "file": "apps/web/src/app/app/org/[orgId]/migrations/page.tsx:65",
-      "covered": "partly",
-      "by": "read_migration_get through the business’s door: only moves reaching it"
+      "covered": "yes",
+      "by": "read_migration_get (wholeAgency: every move the agency has)"
     },
     {
       "path": "A migration → Header → name, Moving {agency} here from X",
@@ -1534,8 +1534,8 @@
       "path": "A migration → Header → All migrations",
       "kind": "do",
       "file": "apps/web/src/app/app/org/[orgId]/migrations/[migrationId]/page.tsx:33",
-      "covered": "partly",
-      "by": "the way there in words"
+      "covered": "yes",
+      "by": "get_agency_area links.migrations; settings-map migrations"
     },
     {
       "path": "A migration → status, from X · N things this sign-in cannot read",
@@ -1555,15 +1555,15 @@
       "path": "A migration → last error",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:148",
-      "covered": "partly",
-      "by": "read_migration_get lastError, business’s door only"
+      "covered": "yes",
+      "by": "read_migration_get lastError (wholeAgency)"
     },
     {
       "path": "A migration → Nothing found in the old system yet → Look at the old system",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:299",
-      "covered": "partly",
-      "by": "do_migration_scan, business’s door: refused unless the move reaches it"
+      "covered": "yes",
+      "by": "do_migration_scan (wholeAgency)"
     },
     {
       "path": "A migration → Where each one lands → heading, Each sub-account becomes a business… Two can share",
@@ -1576,22 +1576,22 @@
       "path": "A migration → Where each one lands → each sub-account: name, time zone or No time zone, its id; Sharing this business… warning",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:326",
-      "covered": "partly",
-      "by": "read_migration_get scopes, business’s door: its own sub-account only"
+      "covered": "yes",
+      "by": "read_migration_get scopes (wholeAgency: every sub-account)"
     },
     {
       "path": "A migration → Where each one lands → each: Make a new business / any agency business / Don’t bring this one",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:342",
-      "covered": "partly",
-      "by": "do_migration_map_scopes via the business’s door; mapping several businesses is the agency’s only"
+      "covered": "yes",
+      "by": "do_migration_map_scopes (wholeAgency: the agency’s own door maps several)"
     },
     {
       "path": "A migration → Where each one lands → Save and choose what to bring (N businesses set up, N skipped)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:248",
-      "covered": "partly",
-      "by": "do_migration_map_scopes (warning), business’s door"
+      "covered": "yes",
+      "by": "do_migration_map_scopes (warning; wholeAgency)"
     },
     {
       "path": "A migration → What’s in the old system / What to bring → heading and explanation",
@@ -1604,29 +1604,29 @@
       "path": "A migration → each category: name, count words, capability badge, Added because X need it / blurb, notes",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:465",
-      "covered": "partly",
-      "by": "read_migration_get inventory, business’s door: its part only"
+      "covered": "yes",
+      "by": "read_migration_get inventory (wholeAgency)"
     },
     {
       "path": "A migration → What to bring → Bring {category} box (padlock when locked)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:453",
-      "covered": "partly",
-      "by": "do_migration_select choices, business’s door"
+      "covered": "yes",
+      "by": "do_migration_select choices (wholeAgency)"
     },
     {
       "path": "A migration → What to bring → Save what to bring (added-because notes)",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:424",
-      "covered": "partly",
-      "by": "do_migration_select, business’s door"
+      "covered": "yes",
+      "by": "do_migration_select (wholeAgency)"
     },
     {
       "path": "A migration → The plan → Businesses (sub-account → business), Bringing",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:530",
-      "covered": "partly",
-      "by": "read_migration_get scopes, inventory, business’s door"
+      "covered": "yes",
+      "by": "read_migration_get scopes, inventory (wholeAgency)"
     },
     {
       "path": "A migration → The plan → Staying behind (automations, websites, funnels), While it runs (nothing goes out)",
@@ -1639,78 +1639,78 @@
       "path": "A migration → The plan → Bring it across",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:556",
-      "covered": "partly",
-      "by": "do_migration_start acknowledgedFindingIds, business’s door"
+      "covered": "yes",
+      "by": "do_migration_start acknowledgedFindingIds (wholeAgency)"
     },
     {
       "path": "A migration → Bringing it across → each category: N of N, N need another go / Starting…",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:604",
-      "covered": "partly",
-      "by": "read_migration_get progress, business’s door"
+      "covered": "yes",
+      "by": "read_migration_get progress (wholeAgency)"
     },
     {
       "path": "A migration → Bringing it across → Pause / Carry on",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:626",
-      "covered": "partly",
-      "by": "do_migration_pause/_resume; refused at a business’s door when the move carries others"
+      "covered": "yes",
+      "by": "do_migration_pause / _resume (wholeAgency: the agency’s own door)"
     },
     {
       "path": "A migration → Bringing it across → Try N again",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:641",
-      "covered": "partly",
-      "by": "do_migration_retry, business’s part only"
+      "covered": "yes",
+      "by": "do_migration_retry (wholeAgency)"
     },
     {
       "path": "A migration → N customers need you to say whether they’re somebody you already have (Looking them up… / All decided)",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:743",
-      "covered": "partly",
-      "by": "read_migration_review_queue, business’s door"
+      "covered": "yes",
+      "by": "read_migration_review_queue (wholeAgency)"
     },
     {
       "path": "A migration → each customer waiting: name · email · phone, From {sub-account}. {reason}",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:763",
-      "covered": "partly",
-      "by": "read_migration_review_queue candidates, business’s door"
+      "covered": "yes",
+      "by": "read_migration_review_queue candidates (wholeAgency)"
     },
     {
       "path": "A migration → each customer waiting → Same as {person here}",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:781",
-      "covered": "partly",
-      "by": "do_migration_resolve_merge remap, business’s door"
+      "covered": "yes",
+      "by": "do_migration_resolve_merge remap (wholeAgency)"
     },
     {
       "path": "A migration → each customer waiting → Somebody new",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:792",
-      "covered": "partly",
-      "by": "do_migration_resolve_merge separate, business’s door"
+      "covered": "yes",
+      "by": "do_migration_resolve_merge separate (wholeAgency)"
     },
     {
       "path": "A migration → Brought across / Taken back: N records now here",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:839",
-      "covered": "partly",
-      "by": "read_migration_get progress, business’s part only"
+      "covered": "yes",
+      "by": "read_migration_get progress, statusLabel (wholeAgency)"
     },
     {
       "path": "A migration → N things left for you → each: label, instructions",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:857",
-      "covered": "partly",
-      "by": "read_migration_get tasks, business’s door"
+      "covered": "yes",
+      "by": "read_migration_get tasks (wholeAgency)"
     },
     {
       "path": "A migration → N things left for you → label links to where it’s done",
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:866",
-      "covered": "partly",
-      "by": "read_migration_get tasks settingsPath, a path only"
+      "covered": "yes",
+      "by": "read_migration_get tasks link (whole, to the business’s screen)"
     },
     {
       "path": "A migration → Still keeping up with X until {date}…",
@@ -1724,14 +1724,14 @@
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:895",
       "covered": "never",
-      "by": "migration.rollback NEVER: takes back everything, for good"
+      "by": "migration.rollback NEVER: takes back the whole move, putting away what it brought; the person presses Take it back"
     },
     {
       "path": "A migration → Delete this move → what it asks for (being taken back / pause first / put nothing here / take it back first)",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:1045",
-      "covered": "partly",
-      "by": "status from get_settings; putRecordsHere via read_migration_get, business’s door"
+      "covered": "yes",
+      "by": "read_migration_get status, statusLabel, putRecordsHere (wholeAgency); deleting stays the person’s"
     },
     {
       "path": "A migration → Delete this move (confirm, or type the move’s name)",
@@ -1745,14 +1745,14 @@
       "kind": "do",
       "file": "apps/web/src/components/migrations/wizard.tsx:1064",
       "covered": "never",
-      "by": "migration.rollback NEVER"
+      "by": "migration.rollback NEVER: the person presses Take it back"
     },
     {
       "path": "A migration → What we found → each group, each finding: summary · in N of them, what changes, what to do, severity",
       "kind": "see",
       "file": "apps/web/src/components/migrations/wizard.tsx:1099",
-      "covered": "partly",
-      "by": "read_migration_get findings, business’s door: its sub-account only"
+      "covered": "yes",
+      "by": "read_migration_get findings (wholeAgency)"
     }
   ],
   "gaps": [
@@ -1762,8 +1762,8 @@
       "kind": "read",
       "where": "Agency area → Client businesses: the Setup column (done of total, Stuck/Setting up/Done badge, note), the All/Stuck/Setting up/Done filter with counts, the header summary, and the setup sheet. Also Agency area → Saved setups: the whole list",
       "gap": "read_onboarding_clients and read_ai_setup_template_list are in SCREEN_READS, but both queries need org.templates.manage. screenReadToolsFor(can) keeps a tool only when can(permission) is true, and for a non-staff permission can() is holds(workspace, p). workspace.permissions comes from private.my_permissions, which reads app.workspace_access only, and org.templates.manage belongs only to org_owner and org_admin. So nobody is ever offered either tool. Unlike SCREEN_ACTIONS, SCREEN_READS has no offeredTo override. get_agency_area doesn't call onboarding.clients or ai_setup_template.list either. The Assistant can't say which client businesses are stuck, who owns them, when they last signed in or whether a reminder went today, and it can't list Saved setups. No test checks that an org owner is offered these reads.",
-      "fix": "In packages/core/src/assistant/screen-reads.ts, add an offeredTo map that works like ScreenAction.offeredTo, e.g. SCREEN_READ_OFFERED_TO = { 'onboarding.clients': 'workspace.update', 'ai_setup_template.list': 'workspace.update' }. Use it in screenReadTools as `permission: (OFFERED_TO[name] ?? query.permission ?? 'assistant.use')`. scopedInput already adds organizationId from ctx, and the kernel's organization scope still checks org.templates.manage. In apps/worker/test/assistant-screen-reads.test.ts, assert that an owner with workspace.update is offered both, and that a member is not.",
-      "status": "open",
+      "fix": "Fixed: SCREEN_READ_WAYS in screen-reads.ts offers read_onboarding_clients and read_ai_setup_template_list on workspace.update; the kernel still checks org.templates.manage on the organization, whose id is put on server-side. The worker test checks an owner is offered both and a member is not. Anyone who isn’t one of the agency’s owners or admins is told who can (agency_only), for these and every agency change, never that the agency isn’t there.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1772,8 +1772,8 @@
       "kind": "read",
       "where": "Agency area → Migrations: the Connected list, every move with its status, and each move's page (Where it lands, What to bring, Bringing it across, Done, Pause/Carry on, Try N again)",
       "gap": "Every Assistant path to migrations goes through the business door. The query() helper always adds workspaceId = ctx.workspaceId, so get_settings 'migrations' reads migration.list as that business. read_migration_get, read_migration_review_queue and every do_migration_* tool use scopedInput, which strips workspaceId, and inputOf, which puts the current business back. In the workspace door, resolveScope sets orgRole: null. migrationAccess then returns onlyWorkspaceId = this business even for an agency owner. Moves that reach no business yet, such as a fresh agency-wide move at Where it lands, are invisible, and so are moves that reach only other businesses. Agency connections that aren't tied to this business are invisible too. Pause, Carry on and Try again on a multi-business move are refused with 'only your agency can pause it', even when the agency's own owner asks. The agency page (/app/org/<id>/migrations) uses the organization door and sees everything. migration.list isn't a screen read; the Assistant reaches it only through get_settings.",
-      "fix": "Add an organization-door option for people who hold org.migrations.manage. For example, give get_settings 'migrations', read_migration_get, read_migration_review_queue and the do_migration_* tools an optional `wholeAgency: boolean`. When it's true, inputOf and runScreenRead leave workspaceId off and send only organizationId. The kernel's organization scope then checks org.migrations.manage, and migrationAccess gives onlyWorkspaceId null. Offer that variant only when the person is an org owner or admin (agencyOf(db, ctx).org is non-null).",
-      "status": "open",
+      "fix": "Fixed: read_migration_get, read_migration_review_queue and every do_migration_* tool take wholeAgency. scopeIds in tools-screen-reads.ts then sends only the organization id, after account.me shows the person is one of the agency’s owners or admins (else agency_only), so the kernel checks org.migrations.manage. get_agency_area lists every move and connection through the organization’s door.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1782,8 +1782,8 @@
       "kind": "do",
       "where": "Templates → Push… → Match details: per business, each detail matched by name where possible, with a picker for each detail ('Leave for them to pick' or one of the business's stages, tags, calendars or people)",
       "gap": "One claim is wrong: a business pushed to for the first time does get details matched by name. workflow_template.install runs effectiveMapping(), which uses suggestMapping for any key that was never mapped, so the server matches by name the same way the screen does. What is real: push_to_client_businesses has no `mappings` input, so the agency can't choose a detail for one business ('use Estimate sent for Bayou') or deliberately leave one for the business to pick. The Assistant can't read another business's stages, tags, calendars or people. The card also overstates what is left. Its toPick list names every placeholder not in the stored mapping ('Each business picks its own …; its draft can’t publish until it has'), including ones the install will match by name.",
-      "fix": "In packages/core/src/assistant/tools-extra.ts (push_to_client_businesses), add optional `mappings: Record<businessId, Record<placeholderKey, id|null>>`. In the worker's prepare, read each chosen business's workflow.catalogs as the person (personQuery with that workspaceId, checked against agencyOf().businesses). Compute effectiveMapping(placeholders, stored mapping, catalogs) and show on the card, per business, what is matched and what is left. Pass the mappings to workflow_template.push in commit. Build the toPick warning from that computed mapping, not from the stored mapping.",
-      "status": "open",
+      "fix": "Fixed: push_to_client_businesses matches each detail in each business as the install does (effectiveMapping on that business’s workflow.catalogs, read as the person), shows a line per business and its choices, takes matches (an id from those choices, or null to leave it), and sends that business’s whole mapping on Confirm. The left-to-pick note comes from the computed mapping.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1792,8 +1792,8 @@
       "kind": "read",
       "where": "Agency area → Knowledge packs: each row's '12 FAQs and 4 facts · version N · description', the per-business progress line ('Bayou Plumbing Co.: 3 accepted, 9 waiting, 1 rejected'), Archived (n), and the Edit sheet's items (kind, question or title, answer or body)",
       "gap": "get_agency_area returns only each pack's id, name, item count and version. It leaves out the description, the items themselves (kind, title, body, tags), each business's pending, accepted and rejected counts, and archivedAt, though knowledge_pack.list returns all of these. It calls knowledge_pack.list without includeArchived, so archived packs never appear. The Assistant can't restore one because it never sees the id. KnowledgePackUpdateInput.items replaces the whole list, and do_knowledge_pack_update's description ('Change a starter pack’s name, description or items…') doesn't say so. The Assistant can't read the existing items, so adding one FAQ would wipe the rest.",
-      "fix": "In apps/worker/src/assistant/tools-extra.ts getAgencyArea, call knowledge_pack.list with includeArchived: true. For each pack return description, archived (boolean), items [{kind, title, body}], and businesses [{name, waiting: pending, accepted, rejected}]. Optionally add a `packId` detail mode so the list stays short. Add a SCREEN_ACTIONS warning on 'knowledge_pack.update', or change the command description, to say: 'items replaces the pack’s whole list: start from the items get_agency_area returned and change only what was asked.'",
-      "status": "open",
+      "fix": "Fixed: get_agency_area lists archived packs too, with description, items count and each business’s accepted, waiting and rejected; packId gives every item. do_knowledge_pack_update’s about says items replaces the whole list.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1802,8 +1802,8 @@
       "kind": "words",
       "where": "Settings → Migrations / Agency area → Migrations, Connect a CRM dialog: GoHighLevel is connected by pasting a Private integration token (In GoHighLevel: Settings → Private Integrations → create one, tick the read access, copy the token) and the Location ID (Settings → Business Profile), then Connect",
       "gap": "SIGN_IN_SOURCES is empty, so GoHighLevel connects only by pasting a Private integration token and the Location ID, and the dialog's button says Connect. The Assistant's migrations handover still says 'Pick the system you are coming from and sign in there', with the why 'you sign in to the old system yourself'. The NEVER reason for migration.connect says 'signing in at the CRM the business is leaving'. No Assistant words mention Private Integrations or the Location ID. Keeping migration.connect as a never is still right, because the token goes straight to HandsFreeOS.",
-      "fix": "In packages/core/src/assistant/settings-map.ts (migrations.handovers[0]), set why: 'you make a read-only token in the old CRM and paste it in yourself, so it never goes through the Assistant'. Set the steps to: 'Open Settings → Migrations (or Agency area → Migrations) and press Connect a CRM.', 'In GoHighLevel open Settings → Private Integrations, create one with read access (View Contacts and whatever else should come across), and copy the token.', 'Paste it in Private integration token, with the sub-account’s Location ID (GoHighLevel Settings → Business Profile), and press Connect.', 'Then press Start a migration.' In coverage.ts, change NEVER_FOR_THE_ASSISTANT['migration.connect'] to 'pasting a private token from the CRM the business is leaving, which goes straight to HandsFreeOS and never through the Assistant'.",
-      "status": "open",
+      "fix": "Fixed: the migrations handover already walks through the private token and Location ID; NEVER_FOR_THE_ASSISTANT[migration.connect] now says the token is pasted straight to HandsFreeOS, and settings_help says connecting the CRM they’re leaving.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1812,8 +1812,8 @@
       "kind": "do",
       "where": "Client businesses → a business's Setup → setup sheet: 'Email <first name> a reminder'",
       "gap": "OnboardingRemindInput is {organizationId, workspaceId}, and workspaceId is the client business to remind. scopedInput strips workspaceId, and inputOf sets it to ctx.workspaceId, so do_onboarding_remind can only remind the owners of the business the person is asking in. Asked from the agency's own business, it is refused with onboarding_no_owner, because owners who are org members are excluded. Severity drops to medium: the agency owner can still ask from inside the client's business.",
-      "fix": "Add a per-action flag to ScreenAction in packages/core/src/assistant/coverage.ts, e.g. `keepsBusiness: true`, set on 'onboarding.remind' and 'ai_setup_template.save'. In screen-actions.ts, use it to keep workspaceId in the model's input (scope = ['organizationId'] only), described as 'the client business, from get_agency_area'. The handler already checks that the business is in the organization (onboarding.ts:448-454). Show the business's name on the card.",
-      "status": "open",
+      "fix": "Fixed: ScreenAction.forBusiness on onboarding.remind adds businessId to the model’s input. scopeIds checks it is one of the agency’s businesses (account.me) and that the person is the agency’s owner or admin before putting it on as workspaceId; the card names the business.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1822,8 +1822,8 @@
       "kind": "read",
       "where": "Agency area → Templates: the Installed in chips (v2 ✓, v1 ↻, ⚠ couldn’t install: <error>), Who’s behind ('Summit Roofing is 1 behind', 'Bayou couldn’t install', 'Installing…'), the description or 'N details to match'. In the template editor: Installed in, each row's '<n> behind', 'Couldn’t install: <lastError>' and 'Their copy' link. On Client businesses: '3 templates · 1 behind'",
       "gap": "In overview mode, get_agency_area returns only inBusinesses = installs.total. It drops installs.installed, pending, failed and behind, and the template's description, though TemplateSummary already types them. In detail mode, each business gets status, a behind flag and stillToPick. It drops installedVersion (so not how far behind), lastError and workflowId, and the overview's business list has no per-business template count or behind count. 'Which businesses are behind?' takes one call per template, 'Why couldn’t Summit install it?' has no answer, and the Assistant can't link to a business's copy.",
-      "fix": "In getAgencyArea's overview (apps/worker/src/assistant/tools-extra.ts:1950-1957), return description and installs {installed, installing: pending, failed, behind}. In detail mode (1934-1939), return per business installedVersion, versionsBehind (latestVersion − installedVersion), couldntInstall: lastError, and copyLink built from /app/w/<workspaceId>/workflows/<workflowId> (as a full https URL, see agency-17). Add lastError, installedVersion and workflowId to the TemplateGet interface.",
-      "status": "open",
+      "fix": "Fixed: get_agency_area gives each template’s description, installs (installed, installing, couldn’t install, behind) and Who’s behind, each business’s template tally, and in a template’s detail each business’s version, versions behind, its install error and a link to its copy.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1832,8 +1832,8 @@
       "kind": "do",
       "where": "A business's Workflows list: 'Review update' on a copy of an agency template, and the Update available dialog (What changes in version N, Your changes stay, These changes of yours no longer fit, pick X in Checks, Not now / Apply the update)",
       "gap": "A business's preview of an agency template update and its Apply the update go through the worker routes /v1/workflows/template-update and /template-update/apply, which run planTemplateUpdate and workflow_template.apply_update as a system actor. Neither goes through /v1/commands, so the coverage test never sees them. No Assistant tool previews or applies an update. get_workflow returns no source.template (name, installedVersion, latestVersion, updateAvailable), though WorkflowSummaryOut carries it, and the context's workflow list carries nothing about it either.",
-      "fix": "Add a confirm tool `apply_template_update {workflowId}` to tools-workflow/tools-content in the worker. In prepare: check workflows.manage, run planTemplateUpdate under asWorker as the route does, and put templateChanges, what of theirs is kept, what no longer fits and what is left to pick on the card. In commit: run workflowTemplateApplyUpdate with {workspaceId, workflowId, baseRevision} through systemActor, as templates-routes.ts:100-112 does. Add `fromTemplate: {name, installedVersion, latestVersion, updateAvailable}` to getWorkflow's result (tools-content.ts:2423-2431) and to the context's workflows (context.ts). Have assistant-coverage.test.ts also scan the web for workerPost('/v1/workflows/…') calls.",
-      "status": "open",
+      "fix": "Fixed: by the workflows step, review_template_update and apply_template_update (tools-workflow.ts).",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1842,8 +1842,8 @@
       "kind": "words",
       "where": "Settings → Migrations and Agency area → Migrations: the move's own page and its buttons (Save and choose what to bring, Save what to bring, Bring it across, Pause / Carry on, Try N again, Same as … / Somebody new, Look at the old system)",
       "gap": "migrations.canChange is [] and the area's only handover is 'move a business over'. The prompt lists 'moving in from another system' among the things that need the person and go to settings_help, and settings_help's own description says so too. Yet do_migration_create, scan, select, map_scopes, start, pause, resume, retry and resolve_merge are all offered, and docs/operations.md says the Assistant does a move 'from making it and choosing what comes to starting, pausing and carrying on'. onScreen lists only 'Connect a CRM' and 'Connected', so the Assistant can't name the move page's steps or buttons, and the prompt forbids naming buttons that aren't listed.",
-      "fix": "In packages/core/src/assistant/settings-map.ts migrations: set canChange to ['start a migration on a connected CRM and look at what it found', 'say where each sub-account lands', 'choose what to bring', 'bring it across, pause, carry on, or try what failed again', 'say whether a customer is someone already here']. Add onScreen lines for the move's page: Where it lands (Save and choose what to bring), What to bring (Save what to bring), Bringing it across (Bring it across, Pause / Carry on, Try N again), Done (Take it back, Delete this move). Narrow the handover to connecting the CRM. In apps/worker/src/assistant/prompt.ts:34 and packages/core/src/assistant/tools.ts:360 (settings_help), replace 'moving in from another system' with 'connecting the CRM they’re leaving'.",
-      "status": "open",
+      "fix": "Fixed: settings-map migrations lists each move, its status words, the move’s page and its buttons (Save and choose what to bring, Save what to bring, Bring it across, Pause, Carry on, Try N again, Same as, Somebody new, Take it back, Delete this move) and Agency area → Migrations. settings_help says connecting the CRM they’re leaving.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1852,8 +1852,8 @@
       "kind": "words",
       "where": "Agency area side menu: Client businesses, Templates, Knowledge packs, Saved setups, Migrations; and what each page has",
       "gap": "The Agency area place's onScreen lists 'Client businesses, Templates, Knowledge packs, Migrations' and leaves out Saved setups, which the agency side menu shows. The prompt forbids naming a place, tab or button that isn't listed, and no Assistant source mentions 'Saved setups', 'Save from a business', '… a reminder', 'Open setup', 'Open their workspace' or 'Do it for them'. The entry leaves out the Client businesses Setup column and filter, the setup sheet's buttons, the template editor's Publish, Installed in and Versions, and packs' Archived (n). canChange lists only seeing things and pushing, though the tools also create, save-as, rename, publish and edit templates, create and update packs, save, rename and delete setups, remind, add a business and add an owner.",
-      "fix": "In packages/core/src/assistant/places-map.ts (Agency area, around lines 581-598), set onScreen[0] to 'Client businesses, Templates, Knowledge packs, Saved setups, Migrations'. Add lines: 'Client businesses: each with its Setup (All, Stuck, Setting up, Done); press Setup for its steps, Email <name> a reminder, Open setup, Open their workspace, and Do it for them on a step'; 'A template: Publish, Push…, Installed in, Versions, Test'; 'Knowledge packs: Archived (n), and Archive or Restore in Edit'; 'Saved setups: Save from a business, Rename, Remove'. Add howTo lines for reminding a client and saving a setup. Extend canChange to match the do_ai_setup_template_*, do_knowledge_pack_*, do_workflow_template_*, do_onboarding_remind, edit_template_steps, add_business and push tools.",
-      "status": "open",
+      "fix": "Fixed: the Agency area place lists Saved setups and what each page has (Setup and its filters, the setup sheet’s buttons, a template’s Publish, Push…, Installed in and Versions, Archived (n), Save from a business, Rename, Remove), how to remind a client and save a setup, and everything the tools change there.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1862,7 +1862,7 @@
       "kind": "do",
       "where": "The whole agency area (/app/org/<orgId>/…): there is no Ask HandsFreeOS there",
       "gap": "AssistantProvider and AssistantPanel are mounted only in apps/web/src/app/app/w/[workspaceId]/layout.tsx. The agency shell (/app/org/<id>/…) doesn't mount them, so on Templates, Knowledge packs, Saved setups, Client businesses or a migration's page there's no Ask HandsFreeOS. EVERY_PAGE tells the Assistant that 'Ask HandsFreeOS … which is you' is at the top of the side menu on every page, and the Agency area place doesn't say to ask from a business. From a business the Assistant reaches only that business's organization (ctx.organizationId), so the switcher's other agencies are out of reach.",
-      "fix": "Mount AssistantProvider and AssistantPanel in AgencyShell, bound to one of the org's businesses (the last opened, else the first), with a page context naming the agency page and the template id. At the least, add to the Agency area place in places-map.ts: 'Ask HandsFreeOS isn’t in the Agency area: ask from any of the agency’s businesses', and qualify EVERY_PAGE's 'on every page' to 'on every business page'.",
+      "fix": "Left open: mounting Ask HandsFreeOS in the agency shell needs its own page record, consent and a business to run in, which is more than this step. The Agency area place now says to ask from any of the agency’s businesses, and EVERY_PAGE says the panel is on every business page.",
       "status": "open",
       "pr": null
     },
@@ -1872,8 +1872,8 @@
       "kind": "do",
       "where": "Template editor: Publish, disabled with 'Fix the red items in Checks first' while Checks has errors",
       "gap": "The editor's Publish is disabled while templateIssues(draft) has errors ('Fix the red items in Checks first'). workflow_template.publish never checks templateIssues, so do_workflow_template_publish publishes a template the screen won't. push_to_client_businesses then pushes it, since it checks only latestVersion and archivedAt, and every business gets a draft with broken steps. get_agency_area does return checksToFix, but nothing stops the publish.",
-      "fix": "In packages/core/src/commands/workflow-template.ts workflowTemplatePublish (after parseStoredDefinition, around line 278), refuse when templateIssues(def) has any error: throw HfosError.rule('template_has_errors', 409, `Fix ${n} item(s) in the template’s Checks first: ${first message}. Then publish it.`). The screen and the Assistant then share one check. Add a test that a template with an error isn't published.",
-      "status": "open",
+      "fix": "Fixed: workflow_template.publish refuses while templateIssues has an error (rule template_has_errors), naming the first and where to fix it, so the screen and the Assistant share one check. A core test covers it.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1882,8 +1882,8 @@
       "kind": "do",
       "where": "Saved setups → Save from a business: the Business picker",
       "gap": "AiSetupTemplateSaveInput.workspaceId is the business whose answers are saved. scopedInput strips it and inputOf replaces it with ctx.workspaceId, so the Assistant can save only the current business's setup. 'Save Bayou’s setup as Home services' works only when asked from inside Bayou, while the screen has a Business picker. Severity is low because asking from Bayou is a workaround.",
-      "fix": "Same mechanism as agency-6: mark 'ai_setup_template.save' with keepsBusiness so workspaceId stays in the model input, described as 'the business to save from, from get_agency_area'. The handler checks it's in the organization. The card shows 'Saved from: <business name>'.",
-      "status": "open",
+      "fix": "Fixed: ScreenAction.forBusiness on ai_setup_template.save adds businessId, checked to be the agency’s before it is put on as workspaceId; the card names the business.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1892,8 +1892,8 @@
       "kind": "words",
       "where": "A migration's page: 'Take it back' (in the Brought across card, and in Delete this move)",
       "gap": "migration.start's card warning says 'Taking it all back is Roll back, on the Migrations page'. The web app has no button called Roll back. The button is 'Take it back', and it is on the move's own page (in the Brought across card, and in Delete this move), not on the Migrations list. docs/operations.md:6970 repeats 'Roll back'.",
-      "fix": "In packages/core/src/assistant/coverage.ts, change SCREEN_ACTIONS['migration.start'].warning to '…Taking it all back is Take it back, on the move’s own page (Settings → Migrations or Agency area → Migrations, then the move), which only a person presses.' Change 'Roll back' to 'Take it back' in docs/operations.md:6970.",
-      "status": "open",
+      "fix": "Fixed: migration.start’s warning says Take it back, on the move’s own page, and docs/operations.md says Take it back.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1902,8 +1902,8 @@
       "kind": "read",
       "where": "Template editor → Versions: 'Version N · <publisher> · <date>' with up to 4 change lines and '…and N more'",
       "gap": "workflow_template.get returns versions (version, diff, publishedBy, createdAt). The worker's TemplateGet type doesn't even declare them, and get_agency_area's template detail returns none. 'What changed in version 3?' and 'Who published it?' have no answer. The severity is lowered to low because this is history, not something the person acts on.",
-      "fix": "Add versions to TemplateGet in apps/worker/src/assistant/tools-extra.ts and return `versions: [{version, publishedBy: publishedBy?.fullName, on: createdAt, changes: diff.slice(0, 10)}]` in getAgencyArea's template detail.",
-      "status": "open",
+      "fix": "Fixed: get_agency_area’s template detail gives its versions: who published each, when, and up to 10 changes with how many more.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1912,8 +1912,8 @@
       "kind": "read",
       "where": "Client businesses setup sheet: step titles, 'Do it for them' links to the client's own screen, 'Open setup' and 'Open their workspace'",
       "gap": "This only matters once agency-1 is fixed. onboarding.clients returns each business's full steps array as raw OnboardingStepOut: key, group, mustDo, state, since and note. It has no stepTitle or stepWords and no stepPath link, while the setup sheet shows words.title and links 'Do it for them' to stepPath. The input is only {organizationId}, with no filter or page, so for a larger agency the answer passes the 16,000-character cut and the 'ask for less' note asks for something the query can't do.",
-      "fix": "When agency-1 is fixed, shape the answer in the worker. Use a custom runner for onboarding.clients, or make it a mode of get_agency_area. Per business, return name, group, badge, note, owner, lastSignInAt and remindedToday. Per open step only, return stepTitle(step) and the full link from stepPath(workspaceId, key). Add optional `group` (stuck|setup|done) and `workspaceId` filters to OnboardingClientsInput.",
-      "status": "open",
+      "fix": "Fixed: clientsRead in setup-screens.ts gives each business’s setup in words, its open steps with titles and Do it for them links, Open the setup and Open their workspace; onboarding.clients takes group and businessId filters.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1922,8 +1922,8 @@
       "kind": "read",
       "where": "Agency area pages and their links: the Templates page, a template's editor, Knowledge packs, Saved setups, and each business's Open",
       "gap": "The organization id is never in the prompt or context. placesText doesn't render paths, and the Agency area path is '/app/org/[orgId]/templates'. get_agency_area returns no links and no org id. Only the commit hrefs of edit_template_steps and push are links, and those are bare paths. Asked for the link to the agency's Templates page, one template, the packs or saved-setups page, or a business, the Assistant can only guess.",
-      "fix": "In getAgencyArea, return full https links built from the web base URL. Return agencyArea /app/org/<orgId>/businesses, templates /app/org/<orgId>/templates, packs /app/org/<orgId>/packs and savedSetups /app/org/<orgId>/ai-setups. Return a link per template (/app/org/<orgId>/templates/<id>) and per business (/app/w/<id>).",
-      "status": "open",
+      "fix": "Fixed: get_agency_area gives links to each agency page, each template, each business and each business’s copy of a template, with the organization’s id put on server-side.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1932,8 +1932,8 @@
       "kind": "never",
       "where": "A migration's page: Take it back ('Take back everything this migration put here? Customers you already had are never deleted.')",
       "gap": "Keeping migration.rollback from the Assistant is settled. It is risk 4, and the owner's decision in docs/operations.md:6970 says 'Roll back and deleting a move stay the person’s', so the suggestion to offer it as a confirm is refuted. What is real: the NEVER reason ('taking back everything a move from another CRM brought, for good') is false. The screen and the command say the records are put away, not gone, that customers already there are never deleted, and that only Delete this move finishes them off.",
-      "fix": "Change only the reason in packages/core/src/assistant/coverage.ts:357 to 'taking back a whole move from another CRM, which puts away what it brought (Delete this move finishes them off); the person presses it on the move’s page (the owner, 2026-10-26)'. Don't offer the command.",
-      "status": "open",
+      "fix": "Fixed: the NEVER reason for migration.rollback now says it puts away what the move brought, that Delete this move finishes them off, and that the person presses Take it back. It stays never.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1942,8 +1942,8 @@
       "kind": "read",
       "where": "Migrations: the status badge words (Needs a look, Ready to set up, Bringing it across, Keeping up with the old system…), and the 'N things left for you' links to each task's screen",
       "gap": "migration.list and migration.get return the raw status (needs_attention, scanned, transition…). The screen's words ('Needs a look', 'Ready to set up', 'Keeping up with the old system') live only in apps/web/src/lib/agency/migration-words.ts STATUS_WORDS (lines 65-84, not 145-164). The tasks carry settingsPath as a bare business-relative path ('/settings/payments') plus workspaceId, while the screen links to /app/w/<workspaceId><path>. The Assistant can't name the status as shown or give the link.",
-      "fix": "Move STATUS_WORDS into @hfos/core (e.g. packages/core/src/migrations/words.ts), with the web importing it. Add `statusLabel` to MigrationListOutput.migrations[] and MigrationGetOutput.migration. In the worker's migration reads, or in the query, add each task's full https link from workspaceId and settingsPath.",
-      "status": "open",
+      "fix": "Fixed: MIGRATION_STATUS_WORDS moved to @hfos/core (migrations/words.ts), the web imports it, and the Assistant’s migration reads add statusLabel and each task’s link.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1952,8 +1952,8 @@
       "kind": "do",
       "where": "Templates → Save a workflow as a template: Business picker, then Workflow picker",
       "gap": "workflow_template.create_from_workflow takes any workflowId in the organization: the handler joins workflows to workspaces by organizationId. The Assistant can list and read workflows only in the business it's asked in (the context's workflow.list and get_workflow, through query(), which adds ctx.workspaceId). So it can't find another client's workflow to save as a template. Asking from that business works around it.",
-      "fix": "Add an optional `businessId` to get_agency_area (checked against agencyOf().businesses). When it's given, return that business's workflows [{id, name, status}] read with personQuery('workflow.list', {workspaceId: businessId}) as the person.",
-      "status": "open",
+      "fix": "Fixed: get_agency_area with a businessId, checked to be the agency’s, lists that business’s workflows, read as the person there.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1962,8 +1962,8 @@
       "kind": "do",
       "where": "Knowledge packs → New pack / Edit → Copy from a business (pick a business, tick its published FAQs, articles and facts, Add N items)",
       "gap": "The pack editor's Copy from a business reads knowledge_item.list for the picked businessId. The Assistant's list_knowledge_items always reads the current business through query(), so it can fill a pack (do_knowledge_pack_create or update with items) only from the business it's asked in.",
-      "fix": "Add an optional `businessId` to get_agency_area, or a `copyFrom` mode, that reads knowledge_item.list {workspaceId: businessId, status: ['published'], limit: 100} as the person after checking the id against agencyOf().businesses. Return kind, title and body, ready to pass as items to do_knowledge_pack_create or update.",
-      "status": "open",
+      "fix": "Fixed: get_agency_area with a businessId gives that business’s published knowledge (kind, title, body, tags), ready to pass as items.",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1972,7 +1972,7 @@
       "kind": "do",
       "where": "Template editor → Test (Simulate: steps walked with sample details, nothing sent)",
       "gap": "The template editor's Test is a simulation that runs only in the browser (apps/web/src/lib/agency/simulate.ts, 'use client'). The Assistant has no tool for it. get_agency_area gives the steps in words but can't walk them with sample details or show which branch is taken.",
-      "fix": "Move the pure walk in simulate.ts into @hfos/core (e.g. packages/core/src/workflows/simulate.ts), with the web hook wrapping it. Add an auto look-up `simulate_template {templateId, assume?}` in tools-extra that loads the draft via workflow_template.get and returns each step's outcome.",
+      "fix": "Left open: the template Test walks the steps in the browser (apps/web/src/lib/agency/simulate.ts, with the web’s sample values and test hook); moving the walk into @hfos/core is a step of its own.",
       "status": "open",
       "pr": null
     }

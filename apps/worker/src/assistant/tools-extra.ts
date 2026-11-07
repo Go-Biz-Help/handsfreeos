@@ -27,6 +27,7 @@ import {
   automationSettingsOf,
   DEFAULT_MENU,
   diffTeammateConfigs,
+  effectiveMapping,
   followUpLadderWords,
   formatClock,
   GET_HELP_WORDS,
@@ -41,9 +42,11 @@ import {
   MENU_WORDS,
   menuOf,
   menuSummary,
+  migrationStatusWords,
   moveKey,
   parseAutomationSettings,
   parseDefinition,
+  placeholderChoices,
   pushSwitchesOf,
   PUSH_SWITCHES,
   reengageOn,
@@ -73,9 +76,12 @@ import {
   type TeammateCatalogs,
   type TeammateConfig,
   type TeammatePatch,
+  type WorkflowCatalogs,
   type WorkflowOp,
+  type WorkflowPlaceholder,
 } from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
+import { personQuery } from './context';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { draftChanges, draftSaved, draftToRead } from './tools-content';
 import { command, query, rehearse } from './tools-read';
@@ -1871,9 +1877,20 @@ const addBusiness: SettingsConfirmTool = {
 interface TemplateSummary {
   id: string;
   name: string;
+  description: string | null;
   latestVersion: number | null;
   archivedAt: string | null;
   installs: { total: number; installed: number; pending: number; failed: number; behind: number };
+}
+interface TemplateInstall {
+  workspaceId: string;
+  workspaceName: string;
+  workflowId: string | null;
+  installedVersion: number | null;
+  status: string;
+  lastError: string | null;
+  behind: boolean;
+  mapping: Record<string, unknown>;
 }
 interface TemplateGet {
   template: TemplateSummary & {
@@ -1881,23 +1898,34 @@ interface TemplateGet {
     revision: number;
     /** The draft as written. */
     definition: Record<string, unknown>;
-    placeholders: { key: string; label: string }[];
+    placeholders: WorkflowPlaceholder[];
   };
-  installs: {
-    workspaceId: string;
-    workspaceName: string;
-    workflowId: string | null;
-    status: string;
-    behind: boolean;
-    mapping: Record<string, unknown>;
+  versions: {
+    version: number;
+    diff: string[];
+    publishedBy: { fullName: string } | null;
+    createdAt: string;
   }[];
+  installs: TemplateInstall[];
+}
+interface PackItem {
+  kind: string;
+  title: string;
+  body: string;
+  tags: string[];
 }
 interface PackSummary {
   id: string;
   name: string;
-  items: unknown[];
+  description: string | null;
+  items: PackItem[];
   version: number;
   archivedAt: string | null;
+  businesses: { name: string; pending: number; accepted: number; rejected: number }[];
+}
+interface MoveList {
+  migrations: { id: string; status: string }[];
+  connections: unknown[];
 }
 
 const isForbidden = (e: unknown) => e instanceof HfosError && e.status === 403;
@@ -1907,60 +1935,261 @@ const templateOf = (db: Db, ctx: ToolContext, templateId: unknown) =>
     templateId,
   });
 
-async function getAgencyArea(db: Db, ctx: ToolContext, args: Args): Promise<ToolOutcome> {
+/** Versions an install is behind the newest, as the template's chips count them (0 unless installed). */
+const behindBy = (i: TemplateInstall, latest: number | null) =>
+  i.status === 'installed' && latest ? Math.max(0, latest - (i.installedVersion ?? 0)) : 0;
+
+/** Templates' Who's behind: "Summit Roofing is 1 behind", "All up to date", or what went wrong. */
+function whosBehind(installs: readonly TemplateInstall[], latest: number | null): string {
+  if (!installs.length) return 'Not installed yet';
+  const failed = installs.filter((i) => i.status === 'failed');
+  if (failed.length) return `${joinAnd(failed.map((i) => i.workspaceName))} couldn’t install`;
+  if (installs.some((i) => i.status === 'pending')) return 'Installing…';
+  const behind = installs.filter((i) => behindBy(i, latest) > 0);
+  if (!behind.length) return 'All up to date';
+  if (behind.length === 1)
+    return `${behind[0]!.workspaceName} is ${behindBy(behind[0]!, latest)} behind`;
+  return `${behind.length} businesses are behind`;
+}
+
+/**
+ * The agency area's pages, as whole links on the web app's address (paths with none known, as in some tests): the
+ * organization's id is put on here, never the model's to give.
+ */
+const agencyLinks = (webUrl: string, organizationId: string) => {
+  const at = (page: string) => `${webUrl}/app/org/${organizationId}/${page}`;
+  return {
+    clientBusinesses: at('businesses'),
+    templates: at('templates'),
+    knowledgePacks: at('packs'),
+    savedSetups: at('ai-setups'),
+    migrations: at('migrations'),
+  };
+};
+
+/** One client business's own workflows and published knowledge, read as the person in that business. */
+async function businessForAgency(db: Db, ctx: ToolContext, businessId: string) {
+  // The business id goes on last, and only once it's checked to be one of the agency's (getAgencyArea).
+  const there = <T>(name: string, input: Record<string, unknown> = {}) =>
+    personQuery<T>(db, name, { ...input, workspaceId: businessId }, ctx.actor, ctx.correlationId);
+  const [flows, knowledge] = await Promise.all([
+    there<{ items: { id: string; name: string; status: string }[] }>('workflow.list'),
+    there<{ items: PackItem[]; nextCursor: string | null }>('knowledge_item.list', {
+      status: ['published'],
+      limit: 50,
+    }),
+  ]);
+  return {
+    workflows: flows.items
+      .filter((w) => w.status !== 'archived')
+      .map((w) => ({ id: w.id, name: w.name, status: w.status })),
+    publishedKnowledge: knowledge.items.map((k) => ({
+      kind: k.kind,
+      title: k.title,
+      body: k.body,
+      tags: k.tags,
+    })),
+    ...(knowledge.nextCursor
+      ? { moreKnowledge: 'Only its first 50 published items are here.' }
+      : {}),
+    note: 'To save one of its workflows as a template: do_workflow_template_create_from_workflow with its id. To copy its knowledge into a pack: pass the items as they are to do_knowledge_pack_create, or to do_knowledge_pack_update with every item the pack already has.',
+  };
+}
+
+async function getAgencyArea(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  webUrl = '',
+): Promise<ToolOutcome> {
   const { org, name, businesses } = await agencyOf(db, ctx);
   if (!org) return { result: { notYours: notAgencyAdmin(name) } };
   const organizationId = ctx.organizationId;
+  const links = agencyLinks(webUrl, organizationId);
+  const businessLink = (id: string) => `${webUrl}/app/w/${id}`;
   try {
+    const businessId = str(args['businessId']);
+    if (businessId) {
+      const b = businesses.find((w) => w.id === businessId);
+      if (!b)
+        throw HfosError.validation(
+          [{ path: 'businessId', message: `Not one of ${name}’s businesses.` }],
+          `That business isn’t one of ${name}’s. Its id comes from get_agency_area.`,
+        );
+      return {
+        result: {
+          business: { id: b.id, name: b.name, link: businessLink(b.id) },
+          ...(await businessForAgency(db, ctx, b.id)),
+        },
+      };
+    }
+
+    const packId = str(args['packId']);
+    if (packId) {
+      const { items } = await query<{ items: PackSummary[] }>(db, ctx, 'knowledge_pack.list', {
+        organizationId,
+        includeArchived: true,
+      });
+      const p = items.find((x) => x.id === packId);
+      if (!p)
+        throw HfosError.notFound(
+          'No knowledge pack has that id. Its id comes from get_agency_area.',
+        );
+      return {
+        result: {
+          pack: {
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            version: p.version,
+            ...(p.archivedAt ? { archived: true } : {}),
+            items: p.items.map((i) => ({
+              kind: i.kind,
+              title: i.title,
+              body: i.body,
+              tags: i.tags,
+            })),
+            businesses: p.businesses.map((x) => ({
+              name: x.name,
+              accepted: x.accepted,
+              waiting: x.pending,
+              rejected: x.rejected,
+            })),
+            link: links.knowledgePacks,
+          },
+          note: 'do_knowledge_pack_update’s items replaces this whole list: pass every item here, with only what was asked changed, added or taken out.',
+        },
+      };
+    }
+
     const templateId = str(args['templateId']);
     if (templateId) {
       const got = await templateOf(db, ctx, templateId);
-      const keys = got.template.placeholders;
-      const def = parseDefinition(got.template.definition);
+      const t = got.template;
+      const keys = t.placeholders;
+      const def = parseDefinition(t.definition);
       return {
         result: {
           template: {
-            id: got.template.id,
-            name: got.template.name,
-            version: got.template.latestVersion,
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            version: t.latestVersion,
+            link: `${links.templates}/${t.id}`,
             detailsEachBusinessPicks: keys.map((p) => ({ key: p.key, label: p.label })),
             checksToFix: templateIssues(def)
               .filter((i) => i.severity === 'error')
               .map((i) => i.message),
             // A template names no business's stages or people, so there are no names to look up.
-            ...draftToRead(got.template.definition, def, {}, got.template.revision),
+            ...draftToRead(t.definition, def, {}, t.revision),
           },
-          businesses: got.installs.map((i) => ({
-            id: i.workspaceId,
-            name: i.workspaceName,
-            status: i.status,
-            ...(i.behind ? { behind: true } : {}),
-            stillToPick: keys.filter((p) => !i.mapping[p.key]).map((p) => p.label),
+          // Versions, newest first, as the editor's Versions lists them.
+          versions: got.versions.map((v) => ({
+            version: v.version,
+            publishedBy: v.publishedBy?.fullName ?? null,
+            on: v.createdAt,
+            changes: v.diff.slice(0, 10),
+            ...(v.diff.length > 10 ? { andMore: v.diff.length - 10 } : {}),
           })),
+          whosBehind: whosBehind(got.installs, t.latestVersion),
+          businesses: got.installs.map((i) => {
+            const behind = behindBy(i, t.latestVersion);
+            return {
+              id: i.workspaceId,
+              name: i.workspaceName,
+              status: i.status,
+              ...(i.installedVersion !== null ? { hasVersion: i.installedVersion } : {}),
+              ...(behind ? { versionsBehind: behind } : {}),
+              ...(i.status === 'failed' && i.lastError ? { couldntInstall: i.lastError } : {}),
+              ...(i.workflowId
+                ? { theirCopy: `${businessLink(i.workspaceId)}/workflows/${i.workflowId}` }
+                : {}),
+              stillToPick: keys.filter((p) => !i.mapping[p.key]).map((p) => p.label),
+            };
+          }),
         },
       };
     }
-    const [templates, packs] = await Promise.all([
+
+    const [templates, packs, moves] = await Promise.all([
       query<{ items: TemplateSummary[] }>(db, ctx, 'workflow_template.list', { organizationId }),
-      query<{ items: PackSummary[] }>(db, ctx, 'knowledge_pack.list', { organizationId }),
+      query<{ items: PackSummary[] }>(db, ctx, 'knowledge_pack.list', {
+        organizationId,
+        includeArchived: true,
+      }),
+      // The agency's own door: every move and connection, as Agency area → Migrations lists them.
+      personQuery<MoveList>(
+        db,
+        'migration.list',
+        { organizationId },
+        ctx.actor,
+        ctx.correlationId,
+      ).catch((): null => null),
     ]);
+    // Each business's templates and how many it's behind, as Client businesses counts them.
+    const installs = await Promise.all(
+      templates.items.map((t) => templateOf(db, ctx, t.id).then((g) => g.installs)),
+    );
+    const tally = (id: string) => {
+      const mine = installs.flatMap((list, n) =>
+        list
+          .filter((i) => i.workspaceId === id)
+          .map((i) => behindBy(i, templates.items[n]!.latestVersion)),
+      );
+      if (!mine.length) return 'No templates yet';
+      const behind = mine.filter((b) => b > 0).length;
+      return `${plural(mine.length, 'template')} · ${behind ? `${behind} behind` : 'up to date'}`;
+    };
     return {
       result: {
         agency: name,
-        businesses: businesses.map((w) => ({ id: w.id, name: w.name })),
-        templates: templates.items.map((t) => ({
+        links,
+        businesses: businesses.map((w) => ({
+          id: w.id,
+          name: w.name,
+          templates: tally(w.id),
+          link: businessLink(w.id),
+        })),
+        templates: templates.items.map((t, n) => ({
           id: t.id,
           name: t.name,
+          ...(t.description ? { description: t.description } : {}),
           published: t.latestVersion !== null,
           ...(t.latestVersion !== null ? { version: t.latestVersion } : {}),
           inBusinesses: t.installs.total,
+          installs: {
+            installed: t.installs.installed,
+            installing: t.installs.pending,
+            couldntInstall: t.installs.failed,
+            behind: t.installs.behind,
+          },
+          whosBehind: whosBehind(installs[n]!, t.latestVersion),
         })),
         packs: packs.items.map((p) => ({
           id: p.id,
           name: p.name,
+          ...(p.description ? { description: p.description } : {}),
           items: p.items.length,
           version: p.version,
+          ...(p.archivedAt ? { archived: true } : {}),
+          businesses: p.businesses.map(
+            (x) =>
+              `${x.name}: ${x.accepted} accepted, ${x.pending} waiting, ${x.rejected} rejected`,
+          ),
         })),
+        ...(moves
+          ? {
+              migrations: {
+                moves: moves.migrations.map((m) => ({
+                  ...m,
+                  statusLabel: migrationStatusWords(m.status),
+                })),
+                connected: moves.connections,
+                note: 'Every move the agency has, as Agency area → Migrations lists them. read_migration_get and the migration tools take wholeAgency true to see or act on a move as the agency does.',
+              },
+            }
+          : {}),
+        more: 'With a templateId: that template in full. With a packId: that pack’s items. With a businessId: that business’s workflows and published knowledge. read_onboarding_clients: how far each business has got setting up. read_ai_setup_template_list: Saved setups.',
       },
     };
   } catch (e) {
@@ -2036,6 +2265,86 @@ const editTemplateSteps: SettingsConfirmTool = {
   },
 };
 
+interface DetailMatch {
+  businessId: string;
+  detail: string;
+  id: string | null;
+}
+
+/** Most businesses whose details are each written on a push's card; the answer has them all. */
+const MATCH_LINES = 6;
+
+/**
+ * Each business's details for a template, as Push… → Match details starts them: what the business had, else matched
+ * by name (effectiveMapping, as the install does); then what the person asked to change, each checked to be one of
+ * that business's own choices. Read as the person in each business, whose ids are checked to be the agency's first.
+ */
+async function matchDetails(
+  db: Db,
+  ctx: ToolContext,
+  got: TemplateGet,
+  ids: readonly string[],
+  names: ReadonlyMap<string, string>,
+  matches: readonly DetailMatch[],
+) {
+  const t = got.template;
+  const byKey = new Map(t.placeholders.map((p) => [p.key, p]));
+  const wrongKey = matches.find((m) => !byKey.has(m.detail));
+  if (wrongKey)
+    throw HfosError.validation(
+      [{ path: 'matches', message: `“${t.name}” has no detail “${wrongKey.detail}”.` }],
+      t.placeholders.length
+        ? `“${t.name}” has no detail called “${wrongKey.detail}”. Its details are ${joinAnd(t.placeholders.map((p) => p.key))}.`
+        : `“${t.name}” names nothing each business picks, so there’s nothing to match.`,
+    );
+  if (matches.some((m) => !ids.includes(m.businessId)))
+    throw HfosError.validation(
+      [{ path: 'matches', message: 'Match only the businesses it goes to.' }],
+      'Match details only for the businesses it’s pushed to. Add that business to businessIds, or leave its match out.',
+    );
+  if (!t.placeholders.length) return [];
+  return Promise.all(
+    ids.map(async (id) => {
+      const name = names.get(id) ?? 'That business';
+      const { catalogs } = await personQuery<{ catalogs: WorkflowCatalogs }>(
+        db,
+        'workflow.catalogs',
+        { workspaceId: id },
+        ctx.actor,
+        ctx.correlationId,
+      );
+      const stored = got.installs.find((i) => i.workspaceId === id)?.mapping ?? {};
+      const mapping = effectiveMapping(t.placeholders, stored, catalogs);
+      const asked = matches.filter((m) => m.businessId === id);
+      for (const m of asked) {
+        const p = byKey.get(m.detail)!;
+        if (m.id !== null && !placeholderChoices(p.kind, catalogs).some((c) => c.id === m.id))
+          throw HfosError.validation(
+            [{ path: 'matches', message: `Not one of ${name}’s choices for ${p.label}.` }],
+            `That isn’t one of ${name}’s choices for ${p.label}. Pick one of the choices push_to_client_businesses listed for it, or null to leave it for them.`,
+          );
+        mapping[m.detail] = m.id;
+      }
+      const details = t.placeholders.map((p) => {
+        const choices = placeholderChoices(p.kind, catalogs);
+        const picked = mapping[p.key] ?? null;
+        return {
+          detail: p.key,
+          label: p.label,
+          // An id they had that's archived since isn't among the choices, but it's still theirs.
+          matched: picked ? (choices.find((c) => c.id === picked)?.name ?? 'What they had') : null,
+          choices: choices.slice(0, 15).map((c) => ({ id: c.id, name: c.name })),
+        };
+      });
+      return { businessId: id, name, asked: asked.length > 0, mapping, details };
+    }),
+  );
+}
+
+/** One business's line on the card: "Estimate sent: Quote sent · Who takes emergencies: left for them to pick". */
+const matchLine = (details: readonly { label: string; matched: string | null }[]) =>
+  clip(details.map((d) => `${d.label}: ${d.matched ?? 'left for them to pick'}`).join(' · '), 300);
+
 const pushToClientBusinesses: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const { org, name: orgName, businesses } = await agencyOf(db, ctx);
@@ -2081,7 +2390,16 @@ const pushToClientBusinesses: SettingsConfirmTool = {
         );
       const installOf = (id: string) => got.installs.find((i) => i.workspaceId === id);
       const has = ids.filter((id) => installOf(id)?.workflowId);
-      const toPick = t.placeholders.filter((p) => ids.some((id) => !installOf(id)?.mapping[p.key]));
+      const matched = await matchDetails(
+        db,
+        ctx,
+        got,
+        ids,
+        new Map(ids.map((id, n) => [id, names[n]!])),
+        list<DetailMatch>(args['matches']) ?? [],
+      );
+      // What's left for each business to pick, from what it will be matched with, not from what it had.
+      const leftTo = matched.filter((b) => b.details.some((d) => !d.matched)).map((b) => b.name);
       return {
         card: settingsCard(toolCallId, 'push_to_client_businesses', {
           title: title(t.name),
@@ -2096,6 +2414,17 @@ const pushToClientBusinesses: SettingsConfirmTool = {
                   },
                 ]
               : []),
+            ...matched
+              .slice(0, MATCH_LINES)
+              .map((b) => ({ label: b.name, value: matchLine(b.details) })),
+            ...(matched.length > MATCH_LINES
+              ? [
+                  {
+                    label: 'And',
+                    value: `${plural(matched.length - MATCH_LINES, 'more business', 'more businesses')}, matched the same way`,
+                  },
+                ]
+              : []),
           ],
           confirmLabel: 'Push',
           warnings: [
@@ -2103,17 +2432,31 @@ const pushToClientBusinesses: SettingsConfirmTool = {
               kind: 'note',
               text: 'Each business gets a draft. Nothing runs until it tests and publishes it.',
             },
-            ...(toPick.length
+            ...(leftTo.length
               ? [
                   {
                     kind: 'note',
-                    text: `Each business picks its own ${joinAnd(toPick.map((p) => p.label.toLowerCase()))}; its draft can’t publish until it has.`,
+                    text: `${joinAnd(leftTo)} ${leftTo.length === 1 ? 'picks' : 'pick'} what’s left for them to match; a draft can’t publish until every detail is picked.`,
                   },
                 ]
               : []),
           ],
         }),
-        result: { waiting: true, businesses: names },
+        result: {
+          waiting: true,
+          businesses: names,
+          ...(matched.length
+            ? {
+                matched: matched.map((b) => ({
+                  businessId: b.businessId,
+                  business: b.name,
+                  details: b.details,
+                })),
+                toChange:
+                  'To pick another for a business, or leave one for it to pick, call push_to_client_businesses again with matches.',
+              }
+            : {}),
+        },
       };
     }
 
@@ -2163,11 +2506,29 @@ const pushToClientBusinesses: SettingsConfirmTool = {
     const workspaceIds = [...new Set(list<string>(args['businessIds']) ?? [])];
     const n = plural(workspaceIds.length, 'business', 'businesses');
     if (args['what'] === 'template') {
-      // No mappings: a business that already picked its details keeps them, and the rest pick their own.
+      // Only a business the person matched a detail for gets a mapping: the whole one the card showed, since a
+      // mapping replaces what it had. The rest keep what they had, and the install matches the others by name.
+      const matches = list<DetailMatch>(args['matches']) ?? [];
+      const asked = workspaceIds.filter((id) => matches.some((m) => m.businessId === id));
+      const mappings = asked.length
+        ? Object.fromEntries(
+            (
+              await matchDetails(
+                db,
+                ctx,
+                await templateOf(db, ctx, args['templateId']),
+                asked,
+                new Map(),
+                matches,
+              )
+            ).map((b) => [b.businessId, b.mapping]),
+          )
+        : {};
       await command(db, ctx, 'workflow_template.push', {
         organizationId,
         templateId: args['templateId'],
         workspaceIds,
+        mappings,
       });
       return {
         outcome: `Pushed to ${n}. Each gets a draft to test and publish.`,
@@ -2194,6 +2555,14 @@ export const extraAutoTools: Record<
 > = {
   list_automations: listAutomations,
   find_ideas: findIdeas,
+  get_agency_area: getAgencyArea,
+};
+
+/** Of those, the ones whose answer links to the web app's own pages, so the executor gives them its address. */
+export const extraWebTools: Record<
+  string,
+  (db: Db, ctx: ToolContext, args: Args, webUrl: string) => Promise<ToolOutcome>
+> = {
   get_agency_area: getAgencyArea,
 };
 

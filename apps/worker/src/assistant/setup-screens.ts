@@ -11,6 +11,7 @@
  */
 import {
   addressLines,
+  AGENCY_SETUP_WORDS,
   AI_SETUP_JOB_LABELS,
   aiSetupFinish,
   aiSetupFlowFactsOf,
@@ -526,4 +527,72 @@ export function gettingStartedRead(got: unknown): unknown {
     next: next ? { key: next.key, title: next.title } : null,
     steps,
   };
+}
+
+/** One client business as onboarding.clients gives it. */
+interface OnboardingClient {
+  workspaceId: string;
+  name: string;
+  owner: { name: string; email: string } | null;
+  lastSignInAt: string | null;
+  enabled: boolean;
+  done: number;
+  total: number;
+  group: 'stuck' | 'setup' | 'done';
+  badge: string;
+  note: string;
+  steps: OnboardingStep[];
+  remindedAt: string | null;
+}
+
+/** Steps only a client's own owner can do, as the setup sheet says them instead of Do it for them. */
+const OWNERS_CALL: Readonly<Record<string, string>> = {
+  team: AGENCY_SETUP_WORDS.ownersCall,
+  payments: AGENCY_SETUP_WORDS.ownerSignsIn,
+};
+
+/**
+ * Client businesses' Setup column and each one's setup sheet, as the agency sees them (agency-1, agency-16): where it
+ * stands and why, its own owner and when they last signed in, whether a reminder went today, and only the steps still
+ * open, each by its title, its line and the whole link Do it for them opens (or that it's the owner's own call).
+ */
+export function clientsRead(got: unknown, webUrl: string): unknown {
+  if (!isObject(got) || !Array.isArray(got['businesses'])) return got;
+  const w = AGENCY_SETUP_WORDS;
+  const businesses = (got['businesses'] as OnboardingClient[]).map((c) => {
+    const open = c.steps.filter((s) => s.state === 'todo' || s.state === 'needs_fix');
+    return {
+      businessId: c.workspaceId,
+      name: c.name,
+      setup: `${c.done} of ${c.total} done`,
+      group: w.filters[c.group],
+      badge: c.badge,
+      note: c.note,
+      owner: c.owner,
+      ownerLastSignedIn: c.lastSignInAt,
+      ...(c.remindedAt ? { remindedToday: w.remindedToday } : {}),
+      ...(!c.owner ? { noOwner: w.noOwner(c.name) } : {}),
+      ...(c.enabled ? {} : { guideOff: w.off }),
+      stillOpen: open.map((s) => {
+        const words = stepWords(s);
+        const owners = OWNERS_CALL[s.key];
+        const phase = typeof s.note.phase === 'string' ? s.note.phase : undefined;
+        const path = stepPath(c.workspaceId, s.key, { phase });
+        return {
+          step: words.title,
+          ...(s.mustDo ? { basics: true } : {}),
+          line: words.detail,
+          ...(s.state === 'needs_fix' ? { needsAFix: true } : {}),
+          ...(owners
+            ? { ownersOwn: owners }
+            : c.enabled && path
+              ? { doItForThem: `${webUrl}${path}` }
+              : {}),
+        };
+      }),
+      openTheSetup: `${webUrl}/onboarding/${c.workspaceId}`,
+      openTheirWorkspace: `${webUrl}/app/w/${c.workspaceId}`,
+    };
+  });
+  return { counts: got['counts'], businesses };
 }

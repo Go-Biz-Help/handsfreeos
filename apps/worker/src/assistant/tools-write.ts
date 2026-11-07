@@ -56,7 +56,7 @@ import { onPublicOrigin, publicOriginFor, withAppFiles, withWholeLinks } from '.
 import { workflowAutoTools, workflowConfirmTools, type WorkflowToolDeps } from './tools-workflow';
 import { billingAutoTools, billingConfirmTools, billingLinkTools } from './tools-billing';
 import { contentAutoTools, contentConfirmTools } from './tools-content';
-import { extraAutoTools, extraConfirmTools } from './tools-extra';
+import { extraAutoTools, extraConfirmTools, extraWebTools } from './tools-extra';
 import { mainOfferAutoTools, mainOfferConfirmTools } from './tools-main-offer';
 import { inboxCrmAutoTools, inboxCrmConfirmTools } from './tools-inbox-crm';
 import { schedulingAutoTools, schedulingConfirmTools } from './tools-scheduling';
@@ -1768,6 +1768,9 @@ export function createToolExecutor(
     // The carrier's free numbers, through the worker's own telephony.
     const numbers = numberSearchTools[tool.name];
     if (numbers) return numbers(db, ctx, args, addonActions?.services.telephony ?? null);
+    // The agency area's pages, linked whole on the web app's address.
+    const web = extraWebTools[tool.name];
+    if (web) return web(db, ctx, args, webUrl);
     const run =
       readTools[tool.name] ??
       contactReadTools[tool.name] ??

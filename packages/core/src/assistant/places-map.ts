@@ -781,21 +781,32 @@ export const APP_PLACES: readonly AppPlace[] = [
   },
   {
     label: 'Agency area',
-    what: 'for the agency that runs several businesses: client businesses, workflow templates, knowledge packs and migrations',
+    what: 'for the agency that runs several businesses: client businesses, workflow templates, knowledge packs, saved setups and migrations',
     where: [],
     then: 'press the business name at the top of the side menu, then Agency area (agency owners and admins only)',
     onScreen: [
-      'Client businesses, Templates, Knowledge packs, Migrations',
-      'Templates: New template, Save a workflow as a template, and Push… on each',
-      'Knowledge packs: New pack, then Edit and Push on each',
+      'Client businesses, Templates, Knowledge packs, Saved setups, Migrations',
+      'Client businesses: Add a client business, then each business with its Setup (All, Stuck, Setting up, Done); press Setup for its steps, with Email <name> a reminder, Open the setup, Open their workspace, and Do it for them on a step',
+      'Templates: New template, Save a workflow as a template, and Publish and Push… on each, with Installed in and Who’s behind',
+      'A template’s own page: Checks, Test (Simulate only), Publish, Push…, Installed in and Versions',
+      'Knowledge packs: New pack, then Edit and Push on each, and Archived (n); Archive or Restore is in Edit',
+      'Saved setups: Save from a business, then Rename and Remove on each',
+      'Ask HandsFreeOS isn’t in the Agency area: ask from any of the agency’s businesses',
     ],
     howTo: [
       'Send a workflow to client businesses: Agency area, Templates, Push… on the template, pick the businesses, match the details, then Push',
       'Send starter FAQs to client businesses: Agency area, Knowledge packs, New pack, Save pack, then Push',
+      'Nudge a client who’s stuck on setup: Agency area, Client businesses, press Setup on theirs, then Email <name> a reminder',
+      'Start new businesses from one’s answers: Agency area, Saved setups, Save from a business, pick the business, name it, then Save',
     ],
     canChange: [
-      'see the client businesses, templates and knowledge packs, and which businesses have a template',
-      'push a published template or a knowledge pack to client businesses',
+      'see the client businesses with how far each has got setting up, the templates with who’s behind, the knowledge packs with what each business accepted, the saved setups and the migrations',
+      'add a client business, and email a client’s owners a reminder to finish setting up',
+      'make, rename, change the steps of and publish a template, or save a workflow as one',
+      'push a published template, with its details matched for each business, or a knowledge pack, to client businesses',
+      'make, change, archive and restore a knowledge pack, copying from a business’s published knowledge',
+      'save a business’s setup answers, rename a saved setup, and remove one',
+      'start, set up, pause, carry on and retry a migration for the whole agency',
     ],
     path: '/app/org/[orgId]/templates',
   },
@@ -803,7 +814,7 @@ export const APP_PLACES: readonly AppPlace[] = [
 
 /** What is on every page, around the page itself. */
 export const EVERY_PAGE: readonly string[] = [
-  'Top of the side menu: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search everything (⌘K or Ctrl K), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
+  'Top of the side menu, on every business page: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search everything (⌘K or Ctrl K), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
   'Search everything finds, for whoever may see them, customers, companies, leads, estimates, invoices and payments, messages and calls, appointments, tasks, notes, files and the words inside them, forms and their answers, Knowledge, the business’s own kinds of records, Real Estate’s listings, deals, homes and properties, and settings; archived things show under Archived, and the Deleted bin to whoever may delete for good. Enter with no row picked opens the Search page with every result. A place hidden from the side menu isn’t found by it, but still opens from a link',
   'Settings has its own Search settings box at the top of its menu',
   'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers; while Getting started isn’t finished it’s a menu first: Getting started, Take the tour, and Ask us for help, which opens that message), and Sign out',

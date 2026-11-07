@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { scopedInput, type ScopeKey } from '../addons/ai';
 import type { Registry } from '../kernel/registry';
 import type { QueryDef } from '../kernel/types';
-import { isStaffPermission, type Permission } from '../permissions';
+import { isOrgPermission, isStaffPermission, type Permission } from '../permissions';
 import type { AssistantTool } from './tool-kit';
 
 /** The screens' queries the Assistant reads through these tools, by name. */
@@ -157,10 +157,50 @@ export const NOT_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'teammate_view.lens': 'what the screens show while someone looks as a teammate',
 };
 
+/**
+ * How a look-up is offered when it isn't as its query alone. `offeredTo`: a permission the Assistant can check in place
+ * of the query's own, when that is the agency's (`org.*`), which no business permission holds: workspace.update, which
+ * every agency owner and admin holds in each of its businesses. The kernel still checks the organization's own
+ * permission when it runs. `agencyDoor`: a query either door reads (a business's own part, or the agency's whole), so
+ * the model may ask it of the whole agency (`wholeAgency`).
+ */
+export interface ScreenReadWay {
+  readonly offeredTo?: Permission;
+  readonly agencyDoor?: true;
+}
+const SCREEN_READ_WAYS: Readonly<Record<string, ScreenReadWay>> = {
+  'ai_setup_template.list': { offeredTo: 'workspace.update' },
+  'onboarding.clients': { offeredTo: 'workspace.update' },
+  'migration.get': { agencyDoor: true },
+  'migration.review_queue': { agencyDoor: true },
+};
+
+/**
+ * What a look-up or a change either door takes adds to its input: whether it is asked of the whole agency. Left out,
+ * it is this business's own part, as the business's own screen shows it. The executor then leaves the business's id
+ * off, so the kernel checks the agency's own permission, and only the agency's owners and admins are let through.
+ */
+export const WHOLE_AGENCY = z
+  .boolean()
+  .optional()
+  .describe(
+    'true: as the agency’s own page shows it (Agency area → Migrations), every business it reaches, which only the agency’s owners and admins may. Left out: this business’s own part, as its Settings → Migrations shows it',
+  );
+
+/** The model's view of an input, with `wholeAgency` added when it may be asked of the whole agency. */
+export const withAgencyDoor = (input: z.ZodObject, agencyDoor: boolean): z.ZodObject =>
+  agencyDoor ? input.extend({ wholeAgency: WHOLE_AGENCY }) : input;
+
 /** What a look-up's answer adds to what the screen shows, said after its description. */
 const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
   'addon.settings':
     'Its settings come as the add-on’s settings page shows them, its defaults filled in where nothing was saved yet, and labels says what each one is in the page’s words. update_addon_settings changes them.',
+  'onboarding.clients':
+    'Its answer comes as Client businesses shows it: each business with where its setup stands (Stuck, Setting up or Done, and why), its owner and when they last signed in, whether a reminder went today, and each open step with its title and the link its Do it for them opens. group narrows it to one filter, and businessId to one business (from get_agency_area); counts are every business either way. do_onboarding_remind emails a business’s own owners a reminder, once a day.',
+  'ai_setup_template.list':
+    'These are the agency’s Saved setups (Agency area → Saved setups). do_ai_setup_template_save saves one from any of its businesses, and do_ai_setup_template_rename and do_ai_setup_template_delete rename and remove one; none of them changes a business.',
+  'migration.get':
+    'Its status comes with statusLabel, the words the move’s page shows, and each thing left to do with the link to its screen.',
   'lead.board':
     'Its answer comes summed up as the board shows it: the open leads and their value, each stage’s count and total value (Won and Lost too), then each stage’s first 5 cards in order (shown with a stage’s id and a limit lists more of it). Pipeline ids are in its pipelines.',
   'schedule.team':
@@ -174,6 +214,13 @@ export interface ScreenReadTool extends AssistantTool<z.ZodObject> {
   readonly query: QueryDef;
   /** The business ids its input takes, which the executor puts on after the model's arguments. */
   readonly scope: readonly ScopeKey[];
+  /** Either door: it may be asked of the whole agency (`wholeAgency`). */
+  readonly agencyDoor: boolean;
+  /**
+   * The agency's own (an `org.*` permission): only its owners and admins see it. The executor checks that first, so
+   * anyone else is told who can, not that the agency isn't there.
+   */
+  readonly agencyOnly: boolean;
 }
 
 /** Whether an offered tool is one of these (it runs through the one executor for them). */
@@ -193,15 +240,19 @@ export function screenReadTools(registry: Pick<Registry, 'query'>): ScreenReadTo
     if (!query || !(query.input instanceof z.ZodObject)) return [];
     const staff = !!query.permission && isStaffPermission(query.permission);
     const view = staff ? { input: query.input, scope: [] } : scopedInput(query.input);
+    const way = SCREEN_READ_WAYS[name] ?? {};
+    const agencyDoor = !!way.agencyDoor && view.scope.includes('workspaceId');
     return [
       {
         name: screenReadName(name),
         description: `${query.description} What the person sees on the screen it’s on.${SCREEN_READ_MORE[name] ? ` ${SCREEN_READ_MORE[name]}` : ''}`,
-        input: view.input,
+        input: withAgencyDoor(view.input, agencyDoor),
         autonomy: 'auto' as const,
-        permission: (query.permission ?? 'assistant.use') as Permission,
+        permission: (way.offeredTo ?? query.permission ?? 'assistant.use') as Permission,
         query,
         scope: view.scope,
+        agencyDoor,
+        agencyOnly: !!query.permission && isOrgPermission(query.permission),
       },
     ];
   });

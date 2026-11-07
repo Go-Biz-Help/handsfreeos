@@ -5,7 +5,6 @@
  * refuse now is never drawn; on Confirm it runs with the arguments the card was drawn from.
  */
 import {
-  addonToolArguments,
   chatSnippet,
   chatSnippetSrc,
   chatWidgetRotateKey,
@@ -29,6 +28,8 @@ import { keptAnswer } from './committed';
 import type { CommittedAction, PreparedAction, ToolContext, ToolOutcome } from './runtime';
 import { setupCard, setupInput, setupOutcome } from './setup-screens';
 import { cardFields } from './tools-addons';
+import { query } from './tools-read';
+import { ownArguments, scopeIds } from './tools-screen-reads';
 import { settingsCard } from './tools-settings-calendar';
 import { workflowScreenCards } from './tools-workflow';
 
@@ -61,19 +62,40 @@ const meta = (ctx: ToolContext): RequestMeta => ({
 });
 
 /**
- * The command's input for one call: the arguments, then the business's ids on top (audit AI-3). A staff command
- * looks across businesses, so the business it acts on is one of its own arguments (screen-actions.ts) and is kept.
+ * The command's input for one call: the arguments, then the business's ids on top (audit AI-3): the business asked
+ * in, the agency alone when it's asked of the whole agency, or the client business it names once that is checked to
+ * be the agency's (scopeIds). A staff command looks across businesses, so the business it acts on is one of its own
+ * arguments (screen-actions.ts) and is kept.
  */
-function inputOf(tool: ScreenActionTool, args: Args, ctx: ToolContext): Args {
+async function inputOf(
+  db: Db,
+  tool: ScreenActionTool,
+  args: Args,
+  ctx: ToolContext,
+): Promise<Args> {
   if (tool.staff) {
     const declared = new Set(Object.keys(tool.input.shape));
     return Object.fromEntries(Object.entries(args).filter(([k]) => declared.has(k)));
   }
-  return {
-    ...addonToolArguments(tool, args),
-    ...(tool.scope.includes('workspaceId') ? { workspaceId: ctx.workspaceId } : {}),
-    ...(tool.scope.includes('organizationId') ? { organizationId: ctx.organizationId } : {}),
-  };
+  return { ...ownArguments(tool, args), ...(await scopeIds(db, ctx, tool, args)) };
+}
+
+/**
+ * The card's line for which business an agency's change is in, when that isn't simply the one asked in: the client
+ * business it names, or the whole agency.
+ */
+async function whereLine(
+  db: Db,
+  ctx: ToolContext,
+  tool: ScreenActionTool,
+  input: Args,
+): Promise<{ label: string; value: string } | null> {
+  if (tool.agencyDoor && !input['workspaceId'])
+    return { label: 'For', value: 'The whole agency, as Agency area → Migrations does it' };
+  if (!tool.forBusiness || typeof input['workspaceId'] !== 'string') return null;
+  const me = await query<{ workspaces: { id: string; name: string }[] }>(db, ctx, 'account.me');
+  const name = me.workspaces.find((w) => w.id === input['workspaceId'])?.name;
+  return name ? { label: 'Business', value: name } : null;
 }
 
 /** What the model reads back: the command's answer, cut short when it is too long to read. */
@@ -99,7 +121,7 @@ export async function runScreenAction(
   const done = await executeCommand(
     db,
     tool.command,
-    inputOf(tool, args, ctx),
+    await inputOf(db, tool, args, ctx),
     ctx.actor,
     meta(ctx),
   );
@@ -125,7 +147,7 @@ export async function prepareScreenAction(
   webUrl = '',
 ): Promise<PreparedAction> {
   // The guided setup's saves take the screens' whole answers: the model's go over the ones kept (setup-screens.ts).
-  const given = inputOf(tool, args, ctx);
+  const given = await inputOf(db, tool, args, ctx);
   const setup = await setupInput(db, ctx, tool, given, webUrl);
   const input = setup?.input ?? given;
   const checked = tool.command.input.safeParse(input);
@@ -147,10 +169,13 @@ export async function prepareScreenAction(
   const own = workflowScreenCards[tool.command.name];
   if (own) return own.prepare(db, ctx, args, { name: tool.name, toolCallId });
   const shown = tool.input.safeParse(args);
+  // Which business it's in goes on its own line, by name, never as the id or the door it was asked through.
+  const fields = cardFields(tool, ownArguments(tool, shown.success ? (shown.data as Args) : args));
+  const where = await whereLine(db, ctx, tool, input);
   return {
     card: settingsCard(toolCallId, tool.name, {
       title: 'Do this?',
-      fields: cardFields(tool, shown.success ? (shown.data as Args) : args),
+      fields: where ? [...fields.slice(0, 1), where, ...fields.slice(1, 9)] : fields,
       confirmLabel: 'Confirm',
       warnings: tool.warning ? [{ kind: 'caution', text: tool.warning }] : [],
     }),
@@ -236,7 +261,7 @@ export async function commitScreenAction(
   webUrl = '',
 ): Promise<CommittedAction> {
   // Over the answers kept now, so only what the card showed changing changes.
-  const given = inputOf(tool, args, ctx);
+  const given = await inputOf(db, tool, args, ctx);
   const setup = await setupInput(db, ctx, tool, given, webUrl);
   const done = await executeCommand(db, tool.command, setup?.input ?? given, ctx.actor, meta(ctx));
   // The command has run by now, so a look-up for its words that fails falls back to the plain answer below, never
