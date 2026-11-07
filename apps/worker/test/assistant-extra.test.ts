@@ -611,7 +611,7 @@ describe('Settings → Migrations', () => {
     const tools = allScreenActionTools();
     const named = (name: string) => tools.find((t) => t.name === name);
     expect(named('do_migration_pause')!.permission).toBe('migrations.manage');
-    expect(named('do_migration_start')!.warning).toContain('Roll back');
+    expect(named('do_migration_start')!.warning).toContain('Take it back');
     expect(named('do_migration_map_scopes')!.warning).toContain('new business');
     expect(named('do_migration_delete')).toBeUndefined();
     expect(named('do_migration_rollback')).toBeUndefined();
