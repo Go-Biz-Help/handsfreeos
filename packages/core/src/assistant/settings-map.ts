@@ -1098,36 +1098,40 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   my_account: {
     label: 'Account',
-    what: 'your own name, how the app looks, your side menu, your sign-in, and what you are told about',
+    what: 'your own name, how the web app looks, your side menu, your sign-in, what you are told about, your cell, and the businesses you are in with your role in each',
     where: ['Settings', 'Account'],
     onScreen: [
-      'Profile: your name',
-      'Appearance: Light, Dark or System',
-      'Side menu: Edit menu, to reorder, group or hide places in the side menu',
-      'Sign-in methods: Password, Google, Passkeys',
-      'Notifications: which push and email alerts you get',
-      'My cell phone',
-      'Delete my account',
+      'Profile: your name, and the email you sign in with (it can’t be changed here yet); your initials stand in for a photo',
+      'Appearance: Light, Dark or System, for the web app, saved to your account; the phone app keeps its own',
+      'Side menu: how many places are in it, in groups and hidden, and Edit menu (Move up, Move down, Move to a group, Add a group, Group name, Ungroup, Hide and Show, Use suggested groups, Start over, then Save menu)',
+      'Sign-in methods: Password, Google, Passkeys ("Keep at least two so you are never locked out")',
+      'Notifications: each kind with its push and email switches, and how many phones the pushes go to; then the ones that only email',
+      'My cell phone: your number, Verified or Not verified yet, and Verify my cell',
+      'Delete my account: type your email address, then Delete my account; a business you are the only owner of is named first',
     ],
     path: '/settings',
     permission: null,
     canChange: [
       'your name',
-      'light or dark',
-      'which emails you get, each kind of phone alert, and the agency daily email',
-      'hide or show places in your side menu, use the suggested groups, or start the menu over',
+      'the web app’s light or dark (the phone app’s is set on that phone, under More, then Settings, then Appearance)',
+      'which emails you get, each kind of phone alert, and the daily agency digest (agency owners and admins)',
+      'your side menu: hide or show places, move them, put them in a group by name, rename or ungroup a group, use the suggested groups, or start over',
+      'add a business the way Create workspace does, under one of your organizations (its owners and admins)',
     ],
     handovers: [
       {
         what: 'change your password, Google sign-in or passkeys',
         why: 'these are your keys to the account; you set them yourself',
-        steps: ['Open Settings → Account.', 'Use Sign-in methods to change any of them.'],
+        steps: [
+          'Open Settings → Account (on the phone: More, then Settings, then Profile and sign-in, which opens it on the web).',
+          'Use Sign-in methods to change any of them, and keep at least two.',
+        ],
       },
       {
         what: 'confirm your cell number',
         why: 'HandsFreeOS calls it and you press 1, so it has to be you',
         steps: [
-          'Open Settings → Account and find My cell phone.',
+          'Open Settings → Account and find My cell phone (on the phone: More, then Settings, then My cell phone).',
           'Put your number in and press Verify my cell.',
           'Answer the call and press 1.',
         ],
@@ -1135,8 +1139,23 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       {
         what: 'delete your account',
         why: 'it cannot be undone, so it is typed in by hand',
-        steps: ['Open Settings → Account.', 'Under Delete my account, type your email to confirm.'],
+        steps: [
+          'Open Settings → Account (on the phone: More, then Settings, then Delete my account).',
+          'If you’re a business’s only owner, make someone else an owner of it first, in its Members: it’s named there.',
+          'Under Delete my account, type your email address and press Delete my account.',
+        ],
       },
+    ],
+    howTo: [
+      'Not getting notifications on the phone: in the phone app, More, then Settings, then Notifications; This phone says whether it gets them; press Turn on notifications, or Open the phone’s settings when they’re off there, or Try again when it wasn’t added',
+      'Dark mode on the phone: in the phone app, More, then Settings, then Appearance (System, Light or Dark, for that phone alone)',
+      'Fewer alerts at night: turn kinds off under Notifications, or use the phone’s own Focus or Do Not Disturb; on an iPhone, Urgent items and safety check-ins can still break through Focus',
+      'Switch business: press the business name at the top of the side menu; on the phone, the business’s mark at the top left, or Switch on their card at the top of More',
+    ],
+    notHere: [
+      'changing the email you sign in with (it’s coming with the security settings)',
+      'a profile photo (your initials stand in for now)',
+      'quiet hours for your own alerts (quiet hours are only for what goes to customers)',
     ],
   },
   my_calendar: {

@@ -3,6 +3,7 @@ import { emptyUsage, type AiProvider, type AiRequest } from '@hfos/ai';
 import {
   addDays,
   appointmentCreate,
+  appointmentSetStatus,
   applyPatch,
   assistantToolByName,
   attendeeConfirm,
@@ -49,6 +50,7 @@ import { questionContext, toolsFor } from '../src/assistant/context';
 import { ask as runQuestion } from '../src/assistant/runtime';
 import { scriptedAssistant } from '../src/assistant/scripted';
 import { calendarConfirmTools, calendarReadTools } from '../src/assistant/tools-calendar';
+import { screenActionToolByName } from '../src/assistant/tools-screen-actions';
 import { createToolExecutor } from '../src/assistant/tools-write';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -892,6 +894,30 @@ describe('moving and booking, as the Move dialog and New appointment do', () => 
     await expect(
       tool.reschedule_appointment!.prepare(db(), ctx(), { appointmentId: id }, randomUUID()),
     ).rejects.toMatchObject({ message: expect.stringContaining('Say what changes') });
+  });
+
+  it('says a visit is running over on its own, as Still there on “How did it go?” does', async () => {
+    const id = await visitAt(7, '09:00');
+    const still = screenActionToolByName('do_appointment_still_going')!;
+    expect(still.autonomy).toBe('auto');
+    expect(still.description).toContain('Still there');
+    const exec = createToolExecutor(api());
+    await exec.run(still, still.input.parse({ appointmentId: id }) as never, ctx());
+    // Nothing about the visit changes: the push asks again in an hour, from the event it leaves.
+    expect(
+      await rows<{ n: number }>(
+        admin(),
+        sql`select count(*)::int as n from app.events
+            where event_type = 'appointment.still_going' and entity_id = ${id}`,
+      ),
+    ).toEqual([{ n: 1 }]);
+    expect((await appointments()).find((a) => a.id === id)?.status).toBe('scheduled');
+
+    // Once someone said how it went, there's nothing to check on, as the push's button is told.
+    await run(appointmentSetStatus, { workspaceId, appointmentId: id, status: 'completed' }, owner);
+    await expect(
+      exec.run(still, still.input.parse({ appointmentId: id }) as never, ctx()),
+    ).rejects.toMatchObject({ rule: 'appointment_not_scheduled' });
   });
 
   it('books a time with no customer, as New appointment allows', async () => {

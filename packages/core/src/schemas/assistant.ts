@@ -381,6 +381,11 @@ export const AssistantAskInput = z.object({
   /** They're talking out loud and hear the answer read to them (voice mode): it's written to be said. */
   spoken: z.boolean().default(false),
   /**
+   * Which app asked: the phone's answers give the phone's ways first, and the web app's link for what only the web
+   * does. One that can't be read counts as the web, rather than refusing the question.
+   */
+  app: z.enum(['web', 'phone']).default('web').catch('web'),
+  /**
    * Asked on the phone: its Changes on this phone, when anything is there. One that can't be read is left out rather
    * than refusing the question.
    */

@@ -55,13 +55,17 @@ jest.mock('@/lib/api', () => {
 });
 
 let mockStream: (onEvent: (e: AssistantEvent) => void, signal: AbortSignal) => Promise<void>;
+/** Each question's body as the phone sent it. */
+const mockBodies: unknown[] = [];
 jest.mock('../stream', () => ({
   ...jest.requireActual<object>('../stream'),
   assistantConfigured: () => true,
   warmAssistant: jest.fn(async () => undefined),
   stopRun: jest.fn(async () => ({ stopping: false })),
-  streamAnswer: (_body: unknown, onEvent: (e: AssistantEvent) => void, signal: AbortSignal) =>
-    mockStream(onEvent, signal),
+  streamAnswer: (body: unknown, onEvent: (e: AssistantEvent) => void, signal: AbortSignal) => {
+    mockBodies.push(body);
+    return mockStream(onEvent, signal);
+  },
 }));
 
 const WS = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
@@ -184,6 +188,8 @@ describe('asking and leaving', () => {
     await act(async () => {
       result.current.ask('Who owes us?');
     });
+    // Said to be the phone's, so the answer gives the phone's ways first.
+    expect(mockBodies.at(-1)).toMatchObject({ text: 'Who owes us?', app: 'phone' });
     expect(rememberedWaiting(USER, WS)).toMatchObject({ threadId: null });
     await act(async () => send({ type: 'run', runId: RUN, threadId: THREAD }));
     expect(rememberedWaiting(USER, WS)).toMatchObject({ threadId: THREAD });

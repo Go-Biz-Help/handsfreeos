@@ -39,7 +39,6 @@ import {
   metaAccountTrouble,
   migrationStatusWords,
   money,
-  notificationStates,
   PARTNERS_WORDS,
   partSays,
   PAYMENT_ACCOUNT_BADGES,
@@ -71,6 +70,7 @@ import type { Db } from '@hfos/db/client';
 import type { WorkerServices } from '../services';
 import { addOnsRead, addOnsTidy, voteRead } from './addons-page';
 import { publicOriginFor } from './full-links';
+import { meRead, myCellRead, phonesRead } from './my-account';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
 import { query, type ReadTool } from './tools-read';
@@ -619,21 +619,12 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
   action_center: [{ name: 'attention.settings', as: 'actionCenter', shape: actionCenterOf }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate', shape: teammateRead }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],
+  // As Settings → Account shows it to them: only the rows their own screen has (my-account.ts).
   my_account: [
-    { name: 'account.me', as: 'me' },
-    {
-      // The phones their alerts go to, as Settings → Account lists them: none means phone alerts reach nobody.
-      name: 'push_device.list',
-      as: 'phonesForAlerts',
-      shape: (v) =>
-        (
-          (
-            v as {
-              devices?: { platform: string; deviceName: string | null; lastSeenAt: string }[];
-            }
-          )?.devices ?? []
-        ).map((d) => ({ phone: d.deviceName ?? d.platform, lastSeenAt: d.lastSeenAt })),
-    },
+    { name: 'account.me', as: 'me', shape: meRead },
+    { name: 'user_phone.get', as: 'myCell', shape: (v, _db, ctx) => myCellRead(v, ctx) },
+    // The phones their alerts go to: none means phone alerts reach nobody, and the note says how to fix it.
+    { name: 'push_device.list', as: 'phonesForAlerts', shape: phonesRead },
   ],
   my_calendar: [
     {
@@ -682,35 +673,6 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     },
   ],
 };
-
-/**
- * This person's own account, as Settings → Account shows it: their name and address, their settings, and every alert
- * as it is set now, defaults filled in, so "will I hear about a booking?" has an answer. The rest of `account.me` (the
- * businesses they reach) the model never needs. New support tickets is HandsFreeOS's own support people's alone, as
- * their Notifications show it: anyone else is never told it exists (the owner, 2026-10-27).
- */
-const meShape = (me: unknown, answersSupport: boolean) => {
-  const user = (me as { user?: Record<string, unknown> } | null)?.user;
-  return user
-    ? {
-        fullName: user['fullName'],
-        email: user['email'],
-        settings: answersSupport ? user['settings'] : withoutSupportSwitch(user['settings']),
-        alerts: notificationStates(user['settings']).filter(
-          (a) => answersSupport || !a.supportOnly,
-        ),
-        alwaysOn: 'Safety check-in alerts always reach their phones; they can’t be turned off.',
-      }
-    : null;
-};
-
-/** Saved settings without New support tickets' switch, which every save of the phone alerts writes for everyone. */
-function withoutSupportSwitch(settings: unknown): unknown {
-  const push = (settings as { push?: unknown } | null)?.push;
-  if (!push || typeof push !== 'object' || !('supportTickets' in push)) return settings;
-  const { supportTickets: _supportTickets, ...rest } = push as Record<string, unknown>;
-  return { ...(settings as Record<string, unknown>), push: rest };
-}
 
 const areaOf = (args: Args): SettingsArea => args['area'] as SettingsArea;
 
@@ -845,19 +807,12 @@ async function readArea(
   info: SettingsAreaInfo,
   services: WorkerServices | null,
 ): Promise<ToolOutcome> {
-  // Whether they answer HandsFreeOS support, which only their own account's alerts ask.
-  const answersSupport = QUERIES[info.area].some((q) => q.as === 'me')
-    ? query<{ staff: unknown }>(db, ctx, 'platform.me').then(
-        (m) => !!m.staff,
-        () => false,
-      )
-    : Promise.resolve(false);
   const parts = await Promise.all(
     QUERIES[info.area].map(async (q) => {
       const value = await query<unknown>(db, ctx, q.name, q.input?.(ctx)).catch(() => null);
       const shaped =
         value === null ? null : q.shape ? await q.shape(value, db, ctx, services) : value;
-      return [q.as, q.as === 'me' ? meShape(value, await answersSupport) : shaped] as const;
+      return [q.as, shaped] as const;
     }),
   );
   const missing = parts.filter(([, v]) => v === null).map(([as]) => as);
@@ -874,9 +829,48 @@ async function readArea(
   };
 }
 
+/** The words of a phrase, for matching what they asked about against an area's steps. */
+const wordsOf = (text: string) =>
+  new Set(
+    text
+      .toLowerCase()
+      .split(/[^a-z]+/)
+      .filter((w) => w.length > 2),
+  );
+
+/**
+ * The area's steps they asked about: the one named as asked, else the one sharing most words with it ("verify my
+ * cell" is confirm your cell number), else the first.
+ */
+export function handoverAsked(
+  info: SettingsAreaInfo,
+  what: string | undefined,
+): SettingsAreaInfo['handovers'][number] | undefined {
+  const asked = what?.trim().toLowerCase();
+  if (!asked) return info.handovers[0];
+  const same = info.handovers.find((h) => h.what.toLowerCase() === asked);
+  if (same) return same;
+  const words = wordsOf(asked);
+  let best = info.handovers[0];
+  let most = 0;
+  for (const h of info.handovers) {
+    let shared = 0;
+    for (const w of wordsOf(`${h.what} ${h.steps.join(' ')}`)) if (words.has(w)) shared += 1;
+    if (shared > most) {
+      most = shared;
+      best = h;
+    }
+  }
+  return best;
+}
+
 /** The steps as a card: one row a step, linking to the screen they happen on. */
-function helpCard(workspaceId: string, info: SettingsAreaInfo): AssistantCard | null {
-  const first = info.handovers[0];
+function helpCard(
+  workspaceId: string,
+  info: SettingsAreaInfo,
+  what: string | undefined,
+): AssistantCard | null {
+  const first = handoverAsked(info, what);
   if (!first) return null;
   const { where, href } = handoverScreen(workspaceId, info, first);
   return {
@@ -903,7 +897,8 @@ export const settingsReadTools: Record<
 
   async settings_help(_db, ctx, args) {
     const info = settingsArea(areaOf(args));
-    const card = helpCard(ctx.workspaceId, info);
+    const what = typeof args['what'] === 'string' ? args['what'] : undefined;
+    const card = helpCard(ctx.workspaceId, info, what);
     return {
       result: {
         area: info.area,

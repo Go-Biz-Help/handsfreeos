@@ -7,7 +7,16 @@
  * zone and time off too, as Members → ⋯ → Edit hours does, and the hours commands check that it's theirs to set.
  */
 
-import { HfosError, plainSpaces, zonePickLabel } from '@hfos/core/server';
+import {
+  APPEARANCE_LABELS,
+  EMAIL_ONLY_ROWS,
+  HfosError,
+  NOTIFICATION_ROWS,
+  plainSpaces,
+  zonePickLabel,
+  type AppearanceChoice,
+  type EmailSwitch,
+} from '@hfos/core/server';
 import type { Db } from '@hfos/db/client';
 import { firstName } from './calendar-format';
 import type { ToolContext } from './runtime';
@@ -149,22 +158,31 @@ const zoneArg = (args: Args): { timezone?: string | null } => {
   return zone === undefined ? {} : { timezone: zone === 'business' ? null : zone };
 };
 
-/** Which email goes with which switch, in the words the settings screen uses. */
-const EMAIL_SWITCHES: Record<string, { key: string; label: string }> = {
-  emailWhenCustomerWaiting: { key: 'unansweredEmail', label: 'A customer is waiting' },
-  morningEmail: { key: 'attentionDigest', label: 'The morning list' },
-  eveningEmail: { key: 'eveningSummary', label: 'The end-of-day email' },
-  emailWhenAiHandsOver: { key: 'aiHandoff', label: 'Your AI hands a customer over' },
-  emailWhenBooked: { key: 'bookingEmail', label: 'Someone books' },
-  emailWhenPaid: { key: 'paymentEmail', label: 'Someone pays' },
-  emailWhenAddonNeedsYou: { key: 'addonEmail', label: 'An add-on needs you' },
+/** Each input's email switch. */
+const EMAIL_KEYS: Record<string, EmailSwitch> = {
+  emailWhenCustomerWaiting: 'unansweredEmail',
+  morningEmail: 'attentionDigest',
+  eveningEmail: 'eveningSummary',
+  emailWhenAiHandsOver: 'aiHandoff',
+  emailWhenBooked: 'bookingEmail',
+  emailWhenPaid: 'paymentEmail',
+  emailWhenAddonNeedsYou: 'addonEmail',
 };
 
-const APPEARANCE_WORDS: Record<string, string> = {
-  light: 'Light',
-  dark: 'Dark',
-  system: 'Whatever this device is set to',
-};
+/** Which email goes with which switch, named as its row on Settings → Account's Notifications ("Urgent items"). */
+const EMAIL_SWITCHES: Record<string, { key: EmailSwitch; label: string }> = Object.fromEntries(
+  Object.entries(EMAIL_KEYS).map(([arg, key]) => [
+    arg,
+    {
+      key,
+      label: [...NOTIFICATION_ROWS, ...EMAIL_ONLY_ROWS].find((r) => r.email === key)?.title ?? key,
+    },
+  ]),
+);
+
+/** Said on the card whenever it changes the look: the phone app keeps its own, which this never touches. */
+const WEB_LOOK_ONLY =
+  'This changes the web app, for every browser you sign in on. The phone app keeps its own: set it on the phone under More → Settings → Appearance.';
 
 const updateMyAccount: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -177,19 +195,27 @@ const updateMyAccount: SettingsConfirmTool = {
     }
     const appearance = str(args['appearance']);
     if (appearance)
-      fields.push({ label: 'Appearance', value: APPEARANCE_WORDS[appearance] ?? appearance });
+      fields.push({
+        label: 'Web app’s appearance',
+        value: APPEARANCE_LABELS[appearance as AppearanceChoice] ?? appearance,
+      });
     for (const [arg, { label }] of Object.entries(EMAIL_SWITCHES)) {
       const value = bool(args[arg]);
       if (value !== undefined)
-        fields.push({ label: `Email when: ${label}`, value: value ? 'Yes' : 'No' });
+        fields.push({ label: `Email: ${label}`, value: value ? 'On' : 'Off' });
     }
     return {
       card: settingsCard(toolCallId, 'update_my_account', {
         title: 'Change your account',
         fields,
         confirmLabel: 'Save the change',
+        ...(appearance ? { warnings: [{ kind: 'note' as const, text: WEB_LOOK_ONLY }] } : {}),
       }),
-      result: { waiting: true, changes: fields.map((f) => f.label) },
+      result: {
+        waiting: true,
+        changes: fields.map((f) => f.label),
+        ...(appearance ? { note: WEB_LOOK_ONLY } : {}),
+      },
     };
   },
 
@@ -216,7 +242,8 @@ const updateMyAccount: SettingsConfirmTool = {
     });
     return {
       outcome: 'Saved',
-      href: `/app/w/${ctx.workspaceId}/settings`,
+      // Notifications' own section when only emails changed: the phone opens its Notifications screen for it.
+      href: `/app/w/${ctx.workspaceId}/settings${touchedNotifications && !settings.theme && !str(args['fullName']) ? '#notifications' : ''}`,
       command: 'user.update_profile',
     };
   },

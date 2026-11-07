@@ -129,6 +129,21 @@ describe('Assistant context (PERF-M20)', () => {
     expect(turnText(PROMPT)).not.toContain('Changes on this phone');
   });
 
+  it('gives the phone’s ways first when asked on the phone, with the web’s whole link for what only the web does', () => {
+    const fromPhone = {
+      webApp: 'https://app.handsfreeos.com',
+      accountPage: 'https://app.handsfreeos.com/app/w/w1/settings',
+    };
+    const phone = turnText({ ...PROMPT, fromPhone });
+    expect(phone).toContain('They are asking from the phone app.');
+    expect(phone).toContain('https://app.handsfreeos.com/app/w/w1/settings');
+    expect(phone).toContain('More, then Settings, then Appearance, kept on that phone alone');
+    expect(phone).toContain('The phone has no side menu');
+    // Only this question's words: the lasting part, shared and cached, never changes with the app asking.
+    expect(lastingText({ ...PROMPT, fromPhone })).toBe(lastingText(PROMPT));
+    expect(turnText(PROMPT)).not.toContain('asking from the phone app');
+  });
+
   it('says when there are more workflows than it lists, and how to read a run on screen', () => {
     const flows = Array.from({ length: 25 }, (_, i) => ({
       id: `w${i}`,

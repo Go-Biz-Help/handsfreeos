@@ -42,7 +42,7 @@ Setting the business up: you can set up and change anything their role allows, i
 
 You can't see other people's chats.
 
-Where things are. Each place below is the way there from the side menu, a click at a time, in the words on the screen, then what is on it. When you say where something is, give the whole way exactly as it is written here, like "Settings → Calendars → Territories", and name the part of the screen when it helps ("in Texting rules"). Never shorten it, never put something straight under Settings that sits a level deeper, and never name a place, tab or button that isn't here: if it isn't here, say you aren't sure where it is rather than guessing. An arrow is a click in the side menu or a row of tabs; after that the words say what to press, so say those too. When they ask how to do something, use its "How to" line. When what they want is under "Not in HandsFreeOS", say plainly that HandsFreeOS doesn't do that, then offer what it does do or what you can do for them; never invent a button for it. When they say they can't see it, don't repeat the same way: their role may not show that tab (say who can), or they may have moved or grouped it in their own side menu (Settings → Account, under Side menu). These are the web app's screens, and an add-on's own pages are listed with the business below, the same way; the phone app's Settings holds the person's own things (notifications, appearance, their cell) and, under This business, its Usage & balance, Main offer and Partners; the rest of the business is set up on the web, except Set up your business and the AI teammate’s quick setup and its test, which the phone app runs too (an add-on on the phone, at the top of More, may keep some of its own there).
+Where things are. Each place below is the way there from the side menu, a click at a time, in the words on the screen, then what is on it. When you say where something is, give the whole way exactly as it is written here, like "Settings → Calendars → Territories", and name the part of the screen when it helps ("in Texting rules"). Never shorten it, never put something straight under Settings that sits a level deeper, and never name a place, tab or button that isn't here: if it isn't here, say you aren't sure where it is rather than guessing. An arrow is a click in the side menu or a row of tabs; after that the words say what to press, so say those too. When they ask how to do something, use its "How to" line. When what they want is under "Not in HandsFreeOS", say plainly that HandsFreeOS doesn't do that, then offer what it does do or what you can do for them; never invent a button for it. When they say they can't see it, don't repeat the same way: their role may not show that tab (say who can), or they may have moved or grouped it in their own side menu (Settings → Account, under Side menu). These are the web app's screens, and an add-on's own pages are listed with the business below, the same way; the phone app's Settings holds the person's own things and this phone's (their cell, Face ID, the businesses kept on it, My safety, notifications and the phone's own appearance) and, under This business, its Usage & balance, Main offer and Partners; the rest of the business is set up on the web, except Set up your business and the AI teammate’s quick setup and its test, which the phone app runs too (an add-on on the phone, at the top of More, may keep some of its own there).
 
 The setup (the person's own account and calendar are theirs, the rest are the business's):
 ${SETTINGS_MAP}
@@ -196,6 +196,18 @@ export interface PromptContext {
   } | null;
   /** Asked on the phone: its Changes on this phone, which never reached HandsFreeOS (only the phone knows them). */
   readonly deviceChanges?: AssistantDeviceChanges | null;
+  /**
+   * Asked from the phone app: its ways come first. The web app's address, and this business's Settings → Account on
+   * it, for what only the web does (sign-in methods, the side menu).
+   */
+  readonly fromPhone?: { readonly webApp: string; readonly accountPage: string } | null;
+}
+
+/** Asked from the phone app: say the phone's way first, and the web's whole link for what only the web does. */
+function fromPhoneLines(p: NonNullable<PromptContext['fromPhone']>): string[] {
+  return [
+    `They are asking from the phone app. Give the phone app’s way first (the phone app lines above), and say plainly when something is only on the web: there they press More, then Open on the web, or open the web app at ${p.webApp}. This business’s Settings → Account on the web is ${p.accountPage}: its sign-in methods (password, Google, passkeys), its side menu and its Appearance are the web’s. The phone has no side menu (the bar along the bottom and More instead), and its own Appearance is under More, then Settings, then Appearance, kept on that phone alone, which no tool of yours changes: say where it is rather than changing the web’s.`,
+  ];
 }
 
 /** Changes on this phone, as the phone sent them: its own words, in quotes, so they're read as data. */
@@ -411,6 +423,7 @@ export function turnText(c: PromptContext): string {
       : c.place
         ? placeLines(c.place)
         : ['No customer, lead or appointment is on screen.']),
+    ...(c.fromPhone ? fromPhoneLines(c.fromPhone) : []),
     ...(c.deviceChanges ? deviceChangesLines(c.deviceChanges) : []),
     ...(c.spoken ? [SPOKEN] : []),
   ];

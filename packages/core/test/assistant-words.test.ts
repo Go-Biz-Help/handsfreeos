@@ -408,6 +408,14 @@ describe('the phone’s own changes, asked about on the phone', () => {
       }).deviceChanges,
     ).toBeNull();
   });
+
+  it('says which app asked, the web unless the phone says so, and never refuses the question over it', () => {
+    expect(AssistantAskInput.parse({ workspaceId: WS, text: 'Hi' }).app).toBe('web');
+    expect(AssistantAskInput.parse({ workspaceId: WS, text: 'Hi', app: 'phone' }).app).toBe(
+      'phone',
+    );
+    expect(AssistantAskInput.parse({ workspaceId: WS, text: 'Hi', app: 'watch' }).app).toBe('web');
+  });
 });
 
 describe('when a chat happened', () => {

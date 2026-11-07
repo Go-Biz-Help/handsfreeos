@@ -529,6 +529,7 @@ export function useAssistantChat(
               text,
               page: pageRef.current,
               path: pathRef.current,
+              app: 'phone',
               ...(opts.spoken ? { spoken: true } : {}),
               ...(deviceChangesRef.current ? { deviceChanges: deviceChangesRef.current } : {}),
             },

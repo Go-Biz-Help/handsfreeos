@@ -457,6 +457,11 @@ export const assistantTools = [
       'The steps for something only the person can do themselves: connecting Google, Outlook, Stripe or Square, connecting a mailbox, connecting an add-on to another service with a sign-in or a key, deleting an add-on’s data or starting one fresh (only an owner), the DNS records for their own email domain, putting the website-chat snippet on their site, passwords and passkeys, confirming their cell, putting a card on the balance (a top-up from the card already on file is do_wallet_top_up, on a card), uploading a logo, paying a founding plan renewal with another card, importing a spreadsheet, connecting the CRM they’re leaving, or deleting their account. Returns the exact way to the screen, what is on it and what to do, as a card. Use it instead of guessing, and offer to do the parts you can.',
     input: z.object({
       area: z.enum(SETTINGS_AREAS).describe('Which part of the setup they are asking about'),
+      what: text(120)
+        .optional()
+        .describe(
+          'Which of the area’s steps they asked about, in its words (like “confirm your cell number” or “delete your account”), so the card shows those steps; left out, its first',
+        ),
     }),
     autonomy: 'auto',
     permission: 'workspace.read',
@@ -1448,23 +1453,44 @@ export const assistantTools = [
   define({
     name: 'update_my_account',
     description:
-      'Change the person’s own account: their name, whether the app is light or dark, and which emails they get from HandsFreeOS. Theirs alone — never another teammate’s.',
+      'Change the person’s own account, as Settings → Account does: their name, the web app’s light or dark, and which emails they get from HandsFreeOS, each named as its row on Notifications. Theirs alone — never another teammate’s. The phone app’s light or dark is kept on each phone (More, then Settings, then Appearance), and this never changes it: asked on the phone, say where it is there. The email they sign in with can’t be changed yet.',
     input: z.object({
       fullName: text(120).optional(),
-      appearance: z.enum(['light', 'dark', 'system']).optional(),
-      emailWhenCustomerWaiting: z.boolean().optional(),
-      morningEmail: z.boolean().optional().describe('The morning list of what needs attention'),
+      appearance: z
+        .enum(['light', 'dark', 'system'])
+        .optional()
+        .describe(
+          'The web app’s look (System follows the computer’s own), saved to their account for every browser they sign in on; never the phone app’s',
+        ),
+      emailWhenCustomerWaiting: z
+        .boolean()
+        .optional()
+        .describe(
+          'The Urgent items email: hot leads, new leads nobody answered and customers left waiting (A customer waiting on a reply has no email of its own)',
+        ),
+      morningEmail: z
+        .boolean()
+        .optional()
+        .describe('Morning summary: at 7 AM, what needs them today'),
       eveningEmail: z
         .boolean()
         .optional()
-        .describe('The end-of-day email with the day in numbers (owners and admins)'),
-      emailWhenAiHandsOver: z.boolean().optional(),
-      emailWhenBooked: z.boolean().optional(),
-      emailWhenPaid: z.boolean().optional(),
+        .describe('End-of-day email: the day in numbers (owners and admins)'),
+      emailWhenAiHandsOver: z
+        .boolean()
+        .optional()
+        .describe('The AI teammate hands you a conversation'),
+      emailWhenBooked: z
+        .boolean()
+        .optional()
+        .describe('Your appointments: one of theirs booked, moved or cancelled'),
+      emailWhenPaid: z.boolean().optional().describe('A customer pays: an invoice paid in full'),
       emailWhenAddonNeedsYou: z
         .boolean()
         .optional()
-        .describe('What an add-on the business uses needs them to see, like a duty running late'),
+        .describe(
+          'An add-on needs you: what an add-on the business uses needs them to see, like a duty running late',
+        ),
     }),
     autonomy: 'confirm',
     permission: 'assistant.use',

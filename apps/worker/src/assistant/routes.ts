@@ -149,6 +149,15 @@ export function registerAssistantRoutes(
       ...context.prompt,
       place: screenPlace(input.path, context.places),
       ...(input.spoken ? { spoken: true } : {}),
+      // Asked on the phone: its ways first, and the web app's address for what only the web does.
+      ...(input.app === 'phone'
+        ? {
+            fromPhone: {
+              webApp: deps.webUrl,
+              accountPage: `${deps.webUrl}/app/w/${input.workspaceId}/settings`,
+            },
+          }
+        : {}),
       // Asked on the phone: what its Changes on this phone shows, which never reached HandsFreeOS.
       ...(input.deviceChanges ? { deviceChanges: input.deviceChanges } : {}),
     };

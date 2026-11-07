@@ -18,6 +18,7 @@ import {
   isOrgPermission,
   isStaffPermission,
   NEVER_FOR_THE_ASSISTANT,
+  PUSH_BUTTONS,
   registry,
   SCREEN_ACTIONS,
   screenActionName,
@@ -67,12 +68,15 @@ const NOT_A_LINK: Readonly<Record<string, string>> = {
 
 /**
  * Each command the web and the phone run, with the files that run it: by its address, by the phone's own
- * `change('…')` (which sends it once there's signal), or through one of the worker's routes above.
+ * `change('…')` (which sends it once there's signal), through one of the worker's routes above, or from a button on a
+ * notification (`PUSH_BUTTONS` in packages/core/src/push.ts: Still there, I’m OK, Reply…), which the phone runs.
  */
 const screenCommands = (() => {
   const found = new Map<string, string[]>();
   const add = (name: string, file: string) =>
     found.set(name, [...(found.get(name) ?? []), relative(ROOT, file)]);
+  for (const button of Object.values(PUSH_BUTTONS))
+    for (const name of button.commands) add(name, join(ROOT, 'packages/core/src/push.ts'));
   for (const dir of ['apps/web/src', 'apps/mobile/src'])
     for (const file of filesIn(join(ROOT, dir))) {
       const source = readFileSync(file, 'utf8');

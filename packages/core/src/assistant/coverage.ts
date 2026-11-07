@@ -112,6 +112,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.remove_person': {},
   // ---- Calendar and an appointment ----
   'appointment.make_meeting_link': {},
+  // Still there, on the "How did it go?" push after a visit: nothing about the visit changes.
+  'appointment.still_going': {
+    about:
+      'As Still there on the “How did it go?” notification does: for a visit of theirs that is running over, so the notification asks again in an hour. The appointmentId comes from todays_schedule or list_appointments. Done or Didn’t happen is marking the visit itself.',
+  },
   'attendee.set_attendance': {},
   'call_suggestion.decide': {},
   'job.add_visit': {},

@@ -47,6 +47,7 @@ import {
   isMenuKey,
   isValidTimeZone,
   lineCheckPriceWords,
+  managesAnAgency,
   MENU_GROUPS_MAX,
   MENU_WORDS,
   menuOf,
@@ -1365,6 +1366,24 @@ const notificationsOf = (settings: Record<string, unknown>) =>
   (settings['notifications'] as Record<string, boolean> | undefined) ?? {};
 
 /**
+ * Daily agency digest's switch as asked, refused for anyone whose Notifications don't have the row: only an agency's
+ * owners and admins do (managesAnAgency), as both apps decide it.
+ */
+function digestAsked(me: Me, args: Args): boolean | undefined {
+  const digest = bool(args['agencyDigestEmail']);
+  if (
+    digest !== undefined &&
+    !managesAnAgency({ organizations: me.organizations, businesses: me.workspaces })
+  )
+    throw HfosError.rule(
+      'not_an_agency',
+      409,
+      'The daily agency digest is only for the owners and admins of an agency with more than one business, so you have no such email to turn on or off. Nothing was changed.',
+    );
+  return digest;
+}
+
+/**
  * The person's own phone alerts, as Settings → Account under Notifications saves them: one tool for everyone's, and
  * HandsFreeOS's support people's New support tickets on a tool of its own, so nobody else is told it exists.
  */
@@ -1378,10 +1397,10 @@ const myAlerts = (name: string): SettingsConfirmTool => ({
       value: next[k] ? 'On' : 'Off',
     }));
     const pushChanged = fields.length > 0;
-    const digest = bool(args['agencyDigestEmail']);
+    const digest = digestAsked(me, args);
     const digestWas = notificationsOf(me.user.settings)['agencyDigest'] !== false;
     if (digest !== undefined && digest !== digestWas)
-      fields.push({ label: 'Email: Daily agency digest', value: digest ? 'Yes' : 'No' });
+      fields.push({ label: 'Email: Daily agency digest', value: digest ? 'On' : 'Off' });
     if (!fields.length) throw nothingChanges('Your alerts are already set that way.');
     const warnings: Warning[] = [];
     if (pushChanged && Object.values(next).some(Boolean)) {
@@ -1394,11 +1413,6 @@ const myAlerts = (name: string): SettingsConfirmTool => ({
           text: 'You aren’t signed in on the HandsFreeOS phone app yet, so phone alerts start once you are.',
         });
     }
-    if (digest && !me.organizations.length)
-      warnings.push({
-        kind: 'note',
-        text: 'That email only goes to an agency’s owners and admins.',
-      });
     return {
       card: settingsCard(toolCallId, name, {
         title: 'Change your alerts',
@@ -1414,7 +1428,7 @@ const myAlerts = (name: string): SettingsConfirmTool => ({
     const me = await meOf(db, ctx);
     const now = pushSwitchesOf(me.user.settings);
     const next = nextPush(now, args);
-    const digest = bool(args['agencyDigestEmail']);
+    const digest = digestAsked(me, args);
     // Settings save a whole top-level key at a time: all eleven push switches, and every email switch.
     const settings = {
       ...(PUSH_SWITCHES.some((k) => next[k] !== now[k]) ? { push: next } : {}),
@@ -1466,7 +1480,10 @@ type Open = (key: MenuPlaceKey) => boolean;
  * The person's menu as Edit menu starts from it in this business: what they saved, with the add-ons running here
  * they never arranged at the end; and which places are open to them here, the only ones the editor lists.
  */
-async function menuHere(db: Db, ctx: ToolContext): Promise<{ me: Me; menu: Menu; open: Open }> {
+export async function menuHere(
+  db: Db,
+  ctx: ToolContext,
+): Promise<{ me: Me; menu: Menu; open: Open }> {
   const [me, { workspace }] = await Promise.all([
     meOf(db, ctx),
     query<{ workspace: { permissions: string[]; addons: string[] } }>(db, ctx, 'workspace.get'),
@@ -1480,7 +1497,7 @@ async function menuHere(db: Db, ctx: ToolContext): Promise<{ me: Me; menu: Menu;
 }
 
 /** The menu top to bottom as the person sees it, each group with what's in it: "Home, Inbox, More (Forms, Reviews)". */
-function menuLayout(menu: Menu, open: Open): string {
+export function menuLayout(menu: Menu, open: Open): string {
   const clean = normalizeMenu(menu);
   const rows = clean.entries.flatMap((e) => {
     if (e.kind === 'link') return open(e.key) ? [placeLabel(e.key)] : [];
@@ -2239,9 +2256,37 @@ async function agencyOf(db: Db, ctx: ToolContext) {
 const notAgencyAdmin = (name: string) =>
   `Only the owners and admins of ${name} can do this. Ask one of them.`;
 
+/**
+ * The organization a new business goes under: one of theirs named as they call it, else this business's. Its id is
+ * found here from their own list, never taken from the model. Refused, by name, when they have none called that.
+ */
+async function organizationFor(db: Db, ctx: ToolContext, args: Args) {
+  const asked = str(args['organization']);
+  if (!asked) return agencyOf(db, ctx).then((a) => ({ ...a, id: ctx.organizationId }));
+  const me = await meOf(db, ctx);
+  const org = me.organizations.find((o) => o.name.toLowerCase() === asked.toLowerCase());
+  if (!org)
+    throw HfosError.notFound(
+      me.organizations.length
+        ? `You have no organization called “${asked}”. Yours are ${joinAnd(me.organizations.map((o) => `“${o.name}”`))}.`
+        : `You aren’t an owner or admin of any organization, so you can’t add a business. Ask an owner of ${agencyName(me, ctx)} to add it.`,
+    );
+  return {
+    id: org.id,
+    org,
+    name: org.name,
+    businesses: me.workspaces.filter((w) => w.organizationId === org.id),
+  };
+}
+
+/** This business's organization's name, as the person's own list has it. */
+const agencyName = (me: Me, ctx: ToolContext) =>
+  me.workspaces.find((w) => w.organizationId === ctx.organizationId)?.organizationName ??
+  'this business';
+
 const addBusiness: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const { org, name: orgName, businesses } = await agencyOf(db, ctx);
+    const { org, name: orgName, businesses } = await organizationFor(db, ctx, args);
     const name = str(args['name'])!;
     const timezone = str(args['timezone']) ?? ctx.timezone;
     if (!isValidTimeZone(timezone))
@@ -2263,6 +2308,7 @@ const addBusiness: SettingsConfirmTool = {
           ...(twin
             ? [{ kind: 'caution', text: `${orgName} already has a business called ${twin.name}.` }]
             : []),
+          { kind: 'note', text: 'It opens its guided setup next, one question at a time.' },
         ];
     return {
       card: settingsCard(toolCallId, 'add_business', {
@@ -2285,15 +2331,17 @@ const addBusiness: SettingsConfirmTool = {
 
   async commit(db, ctx, args) {
     const name = str(args['name'])!;
+    const { id: organizationId } = await organizationFor(db, ctx, args);
     const out = await command<{ workspaceId: string }>(db, ctx, 'workspace.create', {
-      organizationId: ctx.organizationId,
+      organizationId,
       name,
       timezone: str(args['timezone']) ?? ctx.timezone,
       joinAsOwner: args['whoRunsIt'] === 'me',
     });
+    // Where Create workspace goes next: the guided setup, one question at a time.
     return {
-      outcome: `${name} is added. It starts empty, ready to set up.`,
-      href: `/app/w/${out.workspaceId}`,
+      outcome: `${name} is added. Open it to start its guided setup.`,
+      href: `/onboarding/${out.workspaceId}`,
       command: 'workspace.create',
     };
   },
