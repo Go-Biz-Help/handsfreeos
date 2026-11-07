@@ -8,7 +8,7 @@
  *   the box **See who reacted to this** opens, who reacted. The person themselves is left out. Nothing is pressed but
  *   that, and the box's Close.
  */
-import { clean, labelOf } from './dom';
+import { clean, labelOf, mainOf } from './dom';
 import { shown } from './fetch';
 import { yourProfile } from './friends';
 import { COMMENT, commentsIn, postBoxes } from './posts';
@@ -17,7 +17,6 @@ import { facebookUrl, profileFromUrl, profileKey } from './urls';
 import { hasWriting, WRITING } from './actions';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
-const mainOf = (doc: Document): Element => doc.querySelector('[role="main"]') ?? doc.body;
 
 /** The box at the top of a group that starts a post, and the button that puts it up. */
 const START =
