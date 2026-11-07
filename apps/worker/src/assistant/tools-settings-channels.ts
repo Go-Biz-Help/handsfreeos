@@ -7,9 +7,18 @@
  * before it goes to the carriers, because they take days to answer and a wrong answer means starting again.
  */
 
-import { chatSnippet, chatSnippetSrc, HfosError, money, normalizeChatOrigins } from '@hfos/core';
+import {
+  businessAddressOf,
+  chatSnippet,
+  chatSnippetSrc,
+  HfosError,
+  money,
+  normalizeChatOrigins,
+} from '@hfos/core';
 import type { Db } from '@hfos/db/client';
-import type { ToolContext } from './runtime';
+import { hasPermission } from '../http/common';
+import type { TelephonyProvider } from '../telephony/provider';
+import type { ToolContext, ToolOutcome } from './runtime';
 import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
 
@@ -233,6 +242,120 @@ const managePhoneNumber: SettingsConfirmTool = {
     });
     return { outcome: 'Given up', href, command: 'phone_number.release' };
   },
+};
+
+/** How far around the business's town the setup looks first, as Your business number does. */
+const NEAR_MILES = 25;
+
+/**
+ * The carrier's free numbers, as Settings → Texting & calls and the setup's Your business number search for them:
+ * through the worker's own telephony, which the API never holds, for someone who may get one. With nothing asked,
+ * near the business's address, as the setup does first. Nothing is bought here.
+ */
+async function findPhoneNumbers(
+  db: Db,
+  ctx: ToolContext,
+  args: Args,
+  telephony: TelephonyProvider | null,
+): Promise<ToolOutcome> {
+  if (!(await hasPermission({ httpDb: db }, ctx.actor.userId, ctx.workspaceId, 'channels.manage')))
+    throw HfosError.forbidden(
+      'Only people who manage texting and calls here can look for a business number. Ask an owner or admin of this business.',
+    );
+  if (!telephony)
+    throw HfosError.rule(
+      'numbers_unavailable',
+      503,
+      'Numbers can’t be looked up from here right now. Look on Settings → Texting & calls, or try again in a minute.',
+    );
+  const numberType = args['numberType'] === 'toll_free' ? 'toll_free' : 'local';
+  const areaCode = str(args['areaCode']);
+  const contains = str(args['contains']);
+  let city = numberType === 'local' ? str(args['city']) : undefined;
+  let state = numberType === 'local' ? str(args['state'])?.toUpperCase() : undefined;
+  const miles = num(args['withinMiles']);
+  let withinMiles = city ? miles : undefined;
+  if (city && !state)
+    throw HfosError.validation(
+      [{ path: 'state', message: 'A city needs its state with it.' }],
+      `Add ${city}’s state too, like AL: many towns share a name.`,
+    );
+  // The carriers look by a city in its state, never a whole state: one alone would quietly search somewhere else.
+  if (state && !city)
+    throw HfosError.validation(
+      [{ path: 'city', message: 'A state needs a city in it.' }],
+      `Name a city in ${state} too, or give an area code there instead.`,
+    );
+  // Nothing asked for: near the business, as the setup looks first.
+  let near = false;
+  if (numberType === 'local' && !city && !areaCode && !contains && args['anywhere'] !== true) {
+    const ws = await query<{ workspace: { settings: Args } }>(db, ctx, 'workspace.get').catch(
+      () => null,
+    );
+    const address = businessAddressOf(ws?.workspace.settings);
+    if (address) {
+      city = address.city;
+      state = address.state.toUpperCase();
+      // "Within 50 miles of us" widens it; nothing said is the setup's own 25.
+      withinMiles = miles ?? NEAR_MILES;
+      near = true;
+    }
+  }
+  const found = await telephony.searchNumbers({
+    numberType,
+    ...(areaCode ? { areaCode } : {}),
+    ...(contains ? { contains } : {}),
+    ...(city && state ? { city, state } : {}),
+    ...(city && withinMiles ? { withinMiles } : {}),
+    limit: 10,
+  });
+  const where =
+    numberType === 'toll_free'
+      ? [
+          'Toll-free',
+          areaCode ? `Starting ${areaCode}` : null,
+          contains ? `Carrying ${contains}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : [
+          near ? `Within ${withinMiles} miles of ${city}, ${state}, the business’s town` : null,
+          !near && city
+            ? `Near ${city}, ${state}${withinMiles ? ` (${withinMiles} miles)` : ''}`
+            : null,
+          areaCode ? `Area code ${areaCode}` : null,
+          contains ? `Carrying ${contains}` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ') || 'Anywhere';
+  return {
+    result: {
+      searched: where,
+      numberType,
+      numbers: found.map((n) => ({
+        number: n.e164,
+        shown: phoneLine(n.e164),
+        ...(n.locality ? { town: n.locality } : {}),
+        ...(n.region ? { state: n.region } : {}),
+      })),
+      note: found.length
+        ? 'Free right now, and not held: read them to the person, and get the one they pick with manage_phone_number (it costs money every month, so it waits for their OK).'
+        : 'Nothing free matches all of that right now. Carriers sell only what they have on hand: ask for less (the area code alone, or anywhere) and look again.',
+    },
+  };
+}
+
+/** The ones that need the worker's telephony, which only the worker holds. */
+export const numberSearchTools: Record<
+  string,
+  (
+    db: Db,
+    ctx: ToolContext,
+    args: Args,
+    telephony: TelephonyProvider | null,
+  ) => Promise<ToolOutcome>
+> = {
+  find_phone_numbers: findPhoneNumbers,
 };
 
 // ---------- the carrier registration ----------

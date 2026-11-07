@@ -280,6 +280,7 @@ const STEP_LABEL: Record<string, string> = {
   update_knowledge_profile: 'Changing what your AI knows',
   update_texting_settings: 'Changing texting and calls',
   manage_phone_number: 'Setting up your number',
+  find_phone_numbers: 'Looking for numbers',
   submit_carrier_registration: 'Filling in the registration',
   manage_email_settings: 'Setting up email',
   manage_website_chat: 'Setting up the website chat',

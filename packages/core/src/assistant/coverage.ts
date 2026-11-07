@@ -25,7 +25,24 @@ export interface ScreenAction {
    * kernel checks (offered on workspace.update, which every agency owner and admin holds in each of its businesses).
    */
   readonly offeredTo?: Permission;
+  /** Said to the model after the command's own description: how to call it the way its screen does. */
+  readonly about?: string;
+  /**
+   * Parts of its input the worker fills, never the model (the address the business's pages are on): left out of the
+   * tool's input, so whatever the model says there is dropped.
+   */
+  readonly filled?: readonly string[];
 }
+
+/**
+ * The setup wizards' saves take the whole answers document, as their screens send it. The worker puts the model's
+ * answers over the ones saved so far, so a screen's own are all it gives.
+ */
+const SETUP_ANSWERS_ABOUT =
+  'Pass only the answers this screen changes, under answers (the AI teammate’s under answers.ai): every other answer stays as it was saved, and the card shows what will change.';
+/** Quick setup's answers are the AI teammate's own, so none sit under `ai`. */
+const AI_SETUP_ANSWERS_ABOUT =
+  'Pass only the answers this screen changes, under answers: every other answer stays as it was saved, and the card shows what will change.';
 
 /** The screens' commands the Assistant runs through tools made from the command, by name. */
 export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
@@ -230,13 +247,19 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'funnel.pause': {},
   'funnel.archive': {},
   // ---- AI quick setup and onboarding setup: a screen's answers at a time, from read_ai_setup_get or read_onboarding_setup_get ----
-  'ai_setup.save': {},
-  'ai_setup.finish': {},
+  'ai_setup.save': { about: AI_SETUP_ANSWERS_ABOUT },
+  'ai_setup.finish': {
+    about: `${AI_SETUP_ANSWERS_ABOUT} baseRevision is state.teammate.revision as read_ai_setup_get gave it, or null with no teammate.`,
+    filled: ['pageOrigin'],
+  },
   'onboarding_setup.save': {
+    about: SETUP_ANSWERS_ABOUT,
     warning:
-      'Some screens act as they’re saved: the team screen sends its invitations, the simple page goes live or off, and the booking screen turns the booking page on.',
+      'Some screens act as they’re saved: Your business changes the business’s name, kind, address, time zone and website and starts reading the website; Your goal sends its invitations; Your page goes live or off; Your customers can switch on adding them as you go; Your booking page makes the booking page and turns it on; Payments and reviews saves or takes away the review link.',
   },
   'onboarding_setup.finish': {
+    about: `${SETUP_ANSWERS_ABOUT} baseRevision is state.teammate.revision as read_onboarding_setup_get gave it, or null with no teammate.`,
+    filled: ['pageOrigin'],
     warning: 'Handed to the owner, it emails them an invitation to check it and finish.',
   },
   // ---- Settings → Imports ----
@@ -371,7 +394,7 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
   'payment_connection.connect': 'signing in to Stripe or Square, which only the person can do',
   'review_connection.connect': 'signing in to Google or Facebook, which only the person can do',
   'migration.connect':
-    'signing in at the CRM the business is leaving, which only the person can do',
+    'signing in, or pasting a private token, at the CRM the business is leaving, which only the person can do',
   'invitation.accept': 'accepting an invitation, which is the person’s own',
   'affiliate.accept_terms':
     'agreeing to the affiliate terms, which the person reads and agrees to themselves',

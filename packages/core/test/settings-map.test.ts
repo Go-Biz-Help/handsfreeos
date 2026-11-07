@@ -67,9 +67,18 @@ function expectRealWay(way: readonly string[], name: string) {
   });
 }
 
-/** A business's pages are under /app/w/<workspaceId>; the agency area's say their own /app/org/… in full. */
+/**
+ * A business's pages are under /app/w/<workspaceId>; those outside it say their own path in full: the agency area's
+ * (/app/org/…) and the guided setup's (/onboarding/…).
+ */
 const pageExists = (path: string) =>
-  existsSync(join(path.startsWith('/app/') ? join(WEB, 'app') : PAGES, path, 'page.tsx'));
+  existsSync(
+    join(
+      path.startsWith('/app/') || path.startsWith('/onboarding/') ? join(WEB, 'app') : PAGES,
+      path,
+      'page.tsx',
+    ),
+  );
 
 const EVERY_STEP = [...new Set(Object.values(MENUS).flatMap((m) => [...m]))];
 const endsWithStep = (text: string) =>

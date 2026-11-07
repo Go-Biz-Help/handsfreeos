@@ -29,6 +29,20 @@ export const isScreenActionTool = (tool: object): tool is ScreenActionTool =>
 export const screenActionName = (command: string) => `do_${command.replace(/\./g, '_')}`;
 
 /**
+ * The input without these parts. The kernel still parses the command's own schema, refinements and all, before
+ * anything runs, so the model's view can do without them (as scopedInput's does).
+ */
+function without(input: z.ZodObject, keys: readonly string[]): z.ZodObject {
+  const shape = input.shape as Record<string, z.ZodType>;
+  if (!keys.some((k) => k in shape)) return input;
+  const rest = z.object(
+    Object.fromEntries(Object.entries(shape).filter(([k]) => !keys.includes(k))),
+  );
+  const catchall = input._zod.def.catchall;
+  return catchall ? rest.catchall(catchall) : rest;
+}
+
+/**
  * The tools, from the registry. A command of risk 0 (setting a note aside, marking a notification opened) runs on
  * its own; everything else waits for the person's OK. A staff command looks across businesses, so its input keeps
  * the business it acts on; anyone else's always acts in the business they asked in.
@@ -41,11 +55,13 @@ export function screenActionTools(registry: Pick<Registry, 'command'>): ScreenAc
     const input = command.input;
     const staff = isStaffPermission(permission);
     const view = staff ? { input, scope: [] } : scopedInput(input);
+    // What the worker fills is never the model's to give, so it isn't in what the model sees.
+    const shown = without(view.input, action.filled ?? []);
     return [
       {
         name: screenActionName(name),
-        description: command.description,
-        input: view.input,
+        description: action.about ? `${command.description} ${action.about}` : command.description,
+        input: shown,
         autonomy: command.risk === 0 ? ('auto' as const) : ('confirm' as const),
         permission: permission as Permission,
         command,

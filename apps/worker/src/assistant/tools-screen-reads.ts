@@ -9,12 +9,15 @@ import {
   affiliateCodeLink,
   affiliateLink,
   affiliateMine,
+  aiSetupGet,
   chatSnippet,
   chatSnippetSrc,
   chatWidgetGet,
   executeQuery,
   leadBoard,
   money,
+  onboardingSetupGet,
+  onboardingStatus,
   platformAffiliate,
   platformAffiliates,
   registry,
@@ -29,6 +32,7 @@ import type { Db } from '@hfos/db/client';
 import { z } from 'zod';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { scheduleWords, type TeamSchedule } from './schedule-words';
+import { aiSetupRead, gettingStartedRead, setupRead } from './setup-screens';
 
 /** The most of an answer, in characters of JSON, the model reads whole. */
 const MOST = 16_000;
@@ -267,7 +271,13 @@ export async function runScreenRead(
                 ? withAffiliateLinks(got, false)
                 : tool.query.name === ADDON_SETTINGS
                   ? withDefaults(got)
-                  : got;
+                  : tool.query.name === onboardingSetupGet.name
+                    ? setupRead(got)
+                    : tool.query.name === aiSetupGet.name
+                      ? aiSetupRead(got)
+                      : tool.query.name === onboardingStatus.name
+                        ? gettingStartedRead(got)
+                        : got;
   const json = JSON.stringify(data ?? null);
   return {
     result:

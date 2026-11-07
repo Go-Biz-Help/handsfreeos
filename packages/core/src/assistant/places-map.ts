@@ -9,6 +9,8 @@
  * said yes"). test/settings-map.test.ts checks every arrow here against those menus.
  */
 
+import { PHONE_APP_LINKS } from '../onboarding/app-links';
+
 export interface AppPlace {
   /** What it is called: the side menu's word, or what it is ("A customer’s page"). */
   readonly label: string;
@@ -51,11 +53,13 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Handled by HandsFreeOS',
       'Beside the list: Today (Open calendar, today’s visits, Tasks due today) and Coming up from HandsFreeOS, each with Cancel',
       'Getting started at the top until the person finishes or hides it: for owners and admins the business’s steps (The basics, then When you’re ready), each with its own button and Skip; for everyone else Get set up, their own short list; and Hide guide',
+      'Above the steps, until the business’s guided setup is finished: Set up your business with Start, Finish setting up your business with Carry on once it’s started, or, for an owner whose agency set it up, “<agency> set up your business” with Check it and finish; Take the tour, until it’s taken or skipped',
     ],
     howTo: [
       'Let HandsFreeOS deal with an item: press Let HandsFreeOS Handle on it',
       'Put off a setup step: Skip on its row in Getting started; Undo brings it back',
       'Bring Getting started back after hiding it: Get help at the foot of the menu, then Getting started',
+      'Take the tour of the menu again: Get help at the foot of the menu, then Take the tour (while Getting started isn’t finished), or Take the tour on Getting started',
       'Turn Getting started off for everyone in the business (owners and admins): Settings → Workspace, Getting started guide; the same switch turns it back on',
       'Put an item off: its ⋯, then Snooze and a time (Pick a time… for an exact one)',
       'Give an item to someone: its ⋯, then Assign…',
@@ -66,6 +70,43 @@ export const APP_PLACES: readonly AppPlace[] = [
     ],
     notHere: ['snoozing or dismissing many items at once', 'filtering the list by kind'],
     path: '',
+  },
+  {
+    label: 'Set up your business',
+    what: 'the guided setup a new business goes through, simple questions a screen at a time, about 15 minutes; the answers are kept as it goes, so it carries on later, here or in the phone app, and nothing but the screens that act at once changes until Stay in the loop saves it all',
+    where: ['Home'],
+    then: 'press Start on Set up your business at the top of Getting started (Carry on once it’s started, or Check it and finish for an owner whose agency set it up)',
+    onScreen: [
+      'At the top, where it’s up to (“3 of 15”) and the stop’s name; Next and Back on each screen, and Skip for now on the ones that can wait',
+      'The stops: Your business (name, kind of business, the address, which sets the time zone, and the website, which the AI teammate starts reading), Your goal (What do you want help with first? and How many people work with you?, with Invite them now), About your business, Your hours, Your logo and colour, Your page (only with no website), Your customers, Your booking page (only when customers book a time), Your business number (search near the business, by area code or anywhere, then pick one), Payments and reviews, Your AI teammate (several screens), Stay in the loop (Save; with an AI teammate already, what will change, then Save these changes), Try it, and Done',
+      'Carry on where you left off, Start over, and See the summary (Your setup so far)',
+      'Someone from the business’s agency setting it up for the owner gets Hand it over in place of Stay in the loop, with Save and hand it over: the owner is emailed to check it and finish their part (the booking page, payments and their notifications); the owner then sees what was set up, with Change something and Finish my part',
+    ],
+    howTo: [
+      'Carry on where they left off: Home, then Carry on on Getting started; on the phone, Home, then Carry on on Getting started too',
+      'Change an answer once it’s finished: each one lives on its own settings page, like Settings → Workspace for the business and its hours, Settings → Calendars for booking, Settings → Texting & calls for the number and Settings → Payments for getting paid',
+    ],
+    canChange: [
+      'read where it’s up to, the screens left and what saving would change',
+      'save a screen’s answers, or save it all, on a card that says what will change; only the answers they give change',
+      'look for a business number near the business, by area code or toll-free, and get the one they pick',
+    ],
+    notHere: [
+      'signing up, connecting payments, uploading the logo or confirming their cell for them: those are theirs to do on the screen',
+    ],
+    path: '/onboarding/[workspaceId]',
+  },
+  {
+    label: 'A setup step',
+    what: 'one of the basics Getting started opens on a screen of its own: the business number, payments, customers, the calendar and booking page, and the AI teammate',
+    where: ['Home'],
+    then: 'press the step’s own button on Getting started',
+    onScreen: [
+      'Setting up <business>, with The basics down the side (About 20 minutes. Skip anything and come back to it from Home.) and Finish later',
+      'Back, Skip for now and Continue; the last one says Finish and see Home',
+    ],
+    howTo: ['Come back to a step skipped here: Home, then its button on Getting started'],
+    path: '/onboarding/[workspaceId]/setup/[step]',
   },
   {
     label: 'Inbox',
@@ -765,7 +806,7 @@ export const EVERY_PAGE: readonly string[] = [
   'Top of the side menu: the business name (press it to switch businesses, Create workspace to add one, or the Agency area), Search everything (⌘K or Ctrl K), and Ask HandsFreeOS (⌘J or Ctrl J), which is you',
   'Search everything finds, for whoever may see them, customers, companies, leads, estimates, invoices and payments, messages and calls, appointments, tasks, notes, files and the words inside them, forms and their answers, Knowledge, the business’s own kinds of records, Real Estate’s listings, deals, homes and properties, and settings; archived things show under Archived, and the Deleted bin to whoever may delete for good. Enter with no row picked opens the Search page with every result. A place hidden from the side menu isn’t found by it, but still opens from a link',
   'Settings has its own Search settings box at the top of its menu',
-  'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers), and Sign out',
+  'Bottom of the side menu: Turn on calls in this browser (then Calls ring in this browser), Get help (In a few words, What happened?, then Send it; a person at HandsFreeOS answers; while Getting started isn’t finished it’s a menu first: Getting started, Take the tour, and Ask us for help, which opens that message), and Sign out',
   'Each person can reorder, group or hide places in their side menu (Settings → Account, under Side menu); a place may be inside a group called More; Home and Settings never hide',
   'A place their role doesn’t allow isn’t in their side menu at all: Inbox, Money and Audit log need their own permission',
   'You can send the Get help message for them, and add a business the way Create workspace does (organization owners and admins)',
@@ -788,6 +829,8 @@ export const PHONE_APP: readonly string[] = [
   'Approvals, under More: Waiting and Decided, with the AI teammate’s drafts and workflow approvals together',
   'Its Settings: My cell phone, unlocking with Face ID or a fingerprint, Businesses on this phone, Usage & balance, Notifications, Appearance, Sign out, Delete my account',
   'Only on the web: workflows, the AI teammate’s settings, Knowledge, members, the business’s settings and the agency area (More, then Open on the web)',
+  'Set up your business runs on the phone too, from Home’s Getting started (Start, or Carry on where it was left on the computer); a Getting started step easier on a computer has Email me a link, which emails the person a link to it',
+  `Getting the phone app: ${PHONE_APP_LINKS.links.map((l) => `${l.label}, from the ${l.from}: ${l.url}`).join('; ')}. These two links may be given as they are`,
   'Money, under More: invoices and estimates (and payments and plans for whoever manages money); on an invoice, Record cash or a check, Send and Send a payment link; on an estimate, Send and Send their link; New invoice on the web and New estimate on the web write one on the web',
   'Search everything: the magnifying glass at the top of the business’s screens, and Search everything under the Contacts and Inbox boxes; with no signal it searches what is on the phone (contacts, companies, leads, tasks, notes, the calendar, form names and settings) and says so',
   'Its Settings has a search box at the top; a setting only the web changes opens on the web',

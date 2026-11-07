@@ -72,8 +72,10 @@ let candidates: readonly Candidate[] | null = null;
 /** The places first, then the setup: on an equal match, the first named wins. */
 function allCandidates(): readonly Candidate[] {
   return (candidates ??= [
-    // The agency area is outside the business, so it is never a screen a question is asked from.
-    ...APP_PLACES.filter((p) => !p.path.startsWith('/app/')).map(placeCandidate),
+    // The agency area and the guided setup are outside the business, so neither is a screen a question is asked from.
+    ...APP_PLACES.filter(
+      (p) => !p.path.startsWith('/app/') && !p.path.startsWith('/onboarding/'),
+    ).map(placeCandidate),
     ...settingsAreas().map((a) => ({
       segments: segmentsOf(a.path),
       label: a.label,
