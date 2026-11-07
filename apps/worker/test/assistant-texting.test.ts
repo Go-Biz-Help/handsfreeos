@@ -170,6 +170,12 @@ describe('Settings → Texting & calls', () => {
     const rcs = out.result.theyDoThemselves.find((h) => h.what === 'ask for RCS, and pay for it')!;
     expect(rcs.why).toContain('Stripe');
     expect(rcs.steps.join(' ')).toMatch(/Press Pay \$[\d,.]+ and send/);
-    expect(JSON.stringify(out.result)).not.toContain('own Twilio account');
+    // HandsFreeOS makes the RCS sender: it is never made in the business's own Twilio account.
+    expect(JSON.stringify(rcs)).not.toContain('Twilio account');
+    // Connecting a Twilio account to bring its numbers here is the person's own step: its token never goes in a chat.
+    const twilio = out.result.theyDoThemselves.find(
+      (h) => h.what === 'connect a Twilio account to bring its numbers here',
+    )!;
+    expect(twilio.why).toContain('never goes in a chat');
   });
 });
