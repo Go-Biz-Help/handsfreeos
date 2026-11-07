@@ -187,11 +187,11 @@ describe('the live view’s words', () => {
     // Alignable has its runner (part 5): its Sending choice is picked on its own page.
     expect(sendingOffWords(true, 'alignable')).toContain('Settings → Alignable');
     expect(sendingOffWords(true, 'linkedin')).toContain('Settings → LinkedIn');
-    expect(sendingOffWords(false)).toContain('Settings → General');
+    expect(sendingOffWords(false)).toContain('Settings → Team');
     // An owner or admin, whose business allows only Off, isn't told to ask an owner: they're told to allow it, where.
     const owner = sendingOffWords(false, 'linkedin', true);
     expect(owner).not.toContain('Ask an owner');
-    expect(owner).toContain('Allow it for your team under Social Outreach → Settings → General');
+    expect(owner).toContain('Allow it for your team under Social Outreach → Settings → Team');
     expect(owner).toContain('Settings → LinkedIn');
     // Their own choice to pick reads the same for everyone.
     expect(sendingOffWords(true, 'linkedin', true)).toBe(sendingOffWords(true, 'linkedin'));
@@ -541,7 +541,7 @@ describe('live status and control', () => {
       details: { platform: 'facebook', allowed: false },
     });
     expect((said as { message: string }).message).toContain(
-      'Allow it for your team under Social Outreach → Settings → General',
+      'Allow it for your team under Social Outreach → Settings → Team',
     );
     expect((said as { message: string }).message).not.toContain('Ask an owner');
     // Pressed the day before, and waiting on the phone since: passed over quietly, never refused.

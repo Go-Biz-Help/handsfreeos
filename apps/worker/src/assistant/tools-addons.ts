@@ -219,6 +219,27 @@ function linesOf(label: string, v: unknown, depth = 0): Field[] {
   return [{ label, value: valueOf(v) }];
 }
 
+/** Argument names a description gives the model in brackets: "(personId)", "(client true)", "(outreach_playbooks)". */
+const NAMES_IN_BRACKETS = /\s*\([^()]*\b(?:[a-z]+[A-Z_][A-Za-z_]*|true|false)\b[^()]*\)/g;
+
+/**
+ * The card's What line, in the person's words: the operation's own (`ai.what`), else the first sentence of what the
+ * model reads, without the argument names it gives in brackets, so a card never shows the person a tool's instructions.
+ */
+export function whatLine(description: string, own?: string | null): string {
+  if (own?.trim()) return clip(own.trim());
+  const flat = description.replace(/\s+/g, ' ').trim();
+  const first = /^.+?[.!?](?=\s+[A-Z“"‘(]|$)/.exec(flat)?.[0] ?? flat;
+  return clip(first.replace(NAMES_IN_BRACKETS, '').replace(/\s+([.,:;])/g, '$1'));
+}
+
+/** An operation's own What line for this input (`ai.what`), when it has one. */
+export function ownWhat(ai: AddonAiTool['op']['ai'], input: unknown): string | null {
+  const what = ai?.what;
+  if (!what) return null;
+  return typeof what === 'string' ? what : what(input);
+}
+
 /**
  * The card's lines: what it does, then what it would be given, in the input's own order, a group given in parts a line
  * for each part. A screen's command the Assistant runs as it is (tools-screen-actions.ts) draws its card the same way.
@@ -226,6 +247,7 @@ function linesOf(label: string, v: unknown, depth = 0): Field[] {
 export function cardFields(
   tool: Pick<AddonAiTool, 'input' | 'description'>,
   values: Args,
+  what?: string | null,
 ): Field[] {
   const given = Object.keys(tool.input.shape)
     .flatMap((key) => linesOf(labelOf(key), values[key]))
@@ -235,7 +257,7 @@ export function cardFields(
     given.length > 9
       ? [...given.slice(0, 8), { label: 'And', value: `${given.length - 8} more` }]
       : given;
-  return [{ label: 'What', value: clip(tool.description) }, ...rows];
+  return [{ label: 'What', value: whatLine(tool.description, what) }, ...rows];
 }
 
 /**
@@ -277,13 +299,14 @@ export async function prepareAddonTool(
   const shown = tool.input.safeParse(args);
   // The exact words that would go out, whole below the lines: a line is cut short, and these are what people get.
   const body = own?.body?.trim() ? clip(own.body.trim(), BODY_MAX) : null;
+  const what = ownWhat(tool.op.ai, input);
   return {
     card: {
       ...settingsCard(toolCallId, tool.name, {
         title: own ? clip(own.title, 120) : `Do this in ${tool.addonName}?`,
         fields: own
-          ? [{ label: 'What', value: clip(tool.description) }, ...ownLines(own.lines)]
-          : cardFields(tool, shown.success ? (shown.data as Args) : args),
+          ? [{ label: 'What', value: whatLine(tool.description, what) }, ...ownLines(own.lines)]
+          : cardFields(tool, shown.success ? (shown.data as Args) : args, what),
         confirmLabel: 'Confirm',
         ...(own?.warning ? { warnings: [{ kind: 'caution', text: clip(own.warning) }] } : {}),
       }),

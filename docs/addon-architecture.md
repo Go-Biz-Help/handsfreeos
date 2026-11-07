@@ -528,7 +528,9 @@ tools. So does every worker action a person presses (its own test holds those). 
 the model asks for together run at the same time; changes run one at a time, in order. An operation's `ai.answer`
 reshapes what the model reads of its answer (a link its screens build written out whole, the short facts ahead of the
 long lists), never more than the person was given, and `ai.outcome` ends a confirmed card in its screen's own words,
-with a page to open. `ai.card` draws an operation's Confirm card from what the change would do, read from its
+with a page to open. A Confirm card's What line is `ai.what` (words, or words from the input) when the description is
+written for the model; else the description's first sentence, without the argument names in brackets, and a test
+holds every card to naming no tool or argument. `ai.card` draws an operation's Confirm card from what the change would do, read from its
 rehearsal (rolled back whole): whose thing it changes, by name, each line as it was and will be, the exact words that
 go out as its body, whole (a line is cut short), and a warning for what reaches people; without it the card shows what
 the model gave, a line for each part. The manifest's `ai.places` says

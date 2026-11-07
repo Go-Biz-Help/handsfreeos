@@ -504,6 +504,10 @@ export const automationSave = defineAddonCommand(outreachAddon, {
   permission: 'outreach.use',
   ai: {
     tool: 'outreach_save_automation',
+    what: (input) =>
+      (input as AutomationSaveInput).userId
+        ? 'Change what the browser extension does on its own for this teammate'
+        : 'Change what the browser extension does on its own for you',
     description:
       'Change what the browser extension does for the person on its own (Social Outreach → Settings: You, and each network’s page), or for a teammate an owner or admin picks (userId, as Settings → Team → Their settings): on Facebook the choices themselves (sending, replies, warmUp, confirmRequests, collect, joinGroups, watchPosts, posting), on LinkedIn, Instagram and Alignable each network’s own under networks; whether each network is on for them; Autopilot; how the AI writes (voice); their alerts and their working hours (hours, sent whole). Send only what changes, in changes, by the names outreach_automation shows: everything left out, and each network’s choices left out, stays as it is. Only what the business allows.',
     autonomy: 'confirm',
