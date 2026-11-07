@@ -118,6 +118,20 @@ const CONNECT_CALENDAR: SettingsHandover = {
     'Open Settings → My calendar.',
     'In Calendar connection, press Google or Outlook.',
     'Sign in and allow HandsFreeOS to see when you are busy.',
+    'If it already says Needs reconnecting, press Reconnect beside it and sign in again instead.',
+    'For Google Meet transcripts, press Allow Meet transcripts under your Google calendar and allow it.',
+  ],
+};
+
+/** Zoom links and transcripts come from the person's own Zoom account, which only they can sign in to. */
+const CONNECT_ZOOM: SettingsHandover = {
+  what: 'connect Zoom',
+  why: 'you sign in to Zoom yourself, so nobody else can do it for you',
+  on: { where: ['Settings', 'My calendar'], path: '/settings/my-calendar' },
+  steps: [
+    'Open Settings → My calendar.',
+    'In Video meetings, press Connect Zoom.',
+    'Sign in to Zoom and allow HandsFreeOS.',
   ],
 };
 
@@ -1003,16 +1017,29 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
   },
   my_calendar: {
     label: 'My calendar',
-    what: 'your own working hours, time off, and the Google or Outlook calendar HandsFreeOS checks',
+    what: 'your own working hours, time off, and the Google or Outlook calendar and Zoom account HandsFreeOS uses',
     where: ['Settings', 'My calendar'],
-    onScreen: ['Weekly hours', 'Time off: Add time off', 'Calendar connection: Google, Outlook'],
+    onScreen: [
+      'Weekly hours',
+      'Time zone',
+      'Time off: Add time off, and remove beside each (extra open time shows there too)',
+      'Calendar connection: Google or Outlook; once connected, Sync now, Disconnect (under ⋯) and Allow Meet transcripts; Reconnect when it needs reconnecting',
+      'Video meetings: Connect Zoom; once connected, Disconnect',
+    ],
     path: '/settings/my-calendar',
     permission: null,
-    canChange: ['your working hours', 'time off, and extra hours you are available'],
-    handovers: [CONNECT_CALENDAR],
+    canChange: [
+      'your working hours and the time zone they are in',
+      'add or take out time off',
+      'sync or disconnect your Google or Outlook calendar',
+      'disconnect Zoom',
+      'a teammate’s hours and time off (owners and admins)',
+    ],
+    handovers: [CONNECT_CALENDAR, CONNECT_ZOOM],
     howTo: [
       'Block time off: Settings → My calendar, press Add time off',
       'Set someone else’s hours (owners and admins): Members, ⋯ beside them, then Edit hours',
+      'Make Zoom links for appointments: Settings → My calendar, press Connect Zoom under Video meetings',
     ],
   },
   safety: {

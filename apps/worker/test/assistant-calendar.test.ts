@@ -728,3 +728,163 @@ describe('the Assistant on the calendar', () => {
     expect(result).toMatchObject({ with: [] });
   });
 });
+
+describe('moving and booking, as the Move dialog and New appointment do', () => {
+  const MIN = 60_000;
+  const ctx = () => ({
+    actor: actor(owner),
+    workspaceId,
+    organizationId,
+    correlationId: randomUUID(),
+    timezone: CHI,
+  });
+  const db = () => testDbs().worker.db;
+  /** A local time this many days ahead, in Chicago. */
+  const dayAt = (n: number, clock: string) =>
+    localInstant(addDays(localDateOf(Date.now(), CHI), n), clock, CHI);
+  const visitAt = async (n: number, clock: string) =>
+    (
+      await run(
+        appointmentCreate,
+        {
+          workspaceId,
+          calendarId,
+          personId: mikeId,
+          startsAt: iso(dayAt(n, clock)),
+          serviceId,
+          acknowledgeWarnings: true,
+          notify: false,
+        },
+        owner,
+      )
+    ).appointmentId;
+  const timesOf = async (id: string) =>
+    (
+      await rows<{ starts_at: Date; ends_at: Date }>(
+        admin(),
+        sql`select starts_at, ends_at from app.appointments where id = ${id}`,
+      )
+    )[0]!;
+  const asConfirm = (card: AssistantCard | null | undefined) =>
+    card as Extract<AssistantCard, { type: 'confirm' }>;
+  const tool = calendarConfirmTools;
+
+  it('makes a visit longer without moving it, and can leave the customer untold', async () => {
+    const id = await visitAt(5, '09:00');
+    const start = dayAt(5, '09:00');
+    const args = { appointmentId: id, durationMinutes: 90, tellCustomer: false };
+    const { card, result } = await tool.reschedule_appointment!.prepare(
+      db(),
+      ctx(),
+      args,
+      randomUUID(),
+    );
+    expect(asConfirm(card)).toMatchObject({
+      title: 'Move Mike’s AC tune-up?',
+      fields: expect.arrayContaining([
+        { label: 'Now', value: rangeLabel(start, start + 90 * MIN, CHI) },
+        { label: 'Tell Mike', value: 'No' },
+      ]),
+    });
+    expect(result).toMatchObject({ length: '90 minutes', tellCustomer: false });
+    // Nothing changes before Confirm.
+    expect(new Date((await timesOf(id)).ends_at).getTime()).toBe(start + 60 * MIN);
+    const done = await tool.reschedule_appointment!.commit(db(), ctx(), args, {
+      toolCallId: randomUUID(),
+    });
+    expect(done).toMatchObject({ command: 'appointment.reschedule' });
+    const after = await timesOf(id);
+    expect(new Date(after.starts_at).getTime()).toBe(start);
+    expect(new Date(after.ends_at).getTime()).toBe(start + 90 * MIN);
+  });
+
+  it('hands a visit to someone else without moving it, as Who’s going? does', async () => {
+    const id = await visitAt(5, '13:00');
+    const args = { appointmentId: id, userIds: [owner.id] };
+    const { card } = await tool.reschedule_appointment!.prepare(db(), ctx(), args, randomUUID());
+    const confirm = asConfirm(card);
+    expect(confirm.title).toBe('Change who goes to Mike’s AC tune-up?');
+    expect(confirm.fields).toEqual(
+      expect.arrayContaining([
+        { label: 'Was with', value: 'Priya Natarajan' },
+        { label: 'With', value: 'Dale Owner' },
+        { label: 'Tell Mike', value: 'An email with who’s coming' },
+      ]),
+    );
+    expect(confirm.fields.map((f) => f.label)).not.toContain('Now');
+    const done = await tool.reschedule_appointment!.commit(db(), ctx(), args, {
+      toolCallId: randomUUID(),
+    });
+    expect(done).toMatchObject({ command: 'appointment.reassign', outcome: 'Dale is going now.' });
+    expect(new Date((await timesOf(id)).starts_at).getTime()).toBe(dayAt(5, '13:00'));
+  });
+
+  it('asks what changes when the model names nothing', async () => {
+    const id = await visitAt(6, '09:00');
+    await expect(
+      tool.reschedule_appointment!.prepare(db(), ctx(), { appointmentId: id }, randomUUID()),
+    ).rejects.toMatchObject({ message: expect.stringContaining('Say what changes') });
+  });
+
+  it('books a time with no customer, as New appointment allows', async () => {
+    const start = dayAt(6, '14:00');
+    const args = { calendarId, startsAt: iso(start), serviceId };
+    const { card, result } = await tool.book_appointment!.prepare(db(), ctx(), args, randomUUID());
+    const confirm = asConfirm(card);
+    expect(confirm.fields[0]).toEqual({ label: 'Customer', value: 'None, just the time' });
+    expect(confirm.fields.map((f) => f.label)).not.toContain('Reminders');
+    expect(result).toMatchObject({ customer: null });
+    await tool.book_appointment!.commit(db(), ctx(), args, { toolCallId: randomUUID() });
+    const [made] = await rows<{ seats: number }>(
+      admin(),
+      sql`select (select count(*)::int from app.appointment_attendees t where t.appointment_id = a.id) as seats
+          from app.appointments a
+          where a.workspace_id = ${workspaceId} and a.starts_at = ${iso(start)}::timestamptz`,
+    );
+    expect(made).toEqual({ seats: 0 });
+  });
+
+  it('books at the place named, and says the time in the customer’s own zone', async () => {
+    const start = dayAt(7, '10:00');
+    const { card, result } = await tool.book_appointment!.prepare(
+      db(),
+      ctx(),
+      {
+        calendarId,
+        personId: mikeId,
+        startsAt: iso(start),
+        serviceId,
+        timeZone: 'America/Los_Angeles',
+        location: { kind: 'customer_address', address: '500 Elm St, Houston, TX 77003' },
+        notify: false,
+      },
+      randomUUID(),
+    );
+    const confirm = asConfirm(card);
+    expect(confirm.fields.find((f) => f.label === 'Their time')?.value).toContain(
+      rangeLabel(start, start + 60 * MIN, 'America/Los_Angeles'),
+    );
+    expect(confirm.fields.find((f) => f.label === 'Where')?.value).toContain('500 Elm St');
+    expect(result).toMatchObject({ where: expect.stringContaining('500 Elm St') });
+  });
+
+  it('won’t book at a place the calendar doesn’t offer, and says which places it does', async () => {
+    await expect(
+      tool.book_appointment!.prepare(
+        db(),
+        ctx(),
+        {
+          calendarId,
+          personId: mikeId,
+          startsAt: iso(dayAt(7, '15:00')),
+          serviceId,
+          location: { kind: 'virtual' },
+        },
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({
+      rule: 'place_not_offered',
+      message: expect.stringContaining('It offers visits at the customer’s address'),
+    });
+  });
+});

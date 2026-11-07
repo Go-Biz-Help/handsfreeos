@@ -1550,4 +1550,129 @@ describe('your own hours', () => {
     const done = await confirm(tool!, parsed, owner);
     expect(done.command).toBe('time_off.add');
   });
+
+  it('reads your own week, time zone and time off in words, with the ids that take time off out', async () => {
+    const { result } = await readTool('get_settings', 'my_calendar', owner);
+    const mine = result['schedules'] as {
+      name: string;
+      userId: string;
+      weeklyHours: string;
+      hoursIn: string;
+      timeOff: { exceptionId: string; when: string }[];
+      calendarLink: string;
+      note: string;
+    };
+    expect(mine).toMatchObject({
+      name: 'Dale Owner',
+      userId: owner.id,
+      hoursIn: expect.stringContaining('the business’s time zone'),
+      calendarLink: 'No calendar linked',
+    });
+    expect(typeof mine.weeklyHours).toBe('string');
+    expect(Array.isArray(mine.timeOff)).toBe(true);
+    expect(mine.note).toContain('exceptionId');
+  });
+});
+
+describe('a teammate’s hours', () => {
+  let marco: TestUser;
+  beforeAll(async () => {
+    marco = await createTestUser('aset-marco', { fullName: 'Marco Member' });
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.workspace_memberships (workspace_id, user_id, role)
+          values (${workspaceId}, ${marco.id}, 'member')`,
+    );
+  });
+
+  it('lets an owner set a teammate’s week, as Members → Edit hours does, naming whose on the card', async () => {
+    const { card, parsed, tool } = await prepare(
+      'update_my_hours',
+      {
+        action: 'set_hours',
+        userId: marco.id,
+        weekly: [1, 2, 3, 4, 5].map((day) => ({ day, start: '07:00', end: '15:00' })),
+      },
+      owner,
+    );
+    expect(card.title).toBe('Change Marco’s working hours');
+    expect(card.fields.find((f) => f.label === 'Whose')!.value).toBe('Marco Member');
+    expect(card.confirmLabel).toBe('Save the hours');
+    const done = await confirm(tool!, parsed, owner);
+    expect(done).toMatchObject({
+      command: 'schedule.set',
+      outcome: 'Marco’s hours are saved',
+      href: expect.stringContaining(`?user=${marco.id}`),
+    });
+    const [saved] = await rows<{ weekly: { day: number; start: string }[] }>(
+      testDbs().admin.db,
+      sql`select weekly from app.schedules
+          where workspace_id = ${workspaceId} and owner_kind = 'user' and owner_id = ${marco.id}`,
+    );
+    expect(saved!.weekly.map((w) => w.start)).toEqual([
+      '07:00',
+      '07:00',
+      '07:00',
+      '07:00',
+      '07:00',
+    ]);
+  });
+
+  it('names the time off it takes out and whose it is, and won’t take a teammate’s out as yours', async () => {
+    const day = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10);
+    const { exceptionId } = (await run(
+      registry.command('time_off.add')! as CommandDef<z.ZodType, z.ZodType>,
+      { workspaceId, ownerKind: 'user', ownerId: marco.id, startDate: day, note: 'Dentist' },
+      owner,
+    )) as { exceptionId: string };
+
+    // Named as the owner's own, it isn't on their calendar: said before any card.
+    await expect(
+      prepare('update_my_hours', { action: 'remove_time_off', exceptionId }, owner),
+    ).rejects.toMatchObject({
+      rule: 'time_off_not_found',
+      message: expect.stringContaining('give userId for a teammate’s'),
+    });
+
+    const { card, parsed, tool } = await prepare(
+      'update_my_hours',
+      { action: 'remove_time_off', userId: marco.id, exceptionId },
+      owner,
+    );
+    expect(card.title).toBe('Put that time back');
+    expect(card.fields).toEqual(
+      expect.arrayContaining([
+        { label: 'Whose', value: 'Marco Member' },
+        { label: 'When', value: expect.stringContaining('all day') },
+        { label: 'What it is', value: 'Dentist' },
+        { label: 'What changes', value: 'Marco can be booked then again' },
+      ]),
+    );
+    const done = await confirm(tool!, parsed, owner);
+    expect(done).toMatchObject({ command: 'time_off.remove', outcome: 'Put back' });
+    expect(
+      await rows(
+        testDbs().admin.db,
+        sql`select id from app.schedule_exceptions where id = ${exceptionId}`,
+      ),
+    ).toEqual([]);
+  });
+
+  it('tells a member, before any card, that only owners and admins set someone else’s hours', async () => {
+    await expect(
+      prepare(
+        'update_my_hours',
+        { action: 'add_time_off', userId: owner.id, startDate: '2027-01-04' },
+        marco,
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('Only owners and admins change someone else’s hours'),
+    });
+  });
+
+  it('won’t set the hours of someone who isn’t on the team', async () => {
+    await expect(
+      prepare('update_my_hours', { action: 'set_hours', userId: randomUUID(), weekly: [] }, owner),
+    ).rejects.toMatchObject({ message: expect.stringContaining('isn’t on this business’s team') });
+  });
 });

@@ -297,12 +297,46 @@ describe('looking appointments up', () => {
       kind: 'one customer',
       // Booked straight through the command, so it has the calendar's kind of place and no street yet.
       where: 'At the customer’s address',
-      customers: [{ personId: mikeId, name: 'Mike Johnson', confirmed: 'not yet' }],
-      job: { status: 'Scheduled' },
+      customers: [
+        {
+          attendeeId: expect.any(String),
+          personId: mikeId,
+          name: 'Mike Johnson',
+          confirmed: 'Not asked yet',
+        },
+      ],
+      job: { status: 'Scheduled', visits: [expect.objectContaining({ appointmentId: visit })] },
       series: null,
       waitlist: [],
     });
     expect(card).toMatchObject({ type: 'appointment', appointmentId: visit });
+  });
+
+  it('says who is on it and in what role, how it was booked, and its money, as the visit’s sheet does', async () => {
+    const { result } = await read('get_appointment', { appointmentId: visit });
+    expect(result['status']).toBe('Not marked done yet');
+    expect(result['roles']).toEqual([{ name: 'Dale Owner', role: 'Assigned' }]);
+    const job = result['job'] as { jobId: string; title: string; couldAdd: unknown[] };
+    expect(job.jobId).toEqual(expect.any(String));
+    expect(Array.isArray(job.couldAdd)).toBe(true);
+    // The owner sees the visit's money; nothing is billed yet, so Invoice this visit is offered.
+    expect(result['money']).toMatchObject({
+      deposit: null,
+      invoice: null,
+      canInvoiceThisVisit: true,
+    });
+    expect(result).not.toHaveProperty('linkAnyoneCanUse');
+  });
+
+  it('says a visit’s confirmation in the words its row uses', async () => {
+    const later = await book(mikeId, at(3, '11:00'));
+    await prepare('update_appointment', { appointmentId: later, confirmed: true }).then(
+      ({ parsed }) => confirm('update_appointment', parsed),
+    );
+    const { result } = await read('get_appointment', { appointmentId: later });
+    const [seat] = result['customers'] as { confirmed: string }[];
+    expect(seat!.confirmed).toMatch(/^Confirmed by Dale Owner /);
+    expect(result['status']).toBe('Scheduled');
   });
 
   it('books a visit for a customer’s pet, as its page’s Book does, and lists the pet’s own', async () => {
@@ -1053,5 +1087,110 @@ describe('a calendar’s other sections', () => {
       video: 'zoom',
       record: true,
     });
+  });
+});
+
+describe('Invoice this visit', () => {
+  let visit: string;
+  beforeAll(async () => {
+    visit = await book(cyId, at(6, '10:00'));
+  });
+
+  it('asks what to bill when the service has no price', async () => {
+    await expect(prepare('write_invoice', { appointmentId: visit })).rejects.toMatchObject({
+      message: expect.stringContaining('has no price in the catalogue'),
+    });
+  });
+
+  it('writes a draft for the visit’s customer, tied to their seat, and never bills it twice', async () => {
+    const { card, result, parsed } = await prepare('write_invoice', {
+      appointmentId: visit,
+      lines: [{ name: 'AC tune-up', unitPrice: 150, taxable: false }],
+    });
+    expect(card.title).toBe('Write an invoice for Cy Park');
+    expect(field(card, 'Visit')).toContain('AC tune-up');
+    expect(result).toMatchObject({ forVisit: expect.stringContaining('AC tune-up') });
+    await confirm('write_invoice', parsed);
+    const [made] = await rows<{ person_id: string; purpose: string; seat: string | null }>(
+      admin(),
+      sql`select i.person_id, i.purpose::text as purpose, t.appointment_id as seat
+          from app.invoices i left join app.appointment_attendees t on t.id = i.attendee_id
+          where i.workspace_id = ${workspaceId} and i.person_id = ${cyId}`,
+    );
+    expect(made).toEqual({ person_id: cyId, purpose: 'standard', seat: visit });
+
+    // The visit's sheet now shows the bill, and offers Invoice this visit no more.
+    const { result: opened } = await read('get_appointment', { appointmentId: visit });
+    expect(opened['money']).toMatchObject({
+      invoice: { invoiced: '$150', stillOwed: '$150' },
+      canInvoiceThisVisit: false,
+    });
+    await expect(
+      prepare('write_invoice', {
+        appointmentId: visit,
+        lines: [{ name: 'AC tune-up', unitPrice: 150 }],
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('already has an invoice') });
+  });
+
+  it('won’t bill a group session as one visit, or a visit for someone else', async () => {
+    const session = (
+      await run(
+        sessionPublish,
+        { workspaceId, calendarId: classes, startsAt: at(8, '14:00'), acknowledgeWarnings: true },
+        owner,
+      )
+    ).appointmentId;
+    await expect(
+      prepare('write_invoice', {
+        appointmentId: session,
+        lines: [{ name: 'Class', unitPrice: 40 }],
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('one customer') });
+    const other = await book(anaId, at(8, '09:00'));
+    await expect(
+      prepare('write_invoice', {
+        appointmentId: other,
+        personId: boId,
+        lines: [{ name: 'AC tune-up', unitPrice: 150 }],
+      }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('Ana Lopez’s') });
+  });
+
+  it('won’t bill a time still held for its deposit, as the sheet waits to offer the button', async () => {
+    const held = await book(boId, at(9, '10:00'));
+    const { result } = await read('get_appointment', { appointmentId: held });
+    const [seat] = result['customers'] as { attendeeId: string }[];
+    // The booking page's deposit, still a draft while it is being paid, holds the time for this seat.
+    await run(
+      byName('invoice.create'),
+      {
+        workspaceId,
+        personId: boId,
+        attendeeId: seat!.attendeeId,
+        purpose: 'deposit',
+        origin: 'booking',
+        title: 'Deposit',
+        lines: [{ name: 'Deposit', quantity: 1, unitPriceCents: 5_000 }],
+      },
+      owner,
+    );
+    const { result: opened } = await read('get_appointment', { appointmentId: held });
+    expect(opened['status']).toBe('Not booked yet');
+    expect(opened['money']).toMatchObject({ canInvoiceThisVisit: false });
+    await expect(
+      prepare('write_invoice', {
+        appointmentId: held,
+        lines: [{ name: 'AC tune-up', unitPrice: 150 }],
+      }),
+    ).rejects.toMatchObject({
+      rule: 'visit_held',
+      message: expect.stringContaining('Bo Nguyen pays the deposit'),
+    });
+  });
+
+  it('lists the bookings that reserve a room, truck or chair, as the Resources view does', async () => {
+    const { result } = await read('list_appointments', { resourceId: randomUUID() });
+    expect(result['appointments']).toEqual([]);
   });
 });

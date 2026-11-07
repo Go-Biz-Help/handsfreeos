@@ -220,6 +220,8 @@ describe('the record a question is asked from', () => {
     expect(at(`workflows/${ID}`)).toEqual({ type: 'workflow', id: ID });
     expect(at(`workflows/runs/${ID}`)).toEqual({ type: 'workflow_run', id: ID });
     expect(at('calendar', ID)).toEqual({ type: 'appointment', id: ID });
+    // The phone's own screen for a visit.
+    expect(at(`calendar/${ID}`)).toEqual({ type: 'appointment', id: ID });
     // The lead open in the pipeline board's side sheet.
     expect(assistantPageRecord(`/app/w/${WS}/pipeline`, WS, null, ID)).toEqual({
       type: 'lead',
@@ -292,6 +294,21 @@ describe('the screen a question is asked from', () => {
       ids: [{ name: 'appointment', id: ID }],
     });
     expect(screenPlace('/audit')).toMatchObject({ label: 'Audit log', way: 'Audit log' });
+    expect(screenPlace('/audit')).not.toHaveProperty('shows');
+  });
+
+  it('says which view and day the Calendar shows, and whose, from its address', () => {
+    expect(screenPlace(`/calendar?view=week&date=2026-11-09&people=${ID},${ID2}`)).toMatchObject({
+      label: 'Calendar',
+      shows: 'the week view of 2026-11-09',
+      ids: [
+        { name: 'user', id: ID },
+        { name: 'user', id: ID2 },
+      ],
+    });
+    expect(screenPlace('/calendar?date=2026-11-09')).toMatchObject({ shows: 'the day 2026-11-09' });
+    // Only the Calendar's own views and a real date are repeated, never other words in the address.
+    expect(screenPlace('/calendar?view=ignore&date=tomorrow')).not.toHaveProperty('shows');
   });
 
   it('names an id for what it is where the route’s word says something else', () => {

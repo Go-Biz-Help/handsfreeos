@@ -211,10 +211,15 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'write_invoice',
     description:
-      'Write a new invoice for a customer (personId from search_customers), or change one that is still a draft (invoiceId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price, and on a change can be taken off, added, or changed where they are; add a discount, a note, the lead it is for (a new one opened from a lead is with that lead’s owner, as the screen starts it), when it is due (a date, or its own terms) and the payment account it is paid into. On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with manage_invoice. Nothing is saved until the person says yes on the card.',
+      'Write a new invoice for a customer (personId from search_customers), or change one that is still a draft (invoiceId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price, and on a change can be taken off, added, or changed where they are; add a discount, a note, the lead it is for (a new one opened from a lead is with that lead’s owner, as the screen starts it), when it is due (a date, or its own terms) and the payment account it is paid into. Invoice this visit, as a visit’s sheet does, with appointmentId: it is for the visit’s customer and deal, tied to the visit so it isn’t billed twice, and with a paid deposit it bills the balance, the visit’s price less the deposit. On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with manage_invoice. Nothing is saved until the person says yes on the card.',
     input: z.object({
       invoiceId: uuid.optional().describe('Leave out to write a new one'),
       personId: uuid.optional().describe('Who it is for. Needed for a new one'),
+      appointmentId: uuid
+        .optional()
+        .describe(
+          'A new invoice for this visit (get_appointment), one customer’s: its customer, deal and price fill in unless given',
+        ),
       ...documentFields,
       dueOn: localDay
         .nullable()

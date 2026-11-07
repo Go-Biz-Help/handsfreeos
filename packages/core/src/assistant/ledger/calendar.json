@@ -191,22 +191,22 @@
       "path": "Calendar → Team → person column head (name, today’s hours)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/calendar-page.tsx:218",
-      "covered": "partly",
-      "by": "list_team names; hours unreadable (schedules null)"
+      "covered": "yes",
+      "by": "read_schedule_team weeklyHours (get_settings my_calendar for your own)"
     },
     {
       "path": "Calendar → busy times from connected calendars, private and other businesses (grid, month, agenda)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/calendar-page.tsx:178",
-      "covered": "partly",
-      "by": "find_availability leaves them out; never listed"
+      "covered": "yes",
+      "by": "read_schedule_team busyInTheirCalendar, busyOnAPrivateDeal, busyInAnotherBusiness"
     },
     {
       "path": "Calendar → time off blocks and markers (grid, month)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/calendar-page.tsx:207",
-      "covered": "no",
-      "by": "no read of time off; my_calendar schedules null"
+      "covered": "yes",
+      "by": "read_schedule_team timeOff and extraOpenTime"
     },
     {
       "path": "Calendar → Team → nobody assigned column",
@@ -219,8 +219,8 @@
       "path": "Calendar → Resources view → bookings per equipment column",
       "kind": "see",
       "file": "apps/web/src/components/calendar/calendar-page.tsx:307",
-      "covered": "no",
-      "by": "list_appointments has no resources field or filter"
+      "covered": "yes",
+      "by": "list_appointments resourceId, each with its equipment"
     },
     {
       "path": "Calendar → Resources view → No resources yet",
@@ -247,22 +247,22 @@
       "path": "Calendar → Time grid → drag to move (time or person)",
       "kind": "do",
       "file": "apps/web/src/components/calendar/time-grid.tsx:140",
-      "covered": "partly",
-      "by": "reschedule_appointment startsAt, userIds; always tells"
+      "covered": "yes",
+      "by": "reschedule_appointment startsAt, userIds, tellCustomer"
     },
     {
       "path": "Calendar → Time grid → drag edge to change length",
       "kind": "do",
       "file": "apps/web/src/components/calendar/time-grid.tsx:565",
-      "covered": "no",
-      "by": "reschedule_appointment has no duration"
+      "covered": "yes",
+      "by": "reschedule_appointment durationMinutes"
     },
     {
       "path": "Calendar → Time grid → open-hours shading",
       "kind": "see",
       "file": "apps/web/src/components/calendar/time-grid.tsx:285",
-      "covered": "partly",
-      "by": "find_availability free times; weekly hours unreadable"
+      "covered": "yes",
+      "by": "read_schedule_team weeklyHours; find_availability free times"
     },
     {
       "path": "Calendar → appointment block (title, customer, time, status)",
@@ -282,22 +282,22 @@
       "path": "Calendar → Time grid → travel time before and after",
       "kind": "see",
       "file": "apps/web/src/components/calendar/time-grid.tsx:486",
-      "covered": "no",
-      "by": "buffers and travel not returned"
+      "covered": "yes",
+      "by": "get_appointment around"
     },
     {
       "path": "Calendar → held, not paid yet chip (grid, agenda)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/time-grid.tsx:548",
-      "covered": "no",
-      "by": "heldUntil not returned; list says Booked"
+      "covered": "yes",
+      "by": "list_appointments and get_appointment status Not booked yet, with held"
     },
     {
       "path": "Calendar → booked online mark (grid, agenda)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/time-grid.tsx:551",
-      "covered": "no",
-      "by": "source not returned"
+      "covered": "yes",
+      "by": "get_appointment bookedBy"
     },
     {
       "path": "Calendar → open an appointment",
@@ -352,8 +352,8 @@
       "path": "Calendar → Agenda → equipment on a row",
       "kind": "see",
       "file": "apps/web/src/components/calendar/agenda.tsx:176",
-      "covered": "no",
-      "by": "resources not returned"
+      "covered": "yes",
+      "by": "list_appointments equipment"
     },
     {
       "path": "Calendar → Agenda → date strip (web, phone)",
@@ -485,8 +485,8 @@
       "path": "New appointment → Time zone",
       "kind": "do",
       "file": "apps/web/src/components/calendar/zone-field.tsx:65",
-      "covered": "partly",
-      "by": "startsAt offset only; no timezone input"
+      "covered": "yes",
+      "by": "book_appointment timeZone"
     },
     {
       "path": "New appointment → Seats and its explanation",
@@ -506,8 +506,8 @@
       "path": "New appointment → Location",
       "kind": "do",
       "file": "apps/web/src/components/calendar/appointment-dialog.tsx:741",
-      "covered": "partly",
-      "by": "only customer address auto-fill; update_appointment location after"
+      "covered": "yes",
+      "by": "book_appointment location"
     },
     {
       "path": "New appointment → travel note",
@@ -604,8 +604,8 @@
       "path": "Move appointment → Length",
       "kind": "do",
       "file": "apps/web/src/components/calendar/move-dialog.tsx:222",
-      "covered": "no",
-      "by": "reschedule_appointment has no duration"
+      "covered": "yes",
+      "by": "reschedule_appointment durationMinutes"
     },
     {
       "path": "Move appointment → Zone",
@@ -632,8 +632,8 @@
       "path": "Move appointment → Tell the customer",
       "kind": "do",
       "file": "apps/web/src/components/calendar/move-dialog.tsx:333",
-      "covered": "partly",
-      "by": "always tells; can’t move quietly"
+      "covered": "yes",
+      "by": "reschedule_appointment tellCustomer"
     },
     {
       "path": "Move appointment → Move, Move anyway",
@@ -660,8 +660,8 @@
       "path": "Who’s going → Tell",
       "kind": "do",
       "file": "apps/web/src/components/calendar/reassign-dialog.tsx:116",
-      "covered": "partly",
-      "by": "can’t choose not to tell"
+      "covered": "yes",
+      "by": "reschedule_appointment userIds, tellCustomer"
     },
     {
       "path": "Who’s going → Change, Change anyway",
@@ -751,8 +751,8 @@
       "path": "Appointment → booked-by source chip",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:582",
-      "covered": "no",
-      "by": "source not returned"
+      "covered": "yes",
+      "by": "get_appointment bookedBy"
     },
     {
       "path": "Appointment → title",
@@ -772,8 +772,8 @@
       "path": "Appointment → when note (moved, held until)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:604",
-      "covered": "no",
-      "by": "rescheduleCount, heldUntil not returned"
+      "covered": "yes",
+      "by": "get_appointment when with its zone, around, held"
     },
     {
       "path": "Appointment → Customer → name link",
@@ -807,8 +807,8 @@
       "path": "Appointment → Customer → confirmed, how and when",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:668",
-      "covered": "partly",
-      "by": "how only; no time or who"
+      "covered": "yes",
+      "by": "get_appointment customers[].confirmed: how, who and when"
     },
     {
       "path": "Appointment → Customer → Take back confirmation (web, phone per seat)",
@@ -821,8 +821,8 @@
       "path": "Appointment → Customer → not confirmed yet, asked at",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:700",
-      "covered": "partly",
-      "by": "confirmAskedAt not returned"
+      "covered": "yes",
+      "by": "get_appointment customers[].confirmed: when they were asked"
     },
     {
       "path": "Appointment → Customer → Mark confirmed (web, phone per seat)",
@@ -842,22 +842,22 @@
       "path": "Appointment → visit money: held, deposit due or paid (web, phone)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/visit-money.tsx:215",
-      "covered": "partly",
-      "by": "customer_money; deposit not in get_appointment"
+      "covered": "yes",
+      "by": "get_appointment money: price, deposit, left after the visit, invoice"
     },
     {
       "path": "Appointment → deposit and job invoice links (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/calendar/visit-money.tsx:248",
-      "covered": "partly",
-      "by": "get_money_document by number; tie to visit not given"
+      "covered": "yes",
+      "by": "get_appointment money invoiceId and number; get_money_document"
     },
     {
       "path": "Appointment → Invoice this visit",
       "kind": "do",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:432",
-      "covered": "partly",
-      "by": "write_invoice; visit price not returned"
+      "covered": "yes",
+      "by": "write_invoice appointmentId"
     },
     {
       "path": "Appointment → Seats → X of Y taken",
@@ -884,8 +884,8 @@
       "path": "Appointment → Seats → Attended, No-show per person (web, phone)",
       "kind": "do",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:848",
-      "covered": "partly",
-      "by": "do_attendee_set_attendance needs attendee id, not returned"
+      "covered": "yes",
+      "by": "get_appointment customers[].attendeeId; do_attendee_set_attendance"
     },
     {
       "path": "Appointment → Waitlist → entries",
@@ -919,8 +919,8 @@
       "path": "Appointment → Video call → customer’s link and Copy",
       "kind": "do",
       "file": "apps/web/src/components/calendar/video-call-block.tsx:121",
-      "covered": "partly",
-      "by": "doorKey only, no full link"
+      "covered": "yes",
+      "by": "get_appointment and read_video_call_get linkAnyoneCanUse, whole"
     },
     {
       "path": "Appointment → Video call → who joined, more",
@@ -947,8 +947,8 @@
       "path": "Appointment (phone) → call is recorded note",
       "kind": "see",
       "file": "apps/mobile/src/components/calendar/meeting.tsx:121",
-      "covered": "no",
-      "by": "record flag not returned"
+      "covered": "yes",
+      "by": "get_appointment recorded"
     },
     {
       "path": "Appointment (phone) → link on its way to the customer",
@@ -1003,8 +1003,8 @@
       "path": "Appointment → Zoom link → couldn’t make it",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:939",
-      "covered": "no",
-      "by": "meetingError not returned"
+      "covered": "yes",
+      "by": "get_appointment linkProblem; do_appointment_make_meeting_link"
     },
     {
       "path": "Appointment → After the call → summary and label",
@@ -1066,15 +1066,15 @@
       "path": "Appointment → People and equipment → people and roles",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1041",
-      "covered": "partly",
-      "by": "get_appointment with names only, no roles"
+      "covered": "yes",
+      "by": "get_appointment roles"
     },
     {
       "path": "Appointment → People and equipment → equipment",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1054",
-      "covered": "no",
-      "by": "resources not returned"
+      "covered": "yes",
+      "by": "get_appointment equipment"
     },
     {
       "path": "Appointment → People and equipment → Change",
@@ -1087,8 +1087,8 @@
       "path": "Appointment → Reminders → this visit’s sent and due",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1060",
-      "covered": "partly",
-      "by": "calendar’s reminders readable; this visit’s not"
+      "covered": "yes",
+      "by": "get_appointment customers[].reminders"
     },
     {
       "path": "Appointment (phone) → Reminders the calendar sends",
@@ -1101,8 +1101,8 @@
       "path": "Appointment → Also on this visit (extra services)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/appointment-sheet.tsx:1096",
-      "covered": "no",
-      "by": "extraServices not returned"
+      "covered": "yes",
+      "by": "get_appointment alsoOnThisVisit"
     },
     {
       "path": "Appointment → Job → status, cancelled (web, phone)",
@@ -1122,8 +1122,8 @@
       "path": "Appointment → Job → arrival time (ETA)",
       "kind": "see",
       "file": "apps/web/src/components/calendar/job-block.tsx:106",
-      "covered": "no",
-      "by": "etaAt not returned"
+      "covered": "yes",
+      "by": "get_appointment job.arrivingAbout"
     },
     {
       "path": "Appointment (phone) → Job → On my way with an ETA from here",
@@ -1143,15 +1143,15 @@
       "path": "Appointment → Job → visits",
       "kind": "see",
       "file": "apps/web/src/components/calendar/job-block.tsx:137",
-      "covered": "partly",
-      "by": "visit count only"
+      "covered": "yes",
+      "by": "get_appointment job.visits"
     },
     {
       "path": "Appointment → Job → add a visit",
       "kind": "do",
       "file": "apps/web/src/components/calendar/job-block.tsx:155",
-      "covered": "partly",
-      "by": "do_job_add_visit needs job id, not returned"
+      "covered": "yes",
+      "by": "get_appointment job.jobId and couldAdd; do_job_add_visit"
     },
     {
       "path": "Appointment → Notes (web, phone)",
@@ -1325,15 +1325,15 @@
       "path": "My calendar → my zone chip",
       "kind": "see",
       "file": "apps/web/src/components/settings/my-calendar.tsx:190",
-      "covered": "no",
-      "by": "own zone unreadable; my_calendar schedules null"
+      "covered": "yes",
+      "by": "get_settings my_calendar schedules.hoursIn"
     },
     {
       "path": "My calendar → Weekly hours by day",
       "kind": "see",
       "file": "apps/web/src/components/settings/my-calendar.tsx:200",
-      "covered": "no",
-      "by": "get_settings my_calendar schedules always null"
+      "covered": "yes",
+      "by": "get_settings my_calendar schedules.weeklyHours"
     },
     {
       "path": "My calendar → Weekly hours → day switch, start, end, add, remove, copy to all days",
@@ -1353,8 +1353,8 @@
       "path": "My calendar → no hours saved, 9 to 5 apply",
       "kind": "see",
       "file": "apps/web/src/components/settings/my-calendar.tsx:233",
-      "covered": "no",
-      "by": "defaultHours unreadable"
+      "covered": "yes",
+      "by": "get_settings my_calendar schedules.weeklyHours says no hours saved"
     },
     {
       "path": "My calendar → Undo, Save",
@@ -1367,8 +1367,8 @@
       "path": "My calendar → Time off rows, none yet",
       "kind": "see",
       "file": "apps/web/src/components/settings/my-calendar.tsx:276",
-      "covered": "no",
-      "by": "my_calendar schedules null"
+      "covered": "yes",
+      "by": "get_settings my_calendar schedules.timeOff"
     },
     {
       "path": "My calendar → Add time off → All day, From, To, times, Note",
@@ -1381,15 +1381,15 @@
       "path": "My calendar → remove time off",
       "kind": "do",
       "file": "apps/web/src/components/settings/my-calendar.tsx:290",
-      "covered": "partly",
-      "by": "remove_time_off needs exceptionId, unreadable"
+      "covered": "yes",
+      "by": "get_settings my_calendar timeOff exceptionId; update_my_hours remove_time_off"
     },
     {
       "path": "My calendar → a teammate’s hours and time off (owners, admins)",
       "kind": "do",
       "file": "apps/web/src/app/app/w/[workspaceId]/settings/my-calendar/page.tsx:28",
-      "covered": "no",
-      "by": "update_my_hours sets own hours only"
+      "covered": "yes",
+      "by": "update_my_hours userId (owners and admins); read_schedule_team"
     },
     {
       "path": "My calendar → connected or failed notes after signing in",
@@ -1535,8 +1535,8 @@
       "path": "Booking site → business page → Book links per calendar",
       "kind": "see",
       "file": "apps/web/src/components/booking/business-page.tsx:138",
-      "covered": "partly",
-      "by": "get_settings calendars bookingPath, no domain"
+      "covered": "yes",
+      "by": "get_settings calendars bookingPath, written out whole"
     },
     {
       "path": "Booking site → business page → hours, area",
@@ -1584,8 +1584,8 @@
       "path": "Booking link → where (place options, video notice)",
       "kind": "do",
       "file": "apps/web/src/components/booking/booking-flow.tsx:1149",
-      "covered": "partly",
-      "by": "book_appointment has no location input"
+      "covered": "yes",
+      "by": "book_appointment location"
     },
     {
       "path": "Booking link → time picker: days, month, Earlier, Later, Morning, Afternoon, slots",
@@ -1675,8 +1675,8 @@
       "path": "Booking link → address, notes",
       "kind": "do",
       "file": "apps/web/src/components/booking/booking-flow.tsx:1483",
-      "covered": "partly",
-      "by": "book_appointment notes; no location input"
+      "covered": "yes",
+      "by": "book_appointment notes and location"
     },
     {
       "path": "Booking link → cancellation policy",
@@ -1836,8 +1836,8 @@
       "path": "Webinar door → sign-up form",
       "kind": "do",
       "file": "apps/web/src/components/booking/webinar-door.tsx:214",
-      "covered": "partly",
-      "by": "manage_attendees add; no door link"
+      "covered": "yes",
+      "by": "manage_attendees add; get_appointment linkAnyoneCanUse"
     },
     {
       "path": "Webinar door → your own Join link",
@@ -1855,7 +1855,7 @@
       "where": "Settings → Calendars, each calendar row's link with the copy icon; a calendar's Booking link card (Copy); Settings → Calendars → Booking site, the link with Copy",
       "gap": "The screens copy the whole link: origin plus bookingPath or permanentPath. The Assistant only ever gets paths. get_settings calendars returns calendar.list as is (bookingPath '/book/<site>/<cal>', permanentPath '/book/c/<id>'). get_settings booking_site returns site.path '/book/<slug>'. get_calendar_settings returns no link at all. The context's calendar lines have no link either. Read tools are run without webUrl, and nothing the model reads names app.handsfreeos.com. The only full-URL logic (branded domain when verified and the certificate is ready, else webUrl) lives in send_form, a commit. With no branded domain the model can't know the address. With one, it has to build the URL itself.",
       "fix": "Factor tools-forms.ts:381-388 into a helper publicOrigin(db, ctx, webUrl). Pass webUrl through createToolExecutor.run to settingsReadTools and calendarReadTools (tools-write.ts:886-899). In tools-settings.ts:130 give calendars a shape that adds bookingUrl and permanentUrl. In tools-settings.ts:134 give booking_site one that adds site.url. Add bookingUrl to get_calendar_settings' calendar block (tools-scheduling.ts:452). Put each calendar's bookingUrl on its context line (context.ts:291-316, prompt.ts:238-251).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1865,7 +1865,7 @@
       "where": "The Assistant's own instructions on writing links, and its words about Your own web address",
       "gap": "The SYSTEM prompt's only link example is https://handsfreeos.com/book/acme. handsfreeos.com is the marketing site (urls.site), and the app is https://app.handsfreeos.com (urls.app, WEB_URL). Several other places teach the same wrong default domain: settings-map.ts:141 ('instead of handsfreeos.com'), the manage_branded_domain description (core tools-setup.ts:244), and the worker's branded-domain cards and outcomes (tools-setup.ts:1747, 1797, 1842). update_booking_site shows 'Address: /book/<slug>' on its card and returns 'Your booking page is at /book/<slug>', paths only.",
       "fix": "prompt.ts:49: use https://app.handsfreeos.com/book/acme as the example. Add one rule under 'How to write': a customer-facing link is copied whole from a tool result (bookingUrl, permanentUrl, site.url) and never built from a path or a guessed domain. Change 'handsfreeos.com' to 'app.handsfreeos.com' in settings-map.ts:141, core tools-setup.ts:244 and worker tools-setup.ts:1747, 1797 and 1842. In tools-settings-calendar.ts:939 and :968, show and return `${publicOrigin}/book/${slug}`; commit already has extra.webUrl (tools-write.ts:917), and prepare needs it passed.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1875,7 +1875,7 @@
       "where": "Settings → My calendar: Weekly hours, Time zone, Time off (each row with its trash button), 'No hours saved yet, so weekdays 9 to 5 apply'",
       "gap": "get_settings my_calendar runs schedule.team with no input. ScheduleTeamInput requires from and to, so the query fails validation every time. readArea catches the failure as null, and the answer says 'Not this person's to see: schedules. An owner or admin can.' So the person's own weekly hours, ownTimezone, defaultHours and time off (with ids) are never readable. Because no tool returns an exception id, remove_time_off can't be used. A set_hours change to one day ('Fridays off') has to resend the whole week blind. The worker already makes this call correctly in savedWeek (tools-settings-me.ts) and busyText (tools-calendar.ts). The area test only checks result.area, so the failure goes unnoticed.",
       "fix": "tools-settings.ts:224: add input: (ctx) => ({ from: iso(now - 1 day), to: iso(now + 60 days), userIds: [ctx.actor.userId] }), as my-calendar/page.tsx:39-45 does. Add a shape returning { timezone, ownTimezone, weekly, defaultHours (as 'No hours saved yet, so weekdays 9 to 5 apply'), timeOff: [{ exceptionId: id, startsAt, endsAt, allDay, note, kind }] }. Describe update_my_hours.exceptionId (tools.ts:1121) as 'from get_settings (my_calendar) timeOff'. In assistant-settings.test.ts, assert that get_settings my_calendar has a non-null schedules and no note.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1885,7 +1885,7 @@
       "where": "Phone app: a visit's screen (Calendar → press an appointment), with Ask HandsFreeOS in its top bar",
       "gap": "The phone opens a visit at /app/w/<ws>/calendar/<appointmentId>, and its Screen shows Ask HandsFreeOS (ask defaults to true). usePhonePageRecord passes that pathname to assistantPageRecord, which only knows calendar?appt=<id>. RECORD_ROUTES has no calendar prefix, so the record is null. The turn then says 'No customer, lead or appointment is on screen.'",
       "fix": "In assistantPageRecord (words.ts:437), add a match for /^calendar\\/(UUID)(?:\\/|$)/i returning { type: 'appointment', id }. Add at(`calendar/${ID}`) to packages/core/test/assistant-words.test.ts:208-217. Update the doc comment at words.ts:422-427.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1895,7 +1895,7 @@
       "where": "Calendar → an appointment: Reminders (Confirmation and each reminder: Scheduled, Sent by text or email at a time, Skipped and why, Replaced); Customer: 'Confirmed by text 4:12 PM', 'Confirmed by Priya', 'Not confirmed · Asked Tue 4:00 PM, no answer yet' or 'Not asked yet'",
       "gap": "Real: get_appointment drops each attendee's reminders (ReminderState: confirmation and each reminder, scheduled, sent or skipped, the channel, dueAt, the reason) and confirmAskedAt. It also turns confirmedAt and confirmedBy into 'yes, by someone on the team', with no time and no name. So 'Did we ask Mike to confirm?', 'Why didn't her reminder go?' and 'When is it due?' can't be answered. Overstated: a reminder that was sent is a real message (ReminderEntry.messageId), so get_conversation can show it went out. Scheduled and skipped reminders, and why, are still invisible.",
       "fix": "In get_appointment's customers (tools-scheduling.ts:400-409), add attendeeId: s.id; askedToConfirmAt: s.confirmAskedAt; confirmedAt; confirmedBy: s.confirmedBy?.fullName; and reminders: [confirmation, ...Object.entries(s.reminders.reminders)] mapped with core's reminderLabel and reminderWhy to { label, state, channel, at or dueAt, why }. Drop entries whose startsAt isn't the visit's current start, as the sheet does. A wider one-line alternative: add 'appointment.get' to SCREEN_READS so read_appointment_get returns AppointmentGetOutput whole.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1905,7 +1905,7 @@
       "where": "Calendar and the visit sheet: status badge 'Not booked yet' and 'Waiting on a deposit. Held until 3:10 PM · 12 minutes left to pay it'; 'Happening now'; Scheduled / Completed",
       "gap": "Real: statusWords and todays_schedule ignore heldUntil. A time held while the customer pays a deposit comes back as 'Booked' from list_appointments and get_appointment, and as 'scheduled' from todays_schedule and upcomingFor. Every screen says 'Not booked yet' or 'Waiting on a deposit… Held until 3:10 PM'. The words also differ from the badges: 'Booked' and 'Done' against 'Scheduled' and 'Completed'. Overstated: todays_schedule does return happeningNow, so 'Happening now' isn't lost there, only in list_appointments and get_appointment. update_appointment already refuses to confirm a held seat.",
       "fix": "Replace statusWords (tools-scheduling.ts:180-190) with core's statusOf, holdOf and holdWords (calendar/agenda.ts:126-186), using the calendar's zone. Return status as the label ('Not booked yet', 'Happening now', 'Scheduled', 'Completed', 'No-show', 'Cancelled'), and add held: holdWords(...) when holdOf is non-null. Do the same in appointmentResult and todaysAppointments (tools-calendar.ts:197-206, 242-246).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1915,7 +1915,7 @@
       "where": "Calendar → Team, Week, Day and Month: each person's hours ('8 AM–6 PM' or 'Off'), time off blocks with their note, 'Busy in Google Calendar'/'Busy'/'Busy in another business' blocks, 'No calendar linked', and the reconnect notice",
       "gap": "No Assistant tool reads teammates' hours, time off with notes, or busy spans. schedule.team is not in SCREEN_READS. The only places it's read are get_settings my_calendar (self-only and broken, see cal-3), savedWeek (self) and busyText (one span, inside a booking card). list_team returns only names and roles, and find_availability only open slots. 'Who's off next week?' or 'Why is Priya blocked at 2?' can't be answered, though the Calendar's Team, Week and Day views show it to anyone with workspace.read.",
       "fix": "Add 'schedule.team' to SCREEN_READS (screen-reads.ts). This makes read_schedule_team with from, to (62 days or less) and userIds. Overlap with own reads is allowed, as calendar_connection.list shows. A worker list_team_schedule shaped to { name, userId, hoursToday or weekly, timeOff [{ startsAt, endsAt, allDay, note }], busy, busyElsewhere, privateBusy, connection status } would read better.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1925,7 +1925,7 @@
       "where": "Reschedule dialog (and drag or resize on the grid): Date, Start, Length, Time zone, the 'Tell Maria' tick box; 'Who's going?' (Change) with 'Tell Maria'",
       "gap": "reschedule_appointment takes only appointmentId, startsAt and userIds. It can't change the length, though appointment.reschedule takes durationMinutes and the Move dialog has Length (and resize). It always sends notify: true to appointment.reschedule. It sends notify true to appointment.reassign when the time is unchanged, with no way to untick Tell. Changing only who goes needs startsAt resent, and the card always says the customer is told.",
       "fix": "In tools.ts:1364-1371, add durationMinutes: minutes.optional() and tellCustomer: z.boolean().default(true). Make startsAt optional, with a refine that requires startsAt, durationMinutes or userIds. In tools-calendar.ts move() (:752-779), skip appointment.reschedule when neither startsAt nor durationMinutes is given. Pass durationMinutes, and notify: tellCustomer, to reschedule; pass reassign notify: tellCustomer && sameStart. Use tellRow(..., tellCustomer, ...) on the card (:804) and in same_time, comparing length too.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1935,7 +1935,7 @@
       "where": "New appointment: Location (the calendar's places, editable customer address), Time zone pick ('a customer's 2 PM Pacific'), Customer (optional)",
       "gap": "Real: book_appointment has no timezone. A customer's '2 PM Pacific' books on the calendar's clock, and the confirmation and reminders tell it in the calendar's zone (appointment.create takes timezone, and manage_repeat_visits already has timeZone). personId is required, but the dialog books with no customer. There is no location at booking: only the customer's own address is filled, and only when the first place is customer_address. Overstated: the place and title can be changed after booking with update_appointment (location: Place, title). Even then, the confirmation has already gone out with the default place.",
       "fix": "In tools.ts:1345-1361, add timeZone: timezone.optional() (described as in manage_repeat_visits), location: Place.optional() (import Place from tools-scheduling.ts:26), and make personId optional. In bookingInput (tools-calendar.ts:589-607), pass timezone: args.timeZone, and prefer args.location (mapped meetingLink→meetingUrl, as update_appointment does) over the customer address. When personId is missing, skip person.get and the Tell row (:612-616).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1945,7 +1945,7 @@
       "where": "Members → ⋯ → Edit hours, and Settings → My calendar?user=… for a teammate: their Weekly hours, Time zone, Add time off, remove time off",
       "gap": "Owners and admins (calendars.manage) set a teammate's weekly hours, time zone and time off from Members → ⋯ → Edit hours (my-calendar?user=…). schedule.set and time_off.add take ownerKind and ownerId, and the kernel allows it with calendars.manage. update_my_hours says 'Theirs alone', and the worker always acts on the asker. No other tool calls schedule.set, so 'Dale works 7 to 3 now' can't be done, while the settings map points people to the screen.",
       "fix": "Add userId: uuid.optional().describe('A teammate (list_team); owners and admins only') to update_my_hours (tools.ts:1095-1125). In tools-settings-me.ts, when userId isn't ctx.actor.userId, pass ownerKind 'user' and ownerId to schedule.set and time_off.add. Have savedWeek read that user's schedule. Title the card with their name and change the outcome words ('Dale’s hours are saved'). Leave the permission check to the kernel (assertMayEditHours).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1955,7 +1955,7 @@
       "where": "A group session's Seats: Attended and No-show beside each person (and the phone's same buttons)",
       "gap": "do_attendee_set_attendance needs attendeeId (the seat id). get_appointment returns each customer's personId, name, status and seats, but not s.id, and no other read returns an attendee id. 'Mark Sam attended the class' can't run, though the Seats section has Attended and No-show beside each person.",
       "fix": "In get_appointment's customers (tools-scheduling.ts:400), add attendeeId: s.id and joinedAt: s.joinedAt. Mention 'attendee ids for do_attendee_set_attendance' in get_appointment's description (core tools-scheduling.ts:58).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1965,7 +1965,7 @@
       "where": "Visit sheet → Job: 'Visits in this job' (date, title, status) and 'Add another of their visits' (+ each other visit)",
       "gap": "get_appointment's job returns only status, the customer note and a count of visits. It has no job id, no list of visits and no otherVisits (all in JobOut), and no etaAt. do_job_add_visit needs jobId and appointmentId, so 'add Tuesday's visit to this job' can't run, and 'what other visits are in this job?' can't be answered.",
       "fix": "In tools-scheduling.ts:410-416, return job: { jobId: a.job.id, title, status, noteForCustomer, eta (etaAt), visits: a.job.visits.map(v => ({ appointmentId, when, title, status })), couldAdd: a.job.otherVisits.map(v => ({ appointmentId, when, title })) }.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1975,7 +1975,7 @@
       "where": "Visit sheet: the deposit block (Deposit paid, Due after the visit, Open the invoice), the job invoice (Invoiced, Paid, Balance), and Invoice this visit",
       "gap": "get_appointment drops priceCents and reads no money for the visit. The sheet reads money.for_record with recordType 'appointment': deposit paid and when, due after the visit, and the job invoice with its balance. customer_money reads only per person and lists only open invoices, so a paid deposit isn't there. write_invoice has no attendeeId or purpose, so it can't do Invoice this visit (a draft tied to the seat, 'balance' less the paid deposit). The sheet's billable check is !money.jobInvoice, so an Assistant-written invoice leaves Invoice this visit showing, and the visit can be billed twice.",
       "fix": "Add 'money.for_record' to SCREEN_READS, or in get_appointment also query money.for_record { recordType: 'appointment', recordId } and return priceCents plus { deposit: depositWords(...), dueAfter: dueAfterCents(...), jobInvoice: jobInvoiceWords(...) } with core's helpers (visit-money.tsx:17-27). Add appointmentId to write_invoice (core tools-billing.ts:170-186). For a one-customer visit, the worker then sets attendeeId (seat id), leadId and purpose 'balance' when the deposit is paid ('standard' otherwise), with the line less the deposit, as invoiceThisVisit does.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1985,7 +1985,7 @@
       "where": "Calendar page with no appointment open: the view (Day, Week, Month, Team, Resources), the date in the title, the Person picker, the calendar chips (all in the URL)",
       "gap": "On /calendar with no ?appt, the page record is null. The view, date, Person and calendar chips in the URL never reach the turn, which says 'No customer, lead or appointment is on screen.' This is a design limit of the record-only page context, not wrong behaviour. The person can name the day or the teammate, and list_appointments and find_availability then answer. So it's lower than medium.",
       "fix": "Extend PageRecord with an optional calendar view: in the web's usePageRecord (apps/web/src/lib/assistant/page-record.ts:14-20), send parseCalendarQuery's view, date and userId. Add a pageLines case (prompt.ts:190-212): 'On screen: the Calendar, Week of Nov 9–15, Dale Ortiz (user id …). “This day” or “this week” means that.'",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -1995,7 +1995,7 @@
       "where": "Visit sheet: 'Booked online' / 'Booked by AI' chip, People and equipment (roles Lead/Crew/Host, each resource with 'N reserved'), 'Also on this visit' (extra services with length, price, 'added by the AI teammate'), the line under the time ('30 min travel before and after')",
       "gap": "appointment.get has source, resources (with quantity), staff roles, extraServices (minutes, price, source), and bufferBefore and bufferAfter. get_appointment and its card return none of them, so 'Did the AI book this?', 'Which truck is on it?' and 'What else did they add?' go unanswered. Correction: createdBy isn't shown on the sheet, so it isn't part of the gap.",
       "fix": "In get_appointment (tools-scheduling.ts:384-428), add bookedBy: sourceLabel(a.source) (or 'Booked online' or 'Booked by AI'), with: a.staff.map(s => ({ name, role: host→'Lead' or 'Host', crew→'Crew' })), equipment: a.resources.map(r => ({ name, quantity })), alsoOnThisVisit: a.extraServices.map(x => ({ name, minutes: x.durationMinutes, price: money(x.priceCents), byAi: x.source === 'ai_teammate' })), and buffers: { before, after } (marked travel when the calendar's travelMinutes applies).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2005,7 +2005,7 @@
       "where": "A webinar date's Video call section: 'Link anyone can use' with Copy",
       "gap": "For a webinar, the screen shows and copies `${window.location.origin}/live/<doorKey>`. read_video_call_get returns only the raw doorKey, and nothing in the Assistant maps it to /live/<key> or names the domain. do_webinar_schedule's output has only ids. get_appointment's where gives the meetingUrl or 'Video call'.",
       "fix": "Shape video_call.get for the Assistant, or add to get_appointment when location.video is 'handsfree' and the call format is 'webinar', a doorUrl: `${webUrl}${webinarDoorPath(doorKey)}` (core meetings/video-calls.ts:89). webUrl must reach read tools (see cal-1). Describe it as 'Link anyone can use'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2015,7 +2015,7 @@
       "where": "Settings → My calendar: Video meetings (Zoom: Connect Zoom, Connected, Transcripts off, Disconnect), Time zone, Time off rows with remove, 'Extra open time' rows",
       "gap": "Zoom is not mentioned in settings-map.ts, places-map.ts, the tool specs or the prompt. meeting_connection.connect is NEVER (only the person signs in), but there is no handover with steps, so 'how do I connect Zoom?' has no answer. The prompt's sign-in list (prompt.ts:34) names only Google, Outlook, Stripe and Square. my_calendar onScreen leaves out Time zone, Video meetings, and the connected state (Sync now, ⋯ → Disconnect, Allow Meet transcripts). canChange claims 'extra hours you are available', but update_my_hours always sends kind 'unavailable', and the screen only adds unavailable time; 'Extra open time' rows are only displayed. get_settings my_calendar does read meeting_connection.list, so the connection state is visible; only the words and the way there are missing.",
       "fix": "settings-map.ts:990-1003: set onScreen to 'Weekly hours', 'Time zone', 'Time off: Add time off, and remove beside each', 'Calendar connection: Google or Outlook; once connected Sync now, ⋯ → Disconnect, Allow Meet transcripts', 'Video meetings: Connect Zoom; once connected Disconnect'. Set canChange to 'your working hours and the time zone they are in', 'add or remove time off', 'sync or disconnect your Google or Outlook calendar', 'disconnect Zoom', and drop 'extra hours you are available'. Add a CONNECT_ZOOM handover (steps: Open Settings → My calendar. In Video meetings, press Connect Zoom. Sign in to Zoom and allow HandsFreeOS.) to handovers. Add Zoom to the sign-in list in prompt.ts:34.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2024,7 +2024,7 @@
       "kind": "do",
       "where": "Phone app, a visit's screen: Check in (showing safety: where, planned end, who is told)",
       "gap": "safety.check_in (risk 1, workspace.read, actors human) is in no tool, SCREEN_ACTIONS or NEVER entry. The Assistant can extend, check out of and resolve a check-in, but can't start one. It only tells people to press Check in on the phone. The coverage test misses this because it scans only '/v1/commands/<name>'. The phone runs offline commands through change('<name>', …), registered in apps/mobile/src/changes/commands.ts. Other phone-only commands also go unchecked and appear in no Assistant source, for example safety.where, safety.help, safety_contact.save and remove, appointment.still_going (a push button), call.connect_me and lead.record_answers.",
-      "fix": "Add 'safety.check_in': {} to SCREEN_ACTIONS (coverage.ts:149-152). The model gives place and plannedEndAt; the executor must supply id (a new uuid) because the input requires it. Pass appointmentId from the page's appointment record. If check-ins must carry the phone's location, add a NEVER_FOR_THE_ASSISTANT entry with that reason instead. In assistant-coverage.test.ts:47-54, also scan apps/mobile/src/changes/commands.ts for /^\\s*'([a-z_]+\\.[a-z_.]+)':\\s*command\\(/m, so phone-only commands must be covered or listed.",
+      "fix": "Left open: safety.check_in and the phone’s other safety commands are on ASSISTANT_NOT_YET under Settings → Safety (phone), for the step that checks the phone’s safety screens, which also decides whether a check-in may start without the phone’s own location; the coverage test already reads the phone’s change() calls, so none of them goes unchecked. Add 'safety.check_in': {} to SCREEN_ACTIONS (coverage.ts:149-152). The model gives place and plannedEndAt; the executor must supply id (a new uuid) because the input requires it. Pass appointmentId from the page's appointment record. If check-ins must carry the phone's location, add a NEVER_FOR_THE_ASSISTANT entry with that reason instead. In assistant-coverage.test.ts:47-54, also scan apps/mobile/src/changes/commands.ts for /^\\s*'([a-z_]+\\.[a-z_.]+)':\\s*command\\(/m, so phone-only commands must be covered or listed.",
       "status": "open",
       "pr": null
     },
@@ -2035,7 +2035,7 @@
       "where": "Settings → My calendar → Calendar connection when it needs reconnecting or isn't syncing: Reconnect (and Sync now); Calendar page notice 'Reconnect Google Calendar'; 'Allow Meet transcripts'",
       "gap": "The CONNECT_CALENDAR steps only say 'In Calendar connection, press Google or Outlook.' Once a calendar has been connected, the card shows Needs reconnecting or Not syncing with Reconnect, or Sync now and Disconnect, so those buttons aren't there. Allow Meet transcripts isn't mentioned. get_settings my_calendar does return connectedCalendars with status, so the model can tell the state but has no steps for it.",
       "fix": "Add to CONNECT_CALENDAR.steps (settings-map.ts:117-121), or as a RECONNECT_CALENDAR handover in my_calendar.handovers: 'If it says Needs reconnecting or Not syncing, press Reconnect beside it and sign in again.' and 'For Google Meet transcripts, press Allow Meet transcripts under your Google calendar.'",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2045,7 +2045,7 @@
       "where": "Calendar page: a chip for every calendar; New appointment: Calendar list",
       "gap": "calendarsFor keeps only the first 8 calendars and says nothing when it cuts. The prompt says 'the context lists each calendar', so with 9 or more the model treats the rest as missing.",
       "fix": "Return the total from calendarsFor (context.ts:291-316). When items.length > 8, add a line under 'Calendars' in prompt.ts:236-251: 'The first 8 of N; get_settings (calendars) lists them all.' Change prompt.ts:22 to 'the context lists the calendars'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2055,7 +2055,7 @@
       "where": "Calendar → Resources view: a column per room, truck or chair with its bookings; 'No staff' columns",
       "gap": "list_appointments can't filter by resource (appointment.list takes resourceIds), and its rows don't say what each booking reserves. 'What's booked in Bay 2 tomorrow?' can't be answered, though the Calendar has a Resources view.",
       "fix": "Add resourceId: uuid.optional().describe('Only bookings that reserve this room, truck or chair (get_settings resources)') to list_appointments (core tools-scheduling.ts:37-53). Pass it as resourceIds: [id] in the worker, and add equipment: a.resources.map(r => r.name) to each row (tools-scheduling.ts:338-351).",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2065,7 +2065,7 @@
       "where": "Calendar: New webinar button (and on the phone layout); a webinar's Video call section with 'Link anyone can use'",
       "gap": "Webinars aren't in places-map, settings-map or the prompt. The Calendar's onScreen lists only 'New appointment, and Manage calendars'. 'Where do I schedule a webinar?' and 'Where is the webinar link?' can't be answered without guessing. The Assistant can schedule one itself (do_webinar_schedule), so only the way there is missing.",
       "fix": "places-map.ts:243-247 Calendar onScreen: add 'New webinar (when HandsFreeOS video calls are on)'. Add these howTo lines: 'Schedule a webinar: Calendar, press New webinar, then pick the date and whether it repeats' and 'Share a webinar: Calendar, press its date, then under Video call press Copy beside Link anyone can use'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2075,7 +2075,7 @@
       "where": "Visit sheet: per-seat Attended / No-show, Waitlist with Remove, Zoom link with Make link, After the call, Transcript",
       "gap": "The 'An appointment' entry in places-map lists Seats only as 'Add'. It leaves out Attended and No-show beside each seat, Waitlist with Remove (the waitlist is only in canChange), the Zoom link section with Make link (and its error), After the call, and Transcript. 'How do I mark who came to the class?' and 'Where's the call transcript?' have no way there. The Assistant can do or read several of these (do_attendee_set_attendance, do_appointment_make_meeting_link, read_appointment_transcripts), so this is the words only.",
       "fix": "places-map.ts:266-275 onScreen: change 'Seats, for group sessions: Add' to 'Seats, for group sessions: Add, and once it starts Attended or No-show beside each person'. Add 'Waitlist: Remove beside each', 'Zoom link: Make link, when the link didn’t make itself', and 'After the call and Transcript, for recorded calls'. Add matching howTo lines, such as 'Mark who came to a class: open it, press Attended or No-show beside each person under Seats'.",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     },
     {
@@ -2085,7 +2085,7 @@
       "where": "Settings → Calendars → a calendar → More: Pause, Back to draft, Archive, Bring back as a draft; Resume",
       "gap": "manage_calendar's actions are create, change, turn_on and turn_off (active or paused). The builder's More menu also has Back to draft, Archive and Bring back as a draft, all through calendar.set_status. The Assistant can't archive or restore a calendar, though settings-map.ts:361 tells people Archive is under More.",
       "fix": "Extend manage_calendar.action (tools.ts:373-375) with 'archive', 'back_to_draft' and 'unarchive' (to draft). Map them in tools-settings-calendar.ts:256-300 to calendar.set_status with 'archived' or 'draft'. Give archive the screen's warning, 'It stops taking bookings and leaves the calendar. Its history stays.'",
-      "status": "open",
+      "status": "fixed",
       "pr": null
     }
   ]

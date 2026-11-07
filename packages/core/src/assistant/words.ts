@@ -427,6 +427,8 @@ const RECORD_ROUTES: readonly (readonly [PageRecord['type'], string])[] = [
   ['conversation', 'inbox'],
   ['workflow_run', 'workflows/runs'],
   ['workflow', 'workflows'],
+  // The phone opens a visit at /calendar/<appointmentId>.
+  ['appointment', 'calendar'],
 ];
 
 /**
@@ -434,8 +436,8 @@ const RECORD_ROUTES: readonly (readonly [PageRecord['type'], string])[] = [
  * screens sit at the web's own addresses, so both read it the same way: `/app/w/<ws>/customers/people/<id>` is a
  * person, `customers/companies/<id>` a company, `customers/records/<id>` a pet, vehicle or property (a business's
  * own kind of record), `leads/<id>` a lead, `inbox/<id>` a conversation, `workflows/<id>` a workflow,
- * `workflows/runs/<id>` a run of one, `/calendar?appt=<id>` the appointment that's open, and `/pipeline?lead=<id>` the
- * lead open in the board's side sheet. Every other page has no record.
+ * `workflows/runs/<id>` a run of one, `/calendar?appt=<id>` the appointment that's open (the phone's own visit screen is
+ * `calendar/<id>`), and `/pipeline?lead=<id>` the lead open in the board's side sheet. Every other page has no record.
  */
 export function assistantPageRecord(
   pathname: string,

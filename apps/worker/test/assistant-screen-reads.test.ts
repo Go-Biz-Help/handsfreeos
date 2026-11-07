@@ -181,4 +181,24 @@ describe('what the Assistant can see', () => {
     const usage = await read('usage.statement', {});
     expect(usage.result.data).toBeTruthy();
   });
+
+  it('reads the team’s hours in words, as the Calendar’s Team view shows them, without the day-by-day list', async () => {
+    const now = Date.now();
+    const { result } = await read('schedule.team', {
+      from: new Date(now).toISOString(),
+      to: new Date(now + 7 * 86_400_000).toISOString(),
+    });
+    const data = result.data as { timeZone: string; people: Record<string, unknown>[] };
+    expect(data.timeZone).toEqual(expect.any(String));
+    const me = data.people.find((p) => p['userId'] === owner.id)!;
+    expect(me).toMatchObject({
+      name: 'Sam Owner',
+      weeklyHours: expect.any(String),
+      hoursIn: expect.stringContaining('time zone'),
+      timeOff: [],
+      calendarLink: 'No calendar linked',
+    });
+    expect(me).not.toHaveProperty('windows');
+    expect(me).not.toHaveProperty('weekly');
+  });
 });

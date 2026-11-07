@@ -77,6 +77,10 @@ describe('Assistant context (PERF-M20)', () => {
       `On screen now: An invoice (Money → Invoices, then press the invoice), showing invoice id ${ID}.`,
     );
     expect(on('/audit')).toContain('On screen now: Audit log (Audit log).');
+    // The Calendar's view and day, and whose it is, so "this week" means the week that's open.
+    expect(on(`/calendar?view=week&date=2026-11-09&people=${ID}`)).toContain(
+      `, on the week view of 2026-11-09, showing user id ${ID}.`,
+    );
     expect(on(`/customers/companies/${ID}`)).toContain(
       'On screen now: A company’s page (Contacts → Companies, then press the company)',
     );
