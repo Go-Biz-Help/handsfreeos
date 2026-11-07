@@ -735,9 +735,30 @@ async function attentionPlan(db: Db, ctx: ToolContext, args: Args) {
   };
 }
 
+/**
+ * What starts going to customers on its own once the change is saved, so the card says so, as every change that
+ * reaches them does. Follow-ups turned on the first time say it in the owner's own reading warning instead.
+ */
+function startsReaching(now: AttentionSettings, next: AttentionSettings, reviewing: boolean) {
+  const out: string[] = [];
+  if (!reviewing && next.auto.nudges && !now.auto.nudges) out.push('texts quiet leads a follow-up');
+  else if (next.auto.nudges && now.auto.nudges && next.nudge.template !== now.nudge.template)
+    out.push('texts quiet leads the new follow-up wording');
+  if (next.auto.confirmRequests && !now.auto.confirmRequests)
+    out.push('asks customers to confirm their visits');
+  return out.length
+    ? `Once saved, HandsFreeOS ${out.join(' and ')} on its own, after a ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait in which it can be cancelled on Home.`
+    : null;
+}
+
 const updateActionCenterSettings: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
-    const { named, kept, reviewing, nudgeBlocked, next } = await attentionPlan(db, ctx, args);
+    const { settings, named, kept, reviewing, nudgeBlocked, next } = await attentionPlan(
+      db,
+      ctx,
+      args,
+    );
+    const reaching = startsReaching(settings, next, reviewing);
     const fields: Field[] = [];
     // The wording first, so an owner reads it before anything else: confirming is their Looks good, turn on.
     if (reviewing) fields.push({ label: 'Follow-up wording', value: next.nudge.template });
@@ -832,14 +853,17 @@ const updateActionCenterSettings: SettingsConfirmTool = {
         confirmLabel: why ? '' : reviewing ? 'Looks good, turn on' : 'Save the change',
         warnings: why
           ? [{ kind: 'blocked', text: why }]
-          : reviewing
-            ? [
-                {
-                  kind: 'caution',
-                  text: `Read the wording above first: confirming is your Looks good, turn on. Each follow-up then goes to a quiet lead on its own, after a ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait in which it can be cancelled on Home.`,
-                },
-              ]
-            : [],
+          : [
+              ...(reviewing
+                ? [
+                    {
+                      kind: 'caution',
+                      text: `Read the wording above first: confirming is your Looks good, turn on. Each follow-up then goes to a quiet lead on its own, after a ${AUTO_CANCEL_WINDOW_MINUTES}-minute wait in which it can be cancelled on Home.`,
+                    },
+                  ]
+                : []),
+              ...(reaching ? [{ kind: 'caution', text: reaching }] : []),
+            ],
       }),
       result: why
         ? { blocked: true, why }
@@ -847,6 +871,7 @@ const updateActionCenterSettings: SettingsConfirmTool = {
             waiting: true,
             changes: fields.map((f) => f.label),
             ...(reviewing ? { wordingShownToRead: true } : {}),
+            ...(reaching ? { reachesCustomers: reaching } : {}),
           },
     };
   },

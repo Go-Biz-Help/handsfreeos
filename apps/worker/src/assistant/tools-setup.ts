@@ -1818,7 +1818,7 @@ async function theDomain(db: Db, ctx: ToolContext, typed: unknown): Promise<Doma
   const d = await domainOf(db, ctx);
   if (!d)
     throw HfosError.notFound(
-      'The business has no web address of its own set up yet, so there’s nothing to check or stop. Add one first (action add).',
+      'The business has no web address of its own set up yet, so there’s nothing to check or stop. Add one first (manage_web_address, action add).',
     );
   if (d.domain !== String(typed).trim().toLowerCase())
     throw need('domain', `The business is on ${d.domain}, not ${String(typed)}.`);

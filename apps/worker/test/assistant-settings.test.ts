@@ -1762,6 +1762,35 @@ describe('what Home watches for', () => {
     }>('attention.settings');
     expect(after2.settings.auto.nudges).toBe(false);
     expect(after2.settings.auto.nudgeReviewedAt).toBe(on.settings.auto.nudgeReviewedAt);
+
+    // Turned back on, or customers asked to confirm again, the card says it reaches customers on its own.
+    const backOn = await prepare(
+      'update_action_center_settings',
+      { followUpOnQuietLeads: true },
+      ada,
+    );
+    expect(backOn.card.confirmLabel).toBe('Save the change');
+    expect(backOn.card.warnings).toEqual([
+      {
+        kind: 'caution',
+        text: expect.stringContaining('HandsFreeOS texts quiet leads a follow-up on its own'),
+      },
+    ]);
+    const quiet = await prepare(
+      'update_action_center_settings',
+      { askCustomersToConfirmVisits: false },
+      owner,
+    );
+    // Turning something off reaches nobody.
+    expect(quiet.card.warnings).toEqual([]);
+    await confirm(quiet.tool!, quiet.parsed, owner);
+    const askAgain = await prepare(
+      'update_action_center_settings',
+      { askCustomersToConfirmVisits: true },
+      owner,
+    );
+    expect(askAgain.card.warnings[0]!.text).toContain('asks customers to confirm their visits');
+    await confirm(askAgain.tool!, askAgain.parsed, owner);
   });
 
   it('sets gone quiet by open stage, as the screen does, and says which stages keep their own number', async () => {
@@ -1817,6 +1846,15 @@ describe('what Home watches for', () => {
         owner,
       ),
     ).rejects.toThrow('Won and lost stages never go quiet');
+  });
+
+  it('tells an admin who can see the Deleted bin, from the permission it needs', async () => {
+    const { result } = await readTool('get_settings', 'deleted_bin', ada);
+    expect(result['deletedBin']).toBeNull();
+    // Delete for good is the owners’ unless an owner gives it, so “An owner or admin can” would be wrong here.
+    expect(result['note']).toContain(
+      'deletedBin. An owner can, or someone an owner gave “Delete for good” to in Settings → Permissions.',
+    );
   });
 
   it('won’t switch off what the screen always shows', async () => {
