@@ -981,7 +981,9 @@ export const assistantTools = [
         ),
       optIn: text(1000)
         .optional()
-        .describe('How customers agree to get texts, in the business’s words'),
+        .describe(
+          'What we will tell the carriers about how customers agree, in the business’s words. Left out, How customers agree writes it from the way picked when the person opens it there',
+        ),
       optInUrl: z.url().max(500).optional().describe('own_site: the page with the box on it'),
       optInProofUrl: z
         .url()

@@ -684,9 +684,19 @@ async function testTextOf(db: Db, ctx: ToolContext, args: Args) {
   };
 }
 
+/** The send, as Text me a test sends it: in quiet hours only when the person said to send it anyway. */
+const testSend = (t: { toPhone: string; body: string }, args: Args) => ({
+  toPhone: t.toPhone,
+  channel: 'sms',
+  body: t.body,
+  acknowledgeQuietHours: bool(args['duringQuietHours']) ?? false,
+});
+
 const sendTestText: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
     const t = await testTextOf(db, ctx, args);
+    // The send's own refusals, said before any card: no business number yet, texting not approved, quiet hours.
+    await rehearse(db, ctx, 'message.send', testSend(t, args));
     return {
       card: settingsCard(toolCallId, 'send_test_text', {
         title: `Text a test to ${phoneLine(t.toPhone)}`,
@@ -709,12 +719,7 @@ const sendTestText: SettingsConfirmTool = {
   },
   async commit(db, ctx, args) {
     const t = await testTextOf(db, ctx, args);
-    await command(db, ctx, 'message.send', {
-      toPhone: t.toPhone,
-      channel: 'sms',
-      body: t.body,
-      acknowledgeQuietHours: bool(args['duringQuietHours']) ?? false,
-    });
+    await command(db, ctx, 'message.send', testSend(t, args));
     return {
       outcome: `Texted a test to ${phoneLine(t.toPhone)}`,
       href: `/app/w/${ctx.workspaceId}/settings/texting`,
@@ -764,7 +769,7 @@ const REGISTRATION_ANSWERS: Readonly<Record<string, string>> = {
   sensitive: 'Topics the carriers treat differently',
   samples: 'Example texts',
   optInPath: 'How customers agree',
-  optIn: 'In their words',
+  optIn: 'What we will tell the carriers',
   optInUrl: 'The page with the box',
   optInProofUrl: 'Proof of how they agree',
   ownPolicyUrl: 'Privacy policy',
@@ -824,9 +829,13 @@ async function fillInCarrierRegistration(
       400,
       'There’s nothing to fill in yet. Ask the person for an answer first, such as the business’s legal name.',
     );
-  const form = { ...savedForm, ...given };
-  const step = form['optInPath'] ? STEP_BEFORE_IT_GOES : STEP_HOW_THEY_AGREE;
-  await command(db, ctx, 'registration.save_draft', { answers: { form, at: step.at } });
+  const form: Record<string, unknown> = {
+    ...savedForm,
+    ...given,
+    // A tick on Before it goes was given on the answers there then, so answers changed here are ticked again there,
+    // by the person: the Assistant never carries one over to answers it filled in.
+    confirmed: [],
+  };
   const has = (key: string) => {
     const v = form[key];
     return Array.isArray(v) ? v.length > 0 && v.every((x) => x !== '') : !!v || v === null;
@@ -848,11 +857,17 @@ async function fillInCarrierRegistration(
     'volume',
     'samples',
     'optInPath',
+    // What the carriers are told about it: How customers agree writes it from the way picked.
+    ...(form['optInPath'] ? ['optIn'] : []),
     ...(form['optInPath'] === 'own_site' ? ['optInUrl'] : []),
     ...(form['optInPath'] === 'in_person' ? ['optInProofUrl'] : []),
   ].filter((key) => !has(key));
   // "None of these" is an answer ([]); never answered is not.
   if (!Array.isArray(form['sensitive'])) needed.push('sensitive');
+  // How customers agree writes what the carriers are told from the way picked, and for the sign-up page HandsFreeOS
+  // hosts sets up the chat that collects it, so it opens there until that's written; then at Before it goes.
+  const step = form['optInPath'] && has('optIn') ? STEP_BEFORE_IT_GOES : STEP_HOW_THEY_AGREE;
+  await command(db, ctx, 'registration.save_draft', { answers: { form, at: step.at } });
   const back = `/app/w/${ctx.workspaceId}/settings/texting`;
   const lines = Object.entries(given).map(
     ([key, value]) => `${REGISTRATION_ANSWERS[key]}: ${answerLine(key, value)}`,
@@ -867,6 +882,12 @@ async function fillInCarrierRegistration(
       ),
       opensAt: step.title,
       ...(needed.length ? { stillToAnswer: needed.map((key) => REGISTRATION_ANSWERS[key]) } : {}),
+      ...(needed.includes('optIn')
+        ? {
+            whatWeWillTellTheCarriers:
+              'How customers agree writes it from the way picked when the person opens it there (Use our wording), and for the sign-up page HandsFreeOS hosts its button also sets up the chat that collects it. Or fill it in from what the person says (optIn).',
+          }
+        : {}),
       sent: false,
       note: needed.length
         ? 'Saved, and nothing has gone to the carriers. Read back what you saved, then ask for what’s still to answer.'

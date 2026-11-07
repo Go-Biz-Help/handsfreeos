@@ -11,8 +11,11 @@ import {
   executeQuery,
   hasWorkspacePermission,
   leadCreate,
+  localMinutes,
+  money,
   organizationCreate,
   personCreate,
+  phoneUpdateSettings,
   registry,
   resourceCreate,
   serviceCreate,
@@ -1350,7 +1353,13 @@ describe('the business number', () => {
     );
     expect(getting.card.title).toBe('Get (713) 555-0188');
     expect(getting.card.fields.find((f) => f.label === 'Number')!.value).toBe('(713) 555-0188');
-    expect(getting.card.warnings[0]!.text).toContain('costs money every month');
+    // The price, as Settings → Usage & balance shows it to someone who may see prices, on the card and its warning.
+    const prices = await q<{ items: { key: string | null; cents: number }[] }>('usage.prices');
+    const monthly = `${money(prices.items.find((i) => i.key === 'number.local.month')!.cents)} a month`;
+    expect(getting.card.fields.find((f) => f.label === 'Costs')!.value).toBe(monthly);
+    expect(getting.card.warnings[0]!.text).toBe(
+      `This costs ${monthly}, from your balance, every month you keep it.`,
+    );
 
     const giving = await prepare(
       'manage_phone_number',
@@ -1494,20 +1503,21 @@ describe('the carrier registration', () => {
     });
     expect(saved.answers!.at).toBe(5);
 
-    // A later answer keeps the earlier ones, opens at Before it goes once there's a way customers agree, and
-    // never gives the ticks only the person gives there.
+    // A later answer keeps the earlier ones. With a way customers agree but nothing yet to tell the carriers about
+    // it, it still opens on How customers agree, which writes that (and sets up the hosted sign-up chat).
     const second = await fill({
       website: 'https://settingshvac.example',
       optInPath: 'hosted',
       sensitive: [],
       ownPolicyUrl: null,
     });
-    expect(second.result.opensAt).toBe('Before it goes');
+    expect(second.result.opensAt).toBe('How customers agree to get texts');
     expect(second.result.saved).toMatchObject({
       'How customers agree': 'The sign-up page HandsFreeOS hosts',
       'Topics the carriers treat differently': 'None of these',
       'Privacy policy': 'The one HandsFreeOS hosts',
     });
+    expect(second.result.stillToAnswer).toContain('What we will tell the carriers');
     expect(second.result.stillToAnswer).not.toContain('Topics the carriers treat differently');
     const again = await q<Draft>('registration.get_draft');
     expect(again.answers!.form).toMatchObject({
@@ -1518,8 +1528,27 @@ describe('the carrier registration', () => {
       ownPolicyUrl: '',
       samples: [sample, ''],
     });
-    expect(again.answers!.form['confirmed']).toBeUndefined();
-    expect(again.answers!.at).toBe(7);
+    expect(again.answers!.at).toBe(5);
+
+    // Once that's written it opens at Before it goes, and the ticks the person gave there on other answers are
+    // cleared, so they tick them again on these: the Assistant never gives one.
+    await rows(
+      testDbs().admin.db,
+      sql`update app.registration_drafts
+          set answers = jsonb_set(answers, '{form,confirmed}', '["only_these_ways"]'::jsonb)
+          where workspace_id = ${workspaceId}`,
+    );
+    const third = await fill({
+      optIn: 'Customers start a chat on settingshvac.example and tick a box to get texts.',
+    });
+    expect(third.result.opensAt).toBe('Before it goes');
+    expect(third.result.stillToAnswer).not.toContain('What we will tell the carriers');
+    const last = await q<Draft>('registration.get_draft');
+    expect(last.answers!.form['optIn']).toBe(
+      'Customers start a chat on settingshvac.example and tick a box to get texts.',
+    );
+    expect(last.answers!.form['confirmed']).toEqual([]);
+    expect(last.answers!.at).toBe(7);
 
     // Nothing went to the carriers.
     const sent = await rows<{ n: number }>(
@@ -2304,12 +2333,72 @@ describe('the phone account, numbers from elsewhere, RCS senders and a test text
 
   it('texts a test only on Confirm, to the phone given, and asks for one when there’s no confirmed cell', async () => {
     await expect(prepare('send_test_text', {}, owner)).rejects.toMatchObject({ rule: 'no_cell' });
-    const { card } = await prepare('send_test_text', { toPhone: '+17135550123' }, owner);
+    // The send's own refusals come before any card: with no business number yet, nothing could go.
+    const to = { toPhone: '+17135550123' };
+    await expect(prepare('send_test_text', to, owner)).rejects.toMatchObject({
+      rule: 'no_number',
+    });
+
+    // A toll-free number cleared to text, and quiet hours from an hour ago to an hour from now.
+    const [account] = await rows<{ id: string }>(
+      testDbs().admin.db,
+      sql`insert into app.telephony_accounts (workspace_id, provider, account_sid, status)
+          values (${workspaceId}, 'fake', ${`ACtt${suffix}`}, 'active')
+          on conflict (workspace_id) do update set status = 'active'
+          returning id`,
+    );
+    const [number] = await rows<{ id: string }>(
+      testDbs().admin.db,
+      sql`insert into app.phone_numbers (workspace_id, account_id, provider_sid, e164, number_type, status)
+          values (${workspaceId}, ${account!.id}, ${`PNtt${suffix}`},
+            ${`+1833${String((Date.now() + 11) % 10_000_000).padStart(7, '0')}`}, 'toll_free', 'active')
+          returning id`,
+    );
+    await rows(
+      testDbs().admin.db,
+      sql`insert into app.telephony_registrations (workspace_id, account_id, phone_number_id, kind, status, provider_sid, approved_at)
+          values (${workspaceId}, ${account!.id}, ${number!.id}, 'toll_free_verification', 'approved',
+            ${`HHtt${suffix}`}, now())`,
+    );
+    const hhmm = (m: number) => {
+      const x = ((m % 1440) + 1440) % 1440;
+      return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+    };
+    const local = localMinutes(new Date(), CHI);
+    await run(
+      phoneUpdateSettings,
+      {
+        workspaceId,
+        quietHours: { enabled: true, start: hhmm(local - 60), end: hhmm(local + 60) },
+      },
+      owner,
+    );
+    // In quiet hours it asks first, as Text me a test does; it goes then only when they said to send it anyway.
+    await expect(prepare('send_test_text', to, owner)).rejects.toMatchObject({
+      rule: 'quiet_hours',
+    });
+
+    const { card, parsed, tool } = await prepare(
+      'send_test_text',
+      { ...to, duringQuietHours: true },
+      owner,
+    );
     expect(card.title).toBe('Text a test to (713) 555-0123');
     expect(card.fields.find((f) => f.label === 'Says')!.value).toBe(
       `This is a test text from ${businessName} on HandsFreeOS. Replies land in the inbox.`,
     );
     expect(card.warnings[0]!.text).toContain('real text from your business number');
     expect(AssistantCard.safeParse(card).success).toBe(true);
+    const tests = () =>
+      rows<{ n: number }>(
+        testDbs().admin.db,
+        sql`select count(*)::int as n from app.messages
+            where workspace_id = ${workspaceId} and body_text like 'This is a test text from%'`,
+      );
+    expect((await tests())[0]!.n).toBe(0);
+
+    const done = await confirm(tool, parsed, owner);
+    expect(done.outcome).toBe('Texted a test to (713) 555-0123');
+    expect((await tests())[0]!.n).toBe(1);
   });
 });
