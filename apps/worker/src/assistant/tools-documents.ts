@@ -52,6 +52,7 @@ import type { z } from 'zod';
 import { placeFields } from '../documents/place';
 import { documentPages, PAGES_AT_ONCE } from '../documents/pages';
 import type { WorkerServices } from '../services';
+import { atLabel, dayLabel } from './calendar-format';
 import type { ToolContext, ToolOutcome } from './runtime';
 import { command, query, rehearse } from './tools-read';
 import { settingsCard, type SettingsConfirmTool } from './tools-settings-calendar';
@@ -211,28 +212,33 @@ export function templateRead(raw: unknown, page: unknown): unknown {
   };
 }
 
-/** document.get as its page shows it: its state and notes first, who signs and where each is, then What happened. */
-export function documentRead(raw: unknown): unknown {
+/**
+ * document.get as its page shows it: its state and notes first, who signs and where each is, then What happened. The
+ * notes say their day and time in the business's zone, as the page does in the person's.
+ */
+export function documentRead(raw: unknown, timeZone?: string): unknown {
   const d = raw as Doc;
   const def = parseDocumentDefinition(d.definition);
   const named = new Map(d.signers.map((s) => [s.id, s.name]));
   const values = d.values as Record<string, DocumentValue>;
+  const at = (iso: string) => (timeZone ? atLabel(Date.parse(iso), timeZone) : iso);
+  const day = (iso: string) => (timeZone ? dayLabel(Date.parse(iso), timeZone) : iso);
   const note =
     d.status === 'voided' && d.voidedAt
-      ? W.voidedNote(d.voidedAt, d.voidReason)
+      ? W.voidedNote(at(d.voidedAt), d.voidReason)
       : d.status === 'declined' && d.declinedAt
         ? W.declinedNote(
             d.signers.find((s) => s.status === 'declined')?.name ?? null,
-            d.declinedAt,
+            at(d.declinedAt),
             d.signers.find((s) => s.status === 'declined')?.declineReason ?? null,
           )
         : d.status === 'expired' && d.expiredAt
-          ? W.expiredNote(d.expiredAt)
+          ? W.expiredNote(at(d.expiredAt))
           : d.status === 'completed'
             ? W.completedNote
             : d.finishing
               ? 'Everyone signed. The signed copy is being made.'
-              : W.outOfTimeOn(d.expiresAt);
+              : W.outOfTimeOn(day(d.expiresAt));
   return {
     id: d.id,
     name: d.name,
@@ -406,6 +412,29 @@ const linkWay = (email: string | null | undefined, phone: string | null | undefi
         ? 'link by text'
         : 'no way to send a link';
 
+/**
+ * One customer's word changes (27a) against the template's, since what's given replaces the template's whole: the
+ * changes theirs alone, and any of the template's left out for them. Null when it comes to the template's own.
+ */
+function theirWords(d: DocumentDefinition, given: readonly Args[]): string | null {
+  const template = new Map(d.edits.map((e) => [e.id, e]));
+  const ids = new Set(given.map((e) => String(e['id'])));
+  const own = given.filter((e) => {
+    const was = template.get(String(e['id']));
+    return !was || was.text !== String(e['text'] ?? '');
+  }).length;
+  const left = d.edits.filter((e) => !ids.has(e.id)).length;
+  if (!own && !left) return null;
+  return [
+    ...(own ? [`${plural(own, 'change')} to the words, for them only.`] : []),
+    ...(left
+      ? [
+          `${left} of the template’s changes to the words ${left === 1 ? 'is' : 'are'} left out for them, so the PDF’s own words show there.`,
+        ]
+      : []),
+  ].join(' ');
+}
+
 /** Send “Lease” to sign?: who signs, in order, and how each one's link reaches them, then the settings. */
 const sendCard: ScreenActionCard = {
   async prepare(db, ctx, args, tool) {
@@ -445,7 +474,7 @@ const sendCard: ScreenActionCard = {
     );
     const s = settled(d.settings, args);
     const name = str(args['name']) ?? t.name;
-    const edits = Array.isArray(args['edits']) ? args['edits'].length : null;
+    const words = Array.isArray(args['edits']) ? theirWords(d, args['edits'] as Args[]) : null;
     const values = Object.keys((args['values'] ?? {}) as Args).length;
     const fields = [
       ...(name !== t.name ? [{ label: W.template, value: t.name }] : []),
@@ -465,14 +494,7 @@ const sendCard: ScreenActionCard = {
       { label: W.expireDays, value: String(s.expireDays) },
       ...(s.message ? [{ label: W.note, value: clip(s.message, 200) }] : []),
       ...(values ? [{ label: W.filledIn, value: `${plural(values, 'field')} you filled in` }] : []),
-      ...(edits !== null
-        ? [
-            {
-              label: 'Their own words',
-              value: `${plural(edits, 'change')} to the words, for them only. ${E.templateStays}`,
-            },
-          ]
-        : []),
+      ...(words ? [{ label: 'Their own words', value: `${words} ${E.templateStays}` }] : []),
     ];
     const inPersonOnly = signers.length > 0 && signers.every((x) => x['inPerson']);
     return {
@@ -488,7 +510,7 @@ const sendCard: ScreenActionCard = {
               : 'It goes out as soon as you confirm: each signer gets their own private link when it’s their turn.',
           },
           ...(args['replacesDocumentId']
-            ? [{ kind: 'note', text: 'It replaces the voided one, which stays voided.' }]
+            ? [{ kind: 'note', text: 'It says it replaces the earlier one, which stays as it is.' }]
             : []),
         ],
       }),
@@ -546,7 +568,14 @@ const voidCard: ScreenActionCard = {
 const remindCard: ScreenActionCard = {
   async prepare(db, ctx, args, tool) {
     const d = await documentOf(db, ctx, args['documentId']);
-    const up = d.signers.filter((s) => signerIsUp(s, d.signers) && s.status !== 'declined');
+    // Whom document.remind sends to: whoever's turn it is and has had their link, or signs in person and can be
+    // reached, for their first.
+    const up = d.signers.filter(
+      (s) =>
+        signerIsUp(s, d.signers) &&
+        s.status !== 'declined' &&
+        (s.sentAt || (s.inPerson && (s.email || s.phone))),
+    );
     const lines = up.map((s) => ({
       label: s.roleLabel ?? 'Signer',
       value: `${s.name}, ${s.sentAt ? `their ${linkWay(s.email, s.phone)} again` : `their first ${linkWay(s.email, s.phone)}`}`,
@@ -574,8 +603,10 @@ export const documentScreenCards: Readonly<Record<string, ScreenActionCard>> = {
 };
 
 /** The screens' look-ups this file says in the screens' words, by query. */
-export const documentReads: Readonly<Record<string, (got: unknown, args: Args) => unknown>> = {
-  [documentGet.name]: (got) => documentRead(got),
+export const documentReads: Readonly<
+  Record<string, (got: unknown, args: Args, timeZone: string) => unknown>
+> = {
+  [documentGet.name]: (got, _args, timeZone) => documentRead(got, timeZone),
   [documentList.name]: (got) => documentListRead(got),
   [documentTemplateGet.name]: (got, args) => templateRead(got, args['page']),
   [documentPrefill.name]: (got) => prefillRead(got),

@@ -884,6 +884,13 @@ describe('the Assistant', () => {
     expect(sending.card.warnings[0]).toMatchObject({ kind: 'caution' });
     // Named, never by its id.
     expect(JSON.stringify(sending.card)).not.toContain(templateId);
+    // Their own words take the template's place whole, so one of the template's left out is said.
+    const without = await prepare('do_document_send', { ...sendArgs, edits: [] });
+    expect(without.card.fields).toContainEqual({
+      label: 'Their own words',
+      value:
+        '1 of the template’s changes to the words is left out for them, so the PDF’s own words show there. The template stays as it is.',
+    });
 
     const sent = await commit('do_document_send', sendArgs);
     const documentId = (sent.answer as { documentId: string }).documentId;
@@ -933,6 +940,9 @@ describe('the Assistant', () => {
     });
     // The state comes first, so a long document keeps it when the rest is cut.
     expect(Object.keys(doc).slice(0, 4)).toEqual(['id', 'name', 'state', 'note']);
+    // The note says its day in the business's zone, never a raw time stamp.
+    expect(doc['note']).toMatch(/^Out of time /);
+    expect(doc['note']).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
     const signers = doc['Who signs'] as { state: string; theirTurn: boolean }[];
     expect(signers.map((s) => [s.state, s.theirTurn])).toEqual([
       ['Sent', true],

@@ -487,7 +487,11 @@ export async function runScreenRead(
                                     : tool.query.name === funnelGet.name
                                       ? funnelRead(got, args['stageId'])
                                       : // Documents, as their screens say them.
-                                        (documentReads[tool.query.name]?.(got, args) ?? got);
+                                        (documentReads[tool.query.name]?.(
+                                          got,
+                                          args,
+                                          ctx.timezone,
+                                        ) ?? got);
   const json = JSON.stringify(data ?? null);
   // A list's next page, kept when the rest is cut, so it can still be read on from.
   const next = (data as { nextCursor?: unknown } | null)?.nextCursor;

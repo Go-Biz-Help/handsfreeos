@@ -136,7 +136,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'document_template.duplicate': {},
   'document.send': {
     about:
-      'Read read_document_prefill first, for who each role suggests and what stops it going out; pass each signer by roleKey. Values are only the fields you fill in or change. edits replaces the template’s word changes for this customer whole: pass every one to keep (read_document_template_get lists them), plus theirs, with each line’s box from get_document_pages. To correct a voided one, pass replacesDocumentId.',
+      'Read read_document_prefill first, for who each role suggests and what stops it going out; pass each signer by roleKey. Values are only the fields you fill in or change. edits replaces the template’s word changes for this customer whole: pass every one to keep as read_document_prefill lists it, plus theirs, each new one with an id of its own (like e_theirs1) and its line’s box from get_document_pages. To send again one that was voided, declined or ran out of time, as Send it again does, read read_document_prefill with its fromDocumentId, then pass that id as replacesDocumentId.',
   },
   'document.remind': {},
   'document.void': {},

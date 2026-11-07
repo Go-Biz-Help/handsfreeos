@@ -310,7 +310,7 @@ describe('the screen a question is asked from', () => {
       label: 'Send a document',
       ids: [
         { name: 'document template', id: ID },
-        { name: 'voided document it corrects', id: ID2 },
+        { name: 'earlier document it sends again', id: ID2 },
       ],
     });
   });

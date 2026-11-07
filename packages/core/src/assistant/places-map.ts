@@ -791,7 +791,7 @@ export const APP_PLACES: readonly AppPlace[] = [
     ],
     notHere: ['sending one document to many customers at once (send it to each)'],
     path: '/documents/send',
-    queryIds: { template: 'document template', from: 'voided document it corrects' },
+    queryIds: { template: 'document template', from: 'earlier document it sends again' },
   },
   {
     label: 'Reviews',
