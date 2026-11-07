@@ -248,7 +248,7 @@
       "kind": "do",
       "file": "apps/web/src/components/admin/ticket-view.tsx:218",
       "covered": "yes",
-      "by": "do_support_ticket_reply (Confirm card shows raw ids, adm-4)"
+      "by": "do_support_ticket_reply: its card names the ticket, and says an answer is emailed to whoever wrote in (staffCautions)"
     },
     {
       "path": "Ticket → Internal note checkbox",
@@ -2625,7 +2625,7 @@
       "kind": "words",
       "where": "Settings → Account → Notifications: 'New support tickets' is shown only to HandsFreeOS support people",
       "gap": "update_my_alerts is offered to everyone (permission 'assistant.use'). Its description includes PUSH_WORDS, which names 'supportTickets: a new HandsFreeOS support ticket (HandsFreeOS support people only)', and its enum is all of PUSH_SWITCHES, supportTickets included (tools-extra.ts:95-96, 406-418). Nothing in context.ts or tools-write.ts filters it for people who aren't staff. That tells every business user about a staff-only switch, which goes against the owner's rule (prompt.ts:146-147) that nobody else is told staff tools exist.",
-      "fix": "Fixed: update_my_alerts no longer takes or mentions supportTickets. update_my_support_alerts, offered only with support.read, turns New support tickets on or off, and the settings catalog points notifications.support_tickets at it. The core test checks nobody else is offered it or told of it.",
+      "fix": "Fixed: update_my_alerts no longer takes or mentions supportTickets. update_my_support_alerts, offered only with support.read, turns New support tickets on or off, and the settings catalog points notifications.support_tickets at it. get_settings my_account leaves the row and its saved switch out for anyone who isn’t staff (platform.me). The core test checks nobody else is offered it or told of it, and assistant-staff.test.ts that get_settings doesn’t tell them.",
       "status": "fixed",
       "pr": null
     },

@@ -19,6 +19,7 @@ import {
   money,
   STAFF_ROLE_WORDS,
   supportStaffSaveProfile,
+  supportTicketReply,
   TICKET_PRIORITY_WORDS,
   TICKET_STATUS_WORDS,
   walletAdjust,
@@ -244,9 +245,14 @@ export async function staffCardFields(
   return [what!, ...fitted];
 }
 
+/** An answer on a ticket goes out by email; an internal note stays with the team. */
+const TICKET_ANSWER_GOES_OUT =
+  'This emails your answer to the person who wrote in. Make it an internal note to keep it to the team.';
+
 /**
  * What a staff card warns of beyond its fixed warning, as the screen's own dialog says it: moving a business off Paid
- * by the agency writes off what they ran up, and Stopped at zero stops their outgoing texts and calls.
+ * by the agency writes off what they ran up, and Stopped at zero stops their outgoing texts and calls. An answer on a
+ * ticket reaches the customer, so its card says so.
  */
 export async function staffCautions(
   db: Db,
@@ -254,6 +260,8 @@ export async function staffCautions(
   tool: Pick<ScreenActionTool, 'command'>,
   input: Args,
 ): Promise<string[]> {
+  if (tool.command.name === supportTicketReply.name)
+    return input['internal'] === true ? [] : [TICKET_ANSWER_GOES_OUT];
   if (tool.command.name !== walletSetStage.name) return [];
   const wallet = await lookUp(db, ctx)<{ stage: string; balanceCents: number }>(
     'platform.wallet.get',

@@ -20,8 +20,11 @@ import {
   ideaShare,
   money,
   organizationCreate,
+  pushSwitchesOf,
   screenReadName,
+  supportRequestCreate,
   supportStaffSaveProfile,
+  userUpdateProfile,
   walletSetStage,
   type AssistantCard,
   type CommandDef,
@@ -227,6 +230,34 @@ describe('moving a business’s wallet stage through the Assistant', () => {
   });
 });
 
+describe('answering a ticket through the Assistant', () => {
+  it('names the ticket, and says an answer is emailed to whoever wrote in and a note isn’t', async () => {
+    const subject = `Texts stopped going out ${mark}`;
+    const { ticketId, number } = (await run(
+      supportRequestCreate,
+      { workspaceId: wsId, subject, body: 'Nothing has gone out since Monday.' },
+      owner,
+    )) as { ticketId: string; number: number };
+
+    const answer = await prepareAction('do_support_ticket_reply', {
+      ticketId,
+      body: 'We found it and fixed it.',
+    });
+    expect(answer.fields).toContainEqual({ label: 'Ticket', value: `#${number} ${subject}` });
+    expect(JSON.stringify(answer.fields)).not.toContain(ticketId);
+    expect(answer.warnings.map((w) => w.text)).toEqual([
+      'This emails your answer to the person who wrote in. Make it an internal note to keep it to the team.',
+    ]);
+
+    const note = await prepareAction('do_support_ticket_reply', {
+      ticketId,
+      body: 'Their carrier dropped the registration.',
+      internal: true,
+    });
+    expect(note.warnings).toEqual([]);
+  });
+});
+
 describe('the desk’s own saves', () => {
   it('keeps a support person’s sign-off when only their name changes, and reads both back', async () => {
     await run(
@@ -335,6 +366,20 @@ describe('the desk’s own reads', () => {
     expect(ownerReads).not.toContain('platform.me');
     expect(agentReads).toContain('platform.me');
     expect(ownerReads).toContain('idea.areas');
+  });
+
+  it('tells only HandsFreeOS’s support people about New support tickets among their own alerts', async () => {
+    // Every save of the phone alerts writes each switch, New support tickets' too, whoever saves them.
+    await run(userUpdateProfile, { settings: { push: pushSwitchesOf({}) } }, owner);
+    const mine = async (u: TestUser) =>
+      (await runTool('get_settings', { area: 'my_account' }, u))['me'] as {
+        alerts: { title: string }[];
+      };
+    const theirs = await mine(owner);
+    expect(theirs.alerts.map((a) => a.title)).toContain('A customer pays');
+    expect(theirs.alerts.map((a) => a.title)).not.toContain('New support tickets');
+    expect(JSON.stringify(theirs)).not.toMatch(/supportTickets|support ticket/i);
+    expect((await mine(staff)).alerts.map((a) => a.title)).toContain('New support tickets');
   });
 
   it('lists the add-ons in testing on a business’s page, and whether it was handed each', async () => {

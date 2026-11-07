@@ -353,20 +353,31 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
 /**
  * This person's own account, as Settings → Account shows it: their name and address, their settings, and every alert
  * as it is set now, defaults filled in, so "will I hear about a booking?" has an answer. The rest of `account.me` (the
- * businesses they reach) the model never needs.
+ * businesses they reach) the model never needs. New support tickets is HandsFreeOS's own support people's alone, as
+ * their Notifications show it: anyone else is never told it exists (the owner, 2026-10-27).
  */
-const meShape = (me: unknown) => {
+const meShape = (me: unknown, answersSupport: boolean) => {
   const user = (me as { user?: Record<string, unknown> } | null)?.user;
   return user
     ? {
         fullName: user['fullName'],
         email: user['email'],
-        settings: user['settings'],
-        alerts: notificationStates(user['settings']),
+        settings: answersSupport ? user['settings'] : withoutSupportSwitch(user['settings']),
+        alerts: notificationStates(user['settings']).filter(
+          (a) => answersSupport || !a.supportOnly,
+        ),
         alwaysOn: 'Safety check-in alerts always reach their phones; they can’t be turned off.',
       }
     : null;
 };
+
+/** Saved settings without New support tickets' switch, which every save of the phone alerts writes for everyone. */
+function withoutSupportSwitch(settings: unknown): unknown {
+  const push = (settings as { push?: unknown } | null)?.push;
+  if (!push || typeof push !== 'object' || !('supportTickets' in push)) return settings;
+  const { supportTickets: _supportTickets, ...rest } = push as Record<string, unknown>;
+  return { ...(settings as Record<string, unknown>), push: rest };
+}
 
 const areaOf = (args: Args): SettingsArea => args['area'] as SettingsArea;
 
@@ -375,11 +386,18 @@ const areaOf = (args: Args): SettingsArea => args['area'] as SettingsArea;
  * model then says who can see it, which is what the screen does by not showing the tab.
  */
 async function readArea(db: Db, ctx: ToolContext, info: SettingsAreaInfo): Promise<ToolOutcome> {
+  // Whether they answer HandsFreeOS support, which only their own account's alerts ask.
+  const answersSupport = QUERIES[info.area].some((q) => q.as === 'me')
+    ? query<{ staff: unknown }>(db, ctx, 'platform.me').then(
+        (m) => !!m.staff,
+        () => false,
+      )
+    : Promise.resolve(false);
   const parts = await Promise.all(
     QUERIES[info.area].map(async (q) => {
       const value = await query<unknown>(db, ctx, q.name, q.input?.(ctx)).catch(() => null);
       const shaped = value === null ? null : q.shape ? q.shape(value) : value;
-      return [q.as, q.as === 'me' ? meShape(value) : shaped] as const;
+      return [q.as, q.as === 'me' ? meShape(value, await answersSupport) : shaped] as const;
     }),
   );
   const missing = parts.filter(([, v]) => v === null).map(([as]) => as);
