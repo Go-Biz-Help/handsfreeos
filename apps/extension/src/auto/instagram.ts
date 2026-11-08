@@ -468,10 +468,10 @@ let commentNotedOn: string | null = null;
 
 /**
  * Their comment on the good post they were found by (decision 116), liked first, on that post's own page, found again
- * by who wrote it (its View all comments pressed once when the page doesn't show it yet): `liked`, `already`, or null
- * when there's none to like there (gone, about grief, illness or trouble, or no Like on it: the page is noted with its
- * outline once a day), so their latest is liked in its place, as anyone's is. Noted as a like with the comment's own
- * link, so the follow waits a day as for a post.
+ * by who wrote it (more of its comments shown once when the page doesn't show it yet: View all comments pressed, or
+ * the comments scrolled): `liked`, `already`, or null when there's none to like there (gone, about grief, illness or
+ * trouble, or no Like on it: the page is noted with its outline once a day), so their latest is liked in its place, as
+ * anyone's is. Noted as a like with the comment's own link, so the follow waits a day as for a post.
  */
 async function likeFoundComment(
   item: TodayListItem,

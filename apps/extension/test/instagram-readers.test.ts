@@ -952,6 +952,31 @@ describe('a post’s people on Instagram (decision 92)', () => {
     expect(moreComments(doc, `${IG}/dana.reyes/`)).toBe(false);
   });
 
+  it('scrolls the newer layout’s comments to Instagram’s mark for more, once, where there’s nothing to press', () => {
+    // The owner's problem reports of 4 and 7 Nov 2026 (0.126.2, 0.126.4): 15 of a post's 77 comments, and 15 of 272,
+    // with only Instagram's mark for more on the way after them, so their comment past the first 15 was never seen.
+    const withMark = (mark: string) =>
+      page(
+        '/p/C3xyzabcd/',
+        `${MENU}<main role="main"><article>
+          <div><a role="link" href="/dana.reyes/"><span dir="auto">dana.reyes</span></a></div>
+          <div>${comment('sam.lee', '17900000000000001', 'Great work, thank you!', '3 likes')}
+            ${comment('kim.ray', '17900000000000002', 'Love this', '1 like')}
+            ${mark}</div>
+          <section><div role="button"><svg aria-label="Like"></svg></div>
+            <div role="button"><svg aria-label="Comment"></svg></div></section>
+          <form><textarea aria-label="Add a comment…" placeholder="Add a comment…"></textarea></form></article></main>`,
+      );
+    const doc = withMark('<div role="progressbar"><svg aria-label="Loading..."></svg></div>');
+    const scrolled: unknown[] = [];
+    const mark = doc.querySelector<HTMLElement>('[role="progressbar"]')!;
+    mark.scrollIntoView = (options?: unknown) => void scrolled.push(options);
+    expect(moreComments(doc, doc.location.href)).toBe(true);
+    expect(scrolled).toEqual([{ block: 'end', behavior: 'smooth' }]);
+    // With no mark after the comments, there's no more to show.
+    expect(moreComments(withMark(''), `${IG}/p/C3xyzabcd/`)).toBe(false);
+  });
+
   it('closes the Likes box by its own Close, or with Escape where it has none', async () => {
     const { doc } = opening();
     openLikers(doc, doc.location.href);

@@ -13,13 +13,14 @@
  * more comments) pressed once, its Likes box opened by its count of likes, as a person opens it, scrolled as any box
  * over the page is (`scrollDialog`), and closed again by its own Close. Nothing in them is pressed.
  */
-import { clean } from '../facebook/dom';
+import { clean, isAfter } from '../facebook/dom';
 import { visible } from '../facebook/fetch';
 import { controlsSaying, waitFor } from '../looking/looks';
 import {
   followersBox,
   followersCount,
   likersBox,
+  commentPartsIn,
   likesOpenerIn,
   moreCommentsIn,
   ownOf,
@@ -186,14 +187,37 @@ export function openLikers(doc: Document, href: string): boolean {
 }
 
 /**
- * Shows more of a post's comments (decision 92): its own View all comments, or Load more comments, pressed once.
- * Only on a post's own page; never View replies. Whether there was one.
+ * Instagram's mark for more of a post's comments on their way: the one after the last comment it shows, where the
+ * newer layout draws more of them once their list is scrolled down to it. Null with none.
+ */
+function commentsComingIn(root: Element, href: string): HTMLElement | null {
+  const last = commentPartsIn(root, href, Number.POSITIVE_INFINITY).parts.at(-1);
+  if (!last) return null;
+  return (
+    [...root.querySelectorAll<HTMLElement>('[role="progressbar"]')].find((mark) =>
+      isAfter(mark, last),
+    ) ?? null
+  );
+}
+
+/**
+ * Shows more of a post's comments (decision 92), once: its own View all comments, or Load more comments, pressed;
+ * or, where the newer layout has nothing to press, its comments scrolled down to Instagram's mark for more on the way,
+ * as a person scrolls them. Instagram drew 15 of a post's 77 comments, and 15 of 272, with only that mark after them,
+ * so a comment past the first 15 was never seen (the owner's problem reports of 4 and 7 Nov 2026). Only on a post's
+ * own page; never View replies. Whether there was more to show.
  */
 export function moreComments(doc: Document, href: string): boolean {
   if (!onPost(href)) return false;
-  const more = moreCommentsIn(postRootOf(doc));
-  if (!more) return false;
-  more.click();
+  const root = postRootOf(doc);
+  const more = moreCommentsIn(root);
+  if (more) {
+    more.click();
+    return true;
+  }
+  const coming = commentsComingIn(root, href);
+  if (!coming) return false;
+  coming.scrollIntoView({ block: 'end', behavior: 'smooth' });
   return true;
 }
 
