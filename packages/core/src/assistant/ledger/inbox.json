@@ -1,7 +1,7 @@
 {
   "area": "inbox",
   "title": "Inbox, a conversation, phone calls and video calls",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-07",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "777a736bc2c5",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
@@ -18,7 +18,7 @@
     "apps/mobile/src/inbox/fixers.ts": "1667a9ef260a",
     "apps/mobile/src/inbox/outbox.ts": "3882e6442c7d",
     "apps/mobile/src/inbox/queries.ts": "47039fc0b498",
-    "apps/mobile/src/inbox/send.ts": "ccda1bc9e8b8",
+    "apps/mobile/src/inbox/send.ts": "07bde52e7e84",
     "apps/mobile/src/inbox/storage.ts": "3283e09712d4",
     "apps/mobile/src/inbox/thread-entries.ts": "e3dc464a9723",
     "apps/mobile/src/inbox/use-conversation.ts": "c67133e71c09",
@@ -63,7 +63,7 @@
     "apps/web/src/components/inbox/hooks.ts": "2b26dcbaa3cd",
     "apps/web/src/components/inbox/inbox-shell.tsx": "e3b7842b0f75",
     "apps/web/src/components/inbox/lane-switcher.tsx": "22d907e03a2f",
-    "apps/web/src/components/inbox/link-person-dialog.tsx": "7aa948d8ee72",
+    "apps/web/src/components/inbox/link-person-dialog.tsx": "ce32d9902288",
     "apps/web/src/components/inbox/mail-body.tsx": "20c0903ff378",
     "apps/web/src/components/inbox/mail-boxes.tsx": "d4326cddf378",
     "apps/web/src/components/inbox/mail-card.tsx": "58e4e0c6c664",
@@ -1289,7 +1289,7 @@
       "by": "manage_conversation link_customer"
     },
     {
-      "path": "Context → Add as a customer",
+      "path": "Context → Add as a contact",
       "kind": "do",
       "file": "apps/web/src/components/inbox/context-panel.tsx:313",
       "covered": "yes",

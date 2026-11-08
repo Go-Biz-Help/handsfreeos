@@ -112,11 +112,14 @@ export const CONTACT_EDIT_WORDS = {
   newEstimate: 'New estimate',
   newInvoice: 'New invoice',
 
-  /** An unknown number, named in the panel instead of through a dialog. */
-  addTitle: 'Add them as a customer',
-  addSave: 'Add customer',
+  /**
+   * An unknown number or address, named in the panel instead of through a dialog. It says contact, not customer (the
+   * owner, 2026-11-07).
+   */
+  addTitle: 'Add them as a contact',
+  addSave: 'Add contact',
   added: (name: string) => `${name} added.`,
-  linkInstead: 'Or link to an existing customer',
+  linkInstead: 'Or link to an existing contact',
   /** A number that already belongs to somebody: what they wanted was link, not add. */
   duplicate: 'Somebody already has this number. Link the conversation to them instead.',
   /** Out to the full form, for the times you have the address and the company too. */

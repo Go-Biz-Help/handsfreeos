@@ -70,7 +70,7 @@ export async function sendReply(reply: Reply): Promise<{ id: string; clientId: s
   const photoChanges: string[] = [];
   const uploads = [...reply.photos, ...(reply.cardPhotos ?? [])];
   if (uploads.length > 0) {
-    if (!reply.personId) throw new Error('Add them as a customer to send photos.');
+    if (!reply.personId) throw new Error('Add them as a contact to send photos.');
     for (const photo of uploads) {
       const added = await changes.addPhoto(
         { workspaceId: reply.workspaceId, recordType: 'person', recordId: reply.personId },
