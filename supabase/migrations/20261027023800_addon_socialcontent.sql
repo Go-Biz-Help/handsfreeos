@@ -26,8 +26,15 @@
 --        creators for a niche on a network, read a creator's profile, read a
 --        creator's posts. One of each about the same thing is open at a time.
 --
---        **Settings** are one row per business: the networks it studies, and
---        whose computer does the reading.
+--        **Settings** are one row per business: the networks it studies,
+--        whose computer does the reading, and whether it watches standout
+--        videos (off until an owner or admin turns it on: it uses more AI).
+--
+--        The AI's **notes** on each standout (why it worked, its hook, format
+--        and techniques) and what it saw and heard **watching** a standout
+--        video are kept on the post. The **Playbook** is one row per business:
+--        the patterns across all the noted standouts. **Ideas** are posts the
+--        AI suggests the business makes, from the Playbook and its profile.
 -- =============================================================================
 
 select private.register_addon_permissions('socialcontent', '[
@@ -49,6 +56,8 @@ create table addon_socialcontent.settings (
            and cardinality(networks) <= 5),
   -- Whose computer reads the networks: their HandsFreeOS Social extension takes the work.
   reader_user_id uuid references app.users (id) on delete set null,
+  -- Watching standout videos (frames and sound) uses more AI, so it starts off (decision 9).
+  watch_videos boolean not null default false,
   updated_by uuid references app.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -145,6 +154,12 @@ create table addon_socialcontent.posts (
   standout_on text check (standout_on is null or standout_on in ('views', 'engagement', 'both')),
   -- Why it isn't weighed yet: under 7 days old, or too few posts around it.
   waiting text check (waiting is null or waiting in ('too_new', 'too_few')),
+  -- The AI's notes on a standout: why it worked, its hook, format, topic and techniques (core's notes-ai.ts).
+  notes jsonb check (notes is null or (jsonb_typeof(notes) = 'object' and octet_length(notes::text) <= 8000)),
+  noted_at timestamptz,
+  -- What the AI saw and heard watching a standout video (decision 9, only when watching is on or being tried).
+  watched jsonb check (watched is null or (jsonb_typeof(watched) = 'object' and octet_length(watched::text) <= 8000)),
+  watched_at timestamptz,
   read_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -156,6 +171,8 @@ create table addon_socialcontent.posts (
 );
 create index posts_creator_idx on addon_socialcontent.posts (workspace_id, creator_id, posted_at desc);
 create index posts_standout_idx on addon_socialcontent.posts (workspace_id, posted_at desc) where standout;
+create index posts_unnoted_idx on addon_socialcontent.posts (workspace_id, posted_at desc)
+  where standout and noted_at is null;
 select private.addon_table_policies('addon_socialcontent.posts', 'socialcontent.use', 'socialcontent.use');
 
 -- ---------- work ----------
@@ -163,15 +180,17 @@ create table addon_socialcontent.work (
   id uuid primary key default gen_random_uuid(),
   workspace_id uuid not null references app.workspaces (id) on delete cascade,
   -- `find`: search a niche on a network for creators. `profile`: read a creator's profile.
-  -- `posts`: read a creator's posts back to `since`.
-  kind text not null check (kind in ('find', 'profile', 'posts')),
+  -- `posts`: read a creator's posts back to `since`. `watch`: watch one standout video (decision 9).
+  kind text not null check (kind in ('find', 'profile', 'posts', 'watch')),
   network text not null check (network in ('instagram', 'facebook', 'linkedin', 'tiktok', 'youtube')),
   niche_id uuid,
   creator_id uuid,
+  post_id uuid,
   since timestamptz,
   state text not null default 'waiting' check (state in ('waiting', 'taken', 'done', 'failed', 'stopped')),
-  -- What asked for it: a person, the weekly or monthly check, or a creator added or ticked.
-  asked_for text not null check (asked_for in ('person', 'weekly', 'monthly', 'added', 'studying')),
+  -- What asked for it: a person, the weekly or monthly check, a creator added or ticked, a new standout
+  -- video while watching is on, or Try it on a few videos.
+  asked_for text not null check (asked_for in ('person', 'weekly', 'monthly', 'added', 'studying', 'standout', 'trying')),
   asked_by uuid references app.users (id) on delete set null,
   taken_by uuid references app.users (id) on delete set null,
   taken_at timestamptz,
@@ -184,19 +203,65 @@ create table addon_socialcontent.work (
   unique (workspace_id, id),
   check ((kind = 'find') = (niche_id is not null)),
   check ((kind = 'find') = (creator_id is null)),
+  check ((kind = 'watch') = (post_id is not null)),
   foreign key (workspace_id, niche_id) references addon_socialcontent.niches (workspace_id, id) on delete cascade,
-  foreign key (workspace_id, creator_id) references addon_socialcontent.creators (workspace_id, id) on delete cascade
+  foreign key (workspace_id, creator_id) references addon_socialcontent.creators (workspace_id, id) on delete cascade,
+  foreign key (workspace_id, post_id) references addon_socialcontent.posts (workspace_id, id) on delete cascade
 );
 -- One open of each kind about the same thing.
 create unique index work_open_idx on addon_socialcontent.work (
   workspace_id, kind, network,
   coalesce(niche_id, '00000000-0000-0000-0000-000000000000'::uuid),
-  coalesce(creator_id, '00000000-0000-0000-0000-000000000000'::uuid)
+  coalesce(creator_id, '00000000-0000-0000-0000-000000000000'::uuid),
+  coalesce(post_id, '00000000-0000-0000-0000-000000000000'::uuid)
 ) where state in ('waiting', 'taken');
 create index work_next_idx on addon_socialcontent.work (workspace_id, created_at) where state = 'waiting';
 create index work_recent_idx on addon_socialcontent.work (workspace_id, created_at desc);
 create index work_niche_idx on addon_socialcontent.work (workspace_id, niche_id) where niche_id is not null;
 create index work_creator_idx on addon_socialcontent.work (workspace_id, creator_id) where creator_id is not null;
+create index work_post_idx on addon_socialcontent.work (workspace_id, post_id) where post_id is not null;
 create index work_asked_by_idx on addon_socialcontent.work (asked_by) where asked_by is not null;
 create index work_taken_by_idx on addon_socialcontent.work (taken_by) where taken_by is not null;
 select private.addon_table_policies('addon_socialcontent.work', 'socialcontent.use', 'socialcontent.use');
+
+-- ---------- playbook ----------
+-- One per business: the patterns across its noted standouts, in sections (hooks, formats, topics, captions,
+-- timing…), each with what to do, why it works and the standouts it came from. The AI writes it again as new
+-- standouts are noted, or when someone asks.
+create table addon_socialcontent.playbook (
+  workspace_id uuid primary key references app.workspaces (id) on delete cascade,
+  summary text check (summary is null or length(summary) <= 2000),
+  sections jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(sections) = 'array' and octet_length(sections::text) <= 60000),
+  -- How many noted standouts it was written from.
+  standouts integer not null default 0 check (standouts >= 0),
+  written_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+select private.addon_table_policies('addon_socialcontent.playbook', 'socialcontent.use', 'socialcontent.use');
+
+-- ---------- ideas ----------
+-- Posts the AI suggests the business makes, from the Playbook and its profile: what it's about, its hook, its
+-- format and an outline, why it should work, and the standouts it's based on. Someone saves, uses or skips each.
+create table addon_socialcontent.ideas (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references app.workspaces (id) on delete cascade,
+  title text not null check (length(btrim(title)) between 1 and 200),
+  hook text check (hook is null or length(hook) <= 300),
+  format text check (format is null or length(format) <= 100),
+  network text check (network is null or network in ('instagram', 'facebook', 'linkedin', 'tiktok', 'youtube')),
+  outline text check (outline is null or length(outline) <= 2000),
+  why text check (why is null or length(why) <= 600),
+  -- The standouts it's based on (posts' ids, kept as a list: a deleted post just stops showing).
+  based_on uuid[] not null default '{}' check (cardinality(based_on) <= 10),
+  state text not null default 'new' check (state in ('new', 'saved', 'used', 'skipped')),
+  decided_by uuid references app.users (id) on delete set null,
+  decided_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (workspace_id, id)
+);
+create index ideas_state_idx on addon_socialcontent.ideas (workspace_id, state, created_at desc);
+create index ideas_decided_by_idx on addon_socialcontent.ideas (decided_by) where decided_by is not null;
+select private.addon_table_policies('addon_socialcontent.ideas', 'socialcontent.use', 'socialcontent.use');

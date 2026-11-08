@@ -14517,6 +14517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.idea.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a content idea saved (to make later), used (made it), skipped, or new again.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.idea.decided.
+         */
+        post: operations["command_socialcontent_idea_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.niche.add": {
         parameters: {
             query?: never;
@@ -14607,10 +14627,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (Instagram for now; Facebook, LinkedIn, TikTok and YouTube come in later updates), and whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), and whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.watch.try": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try watching videos on a few standouts (up to 5, the newest not watched yet), whether watching is on or not: the reading computer plays each, and the AI looks at its frames and listens to it, then says what it saw and heard. It uses more AI than notes from the numbers and caption alone.
+         * @description Risk level 2. Requires socialcontent.manage. Emits socialcontent.work.asked.
+         */
+        post: operations["command_socialcontent_watch_try"];
         delete?: never;
         options?: never;
         head?: never;
@@ -23197,6 +23237,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/socialcontent.idea.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_idea_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/socialcontent.niche.list": {
         parameters: {
             query?: never;
@@ -23237,6 +23297,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/socialcontent.playbook.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_playbook_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/socialcontent.post.list": {
         parameters: {
             query?: never;
@@ -23247,7 +23327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.
+         * Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either, and has the AI’s notes on why it worked (its hook, format, topic and techniques, and how the business could use it), and for a video it watched, what it saw and heard. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_post_list"];
@@ -59075,6 +59155,50 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_idea_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    ideaId: string;
+                    /** @enum {string} */
+                    state: "new" | "saved" | "used" | "skipped";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        basedOn: string[];
+                        createdAt: string;
+                        format: string | null;
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
+                        outline: string | null;
+                        /** @enum {string} */
+                        state: "new" | "saved" | "used" | "skipped";
+                        title: string;
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_niche_add: {
         parameters: {
             query?: never;
@@ -59265,6 +59389,7 @@ export interface operations {
                 "application/json": {
                     networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                     readerUserId?: string | null;
+                    watchVideos?: boolean;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -59281,6 +59406,36 @@ export interface operations {
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                         readerName: string | null;
                         readerUserId: string | null;
+                        watchVideos: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_watch_try: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asked: number;
                     };
                 };
             };
@@ -59354,7 +59509,7 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "find" | "profile" | "posts";
+                            kind: "find" | "profile" | "posts" | "watch";
                             known: string[];
                             most: number;
                             /** @enum {string} */
@@ -59364,6 +59519,13 @@ export interface operations {
                                 id: string;
                                 name: string;
                                 searches: string[];
+                            } | null;
+                            post: {
+                                /** Format: uuid */
+                                id: string;
+                                link: string;
+                                postKey: string;
+                                seconds: number | null;
                             } | null;
                             since: string | null;
                         } | null;
@@ -59398,7 +59560,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         /** @enum {string} */
-                        askedFor: "person" | "weekly" | "monthly" | "added" | "studying";
+                        askedFor: "person" | "weekly" | "monthly" | "added" | "studying" | "standout" | "trying";
                         createdAt: string;
                         creatorId: string | null;
                         creatorShown: string | null;
@@ -59408,11 +59570,12 @@ export interface operations {
                         /** Format: uuid */
                         id: string;
                         /** @enum {string} */
-                        kind: "find" | "profile" | "posts";
+                        kind: "find" | "profile" | "posts" | "watch";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                         nicheId: string | null;
                         nicheName: string | null;
+                        postId: string | null;
                         /** @enum {string} */
                         state: "waiting" | "taken" | "done" | "failed" | "stopped";
                         takenAt: string | null;
@@ -91232,6 +91395,60 @@ export interface operations {
             };
         };
     };
+    query_socialcontent_idea_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    state?: "new" | "saved" | "used" | "skipped";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examples: {
+                            creatorShown: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "video" | "photo" | "carousel" | "text" | "link" | "other";
+                            link: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        }[];
+                        ideas: {
+                            basedOn: string[];
+                            createdAt: string;
+                            format: string | null;
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            network: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube") | null;
+                            outline: string | null;
+                            /** @enum {string} */
+                            state: "new" | "saved" | "used" | "skipped";
+                            title: string;
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_socialcontent_niche_list: {
         parameters: {
             query?: never;
@@ -91312,10 +91529,11 @@ export interface operations {
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                             readerName: string | null;
                             readerUserId: string | null;
+                            watchVideos: boolean;
                         };
                         work: {
                             /** @enum {string} */
-                            askedFor: "person" | "weekly" | "monthly" | "added" | "studying";
+                            askedFor: "person" | "weekly" | "monthly" | "added" | "studying" | "standout" | "trying";
                             createdAt: string;
                             creatorId: string | null;
                             creatorShown: string | null;
@@ -91325,15 +91543,68 @@ export interface operations {
                             /** Format: uuid */
                             id: string;
                             /** @enum {string} */
-                            kind: "find" | "profile" | "posts";
+                            kind: "find" | "profile" | "posts" | "watch";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
                             nicheId: string | null;
                             nicheName: string | null;
+                            postId: string | null;
                             /** @enum {string} */
                             state: "waiting" | "taken" | "done" | "failed" | "stopped";
                             takenAt: string | null;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_playbook_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        examples: {
+                            creatorShown: string;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "video" | "photo" | "carousel" | "text" | "link" | "other";
+                            link: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        }[];
+                        playbook: {
+                            noted: number;
+                            sections: {
+                                items: {
+                                    do: string;
+                                    examples: string[];
+                                    why: string;
+                                }[];
+                                title: string;
+                            }[];
+                            standouts: number;
+                            summary: string | null;
+                            writtenAt: string | null;
+                        };
                     };
                 };
             };
@@ -91389,6 +91660,14 @@ export interface operations {
                             link: string;
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            notes: {
+                                format: string | null;
+                                hook: string | null;
+                                techniques: string[];
+                                topic: string | null;
+                                useIt: string | null;
+                                why: string;
+                            } | null;
                             pinned: boolean;
                             postedAt: string;
                             postKey: string;
@@ -91399,6 +91678,15 @@ export interface operations {
                             views: number | null;
                             viewsTimes: number | null;
                             waiting: ("too_new" | "too_few") | null;
+                            watched: {
+                                heard: string | null;
+                                hook: string | null;
+                                pacing: string | null;
+                                seen: string;
+                                techniques: string[];
+                                why: string;
+                            } | null;
+                            watching: boolean;
                         }[];
                     };
                 };

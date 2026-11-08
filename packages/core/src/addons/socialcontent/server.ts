@@ -6,14 +6,15 @@
  */
 import type { AddonServerModule } from '../server';
 import { socialcontentAddon } from './manifest';
+import { notesCommands, notesQueries } from './ops/notes';
 import { EXTENSION, readingCommands } from './ops/reading';
 import { researchCommands, researchQueries } from './ops/research';
 import { workerCommands } from './ops/worker';
 
 export const socialcontentAddonServer: AddonServerModule = {
   manifest: socialcontentAddon,
-  commands: [...researchCommands, ...readingCommands, ...workerCommands],
-  queries: [...researchQueries],
+  commands: [...researchCommands, ...notesCommands, ...readingCommands, ...workerCommands],
+  queries: [...researchQueries, ...notesQueries],
   notForTheAssistant: {
     'socialcontent.work.next': EXTENSION,
     'socialcontent.work.finish': EXTENSION,

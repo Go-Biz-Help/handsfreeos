@@ -26,11 +26,12 @@ import {
   WorkFinishInput,
   WorkNextInput,
   WorkNextOutput,
+  type WorkKind,
 } from '../shapes';
 import { doneWell, weighPosts } from '../standouts';
 import { creators, posts } from '../tables';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '../words';
-import { inWorkspace, settingsOf, TAKEN_FOR_MS, type Ctx } from './common';
+import { inWorkspace, queueWork, settingsOf, TAKEN_FOR_MS, type Ctx } from './common';
 import type { CommandContext } from '../../../kernel/types';
 
 /** Only the reading computer's person sends these in. */
@@ -48,10 +49,11 @@ async function needReader(ctx: CommandContext): Promise<string> {
 
 type TakenWork = {
   id: string;
-  kind: 'find' | 'profile' | 'posts';
+  kind: WorkKind;
   network: ContentNetwork;
   niche_id: string | null;
   creator_id: string | null;
+  post_id: string | null;
   since: Date | string | null;
 };
 
@@ -59,7 +61,7 @@ type TakenWork = {
 async function takenWork(ctx: Ctx, me: string, workId: string): Promise<TakenWork> {
   const [w] = await rows<TakenWork>(
     ctx.tx,
-    sql`select id, kind, network, niche_id, creator_id, since from addon_socialcontent.work
+    sql`select id, kind, network, niche_id, creator_id, post_id, since from addon_socialcontent.work
         where id = ${workId} and workspace_id = ${ctx.scope.workspaceId!} and state = 'taken' and taken_by = ${me}`,
   );
   if (!w)
@@ -97,7 +99,7 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
     const searched = `{${s.networks.join(',') || 'none'}}`;
     let [w] = await rows<TakenWork>(
       ctx.tx,
-      sql`select id, kind, network, niche_id, creator_id, since from addon_socialcontent.work
+      sql`select id, kind, network, niche_id, creator_id, post_id, since from addon_socialcontent.work
           where workspace_id = ${ws} and state = 'taken' and taken_by = ${me} and network = any(${list}::text[])
           order by taken_at limit 1`,
     );
@@ -111,7 +113,7 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
                 and (kind <> 'find' or network = any(${searched}::text[]))
               order by created_at limit 1
               for update skip locked)
-            returning id, kind, network, niche_id, creator_id, since`,
+            returning id, kind, network, niche_id, creator_id, post_id, since`,
       );
       if (w)
         await ctx.emit({
@@ -151,6 +153,17 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
           ).map((r) => r.handle)
         : [];
     const searches = niche ? (Searches.catch({}).parse(niche.searches)[w.network] ?? []) : [];
+    const [post] = w.post_id
+      ? await ctx.tx
+          .select({
+            id: posts.id,
+            postKey: posts.postKey,
+            link: posts.link,
+            seconds: posts.seconds,
+          })
+          .from(posts)
+          .where(eq(posts.id, w.post_id))
+      : [];
     return {
       work: {
         id: w.id,
@@ -163,6 +176,7 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
         since: w.since ? new Date(w.since).toISOString() : null,
         known,
         most: LIMITS.profilesPerFind,
+        post: post ?? null,
       },
     };
   },
@@ -428,6 +442,38 @@ export const postsSave = defineAddonCommand(socialcontentAddon, {
       sql`update addon_socialcontent.work set done_count = coalesce(done_count, 0) + ${unique.length}
           where workspace_id = ${ws} and creator_id = ${creator.id} and kind = 'posts' and state = 'taken'`,
     );
+    // Watching is on: each new standout video is watched too (decision 9, off until an owner turns it on).
+    const s = await settingsOf(ctx);
+    if (
+      s.watchVideos &&
+      newStandouts.length &&
+      CONTENT_NETWORK_INFO[creator.network as ContentNetwork]?.ready
+    ) {
+      const videos = await ctx.tx
+        .select({ id: posts.id })
+        .from(posts)
+        .where(
+          and(
+            eq(posts.workspaceId, ws),
+            eq(posts.creatorId, creator.id),
+            eq(posts.kind, 'video'),
+            dsql`${posts.id} = any(${`{${newStandouts.join(',')}}`}::uuid[])`,
+            dsql`${posts.watchedAt} is null`,
+          ),
+        );
+      if (videos.length)
+        await queueWork(
+          ctx,
+          videos.map((v) => ({
+            kind: 'watch' as const,
+            network: creator.network as ContentNetwork,
+            creatorId: creator.id,
+            postId: v.id,
+          })),
+          'standout',
+          null,
+        );
+    }
     await ctx.emit({
       type: 'socialcontent.posts.saved',
       entityType: 'socialcontent_creator',

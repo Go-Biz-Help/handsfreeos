@@ -114709,7 +114709,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (Instagram for now; Facebook, LinkedIn, TikTok and YouTube come in later updates), and whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), and whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -114752,6 +114752,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "watchVideos": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -114799,12 +114802,16 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "watchVideos": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "networks",
                     "readerUserId",
-                    "readerName"
+                    "readerName",
+                    "watchVideos"
                   ],
                   "additionalProperties": false
                 }
@@ -115657,7 +115664,8 @@
                       "enum": [
                         "find",
                         "profile",
-                        "posts"
+                        "posts",
+                        "watch"
                       ]
                     },
                     "network": {
@@ -115706,6 +115714,18 @@
                         "null"
                       ]
                     },
+                    "postId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "state": {
                       "type": "string",
                       "enum": [
@@ -115723,7 +115743,9 @@
                         "weekly",
                         "monthly",
                         "added",
-                        "studying"
+                        "studying",
+                        "standout",
+                        "trying"
                       ]
                     },
                     "failure": {
@@ -115768,6 +115790,7 @@
                     "nicheName",
                     "creatorId",
                     "creatorShown",
+                    "postId",
                     "state",
                     "askedFor",
                     "failure",
@@ -115775,6 +115798,201 @@
                     "createdAt",
                     "takenAt",
                     "finishedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/socialcontent.idea.decide": {
+      "post": {
+        "operationId": "command_socialcontent_idea_decide",
+        "summary": "Mark a content idea saved (to make later), used (made it), skipped, or new again.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.idea.decided.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "ideaId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "saved",
+                      "used",
+                      "skipped"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "ideaId",
+                  "state"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "hook": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "format": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "network": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "instagram",
+                            "facebook",
+                            "linkedin",
+                            "tiktok",
+                            "youtube"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "outline": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "why": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "basedOn": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      }
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "new",
+                        "saved",
+                        "used",
+                        "skipped"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "hook",
+                    "format",
+                    "network",
+                    "outline",
+                    "why",
+                    "basedOn",
+                    "state",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/socialcontent.watch.try": {
+      "post": {
+        "operationId": "command_socialcontent_watch_try",
+        "summary": "Try watching videos on a few standouts (up to 5, the newest not watched yet), whether watching is on or not: the reading computer plays each, and the AI looks at its frames and listens to it, then says what it saw and heard. It uses more AI than notes from the numbers and caption alone.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires socialcontent.manage. Emits socialcontent.work.asked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "asked": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "asked"
                   ],
                   "additionalProperties": false
                 }
@@ -115850,7 +116068,8 @@
                               "enum": [
                                 "find",
                                 "profile",
-                                "posts"
+                                "posts",
+                                "watch"
                               ]
                             },
                             "network": {
@@ -115947,6 +116166,48 @@
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
+                            },
+                            "post": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "postKey": {
+                                      "type": "string"
+                                    },
+                                    "link": {
+                                      "type": "string"
+                                    },
+                                    "seconds": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "postKey",
+                                    "link",
+                                    "seconds"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -115957,7 +116218,8 @@
                             "creator",
                             "since",
                             "known",
-                            "most"
+                            "most",
+                            "post"
                           ],
                           "additionalProperties": false
                         },
@@ -236037,12 +236299,16 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "watchVideos": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "networks",
                         "readerUserId",
-                        "readerName"
+                        "readerName",
+                        "watchVideos"
                       ],
                       "additionalProperties": false
                     },
@@ -236105,7 +236371,8 @@
                             "enum": [
                               "find",
                               "profile",
-                              "posts"
+                              "posts",
+                              "watch"
                             ]
                           },
                           "network": {
@@ -236154,6 +236421,18 @@
                               "null"
                             ]
                           },
+                          "postId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "state": {
                             "type": "string",
                             "enum": [
@@ -236171,7 +236450,9 @@
                               "weekly",
                               "monthly",
                               "added",
-                              "studying"
+                              "studying",
+                              "standout",
+                              "trying"
                             ]
                           },
                           "failure": {
@@ -236216,6 +236497,7 @@
                           "nicheName",
                           "creatorId",
                           "creatorShown",
+                          "postId",
                           "state",
                           "askedFor",
                           "failure",
@@ -236591,7 +236873,7 @@
     "/v1/queries/socialcontent.post.list": {
       "post": {
         "operationId": "query_socialcontent_post_list",
-        "summary": "Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.",
+        "summary": "Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either, and has the AI’s notes on why it worked (its hook, format, topic and techniques, and how the business could use it), and for a video it watched, what it saw and heard. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.",
         "tags": [
           "queries"
         ],
@@ -236820,6 +237102,114 @@
                                 "type": "null"
                               }
                             ]
+                          },
+                          "notes": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "why": {
+                                    "type": "string"
+                                  },
+                                  "hook": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "format": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "topic": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "techniques": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "useIt": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "why",
+                                  "hook",
+                                  "format",
+                                  "topic",
+                                  "techniques",
+                                  "useIt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "watched": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "hook": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "seen": {
+                                    "type": "string"
+                                  },
+                                  "heard": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "pacing": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "why": {
+                                    "type": "string"
+                                  },
+                                  "techniques": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "hook",
+                                  "seen",
+                                  "heard",
+                                  "pacing",
+                                  "why",
+                                  "techniques"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "watching": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -236843,7 +237233,10 @@
                           "engagementTimes",
                           "standout",
                           "standoutOn",
-                          "waiting"
+                          "waiting",
+                          "notes",
+                          "watched",
+                          "watching"
                         ],
                         "additionalProperties": false
                       }
@@ -236855,6 +237248,378 @@
                   "required": [
                     "posts",
                     "more"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/socialcontent.playbook.get": {
+      "post": {
+        "operationId": "query_socialcontent_playbook_get",
+        "summary": "The Playbook: what works for the creators studied, written by the AI from its notes on their standout posts, in sections (hooks, formats, topics, captions, timing and the like), each with what to do, why it works and the standouts it came from (examples: each one’s link); when it was last written, and from how many of the noted standouts there are now.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires socialcontent.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "playbook": {
+                      "type": "object",
+                      "properties": {
+                        "summary": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sections": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "title": {
+                                "type": "string"
+                              },
+                              "items": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "do": {
+                                      "type": "string"
+                                    },
+                                    "why": {
+                                      "type": "string"
+                                    },
+                                    "examples": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "do",
+                                    "why",
+                                    "examples"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "title",
+                              "items"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "standouts": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "noted": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "writtenAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "summary",
+                        "sections",
+                        "standouts",
+                        "noted",
+                        "writtenAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "examples": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "link": {
+                            "type": "string"
+                          },
+                          "network": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "tiktok",
+                              "youtube"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "video",
+                              "photo",
+                              "carousel",
+                              "text",
+                              "link",
+                              "other"
+                            ]
+                          },
+                          "creatorShown": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "link",
+                          "network",
+                          "kind",
+                          "creatorShown"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "playbook",
+                    "examples"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/socialcontent.idea.list": {
+      "post": {
+        "operationId": "query_socialcontent_idea_list",
+        "summary": "The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires socialcontent.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "new",
+                      "saved",
+                      "used",
+                      "skipped"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ideas": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "hook": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "format": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "network": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "instagram",
+                                  "facebook",
+                                  "linkedin",
+                                  "tiktok",
+                                  "youtube"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "outline": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "why": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "basedOn": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "new",
+                              "saved",
+                              "used",
+                              "skipped"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "hook",
+                          "format",
+                          "network",
+                          "outline",
+                          "why",
+                          "basedOn",
+                          "state",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "examples": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "link": {
+                            "type": "string"
+                          },
+                          "network": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "tiktok",
+                              "youtube"
+                            ]
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "video",
+                              "photo",
+                              "carousel",
+                              "text",
+                              "link",
+                              "other"
+                            ]
+                          },
+                          "creatorShown": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "link",
+                          "network",
+                          "kind",
+                          "creatorShown"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "ideas",
+                    "examples"
                   ],
                   "additionalProperties": false
                 }

@@ -21,6 +21,8 @@ const EXTENSION_ONLY = new Set([
   'outreach.helper.way',
   // AI Social Media Content Creator: the same helper on a read that didn't go (docs/socialcontent.md).
   'socialcontent.helper.look',
+  // …and what its reading computer saw and heard watching a standout video.
+  'socialcontent.post.watch',
 ]);
 
 const actions = ADDON_WORKER_MODULES.flatMap((m) =>

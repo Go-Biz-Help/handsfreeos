@@ -31,6 +31,15 @@ export const LIMITS = {
   niches: 30,
   /** Handles a search is told it already knows. */
   knownAtMost: 1000,
+  /** The Playbook's sections, and the ideas the AI suggests at once. */
+  playbookSections: 8,
+  ideasAtOnce: 8,
+  /** What watching sends: frames, each one's size, and its sound (base64 characters). */
+  framesMost: 12,
+  frameBytes: 200_000,
+  soundBytes: 4_000_000,
+  /** Videos tried at once with Try it on a few videos. */
+  tryVideos: 5,
   /** Profiles one search reads, at most. */
   profilesPerFind: 30,
 } as const;
@@ -38,9 +47,18 @@ export const LIMITS = {
 export const NICHE_STATES = ['suggested', 'picked', 'skipped'] as const;
 export const CREATOR_STATES = ['suggested', 'studying', 'skipped', 'didnt_fit'] as const;
 export const POST_KINDS = ['video', 'photo', 'carousel', 'text', 'link', 'other'] as const;
-export const WORK_KINDS = ['find', 'profile', 'posts'] as const;
+export const WORK_KINDS = ['find', 'profile', 'posts', 'watch'] as const;
 export const WORK_STATES = ['waiting', 'taken', 'done', 'failed', 'stopped'] as const;
-export const WORK_ASKED_FOR = ['person', 'weekly', 'monthly', 'added', 'studying'] as const;
+export const WORK_ASKED_FOR = [
+  'person',
+  'weekly',
+  'monthly',
+  'added',
+  'studying',
+  'standout',
+  'trying',
+] as const;
+export const IDEA_STATES = ['new', 'saved', 'used', 'skipped'] as const;
 
 export type NicheState = (typeof NICHE_STATES)[number];
 export type CreatorState = (typeof CREATOR_STATES)[number];
@@ -48,6 +66,7 @@ export type PostKind = (typeof POST_KINDS)[number];
 export type WorkKind = (typeof WORK_KINDS)[number];
 export type WorkState = (typeof WORK_STATES)[number];
 export type WorkAskedFor = (typeof WORK_ASKED_FOR)[number];
+export type IdeaState = (typeof IDEA_STATES)[number];
 
 const clipped = (most: number) =>
   z
@@ -102,6 +121,32 @@ export const Creator = z.object({
 });
 export type Creator = z.infer<typeof Creator>;
 
+/** The AI's notes on a standout (./notes-ai.ts): why it worked, and what the business can take from it. */
+export const PostNotes = z.object({
+  why: z.string(),
+  hook: z.string().nullable(),
+  format: z.string().nullable(),
+  topic: z.string().nullable(),
+  techniques: z.array(z.string()),
+  /** How the business could use it, in a line. */
+  useIt: z.string().nullable(),
+});
+export type PostNotes = z.infer<typeof PostNotes>;
+
+/** What the AI saw and heard watching a standout video (decision 9). */
+export const PostWatched = z.object({
+  /** What happens in its first seconds. */
+  hook: z.string().nullable(),
+  /** What's on screen: who, where, words on screen, cuts. */
+  seen: z.string(),
+  /** What's said, and the sound. Null when there's nothing to hear. */
+  heard: z.string().nullable(),
+  pacing: z.string().nullable(),
+  why: z.string(),
+  techniques: z.array(z.string()),
+});
+export type PostWatched = z.infer<typeof PostWatched>;
+
 export const Post = z.object({
   id: uuid,
   creatorId: uuid,
@@ -124,8 +169,45 @@ export const Post = z.object({
   standout: z.boolean(),
   standoutOn: z.enum(['views', 'engagement', 'both']).nullable(),
   waiting: z.enum(['too_new', 'too_few']).nullable(),
+  notes: PostNotes.nullable(),
+  watched: PostWatched.nullable(),
+  /** Whether watching it is waiting or under way. */
+  watching: z.boolean(),
 });
 export type Post = z.infer<typeof Post>;
+
+/** One thing to do, in a Playbook section: what, why it works, and the standouts it came from. */
+export const PlaybookItem = z.object({
+  do: z.string(),
+  why: z.string(),
+  examples: z.array(uuid),
+});
+export const PlaybookSection = z.object({ title: z.string(), items: z.array(PlaybookItem) });
+export type PlaybookSection = z.infer<typeof PlaybookSection>;
+
+export const Playbook = z.object({
+  summary: z.string().nullable(),
+  sections: z.array(PlaybookSection),
+  /** How many noted standouts it was written from, and how many there are now. */
+  standouts: z.number().int(),
+  noted: z.number().int(),
+  writtenAt: z.string().nullable(),
+});
+export type Playbook = z.infer<typeof Playbook>;
+
+export const Idea = z.object({
+  id: uuid,
+  title: z.string(),
+  hook: z.string().nullable(),
+  format: z.string().nullable(),
+  network: Network.nullable(),
+  outline: z.string().nullable(),
+  why: z.string().nullable(),
+  basedOn: z.array(uuid),
+  state: z.enum(IDEA_STATES),
+  createdAt: z.string(),
+});
+export type Idea = z.infer<typeof Idea>;
 
 export const Work = z.object({
   id: uuid,
@@ -135,6 +217,8 @@ export const Work = z.object({
   nicheName: z.string().nullable(),
   creatorId: uuid.nullable(),
   creatorShown: z.string().nullable(),
+  /** For watching: the post. */
+  postId: uuid.nullable(),
   state: z.enum(WORK_STATES),
   askedFor: z.enum(WORK_ASKED_FOR),
   failure: z.string().nullable(),
@@ -149,6 +233,8 @@ export const Settings = z.object({
   networks: z.array(Network),
   readerUserId: uuid.nullable(),
   readerName: z.string().nullable(),
+  /** Watching standout videos (decision 9): off until an owner or admin turns it on. */
+  watchVideos: z.boolean(),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -230,7 +316,31 @@ export const SettingsSaveInput = z.object({
   networks: z.array(Network).min(1).max(CONTENT_NETWORKS.length).optional(),
   /** Whose computer reads; null for none. */
   readerUserId: uuid.nullable().optional(),
+  watchVideos: z.boolean().optional(),
 });
+
+/** A standout a Playbook item or an idea came from, to open. */
+export const StandoutRef = z.object({
+  id: uuid,
+  link: z.string(),
+  network: Network,
+  kind: z.enum(POST_KINDS),
+  creatorShown: z.string(),
+});
+export type StandoutRef = z.infer<typeof StandoutRef>;
+export const PlaybookGetOutput = z.object({ playbook: Playbook, examples: z.array(StandoutRef) });
+export const IdeaListInput = z.object({
+  workspaceId: uuid,
+  state: z.enum(IDEA_STATES).optional(),
+});
+export const IdeaListOutput = z.object({ ideas: z.array(Idea), examples: z.array(StandoutRef) });
+export const IdeaDecideInput = z.object({
+  workspaceId: uuid,
+  ideaId: uuid,
+  state: z.enum(IDEA_STATES),
+});
+export const WatchTryInput = z.object({ workspaceId: uuid });
+export const WatchTryOutput = z.object({ asked: z.number().int() });
 
 // ------------------------------------------------------------------------------------------------ the extension
 
@@ -255,6 +365,15 @@ export const WorkNextOutput = z.object({
       known: z.array(z.string()),
       /** For a search: how many profiles to read at most. */
       most: z.number().int(),
+      /** For watching: the post. */
+      post: z
+        .object({
+          id: uuid,
+          postKey: z.string(),
+          link: z.string(),
+          seconds: z.number().int().nullable(),
+        })
+        .nullable(),
     })
     .nullable(),
 });
@@ -320,6 +439,54 @@ export const PostsSaveOutput = z.object({
 });
 
 // ------------------------------------------------------------------------------------------------ the worker
+
+export const PostNoteInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  notes: PostNotes,
+});
+export const PostWatchedInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  watched: PostWatched,
+});
+export const PlaybookPutInput = z.object({
+  workspaceId: uuid,
+  summary: z.string().max(2000).nullable(),
+  sections: z.array(PlaybookSection).max(LIMITS.playbookSections),
+  standouts: z.number().int().min(0),
+});
+export const IdeaIn = Idea.pick({
+  title: true,
+  hook: true,
+  format: true,
+  network: true,
+  outline: true,
+  why: true,
+  basedOn: true,
+});
+export type IdeaIn = z.infer<typeof IdeaIn>;
+export const IdeasPutInput = z.object({
+  workspaceId: uuid,
+  ideas: z.array(IdeaIn).max(LIMITS.ideasAtOnce),
+});
+export const IdeasPutOutput = z.object({ added: z.number().int() });
+
+/** What the extension sends from watching a standout video: a few frames, and what it heard. */
+export const WatchFrame = z.object({
+  /** Seconds into the video. */
+  at: z.number().min(0).max(86_400),
+  /** A JPEG, as base64. */
+  jpeg: z.string().max(LIMITS.frameBytes),
+});
+export const PostWatchInput = z.object({
+  workId: uuid,
+  postId: uuid,
+  seconds: z.number().min(0).max(86_400).nullable(),
+  frames: z.array(WatchFrame).min(1).max(LIMITS.framesMost),
+  /** Its sound as a WAV, base64; null when it has none or it couldn't be read. */
+  sound: z.string().max(LIMITS.soundBytes).nullable(),
+});
 
 export const NicheOut = z.object({
   name: z.string().trim().min(1).max(LIMITS.nicheName),

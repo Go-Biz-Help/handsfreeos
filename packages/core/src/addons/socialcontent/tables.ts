@@ -18,8 +18,12 @@ import { users, workspaces } from '@hfos/db/schema';
 import type { ContentNetwork } from './networks';
 import type {
   CreatorState,
+  IdeaState,
   NicheState,
+  PlaybookSection,
   PostKind,
+  PostNotes,
+  PostWatched,
   Searches,
   WorkAskedFor,
   WorkKind,
@@ -43,6 +47,7 @@ export const settings = addonSocialcontent.table('settings', {
     .references(() => workspaces.id, { onDelete: 'cascade' }),
   networks: text('networks').array().notNull().$type<ContentNetwork[]>().default(['instagram']),
   readerUserId: userRef('reader_user_id'),
+  watchVideos: boolean('watch_videos').notNull().default(false),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -119,6 +124,10 @@ export const posts = addonSocialcontent.table(
     standout: boolean('standout').notNull().default(false),
     standoutOn: text('standout_on').$type<StandoutOn>(),
     waiting: text('waiting').$type<StandoutWait>(),
+    notes: jsonb('notes').$type<PostNotes>(),
+    notedAt: ts('noted_at'),
+    watched: jsonb('watched').$type<PostWatched>(),
+    watchedAt: ts('watched_at'),
     readAt: ts('read_at').notNull().defaultNow(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -136,6 +145,7 @@ export const work = addonSocialcontent.table(
     network: text('network').notNull().$type<ContentNetwork>(),
     nicheId: uuid('niche_id'),
     creatorId: uuid('creator_id'),
+    postId: uuid('post_id'),
     since: ts('since'),
     state: text('state').notNull().$type<WorkState>().default('waiting'),
     askedFor: text('asked_for').notNull().$type<WorkAskedFor>(),
@@ -151,4 +161,47 @@ export const work = addonSocialcontent.table(
   (t) => [unique().on(t.workspaceId, t.id)],
 );
 
-export const SOCIALCONTENT_TABLES = { settings, niches, creators, posts, work } as const;
+/** One per business: the patterns across its noted standouts. */
+export const playbook = addonSocialcontent.table('playbook', {
+  workspaceId: uuid('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  summary: text('summary'),
+  sections: jsonb('sections').notNull().$type<PlaybookSection[]>().default([]),
+  standouts: integer('standouts').notNull().default(0),
+  writtenAt: ts('written_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** Posts the AI suggests the business makes. */
+export const ideas = addonSocialcontent.table(
+  'ideas',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workspaceId: workspaceRef(),
+    title: text('title').notNull(),
+    hook: text('hook'),
+    format: text('format'),
+    network: text('network').$type<ContentNetwork>(),
+    outline: text('outline'),
+    why: text('why'),
+    basedOn: uuid('based_on').array().notNull().default([]),
+    state: text('state').notNull().$type<IdeaState>().default('new'),
+    decidedBy: userRef('decided_by'),
+    decidedAt: ts('decided_at'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.id)],
+);
+
+export const SOCIALCONTENT_TABLES = {
+  settings,
+  niches,
+  creators,
+  posts,
+  work,
+  playbook,
+  ideas,
+} as const;

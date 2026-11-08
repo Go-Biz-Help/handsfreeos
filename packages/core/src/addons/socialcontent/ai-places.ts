@@ -12,6 +12,9 @@ const N = W.niches;
 const C = W.creators;
 const S = W.standouts;
 const G = W.settings;
+const B = W.playbook;
+const I = W.ideas;
+const V = W.watch;
 
 export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
   {
@@ -41,30 +44,63 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
     onScreen: [
       `${S.allNetworks} and ${S.allCreators} to narrow it down`,
       `Each standout: the creator, the network, when it was posted, what kind it is, its caption, its numbers and how many times their normal it did (${S.on.views}, ${S.on.engagement} or ${S.on.both}), and ${S.open}`,
+      `The AI’s notes on each: ${S.notes.why}, ${S.notes.hook}, ${S.notes.format}, ${S.notes.topic}, ${S.notes.techniques} and ${S.notes.useIt} (how the business could use it)`,
+      `On a video the AI watched, ${S.watched.title}: ${S.watched.hook}, ${S.watched.seen}, ${S.watched.heard}, ${S.watched.pacing} and why it worked`,
     ],
     howTo: [
       `What counts: a post with at least ${STANDOUT.times} times the middle number of the ${STANDOUT.eachSide} posts on each side of it, on views or on likes plus comments. Posts under ${STANDOUT.waitDays} days old wait, since they’re still growing`,
-    ],
-    notHere: [
-      'The AI’s notes on why each standout worked, the Playbook and content ideas come in a later update',
+      'The AI notes each new standout on its own a minute or two after its creator’s posts are read',
+      `Have the AI watch the videos too: ${NAME} → ${P.gear} → ${V.title} (owners and admins). It uses a lot more AI`,
     ],
     path: 'standouts',
   },
   {
+    label: P.playbook,
+    what: 'what works for the creators studied, written by the AI from its notes on their standouts',
+    where: [NAME, P.playbook],
+    onScreen: [
+      `A short summary, when it was written and from how many standouts, and ${B.write}`,
+      `Sections (like hooks, formats, topics, captions and timing), each a numbered list of things to do with why it works and ${B.examples} (the standouts it came from, each opening the post)`,
+    ],
+    howTo: [
+      'It’s written on its own once 3 standouts have notes, and again each time 5 more do',
+      `Write it now: ${B.write}`,
+    ],
+    canChange: ['write the Playbook again now'],
+    path: 'playbook',
+  },
+  {
+    label: P.ideas,
+    what: 'ideas for the business’s own posts, from the Playbook and its profile',
+    where: [NAME, P.ideas],
+    onScreen: [
+      `${I.get}, and ${I.tabs.new}, ${I.tabs.saved}, ${I.tabs.used} and ${I.tabs.skipped}`,
+      `Each idea: its network, format, title, ${I.hook}, ${I.outline}, ${I.why} and the standouts it’s based on; ${I.save}, ${I.use} and ${I.skip} (or ${I.again} on used and skipped ones)`,
+    ],
+    howTo: [
+      'New ideas come on their own each time the Playbook is written, while fewer than 5 new ones wait',
+      `More ideas: ${I.get}. It needs a Playbook first`,
+    ],
+    canChange: ['get ideas, and save, mark used, skip or put back an idea'],
+    path: 'ideas',
+  },
+  {
     label: P.gear,
-    what: 'the networks studied, whose computer reads them, and what the reading computer is doing',
+    what: 'the networks studied, whose computer reads them, watching videos, and what the reading computer is doing',
     where: [NAME, P.gear],
     onScreen: [
       `${G.networks}: Instagram for now; Facebook, LinkedIn, TikTok and YouTube say ${G.coming}`,
       `${G.reader}: whose computer reads, ${G.readOnMine} and ${G.getExtension}`,
+      `${V.title}: ${V.on} (off until turned on, with the notice that it uses a lot more AI) and ${V.tryIt} (up to 5 of the newest standout videos, once)`,
       `${G.doing}: what’s waiting, and what was asked lately with how it went, each waiting one with ${G.stop}`,
     ],
     howTo: [
       `Have your computer do the reading: ${G.readOnMine} (owners and admins), with the HandsFreeOS Social extension in Chrome, signed in`,
       `Stop something waiting: ${G.stop} on it under ${G.doing}`,
+      `Test watching before turning it on: ${V.tryIt} (owners and admins)`,
     ],
     canChange: [
-      'pick the networks and whose computer reads (owners and admins), and stop waiting work',
+      'pick the networks, whose computer reads and whether new standout videos are watched (owners and admins), try watching a few videos, and stop waiting work',
     ],
     path: 'settings',
   },

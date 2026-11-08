@@ -151,7 +151,7 @@ export const overview = defineAddonQuery(socialcontentAddon, {
 export const settingsSave = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.settings.save',
   description:
-    'Change content research’s settings: the networks creators are looked for and read on (Instagram for now; Facebook, LinkedIn, TikTok and YouTube come in later updates), and whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none). What isn’t given stays as it is.',
+    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), and whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off). What isn’t given stays as it is.',
   risk: 1,
   input: SettingsSaveInput,
   output: SettingsOut,
@@ -161,7 +161,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
     tool: 'socialcontent_save_settings',
     autonomy: 'confirm',
     description:
-      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on (only Instagram is read so far), and `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none). Leave out what doesn’t change.',
+      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), and `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on). Leave out what doesn’t change.',
     outcome: () => ({ words: W.settings.saved, path: 'a/socialcontent/settings' }),
   },
   emits: ['socialcontent.settings.saved'],
@@ -192,19 +192,30 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
     const was = await settingsOf(ctx);
     const networks = input.networks ? [...new Set(input.networks)] : was.networks;
     const readerUserId = input.readerUserId === undefined ? was.readerUserId : input.readerUserId;
+    const watchVideos = input.watchVideos ?? was.watchVideos;
     await ctx.tx
       .insert(settings)
-      .values({ workspaceId: ws, networks, readerUserId, updatedBy: me })
+      .values({ workspaceId: ws, networks, readerUserId, watchVideos, updatedBy: me })
       .onConflictDoUpdate({
         target: settings.workspaceId,
-        set: { networks, readerUserId, updatedBy: me, updatedAt: changeMoment(ctx.meta) },
+        set: {
+          networks,
+          readerUserId,
+          watchVideos,
+          updatedBy: me,
+          updatedAt: changeMoment(ctx.meta),
+        },
       });
     await ctx.emit({
       type: 'socialcontent.settings.saved',
       entityType: 'socialcontent_settings',
-      payload: { networks, readerChanged: readerUserId !== was.readerUserId },
+      payload: {
+        networks,
+        readerChanged: readerUserId !== was.readerUserId,
+        watchVideos,
+      },
     });
-    return { networks, readerUserId, readerName: await nameOf(ctx, readerUserId) };
+    return { networks, readerUserId, watchVideos, readerName: await nameOf(ctx, readerUserId) };
   },
 });
 
@@ -483,7 +494,7 @@ export const creatorDecide = defineAddonCommand(socialcontentAddon, {
 export const postList = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.post.list',
   description:
-    'Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.',
+    'Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either, and has the AI’s notes on why it worked (its hook, format, topic and techniques, and how the business could use it), and for a video it watched, what it saw and heard. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.',
   input: PostListInput,
   output: PostListOutput,
   permission: 'socialcontent.use',
@@ -509,8 +520,22 @@ export const postList = defineAddonQuery(socialcontentAddon, {
       )
       .orderBy(desc(posts.postedAt), asc(posts.id))
       .limit(input.limit + 1);
+    const shown = found.slice(0, input.limit);
+    const ids = shown.filter((r) => r.post.kind === 'video').map((r) => r.post.id);
+    const watching = new Set(
+      ids.length
+        ? (
+            await rows<{ post_id: string }>(
+              ctx.tx,
+              sql`select post_id from addon_socialcontent.work
+                  where workspace_id = ${ws} and kind = 'watch' and state in ('waiting', 'taken')
+                    and post_id = any(${`{${ids.join(',')}}`}::uuid[])`,
+            )
+          ).map((r) => r.post_id)
+        : [],
+    );
     return {
-      posts: found.slice(0, input.limit).map((r) => postOut(r.post, r.creator)),
+      posts: shown.map((r) => postOut(r.post, r.creator, watching.has(r.post.id))),
       more: found.length > input.limit,
     };
   },

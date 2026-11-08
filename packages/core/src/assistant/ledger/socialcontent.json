@@ -1,21 +1,26 @@
 {
   "area": "socialcontent",
-  "title": "The AI Social Media Content Creator add-on: Creators, Standouts and Settings",
+  "title": "The AI Social Media Content Creator add-on: Creators, Standouts, Playbook, Ideas and Settings",
   "checkedOn": "2026-11-08",
   "files": {
-    "apps/web/src/addons/registry.ts": "004a7ec15544",
+    "apps/web/src/addons/registry.ts": "e9761d069e05",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "18c2ed634a4d",
-    "apps/web/src/addons/socialcontent/post-card.tsx": "f158d763f151",
-    "apps/web/src/addons/socialcontent/settings-page.tsx": "737d0e7331dc",
-    "apps/web/src/addons/socialcontent/standouts-page.tsx": "3f2efca53a94",
+    "apps/web/src/addons/socialcontent/ideas-page.tsx": "907774004aad",
+    "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
+    "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
+    "apps/web/src/addons/socialcontent/settings-page.tsx": "5ad38ccdc5ce",
+    "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
+    "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/creators/page.tsx": "f4ae2d8b3e77",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/ideas/page.tsx": "28b642ce96a0",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/page.tsx": "f6d978501d91",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/playbook/page.tsx": "e8ea3f0e428f",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/settings/page.tsx": "af3ff673f9d4",
     "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/standouts/page.tsx": "ebf3c721a49e"
   },
   "items": [
     {
-      "path": "Side menu → AI Social Media Content Creator (opens Creators; Standouts and Settings pop out)",
+      "path": "Side menu → AI Social Media Content Creator (opens Creators; Standouts, Playbook, Ideas and Settings pop out)",
       "kind": "do",
       "file": "apps/web/src/addons/registry.ts:267",
       "covered": "yes",
@@ -178,7 +183,7 @@
     {
       "path": "Standouts → a post → Open post",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-card.tsx:71",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:72",
       "covered": "yes",
       "by": "socialcontent_list_posts gives each post's link"
     },
@@ -199,58 +204,205 @@
     {
       "path": "Settings → Networks: Instagram ticked, the rest Coming later",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:98",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:103",
       "covered": "yes",
       "by": "socialcontent_save_settings (networks); socialcontent_overview"
     },
     {
       "path": "Settings → Whose computer reads",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:115",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:132",
       "covered": "yes",
       "by": "socialcontent_overview (settings.readerName, readerIsMe)"
     },
     {
       "path": "Settings → Read on my computer",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:126",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:145",
       "covered": "yes",
       "by": "socialcontent_save_settings (readerUserId)"
     },
     {
       "path": "Settings → Get the extension",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:135",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:154",
       "covered": "person",
       "by": "a download into the person's own Chrome; the Assistant can say where it is"
     },
     {
       "path": "Settings → Stop reading",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:144",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:163",
       "covered": "yes",
       "by": "socialcontent_save_settings (readerUserId: null)"
     },
     {
       "path": "Settings → when it reads on its own (weekly, monthly)",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:155",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:211",
       "covered": "yes",
       "by": "the place's words; socialcontent_find_creators and socialcontent_read_creators descriptions"
     },
     {
       "path": "Settings → What it’s doing: waiting count and recent work, each with how it went",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:161",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:215",
       "covered": "yes",
       "by": "socialcontent_overview (counts.waiting, work)"
     },
     {
       "path": "Settings → What it’s doing → Stop",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:226",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:282",
       "covered": "yes",
       "by": "socialcontent_stop_work"
+    },
+    {
+      "path": "Standouts → a standout → the AI’s notes: why it worked, hook, format, topic, techniques, for you",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:123",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (notes)"
+    },
+    {
+      "path": "Standouts → a standout → notes on the way",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:137",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (notes: null); the place’s words say they come on their own"
+    },
+    {
+      "path": "Standouts → a video → Watched: first seconds, on screen, heard, pacing, why, techniques",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:143",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (watched)"
+    },
+    {
+      "path": "Standouts → a video → your reading computer is watching it",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:157",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (watching)"
+    },
+    {
+      "path": "Playbook → header, summary, when it was written and from how many standouts",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/playbook-page.tsx:74",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook"
+    },
+    {
+      "path": "Playbook → Write it again",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/playbook-page.tsx:54",
+      "covered": "yes",
+      "by": "socialcontent_write_playbook (worker action)"
+    },
+    {
+      "path": "Playbook → sections, each thing to do with why",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/playbook-page.tsx:83",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook (sections)"
+    },
+    {
+      "path": "Playbook → From: open a standout it came from",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/standout-links.tsx:28",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook gives each example’s link"
+    },
+    {
+      "path": "Playbook → none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/playbook-page.tsx:65",
+      "covered": "yes",
+      "by": "socialcontent_get_playbook (writtenAt: null); the place’s words"
+    },
+    {
+      "path": "Ideas → Get ideas",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:89",
+      "covered": "yes",
+      "by": "socialcontent_suggest_ideas (worker action)"
+    },
+    {
+      "path": "Ideas → tabs: New, Saved, Used, Skipped, with counts",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:105",
+      "covered": "yes",
+      "by": "socialcontent_list_ideas (state)"
+    },
+    {
+      "path": "Ideas → an idea: network, format, title, hook, outline, why, based on",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:159",
+      "covered": "yes",
+      "by": "socialcontent_list_ideas"
+    },
+    {
+      "path": "Ideas → an idea → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:191",
+      "covered": "yes",
+      "by": "socialcontent_decide_idea (saved)"
+    },
+    {
+      "path": "Ideas → an idea → Mark used",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:192",
+      "covered": "yes",
+      "by": "socialcontent_decide_idea (used)"
+    },
+    {
+      "path": "Ideas → an idea → Skip",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:193",
+      "covered": "yes",
+      "by": "socialcontent_decide_idea (skipped)"
+    },
+    {
+      "path": "Ideas → an idea → Back to new",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:201",
+      "covered": "yes",
+      "by": "socialcontent_decide_idea (new)"
+    },
+    {
+      "path": "Ideas → an idea → Based on: open a standout",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/standout-links.tsx:28",
+      "covered": "yes",
+      "by": "socialcontent_list_ideas gives each example’s link"
+    },
+    {
+      "path": "Ideas → none yet, or needs a Playbook",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/ideas-page.tsx:100",
+      "covered": "yes",
+      "by": "socialcontent_list_ideas; socialcontent_get_playbook"
+    },
+    {
+      "path": "Settings → Watching videos: what it does, and the notice that it uses a lot more AI",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:176",
+      "covered": "yes",
+      "by": "the place’s words; socialcontent_save_settings description"
+    },
+    {
+      "path": "Settings → Watching videos → Watch new standout videos (asks first, with the notice)",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:185",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (watchVideos), on a Confirm card"
+    },
+    {
+      "path": "Settings → Watching videos → Try it on a few videos",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:199",
+      "covered": "yes",
+      "by": "socialcontent_try_watching, on a Confirm card"
     }
   ],
   "gaps": []

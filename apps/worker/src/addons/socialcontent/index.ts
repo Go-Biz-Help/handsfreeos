@@ -1,6 +1,7 @@
 /**
  * AI Social Media Content Creator in the worker (docs/socialcontent.md): the AI's niches and the words to search for
- * them (./niches.ts), and the weekly and monthly reading it queues for the business's reading computer (decision 11).
+ * them (./niches.ts), the weekly and monthly reading it queues for the business's reading computer (decision 11), and
+ * the AI's notes on the standouts, the Playbook, the ideas and watching videos (./notes.ts).
  * The reading itself is the HandsFreeOS Social extension's, on that computer. The worker hands it work only while
  * it's on, and everything it does through the kernel (with `ctx.actor`) is refused the moment it's turned off.
  */
@@ -11,6 +12,15 @@ import { scheduleAddonJob } from '../queue';
 import type { AddonJobHandler, AddonScopeContext, AddonWorkerModule } from '../types';
 import { READ_LOOK_ACTION, readLook } from './helper';
 import { onNicheAdded, suggestNichesNow } from './niches';
+import {
+  NOTES_JOB,
+  onPostsSaved,
+  runNotes,
+  suggestIdeasNow,
+  WATCH_ACTION,
+  watchPost,
+  writePlaybookNow,
+} from './notes';
 
 const WEEKLY_JOB = 'socialcontent.weekly';
 const MONTHLY_JOB = 'socialcontent.monthly';
@@ -65,8 +75,17 @@ const findMonthly: AddonJobHandler = async (ctx) => {
 
 export const socialcontentAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('socialcontent'),
-  subscribers: { 'socialcontent.niche.added': onNicheAdded },
-  jobs: { [WEEKLY_JOB]: readWeekly, [MONTHLY_JOB]: findMonthly },
+  subscribers: {
+    'socialcontent.niche.added': onNicheAdded,
+    'socialcontent.posts.saved': onPostsSaved,
+  },
+  jobs: { [WEEKLY_JOB]: readWeekly, [MONTHLY_JOB]: findMonthly, [NOTES_JOB]: runNotes },
   onEnable: armChecks,
-  actions: { 'socialcontent.niches.suggest': suggestNichesNow, [READ_LOOK_ACTION]: readLook },
+  actions: {
+    'socialcontent.niches.suggest': suggestNichesNow,
+    'socialcontent.playbook.write': writePlaybookNow,
+    'socialcontent.ideas.suggest': suggestIdeasNow,
+    [READ_LOOK_ACTION]: readLook,
+    [WATCH_ACTION]: watchPost,
+  },
 };

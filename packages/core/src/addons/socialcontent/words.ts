@@ -9,6 +9,8 @@ import { DONE_WELL, STANDOUT } from './standouts';
 export const SOCIALCONTENT_PAGES = {
   creators: 'Creators',
   standouts: 'Standouts',
+  playbook: 'Playbook',
+  ideas: 'Ideas',
   // Not `settings`: that key would put the page in Settings search, which opens it on the web.
   gear: 'Settings',
 } as const;
@@ -95,7 +97,7 @@ export const SOCIALCONTENT_WORDS = {
   },
   standouts: {
     title: 'Standouts',
-    intro: `Posts that did at least ${STANDOUT.times} times better than the ${STANDOUT.eachSide} posts on each side of them, on views or on likes plus comments. The AI’s notes on why each worked come next.`,
+    intro: `Posts that did at least ${STANDOUT.times} times better than the ${STANDOUT.eachSide} posts on each side of them, on views or on likes plus comments, with the AI’s notes on why each worked.`,
     none: 'No standouts yet. Once creators are studied, their posts that beat their normal show here.',
     allNetworks: 'All networks',
     allCreators: 'All creators',
@@ -104,6 +106,77 @@ export const SOCIALCONTENT_WORDS = {
     engagement: (n: number) => `${n.toLocaleString('en-US')} likes and comments`,
     on: { views: 'On views', engagement: 'On likes and comments', both: 'On both' },
     more: 'Show more',
+    notes: {
+      why: 'Why it worked',
+      hook: 'Hook',
+      format: 'Format',
+      topic: 'Topic',
+      techniques: 'Techniques',
+      useIt: 'For you',
+      waiting: 'The AI’s notes on this one are on the way.',
+    },
+    watched: {
+      title: 'Watched',
+      hook: 'First seconds',
+      seen: 'On screen',
+      heard: 'Heard',
+      pacing: 'Pacing',
+      why: 'Why it worked',
+      watching: 'Your reading computer is watching it.',
+    },
+  },
+  playbook: {
+    title: 'Playbook',
+    intro:
+      'What works for the creators you study, written by the AI from its notes on their standouts. Use it to plan your own posts.',
+    none: 'No Playbook yet. Once a few standouts have the AI’s notes, it writes one here.',
+    write: 'Write it again',
+    writing: 'Writing…',
+    done: 'The Playbook is written.',
+    written: (when: string, n: number) => `Written ${when} from ${count(n, 'standout')}.`,
+    newSince: (n: number) => `${count(n, 'standout')} noted since.`,
+    examples: 'From',
+    nothingToWrite:
+      'There’s nothing to write a Playbook from yet: no standout has the AI’s notes. Study creators first, then their standouts get notes on their own.',
+  },
+  ideas: {
+    title: 'Ideas',
+    intro:
+      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Save the ones you like, and mark them used once you’ve posted them.',
+    none: 'No ideas yet. Get ideas once there’s a Playbook.',
+    get: 'Get ideas',
+    getting: 'Thinking…',
+    got: (n: number) => (n ? `Added ${count(n, 'idea')}.` : 'No new ideas this time.'),
+    tabs: { new: 'New', saved: 'Saved', used: 'Used', skipped: 'Skipped' },
+    save: 'Save',
+    use: 'Mark used',
+    skip: 'Skip',
+    again: 'Back to new',
+    hook: 'Hook',
+    format: 'Format',
+    outline: 'Outline',
+    why: 'Why it should work',
+    basedOn: (n: number) => `Based on ${count(n, 'standout')}`,
+    decided: 'Done.',
+    needsPlaybook:
+      'Ideas come from the Playbook, and there isn’t one yet. Once a few standouts have the AI’s notes, it’s written on its own.',
+    noneNew: 'No new ideas. Get ideas for more.',
+    noneSaved: 'Nothing saved yet.',
+    noneUsed: 'Nothing used yet.',
+    noneSkipped: 'Nothing skipped.',
+  },
+  watch: {
+    title: 'Watching videos',
+    intro:
+      'The AI can also watch standout videos: it looks at frames from each and listens to what’s said, then notes the hook, what’s on screen, the pacing and why it worked.',
+    cost: 'This uses a lot more AI than notes from the numbers and caption alone, about 10 to 20 times as much for each video. It’s off until you turn it on.',
+    on: 'Watch new standout videos',
+    tryIt: 'Try it on a few videos',
+    tryHint: 'Watches up to 5 of the newest standout videos once, without turning it on.',
+    asked: (n: number) =>
+      n
+        ? `Asked your reading computer to watch ${count(n, 'video')}. The AI’s notes show on each under Standouts.`
+        : 'Nothing new to watch.',
   },
   kinds: {
     video: 'Video',
@@ -131,6 +204,8 @@ export const SOCIALCONTENT_WORDS = {
     extensionHow:
       'Install the extension (0.127.0 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in to Instagram in that Chrome. It reads while Chrome is open, in a window of its own.',
     getExtension: 'Get the extension',
+    watchSaved: (on: boolean) =>
+      on ? 'Watching is on: new standout videos are watched as they’re found.' : 'Watching is off.',
     schedule:
       'Each creator studied is read again once a week for new posts, and new creators are looked for once a month.',
     saved: 'Saved.',
@@ -146,6 +221,7 @@ export const SOCIALCONTENT_WORDS = {
       find: (niche: string, network: string) => `Find creators for “${niche}” on ${network}`,
       profile: (who: string, network: string) => `Read ${who}’s profile on ${network}`,
       posts: (who: string, network: string) => `Read ${who}’s posts on ${network}`,
+      watch: (who: string, network: string) => `Watch a video of ${who}’s on ${network}`,
     },
     states: {
       waiting: 'Waiting',
@@ -162,6 +238,8 @@ export const SOCIALCONTENT_WORDS = {
       monthly: 'monthly',
       added: 'added',
       studying: 'ticked',
+      standout: 'new standout',
+      trying: 'trying',
     },
   },
 } as const;

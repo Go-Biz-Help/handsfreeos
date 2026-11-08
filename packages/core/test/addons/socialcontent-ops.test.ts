@@ -2,7 +2,8 @@
  * AI Social Media Content Creator on the database (docs/socialcontent.md): its tables are mirrored exactly; owners and
  * admins pick whose computer reads; anyone on the team ticks niches and creators; the reading computer, and only it,
  * takes the work one thing at a time, saves who it found and their posts, and the posts that beat their neighbours
- * come out as standouts; the worker queues the weekly read; and none of it works while the add-on is off.
+ * come out as standouts; the worker queues the weekly read and keeps the AI's notes, the Playbook and the ideas;
+ * watching videos waits for an owner to try it or turn it on; and none of it works while the add-on is off.
  */
 import { randomUUID } from 'node:crypto';
 import { getTableColumns, getTableName } from 'drizzle-orm';
@@ -339,6 +340,131 @@ describe('studying creators', () => {
       await as(member, 'socialcontent.work.stop', { workId: w.id });
     }
     expect((await as(member, 'socialcontent.overview')).counts.waiting).toBe(0);
+  });
+
+  it('keeps the AI’s notes on a standout, then the Playbook and ideas from them', async () => {
+    const { posts } = await as(member, 'socialcontent.post.list', { standoutsOnly: true });
+    const c2 = posts.find((p: Any) => p.postKey === 'C2');
+    expect(c2).toMatchObject({ notes: null, watched: null, watching: false });
+    const notes = {
+      why: 'It asks the question people have, unlike the posts around it.',
+      hook: 'A question',
+      format: 'Short how to',
+      topic: 'Leaks',
+      techniques: ['Open with a question'],
+      useIt: 'Answer the question your customers ask most.',
+    };
+    expect(await refused(as(member, 'socialcontent.post.note', { postId: c2.id, notes }))).toBe(
+      'forbidden',
+    );
+    await worker('socialcontent.post.note', { postId: c2.id, notes });
+    const noted = (await as(member, 'socialcontent.post.list', { standoutsOnly: true })).posts;
+    expect(noted.find((p: Any) => p.id === c2.id).notes).toEqual(notes);
+
+    const before = await as(member, 'socialcontent.playbook.get');
+    expect(before.playbook).toMatchObject({ writtenAt: null, sections: [], noted: 1 });
+    await worker('socialcontent.playbook.put', {
+      summary: 'Questions work.',
+      sections: [
+        {
+          title: 'Hooks',
+          items: [{ do: 'Ask a question.', why: 'People stop.', examples: [c2.id] }],
+        },
+      ],
+      standouts: 1,
+    });
+    const book = await as(member, 'socialcontent.playbook.get');
+    expect(book.playbook).toMatchObject({ summary: 'Questions work.', standouts: 1, noted: 1 });
+    expect(book.playbook.writtenAt).not.toBeNull();
+    expect(book.examples).toEqual([
+      expect.objectContaining({ id: c2.id, creatorShown: '@pipequeen', kind: 'video' }),
+    ]);
+
+    const idea = (title: string) => ({
+      title,
+      hook: 'Got a leak?',
+      format: 'Short how to',
+      network: 'instagram',
+      outline: 'Ask.\nAnswer.',
+      why: 'Questions work.',
+      basedOn: [c2.id],
+    });
+    expect(
+      await worker('socialcontent.ideas.put', { ideas: [idea('Leak or not?'), idea('One fix')] }),
+    ).toEqual({ added: 2 });
+    const listed = await as(member, 'socialcontent.idea.list');
+    expect(listed.ideas.map((i: Any) => i.state)).toEqual(['new', 'new']);
+    expect(listed.examples.map((e: Any) => e.id)).toEqual([c2.id]);
+    const first = listed.ideas[0];
+    expect(
+      await as(member, 'socialcontent.idea.decide', { ideaId: first.id, state: 'saved' }),
+    ).toMatchObject({
+      id: first.id,
+      state: 'saved',
+    });
+    expect((await as(member, 'socialcontent.idea.list', { state: 'saved' })).ideas).toHaveLength(1);
+    await as(member, 'socialcontent.idea.decide', { ideaId: first.id, state: 'new' });
+    expect((await as(member, 'socialcontent.idea.list', { state: 'saved' })).ideas).toHaveLength(0);
+    expect(
+      await refused(
+        as(member, 'socialcontent.idea.decide', { ideaId: randomUUID(), state: 'used' }),
+      ),
+    ).toBe('not_found');
+  });
+
+  it('watches standout videos only when an owner tries it or turns it on', async () => {
+    expect(await refused(as(member, 'socialcontent.watch.try'))).toBe('forbidden');
+    // C2 and C4 are standout videos: both are asked for, once.
+    expect(await as(owner, 'socialcontent.watch.try')).toEqual({ asked: 2 });
+    expect(await refused(as(owner, 'socialcontent.watch.try'))).toBe('socialcontent_no_videos');
+    const { posts } = await as(member, 'socialcontent.post.list', { standoutsOnly: true });
+    expect(posts.every((p: Any) => p.watching)).toBe(true);
+    const w = await nextWork();
+    expect(w).toMatchObject({ kind: 'watch', post: { id: expect.any(String) } });
+    const watched = {
+      hook: 'A question to camera.',
+      seen: 'A plumber under a sink.',
+      heard: 'They ask about leaks.',
+      pacing: 'Quick cuts.',
+      why: 'It asks first.',
+      techniques: ['Ask to camera'],
+    };
+    await worker('socialcontent.post.watched', { postId: w.post.id, watched });
+    await as(owner, 'socialcontent.work.finish', { workId: w.id });
+    const after = (await as(member, 'socialcontent.post.list', { standoutsOnly: true })).posts;
+    expect(after.find((p: Any) => p.id === w.post.id)).toMatchObject({ watched, watching: false });
+    const other = await nextWork();
+    expect(other.kind).toBe('watch');
+    await as(member, 'socialcontent.work.stop', { workId: other.id });
+
+    // Turned on, a new standout video is watched as it's found.
+    expect(await refused(as(member, 'socialcontent.settings.save', { watchVideos: true }))).toBe(
+      'forbidden',
+    );
+    expect(await as(owner, 'socialcontent.settings.save', { watchVideos: true })).toMatchObject({
+      watchVideos: true,
+    });
+    const saved = await as(owner, 'socialcontent.posts.save', {
+      creatorId,
+      posts: [
+        {
+          postKey: 'C9',
+          link: 'https://www.instagram.com/reel/C9/',
+          postedAt: ago(37),
+          kind: 'video',
+          likes: 900,
+          comments: 0,
+        },
+      ],
+    });
+    expect(saved.newStandouts).toHaveLength(1);
+    const next = await nextWork();
+    expect(next).toMatchObject({
+      kind: 'watch',
+      post: { id: saved.newStandouts[0], postKey: 'C9' },
+    });
+    await as(member, 'socialcontent.work.stop', { workId: next.id });
+    await as(owner, 'socialcontent.settings.save', { watchVideos: false });
   });
 
   it('stops while the add-on is off', async () => {

@@ -15,6 +15,8 @@ import {
   type ContentNetwork,
 } from '../networks';
 import {
+  PostNotes,
+  PostWatched,
   Searches,
   type Creator,
   type Niche,
@@ -44,7 +46,7 @@ const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 /** The business's settings: the networks it studies (only the ones read yet), and whose computer reads. */
 export async function settingsOf(
   ctx: Ctx,
-): Promise<{ networks: ContentNetwork[]; readerUserId: string | null }> {
+): Promise<{ networks: ContentNetwork[]; readerUserId: string | null; watchVideos: boolean }> {
   const [s] = await ctx.tx
     .select()
     .from(settings)
@@ -52,7 +54,7 @@ export async function settingsOf(
   const networks = (s?.networks ?? ['instagram']).filter(
     (n): n is ContentNetwork => isContentNetwork(n) && CONTENT_NETWORK_INFO[n].ready,
   );
-  return { networks, readerUserId: s?.readerUserId ?? null };
+  return { networks, readerUserId: s?.readerUserId ?? null, watchVideos: s?.watchVideos ?? false };
 }
 
 /** A person's name as the team sees it. */
@@ -115,6 +117,7 @@ export function creatorOut(
 export function postOut(
   p: typeof posts.$inferSelect,
   c: Pick<typeof creators.$inferSelect, 'name' | 'network' | 'handle'>,
+  watching = false,
 ): Post {
   return {
     id: p.id,
@@ -138,6 +141,10 @@ export function postOut(
     standout: p.standout,
     standoutOn: p.standoutOn,
     waiting: p.waiting,
+    // Kept as the AI wrote them; one that no longer fits the shape shows as none.
+    notes: p.notes ? (PostNotes.safeParse(p.notes).data ?? null) : null,
+    watched: p.watched ? (PostWatched.safeParse(p.watched).data ?? null) : null,
+    watching,
   };
 }
 
@@ -150,6 +157,7 @@ export type WorkRow = {
   creator_id: string | null;
   creator_handle: string | null;
   creator_network: ContentNetwork | null;
+  post_id: string | null;
   state: Work['state'];
   asked_for: WorkAskedFor;
   failure: string | null;
@@ -171,6 +179,7 @@ export const workOut = (w: WorkRow): Work => ({
   creatorId: w.creator_id,
   creatorShown:
     w.creator_handle && w.creator_network ? handleShown(w.creator_network, w.creator_handle) : null,
+  postId: w.post_id,
   state: w.state,
   askedFor: w.asked_for,
   failure: w.failure,
@@ -183,7 +192,7 @@ export const workOut = (w: WorkRow): Work => ({
 /** The work's rows with the niche and creator they're about. */
 export const WORK_SELECT = sql`
   select w.id, w.kind, w.network, w.niche_id, n.name as niche_name, w.creator_id, c.handle as creator_handle,
-         c.network as creator_network, w.state, w.asked_for, w.failure, w.done_count, w.created_at, w.taken_at,
+         c.network as creator_network, w.post_id, w.state, w.asked_for, w.failure, w.done_count, w.created_at, w.taken_at,
          w.finished_at
   from addon_socialcontent.work w
   left join addon_socialcontent.niches n on n.id = w.niche_id
@@ -194,6 +203,7 @@ export interface WorkAsk {
   readonly network: ContentNetwork;
   readonly nicheId?: string | null;
   readonly creatorId?: string | null;
+  readonly postId?: string | null;
   readonly since?: Date | null;
 }
 
@@ -211,9 +221,10 @@ export async function queueWork(
   for (const a of asks) {
     const made = await rows<{ id: string }>(
       ctx.tx,
-      sql`insert into addon_socialcontent.work (workspace_id, kind, network, niche_id, creator_id, since, asked_for, asked_by)
+      sql`insert into addon_socialcontent.work
+            (workspace_id, kind, network, niche_id, creator_id, post_id, since, asked_for, asked_by)
           values (${ctx.scope.workspaceId!}, ${a.kind}, ${a.network}, ${a.nicheId ?? null}, ${a.creatorId ?? null},
-                  ${a.since ? a.since.toISOString() : null}::timestamptz, ${askedFor}, ${askedBy})
+                  ${a.postId ?? null}, ${a.since ? a.since.toISOString() : null}::timestamptz, ${askedFor}, ${askedBy})
           on conflict do nothing
           returning id`,
     );

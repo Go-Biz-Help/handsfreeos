@@ -1,8 +1,10 @@
 'use client';
 /**
- * Settings (docs/socialcontent.md, decisions 2, 11 and 12): the networks studied, whose computer reads them, when it
- * reads on its own, and what that computer was asked to do lately. Owners and admins (`socialcontent.manage`) change
- * the first two; anyone who uses the add-on can stop work that hasn't finished.
+ * Settings (docs/socialcontent.md, decisions 2, 9, 11 and 12): the networks studied, whose computer reads them,
+ * whether the AI watches standout videos (off until someone turns it on, with the notice that it uses a lot more AI,
+ * and a way to try it on a few videos first), when it reads on its own, and what that computer was asked to do lately.
+ * Owners and admins (`socialcontent.manage`) change the first three; anyone who uses the add-on can stop work that
+ * hasn't finished.
  */
 import {
   CONTENT_NETWORK_INFO,
@@ -17,6 +19,7 @@ import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import type { Overview, Work } from './types';
@@ -47,14 +50,30 @@ export function SettingsPage({
   const api = apiBrowser();
   const { settings, mayManage } = overview;
 
-  const save = (key: string, body: { networks?: ContentNetwork[]; readerUserId?: string | null }) =>
+  const save = (
+    key: string,
+    body: { networks?: ContentNetwork[]; readerUserId?: string | null; watchVideos?: boolean },
+    done: string = W.settings.saved,
+  ) =>
     act(
       key,
       () =>
         api
           .POST('/v1/commands/socialcontent.settings.save', { body: { workspaceId, ...body } })
           .then(unwrap),
-      W.settings.saved,
+      done,
+    );
+  const watchOn = (on: boolean) => {
+    // The notice again before it's turned on: it uses a lot more AI.
+    if (on && !window.confirm(`${W.watch.on}?\n\n${W.watch.cost}`)) return;
+    void save('watch', { watchVideos: on }, W.settings.watchSaved(on));
+  };
+  const tryWatching = () =>
+    act(
+      'try',
+      () =>
+        api.POST('/v1/commands/socialcontent.watch.try', { body: { workspaceId } }).then(unwrap),
+      (out) => W.watch.asked(out.asked),
     );
   const toggle = (n: ContentNetwork, on: boolean) => {
     const next = on ? [...settings.networks, n] : settings.networks.filter((x) => x !== n);
@@ -149,6 +168,43 @@ export function SettingsPage({
         {!mayManage ? (
           <p className="mt-1 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>
         ) : null}
+      </Card>
+
+      <Card className="p-4 md:p-5" data-testid="socialcontent-watch">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[15px] font-semibold">{W.watch.title}</h2>
+            <p className="mt-1 text-[13px] text-text-2">{W.watch.intro}</p>
+          </div>
+          <Switch
+            checked={settings.watchVideos}
+            onChange={watchOn}
+            label={W.watch.on}
+            disabled={!mayManage || (busy !== null && busy !== 'watch')}
+            busy={busy === 'watch'}
+            testId="socialcontent-watch-on"
+          />
+        </div>
+        <p className="mt-3 rounded-card bg-warning-soft p-3 text-[13px] leading-[1.5] text-warning-text">
+          {W.watch.cost}
+        </p>
+        {mayManage ? (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={busy === 'try'}
+              disabled={busy !== null && busy !== 'try'}
+              onClick={() => void tryWatching()}
+              data-testid="socialcontent-watch-try"
+            >
+              {W.watch.tryIt}
+            </Button>
+            <span className="text-[12.5px] text-text-3">{W.watch.tryHint}</span>
+          </div>
+        ) : (
+          <p className="mt-3 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>
+        )}
       </Card>
 
       <Card className="p-4 md:p-5">

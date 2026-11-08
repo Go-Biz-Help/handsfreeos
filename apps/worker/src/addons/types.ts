@@ -238,6 +238,11 @@ export type AddonSealedReader = (
 export interface AddonWorkerAction<I = any> {
   readonly permission: string;
   readonly input: z.ZodType<I>;
+  /**
+   * The most its request may hold, when it's more than the usual 1 MB: a browser extension sending frames from a
+   * video, say. The route takes up to the largest any action allows, and refuses more than this one's.
+   */
+  readonly bodyBytes?: number;
   readonly run: (
     ctx: AddonScopeContext & { readonly userId: string },
     input: I,

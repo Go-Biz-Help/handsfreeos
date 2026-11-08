@@ -38,7 +38,7 @@ export function StandoutsPage({
   network: Creator['network'] | null;
   creatorId: string | null;
 }) {
-  useLiveRefresh(['socialcontent_creator']);
+  useLiveRefresh(['socialcontent_creator', 'socialcontent_post']);
   const router = useRouter();
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
