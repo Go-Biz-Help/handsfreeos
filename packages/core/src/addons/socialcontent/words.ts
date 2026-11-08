@@ -129,7 +129,7 @@ export const SOCIALCONTENT_WORDS = {
     readerStop: 'Stop reading',
     managersOnly: 'Only an owner or admin of this business changes these.',
     extensionHow:
-      'Install the extension in Chrome on that computer and sign in to it with your HandsFreeOS account. It reads while Chrome is open.',
+      'Install the extension (0.127.0 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in to Instagram in that Chrome. It reads while Chrome is open, in a window of its own.',
     getExtension: 'Get the extension',
     schedule:
       'Each creator studied is read again once a week for new posts, and new creators are looked for once a month.',

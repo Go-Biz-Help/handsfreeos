@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Builds the Chrome extension into dist/chrome: its four scripts bundled by esbuild, the panel's page and styles, the
+ * Builds the Chrome extension into dist/chrome: its five scripts bundled by esbuild, the panel's page and styles, the
  * offscreen page that reads Facebook's file, the icons, and manifest.json with the version from package.json. Load
  * dist/chrome with "Load unpacked" on chrome://extensions (README.md).
  *
@@ -146,6 +146,8 @@ const options = {
     background: 'src/background.ts',
     panel: 'src/panel/panel.ts',
     offscreen: 'src/offscreen.ts',
+    // AI Social Media Content Creator's hands, loaded only into its own reading tab (src/research/page.ts).
+    research: 'src/research/page.ts',
   },
   outdir: out,
   bundle: true,

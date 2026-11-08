@@ -273,6 +273,7 @@ export const FoundCreator = z.object({
   followers: z.number().int().min(0).nullable().default(null),
   lastPostAt: z.iso.datetime().nullable().default(null),
 });
+export type FoundCreator = z.input<typeof FoundCreator>;
 export const CreatorsFoundInput = z.object({
   workspaceId: uuid,
   workId: uuid,
