@@ -13,10 +13,13 @@ test.use({ viewport: { width: 1680, height: 960 } });
 
 const director = (page: Page) => page.getByTestId('demo-director');
 
-/** Plays `count` steps with Space, each to its end, with no step reporting a problem. */
-async function play(page: Page, count: number): Promise<void> {
+/**
+ * Plays `count` steps with Space (or Next pressed with the mouse), each to its end, with no step reporting a problem.
+ */
+async function play(page: Page, count: number, by: 'space' | 'mouse' = 'space'): Promise<void> {
   for (let i = 0; i < count; i++) {
-    await page.keyboard.press('Space');
+    if (by === 'mouse') await page.getByTestId('demo-next').click();
+    else await page.keyboard.press('Space');
     await expect(page.getByTestId('demo-steps').locator('li').nth(i)).toContainText('✓');
     await expect(page.getByTestId('demo-next')).not.toHaveAttribute('aria-busy', 'true', {
       timeout: 40_000,
@@ -407,9 +410,12 @@ test('demo player: a visit paid on the spot, a deposit to book, bookings online 
   await expect(page.locator('img[alt^="Signed by"]')).toBeVisible();
   await expect(page.getByTestId('document-steps')).toContainText('Signed: Heather Malone');
 
-  // Scene 37: a recorded call's task added on its own and its follow-up email sent, with the transcript kept.
+  // Scene 37: a recorded call's task added on its own and its follow-up email sent, with the transcript kept. Next
+  // pressed with the mouse leaves the visit's sheet open, as Space does: the player is never outside it.
   await pick(page, 'call-to-tasks', 'Open today’s call');
-  await play(page, 5);
+  await expect(sheet).toBeVisible();
+  await play(page, 5, 'mouse');
+  await expect(sheet).toBeVisible();
   await expect(page.locator('[data-testid="call-suggestion"][data-status="pending"]')).toHaveCount(
     0,
   );

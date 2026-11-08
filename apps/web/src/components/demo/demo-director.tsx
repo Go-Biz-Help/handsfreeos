@@ -1,4 +1,5 @@
 'use client';
+import { DismissableLayerBranch } from '@radix-ui/react-dismissable-layer';
 import {
   ChevronLeft,
   ChevronRight,
@@ -521,273 +522,277 @@ export function DemoDirector({
 
   if (!on || hidden) return null;
   return (
-    <aside
-      // pointer-events-auto: an open sheet turns pointer events off for the page, and the player stays pressable over
-      // it (a press here closes the sheet, as any press outside it does).
-      className="pointer-events-auto fixed inset-y-0 left-0 z-[60] flex flex-col border-r border-border bg-card text-text shadow-3 print:hidden"
-      style={{ width: PANEL_PX }}
-      aria-label="Demo player"
-      data-testid="demo-director"
-    >
-      <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-3">
-        <Clapperboard className="h-4 w-4 text-accent-text" strokeWidth={1.75} />
-        <span className="flex-1 text-[13.5px] font-semibold">Demo player</span>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={toggleVoiceover}
-          aria-pressed={voiceover}
-          aria-label={voiceover ? 'Hide the voiceover' : 'Show the voiceover'}
-          title={voiceover ? 'Hide the voiceover' : 'Show the voiceover'}
-          data-testid="demo-voiceover-toggle"
-          className={cn(voiceover && 'text-accent-text')}
-        >
-          <Mic className="h-4 w-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => setHidden(true)}
-          aria-label="Hide the panel (H)"
-          title="Hide the panel (H)"
-        >
-          <EyeOff className="h-4 w-4" />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={exit}
-          aria-label={actingAsOwner ? 'Exit to Admin → Demo player' : 'Exit the demo'}
-          title={actingAsOwner ? 'Exit to Admin → Demo player' : 'Exit the demo'}
-          data-testid="demo-exit"
-        >
-          <X className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {frame ? (
-        <div
-          className="flex flex-none items-center gap-2 border-b border-border px-4 py-2 text-[12px]"
-          data-testid="demo-frame"
-        >
-          <Ratio
-            className={cn(
-              'h-3.5 w-3.5 flex-none',
-              isWideFrame(frame.w, frame.h) ? 'text-success-text' : 'text-text-3',
-            )}
-          />
-          <span className="flex-1 text-text-2">
-            Beside this panel: {frame.w} × {frame.h}
-            {isWideFrame(frame.w, frame.h) ? (
-              <span className="font-medium text-success-text"> · 16:9</span>
-            ) : null}
-          </span>
-          {isWideFrame(frame.w, frame.h) ? null : (
-            <button
-              type="button"
-              onClick={makeWide}
-              className="flex-none font-medium text-accent-text hover:underline"
-              title="Opens this page in a window where the app beside the panel is 16:9"
-              data-testid="demo-make-wide"
-            >
-              Make it 16:9
-            </button>
-          )}
-        </div>
-      ) : null}
-
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
-        {actingAsOwner ? (
-          <p
-            className="rounded-control bg-warning-soft px-3 py-2 text-[12px] leading-snug text-warning-text"
-            data-testid="demo-acting-note"
+    // Never outside a sheet, dialog or menu: one a step opened stays open when Next is pressed with the mouse, as it
+    // does for Space, so the next step finds what's in it.
+    <DismissableLayerBranch asChild>
+      <aside
+        // pointer-events-auto: an open sheet turns pointer events off for the page, and the player stays pressable
+        // over it.
+        className="pointer-events-auto fixed inset-y-0 left-0 z-[60] flex flex-col border-r border-border bg-card text-text shadow-3 print:hidden"
+        style={{ width: PANEL_PX }}
+        aria-label="Demo player"
+        data-testid="demo-director"
+      >
+        <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-3">
+          <Clapperboard className="h-4 w-4 text-accent-text" strokeWidth={1.75} />
+          <span className="flex-1 text-[13.5px] font-semibold">Demo player</span>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleVoiceover}
+            aria-pressed={voiceover}
+            aria-label={voiceover ? 'Hide the voiceover' : 'Show the voiceover'}
+            title={voiceover ? 'Hide the voiceover' : 'Show the voiceover'}
+            data-testid="demo-voiceover-toggle"
+            className={cn(voiceover && 'text-accent-text')}
           >
-            You’re in {businessName} as its owner. A scene’s people and messages are made up and
-            never saved, but anything else you change here is real.
-          </p>
-        ) : null}
-        {scene && !listing ? (
-          <>
-            <div className="flex flex-col gap-1">
+            <Mic className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setHidden(true)}
+            aria-label="Hide the panel (H)"
+            title="Hide the panel (H)"
+          >
+            <EyeOff className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={exit}
+            aria-label={actingAsOwner ? 'Exit to Admin → Demo player' : 'Exit the demo'}
+            title={actingAsOwner ? 'Exit to Admin → Demo player' : 'Exit the demo'}
+            data-testid="demo-exit"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {frame ? (
+          <div
+            className="flex flex-none items-center gap-2 border-b border-border px-4 py-2 text-[12px]"
+            data-testid="demo-frame"
+          >
+            <Ratio
+              className={cn(
+                'h-3.5 w-3.5 flex-none',
+                isWideFrame(frame.w, frame.h) ? 'text-success-text' : 'text-text-3',
+              )}
+            />
+            <span className="flex-1 text-text-2">
+              Beside this panel: {frame.w} × {frame.h}
+              {isWideFrame(frame.w, frame.h) ? (
+                <span className="font-medium text-success-text"> · 16:9</span>
+              ) : null}
+            </span>
+            {isWideFrame(frame.w, frame.h) ? null : (
               <button
                 type="button"
-                onClick={() => setListing(true)}
-                className="-ml-1 mb-1 inline-flex w-fit items-center gap-0.5 rounded-control px-1 py-0.5 text-[12.5px] font-medium text-accent-text hover:bg-card-2"
-                data-testid="demo-all-scenes"
+                onClick={makeWide}
+                className="flex-none font-medium text-accent-text hover:underline"
+                title="Opens this page in a window where the app beside the panel is 16:9"
+                data-testid="demo-make-wide"
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                All scenes
+                Make it 16:9
               </button>
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
-                Scene {scene.number} · {SCENE_KIND_LABEL[scene.kind]}
-              </span>
-              <span className="text-[15px] font-semibold leading-snug">{scene.title}</span>
-              {voiceover ? (
+            )}
+          </div>
+        ) : null}
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+          {actingAsOwner ? (
+            <p
+              className="rounded-control bg-warning-soft px-3 py-2 text-[12px] leading-snug text-warning-text"
+              data-testid="demo-acting-note"
+            >
+              You’re in {businessName} as its owner. A scene’s people and messages are made up and
+              never saved, but anything else you change here is real.
+            </p>
+          ) : null}
+          {scene && !listing ? (
+            <>
+              <div className="flex flex-col gap-1">
                 <button
                   type="button"
-                  onClick={() => void copyText(voiceoverScript(scene), 'Copied the voiceover')}
-                  className="mt-0.5 inline-flex w-fit items-center gap-1 text-[12px] font-medium text-accent-text hover:underline"
-                  data-testid="demo-copy-voiceover"
+                  onClick={() => setListing(true)}
+                  className="-ml-1 mb-1 inline-flex w-fit items-center gap-0.5 rounded-control px-1 py-0.5 text-[12.5px] font-medium text-accent-text hover:bg-card-2"
+                  data-testid="demo-all-scenes"
                 >
-                  <Copy className="h-3.5 w-3.5" />
-                  Copy the voiceover
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  All scenes
                 </button>
-              ) : null}
-            </div>
-            <ol className="flex flex-col gap-1" data-testid="demo-steps">
-              {scene.steps.map((step, i) => {
-                const isNext = i === done;
-                const ran = i < done;
-                return (
-                  <li
-                    key={i}
-                    className={cn(
-                      'flex gap-2.5 rounded-control px-2 py-2',
-                      isNext && 'bg-accent-soft',
-                    )}
-                    data-testid={isNext ? 'demo-next-step' : undefined}
-                    aria-current={isNext ? 'step' : undefined}
-                  >
-                    <span
-                      className={cn(
-                        'mt-px inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-[11px] font-semibold',
-                        ran
-                          ? 'bg-success text-white'
-                          : isNext
-                            ? 'bg-accent text-white'
-                            : 'bg-card-2 text-text-3',
-                      )}
-                    >
-                      {ran ? '✓' : i + 1}
-                    </span>
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span
-                        className={cn(
-                          'text-[13px] leading-snug',
-                          ran ? 'text-text-3' : isNext ? 'font-semibold' : 'text-text-2',
-                        )}
-                      >
-                        {step.label}
-                      </span>
-                      {voiceover ? (
-                        <span
-                          className={cn(
-                            'text-[12px] leading-snug',
-                            ran ? 'text-text-3' : isNext ? 'text-text' : 'text-text-2',
-                          )}
-                          data-testid="demo-voiceover"
-                        >
-                          “{step.voiceover}”
-                        </span>
-                      ) : null}
-                    </span>
-                  </li>
-                );
-              })}
-              {done >= scene.steps.length ? (
-                <li className="px-2 py-2 text-[13px] text-text-2" data-testid="demo-scene-done">
-                  That’s the end of this scene. Press R to play it again, or{' '}
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
+                  Scene {scene.number} · {SCENE_KIND_LABEL[scene.kind]}
+                </span>
+                <span className="text-[15px] font-semibold leading-snug">{scene.title}</span>
+                {voiceover ? (
                   <button
                     type="button"
-                    onClick={() => setListing(true)}
-                    className="font-medium text-accent-text hover:underline"
+                    onClick={() => void copyText(voiceoverScript(scene), 'Copied the voiceover')}
+                    className="mt-0.5 inline-flex w-fit items-center gap-1 text-[12px] font-medium text-accent-text hover:underline"
+                    data-testid="demo-copy-voiceover"
                   >
-                    pick another
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy the voiceover
                   </button>
-                  .
-                </li>
+                ) : null}
+              </div>
+              <ol className="flex flex-col gap-1" data-testid="demo-steps">
+                {scene.steps.map((step, i) => {
+                  const isNext = i === done;
+                  const ran = i < done;
+                  return (
+                    <li
+                      key={i}
+                      className={cn(
+                        'flex gap-2.5 rounded-control px-2 py-2',
+                        isNext && 'bg-accent-soft',
+                      )}
+                      data-testid={isNext ? 'demo-next-step' : undefined}
+                      aria-current={isNext ? 'step' : undefined}
+                    >
+                      <span
+                        className={cn(
+                          'mt-px inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-[11px] font-semibold',
+                          ran
+                            ? 'bg-success text-white'
+                            : isNext
+                              ? 'bg-accent text-white'
+                              : 'bg-card-2 text-text-3',
+                        )}
+                      >
+                        {ran ? '✓' : i + 1}
+                      </span>
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span
+                          className={cn(
+                            'text-[13px] leading-snug',
+                            ran ? 'text-text-3' : isNext ? 'font-semibold' : 'text-text-2',
+                          )}
+                        >
+                          {step.label}
+                        </span>
+                        {voiceover ? (
+                          <span
+                            className={cn(
+                              'text-[12px] leading-snug',
+                              ran ? 'text-text-3' : isNext ? 'text-text' : 'text-text-2',
+                            )}
+                            data-testid="demo-voiceover"
+                          >
+                            “{step.voiceover}”
+                          </span>
+                        ) : null}
+                      </span>
+                    </li>
+                  );
+                })}
+                {done >= scene.steps.length ? (
+                  <li className="px-2 py-2 text-[13px] text-text-2" data-testid="demo-scene-done">
+                    That’s the end of this scene. Press R to play it again, or{' '}
+                    <button
+                      type="button"
+                      onClick={() => setListing(true)}
+                      className="font-medium text-accent-text hover:underline"
+                    >
+                      pick another
+                    </button>
+                    .
+                  </li>
+                ) : null}
+              </ol>
+              {problem ? (
+                <p
+                  className="rounded-control bg-danger-soft px-3 py-2 text-[12.5px] text-danger-text"
+                  role="alert"
+                >
+                  {problem}
+                </p>
               ) : null}
-            </ol>
-            {problem ? (
-              <p
-                className="rounded-control bg-danger-soft px-3 py-2 text-[12.5px] text-danger-text"
-                role="alert"
-              >
-                {problem}
-              </p>
-            ) : null}
-          </>
-        ) : scene ? (
-          <button
-            type="button"
-            onClick={() => setListing(false)}
-            className="-ml-1 inline-flex w-fit items-start gap-0.5 rounded-control px-1 py-0.5 text-left text-[12.5px] font-medium leading-snug text-accent-text hover:bg-card-2"
-            data-testid="demo-back-to-scene"
-          >
-            <ChevronLeft className="mt-px h-3.5 w-3.5 flex-none" />
-            Back to scene {scene.number}: {scene.title}
-          </button>
-        ) : (
-          <p className="text-[13px] leading-snug text-text-2">
-            Pick a scene. Each press of Space plays its next step on the real screens. Nothing is
-            sent or saved: the people and messages in a scene are made up.
-          </p>
-        )}
+            </>
+          ) : scene ? (
+            <button
+              type="button"
+              onClick={() => setListing(false)}
+              className="-ml-1 inline-flex w-fit items-start gap-0.5 rounded-control px-1 py-0.5 text-left text-[12.5px] font-medium leading-snug text-accent-text hover:bg-card-2"
+              data-testid="demo-back-to-scene"
+            >
+              <ChevronLeft className="mt-px h-3.5 w-3.5 flex-none" />
+              Back to scene {scene.number}: {scene.title}
+            </button>
+          ) : (
+            <p className="text-[13px] leading-snug text-text-2">
+              Pick a scene. Each press of Space plays its next step on the real screens. Nothing is
+              sent or saved: the people and messages in a scene are made up.
+            </p>
+          )}
 
-        {!scene || listing ? (
-          <div className="flex flex-col gap-1" data-testid="demo-scene-list">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
-              Scenes
-            </span>
-            {DEMO_SCENES.map((sc) => (
-              <button
-                key={sc.id}
-                type="button"
-                onClick={() => void load(sc)}
-                disabled={busy}
-                className={cn(
-                  'flex items-start gap-2 rounded-control px-2 py-1.5 text-left text-[13px] leading-snug hover:bg-card-2',
-                  sc.id === scene?.id && 'font-semibold',
-                )}
-                data-testid={`demo-scene-${sc.id}`}
+          {!scene || listing ? (
+            <div className="flex flex-col gap-1" data-testid="demo-scene-list">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-text-3">
+                Scenes
+              </span>
+              {DEMO_SCENES.map((sc) => (
+                <button
+                  key={sc.id}
+                  type="button"
+                  onClick={() => void load(sc)}
+                  disabled={busy}
+                  className={cn(
+                    'flex items-start gap-2 rounded-control px-2 py-1.5 text-left text-[13px] leading-snug hover:bg-card-2',
+                    sc.id === scene?.id && 'font-semibold',
+                  )}
+                  data-testid={`demo-scene-${sc.id}`}
+                >
+                  <span className="w-4 flex-none text-text-3">{sc.number}</span>
+                  <span>{sc.title}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {scene && !listing ? (
+          <div className="flex flex-none flex-col gap-2 border-t border-border px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={back}
+                disabled={busy || done === 0}
+                aria-label="Back (←)"
+                title="Back (←)"
               >
-                <span className="w-4 flex-none text-text-3">{sc.number}</span>
-                <span>{sc.title}</span>
-              </button>
-            ))}
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={restart}
+                disabled={busy}
+                aria-label="Restart (R)"
+                title="Restart (R)"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1"
+                onClick={() => void next()}
+                loading={busy}
+                disabled={done >= scene.steps.length}
+                data-testid="demo-next"
+              >
+                Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-[11.5px] leading-snug text-text-3">
+              Space or → plays the next step · ← goes back · R restarts · H hides this panel
+            </p>
           </div>
         ) : null}
-      </div>
-
-      {scene && !listing ? (
-        <div className="flex flex-none flex-col gap-2 border-t border-border px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={back}
-              disabled={busy || done === 0}
-              aria-label="Back (←)"
-              title="Back (←)"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={restart}
-              disabled={busy}
-              aria-label="Restart (R)"
-              title="Restart (R)"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-            <Button
-              size="sm"
-              className="flex-1"
-              onClick={() => void next()}
-              loading={busy}
-              disabled={done >= scene.steps.length}
-              data-testid="demo-next"
-            >
-              Next <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-          <p className="text-[11.5px] leading-snug text-text-3">
-            Space or → plays the next step · ← goes back · R restarts · H hides this panel
-          </p>
-        </div>
-      ) : null}
-    </aside>
+      </aside>
+    </DismissableLayerBranch>
   );
 }
