@@ -221,9 +221,26 @@ export function theirPosts(
   return found;
 }
 
+/** Times it waits on a post Facebook is still loading, while it hasn't drawn any posts yet. */
+const LOADING_WAITS = 5;
+
+/**
+ * A post Facebook is still loading: a post's box with nothing in it but its "Loading..." mark, as Facebook shows below
+ * the posts it has drawn, and in their place while it hasn't drawn any yet.
+ */
+function postLoading(doc: Document): Element | null {
+  return (
+    [...mainOf(doc).querySelectorAll('[role="article"]')].find(
+      (box) => box.querySelector('[role="status"]') !== null && clean(box.textContent) === '',
+    ) ?? null
+  );
+}
+
 /**
  * Reads the latest few posts on someone's profile that are theirs (decision 33), scrolling a little while fewer are
- * drawn, for the AI to pick one to like.
+ * drawn, for the AI to pick one to like. With no post drawn yet, anyone's, while Facebook shows one loading, it waits on
+ * that one, in view, a little longer before their profile counts as having none (the owner's problem report of 8 Nov
+ * 2026: still loading after the scrolls, so their friend request went without a like).
  */
 export async function readTheirPosts(
   doc: Document,
@@ -236,6 +253,14 @@ export async function readTheirPosts(
   for (let more = 0; found.length < most && more < 4; more++) {
     view.scrollBy(0, view.innerHeight);
     await pause(1_200);
+    found = theirPosts(doc, href, profile);
+  }
+  for (let wait = 0; found.length === 0 && wait < LOADING_WAITS; wait++) {
+    if (postBoxes(mainOf(doc)).length > 0) break;
+    const loading = postLoading(doc);
+    if (!loading) break;
+    (loading as HTMLElement).scrollIntoView?.({ block: 'center' });
+    await pause(1_500);
     found = theirPosts(doc, href, profile);
   }
   return found.slice(0, most).map((f) => f.post);

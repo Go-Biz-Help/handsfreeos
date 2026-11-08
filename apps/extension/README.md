@@ -1194,6 +1194,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Their posts, still loading on Facebook (0.126.6)
+
+The problem check of 8 Nov 2026 found a Facebook warm-up (decision 33) saying someone had no post to like while their
+profile was still loading its posts: the page showed only Facebook's loading boxes where the posts go, after the read's
+four scrolls. Reading their posts (`readTheirPosts` in `src/networks/facebook/auto.ts`) now waits on a loading box, in
+view, a little longer (five more looks, a second and a half apart) while no post is drawn yet, anyone's. A profile that
+says it has no posts has no loading box, so it's done with after the scrolls, as before.
+
 ### Their comment, past a post's first 15 on Instagram (0.126.5)
 
 The problem check of 8 Nov 2026 found the like on someone's comment (decision 116) missing their comment again, as on
