@@ -6,6 +6,7 @@
  */
 import { rows, sql } from '@hfos/db/client';
 import { and, asc, desc, eq, lt, sql as dsql } from 'drizzle-orm';
+import type { z } from 'zod';
 import { HfosError } from '../../../errors';
 import { requireHuman } from '../../../kernel/actor';
 import { changeMoment } from '../../../kernel/moment';
@@ -160,6 +161,18 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
   ai: {
     tool: 'socialcontent_save_settings',
     autonomy: 'confirm',
+    what: (input) => {
+      const i = input as Partial<z.infer<typeof SettingsSaveInput>>;
+      const parts = [
+        i.networks ? 'the networks it studies' : null,
+        i.readerUserId !== undefined ? 'whose computer reads' : null,
+        i.watchVideos === true ? 'turn on watching videos (it uses a lot more AI)' : null,
+        i.watchVideos === false ? 'turn off watching videos' : null,
+      ].filter((p): p is string => !!p);
+      return parts.length
+        ? `Change AI Social Media Content Creator’s settings: ${parts.join(', ')}`
+        : 'Change AI Social Media Content Creator’s settings';
+    },
     description:
       'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), and `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on). Leave out what doesn’t change.',
     outcome: () => ({ words: W.settings.saved, path: 'a/socialcontent/settings' }),
@@ -388,7 +401,7 @@ export const creatorAdd = defineAddonCommand(socialcontentAddon, {
       path: 'a/socialcontent/creators',
     }),
   },
-  emits: ['socialcontent.creator.added'],
+  emits: ['socialcontent.creator.added', 'socialcontent.work.asked'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
@@ -447,7 +460,7 @@ export const creatorDecide = defineAddonCommand(socialcontentAddon, {
   permission: 'socialcontent.use',
   scope: inWorkspace,
   ai: { tool: 'socialcontent_decide_creator' },
-  emits: ['socialcontent.creator.decided'],
+  emits: ['socialcontent.creator.decided', 'socialcontent.work.asked'],
   async handler(ctx, input) {
     const me = requireHuman(ctx).userId;
     const was = await loadCreator(ctx, input.creatorId);

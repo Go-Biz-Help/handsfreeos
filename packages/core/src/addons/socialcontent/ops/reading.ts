@@ -336,7 +336,7 @@ export const postsSave = defineAddonCommand(socialcontentAddon, {
   output: PostsSaveOutput,
   permission: 'socialcontent.use',
   scope: inWorkspace,
-  emits: ['socialcontent.posts.saved'],
+  emits: ['socialcontent.posts.saved', 'socialcontent.work.asked'],
   async handler(ctx, input) {
     await needReader(ctx);
     const ws = ctx.scope.workspaceId!;
