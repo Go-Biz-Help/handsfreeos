@@ -60,7 +60,8 @@ async function stopOn(job: Job, page: InstagramPage): Promise<JobEnd | null> {
 
 /**
  * One good post's people, with the tab's window in front (Instagram draws a box's rows only on screen): its
- * commenters, with View all comments pressed once, then who liked it, in its Likes box opened and closed again.
+ * commenters, with more of its comments shown once (View all comments pressed, or the comments scrolled), then who
+ * liked it, in its Likes box opened and closed again.
  */
 async function readPost(
   job: Job,

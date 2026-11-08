@@ -1151,6 +1151,16 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Their comment, past a post's first 15 on Instagram (0.126.5)
+
+The problem check of 8 Nov 2026 found the like on someone's comment (decision 116) missing their comment again, as on
+4 Nov. Both reports' pages showed 15 of the post's comments (of 77, and of 272), with nothing to press for more: only
+Instagram's mark for more on the way after them, as its newer layout draws more once the comments are scrolled down to
+it. So a comment past the first 15 was never seen, and their latest post was liked instead. Showing more of a post's
+comments once (`moreComments` in `src/networks/instagram/browse.ts`) now scrolls them down to that mark where there's
+no View all comments or Load more comments to press, for the comment like and for reading a good post's people
+(decision 92) alike.
+
 ### Events near you on Alignable's own Events page (0.126.4)
 
 The problem check of 6 Nov 2026 found the week's read of events near the owner showing none, as on 29 Oct. Both of the
