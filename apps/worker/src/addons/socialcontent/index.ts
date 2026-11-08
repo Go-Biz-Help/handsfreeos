@@ -9,6 +9,7 @@ import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker } from '@hfos/db/client';
 import { scheduleAddonJob } from '../queue';
 import type { AddonJobHandler, AddonScopeContext, AddonWorkerModule } from '../types';
+import { READ_LOOK_ACTION, readLook } from './helper';
 import { onNicheAdded, suggestNichesNow } from './niches';
 
 const WEEKLY_JOB = 'socialcontent.weekly';
@@ -67,5 +68,5 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
   subscribers: { 'socialcontent.niche.added': onNicheAdded },
   jobs: { [WEEKLY_JOB]: readWeekly, [MONTHLY_JOB]: findMonthly },
   onEnable: armChecks,
-  actions: { 'socialcontent.niches.suggest': suggestNichesNow },
+  actions: { 'socialcontent.niches.suggest': suggestNichesNow, [READ_LOOK_ACTION]: readLook },
 };
