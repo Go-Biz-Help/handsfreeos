@@ -447,7 +447,7 @@ export const postsSave = defineAddonCommand(socialcontentAddon, {
     if (
       s.watchVideos &&
       newStandouts.length &&
-      CONTENT_NETWORK_INFO[creator.network as ContentNetwork]?.ready
+      CONTENT_NETWORK_INFO[creator.network as ContentNetwork]?.watches
     ) {
       const videos = await ctx.tx
         .select({ id: posts.id })

@@ -129,7 +129,7 @@ export const socialcontentAddon = defineAddon({
   },
   ai: {
     directory:
-      'social media content research: the niches searched, creators found and studied on Instagram (Facebook, LinkedIn, TikTok and YouTube later), their posts with how many times their normal each did, the standout posts with the AI’s notes on why each worked (and what it saw and heard watching the videos), the Playbook of what works, content ideas to save, use or skip, asking the reading computer to find, read or try watching now, and its settings (the networks, whose computer reads in Chrome with the HandsFreeOS Social extension, and watching videos, which uses more AI)',
+      'social media content research: the niches searched, creators found and studied on Instagram, Facebook and LinkedIn (TikTok and YouTube later), their posts with how many times their normal each did, the standout posts with the AI’s notes on why each worked (and what it saw and heard watching Instagram videos), the Playbook of what works, content ideas to save, use or skip, asking the reading computer to find, read or try watching now, and its settings (the networks, whose computer reads in Chrome with the HandsFreeOS Social extension, and watching videos, which uses more AI)',
     places: SOCIALCONTENT_PLACES,
     lookAlikes: SOCIALCONTENT_LOOK_ALIKES,
   },

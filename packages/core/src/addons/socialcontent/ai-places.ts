@@ -89,7 +89,7 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
     what: 'the networks studied, whose computer reads them, watching videos, and what the reading computer is doing',
     where: [NAME, P.gear],
     onScreen: [
-      `${G.networks}: Instagram for now; Facebook, LinkedIn, TikTok and YouTube say ${G.coming}`,
+      `${G.networks}: Instagram, Facebook and LinkedIn; TikTok and YouTube say ${G.coming}`,
       `${G.reader}: whose computer reads, ${G.readOnMine} and ${G.getExtension}`,
       `${V.title}: ${V.on} (off until turned on, with the notice that it uses a lot more AI) and ${V.tryIt} (up to 5 of the newest standout videos, once)`,
       `${G.doing}: what’s waiting, and what was asked lately with how it went, each waiting one with ${G.stop}`,

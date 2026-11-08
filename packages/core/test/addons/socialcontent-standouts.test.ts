@@ -185,8 +185,12 @@ describe('what the AI says about niches', () => {
   const searches = { instagram: ['#plumbingtips', '# plumbing tips', 'plumber', 'Plumber', 'x'] };
 
   it('keeps clean searches for the networks read', () => {
-    expect(cleanSearches({ ...searches, tiktok: ['#plumbing'] })).toEqual({
+    expect(
+      cleanSearches({ ...searches, linkedin: ['plumbing coach'], tiktok: ['#plumbing'] }),
+    ).toEqual({
       instagram: ['#plumbingtips', 'plumber'],
+      facebook: [],
+      linkedin: ['plumbing coach'],
     });
   });
 

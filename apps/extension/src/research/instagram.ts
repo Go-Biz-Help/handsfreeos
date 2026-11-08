@@ -12,6 +12,8 @@
  *   page starts. A post that hides its likes reads as none, never as 0.
  * - **A search** (/api/v1/web/search/topsearch/) and **a hashtag's top posts** (/api/v1/tags/web_info/): the accounts
  *   they show, by name, in the order shown: a hashtag's top posts' authors first, as they did well in the niche.
+ * - **A video** (/api/v1/media/<number>/info/), for watching a standout (part 4): its file on Instagram's own video
+ *   servers, its length and whether it has sound; and when to take frames from it.
  *
  * It looks for what it needs wherever the answer keeps it, so a field Instagram moves within an answer is still found.
  * When it can't be, the read goes to the AI helper and a problem report (./run.ts), as Social Outreach's steps do.
@@ -24,7 +26,9 @@ export const INSTAGRAM_APP_ID = '936619743392459';
 
 /** The only answers the reading tab asks Instagram for. */
 export const INSTAGRAM_READS =
-  /^\/api\/v1\/(users\/web_profile_info\/|feed\/user\/[\w.]+\/|web\/search\/topsearch\/|tags\/web_info\/)\?/;
+  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/topsearch\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+/** Where Instagram keeps its videos: the only other place the reading tab fetches from, to watch a standout. */
+export const INSTAGRAM_VIDEO_HOSTS = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/;
 
 export const profilePath = (username: string) =>
   `/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
@@ -34,6 +38,20 @@ export const searchPath = (words: string) =>
   `/api/v1/web/search/topsearch/?context=blended&query=${encodeURIComponent(words)}&include_reel=true`;
 export const tagPath = (tag: string) =>
   `/api/v1/tags/web_info/?tag_name=${encodeURIComponent(tag)}`;
+export const mediaInfoPath = (mediaId: string) => `/api/v1/media/${mediaId}/info/`;
+
+const SHORTCODE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+/**
+ * A post's number, from the code in its link (instagram.com/p/<code>/): the code is the number written in 64 letters.
+ * A longer code (a private account's) starts with it. Null when it isn't a code.
+ */
+export function mediaIdOf(code: string): string | null {
+  const head = code.slice(0, 11);
+  if (!/^[\w-]{1,11}$/.test(head)) return null;
+  let n = 0n;
+  for (const ch of head) n = n * 64n + BigInt(SHORTCODE_LETTERS.indexOf(ch));
+  return n > 0n ? n.toString() : null;
+}
 
 /** The pages the tab opens, as a person would: someone's profile, and Instagram's search for some words. */
 export const profilePage = (username: string) =>
@@ -175,6 +193,63 @@ export function postsFrom(json: unknown): InstagramPostsPage | null {
       .map((p) => p.postedAt)
       .sort()[0] ?? null;
   return { posts, next, oldest };
+}
+
+// ------------------------------------------------------------------------------------------------ a video
+
+/** A standout video to watch: where its file is, how long it is, and whether it has sound. */
+export interface InstagramVideo {
+  readonly url: string;
+  readonly seconds: number | null;
+  readonly sound: boolean;
+}
+
+/** The narrowest file this wide or more is enough to see what's on screen, and quick to fetch. */
+const VIDEO_WIDTH_AT_LEAST = 480;
+
+/** A post's video, from its media answer (/api/v1/media/<number>/info/); null when the answer has none. */
+export function videoOf(json: unknown): InstagramVideo | null {
+  const items = at(json, 'items');
+  const item = Array.isArray(items) ? items[0] : null;
+  if (!isObject(item)) return null;
+  const versions = (Array.isArray(item.video_versions) ? item.video_versions : [])
+    .filter(isObject)
+    .filter((v) => typeof v.url === 'string' && /^https:\/\//.test(v.url))
+    .map((v) => ({ url: v.url as string, width: count(v.width) ?? 0 }))
+    .filter((v) => {
+      try {
+        return INSTAGRAM_VIDEO_HOSTS.test(new URL(v.url).hostname);
+      } catch {
+        return false;
+      }
+    })
+    .sort((a, b) => a.width - b.width);
+  const pick = versions.find((v) => v.width >= VIDEO_WIDTH_AT_LEAST) ?? versions.at(-1);
+  if (!pick) return null;
+  return {
+    url: pick.url,
+    seconds: typeof item.video_duration === 'number' ? item.video_duration : null,
+    sound: item.has_audio !== false,
+  };
+}
+
+/**
+ * When to take frames from a video this long: three in its first seconds (the hook), the rest spread to the end. At
+ * most `most`, each before its end.
+ */
+export function frameTimes(seconds: number, most: number): number[] {
+  if (!Number.isFinite(seconds) || seconds <= 0.5) return [0];
+  const end = seconds - 0.25;
+  const hook = [0.3, 1.2, 2.5].filter((t) => t < end);
+  const rest = Math.max(0, most - hook.length);
+  const from = Math.min(3.5, end);
+  const spread = Array.from({ length: rest }, (_, i) =>
+    rest === 1 ? end : from + ((end - from) * i) / (rest - 1),
+  );
+  return [...new Set([...hook, ...spread].map((t) => Math.round(t * 10) / 10))]
+    .filter((t) => t >= 0 && t < seconds)
+    .sort((a, b) => a - b)
+    .slice(0, most);
 }
 
 // ------------------------------------------------------------------------------------------------ a search

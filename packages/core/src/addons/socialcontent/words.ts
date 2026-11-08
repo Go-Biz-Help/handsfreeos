@@ -168,7 +168,7 @@ export const SOCIALCONTENT_WORDS = {
   watch: {
     title: 'Watching videos',
     intro:
-      'The AI can also watch standout videos: it looks at frames from each and listens to what’s said, then notes the hook, what’s on screen, the pacing and why it worked.',
+      'The AI can also watch standout videos (Instagram’s for now): it looks at frames from each and listens to what’s said, then notes the hook, what’s on screen, the pacing and why it worked.',
     cost: 'This uses a lot more AI than notes from the numbers and caption alone, about 10 to 20 times as much for each video. It’s off until you turn it on.',
     on: 'Watch new standout videos',
     tryIt: 'Try it on a few videos',
@@ -176,7 +176,7 @@ export const SOCIALCONTENT_WORDS = {
     asked: (n: number) =>
       n
         ? `Asked your reading computer to watch ${count(n, 'video')}. The AI’s notes show on each under Standouts.`
-        : 'Nothing new to watch.',
+        : 'No new Instagram standout videos to watch yet.',
   },
   kinds: {
     video: 'Video',
@@ -202,7 +202,7 @@ export const SOCIALCONTENT_WORDS = {
     readerStop: 'Stop reading',
     managersOnly: 'Only an owner or admin of this business changes these.',
     extensionHow:
-      'Install the extension (0.127.0 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in to Instagram in that Chrome. It reads while Chrome is open, in a window of its own.',
+      'Install the extension (0.127.0 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
     getExtension: 'Get the extension',
     watchSaved: (on: boolean) =>
       on ? 'Watching is on: new standout videos are watched as they’re found.' : 'Watching is off.',

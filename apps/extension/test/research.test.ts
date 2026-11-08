@@ -4,7 +4,8 @@
  * storage and the reading tab stood in for. It reads a profile and posts back to `since`, saving as it goes; finds
  * creators by a hashtag's top posts and a search, passing over those known and private; and when an answer doesn't
  * come, has the AI helper look and sends a report that never names anyone. A warning stops Instagram for the day,
- * for both social add-ons.
+ * for both social add-ons. Watching a standout video opens its post, asks for its video, and sends the frames and
+ * sound the tab took from it.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ResearchWork } from '../src/research/hfos';
@@ -56,6 +57,7 @@ vi.mock('../src/research/hfos', () => {
     })),
     reportProblem: call('report', () => ({ reportId: 'r1' })),
     helperLook: call('helperLook', () => world.helperQueue.shift() ?? world.helper),
+    watchSend: call('watchSend', () => ({ watched: true, failure: null })),
   };
 });
 
@@ -164,6 +166,7 @@ const work = (over: Partial<ResearchWork>): ResearchWork => ({
   since: new Date(NOW - 30 * 86_400_000).toISOString(),
   known: [],
   most: 30,
+  post: null,
   ...over,
 });
 
@@ -445,5 +448,116 @@ describe('when a read goes wrong', () => {
       instagram: { words: ['Please wait a few minutes before you try again.'] },
     });
     expect(world.calls.some((c) => c.name === 'helperLook')).toBe(false);
+  });
+});
+
+describe('watching a standout video', () => {
+  const POST = '4d5e6f70-8192-43a4-b5c6-d7e8f90a1b2c';
+
+  it('turns a post’s code into its number, picks a small enough file, and spreads its frames', () => {
+    // Instagram's own example: the code B and the number 1, and a real-shaped one.
+    expect(ig.mediaIdOf('B')).toBe('1');
+    expect(ig.mediaIdOf('BA')).toBe('64');
+    expect(ig.mediaIdOf('C1a_b-2')).toMatch(/^\d+$/);
+    expect(ig.mediaIdOf('C1a_b-2LONGERPRIVATEPART')).toBe(ig.mediaIdOf('C1a_b-2LONG'));
+    expect(ig.mediaIdOf('no spaces')).toBeNull();
+    const video = ig.videoOf({
+      items: [
+        {
+          video_duration: 31.4,
+          has_audio: true,
+          video_versions: [
+            { width: 1080, url: 'https://scontent-lax3-1.cdninstagram.com/v/big.mp4' },
+            { width: 640, url: 'https://scontent-lax3-1.cdninstagram.com/v/mid.mp4' },
+            { width: 360, url: 'https://scontent-lax3-1.cdninstagram.com/v/small.mp4' },
+            { width: 480, url: 'https://elsewhere.example.com/v/not-instagram.mp4' },
+          ],
+        },
+      ],
+    });
+    expect(video).toEqual({
+      url: 'https://scontent-lax3-1.cdninstagram.com/v/mid.mp4',
+      seconds: 31.4,
+      sound: true,
+    });
+    expect(ig.videoOf({ items: [{ video_versions: [] }] })).toBeNull();
+    const times = ig.frameTimes(31.4, 12);
+    expect(times).toHaveLength(12);
+    expect(times.slice(0, 3)).toEqual([0.3, 1.2, 2.5]);
+    expect(Math.max(...times)).toBeLessThan(31.4);
+    expect(ig.frameTimes(2, 12)).toEqual([0.3, 1.2, 1.8]);
+    expect(ig.frameTimes(Number.NaN, 12)).toEqual([0]);
+    expect(ig.INSTAGRAM_READS.test(ig.mediaInfoPath('123'))).toBe(true);
+    expect(ig.INSTAGRAM_READS.test('/api/v1/media/123/comments/')).toBe(false);
+  });
+
+  it('opens the post, asks for its video, and sends what the tab took from it', async () => {
+    const tab = tabWith({
+      '/api/v1/media/': {
+        json: {
+          items: [
+            {
+              video_duration: 20,
+              has_audio: false,
+              video_versions: [{ width: 720, url: 'https://scontent.cdninstagram.com/v/a.mp4' }],
+            },
+          ],
+        },
+      },
+    });
+    const watched: unknown[] = [];
+    const hands = tab.hands;
+    tab.hands = async (name: string, ...args: unknown[]) => {
+      if (name !== 'watch') return hands(name, ...args);
+      watched.push(args[0]);
+      return { ok: true, seconds: 20, frames: [{ at: 0.3, jpeg: 'AAAA' }], sound: 'UklGRg==' };
+    };
+    const end = await INSTAGRAM_READS_BY_KIND.watch({
+      businessId: BUSINESS,
+      work: work({
+        kind: 'watch',
+        post: { id: POST, postKey: 'BA', link: `${IG}/reel/BA/`, seconds: 20 },
+      }),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(tab.opened).toEqual([`${IG}/reel/BA/`]);
+    expect(tab.asked).toEqual(['/api/v1/media/64/info/']);
+    expect(watched).toEqual([
+      expect.objectContaining({ url: 'https://scontent.cdninstagram.com/v/a.mp4', most: 12 }),
+    ]);
+    const sent = world.calls.find((c) => c.name === 'watchSend');
+    // A video Instagram says has no sound sends none.
+    expect(sent?.args).toEqual([
+      BUSINESS,
+      { workId: WORK, postId: POST, seconds: 20, frames: [{ at: 0.3, jpeg: 'AAAA' }], sound: null },
+    ]);
+  });
+
+  it('says why when the video couldn’t be watched', async () => {
+    const tab = tabWith({
+      '/api/v1/media/': {
+        json: {
+          items: [
+            { video_versions: [{ width: 720, url: 'https://scontent.cdninstagram.com/v/a.mp4' }] },
+          ],
+        },
+      },
+    });
+    const hands = tab.hands;
+    tab.hands = async (name: string, ...args: unknown[]) =>
+      name === 'watch'
+        ? { ok: false, failure: 'The video couldn’t play on the reading computer.' }
+        : hands(name, ...args);
+    const end = await INSTAGRAM_READS_BY_KIND.watch({
+      businessId: BUSINESS,
+      work: work({
+        kind: 'watch',
+        post: { id: POST, postKey: 'BA', link: `${IG}/p/BA/`, seconds: null },
+      }),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: 'The video couldn’t play on the reading computer.' });
+    expect(world.calls.some((c) => c.name === 'watchSend')).toBe(false);
   });
 });

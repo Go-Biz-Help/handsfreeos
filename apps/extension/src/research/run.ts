@@ -7,7 +7,8 @@
  * it, for the next thing to read on the networks this build reads (`RESEARCH_NETWORKS`) that still have room today
  * and no warning (./read.ts). Only the reading computer's person gets any: the rest are told so
  * (`socialcontent_not_reader`), and asked again a few minutes later, so picking a computer in Settings starts it soon.
- * It does what it got (find creators, a profile, posts: each network's reads, ./instagram-read.ts), then says how it
+ * It does what it got (find creators, a profile, posts: each network's reads, ./instagram-read.ts for Instagram's answers, ./page-read.ts
+ * for Facebook's and LinkedIn's pages), then says how it
  * ended. A read that couldn't go on stops that network for a while (signed out, a reader that can't read the page) or
  * for the day (a warning, the day's room used).
  *
@@ -26,12 +27,17 @@ import {
   type ResearchWork,
 } from './hfos';
 import { INSTAGRAM_READS_BY_KIND } from './instagram-read';
+import { PAGE_READS_BY_KIND } from './page-read';
 import { roomOn, type ReadCtx, type ReadEnd } from './read';
 import { ResearchTab } from './tab';
 
 export const RESEARCH_ALARM = 'hfos-research';
 /** The networks this build reads, and each one's reads. */
-export const RESEARCH_NETWORKS = ['instagram'] as const satisfies readonly ContentNetwork[];
+export const RESEARCH_NETWORKS = [
+  'instagram',
+  'facebook',
+  'linkedin',
+] as const satisfies readonly ContentNetwork[];
 type ResearchNetwork = (typeof RESEARCH_NETWORKS)[number];
 const READS: Readonly<
   Record<
@@ -40,6 +46,8 @@ const READS: Readonly<
   >
 > = {
   instagram: INSTAGRAM_READS_BY_KIND,
+  facebook: PAGE_READS_BY_KIND,
+  linkedin: PAGE_READS_BY_KIND,
 };
 
 /** How long the businesses this person reads for are kept before HandsFreeOS is asked again. */

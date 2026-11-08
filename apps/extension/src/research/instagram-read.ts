@@ -12,16 +12,22 @@
  *   read, as numbers still grow): their profile is opened, and their posts asked for 12 at a time, newest first, saved
  *   as it goes. Where it got to is kept, so a read cut off (Chrome closed, the day's room used) goes on from there.
  *
+ * - **Watch a standout video** (part 4, decision 9, only once an owner tries it or turns it on): its post is opened,
+ *   its video asked for, and a few frames and its sound taken from it in the tab (./watch.ts), then sent to the worker,
+ *   where the AI looks and listens.
+ *
  * Every answer that doesn't come goes to the AI helper, then once more when it cleared the way, then the problem
  * report (./read.ts). Nothing is pressed but what the helper clears.
  */
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
 import type { FoundCreator, PostIn } from '@hfos/core/addons/socialcontent/shapes';
 import { LIMITS } from '@hfos/core/addons/socialcontent/shapes';
-import { creatorRead, creatorsFound, postsSave } from './hfos';
+import { creatorRead, creatorsFound, postsSave, watchSend } from './hfos';
 import {
   accountsFrom,
   creatorFrom,
+  mediaIdOf,
+  mediaInfoPath,
   postsFrom,
   postsPath,
   profilePage,
@@ -32,6 +38,7 @@ import {
   tagPath,
   troubleOf,
   troubleWords,
+  videoOf,
   type InstagramCreator,
   type InstagramFoundAccount,
 } from './instagram';
@@ -318,4 +325,60 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
   return { failure: null };
 }
 
-export const INSTAGRAM_READS_BY_KIND = { find, profile, posts } as const;
+// ------------------------------------------------------------------------------------------------ watch a video
+
+/** What watching sends: frames, each one's size as base64, and the sound. Core's limits (shapes.ts) hold it. */
+export const WATCH_ASK = {
+  most: LIMITS.framesMost,
+  width: 512,
+  frameBytes: LIMITS.frameBytes,
+  soundSeconds: 120,
+  /** A file bigger than this is passed over: some minutes of video. */
+  fileBytes: 60 * 1024 * 1024,
+} as const;
+
+/** The file, fetched by the background when the tab couldn't, as base64; null when it couldn't either. */
+async function fileOf(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, { credentials: 'omit' });
+    if (!response.ok) return null;
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.length > WATCH_ASK.fileBytes) return null;
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 0x8000)
+      text += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(text);
+  } catch {
+    return null;
+  }
+}
+
+async function watch(ctx: ReadCtx): Promise<ReadEnd> {
+  const post = ctx.work.post;
+  if (!post) return { failure: 'That post isn’t there anymore.' };
+  const mediaId = mediaIdOf(post.postKey);
+  if (!mediaId)
+    return { failure: 'That post’s link can’t be read, so its video can’t be watched.' };
+  const opened = await openPage(ctx, post.link);
+  if (!opened.ok) return opened.end;
+  const got = await answer(ctx, 'watch', mediaInfoPath(mediaId), videoOf, 'Video');
+  if (!got.ok)
+    return got.gone ? { failure: 'Instagram says that post isn’t there anymore.' } : got.end;
+  let seen = await ctx.tab.hands('watch', { ...WATCH_ASK, url: got.value.url });
+  if (seen && !seen.ok && seen.blocked) {
+    const file = await fileOf(got.value.url);
+    if (file) seen = await ctx.tab.hands('watch', { ...WATCH_ASK, url: got.value.url, file });
+  }
+  if (!seen) return { failure: 'The reading tab didn’t answer. It tries again later.' };
+  if (!seen.ok) return { failure: seen.failure };
+  const sent = await watchSend(ctx.businessId, {
+    workId: ctx.work.id,
+    postId: post.id,
+    seconds: seen.seconds ?? got.value.seconds,
+    frames: seen.frames,
+    sound: got.value.sound ? seen.sound : null,
+  });
+  return { failure: sent.watched ? null : (sent.failure ?? 'The AI couldn’t watch that video.') };
+}
+
+export const INSTAGRAM_READS_BY_KIND = { find, profile, posts, watch } as const;

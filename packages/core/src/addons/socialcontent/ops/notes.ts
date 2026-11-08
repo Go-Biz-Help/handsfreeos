@@ -216,7 +216,7 @@ export const watchTry = defineAddonCommand(socialcontentAddon, {
         'No computer reads the networks yet. An owner or admin picks one in AI Social Media Content Creator → Settings → Whose computer reads, with the HandsFreeOS Social extension in Chrome.',
       );
     const ready = Object.entries(CONTENT_NETWORK_INFO)
-      .filter(([, info]) => info.ready)
+      .filter(([, info]) => info.ready && info.watches)
       .map(([n]) => n);
     const videos = await rows<{ id: string; creator_id: string; network: string }>(
       ctx.tx,
@@ -232,7 +232,7 @@ export const watchTry = defineAddonCommand(socialcontentAddon, {
       throw HfosError.rule(
         'socialcontent_no_videos',
         409,
-        'There’s no standout video to watch yet. Once a studied creator’s video stands out, it shows under Standouts, and this tries watching it.',
+        'There’s no Instagram standout video to watch yet (watching works on Instagram for now). Once a studied Instagram creator’s video stands out, it shows under Standouts, and this tries watching it.',
       );
     const asked = await queueWork(
       ctx,

@@ -19,14 +19,41 @@ export interface ContentNetworkInfo {
   readonly ready: boolean;
   /** What its search is made of, as the AI writes it ("hashtags and account names"). */
   readonly searchWords: string;
+  /** Whether the reading computer can watch its videos for the AI (decision 9). */
+  readonly watches: boolean;
 }
 
 export const CONTENT_NETWORK_INFO: Readonly<Record<ContentNetwork, ContentNetworkInfo>> = {
-  instagram: { name: 'Instagram', ready: true, searchWords: 'hashtags and account names' },
-  facebook: { name: 'Facebook', ready: false, searchWords: 'search words for pages and creators' },
-  linkedin: { name: 'LinkedIn', ready: false, searchWords: 'search words for people and posts' },
-  tiktok: { name: 'TikTok', ready: false, searchWords: 'hashtags and search words' },
-  youtube: { name: 'YouTube', ready: false, searchWords: 'search words for channels' },
+  instagram: {
+    name: 'Instagram',
+    ready: true,
+    searchWords: 'hashtags and account names',
+    watches: true,
+  },
+  facebook: {
+    name: 'Facebook',
+    ready: true,
+    searchWords: 'search words for pages and creators',
+    watches: false,
+  },
+  linkedin: {
+    name: 'LinkedIn',
+    ready: true,
+    searchWords: 'search words for people and posts',
+    watches: false,
+  },
+  tiktok: {
+    name: 'TikTok',
+    ready: false,
+    searchWords: 'hashtags and search words',
+    watches: false,
+  },
+  youtube: {
+    name: 'YouTube',
+    ready: false,
+    searchWords: 'search words for channels',
+    watches: false,
+  },
 };
 
 export const READY_NETWORKS: readonly ContentNetwork[] = CONTENT_NETWORKS.filter(

@@ -3273,7 +3273,12 @@ function scriptedSearches(niche: string): Record<string, string[]> {
     .replace(/[^a-z0-9 ]/g, '')
     .split(/\s+/)
     .filter(Boolean);
-  return { instagram: [`#${words.join('')}`, `${words.join(' ')} tips`] };
+  const phrase = words.join(' ');
+  return {
+    instagram: [`#${words.join('')}`, `${phrase} tips`],
+    facebook: [`${phrase} tips`],
+    linkedin: [`${phrase} coach`, phrase],
+  };
 }
 function scriptedNiches(message: string): unknown {
   const profile = unquote(quotedBlock(message, 'business_profile') ?? '');

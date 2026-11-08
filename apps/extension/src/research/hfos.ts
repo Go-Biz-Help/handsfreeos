@@ -1,7 +1,7 @@
 /**
  * AI Social Media Content Creator's calls to HandsFreeOS from the background (docs/socialcontent.md; ./run.ts): only
- * its own `socialcontent.*` operations, core's problem report, and its helper's action on the worker, never Social
- * Outreach's (decision 1). Each answers its value, or throws `ResearchRefused` with HandsFreeOS's words and rule.
+ * its own `socialcontent.*` operations, core's problem report, and its actions on the worker (the helper, and what
+ * watching a video gave), never Social Outreach's (decision 1). Each answers its value, or throws `ResearchRefused` with HandsFreeOS's words and rule.
  */
 import { isApiErrorBody } from '@hfos/api-client';
 import type { HelperLookOutput, ProblemReport } from '@hfos/core/problem-report';
@@ -90,8 +90,36 @@ export const postsSave = (workspaceId: string, creatorId: string, posts: PostIn[
 export const reportProblem = (workspaceId: string, report: ProblemReport) =>
   got(api().POST('/v1/commands/problem_report.send', { body: { workspaceId, report } }));
 
-/** The AI helper's look at a read that didn't work (`socialcontent.helper.look` on the worker, where the AI is). */
-export async function helperLook(
+/** One of the add-on's actions on the worker, where the AI is. */
+async function workerAction<T>(
+  workspaceId: string,
+  name: string,
+  input: unknown,
+  otherwise: string,
+): Promise<T> {
+  if (!config.workerUrl) throw new ResearchRefused('This build can’t reach the AI.', null, null);
+  const bearer = await token();
+  let response: Response;
+  try {
+    response = await fetch(`${config.workerUrl}/v1/addons/socialcontent/actions/${name}`, {
+      method: 'POST',
+      headers: {
+        ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ workspaceId, input }),
+    });
+  } catch {
+    throw new ResearchRefused('Couldn’t reach HandsFreeOS.', null, null);
+  }
+  const json: unknown = await response.json().catch(() => undefined);
+  if (response.ok) return json as T;
+  const said = isApiErrorBody(json) ? json.error : null;
+  throw new ResearchRefused(said?.message ?? otherwise, said?.rule ?? null, response.status);
+}
+
+/** The AI helper's look at a read that didn't work (`socialcontent.helper.look`). */
+export const helperLook = (
   workspaceId: string,
   input: {
     network: ContentNetwork;
@@ -104,31 +132,18 @@ export async function helperLook(
       went: boolean;
     }[];
   },
-): Promise<HelperLookOutput> {
-  if (!config.workerUrl) throw new ResearchRefused('This build can’t reach the AI.', null, null);
-  const bearer = await token();
-  let response: Response;
-  try {
-    response = await fetch(
-      `${config.workerUrl}/v1/addons/socialcontent/actions/socialcontent.helper.look`,
-      {
-        method: 'POST',
-        headers: {
-          ...(bearer ? { authorization: `Bearer ${bearer}` } : {}),
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ workspaceId, input }),
-      },
-    );
-  } catch {
-    throw new ResearchRefused('Couldn’t reach HandsFreeOS.', null, null);
-  }
-  const json: unknown = await response.json().catch(() => undefined);
-  if (response.ok) return json as HelperLookOutput;
-  const said = isApiErrorBody(json) ? json.error : null;
-  throw new ResearchRefused(
-    said?.message ?? 'The AI helper didn’t answer.',
-    said?.rule ?? null,
-    response.status,
-  );
-}
+): Promise<HelperLookOutput> =>
+  workerAction(workspaceId, 'socialcontent.helper.look', input, 'The AI helper didn’t answer.');
+
+/** What watching a standout video gave (`socialcontent.post.watch`): the AI looks and listens on the worker. */
+export const watchSend = (
+  workspaceId: string,
+  input: {
+    workId: string;
+    postId: string;
+    seconds: number | null;
+    frames: readonly { at: number; jpeg: string }[];
+    sound: string | null;
+  },
+): Promise<{ watched: boolean; failure: string | null }> =>
+  workerAction(workspaceId, 'socialcontent.post.watch', input, 'The AI couldn’t watch that video.');
