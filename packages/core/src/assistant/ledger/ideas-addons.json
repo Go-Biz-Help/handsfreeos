@@ -253,8 +253,8 @@
       "path": "Share an idea → Is it one of these? each similar idea: title, #number, status, votes",
       "kind": "see",
       "file": "apps/web/src/components/ideas/share-idea.tsx:120",
-      "covered": "partly",
-      "by": "manage_idea share card: ≤2 similar, no status or your vote"
+      "covered": "yes",
+      "by": "read_idea_similar: up to five still on the board, each with its status, votes and whether they voted"
     },
     {
       "path": "Share an idea → similar idea → vote, or open it",

@@ -14,6 +14,7 @@ import {
   hasWorkspacePermission,
   IDEA_STATUS_WORDS,
   IDEAS_WORDS,
+  ideaShare,
   isStaffPermission,
   NOT_FOR_THE_ASSISTANT,
   organizationCreate,
@@ -399,6 +400,32 @@ describe('the Add-ons page’s vote and the Ideas Roadmap', () => {
     expect(done.columns).toHaveLength(1);
     expect(done.columns[0]).toMatchObject({ status: 'done', column: IDEAS_WORDS.doneLately });
     expect(done.columns[0]!.means).toContain('90 days');
+  });
+
+  it('finds ideas like what someone types, as Share an idea and the team’s Duplicate box do', async () => {
+    // Two made-up words nobody else's idea has, so only this one can match.
+    const word = () =>
+      Array.from({ length: 9 }, () => 'bcdfghjklmnpqrstvwz'[Math.floor(Math.random() * 19)]).join(
+        '',
+      );
+    const [one, two] = [word(), word()];
+    const title = `Show the ${one} ${two} on every invoice`;
+    const { ideaId, number } = (
+      await executeCommand(api(), ideaShare, { workspaceId, title }, actor(owner), meta())
+    ).output as { ideaId: string; number: number };
+
+    type Similar = { ideas: { id: string; number: number; title: string; voted: boolean }[] };
+    const found = (await read('idea.similar', { text: `${two} ${one} invoices` })).result
+      .data as Similar;
+    // Shared ideas start with their author's vote on them.
+    expect(found.ideas).toEqual([
+      expect.objectContaining({ id: ideaId, number, title, status: 'under_review', voted: true }),
+    ]);
+
+    // The Duplicate box on that idea leaves the idea itself out.
+    const others = (await read('idea.similar', { text: `${one} ${two}`, excludeIdeaId: ideaId }))
+      .result.data as Similar;
+    expect(others.ideas).toEqual([]);
   });
 
   it('gives the link to an add-on’s Connections with what it connects to', async () => {
