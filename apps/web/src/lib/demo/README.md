@@ -3,7 +3,8 @@
 Scripted scenes that play on the real screens of a business, for recorded videos and live shows. HandsFreeOS staff
 start it from Admin → Demo player, or open it with `?demo` on any page of a business of their own (`?demo=<scene id>`
 loads that scene). They pick a scene, and each press of Space (or →, Page Down, or a presentation clicker) plays the
-next step. A pointer moves and clicks as a person would.
+next step, as Next on the panel does. A pointer moves and clicks as a person would. The panel is never outside a sheet,
+dialog or menu (it's a Radix `DismissableLayerBranch`), so pressing Next with the mouse leaves open what a step opened.
 
 The panel on the left lists every step with its voiceover, so the presenter knows what comes next and what to say;
 the microphone button hides the voiceover, and Copy the voiceover copies the scene's as one script. The app moves
