@@ -14427,8 +14427,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Study a creator from a link to their page (instagram.com/name; Facebook, LinkedIn, TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.
-         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.added.
+         * Study a creator from a link to their page (instagram.com/name, a Facebook profile or page, or a LinkedIn member’s or company’s page; TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.added, socialcontent.work.asked.
          */
         post: operations["command_socialcontent_creator_add"];
         delete?: never;
@@ -14448,7 +14448,7 @@ export interface paths {
         put?: never;
         /**
          * Study a creator (study: true: their posts back 12 months are read and weighed, then again every week), or skip them (study: false: nothing more is read, and a search never suggests them again). Works on suggested, studied and skipped creators alike.
-         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.decided.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.decided, socialcontent.work.asked.
          */
         post: operations["command_socialcontent_creator_decide"];
         delete?: never;
@@ -14588,7 +14588,7 @@ export interface paths {
         put?: never;
         /**
          * Extension: a studied creator’s posts as their page shows them now, up to 100 at a time: each one’s link, when it was posted, its kind, caption and numbers. New posts are kept and known ones get their numbers now; then all of the creator’s posts are weighed again against the 10 posts on each side of each, and the standouts kept.
-         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.posts.saved.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.posts.saved, socialcontent.work.asked.
          */
         post: operations["command_socialcontent_posts_save"];
         delete?: never;

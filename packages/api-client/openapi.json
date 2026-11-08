@@ -115070,11 +115070,11 @@
     "/v1/commands/socialcontent.creator.add": {
       "post": {
         "operationId": "command_socialcontent_creator_add",
-        "summary": "Study a creator from a link to their page (instagram.com/name; Facebook, LinkedIn, TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.",
+        "summary": "Study a creator from a link to their page (instagram.com/name, a Facebook profile or page, or a LinkedIn member’s or company’s page; TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.",
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.added.",
+        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.added, socialcontent.work.asked.",
         "requestBody": {
           "required": true,
           "content": {
@@ -115279,7 +115279,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.decided.",
+        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.decided, socialcontent.work.asked.",
         "requestBody": {
           "required": true,
           "content": {
@@ -116532,7 +116532,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 0. Requires socialcontent.use. Emits socialcontent.posts.saved.",
+        "description": "Risk level 0. Requires socialcontent.use. Emits socialcontent.posts.saved, socialcontent.work.asked.",
         "requestBody": {
           "required": true,
           "content": {

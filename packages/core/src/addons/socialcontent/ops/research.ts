@@ -388,7 +388,7 @@ export const creatorList = defineAddonQuery(socialcontentAddon, {
 export const creatorAdd = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.creator.add',
   description:
-    'Study a creator from a link to their page (instagram.com/name; Facebook, LinkedIn, TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.',
+    'Study a creator from a link to their page (instagram.com/name, a Facebook profile or page, or a LinkedIn member’s or company’s page; TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.',
   risk: 1,
   input: CreatorAddInput,
   output: CreatorOut,
