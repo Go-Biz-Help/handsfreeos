@@ -319,7 +319,7 @@ const ROWS = {
     words: ['safety preview'],
   },
 
-  // ---- Usage & balance ----
+  // ---- Billing & Usage ----
   'usage.balance': {
     page: 'usage',
     section: null,
@@ -341,11 +341,20 @@ const ROWS = {
     words: ['ai limit', 'ai spending', 'assistant limit', 'ai budget', 'pause the ai', 'ai cap'],
     phone: 'settings/usage',
   },
+  // One list of cards pays the plan and refills the balance (20261027023600): the default first, then the backups.
   'usage.card': {
     page: 'usage',
     section: null,
-    label: 'Card on file',
-    words: ['credit card', 'payment method', 'billing card'],
+    label: 'Cards',
+    words: [
+      'credit card',
+      'payment method',
+      'billing card',
+      'default card',
+      'backup card',
+      'add a card',
+      'change card',
+    ],
     phone: 'settings/usage',
   },
   'usage.prices': {
@@ -364,28 +373,22 @@ const ROWS = {
     page: 'usage',
     section: null,
     label: 'Founding plan',
-    words: ['founding member', 'plan', 'subscription'],
+    words: [
+      'founding member',
+      'plan',
+      'subscription',
+      'cancel',
+      'stop renewing',
+      'cancel subscription',
+      'keep renewing',
+    ],
     anchor: 'founding',
   },
-
-  // ---- Billing (20261027023600) ----
-  'billing.cards': {
-    page: 'billing',
-    section: null,
-    label: 'Cards',
-    words: ['default card', 'backup card', 'add a card', 'change card', 'payment method'],
-  },
-  'billing.pay_day': {
-    page: 'billing',
+  'usage.pay_day': {
+    page: 'usage',
     section: null,
     label: 'Payment date',
     words: ['billing date', 'renewal date', 'change payment date', 'due date'],
-  },
-  'billing.renewing': {
-    page: 'billing',
-    section: null,
-    label: 'Renewing',
-    words: ['cancel', 'stop renewing', 'cancel subscription', 'keep renewing'],
   },
 
   // ---- Texting & calls ----
@@ -942,14 +945,13 @@ const PAGE_WORDS: Readonly<Record<SettingsPageKey, readonly string[]>> = {
   permissions: ['roles', 'access', 'who can do what', 'admins'],
   automations: ['action center', 'reminders', 'follow-ups', 'alerts', 'notifications'],
   safety: ['check-ins', 'lone worker', 'safety person'],
-  usage: ['balance', 'wallet', 'top up', 'paying handsfreeos'],
-  billing: [
+  usage: [
+    'balance',
+    'wallet',
+    'top up',
+    'billing',
+    'paying handsfreeos',
     'subscription',
-    'plan',
-    'payment method',
-    'credit card',
-    'backup card',
-    'billing date',
     'failed payment',
   ],
   texting: ['sms', 'texts', 'phone number', 'calls', 'voicemail', 'a2p', '10dlc'],

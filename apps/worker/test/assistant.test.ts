@@ -343,7 +343,7 @@ describe('the Assistant', () => {
           type: 'error',
           code: 'budget_reached',
           message:
-            'This business reached the $0 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+            'This business reached the $0 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage.',
         }),
       ]);
     } finally {
@@ -361,7 +361,7 @@ describe('the Assistant', () => {
           type: 'error',
           code: 'wallet_empty',
           message:
-            'Your balance has run out, so the AI has paused. Top up in Settings → Usage & balance and it picks up where it left off.',
+            'Your balance has run out, so the AI has paused. Top up in Settings → Billing & Usage and it picks up where it left off.',
         }),
       ]);
     } finally {

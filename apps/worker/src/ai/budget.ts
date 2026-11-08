@@ -185,7 +185,7 @@ export interface AiNoRoom {
 }
 
 /**
- * The one daily AI limit per business, which it sets itself in dollars (Settings → Usage & balance): the
+ * The one daily AI limit per business, which it sets itself in dollars (Settings → Billing & Usage): the
  * Assistant, the AI teammate, workflow AI steps, the builders, the knowledge base and add-ons all draw on it.
  * The teammate may use only its share (its settings' dailySharePercent, 60% by default), so strangers writing
  * in never use up what the Assistant and workflows need. Checked before each model call, so the last call of

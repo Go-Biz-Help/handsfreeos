@@ -185,7 +185,7 @@ function asRefusal(err: unknown): never {
     throw HfosError.rule(
       'founding_not_yearly',
       409,
-      'This business’s founding seat isn’t paid by the year, so there’s nothing to renew. Refresh Settings → Usage & balance to see where it stands.',
+      'This business’s founding seat isn’t paid by the year, so there’s nothing to renew. Refresh Settings → Billing & Usage to see where it stands.',
     );
   if (detail === 'founding_year_over')
     throw HfosError.rule(
@@ -197,7 +197,7 @@ function asRefusal(err: unknown): never {
     throw HfosError.rule(
       'founding_renewal_not_due',
       409,
-      'There’s no renewal waiting to be paid. Refresh Settings → Usage & balance to see where your founding seat stands.',
+      'There’s no renewal waiting to be paid. Refresh Settings → Billing & Usage to see where your founding seat stands.',
     );
   // Approve checks the business first (aBusiness); this is one deleted in between.
   if (constraint === 'founding_grants_organization_id_fkey')
@@ -904,7 +904,7 @@ export const foundingBuy = defineCommand({
   risk: 3,
   input: FoundingBuyInput,
   output: FoundingStartCheckoutOutput,
-  // Whoever manages what the business pays us: the people on Settings → Usage & balance.
+  // Whoever manages what the business pays us: the people on Settings → Billing & Usage.
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['founding.checkout_requested'],
@@ -1148,7 +1148,7 @@ export const foundingSetRenewing = defineCommand({
   risk: 3,
   input: FoundingSetRenewingInput,
   output: FoundingSetRenewingOutput,
-  // Whoever manages what the business pays us: the people on Settings → Usage & balance, where this is.
+  // Whoever manages what the business pays us: the people on Settings → Billing & Usage, where this is.
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['founding.renewal_stopped', 'founding.renewal_resumed'],

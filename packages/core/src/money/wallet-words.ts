@@ -1,6 +1,6 @@
 /**
  * What a business reads about its own balance — the usage wallet — in one browser-safe place, so the web's
- * Settings → Usage & balance and the phone's Balance screen say the same thing about the same number.
+ * Settings → Billing & Usage and the phone's Balance screen say the same thing about the same number.
  *
  * The wording is deliberately in words before numbers: a business glancing at a balance wants to know whether it
  * is fine, not to do arithmetic. `balanceHeadline` is that sentence, and the number sits underneath it.
@@ -31,10 +31,10 @@ export function aiLimitReached(limitCents?: number | null): string {
     limitCents === undefined || limitCents === null
       ? 'today’s AI limit'
       : `the ${money(limitCents)} daily AI limit`;
-  return `This business reached ${limit}, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.`;
+  return `This business reached ${limit}, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage.`;
 }
 
-/** The daily AI limit's words, on the web's Usage & balance and the phone's Balance screen alike. */
+/** The daily AI limit's words, on the web's Billing & Usage and the phone's Balance screen alike. */
 export const AI_LIMIT_WORDS = {
   title: 'Daily AI limit',
   detail:
@@ -138,8 +138,8 @@ export const topUpCapLine = (maxTopupCents: number): string =>
  * `DELETE_ACCOUNT_WORDS` does — the same page, in the room it has.
  */
 export const BALANCE_WORDS = {
-  title: 'Usage & balance',
-  /** The phone's top bar, where "Usage & balance" would wrap. */
+  title: 'Billing & Usage',
+  /** The phone's top bar, where "Billing & Usage" would wrap. */
   phoneTitle: 'Balance',
   phoneSettingsDetail: 'What texts, calls and AI replies come out of',
 
@@ -191,7 +191,7 @@ export const BALANCE_WORDS = {
   /** A phone with nothing to open a web page in: rare, and worth saying rather than failing quietly. */
   noBrowser: 'This phone has no web browser to open the card page in.',
   /** A build that doesn't know where to ask: on the web the same page can still do it. */
-  cardOnWebInstead: 'This build can’t add a card. Open Usage & balance on the web instead.',
+  cardOnWebInstead: 'This build can’t add a card. Open Billing & Usage on the web instead.',
   removeCard: 'Remove card',
   removeCardTitle: 'Remove the card?',
   removeCardAsk:

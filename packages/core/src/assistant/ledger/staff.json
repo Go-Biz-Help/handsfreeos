@@ -102,8 +102,8 @@
     "apps/web/src/components/affiliate/affiliate-payouts.tsx": "2d591c4d73b2",
     "apps/web/src/components/affiliate/affiliate-self.tsx": "4e23fb68e41b",
     "apps/web/src/components/demo/demo-director.tsx": "43dfbd307ac7",
-    "apps/web/src/components/founding/checkout-status.tsx": "dc7886625d47",
-    "apps/web/src/components/founding/claim-seat.tsx": "417ac39b9bb5",
+    "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
+    "apps/web/src/components/founding/claim-seat.tsx": "958bdcc5d9bb",
     "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
     "apps/web/src/components/shell/user-menu.tsx": "c9385747fa6f"
   },

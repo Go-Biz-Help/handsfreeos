@@ -15,7 +15,7 @@ import { planCard } from '@/lib/api/worker';
 type Owed = NonNullable<Ok<'/v1/queries/billing.status'>['owed']>;
 
 /**
- * The parts Settings → Billing and the failed-payment page share (20261027023600): what's owed with its buttons, asking
+ * The parts Settings → Billing & Usage and the failed-payment page share (20261027023600): what's owed with its buttons, asking
  * for more time, adding a card on Stripe's page, and coming back from it.
  */
 
@@ -44,7 +44,7 @@ export async function waitForPayment(
 /** Sends them to Stripe's page for a card: the worker builds the address they come back to. */
 export async function goAddCard(input: {
   workspaceId: string;
-  from: 'billing' | 'payment';
+  from: 'usage' | 'payment';
   makeDefault?: boolean;
   payNow?: boolean;
 }): Promise<void> {
@@ -54,7 +54,7 @@ export async function goAddCard(input: {
 
 /**
  * Back from Stripe's card page, with `?card=` on the address (and what they asked for: `makeDefault`, `payNow`). The
- * session is only a name for what happened, as on Usage & balance: the worker reads the card off Stripe itself. It is
+ * session is only a name for what happened, as on Billing & Usage: the worker reads the card off Stripe itself. It is
  * taken off the address either way, so a refresh never saves anything twice.
  */
 export function usePlanCardReturn({
@@ -63,7 +63,7 @@ export function usePlanCardReturn({
   onPaid,
 }: {
   workspaceId: string;
-  from: 'billing' | 'payment';
+  from: 'usage' | 'payment';
   /** A payment that was owed went through on the new card. */
   onPaid?: () => void;
 }): boolean {
@@ -203,7 +203,7 @@ export function OwedPanel({
 }: {
   workspaceId: string;
   owed: Owed;
-  from: 'billing' | 'payment';
+  from: 'usage' | 'payment';
   /** Try my cards now needs a card to try. */
   hasCards: boolean;
   onPaid?: () => void;

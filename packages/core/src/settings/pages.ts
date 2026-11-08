@@ -55,10 +55,9 @@ export const SETTINGS_GROUPS = [
       { key: 'safety', path: '/safety', label: 'Safety', needs: 'workspace.update' },
       // Named apart from Payments, and kept in another group, on purpose: Payments is the business's own customers
       // paying *them*, and this is what the business pays HandsFreeOS. Two things, two names.
-      { key: 'usage', path: '/usage', label: 'Usage & balance', needs: 'money.manage' },
-      // The plan itself (20261027023600): its cards, its payment date, and a payment that didn't go through. Beside
-      // Usage & balance because both are what the business pays HandsFreeOS.
-      { key: 'billing', path: '/billing', label: 'Billing', needs: 'money.manage' },
+      // The plan, its cards and its payment date (20261027023600) are here too, beside the balance: one card list pays
+      // both. The path stays /usage, which older emails and links open.
+      { key: 'usage', path: '/usage', label: 'Billing & Usage', needs: 'money.manage' },
     ],
   },
   {

@@ -1,7 +1,7 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-08",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
@@ -20,7 +20,7 @@
     "apps/mobile/src/components/shell/sign-out-sheet.tsx": "fc7991c49743",
     "apps/mobile/src/components/shell/this-phone.tsx": "b92c33a0dfd5",
     "apps/mobile/src/links/decide.ts": "8c590c3d63ff",
-    "apps/mobile/src/links/route-map.ts": "9eb25e09ee83",
+    "apps/mobile/src/links/route-map.ts": "e6302c23da17",
     "apps/mobile/src/look/calls.ts": "839009430923",
     "apps/mobile/src/push/bell.ts": "05eae2e42ce5",
     "apps/mobile/src/push/buttons.ts": "53fafdb6a0c6",
@@ -2044,9 +2044,9 @@
       "id": "acct-11",
       "severity": "medium",
       "kind": "words",
-      "where": "Phone: More → Settings (Search settings; This phone: My cell phone, Unlock with Face ID, Businesses on this phone, Documents on mobile data, Changes on this phone; This business: Usage & balance, Main offer, Partners; You: My safety, Notifications, Profile and sign-in (opens the web), Appearance; Sign out; Delete my account)",
-      "gap": "Real part: prompt.ts:38 says 'the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web'. The phone's Settings also has This business: Usage & balance, Main offer and Partners. PHONE_APP:626 lists Usage & balance but leaves out Main offer, Partners, My safety, Documents on mobile data, Changes on this phone and 'Profile and sign-in', which opens the web. 'Can I change the main offer on my phone?' gets a wrong 'on the web'. Refuted part: 'where do I pick my safety contacts on the phone' is already answered. settings-map safety howTo says 'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety', and settingsMapText puts it in the prompt.",
-      "fix": "Fixed: the prompt now says the phone app’s Settings holds the person’s own things and this phone’s (their cell, Face ID, the businesses kept on it, My safety, notifications and the phone’s own appearance) and, under This business, Usage & balance, Main offer and Partners. PHONE_APP’s Settings line lists the screen by its groups (This phone, This business, You), then Sign out and Delete my account.",
+      "where": "Phone: More → Settings (Search settings; This phone: My cell phone, Unlock with Face ID, Businesses on this phone, Documents on mobile data, Changes on this phone; This business: Billing & Usage, Main offer, Partners; You: My safety, Notifications, Profile and sign-in (opens the web), Appearance; Sign out; Delete my account)",
+      "gap": "Real part: prompt.ts:38 says 'the phone app's Settings holds only the person's own things (notifications, appearance, their cell), and the business is set up on the web'. The phone's Settings also has This business: Billing & Usage, Main offer and Partners. PHONE_APP:626 lists Billing & Usage but leaves out Main offer, Partners, My safety, Documents on mobile data, Changes on this phone and 'Profile and sign-in', which opens the web. 'Can I change the main offer on my phone?' gets a wrong 'on the web'. Refuted part: 'where do I pick my safety contacts on the phone' is already answered. settings-map safety howTo says 'Choose who is told if you don’t check out: in the phone app, open More, then Settings, then My safety', and settingsMapText puts it in the prompt.",
+      "fix": "Fixed: the prompt now says the phone app’s Settings holds the person’s own things and this phone’s (their cell, Face ID, the businesses kept on it, My safety, notifications and the phone’s own appearance) and, under This business, Billing & Usage, Main offer and Partners. PHONE_APP’s Settings line lists the screen by its groups (This phone, This business, You), then Sign out and Delete my account.",
       "status": "fixed",
       "pr": null
     },

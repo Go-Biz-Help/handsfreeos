@@ -377,7 +377,7 @@ export const onMoreTimeAnswered: EventHandler = async (ctx) => {
     business: name,
     granted: !!payload.granted,
     until: payload.until ? formatUtcDate(new Date(`${payload.until}T12:00:00Z`)) : null,
-    link: `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/billing`,
+    link: `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage`,
   });
   for (const m of to) await ctx.mailer.send({ to: m.email, ...mail });
 };

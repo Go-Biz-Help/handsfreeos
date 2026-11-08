@@ -1610,7 +1610,7 @@ When `useNetwork` (`lib/network.ts:6-20`) says there's no signal, or a request f
 
 A `SearchBox` (`components/admin/bits.tsx:76`) at the top of `(more)/settings/index.tsx` runs `searchSettings` with
 `surface: 'phone'`, instantly and with no signal. Settings the phone has (My cell, Face ID lock, Businesses on this
-phone, Documents on mobile data, Changes on this phone, Usage & balance, Main offer, Partners, My safety, Notifications,
+phone, Documents on mobile data, Changes on this phone, Billing & Usage, Main offer, Partners, My safety, Notifications,
 Appearance, Delete my account; `settings/index.tsx:126-278`) open in place with `?setting=<key>`, and the screen scrolls
 to the row and flashes it (`apps/mobile/src/settings/use-setting-flash.ts`; `ListRow` gains `settingKey`). Settings
 only the web changes show "Opens on the web" with the `ExternalLink` icon and call

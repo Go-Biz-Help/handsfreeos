@@ -115,7 +115,7 @@ export function ClaimSeat({
       </Button>
       <p className="mt-3.5 text-center text-xs text-text-3">
         {paid && yearly
-          ? 'You pay on Stripe’s secure page, and it renews each year on the same card. Stop it any time in Settings → Usage & balance.'
+          ? 'You pay on Stripe’s secure page, and it renews each year on the same card. Stop it any time in Settings → Billing & Usage.'
           : paid
             ? 'You pay on Stripe’s secure page. Your seat is held while you do.'
             : 'This link works once. The seat covers one workspace.'}

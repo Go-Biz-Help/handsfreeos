@@ -2401,7 +2401,7 @@ interface Wallet {
   } | null;
 }
 
-/** The balance as Settings → Usage & balance reads it. */
+/** The balance as Settings → Billing & Usage reads it. */
 async function walletOf(db: Db, ctx: ToolContext): Promise<Wallet | null> {
   return query<Wallet>(db, ctx, 'wallet.get');
 }
@@ -2475,7 +2475,7 @@ const updateAutoTopup: SettingsConfirmTool = {
           ? [
               {
                 kind: 'blocked',
-                text: 'There’s no card on your balance yet, so there’s nothing to top up from. Add one in Settings → Usage & balance — only you can.',
+                text: 'There’s no card on your balance yet, so there’s nothing to top up from. Add one in Settings → Billing & Usage — only you can.',
               },
             ]
           : on === false

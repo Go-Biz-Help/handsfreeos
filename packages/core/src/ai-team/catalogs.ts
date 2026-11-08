@@ -23,7 +23,7 @@ export interface TeammateMember {
  * as it's charged (private.ai_spend_today).
  */
 export interface TeammateAiUsage {
-  /** The daily AI limit every AI feature shares, which the business sets on Settings → Usage & balance. */
+  /** The daily AI limit every AI feature shares, which the business sets on Settings → Billing & Usage. */
   readonly dailyLimitCents: number;
   /** What all its AI has come to today. */
   readonly usedCents: number;

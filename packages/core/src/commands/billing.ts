@@ -2,10 +2,11 @@
  * Billing for a founding plan (20261027023600, the owner's call of 2026-11-08): its cards, its payment day, paying a
  * failed payment now, and asking for more time.
  *
- * - **Cards.** Adding one is the worker's (`billing.record_card`), after Stripe's own page: the card is typed there and
- *   never reaches us. Choosing the default and removing one are the business's, through functions that check
- *   `money.manage` themselves, because nobody in a business writes its plan. The default card is copied onto the plan,
- *   where the code before this read it.
+ * - **Cards.** One list pays the plan and refills the usage balance (the owner's 5a). Adding one is the worker's
+ *   (`billing.record_card`, or `wallet.record_card` from the phone's Balance), after Stripe's own page: the card is
+ *   typed there and never reaches us. Choosing the default and removing one are the business's, through functions that
+ *   check `money.manage` themselves, because nobody in a business writes its plan. The default card is copied onto the
+ *   plan, where the code before this read it, and onto the balance.
  * - **The payment day.** `private.plan_pay_day_quote` works out what moving it costs or gives back, once, for the
  *   screens and for the change itself. Earlier happens at once; later waits on its charge, which the worker makes
  *   (`billing.record_pay_day`).
@@ -85,13 +86,19 @@ function asRefusal(err: unknown): never {
     throw HfosError.rule(
       'plan_card_missing',
       404,
-      'That card isn’t on this business anymore. Refresh Settings → Billing to see the cards it has.',
+      'That card isn’t on this business anymore. Refresh Settings → Billing & Usage to see the cards it has.',
     );
   if (detail === 'plan_card_is_default')
     throw HfosError.rule(
       'plan_card_is_default',
       409,
       'That’s your default card, so it can’t be removed. Make another card the default first, then remove this one.',
+    );
+  if (detail === 'plan_card_last_one')
+    throw HfosError.rule(
+      'plan_card_last_one',
+      409,
+      'That’s the only card on this business, and your plan renews on it, so it stays. Add another card first, or stop your plan renewing.',
     );
   if (detail.startsWith('plan_pay_day_'))
     throw HfosError.rule(detail, PAY_DAY_STATUS[detail] ?? 409, payDayRefusalMessage(detail));
@@ -228,11 +235,11 @@ export const billingRecordCard = defineCommand({
 export const billingSetDefaultCard = defineCommand({
   name: 'billing.set_default_card',
   description:
-    'Make one of the business’s cards the default, the one its HandsFreeOS plan is charged to first. The old default becomes a backup.',
+    'Make one of the business’s cards the default: the one its HandsFreeOS plan is charged to first and its usage balance refills from. The old default becomes a backup.',
   risk: 2,
   input: BillingCardRefInput,
   output: BillingCardWriteOutput,
-  // Whoever manages what the business pays us, as on Settings → Usage & balance.
+  // Whoever manages what the business pays us, as on Settings → Billing & Usage.
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['billing.default_card_changed'],
@@ -262,7 +269,7 @@ export const billingSetDefaultCard = defineCommand({
 export const billingRemoveCard = defineCommand({
   name: 'billing.remove_card',
   description:
-    'Take a backup card off the business’s HandsFreeOS plan, so it’s never charged again. The default card can’t be removed: make another the default first.',
+    'Take a card off the business, so it’s never charged again for the plan or the balance. The default can’t be removed while there are others (make another the default first), nor while a paid plan renews on it.',
   risk: 3,
   input: BillingCardRefInput,
   output: BillingCardWriteOutput,
@@ -388,7 +395,7 @@ export const billingChangePayDay = defineCommand({
 export const billingRecordPayDay = defineCommand({
   name: 'billing.record_pay_day',
   description:
-    'Worker: what charging a later payment day did. Paid moves the date; refused leaves it, and says why on Settings → Billing.',
+    'Worker: what charging a later payment day did. Paid moves the date; refused leaves it, and says why on Settings → Billing & Usage.',
   risk: 3,
   input: BillingRecordPayDayInput,
   output: BillingRecordPayDayOutput,

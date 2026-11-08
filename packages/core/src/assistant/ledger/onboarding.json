@@ -1,7 +1,7 @@
 {
   "area": "onboarding",
   "title": "Onboarding and getting set up",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-08",
   "files": {
     "apps/mobile/src/app/app/index.tsx": "73fbf8b3712b",
     "apps/mobile/src/app/app/w/[workspaceId]/setup.tsx": "db9834128278",
@@ -37,7 +37,7 @@
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
     "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
-    "apps/web/src/components/founding/checkout-status.tsx": "dc7886625d47",
+    "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
     "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
     "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
     "apps/web/src/components/import/import-progress.tsx": "7e4630e2d20c",

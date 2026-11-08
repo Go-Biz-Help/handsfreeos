@@ -109,12 +109,18 @@ is the default and which are backups if the default fails then we automatically 
 stays as it is and sends people to the web; the payment date can move (later is a prorated charge, earlier a prorated
 discount); a failed payment is retried at a random time every 24 hours; a failed-payment page blocks the CRM from the
 next screen, skippable for 24 hours, but not after 72; and they can ask for more time with the day they think they can
-pay, granted case by case through a support request. Migration `20261027023600`.
+pay, granted case by case through a support request. The owner's picks the same day: 1a (the page stops everyone),
+2a (14 days of retries), 3a (the payment-date sums below), 4a (more time up to 30 days out), **5a** (one list of cards
+pays the plan and tops up the usage balance) and **6b** (all of it on one page, which the owner then named Settings →
+Billing & Usage). Migration `20261027023600`.
 
 - **Cards:** `app.plan_cards`, one default per business (the checkout's card to start with) and backups tried in the
-  order they were added. Settings → Billing adds them on Stripe's page (`POST /v1/plan/card` on the worker), makes one
-  the default, or removes a backup. The default can't be removed. `workspace_plans.stripe_card_id` still mirrors the
-  default for code from before.
+  order they were added. Settings → Billing & Usage adds them on Stripe's page (`POST /v1/plan/card` on the worker),
+  makes one the default, or removes one. The default can't be removed while there are others, nor while a paid plan
+  renews on it. `workspace_plans.stripe_card_id` still mirrors the default for code from before, and so does the usage
+  balance's card (`private.plan_sync_wallet_card`): the default tops up the balance, and a declined top-up tries the
+  backups in turn (`apps/worker/src/money/recharge.ts`). The phone's Balance adds a card as the new default
+  (`wallet.record_card`).
 - **Retries:** `PLAN_RETRY_DAYS` (14), each at a random moment in the next day (`nextPlanRetryAt`). Try my cards now
   (`billing.pay_now`) charges at once.
 - **The page:** `paymentBlockOf` in `packages/core/src/billing/rules.ts`, for the web's `/payment/<business>` and the

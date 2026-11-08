@@ -1,5 +1,5 @@
 /**
- * What Settings → Billing and the failed-payment page say (20261027023600), once, for the web and the phone. Plain
+ * What Settings → Billing & Usage and the failed-payment page say (20261027023600), once, for the web and the phone. Plain
  * words, curly apostrophes, and the fix named where there is one.
  */
 import { formatUtcDate } from '../crm/format';
@@ -26,17 +26,12 @@ export function planCardExpiry(card: {
 }
 
 export const BILLING_WORDS = {
-  pageTitle: 'Billing',
-  pageBlurb:
-    'What you pay HandsFreeOS for your plan, and the cards it’s paid with. Texts, calls and AI are on Usage & balance.',
-  noPlan:
-    'This business has no plan that’s paid by card, so there’s nothing to bill here. Texts, calls and AI are on Usage & balance.',
-
-  // ---- cards ----
+  // ---- cards: one list pays the plan and refills the balance (the owner's 5a) ----
   cardsTitle: 'Cards',
   cardsBlurb:
-    'Your default card is charged first. If it’s declined, your backup cards are tried in order.',
-  noCards: 'No card yet. Add one so your plan can renew.',
+    'Your default card pays your plan and tops up your balance. If it’s declined, your backup cards are tried in order.',
+  noCards: 'No card yet. Add one to top up your balance for texts, calls and AI.',
+  noCardsPlan: 'No card yet. Add one so your plan can renew.',
   defaultBadge: 'Default',
   backupBadge: (n: number) => `Backup ${n}`,
   declined: (iso: string, why: string | null) =>
@@ -46,7 +41,10 @@ export const BILLING_WORDS = {
   makeDefault: 'Make default',
   remove: 'Remove',
   removeTitle: (name: string) => `Remove ${name}?`,
-  removeBody: 'It won’t be charged again. You can add it back any time.',
+  removeBody:
+    'It won’t be charged again, for your plan or your balance. You can add it back any time.',
+  removeLastBody:
+    'It’s your only card, so automatic top-up goes off with it, and your balance can’t be topped up until you add another.',
   removeConfirm: 'Remove card',
   cardAdded: (name: string) => `${name} added.`,
   cardAddedDefault: (name: string) => `${name} added, and it’s your default card now.`,
@@ -74,9 +72,8 @@ export const BILLING_WORDS = {
     `Pick a day from ${day(earliest)} to ${day(latest)}.`,
 
   // ---- stopping ----
-  stopTitle: 'Stop renewing',
   renewingBlurb:
-    'Stop your plan renewing any time. It stays on until the end of what you’ve paid for, and nothing more is charged.',
+    'Stop your plan renewing any time. It stays on until the end of what you’ve paid for, and nothing more is charged for it.',
   stoppedBlurb: 'Your plan is set not to renew. Keep it renewing to stay on it, at the same price.',
 
   // ---- money owed ----
@@ -92,7 +89,6 @@ export const BILLING_WORDS = {
   stillDeclined: (why: string) =>
     `That didn’t go through either: ${why} Add another card, or ask for more time.`,
   addCardAndPay: 'Add a card and pay',
-  manageCards: 'Manage cards',
 
   // ---- the failed-payment page ----
   blockTitle: 'Your HandsFreeOS payment didn’t go through',
@@ -102,8 +98,8 @@ export const BILLING_WORDS = {
     'HandsFreeOS stays closed until the payment goes through, or until we give you more time.',
   blockNotManager: (who: string | null) =>
     who
-      ? `Only someone who manages billing can fix this. Ask ${who} to update the card in Settings → Billing.`
-      : 'Only someone who manages billing can fix this. Ask an owner of this business to update the card in Settings → Billing.',
+      ? `Only someone who manages billing can fix this. Ask ${who} to update the card in Settings → Billing & Usage.`
+      : 'Only someone who manages billing can fix this. Ask an owner of this business to update the card in Settings → Billing & Usage.',
   skip: 'Skip for now',
   otherBusiness: 'Open another business',
   skipUntil: (iso: string) => `Skipped until ${day(iso)}.`,
@@ -166,12 +162,7 @@ export const BILLING_WORDS = {
   adminDecline: 'Say no',
   adminUntil: 'Give them until',
 
-  // ---- Usage & balance ----
-  openBilling: 'Open Billing',
-  usagePointer: 'Cards, the payment date and stopping it renewing are in Settings → Billing.',
-
   // ---- the phone: never a price, a payment or a link (the stores' rule), only that it's fixed on the web ----
-  phoneBilling: 'Billing is changed on the web: Settings → Billing.',
   phoneBlockTitle: 'Fix this business on the web',
   phoneBlockBody: (business: string) =>
     `${business} needs its HandsFreeOS account sorted out before it opens again. Sign in to HandsFreeOS on a computer, and it shows you what to do.`,

@@ -619,9 +619,9 @@ const QUERIES: Record<SettingsArea, readonly AreaQuery[]> = {
     { name: 'usage.prices', as: 'prices' },
     { name: 'usage.statement', as: 'statement' },
     { name: 'founding.mine', as: 'founding' },
+    // The plan's next payment and date, the cards (which pay the balance too) and anything owed (20261027023600).
+    { name: 'billing.get', as: 'billing' },
   ],
-  // The plan's cards, its payment date and anything owed, as Settings → Billing shows them (20261027023600).
-  billing: [{ name: 'billing.get', as: 'billing' }],
   action_center: [{ name: 'attention.settings', as: 'actionCenter', shape: actionCenterOf }],
   ai_teammate: [{ name: 'ai_teammate.get', as: 'aiTeammate', shape: teammateRead }],
   knowledge: [{ name: 'knowledge.profile', as: 'knowledge' }],

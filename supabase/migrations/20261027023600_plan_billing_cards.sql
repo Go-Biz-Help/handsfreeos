@@ -9,10 +9,14 @@
 --        business may ask for more time, which opens a support ticket and is answered by staff.
 --
 --        **Cards are kept in `app.plan_cards`**, one row a card, each with the Stripe customer it is attached
---        to: a first payment, a renewal paid on a page of its own, and a card added from Settings → Billing can
+--        to: a first payment, a renewal paid on a page of its own, and a card added from Settings → Billing & Usage can
 --        each sit on a different customer, and a card can only be charged with its own. The default card is
 --        still copied onto `app.workspace_plans` (`stripe_customer_id`, `stripe_card_id`), so the code running
 --        now keeps charging the right card until the new code is up.
+--
+--        **One list pays the plan and the balance** (the owner's 5a): the default card is copied onto
+--        `app.usage_wallets` too (`private.plan_sync_wallet_card`), so it refills the balance, and the worker tries
+--        the backups when a top-up is declined. The balance's own card joins the list below.
 --
 --        **Retries** live on the plan (`retry_count`, `next_retry_at`, `retry_from`). The worker decides when
 --        the next one is (a random time in the next day), and stops after its last; the database only answers
@@ -27,7 +31,8 @@
 --        opened. Staff grant it or not; a grant sets `more_time_until` on the plan, which lifts the page and
 --        pauses the retries until that date.
 --
---        **Only adds.** Nothing the running code calls changes shape.
+--        **Only adds.** Nothing the running code calls changes shape; the balances that had a card other than the
+--        plan's default are charged to that default from now on, and keep the other card as a backup.
 -- =============================================================================
 
 -- ---------- the cards ----------
@@ -236,16 +241,98 @@ end $$;
 revoke all on function private.plan_require_money_manager(uuid) from public;
 grant execute on function private.plan_require_money_manager(uuid) to authenticated;
 
-/** Copies the default card onto the plan, where the code before this one reads it. */
+/**
+ * Puts the default card on the usage balance too (the owner's 5a, 2026-11-08: one list of cards pays the plan and
+ * refills the balance). With no card left, the balance has none, and automatic top-up goes off with it, as
+ * `wallet.forget_card` does. A new card is a fresh start for the decline ladder, as `wallet.record_card` says, and a
+ * card going on where there was none turns automatic top-up on. A business without a wallet gets one only when it
+ * has a card to put on it.
+ *
+ * The wallet's card is HandsFreeOS's to write (`private.guard_usage_wallet`), so this writes it in the business's own
+ * scope, and puts back whatever scope the caller had.
+ */
+create or replace function private.plan_sync_wallet_card(p_workspace uuid)
+returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_card app.plan_cards;
+  v_wallet app.usage_wallets;
+  v_brand text;
+  v_last4 text;
+  v_prev text := coalesce(current_setting('app.system_scope.workspace_id', true), '');
+begin
+  select * into v_card from app.plan_cards c where c.workspace_id = p_workspace and c.is_default;
+  select * into v_wallet from app.usage_wallets w where w.workspace_id = p_workspace for update;
+  if v_wallet.workspace_id is null and v_card.id is null then
+    return;
+  end if;
+  -- A brand and last four go on together or not at all (usage_wallets_card_details_check).
+  if v_card.card_brand is not null and v_card.card_last4 is not null then
+    v_brand := v_card.card_brand;
+    v_last4 := v_card.card_last4;
+  end if;
+  if v_wallet.workspace_id is not null and (
+       (v_card.id is null and v_wallet.method_token is null)
+       or (v_card.id is not null
+           and v_wallet.method_token is not distinct from v_card.card_ref
+           and v_wallet.customer_ref is not distinct from v_card.customer_ref
+           and v_wallet.provider is not distinct from 'stripe'::app.payment_provider
+           and v_wallet.card_brand is not distinct from v_brand
+           and v_wallet.card_last4 is not distinct from v_last4
+           and v_wallet.card_expiry_month is not distinct from v_card.card_expiry_month
+           and v_wallet.card_expiry_year is not distinct from v_card.card_expiry_year)) then
+    return;
+  end if;
+
+  perform set_config('app.system_scope.workspace_id', p_workspace::text, true);
+  if v_wallet.workspace_id is null then
+    insert into app.usage_wallets (workspace_id, organization_id)
+    values (p_workspace, v_card.organization_id)
+    on conflict (workspace_id) do nothing;
+    select * into v_wallet from app.usage_wallets w where w.workspace_id = p_workspace for update;
+  end if;
+
+  if v_card.id is null then
+    update app.usage_wallets
+       set method_token = null, card_brand = null, card_last4 = null,
+           card_expiry_month = null, card_expiry_year = null, auto_topup = false
+     where workspace_id = p_workspace;
+  elsif v_wallet.method_token is not distinct from v_card.card_ref then
+    -- The same card, with its details filled in (Stripe told us its brand and last four later).
+    update app.usage_wallets
+       set provider = 'stripe', customer_ref = v_card.customer_ref, card_brand = v_brand, card_last4 = v_last4,
+           card_expiry_month = v_card.card_expiry_month, card_expiry_year = v_card.card_expiry_year
+     where workspace_id = p_workspace;
+  else
+    update app.usage_wallets
+       set provider = 'stripe', customer_ref = v_card.customer_ref, method_token = v_card.card_ref,
+           card_brand = v_brand, card_last4 = v_last4,
+           card_expiry_month = v_card.card_expiry_month, card_expiry_year = v_card.card_expiry_year,
+           card_requested_at = null,
+           declines_in_row = 0, paused_until = null, suspended_at = null, suspended_reason = null,
+           auto_topup = case when v_wallet.method_token is null then true else v_wallet.auto_topup end
+     where workspace_id = p_workspace;
+  end if;
+  perform set_config('app.system_scope.workspace_id', v_prev, true);
+end $$;
+
+revoke all on function private.plan_sync_wallet_card(uuid) from public;
+
+/**
+ * Copies the default card onto the plan, where the code before this one reads it, and onto the usage balance, which
+ * the same cards pay.
+ */
 create or replace function private.plan_sync_default_card(p_workspace uuid)
 returns void
-language sql security definer set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
+begin
   update app.workspace_plans p
      set stripe_customer_id = c.customer_ref, stripe_card_id = c.card_ref
     from app.plan_cards c
    where p.workspace_id = p_workspace and c.workspace_id = p_workspace and c.is_default
-     and (p.stripe_card_id is distinct from c.card_ref or p.stripe_customer_id is distinct from c.customer_ref)
-$$;
+     and (p.stripe_card_id is distinct from c.card_ref or p.stripe_customer_id is distinct from c.customer_ref);
+  perform private.plan_sync_wallet_card(p_workspace);
+end $$;
 
 revoke all on function private.plan_sync_default_card(uuid) from public;
 grant execute on function private.plan_sync_default_card(uuid) to authenticated, service_actor;
@@ -276,7 +363,27 @@ end $$;
 revoke all on function private.plan_card_set_default(uuid, uuid) from public;
 grant execute on function private.plan_card_set_default(uuid, uuid) to authenticated;
 
-/** Takes a card off. The default can't be: another is made the default first. Answers what Stripe should forget. */
+/**
+ * Whether a founding plan that costs money renews on this business's cards: while one does, it keeps a card.
+ */
+create or replace function private.plan_needs_a_card(p_workspace uuid)
+returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from app.workspace_plans p
+    join platform.founding_grants g on g.id = p.grant_id and g.status = 'active'
+    where p.workspace_id = p_workspace and p.renewal_stopped_at is null and p.price_cents > 0
+  )
+$$;
+
+revoke all on function private.plan_needs_a_card(uuid) from public;
+grant execute on function private.plan_needs_a_card(uuid) to authenticated, service_actor;
+
+/**
+ * Takes a card off. The default can't be while there are others (another is made the default first), nor while a paid
+ * plan renews on it; the last card of a business with nothing renewing can, and the balance loses it too. Answers what
+ * Stripe should forget.
+ */
 create or replace function private.plan_card_remove(p_workspace uuid, p_card uuid)
 returns table (customer_ref text, card_ref text, card_brand text, card_last4 text)
 language plpgsql security definer set search_path = '' as $$
@@ -290,10 +397,19 @@ begin
       using errcode = 'P0002', detail = 'plan_card_missing';
   end if;
   if v_card.is_default then
-    raise exception 'Card % is the default on workspace %', p_card, p_workspace
-      using errcode = '23514', detail = 'plan_card_is_default';
+    if exists (select 1 from app.plan_cards c where c.workspace_id = p_workspace and c.id <> p_card) then
+      raise exception 'Card % is the default on workspace %', p_card, p_workspace
+        using errcode = '23514', detail = 'plan_card_is_default';
+    end if;
+    if private.plan_needs_a_card(p_workspace) then
+      raise exception 'Card % is the only card on workspace %, whose plan renews', p_card, p_workspace
+        using errcode = '23514', detail = 'plan_card_last_one';
+    end if;
   end if;
   delete from app.plan_cards where id = p_card;
+  if v_card.is_default then
+    perform private.plan_sync_wallet_card(p_workspace);
+  end if;
   return query select v_card.customer_ref, v_card.card_ref, v_card.card_brand, v_card.card_last4;
 end $$;
 
@@ -485,7 +601,7 @@ grant execute on function private.plan_owner_name(uuid) to authenticated;
 /**
  * The name of the founding offer the business's plan is on, while its seat is still theirs; null once it's taken
  * back, or when there's none. A business can't read the grant itself (`revoke_reason` is written for us, about
- * them), so Settings → Billing and the failed-payment page learn from this whether the plan still bills.
+ * them), so Settings → Billing & Usage and the failed-payment page learn from this whether the plan still bills.
  */
 create or replace function private.plan_offer_name(p_workspace uuid)
 returns text
@@ -501,3 +617,36 @@ $$;
 
 revoke all on function private.plan_offer_name(uuid) from public;
 grant execute on function private.plan_offer_name(uuid) to authenticated;
+
+-- ---------- one list of cards, for the plan and the balance (the owner's 5a, 2026-11-08) ----------
+-- The usage balance's card joins the list: the default when the business has none yet, a backup beside the plan's
+-- card otherwise, so no card anybody added is lost.
+insert into app.plan_cards (workspace_id, organization_id, customer_ref, card_ref, card_brand, card_last4,
+  card_expiry_month, card_expiry_year, is_default)
+select w.workspace_id, w.organization_id, w.customer_ref, w.method_token, w.card_brand, w.card_last4,
+  w.card_expiry_month, w.card_expiry_year,
+  not exists (select 1 from app.plan_cards c where c.workspace_id = w.workspace_id and c.is_default)
+from app.usage_wallets w
+where w.method_token is not null and w.customer_ref is not null
+  and (w.provider is null or w.provider = 'stripe')
+  and length(w.method_token) <= 100 and length(w.customer_ref) <= 100
+on conflict (workspace_id, card_ref) do nothing;
+
+-- Then the default card goes on each balance there is. A balance that had no card gets it with automatic top-up off,
+-- so nothing is charged for usage that the business didn't turn on itself; one that had a card keeps its choice.
+do $$
+declare
+  r record;
+begin
+  for r in
+    select w.workspace_id, w.method_token is null as had_none
+    from app.usage_wallets w
+    join app.plan_cards c on c.workspace_id = w.workspace_id and c.is_default
+    where w.method_token is distinct from c.card_ref
+  loop
+    perform private.plan_sync_wallet_card(r.workspace_id);
+    if r.had_none then
+      update app.usage_wallets set auto_topup = false where workspace_id = r.workspace_id;
+    end if;
+  end loop;
+end $$;

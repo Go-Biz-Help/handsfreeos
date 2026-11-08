@@ -109,7 +109,7 @@ describe('the words for declines', () => {
       'https://app.test/payment/w1?payNow=1',
     );
     expect(planCardReturnUrl('https://app.test', 'w1', {})).toBe(
-      'https://app.test/app/w/w1/settings/billing',
+      'https://app.test/app/w/w1/settings/usage',
     );
   });
 });
@@ -398,6 +398,27 @@ describe('the cards', () => {
       meta(),
     );
     expect((await cardsNow()).map((c) => c.id)).toEqual([backup]);
+  });
+
+  it('keeps the one card while the plan renews on it, and tops the balance up from it (5a)', async () => {
+    await buy();
+    const [only] = await cardsNow();
+    await expect(
+      executeCommand(
+        api(),
+        billingRemoveCard,
+        { workspaceId, cardId: only!.id },
+        human(owner),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ rule: 'plan_card_last_one' });
+    const [w] = await rows<{ method_token: string | null; card_ref: string }>(
+      admin(),
+      sql`select w.method_token, c.card_ref from app.usage_wallets w
+          join app.plan_cards c on c.workspace_id = w.workspace_id and c.is_default
+          where w.workspace_id = ${workspaceId}`,
+    );
+    expect(w!.method_token).toBe(w!.card_ref);
   });
 
   it('is for whoever manages money, never a member', async () => {

@@ -10,14 +10,14 @@ import { readPaymentSkip } from '@/lib/payment-skip';
  * in the business, ask whether a plan payment is owed, and send them to `/payment/<business>` while it is, unless they
  * skipped it for now on this device (up to 72 hours after it failed) or staff gave them more time.
  *
- * Settings → Billing stays open, so whoever manages money can sort out the cards there. Support looking in and anyone
+ * Settings → Billing & Usage stays open, so whoever manages money can sort out the cards there. Support looking in and anyone
  * viewing as a teammate never get it: the layout leaves this out for them.
  */
 export function PaymentGuard({ workspaceId }: { workspaceId: string }) {
   const pathname = usePathname();
   const router = useRouter();
   useEffect(() => {
-    if (pathname.endsWith('/settings/billing')) return;
+    if (pathname.endsWith('/settings/usage')) return;
     let gone = false;
     void apiBrowser()
       .POST('/v1/queries/billing.status', { body: { workspaceId } })

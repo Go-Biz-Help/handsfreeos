@@ -1,13 +1,14 @@
 /**
- * `POST /v1/plan/card` (bearer token, `money.manage`): adding a card to the business's HandsFreeOS plan, from
- * Settings → Billing or the failed-payment page (20261027023600).
+ * `POST /v1/plan/card` (bearer token, `money.manage`): adding a card to the business's one list of cards, which pays
+ * its HandsFreeOS plan and refills its usage balance, from Settings → Billing & Usage or the failed-payment page
+ * (20261027023600).
  *
  * The wallet's card route, for the plan (`money/wallet-card-routes.ts`), and for the same reason: a card belongs on
  * Stripe's page and nowhere else, and every call here is made as **HandsFreeOS**, so the card is ours to charge for
  * the plan.
  *
- * - **No `sessionRef`**: a card page is started on the Stripe customer the plan's default card is on (or the plan's
- *   customer, or a new one), and its address comes back for the browser to go to.
+ * - **No `sessionRef`**: a card page is started on the Stripe customer the default card is on (or the plan's customer,
+ *   or the balance's, or a new one), and its address comes back for the browser to go to.
  * - **With a `sessionRef`**: the session is read **back from Stripe**, never trusted from the address bar, the card is
  *   attached and written down (`billing.record_card`). One opened by another business is refused. Asked to, the new
  *   card becomes the default, and a failed payment is tried again on it at once (`billing.pay_now`).
@@ -33,8 +34,8 @@ export const PlanCardInput = z.object({
   makeDefault: z.boolean().optional(),
   /** Try a failed payment again on it straight away. */
   payNow: z.boolean().optional(),
-  /** Which page they come back to: Settings → Billing, or the failed-payment page. */
-  from: z.enum(['billing', 'payment']).optional(),
+  /** Which page they come back to: Settings → Billing & Usage, or the failed-payment page. */
+  from: z.enum(['usage', 'payment']).optional(),
 });
 
 const meta = () => ({ correlationId: randomUUID(), causationId: null, channel: 'web' as const });
@@ -43,12 +44,12 @@ const meta = () => ({ correlationId: randomUUID(), causationId: null, channel: '
 export function planCardReturnUrl(
   webUrl: string,
   workspaceId: string,
-  input: { from?: 'billing' | 'payment'; makeDefault?: boolean; payNow?: boolean },
+  input: { from?: 'usage' | 'payment'; makeDefault?: boolean; payNow?: boolean },
 ): string {
   const base =
     input.from === 'payment'
       ? `${webUrl}/payment/${workspaceId}`
-      : `${webUrl}/app/w/${workspaceId}/settings/billing`;
+      : `${webUrl}/app/w/${workspaceId}/settings/usage`;
   const q = new URLSearchParams();
   if (input.makeDefault) q.set('makeDefault', '1');
   if (input.payNow) q.set('payNow', '1');
@@ -74,11 +75,14 @@ export function registerPlanCardRoutes(app: FastifyInstance, deps: HttpDeps): vo
           organization_id: string;
           default_customer: string | null;
           plan_customer: string | null;
+          wallet_customer: string | null;
         }>(
           tx,
           sql`select ws.name as workspace_name, ws.organization_id,
                 (select c.customer_ref from app.plan_cards c where c.workspace_id = ws.id and c.is_default) as default_customer,
-                (select p.stripe_customer_id from app.workspace_plans p where p.workspace_id = ws.id) as plan_customer
+                (select p.stripe_customer_id from app.workspace_plans p where p.workspace_id = ws.id) as plan_customer,
+                (select w.customer_ref from app.usage_wallets w
+                  where w.workspace_id = ws.id and w.provider = 'stripe') as wallet_customer
               from app.workspaces ws where ws.id = ${workspaceId}::uuid`,
         ),
       );
@@ -87,9 +91,9 @@ export function registerPlanCardRoutes(app: FastifyInstance, deps: HttpDeps): vo
           'That business isn’t there anymore. Refresh the page and try again.',
         );
 
-      // The customer the plan's cards are on, so a new card lands beside the others: made once, if there's none yet.
+      // The customer the cards are on, so a new card lands beside the others: made once, if there's none yet.
       const customer = await platform.ensureCustomer({
-        customerRef: row.default_customer ?? row.plan_customer,
+        customerRef: row.default_customer ?? row.plan_customer ?? row.wallet_customer,
         name: row.workspace_name,
         email: actor.email,
         phone: null,
@@ -115,7 +119,7 @@ export function registerPlanCardRoutes(app: FastifyInstance, deps: HttpDeps): vo
         throw HfosError.rule(
           'plan_card_other_business',
           409,
-          'That card page wasn’t opened from this business, so no card was added. Press Add a card in Settings → Billing to start again.',
+          'That card page wasn’t opened from this business, so no card was added. Press Add a card in Settings → Billing & Usage to start again.',
         );
       if (!ended.sourceToken) return { stage: 'cancelled' as const };
 

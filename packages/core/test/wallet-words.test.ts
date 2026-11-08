@@ -1,5 +1,5 @@
 /**
- * The words a business reads about its own balance, shared by the web's Settings → Usage & balance and the phone's
+ * The words a business reads about its own balance, shared by the web's Settings → Billing & Usage and the phone's
  * Balance screen. What matters here is the sentence over the number: a balance under the floor with a card behind it
  * is not a worry, and the same balance with nothing to charge is — so the two must not read alike.
  */

@@ -3903,7 +3903,7 @@ Vercel still starts each skipped build and cancels it, and those count toward it
 
 **Do this one.** It is the only thing standing between a push and a few minutes of a half-deployed product.
 
-By default Vercel puts a new production build live as soon as it is ready. The API ships from the same push a few minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers "No such route", and a page built out of one of them shows an error. It happened on 21 September 2026 to Texting & calls, Usage & balance, Booking site, Calls and two admin pages at once, and on 23 September to Contacts, and nothing was wrong with any of them.
+By default Vercel puts a new production build live as soon as it is ready. The API ships from the same push a few minutes later. In between, the browser is running the new commit and the API is still running the last one, so every endpoint the new commit added answers "No such route", and a page built out of one of them shows an error. It happened on 21 September 2026 to Texting & calls, Billing & Usage, Booking site, Calls and two admin pages at once, and on 23 September to Contacts, and nothing was wrong with any of them.
 
 Vercel's Deployment Checks hold the address back until a named check passes. One check covers it: the Deploy workflow reports **Vercel - handsfreeos-web: api** on the commit once the worker and the API are up, so the web app goes live in the minute **after** the API it calls, not before. It does not wait for CI, which takes up to 45 minutes; CI runs on the pull request before the merge.
 
@@ -7041,12 +7041,12 @@ In all of these, the panel says "Something went wrong". When the cause is on Ant
 
 ### Change the daily limit
 
-Each business sets its own daily AI limit: the most its AI may be charged in a day, in dollars. A new business starts at $10. An owner or admin (anyone with **Manage money**) changes it at any time on **Settings** → **Usage & balance** → **Daily AI limit**, on the web or the phone, to any amount from $1 up. HandsFreeOS sets no ceiling. It's there so a runaway (a stuck workflow, a flood of website chats) can't charge the business all day; a business that needs more raises it.
+Each business sets its own daily AI limit: the most its AI may be charged in a day, in dollars. A new business starts at $10. An owner or admin (anyone with **Manage money**) changes it at any time on **Settings** → **Billing & Usage** → **Daily AI limit**, on the web or the phone, to any amount from $1 up. HandsFreeOS sets no ceiling. It's there so a runaway (a stuck workflow, a flood of website chats) can't charge the business all day; a business that needs more raises it.
 
 - **What counts.** Everything its AI did since midnight in the business's own time zone, priced as it's charged from the live rate card: Ask HandsFreeOS (everyone's questions, and its reading ahead), the AI teammate, workflow AI steps, **Describe**, website scans, **Try it** and add-ons. It's the same pricing `private.ai_spend_today` does for every page that shows it. Speech (talking out loud, call transcripts) isn't counted.
 - **When it's checked.** Before each model call, so the last call of the day can go a little over.
 - **The AI teammate** may use at most its share of the limit: 60% unless its **Limits** say otherwise ("The AI teammate and website chat").
-- **When it's reached,** every AI feature pauses until midnight and says why: "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance." Ask HandsFreeOS's panel says "{business} reached its daily AI limit". Everything else in HandsFreeOS still works.
+- **When it's reached,** every AI feature pauses until midnight and says why: "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage." Ask HandsFreeOS's panel says "{business} reached its daily AI limit". Everything else in HandsFreeOS still works.
 - **A business on "Paid by the agency"** has a limit too, set the same way. Its AI is HandsFreeOS's own cost.
 
 This replaced `ASSISTANT_DAILY_TOKENS`, a single number of tokens for every business, which counted a cheap cache read the same as an expensive answer. Neither app reads it any more. If either still has it, remove it:
@@ -8374,7 +8374,7 @@ The email goes to the people named on the step, or else to the business's own ow
 An AI step writes a message, sorts a customer's reply into categories, picks a path, or writes a summary for the team. It uses Claude with the Assistant's key and model.
 
 - It writes from the knowledge base (see "How the AI uses the knowledge base" below).
-- AI steps, **Describe**, website scans and **Try it** share the business's own daily AI limit with the Assistant: $10 a day unless the business changes it on **Settings** → **Usage & balance** ("Change the daily limit" in "The Assistant: Anthropic"). Their tokens go in the `ai_usage` table, the Assistant's stay with its chats, and the limit prices the two as they're charged.
+- AI steps, **Describe**, website scans and **Try it** share the business's own daily AI limit with the Assistant: $10 a day unless the business changes it on **Settings** → **Billing & Usage** ("Change the daily limit" in "The Assistant: Anthropic"). Their tokens go in the `ai_usage` table, the Assistant's stay with its chats, and the limit prices the two as they're charged.
 - With no model on the worker, over the day's limit, or with an answer it can't use, the step takes its fallback. A written message uses the step's fallback text, a sort uses its fallback category, and an AI-picked path takes the last path. The step log says so, for example "(today’s AI limit was reached, so the fallback)".
 - When Anthropic is busy, the step is tried again like any other error. On its last try it takes the fallback instead, so a busy Anthropic never fails a run.
 - A written message with no fallback text leaves nothing to send. The text or email that uses it is then skipped, and the step log says "Skipped: no value for" and the missing detail.
@@ -8659,7 +8659,7 @@ The step log says why, for example "Skipped: they haven’t agreed to texts", "S
 The step log ends "(today’s AI limit was reached, so the fallback)" or "(the fallback)".
 
 - **No model.** The worker's `worker started` line shows `"assistant":"none"`. Give it the key ("Give the worker the key" in "The Assistant: Anthropic").
-- **The daily AI limit.** The business's AI reached the limit it set, counting the Assistant, the AI teammate, AI steps, **Describe**, scans, **Try it** and add-ons. It resets at midnight in the business's time zone. **Try it** says "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance." with the business's own amount. An owner or admin raises it there ("Change the daily limit" in "The Assistant: Anthropic").
+- **The daily AI limit.** The business's AI reached the limit it set, counting the Assistant, the AI teammate, AI steps, **Describe**, scans, **Try it** and add-ons. It resets at midnight in the business's time zone. **Try it** says "This business reached the $10 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage." with the business's own amount. An owner or admin raises it there ("Change the daily limit" in "The Assistant: Anthropic").
 - **Anthropic is busy or refuses.** The worker's log shows `AI call failed`. "When a question fails" in "The Assistant: Anthropic" explains the errors.
 
 #### A website scan found nothing
@@ -8888,7 +8888,7 @@ Do these once for HandsFreeOS, before any client uses the teammate or the websit
 
    You should see `CHAT_IP_KEY` and `TURNSTILE_SECRET_KEY` in the `NAME` column.
 
-4. **The daily AI limit.** Each business sets its own on **Settings** → **Usage & balance**, $10 a day until it does ("Change the daily limit" in "The Assistant: Anthropic"). Nothing to set on Fly.
+4. **The daily AI limit.** Each business sets its own on **Settings** → **Billing & Usage**, $10 a day until it does ("Change the daily limit" in "The Assistant: Anthropic"). Nothing to set on Fly.
 5. **A test run.** In your own business, set up a teammate in training, turn on the website chat for a site you control, and send a message from that site.
 
    You should see the teammate's draft in the inbox, and after you approve it, the reply in the chat window.
@@ -10001,7 +10001,7 @@ the usual way.
 at cost, before its registration goes to the carriers (see "Paying the carriers' fees"). The rate card still has
 their four lines (`a2p.brand.registration`, `a2p.brand.vetting`, `a2p.campaign.vetting`, `a2p.campaign.month`, at
 markup 10000, from `20261017000100_a_fee_is_a_unit.sql` and `20261017000200_texting_registration_on_the_wallet.sql`),
-but nothing charges them; **Usage & balance** doesn't list them. The nightly reconciliation leaves Twilio's
+but nothing charges them; **Billing & Usage** doesn't list them. The nightly reconciliation leaves Twilio's
 `a2p-registration-fees` category alone, so the card's charge is the only one. A `wallet.campaign_months` job left
 over from before finishes once and doesn't come back.
 
@@ -10189,7 +10189,7 @@ put a credit on its balance; Silent is gone.
 - **A business says its AI stopped:** either its balance ran out on `enforce` ("Your balance has run out, so the
   AI has paused") or it reached its own daily AI limit ("This business reached the $10 daily AI limit…"). The
   first needs a top-up; the second resets at midnight, or an owner or admin raises it on **Settings** →
-  **Usage & balance**.
+  **Billing & Usage**.
 - **The margin looks impossible (very high, or infinite):** a rate key with charges but no cost. Usually the
   provider's daily records have not arrived for those days yet — they lag by about two. The other cause is a
   carrier charge we do not price at all; the reconciler will not invent a category for it, it logs a warning
@@ -10370,29 +10370,32 @@ RCS's yearly renewal does:
 - **A year after they pay,** the worker charges $497 to the card the first payment kept, in our own Stripe
   account, and moves the paid year on. The owners and admins of the business are emailed. **Seats out** shows
   "paid through" the date, and whether it renews.
-- **The cards (since 20261027023600, the owner's call of 2026-11-08).** A business can keep several cards on its
-  plan in **Settings** → **Billing**: one default and the rest backups. The default is charged first; when it's
-  declined, the backups are tried in order, and the decline is kept on that card. The card the first payment used
-  is the default to start with. The default can't be removed; another card has to be made the default first. Only
-  someone who manages money sees or changes the cards. The phone app never shows billing.
+- **The cards (since 20261027023600, the owner's calls of 2026-11-08).** A business keeps one list of cards in
+  **Settings** → **Billing & Usage**, for its plan and its usage balance: one default and the rest backups. The
+  default pays the plan and tops up the balance. When it's declined, the backups are tried in order, for a renewal
+  and for a top-up alike, and the decline is kept on that card. The card the first payment used is the default to
+  start with; a balance that had another card keeps it as a backup, and its top-ups are charged to the default from
+  the migration on. The default can't be removed while there are other cards (make another the default first), nor
+  while a paid plan renews on it. Only someone who manages money sees or changes the cards. The phone app never
+  shows the plan; its Balance screen adds a card as the new default, and takes it off only when it's the one card.
 - **A declined payment is tried again once a day** for 14 days, each time at a random moment in the next 24
   hours. The business is emailed after each failure, and **Try my cards now** (or **Add a card and pay**) charges
   at once. The seat stays on meanwhile, and its row in **Admin** → **Founding** says so in red. Revoke it if they
   never pay; nothing turns off by itself.
 - **The failed-payment page.** From the next screen anybody in the business opens after a payment fails, the web
   app puts a page in front of the CRM: pay, add a card, or ask for more time. **Skip for now** hides it for a day
-  on that device, until 72 hours after the payment failed; then it can't be skipped. Settings → Billing stays
+  on that device, until 72 hours after the payment failed; then it can't be skipped. Settings → Billing & Usage stays
   open. Someone who can't manage money is told who can. The phone app shows "Fix this business on the web", with
   no price and no link.
 - **Asking for more time.** The business picks the day it thinks it can pay by (up to 30 days out) and can leave a
   note. That opens a support ticket. Answer it from their page in **Admin** → **Businesses** → **Plan payments**:
   **Give them until** their day (or **Another day**), or **Say no**. A yes lifts the failed-payment page and
   pauses the retries until that day, when the cards are tried again. They're emailed either way.
-- **Changing the payment date.** In **Settings** → **Billing** → **Change date**. A later date is charged now for
+- **Changing the payment date.** In **Settings** → **Billing & Usage**, **Change date** on the plan. A later date is charged now for
   the days it adds (the price × the days added ÷ the days in the period being paid: 365 for a yearly plan, 28 to 31 for a monthly one) and moves once that's
   paid. An earlier date moves at once, and the days given up come off the next payment. It can't move while a
   payment is owed.
-- **They can stop it renewing** in **Settings** → **Billing**, and start it again while the year is paid
+- **They can stop it renewing** in **Settings** → **Billing & Usage**, and start it again while the year is paid
   for. A seat that was stopped goes back on its own the hour its year is over: it shows under **Seats given
   back** as revoked, "They stopped it renewing", and the seat is free for somebody else.
 - **Each year is charged once,** however often the hourly sweep runs: the charge is keyed on the seat and the
@@ -11967,7 +11970,7 @@ Good to know:
 
 - `pnpm env:local` keeps the key, and any `ASSISTANT_MODEL` line, when it rewrites `apps/worker/.env`.
 - Never `export ANTHROPIC_API_KEY` in your shell. The API refuses to start while it can see any name that starts with `ANTHROPIC_`, and the worker would use the shell's key instead of the one in `apps/worker/.env`.
-- Each business's own daily AI limit applies here too: $10 a day unless you change it on **Settings** → **Usage & balance**. To try another model, add an `ASSISTANT_MODEL=` line the same way and restart `pnpm dev`.
+- Each business's own daily AI limit applies here too: $10 a day unless you change it on **Settings** → **Billing & Usage**. To try another model, add an `ASSISTANT_MODEL=` line the same way and restart `pnpm dev`.
 - The browser tests never call Anthropic. Their worker uses a scripted stand-in and an empty key, and the empty key wins over the one in `apps/worker/.env`.
 - After 30 days the key expires. Questions then end with "Something went wrong", and the `pnpm dev` window shows `assistant run failed` with `authentication_error`. Make a new local key and replace the line.
 

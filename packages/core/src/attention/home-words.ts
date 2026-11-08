@@ -488,7 +488,7 @@ export function attentionTargetOf(
     case 'invoice_overdue':
       return { href: `${base}/money/invoices/${item.subject.id}`, label: 'Open the invoice' };
     // The wallet's three are about the business's own balance rather than a customer, so they open the balance
-    // itself — Settings → Usage & balance on the web, the Balance screen on the phone.
+    // itself — Settings → Billing & Usage on the web, the Balance screen on the phone.
     case 'wallet_low':
     case 'wallet_empty':
     case 'wallet_card_declined':

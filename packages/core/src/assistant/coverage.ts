@@ -228,7 +228,7 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
     warning:
       'HandsFreeOS support can then see the private records you see, read-only, for 24 hours.',
   },
-  // ---- Settings → Usage & balance ----
+  // ---- Settings → Billing & Usage ----
   'wallet.set_ai_limit': {},
   'wallet.top_up': { warning: 'This charges the card on file now.' },
   'wallet.forget_card': { warning: 'Automatic top-up goes off with it.' },
@@ -297,9 +297,11 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'founding.set_renewing': {},
   'founding.claim': { warning: 'The seat is this business’s from now on.' },
-  // ---- Settings → Billing (20261027023600) ----
+  // ---- Settings → Billing & Usage: the plan's cards and payments (20261027023600) ----
   'billing.set_default_card': {},
-  'billing.remove_card': { warning: 'That card won’t be charged for the plan again.' },
+  'billing.remove_card': {
+    warning: 'That card won’t be charged for the plan or the balance again.',
+  },
   'billing.pay_now': { warning: 'This charges the plan’s cards now, the default first.' },
   'billing.change_pay_day': {
     warning:
@@ -701,7 +703,7 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
     { tool: 'manage_my_safety_contacts', field: 'action', value: 'add_outside' },
     { tool: 'manage_my_safety_contacts', field: 'action', value: 'remove' },
   ],
-  // ---- Usage & balance: the card itself is typed on the payment provider's page, which only the person does ----
+  // ---- Billing & Usage: the card itself is typed on the payment provider's page, which only the person does ----
   'usage.balance': [{ tool: 'do_wallet_top_up', field: 'amountCents' }],
   'usage.auto_top_up': [
     { tool: 'update_auto_topup', field: 'on' },
@@ -711,13 +713,13 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'usage.ai_limit': [{ tool: 'do_wallet_set_ai_limit', field: 'aiDailyLimitCents' }],
   // Buying a seat is on Stripe's page (founding.buy is on the Never list); renewing is the business's switch.
   'usage.founding': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
-  // ---- Billing: a new card is typed on Stripe's page, which only the person does ----
-  'billing.cards': [
+  // One card list for the plan and the balance (20261027023600): a new card is typed on Stripe's page, which only the
+  // person does; which one is the default, and taking one off, are the Assistant's to do too.
+  'usage.card': [
     { tool: 'do_billing_set_default_card', field: 'cardId' },
     { tool: 'do_billing_remove_card', field: 'cardId' },
   ],
-  'billing.pay_day': [{ tool: 'do_billing_change_pay_day', field: 'day' }],
-  'billing.renewing': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
+  'usage.pay_day': [{ tool: 'do_billing_change_pay_day', field: 'day' }],
   // ---- Texting & calls: the calls rows change the default number, as the screen does ----
   'texting.inbox_visibility': [{ tool: 'set_inbox_visibility', field: 'eachPersonSeesTheirOwn' }],
   'texting.number': [
@@ -1035,8 +1037,6 @@ export const SETTINGS_NEVER: Readonly<Record<string, string>> = {
   'phone.documents_mobile_data': 'a setting of the phone in their hand, set on it',
   'phone.changes': 'a setting of the phone in their hand, set on it',
   'safety.preview': 'nothing of its own to change: it shows what the check-in times set',
-  'usage.card':
-    'the card is typed on the payment provider’s own page, which only the person can do (do_wallet_forget_card takes it off)',
   'usage.prices':
     'HandsFreeOS’s own prices, to read (get_settings, area usage): nothing here is the business’s to change',
   'usage.statement':

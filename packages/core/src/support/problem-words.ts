@@ -161,11 +161,11 @@ export const DESK_PROBLEM_SECTION_WORDS = {
     if (g.limitKind === 'ai_daily')
       return `The business reached its daily AI limit, so the AI stopped ${times(g.reports)}${
         where ? ` (${where})` : ''
-      }. It starts again at midnight, or an owner raises the limit in Settings → Usage & balance.`;
+      }. It starts again at midnight, or an owner raises the limit in Settings → Billing & Usage.`;
     if (g.limitKind === 'ai_balance')
       return `The business’s balance ran out, so the AI stopped ${times(g.reports)}${
         where ? ` (${where})` : ''
-      }. It starts again after a top-up in Settings → Usage & balance.`;
+      }. It starts again after a top-up in Settings → Billing & Usage.`;
     return `${problemAreaName(g.area ?? '')} refused or warned ${times(g.reports)}${
       g.job ? ` on ${problemJobName(g.job)}` : ''
     }: usually its own limit, like a monthly connection limit. Nothing to fix in HandsFreeOS. It waits it out, or the person upgrades with ${problemAreaName(g.area ?? '')}.`;

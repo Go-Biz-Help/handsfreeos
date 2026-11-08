@@ -2023,7 +2023,7 @@ describe('the teammate’s settings and status', () => {
     expect(visits.lengths.length).toBeGreaterThan(0);
     expect(visits.lengths.every((n) => Number.isInteger(n) && n > 0)).toBe(true);
     expect(before.catalogs.pricesAllowed).toBe(false);
-    // The business's own daily AI limit (Settings → Usage & balance): $10 until it sets one.
+    // The business's own daily AI limit (Settings → Billing & Usage): $10 until it sets one.
     expect(before.catalogs.aiUsage.dailyLimitCents).toBe(1000);
     const spend = (source: 'teammate' | 'workflow', [i, o, r, w]: readonly number[]) =>
       rows(

@@ -1607,7 +1607,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take a backup card off the business’s HandsFreeOS plan, so it’s never charged again. The default card can’t be removed: make another the default first.
+         * Take a card off the business, so it’s never charged again for the plan or the balance. The default can’t be removed while there are others (make another the default first), nor while a paid plan renews on it.
          * @description Risk level 3. Requires money.manage. Emits billing.card_removed.
          */
         post: operations["command_billing_remove_card"];
@@ -1627,7 +1627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Make one of the business’s cards the default, the one its HandsFreeOS plan is charged to first. The old default becomes a backup.
+         * Make one of the business’s cards the default: the one its HandsFreeOS plan is charged to first and its usage balance refills from. The old default becomes a backup.
          * @description Risk level 2. Requires money.manage. Emits billing.default_card_changed.
          */
         post: operations["command_billing_set_default_card"];
@@ -16207,7 +16207,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep.
+         * Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep. Only the business’s one card, and not while a paid plan renews on it: with more cards, pick and remove them in Settings → Billing & Usage (billing.set_default_card, billing.remove_card).
          * @description Risk level 3. Requires money.manage. Emits wallet.card_forgotten.
          */
         post: operations["command_wallet_forget_card"];
@@ -17607,7 +17607,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Settings → Billing: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.
+         * Settings → Billing & Usage: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.
          * @description Requires money.manage.
          */
         post: operations["query_billing_get"];

@@ -181,7 +181,7 @@ function checkoutWords(c: CheckoutRow): { productName: string; description: stri
   if (c.renewal_for)
     return {
       productName: `HandsFreeOS — ${c.offer_name}: another ${period ?? 'year'}`,
-      description: `Paid through ${foundingLongDay(periodAfter(c.renewal_for, period ?? 'year'))}. This card is charged ${price} next ${period ?? 'year'}; you can stop it renewing in Settings → Billing.`,
+      description: `Paid through ${foundingLongDay(periodAfter(c.renewal_for, period ?? 'year'))}. This card is charged ${price} next ${period ?? 'year'}; you can stop it renewing in Settings → Billing & Usage.`,
     };
   // With a code, the whole deal: "14 days free, then $77.60 a month for the first 3 months, then $97 a month".
   const deal =
@@ -199,15 +199,15 @@ function checkoutWords(c: CheckoutRow): { productName: string; description: stri
     const ends = foundingLongDay(new Date(Date.now() + c.trial_days * 86_400_000).toISOString());
     return {
       productName: `HandsFreeOS — ${c.offer_name}: ${c.trial_days} days free`,
-      description: `Nothing is charged today: ${deal ?? `${c.trial_days} days free`}. This card is charged ${price} when the trial ends, on ${ends}, unless you stop it renewing first in Settings → Billing.`,
+      description: `Nothing is charged today: ${deal ?? `${c.trial_days} days free`}. This card is charged ${price} when the trial ends, on ${ends}, unless you stop it renewing first in Settings → Billing & Usage.`,
     };
   }
   if (period)
     return {
       productName: `HandsFreeOS — ${c.offer_name}: the first ${period}`,
       description: deal
-        ? `HandsFreeOS for one business: ${deal}, charged to this card; you can stop it renewing in Settings → Billing. Texts, calls and AI are billed for what you use.`
-        : `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Billing. Texts, calls and AI are billed for what you use.`,
+        ? `HandsFreeOS for one business: ${deal}, charged to this card; you can stop it renewing in Settings → Billing & Usage. Texts, calls and AI are billed for what you use.`
+        : `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Billing & Usage. Texts, calls and AI are billed for what you use.`,
     };
   return {
     productName: `HandsFreeOS — ${c.offer_name}`,
@@ -610,7 +610,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
     problem?: string;
     amountCents?: number;
   };
-  const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/billing`;
+  const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage`;
   const offer = p.offer_name ?? 'founding';
   const period = periodOf(p.billing ?? '') ?? 'year';
   const mail =

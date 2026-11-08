@@ -239,7 +239,7 @@ describe('with no signal', () => {
     expect(screen.getByText('Lone Star HVAC’s balance has run out')).toBeTruthy();
     expect(
       screen.getByText(
-        'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Usage & balance.',
+        'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Billing & Usage.',
       ),
     ).toBeTruthy();
     expect(screen.queryByTestId('assistant-notice-action')).toBeNull();

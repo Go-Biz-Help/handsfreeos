@@ -44061,7 +44061,7 @@
     "/v1/commands/wallet.forget_card": {
       "post": {
         "operationId": "command_wallet_forget_card",
-        "summary": "Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep.",
+        "summary": "Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep. Only the business’s one card, and not while a paid plan renews on it: with more cards, pick and remove them in Settings → Billing & Usage (billing.set_default_card, billing.remove_card).",
         "tags": [
           "commands"
         ],
@@ -45710,7 +45710,7 @@
     "/v1/commands/billing.set_default_card": {
       "post": {
         "operationId": "command_billing_set_default_card",
-        "summary": "Make one of the business’s cards the default, the one its HandsFreeOS plan is charged to first. The old default becomes a backup.",
+        "summary": "Make one of the business’s cards the default: the one its HandsFreeOS plan is charged to first and its usage balance refills from. The old default becomes a backup.",
         "tags": [
           "commands"
         ],
@@ -45780,7 +45780,7 @@
     "/v1/commands/billing.remove_card": {
       "post": {
         "operationId": "command_billing_remove_card",
-        "summary": "Take a backup card off the business’s HandsFreeOS plan, so it’s never charged again. The default card can’t be removed: make another the default first.",
+        "summary": "Take a card off the business, so it’s never charged again for the plan or the balance. The default can’t be removed while there are others (make another the default first), nor while a paid plan renews on it.",
         "tags": [
           "commands"
         ],
@@ -125197,7 +125197,7 @@
     "/v1/queries/billing.get": {
       "post": {
         "operationId": "query_billing_get",
-        "summary": "Settings → Billing: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.",
+        "summary": "Settings → Billing & Usage: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.",
         "tags": [
           "queries"
         ],

@@ -655,7 +655,7 @@ export function foundingRenewedEmail(input: {
   period: 'month' | 'year';
 }): EmailContent {
   const subject = `Your ${input.offer} spot is renewed for ${input.business}`;
-  const line = `We charged ${input.paid} for another ${input.period} of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing, or change its card or date, any time in Settings → Billing.`;
+  const line = `We charged ${input.paid} for another ${input.period} of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing, or change its card or date, any time in Settings → Billing & Usage.`;
   const text = `${line}\n\nSee it in Settings: ${input.link}`;
   const html = shell(
     para(escapeHtml(line)) +
@@ -681,7 +681,7 @@ export function foundingRenewalFailedEmail(input: {
   const lines = [
     `We couldn’t take the ${input.period === 'month' ? 'monthly' : 'yearly'} ${input.amount} for your founding spot: ${input.reason}`,
     'We tried your default card and every backup card. We’ll try them again once a day on our own.',
-    'Please pay it, or add another card, in Settings → Billing. If you need a little longer, you can ask for more time there. After 72 hours, HandsFreeOS stays closed until it’s paid.',
+    'Please pay it, or add another card, in Settings → Billing & Usage. If you need a little longer, you can ask for more time there. After 72 hours, HandsFreeOS stays closed until it’s paid.',
   ];
   const text = `${lines.join('\n\n')}\n\nOpen Billing: ${input.link}`;
   const html = shell(
@@ -705,11 +705,11 @@ export function planMoreTimeEmail(input: {
   const lines = input.granted
     ? [
         `Good news: you have until ${input.until} to pay for HandsFreeOS.`,
-        'HandsFreeOS is open again until then. We’ll try your cards that day, so make sure the one you want charged is your default card in Settings → Billing.',
+        'HandsFreeOS is open again until then. We’ll try your cards that day, so make sure the one you want charged is your default card in Settings → Billing & Usage.',
       ]
     : [
         'We couldn’t give you more time to pay for HandsFreeOS this time.',
-        'Please pay now, or add another card, in Settings → Billing. Reply to this email if anything has changed.',
+        'Please pay now, or add another card, in Settings → Billing & Usage. Reply to this email if anything has changed.',
       ];
   const text = `${lines.join('\n\n')}\n\nOpen Billing: ${input.link}`;
   const html = shell(
@@ -1307,7 +1307,7 @@ export function teammateLimitEmail(input: {
   const used = `${input.teammate} used its share of ${input.business}’s AI for today (${input.sharePercent}% of the daily limit), so it stopped answering.`;
   const meanwhile =
     'Until the limit resets at midnight, customers who write get your hand-off message once, and their conversations go to Needs a person.';
-  const foot = `You can change its share in Limits, or raise ${input.business}’s daily AI limit in Settings → Usage & balance. Sent once a day to the owners of ${input.business}.`;
+  const foot = `You can change its share in Limits, or raise ${input.business}’s daily AI limit in Settings → Billing & Usage. Sent once a day to the owners of ${input.business}.`;
   const text = [
     used,
     '',

@@ -732,7 +732,7 @@ describe('the $497 seat, paid by the year', () => {
       run(foundingSetRenewing, { workspaceId: wsId, renewing: false }, owner),
     );
     expect(e.rule).toBe('founding_not_yearly');
-    expect(e.message).toContain('Settings → Usage & balance');
+    expect(e.message).toContain('Settings → Billing & Usage');
   });
 
   it('is a gift when staff give it: nothing is left on the plan to charge', async () => {

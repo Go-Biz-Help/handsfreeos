@@ -1205,7 +1205,7 @@ function BalancePanel({ env }: { env: PanelEnv }) {
         do about it: with a card on file and automatic top-up on, it fixes itself. An empty balance
         or a declined card always shows. See{' '}
         <Link href={`/app/w/${env.workspaceId}/settings/usage`} className={linkCls}>
-          Usage &amp; balance
+          Billing &amp; Usage
         </Link>
         .
       </Note>

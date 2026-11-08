@@ -547,7 +547,7 @@ describe('the AI builder', () => {
       expect(res.json()).toMatchObject({
         error: {
           rule: 'budget_reached',
-          message: `This business reached the ${money(limitCents)} daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.`,
+          message: `This business reached the ${money(limitCents)} daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage.`,
         },
       });
       expect(model.requests.length).toBe(asked);

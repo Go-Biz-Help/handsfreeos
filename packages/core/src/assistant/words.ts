@@ -57,7 +57,7 @@ const NOTICES: Record<Exclude<AssistantNoticeCode, 'stopped'>, NoticeCopy> = {
     icon: 'limit',
     tone: 'warning',
     title: (ws) => `${ws} reached its daily AI limit`,
-    sub: 'The AI pauses until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+    sub: 'The AI pauses until midnight. An owner or admin can raise the limit in Settings → Billing & Usage.',
     action: null,
   },
   // Unlike the daily limit, nothing waits for midnight: a top-up and the next question goes through.
@@ -65,7 +65,7 @@ const NOTICES: Record<Exclude<AssistantNoticeCode, 'stopped'>, NoticeCopy> = {
     icon: 'limit',
     tone: 'warning',
     title: (ws) => `${ws}’s balance has run out`,
-    sub: 'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Usage & balance.',
+    sub: 'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Billing & Usage.',
     action: null,
   },
   busy: {

@@ -121,7 +121,7 @@ describe('problem reports', () => {
     await showDesk(<Problems />, () => answers);
     const limit = await screen.findByTestId('problems-limit-ai_daily');
     expect(limit).toHaveTextContent(has('Lone Star HVAC · Daily AI limit'));
-    expect(limit).toHaveTextContent(has('Settings → Usage & balance'));
+    expect(limit).toHaveTextContent(has('Settings → Billing & Usage'));
     expect(screen.getByTestId('problems-fix-linkedin-checkup')).toHaveTextContent(
       has('Not read: Experience.'),
     );

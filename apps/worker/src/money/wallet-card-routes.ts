@@ -8,7 +8,7 @@
  *
  * - **No `sessionRef`**: the provider's customer for this business is made or found, a card page is started on
  *   it, and the page's address comes back for the browser to go to. The wallet is marked as waiting for a card
- *   in the same breath, so both Settings → Usage & balance and the phone's Balance say so while they are away.
+ *   in the same breath, so both Settings → Billing & Usage and the phone's Balance say so while they are away.
  * - **With a `sessionRef`**: the session is read **back from the provider** — never trusted from the address
  *   bar — and what it ended with is attached to the customer and written down by `wallet.record_card`. The
  *   session carries the business that opened it, and one opened by another business is refused: its id is in
@@ -166,7 +166,7 @@ export function registerWalletCardRoutes(app: FastifyInstance, deps: HttpDeps): 
         throw HfosError.rule(
           'wallet_card_other_business',
           409,
-          'That card page wasn’t opened from this business, so no card was added. Press Add a card under Card on file in Settings → Usage & balance to start again.',
+          'That card page wasn’t opened from this business, so no card was added. Press Add a card under Cards in Settings → Billing & Usage to start again.',
         );
       if (!ended.sourceToken) return { stage: 'cancelled' as const };
 

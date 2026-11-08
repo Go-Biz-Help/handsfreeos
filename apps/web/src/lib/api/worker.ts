@@ -176,7 +176,7 @@ export type PlanCardAnswer =
 
 /**
  * Adding a card to the business's HandsFreeOS plan (20261027023600; whoever manages money, the worker checks), from
- * Settings → Billing or the failed-payment page. Called twice, as `walletCard` is: once for Stripe's page, and once
+ * Settings → Billing & Usage or the failed-payment page. Called twice, as `walletCard` is: once for Stripe's page, and once
  * with the session they came back on. Where they come back to is built by the worker from `from`, never named here.
  */
 export function planCard(input: {
@@ -184,7 +184,7 @@ export function planCard(input: {
   sessionRef?: string;
   makeDefault?: boolean;
   payNow?: boolean;
-  from?: 'billing' | 'payment';
+  from?: 'usage' | 'payment';
 }): Promise<PlanCardAnswer> {
   return workerPost('/v1/plan/card', input);
 }

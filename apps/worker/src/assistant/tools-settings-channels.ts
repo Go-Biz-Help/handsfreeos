@@ -214,7 +214,7 @@ function routingFrom(args: Args, status: PhoneStatus | null) {
 // ---------- the business number ----------
 
 /**
- * What a number costs a month, as Settings → Usage & balance prices it, read as the person: null when their role may
+ * What a number costs a month, as Settings → Billing & Usage prices it, read as the person: null when their role may
  * not see prices, and then the card says only that it costs money every month.
  */
 async function numberMonthly(

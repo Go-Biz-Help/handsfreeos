@@ -1215,8 +1215,8 @@ describe('the renewal emails', () => {
       period: 'month',
     });
     expect(refused.text).toContain('the monthly $97');
-    // Backups were tried, they'll be tried again daily, and the fix is on Settings → Billing (20261027023600).
+    // Backups were tried, they'll be tried again daily, and the fix is on Settings → Billing & Usage (20261027023600).
     expect(refused.text).toContain('once a day');
-    expect(refused.text).toContain('Settings → Billing');
+    expect(refused.text).toContain('Settings → Billing & Usage');
   });
 });

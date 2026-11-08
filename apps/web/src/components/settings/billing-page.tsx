@@ -20,7 +20,7 @@ import { Input } from '@/components/ui/input';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 import type { Ok } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
-import { settingAttrs } from './setting-anchor';
+import { SETTING_TARGET, SettingAnchor, settingAttrs } from './setting-anchor';
 
 type Billing = Ok<'/v1/queries/billing.get'>;
 type BillingCard = Billing['cards'][number];
@@ -75,32 +75,23 @@ function Section({
 }
 
 /**
- * Settings → Billing (20261027023600, the owner's call of 2026-11-08): the business's HandsFreeOS plan. A payment that
- * didn't go through sits on top with its ways out; then the plan and its next payment, with Change date; then the
- * cards, the default first and the backups in the order they're tried; and last, stopping it renewing.
- *
- * Texts, calls and AI stay on Usage & balance: that's the balance, this is the plan.
+ * The plan's half of Settings → Billing & Usage (20261027023600, the owner's calls of 2026-11-08: 5a one list of cards,
+ * 6b all on this page): a payment that didn't go through on top, with its ways out; then the plan, its next payment
+ * with Change date, and stopping it renewing. Nothing at all for a business with no plan paid by card. The cards are
+ * `CardsSection`, further down the page, because they pay the balance too.
  */
-export function BillingPage({ workspaceId, billing }: { workspaceId: string; billing: Billing }) {
+export function PlanSections({ workspaceId, billing }: { workspaceId: string; billing: Billing }) {
   const router = useRouter();
-  const returning = usePlanCardReturn({ workspaceId, from: 'billing' });
-
-  if (!billing.billed)
-    return (
-      <Card className="px-[22px] py-5" data-testid="billing-none">
-        <p className="text-[13px] text-text-2">{W.noPlan}</p>
-      </Card>
-    );
-
+  if (!billing.billed) return null;
   return (
-    <div className="flex flex-col gap-5" data-testid="billing-page">
+    <>
       {billing.owed ? (
         <Section title={W.owedTitle} tone="danger" testId="billing-owed-card">
           <div className="mt-3">
             <OwedPanel
               workspaceId={workspaceId}
               owed={billing.owed}
-              from="billing"
+              from="usage"
               hasCards={billing.cards.length > 0}
               onPaid={() => router.refresh()}
             />
@@ -108,24 +99,97 @@ export function BillingPage({ workspaceId, billing }: { workspaceId: string; bil
         </Section>
       ) : null}
       <PlanSection workspaceId={workspaceId} billing={billing} />
-      <CardsSection workspaceId={workspaceId} billing={billing} returning={returning} />
-      <RenewingSection workspaceId={workspaceId} billing={billing} />
-    </div>
+    </>
   );
 }
 
-/** The plan, its next payment and its date, with Change date. */
+/**
+ * The plan: what it costs, its next payment and its date with Change date, and stopping it renewing. Keeps the
+ * `founding` id, which older emails link to.
+ */
 function PlanSection({ workspaceId, billing }: { workspaceId: string; billing: Billing }) {
+  const router = useRouter();
   const [changing, setChanging] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, start] = useTransition();
   const change = billing.payDayChange;
+  const until = billing.trialEndsAt ?? billing.paidThrough;
+  const setRenewing = (renewing: boolean) =>
+    start(async () => {
+      setError(null);
+      try {
+        unwrap(
+          await apiBrowser().POST('/v1/commands/founding.set_renewing', {
+            body: { workspaceId, renewing },
+          }),
+        );
+        setStopping(false);
+        router.refresh();
+      } catch (e) {
+        setError(errorMessage(e));
+      }
+    });
   return (
-    <Section
-      title={billing.offerName ?? F.title}
-      description={F.price(billing.priceCents, billing.plan)}
-      setting="billing.pay_day"
-      testId="billing-plan"
-      action={
-        billing.payDayBounds ? (
+    <Card id="founding" className={cn('px-[22px] py-5', SETTING_TARGET)} data-testid="billing-plan">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold leading-[1.3] tracking-[-0.005em]">
+            {billing.offerName ?? F.title}
+          </h2>
+          <p className="mt-1 max-w-[460px] text-[13px] text-text-2">
+            {F.price(billing.priceCents, billing.plan)}
+          </p>
+        </div>
+        {billing.renewing ? (
+          <Button
+            variant="ghost"
+            onClick={() => setStopping(true)}
+            disabled={busy}
+            data-testid="billing-stop"
+          >
+            {F.stop}
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            onClick={() => setRenewing(true)}
+            disabled={busy}
+            data-testid="billing-keep"
+          >
+            {F.keep}
+          </Button>
+        )}
+      </div>
+      <SettingAnchor
+        setting="usage.pay_day"
+        className="mt-4 flex flex-wrap items-center justify-between gap-3"
+      >
+        <div className="flex min-w-0 flex-col gap-1 text-[13px]">
+          {billing.paidThrough ? (
+            <p data-testid="billing-next-payment">
+              {billing.trialEndsAt
+                ? billing.renewing
+                  ? F.trial(billing.trialEndsAt, billing.nextChargeCents)
+                  : F.trialStopped(billing.trialEndsAt)
+                : billing.renewing
+                  ? W.payDayLine(billing.paidThrough, billing.nextChargeCents)
+                  : F.stopped(billing.paidThrough)}
+            </p>
+          ) : null}
+          {billing.payDayCreditCents > 0 && billing.renewing ? (
+            <p className="text-text-2">{W.payDayCredit(billing.payDayCreditCents)}</p>
+          ) : null}
+          {change?.problem ? (
+            <p className="text-danger-text" data-testid="billing-pay-day-problem">
+              {W.payDayFailed(change.problem)}
+            </p>
+          ) : change?.to ? (
+            <p className="text-text-2">{W.payDayCharging}</p>
+          ) : null}
+          <p className="text-text-3">{billing.renewing ? W.renewingBlurb : W.stoppedBlurb}</p>
+        </div>
+        {billing.payDayBounds ? (
           <Button
             variant="secondary"
             onClick={() => setChanging(true)}
@@ -133,32 +197,9 @@ function PlanSection({ workspaceId, billing }: { workspaceId: string; billing: B
           >
             {W.payDayChange}
           </Button>
-        ) : null
-      }
-    >
-      <div className="mt-4 flex flex-col gap-1 text-[13px]">
-        {billing.paidThrough ? (
-          <p data-testid="billing-next-payment">
-            {billing.trialEndsAt
-              ? billing.renewing
-                ? F.trial(billing.trialEndsAt, billing.nextChargeCents)
-                : F.trialStopped(billing.trialEndsAt)
-              : billing.renewing
-                ? W.payDayLine(billing.paidThrough, billing.nextChargeCents)
-                : F.stopped(billing.paidThrough)}
-          </p>
         ) : null}
-        {billing.payDayCreditCents > 0 && billing.renewing ? (
-          <p className="text-text-2">{W.payDayCredit(billing.payDayCreditCents)}</p>
-        ) : null}
-        {change?.problem ? (
-          <p className="text-danger-text" data-testid="billing-pay-day-problem">
-            {W.payDayFailed(change.problem)}
-          </p>
-        ) : change?.to ? (
-          <p className="text-text-2">{W.payDayCharging}</p>
-        ) : null}
-      </div>
+      </SettingAnchor>
+      {error && !stopping ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}
       {billing.payDayBounds ? (
         <PayDayDialog
           workspaceId={workspaceId}
@@ -168,7 +209,27 @@ function PlanSection({ workspaceId, billing }: { workspaceId: string; billing: B
           onClose={() => setChanging(false)}
         />
       ) : null}
-    </Section>
+      <Dialog open={stopping} onOpenChange={(o) => (o ? null : setStopping(false))}>
+        <DialogContent
+          title={F.stopTitle}
+          description={until ? F.stopDescription(until) : undefined}
+        >
+          {error ? <p className="mt-3 text-[13px] text-danger-text">{error}</p> : null}
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setStopping(false)}>
+              {F.cancel}
+            </Button>
+            <Button
+              onClick={() => setRenewing(false)}
+              disabled={busy}
+              data-testid="billing-stop-confirm"
+            >
+              {busy ? F.stopping : F.stopConfirm}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
 
@@ -318,24 +379,21 @@ function PayDayDialog({
   );
 }
 
-/** The cards: the default first, then the backups in the order they're tried. */
-function CardsSection({
-  workspaceId,
-  billing,
-  returning,
-}: {
-  workspaceId: string;
-  billing: Billing;
-  returning: boolean;
-}) {
+/**
+ * The business's cards (the owner's 5a): one list pays the plan and tops up the balance. The default first, then the
+ * backups in the order they're tried. Adding one is Stripe's own page, and coming back from it is handled here, for
+ * the owed card's Add a card and pay too.
+ */
+export function CardsSection({ workspaceId, billing }: { workspaceId: string; billing: Billing }) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [removing, setRemoving] = useState<BillingCard | null>(null);
+  const returning = usePlanCardReturn({ workspaceId, from: 'usage' });
 
   const add = () =>
     start(async () => {
       try {
-        await goAddCard({ workspaceId, from: 'billing' });
+        await goAddCard({ workspaceId, from: 'usage' });
       } catch (e) {
         toast.error(errorMessage(e));
       }
@@ -370,12 +428,14 @@ function CardsSection({
       }
     });
 
+  // The default comes off only as the business's one card, with no paid plan renewing on it (the server says so too).
+  const lastRemovable = billing.cards.length === 1 && !(billing.billed && billing.renewing);
   let backup = 0;
   return (
     <Section
       title={W.cardsTitle}
       description={W.cardsBlurb}
-      setting="billing.cards"
+      setting="usage.card"
       testId="billing-cards"
       action={
         <Button onClick={add} disabled={busy || returning} data-testid="billing-add-card">
@@ -384,7 +444,9 @@ function CardsSection({
       }
     >
       {billing.cards.length === 0 ? (
-        <p className="mt-4 text-[13px] text-text-2">{W.noCards}</p>
+        <p className="mt-4 text-[13px] text-text-2">
+          {billing.billed && billing.renewing ? W.noCardsPlan : W.noCards}
+        </p>
       ) : (
         <ul className="mt-4 flex flex-col">
           {billing.cards.map((card) => {
@@ -411,17 +473,19 @@ function CardsSection({
                     </div>
                   ) : null}
                 </div>
-                {card.isDefault ? null : (
+                {card.isDefault && !lastRemovable ? null : (
                   <div className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => makeDefault(card)}
-                      disabled={busy}
-                      data-testid="billing-card-default"
-                    >
-                      {W.makeDefault}
-                    </Button>
+                    {card.isDefault ? null : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => makeDefault(card)}
+                        disabled={busy}
+                        data-testid="billing-card-default"
+                      >
+                        {W.makeDefault}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="ghost"
@@ -440,7 +504,10 @@ function CardsSection({
       )}
       <Dialog open={removing !== null} onOpenChange={(o) => (o ? null : setRemoving(null))}>
         {removing ? (
-          <DialogContent title={W.removeTitle(planCardName(removing))} description={W.removeBody}>
+          <DialogContent
+            title={W.removeTitle(planCardName(removing))}
+            description={removing.isDefault ? W.removeLastBody : W.removeBody}
+          >
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setRemoving(null)}>
                 {F.cancel}
@@ -456,81 +523,6 @@ function CardsSection({
             </div>
           </DialogContent>
         ) : null}
-      </Dialog>
-    </Section>
-  );
-}
-
-/** Stopping the plan renewing, or starting it again while it's paid for. */
-function RenewingSection({ workspaceId, billing }: { workspaceId: string; billing: Billing }) {
-  const router = useRouter();
-  const [asking, setAsking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, start] = useTransition();
-  const setRenewing = (renewing: boolean) =>
-    start(async () => {
-      setError(null);
-      try {
-        unwrap(
-          await apiBrowser().POST('/v1/commands/founding.set_renewing', {
-            body: { workspaceId, renewing },
-          }),
-        );
-        setAsking(false);
-        router.refresh();
-      } catch (e) {
-        setError(errorMessage(e));
-      }
-    });
-  const until = billing.trialEndsAt ?? billing.paidThrough;
-  return (
-    <Section
-      title={W.stopTitle}
-      description={billing.renewing ? W.renewingBlurb : W.stoppedBlurb}
-      setting="billing.renewing"
-      testId="billing-renewing"
-      action={
-        billing.renewing ? (
-          <Button
-            variant="secondary"
-            onClick={() => setAsking(true)}
-            disabled={busy}
-            data-testid="billing-stop"
-          >
-            {F.stop}
-          </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            onClick={() => setRenewing(true)}
-            disabled={busy}
-            data-testid="billing-keep"
-          >
-            {F.keep}
-          </Button>
-        )
-      }
-    >
-      {error && !asking ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}
-      <Dialog open={asking} onOpenChange={(o) => (o ? null : setAsking(false))}>
-        <DialogContent
-          title={F.stopTitle}
-          description={until ? F.stopDescription(until) : undefined}
-        >
-          {error ? <p className="mt-3 text-[13px] text-danger-text">{error}</p> : null}
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setAsking(false)}>
-              {F.cancel}
-            </Button>
-            <Button
-              onClick={() => setRenewing(false)}
-              disabled={busy}
-              data-testid="billing-stop-confirm"
-            >
-              {busy ? F.stopping : F.stopConfirm}
-            </Button>
-          </div>
-        </DialogContent>
       </Dialog>
     </Section>
   );

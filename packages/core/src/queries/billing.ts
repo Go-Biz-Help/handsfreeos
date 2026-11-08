@@ -3,7 +3,7 @@
  *
  * - `billing.status` is what **everyone** in the business may know: whether a payment failed, and whether they can
  *   fix it. The failed-payment page reads it on every screen, on the web and the phone.
- * - `billing.get` is Settings → Billing: the plan, its next payment, its cards and what's owed. For whoever manages
+ * - `billing.get` is Settings → Billing & Usage: the plan, its next payment, its cards and what's owed. For whoever manages
  *   money; the cards themselves are hidden from everyone else by the database.
  * - `billing.pay_day_quote` is what moving the payment day would cost or give back, before anybody presses.
  * - `platform.billing.business` is the same for staff, on a business's page in Admin, with its requests for more time.
@@ -160,7 +160,7 @@ export const billingStatus = defineQuery({
 export const billingGet = defineQuery({
   name: 'billing.get',
   description:
-    'Settings → Billing: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.',
+    'Settings → Billing & Usage: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.',
   input: BillingGetInput,
   output: BillingGetOutput,
   permission: 'money.manage',
