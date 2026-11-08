@@ -1,16 +1,18 @@
 {
   "area": "settings-business",
   "title": "Settings: the business, branded domain, pipelines, tags, fields, relationships, Deleted bin, usage, action center and automations",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-08",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/businesses.tsx": "7ec6af7d1307",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/usage.tsx": "013e227c7287",
     "apps/mobile/src/bin/calls.ts": "e1814b870b95",
+    "apps/mobile/src/components/billing/fix-on-web.tsx": "5f8501ee1a12",
     "apps/mobile/src/settings/settings-search.tsx": "34bff2d13179",
     "apps/mobile/src/settings/use-setting-flash.ts": "0f25e4c68164",
     "apps/web/src/app/app/w/[workspaceId]/settings/action-center/page.tsx": "91724f234d7e",
     "apps/web/src/app/app/w/[workspaceId]/settings/automations/page.tsx": "038fe6087347",
+    "apps/web/src/app/app/w/[workspaceId]/settings/billing/page.tsx": "760f1944e311",
     "apps/web/src/app/app/w/[workspaceId]/settings/deleted-bin/page.tsx": "3954f8a08025",
     "apps/web/src/app/app/w/[workspaceId]/settings/fields/page.tsx": "4996c7668d90",
     "apps/web/src/app/app/w/[workspaceId]/settings/layout.tsx": "5c8afb82b7fc",
@@ -20,7 +22,11 @@
     "apps/web/src/app/app/w/[workspaceId]/settings/tags/page.tsx": "cb53a156c454",
     "apps/web/src/app/app/w/[workspaceId]/settings/usage/page.tsx": "1a7b1b92ba4d",
     "apps/web/src/app/app/w/[workspaceId]/settings/workspace/page.tsx": "d9d4ba2f5c51",
+    "apps/web/src/app/payment/[workspaceId]/page.tsx": "69c8d793ff8b",
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
+    "apps/web/src/components/billing/billing-bits.tsx": "71828bda0251",
+    "apps/web/src/components/billing/payment-guard.tsx": "15c606790b6d",
+    "apps/web/src/components/billing/payment-wall.tsx": "1c6605cb569f",
     "apps/web/src/components/bin/delete-dialog.tsx": "45a1e5064d40",
     "apps/web/src/components/bin/deleted-bin.tsx": "ac059400cae4",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
@@ -33,10 +39,11 @@
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
     "apps/web/src/components/settings/automations/automations-page.tsx": "57d10fa29ef1",
     "apps/web/src/components/settings/automations/panels.tsx": "83c2cb9123cf",
+    "apps/web/src/components/settings/billing-page.tsx": "5c0a37d1a3b5",
     "apps/web/src/components/settings/branded-domain-card.tsx": "d6e2b0af323b",
     "apps/web/src/components/settings/delete-workspace.tsx": "fe6ed95a9d1f",
     "apps/web/src/components/settings/fields-settings.tsx": "60503c06ceb7",
-    "apps/web/src/components/settings/founding-plan-card.tsx": "0b8f2f5baa92",
+    "apps/web/src/components/settings/founding-plan-card.tsx": "8fc249805465",
     "apps/web/src/components/settings/getting-started-switch.tsx": "77bfcc286007",
     "apps/web/src/components/settings/google-section.tsx": "8e40854795d2",
     "apps/web/src/components/settings/industry-picker.tsx": "3f2b1832961c",
@@ -50,7 +57,7 @@
     "apps/web/src/components/settings/pipelines-editor.tsx": "332254d6099e",
     "apps/web/src/components/settings/profile-form.tsx": "f5a3211463b6",
     "apps/web/src/components/settings/relationships-settings.tsx": "b69c03f6ad96",
-    "apps/web/src/components/settings/settings-nav.tsx": "3aaea6a1f0d6",
+    "apps/web/src/components/settings/settings-nav.tsx": "383800e555ac",
     "apps/web/src/components/settings/settings-search.tsx": "31c3fc65ff90",
     "apps/web/src/components/settings/usage-page.tsx": "c358a2a0393b",
     "apps/web/src/components/settings/workspace-form.tsx": "0a3aedbc116c",
@@ -1474,34 +1481,6 @@
       "by": "rows readable; no file given"
     },
     {
-      "path": "Usage → Founding plan: price, renews / trial / stopped / refused",
-      "kind": "see",
-      "file": "apps/web/src/components/settings/founding-plan-card.tsx:67",
-      "covered": "yes",
-      "by": "read_founding_mine"
-    },
-    {
-      "path": "Usage → Founding plan: Pay with another card",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/founding-plan-card.tsx:93",
-      "covered": "person",
-      "by": "card payment on Stripe’s page (founding.pay_renewal NEVER); settings_help usage hands it over"
-    },
-    {
-      "path": "Usage → Founding plan: Stop renewing + dialog",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/founding-plan-card.tsx:100",
-      "covered": "yes",
-      "by": "do_founding_set_renewing false"
-    },
-    {
-      "path": "Usage → Founding plan: Keep renewing",
-      "kind": "do",
-      "file": "apps/web/src/components/settings/founding-plan-card.tsx:112",
-      "covered": "yes",
-      "by": "do_founding_set_renewing true"
-    },
-    {
       "path": "Action center → old link",
       "kind": "see",
       "file": "apps/web/src/app/app/w/[workspaceId]/settings/action-center/page.tsx:1",
@@ -2165,6 +2144,153 @@
       "file": "apps/mobile/src/bin/calls.ts:1",
       "covered": "yes",
       "by": "move_to_bin"
+    },
+    {
+      "path": "Usage → Founding plan: price, renews / trial / stopped, payment didn’t go through",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/founding-plan-card.tsx:44",
+      "covered": "yes",
+      "by": "read_founding_mine; get_settings billing"
+    },
+    {
+      "path": "Usage → Founding plan: Open Billing",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/founding-plan-card.tsx:34",
+      "covered": "yes",
+      "by": "settings_help billing says where it is"
+    },
+    {
+      "path": "Billing → no plan billed by card",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/billing-page.tsx:90",
+      "covered": "yes",
+      "by": "get_settings billing (billed false)"
+    },
+    {
+      "path": "Billing → Your payment didn’t go through: amount, day, why, next try, more time given",
+      "kind": "see",
+      "file": "apps/web/src/components/billing/billing-bits.tsx:256",
+      "covered": "yes",
+      "by": "get_settings billing owed / read_billing_status"
+    },
+    {
+      "path": "Billing → Try my cards now",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/billing-bits.tsx:277",
+      "covered": "yes",
+      "by": "do_billing_pay_now"
+    },
+    {
+      "path": "Billing → Add a card and pay",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/billing-bits.tsx:285",
+      "covered": "person",
+      "by": "a card typed on Stripe’s page; settings_help billing hands it over"
+    },
+    {
+      "path": "Billing → Ask for more time: date, note, Send request",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/billing-bits.tsx:165",
+      "covered": "yes",
+      "by": "do_billing_ask_more_time"
+    },
+    {
+      "path": "Billing → more time asked, waiting / declined",
+      "kind": "see",
+      "file": "apps/web/src/components/billing/billing-bits.tsx:269",
+      "covered": "yes",
+      "by": "get_settings billing owed.timeRequest"
+    },
+    {
+      "path": "Billing → Your plan: price, next payment and date, credit, date change charging or refused",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/billing-page.tsx:141",
+      "covered": "yes",
+      "by": "get_settings billing"
+    },
+    {
+      "path": "Billing → Change date: pick a day, what it costs or saves, confirm",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/billing-page.tsx:285",
+      "covered": "yes",
+      "by": "read_billing_pay_day_quote; do_billing_change_pay_day"
+    },
+    {
+      "path": "Billing → Cards: default, backups in order, expiry, declined line",
+      "kind": "see",
+      "file": "apps/web/src/components/settings/billing-page.tsx:397",
+      "covered": "yes",
+      "by": "get_settings billing cards"
+    },
+    {
+      "path": "Billing → Add a card",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/billing-page.tsx:381",
+      "covered": "person",
+      "by": "a card typed on Stripe’s page; settings_help billing hands it over"
+    },
+    {
+      "path": "Billing → Make default",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/billing-page.tsx:421",
+      "covered": "yes",
+      "by": "do_billing_set_default_card"
+    },
+    {
+      "path": "Billing → Remove + dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/billing-page.tsx:430",
+      "covered": "yes",
+      "by": "do_billing_remove_card"
+    },
+    {
+      "path": "Billing → Stop renewing + dialog",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/billing-page.tsx:498",
+      "covered": "yes",
+      "by": "do_founding_set_renewing false"
+    },
+    {
+      "path": "Billing → Keep it renewing",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/billing-page.tsx:507",
+      "covered": "yes",
+      "by": "do_founding_set_renewing true"
+    },
+    {
+      "path": "Failed-payment page → what’s owed and the ways out (as Billing)",
+      "kind": "see",
+      "file": "apps/web/src/components/billing/payment-wall.tsx:50",
+      "covered": "yes",
+      "by": "read_billing_status; the Billing tools"
+    },
+    {
+      "path": "Failed-payment page → who to ask, for someone who can’t fix it",
+      "kind": "see",
+      "file": "apps/web/src/components/billing/payment-wall.tsx:65",
+      "covered": "yes",
+      "by": "read_billing_status askWho"
+    },
+    {
+      "path": "Failed-payment page → Skip for now / can’t skip after 72 hours",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/payment-wall.tsx:80",
+      "covered": "never",
+      "by": "skipping is this device’s own, kept in the browser"
+    },
+    {
+      "path": "Failed-payment page → another business to open",
+      "kind": "do",
+      "file": "apps/web/src/components/billing/payment-wall.tsx:86",
+      "covered": "yes",
+      "by": "the Assistant works in the business it’s asked in"
+    },
+    {
+      "path": "Phone fix-on-the-web screen → words, Skip for now, Check again, Open another business",
+      "kind": "do",
+      "file": "apps/mobile/src/components/billing/fix-on-web.tsx:99",
+      "covered": "never",
+      "by": "the phone’s own screen in front of the business; nothing to change from the Assistant"
     }
   ],
   "gaps": [

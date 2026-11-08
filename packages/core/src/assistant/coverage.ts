@@ -297,6 +297,17 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   },
   'founding.set_renewing': {},
   'founding.claim': { warning: 'The seat is this business’s from now on.' },
+  // ---- Settings → Billing (20261027023600) ----
+  'billing.set_default_card': {},
+  'billing.remove_card': { warning: 'That card won’t be charged for the plan again.' },
+  'billing.pay_now': { warning: 'This charges the plan’s cards now, the default first.' },
+  'billing.change_pay_day': {
+    warning:
+      'A later date charges the default card now for the days it adds; an earlier one takes them off the next payment.',
+    about:
+      'Read billing.pay_day_quote for the day first, and say what it costs or saves on the card before asking.',
+  },
+  'billing.ask_more_time': {},
   // ---- Settings → AI teammate ----
   'ai_teammate.restore': {},
   'teammate_instruction.create': {},
@@ -401,6 +412,10 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
       'A free seat goes on their business at once. A paid one is held for them, and its claim link shows on this card once, after you confirm: copy it into an email to them.',
   },
   'founding.decline': {},
+  'billing.answer_more_time': {
+    warning:
+      'A yes lifts their failed-payment page and pauses the retries until that day; a no tells them to pay now.',
+  },
   'founding.give': { warning: 'Their business is on the founding plan at once, with its credit.' },
   'founding.revoke': { warning: 'The seat is free for somebody else at once.' },
   'founding.restore': { warning: 'The seat goes back on their business at once.' },
@@ -498,7 +513,6 @@ export const NEVER_FOR_THE_ASSISTANT: Readonly<Record<string, string>> = {
     'the phone saying where it is during a check-in with Share where I am on, which only the phone in the person’s hand knows',
   'founding.buy': 'paying on Stripe’s page, which only the person can do',
   'founding.start_checkout': 'paying on Stripe’s page, which only the person can do',
-  'founding.pay_renewal': 'paying on Stripe’s page, which only the person can do',
   'rcs_request.submit': 'paying on Stripe’s page, which only the person can do',
   'rcs_request.pay_renewal': 'paying on Stripe’s page, which only the person can do',
   'texting_fee.pay': 'paying on Stripe’s page, which only the person can do',
@@ -697,6 +711,13 @@ export const SETTING_TOOLS: Readonly<Record<string, readonly SettingWay[]>> = {
   'usage.ai_limit': [{ tool: 'do_wallet_set_ai_limit', field: 'aiDailyLimitCents' }],
   // Buying a seat is on Stripe's page (founding.buy is on the Never list); renewing is the business's switch.
   'usage.founding': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
+  // ---- Billing: a new card is typed on Stripe's page, which only the person does ----
+  'billing.cards': [
+    { tool: 'do_billing_set_default_card', field: 'cardId' },
+    { tool: 'do_billing_remove_card', field: 'cardId' },
+  ],
+  'billing.pay_day': [{ tool: 'do_billing_change_pay_day', field: 'day' }],
+  'billing.renewing': [{ tool: 'do_founding_set_renewing', field: 'renewing' }],
   // ---- Texting & calls: the calls rows change the default number, as the screen does ----
   'texting.inbox_visibility': [{ tool: 'set_inbox_visibility', field: 'eachPersonSeesTheirOwn' }],
   'texting.number': [

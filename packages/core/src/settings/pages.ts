@@ -56,6 +56,9 @@ export const SETTINGS_GROUPS = [
       // Named apart from Payments, and kept in another group, on purpose: Payments is the business's own customers
       // paying *them*, and this is what the business pays HandsFreeOS. Two things, two names.
       { key: 'usage', path: '/usage', label: 'Usage & balance', needs: 'money.manage' },
+      // The plan itself (20261027023600): its cards, its payment date, and a payment that didn't go through. Beside
+      // Usage & balance because both are what the business pays HandsFreeOS.
+      { key: 'billing', path: '/billing', label: 'Billing', needs: 'money.manage' },
     ],
   },
   {

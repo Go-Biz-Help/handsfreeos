@@ -2,6 +2,7 @@ import { can, managesAnAgency } from '@hfos/core';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { ViewAsBanner } from '@/components/admin/view-as-banner';
+import { PaymentGuard } from '@/components/billing/payment-guard';
 import { ForgetStaleView, TeammateViewBanner } from '@/components/view-as/teammate-view-banner';
 import { ExtensionSignInPrompt } from '@/components/account/extension-sign-in-prompt';
 import { AssistantPanel } from '@/components/assistant/assistant-panel';
@@ -141,6 +142,11 @@ export default async function WorkspaceLayout({
                       />
                     </MenuProvider>
                     <CallOverlays />
+                    {/* A plan payment that didn't go through puts the failed-payment page in front of every screen
+                        (20261027023600): the business's own people only. */}
+                    {!viewingAs && !teammateView ? (
+                      <PaymentGuard workspaceId={workspaceId} />
+                    ) : null}
                     {/* Signing in to the browser extension with this person's email: pick the number it shows. */}
                     <ExtensionSignInPrompt />
                     {/* The demo player, for HandsFreeOS staff in a business of their own, or the founder in one they've

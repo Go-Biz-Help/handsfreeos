@@ -37,7 +37,7 @@
     "apps/web/src/app/admin/affiliates/[affiliateId]/page.tsx": "c996910962e3",
     "apps/web/src/app/admin/affiliates/page.tsx": "d8d88fccd537",
     "apps/web/src/app/admin/assistant/page.tsx": "6c0985292497",
-    "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx": "9b6cf423558b",
+    "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx": "7d2db948c122",
     "apps/web/src/app/admin/businesses/page.tsx": "d1b8573cbbe2",
     "apps/web/src/app/admin/demo/page.tsx": "dc160e3f12f4",
     "apps/web/src/app/admin/founding/page.tsx": "ea28a617d8af",
@@ -82,6 +82,7 @@
     "apps/web/src/components/admin/own-business-block.tsx": "163229a079ed",
     "apps/web/src/components/admin/partner-payouts-block.tsx": "8998c2ca87eb",
     "apps/web/src/components/admin/phone-model-block.tsx": "d921a7f10bde",
+    "apps/web/src/components/admin/plan-billing-block.tsx": "4a3644a58a86",
     "apps/web/src/components/admin/problem-reports.tsx": "8b5e82405ba2",
     "apps/web/src/components/admin/rates-table.tsx": "f0fe4af5db43",
     "apps/web/src/components/admin/registration-review-panel.tsx": "094e7e0a7a42",
@@ -3165,6 +3166,27 @@
       "file": "apps/web/src/app/founding/[token]/page.tsx:131",
       "covered": "never",
       "by": "founding.claim_preview is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Business page → Plan payments → owed, cards, more time given",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/plan-billing-block.tsx:25",
+      "covered": "yes",
+      "by": "read_platform_billing_business"
+    },
+    {
+      "path": "Business page → Plan payments → request: who, when, pay by, note, ticket",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/plan-billing-block.tsx:65",
+      "covered": "yes",
+      "by": "read_platform_billing_business requests"
+    },
+    {
+      "path": "Business page → Plan payments → Give them until (their day or another), Say no",
+      "kind": "do",
+      "file": "apps/web/src/components/admin/plan-billing-block.tsx:79",
+      "covered": "yes",
+      "by": "do_billing_answer_more_time"
     }
   ],
   "gaps": [

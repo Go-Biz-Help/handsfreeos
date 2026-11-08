@@ -1517,6 +1517,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/billing.answer_more_time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Staff: give a business the more time it asked for to pay its HandsFreeOS plan (its own day, or another), or say no. Granted, the failed-payment page goes away and its cards are tried again on that day. Staff only.
+         * @description Risk level 3. Requires platform.founding.manage. Emits billing.more_time_answered.
+         */
+        post: operations["command_billing_answer_more_time"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/billing.ask_more_time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask HandsFreeOS for more time to pay a plan payment that didn’t go through, with the day the business thinks it can pay by (up to 30 days out). Opens a support ticket; staff answer it case by case.
+         * @description Risk level 2. Requires money.manage. Emits support_ticket.opened, billing.more_time_asked.
+         */
+        post: operations["command_billing_ask_more_time"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/billing.change_pay_day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move the day the business’s HandsFreeOS plan is paid. A later day costs the days it adds, charged now to its cards; an earlier day takes the days given up off the next payment. Ask billing.pay_day_quote first to see what it costs.
+         * @description Risk level 3. Requires money.manage. Emits billing.pay_day_moved, billing.pay_day_change_requested.
+         */
+        post: operations["command_billing_change_pay_day"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/billing.pay_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try the business’s cards again now for the HandsFreeOS payment that didn’t go through: the default first, then each backup. The worker charges them; ask billing.status for the answer.
+         * @description Risk level 3. Requires money.manage. Emits billing.pay_now_requested.
+         */
+        post: operations["command_billing_pay_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/billing.remove_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a backup card off the business’s HandsFreeOS plan, so it’s never charged again. The default card can’t be removed: make another the default first.
+         * @description Risk level 3. Requires money.manage. Emits billing.card_removed.
+         */
+        post: operations["command_billing_remove_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/billing.set_default_card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make one of the business’s cards the default, the one its HandsFreeOS plan is charged to first. The old default becomes a backup.
+         * @description Risk level 2. Requires money.manage. Emits billing.default_card_changed.
+         */
+        post: operations["command_billing_set_default_card"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/bin.empty": {
         parameters: {
             query?: never;
@@ -17477,6 +17597,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/billing.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Settings → Billing: the business’s HandsFreeOS plan, when and what its next payment is, its cards (default first, then backups in the order they’re tried) and anything owed.
+         * @description Requires money.manage.
+         */
+        post: operations["query_billing_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/billing.pay_day_quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What moving the business’s HandsFreeOS payment day to a given day would do: later costs the days it adds, paid now; earlier takes the days given up off the next payment. Says why when it can’t move there.
+         * @description Requires money.manage.
+         */
+        post: operations["query_billing_pay_day_quote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/billing.status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whether this business owes HandsFreeOS a plan payment that didn’t go through, and whether you can fix it. The failed-payment page reads it.
+         * @description Requires workspace.read.
+         */
+        post: operations["query_billing_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/bin.list": {
         parameters: {
             query?: never;
@@ -21091,6 +21271,26 @@ export interface paths {
          * @description Requires platform.health.read.
          */
         post: operations["query_platform_assistant_ledger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/platform.billing.business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One business’s plan billing, for its page in Admin: anything owed, how many cards it has, and its requests for more time to pay. Staff only.
+         * @description Requires platform.founding.manage.
+         */
+        post: operations["query_platform_billing_business"];
         delete?: never;
         options?: never;
         head?: never;
@@ -27665,6 +27865,222 @@ export interface operations {
                                 waitlist: boolean;
                             };
                         };
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_billing_answer_more_time: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    grant: boolean;
+                    /** Format: uuid */
+                    requestId: string;
+                    /** Format: date */
+                    until?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        grantedUntil: string | null;
+                        /** Format: uuid */
+                        requestId: string;
+                        /** @enum {string} */
+                        status: "granted" | "declined";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_billing_ask_more_time: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default  */
+                    note?: string;
+                    /** Format: date */
+                    payBy: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        requestId: string;
+                        ticketNumber: number;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_billing_change_pay_day: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    day: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cents: number;
+                        /** @enum {string} */
+                        kind: "later" | "earlier";
+                        /** Format: date-time */
+                        newPaidThrough: string;
+                        /** @enum {string} */
+                        outcome: "moved" | "charging";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_billing_pay_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        outcome: "trying" | "nothing_owed";
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_billing_remove_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cardId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cardId: string;
+                        changed: boolean;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_billing_set_default_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    cardId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        cardId: string;
+                        changed: boolean;
                         /** Format: uuid */
                         workspaceId: string;
                     };
@@ -67109,6 +67525,183 @@ export interface operations {
             };
         };
     };
+    query_billing_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        billed: boolean;
+                        cards: {
+                            /** Format: date-time */
+                            addedAt: string;
+                            brand: string | null;
+                            expiryMonth: number | null;
+                            expiryYear: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            isDefault: boolean;
+                            last4: string | null;
+                            lastDecline: string | null;
+                            lastDeclinedAt: string | null;
+                        }[];
+                        nextChargeCents: number;
+                        offerName: string | null;
+                        owed: {
+                            amountCents: number;
+                            /** Format: date-time */
+                            failedAt: string;
+                            lastTriedAt: string | null;
+                            moreTimeUntil: string | null;
+                            nextRetryAt: string | null;
+                            problem: string | null;
+                            timeRequest: {
+                                answeredAt: string | null;
+                                /** Format: date-time */
+                                askedAt: string;
+                                grantedUntil: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date */
+                                payBy: string;
+                                /** @enum {string} */
+                                status: "pending" | "granted" | "declined";
+                            } | null;
+                        } | null;
+                        paidThrough: string | null;
+                        payDayBounds: {
+                            /** Format: date */
+                            earliest: string;
+                            /** Format: date */
+                            latest: string;
+                        } | null;
+                        payDayChange: {
+                            cents: number | null;
+                            problem: string | null;
+                            to: string | null;
+                        } | null;
+                        payDayCreditCents: number;
+                        plan: ("founding_free" | "founding_lifetime" | "monthly") | null;
+                        priceCents: number;
+                        renewing: boolean;
+                        trialEndsAt: string | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
+    query_billing_pay_day_quote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    day: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cents: number;
+                        days: number;
+                        earliest: string | null;
+                        /** @enum {string} */
+                        kind: "later" | "earlier" | "same";
+                        latest: string | null;
+                        newPaidThrough: string | null;
+                        nextChargeCents: number;
+                        refusal: string | null;
+                        refusalMessage: string | null;
+                    };
+                };
+            };
+        };
+    };
+    query_billing_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        askWho: string | null;
+                        canManage: boolean;
+                        owed: {
+                            amountCents: number;
+                            /** Format: date-time */
+                            failedAt: string;
+                            lastTriedAt: string | null;
+                            moreTimeUntil: string | null;
+                            nextRetryAt: string | null;
+                            problem: string | null;
+                            timeRequest: {
+                                answeredAt: string | null;
+                                /** Format: date-time */
+                                askedAt: string;
+                                grantedUntil: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date */
+                                payBy: string;
+                                /** @enum {string} */
+                                status: "pending" | "granted" | "declined";
+                            } | null;
+                        } | null;
+                        /** Format: uuid */
+                        workspaceId: string;
+                    };
+                };
+            };
+        };
+    };
     query_bin_list: {
         parameters: {
             query?: never;
@@ -83145,6 +83738,73 @@ export interface operations {
                             unmarked: number;
                             yes: number;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_platform_billing_business: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cardCount: number;
+                        owed: {
+                            amountCents: number;
+                            /** Format: date-time */
+                            failedAt: string;
+                            lastTriedAt: string | null;
+                            moreTimeUntil: string | null;
+                            nextRetryAt: string | null;
+                            problem: string | null;
+                            timeRequest: {
+                                answeredAt: string | null;
+                                /** Format: date-time */
+                                askedAt: string;
+                                grantedUntil: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** Format: date */
+                                payBy: string;
+                                /** @enum {string} */
+                                status: "pending" | "granted" | "declined";
+                            } | null;
+                        } | null;
+                        requests: {
+                            answeredAt: string | null;
+                            /** Format: date-time */
+                            askedAt: string;
+                            askedBy: string | null;
+                            grantedUntil: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            note: string;
+                            /** Format: date */
+                            payBy: string;
+                            /** @enum {string} */
+                            status: "pending" | "granted" | "declined";
+                            ticketNumber: number | null;
+                        }[];
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };

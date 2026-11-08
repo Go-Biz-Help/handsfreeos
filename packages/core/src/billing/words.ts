@@ -75,6 +75,9 @@ export const BILLING_WORDS = {
 
   // ---- stopping ----
   stopTitle: 'Stop renewing',
+  renewingBlurb:
+    'Stop your plan renewing any time. It stays on until the end of what you’ve paid for, and nothing more is charged.',
+  stoppedBlurb: 'Your plan is set not to renew. Keep it renewing to stay on it, at the same price.',
 
   // ---- money owed ----
   owedTitle: 'Your payment didn’t go through',
@@ -102,9 +105,8 @@ export const BILLING_WORDS = {
       ? `Only someone who manages billing can fix this. Ask ${who} to update the card in Settings → Billing.`
       : 'Only someone who manages billing can fix this. Ask an owner of this business to update the card in Settings → Billing.',
   skip: 'Skip for now',
+  otherBusiness: 'Open another business',
   skipUntil: (iso: string) => `Skipped until ${day(iso)}.`,
-  phoneFix:
-    'Open HandsFreeOS on the web to pay, add a card, or ask for more time. Billing can only be changed there.',
 
   // ---- more time ----
   moreTime: 'Ask for more time',
@@ -147,6 +149,35 @@ export const BILLING_WORDS = {
       .filter((l) => l !== null)
       .join('\n'),
 
-  // ---- the phone ----
+  // ---- Admin, a business's page ----
+  adminTitle: 'Plan payments',
+  adminNothingOwed: 'Nothing owed on their plan.',
+  adminOwed: (cents: number, iso: string, why: string | null) =>
+    `${money(cents)} owed since ${day(iso)}${why ? `: ${why.replace(/\.$/, '')}` : ''}.`,
+  adminCards: (n: number) => (n === 1 ? '1 card on their plan.' : `${n} cards on their plan.`),
+  adminAsked: (payBy: string, who: string | null, asked: string) =>
+    `${who ?? 'Someone'} asked on ${day(asked)} for more time, to pay by ${day(payBy)}.`,
+  adminTicket: (n: number) => `Ticket #${n}`,
+  adminNoNote: 'No note.',
+  adminGranted: (iso: string) => `Given until ${day(iso)}.`,
+  adminDeclined: 'Said no.',
+  adminGrant: (iso: string) => `Give them until ${day(iso)}`,
+  adminOtherDay: 'Another day',
+  adminDecline: 'Say no',
+  adminUntil: 'Give them until',
+
+  // ---- Usage & balance ----
+  openBilling: 'Open Billing',
+  usagePointer: 'Cards, the payment date and stopping it renewing are in Settings → Billing.',
+
+  // ---- the phone: never a price, a payment or a link (the stores' rule), only that it's fixed on the web ----
   phoneBilling: 'Billing is changed on the web: Settings → Billing.',
+  phoneBlockTitle: 'Fix this business on the web',
+  phoneBlockBody: (business: string) =>
+    `${business} needs its HandsFreeOS account sorted out before it opens again. Sign in to HandsFreeOS on a computer, and it shows you what to do.`,
+  phoneBlockAsk: (business: string, who: string | null) =>
+    `${business} needs its HandsFreeOS account sorted out before it opens again. Ask ${who ?? 'an owner of this business'} to sign in on a computer and fix it.`,
+  phoneSkipHint: (lockedAt: string) => `You can skip this a day at a time until ${day(lockedAt)}.`,
+  phoneLocked: 'It stays closed on the phone until it’s fixed on the web.',
+  phoneCheck: 'Check again',
 } as const;

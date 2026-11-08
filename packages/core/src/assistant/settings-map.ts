@@ -44,6 +44,7 @@ export const SETTINGS_AREAS = [
   'products',
   'partners',
   'usage',
+  'billing',
   'action_center',
   'ai_teammate',
   'knowledge',
@@ -930,7 +931,7 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
     what: 'what the business pays HandsFreeOS: the balance texts, calls, phone numbers and AI replies come out of, top-ups, the daily AI limit, the card and the statement',
     where: ['Settings', 'Usage & balance'],
     onScreen: [
-      'Your founding spot, while the business has one: what it costs, when it renews (or stops), Stop renewing or Keep it renewing, and Pay with another card after a renewal is refused',
+      'Your founding spot, while the business has one: what it costs and when it renews, with a link to Settings → Billing, where its cards and payment date are',
       'Your balance: Top up now',
       'Automatic top-up',
       'Daily AI limit: the most the AI may spend in a day, and what it has spent today',
@@ -945,7 +946,6 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
       'top up the balance now, from the card on file',
       'the daily AI limit',
       'take the card off, which turns automatic top-up off',
-      'whether the founding plan renews',
     ],
     handovers: [
       {
@@ -957,14 +957,44 @@ const AREAS: Record<SettingsArea, AreaEntry> = {
           'Type the card on the payment provider’s page; you come back here when it is done.',
         ],
       },
+    ],
+  },
+  billing: {
+    label: 'Billing',
+    what: 'the business’s HandsFreeOS plan: its next payment and payment date, the cards it’s paid with (a default and backups tried in turn), stopping it renewing, and a payment that didn’t go through',
+    where: ['Settings', 'Billing'],
+    onScreen: [
+      'Your payment didn’t go through, while one is owed: what and when, why the bank said no, the next automatic try, Try my cards now, Add a card and pay, and Ask for more time (or where that request is)',
+      'Your plan: what it costs, the next payment and its date, Change date, and Stop renewing or Keep it renewing',
+      'Cards: the default first, then the backups in the order they’re tried, each with Make default and Remove, a decline kept on its card, and Add a card',
+    ],
+    path: '/settings/billing',
+    permission: 'money.manage',
+    canChange: [
+      'make another card the default, or take a backup card off (never the default)',
+      'move the payment date: later is charged now for the days it adds, earlier takes them off the next payment',
+      'try the cards again now, when a payment is owed',
+      'ask HandsFreeOS for more time to pay, with the day they think they can pay by',
+      'whether the plan renews',
+    ],
+    handovers: [
       {
-        what: 'pay a refused founding plan renewal with another card',
-        why: 'it is paid on Stripe’s page, which only you can do',
+        what: 'add a card to the plan, or pay with a new card',
+        why: 'the card is typed on Stripe’s own page, which only you can do',
         steps: [
-          'Open Settings → Usage & balance.',
-          'On Your founding spot, press Pay with another card, then pay on Stripe’s page.',
+          'Open Settings → Billing.',
+          'Under Cards, press Add a card. To use it for a payment that didn’t go through, press Add a card and pay at the top instead.',
+          'Type the card on Stripe’s page; you come back here when it is done.',
         ],
       },
+    ],
+    howTo: [
+      'Change which card is charged first: Settings → Billing → Cards → Make default on that card.',
+      'Change the payment date: Settings → Billing → Your plan → Change date, pick the day, and confirm what it costs or saves.',
+    ],
+    notHere: [
+      'pausing the plan: it can stop renewing, but not pause',
+      'billing on the phone app: billing is changed on the web',
     ],
   },
   // The key stays action_center: Settings → Action Center became Settings → Automations, and its settings with it.

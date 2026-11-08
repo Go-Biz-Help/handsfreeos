@@ -368,6 +368,26 @@ const ROWS = {
     anchor: 'founding',
   },
 
+  // ---- Billing (20261027023600) ----
+  'billing.cards': {
+    page: 'billing',
+    section: null,
+    label: 'Cards',
+    words: ['default card', 'backup card', 'add a card', 'change card', 'payment method'],
+  },
+  'billing.pay_day': {
+    page: 'billing',
+    section: null,
+    label: 'Payment date',
+    words: ['billing date', 'renewal date', 'change payment date', 'due date'],
+  },
+  'billing.renewing': {
+    page: 'billing',
+    section: null,
+    label: 'Renewing',
+    words: ['cancel', 'stop renewing', 'cancel subscription', 'keep renewing'],
+  },
+
   // ---- Texting & calls ----
   'texting.inbox_visibility': {
     page: 'texting',
@@ -922,7 +942,16 @@ const PAGE_WORDS: Readonly<Record<SettingsPageKey, readonly string[]>> = {
   permissions: ['roles', 'access', 'who can do what', 'admins'],
   automations: ['action center', 'reminders', 'follow-ups', 'alerts', 'notifications'],
   safety: ['check-ins', 'lone worker', 'safety person'],
-  usage: ['balance', 'wallet', 'top up', 'billing', 'paying handsfreeos'],
+  usage: ['balance', 'wallet', 'top up', 'paying handsfreeos'],
+  billing: [
+    'subscription',
+    'plan',
+    'payment method',
+    'credit card',
+    'backup card',
+    'billing date',
+    'failed payment',
+  ],
   texting: ['sms', 'texts', 'phone number', 'calls', 'voicemail', 'a2p', '10dlc'],
   email: ['mailbox', 'gmail', 'outlook mail', 'email address'],
   website_chat: ['chat widget', 'live chat', 'chat button'],

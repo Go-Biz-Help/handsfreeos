@@ -2,6 +2,7 @@ import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 
 import { AskFromNotification } from '@/components/changes/ask-from-notification';
+import { FixOnTheWeb, usePaymentBlock } from '@/components/billing/fix-on-web';
 import { OpenBusiness } from '@/components/copy/copy-gate';
 import { FinishOnTheWeb } from '@/components/founding/finish-on-web';
 import { DemoPlayerBar } from '@/components/demo/demo-player';
@@ -40,6 +41,9 @@ function Business({ userId }: { userId: string }) {
   React.useEffect(() => {
     if (business) rememberOpened(userId, business.id);
   }, [business, userId]);
+  // A plan payment that didn't go through (20261027023600): fixed on the web, never here. Support viewing as a
+  // teammate sees the business as it is.
+  const payment = usePaymentBlock(workspaceId, !!business && !business.needsPlan && !view);
 
   const value = React.useMemo(() => {
     if (!me || !business) return null;
@@ -68,6 +72,14 @@ function Business({ userId }: { userId: string }) {
     <BusinessProvider value={value}>
       {unpaid ? (
         <FinishOnTheWeb />
+      ) : payment.block ? (
+        <FixOnTheWeb
+          block={payment.block}
+          askWho={payment.status?.askWho ?? null}
+          canManage={payment.status?.canManage ?? false}
+          onSkip={payment.skip}
+          onCheck={payment.check}
+        />
       ) : (
         <>
           <OpenBusiness businessId={business.id} />

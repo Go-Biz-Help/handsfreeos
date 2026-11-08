@@ -125,7 +125,7 @@ export function CheckoutStatus({
           {s.renewal
             ? `Paid: your ${s.offerName} spot is renewed through ${longDay(s.paidThrough)}. This card is the one charged next ${period}.`
             : s.billing === 'yearly' || s.billing === 'monthly'
-              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Usage & balance.`
+              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Billing.`
               : `Paid, and it’s yours: ${s.offerName}, for as long as HandsFreeOS exists.`}{' '}
           A receipt is on its way from Stripe.
         </Note>
@@ -174,7 +174,7 @@ export function CheckoutStatus({
         <Note tone="warn" testId={`checkout-${s.status}`} icon={clock}>
           {s.problem || 'This payment didn’t go through, and nothing was taken.'}{' '}
           {s.renewal
-            ? 'Press Pay with another card in Settings → Usage & balance to try again. Your spot stays on meanwhile.'
+            ? 'Add another card in Settings → Billing to try again. Your spot stays on meanwhile.'
             : s.selfServe
               ? 'Pick your spot again to start over.'
               : 'Open your claim link again to start over.'}

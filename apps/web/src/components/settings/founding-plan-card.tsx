@@ -1,17 +1,11 @@
-'use client';
-import { FOUNDING_PLAN_WORDS, type FoundingPlanFacts } from '@hfos/core';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { BILLING_WORDS, FOUNDING_PLAN_WORDS, type FoundingPlanFacts } from '@hfos/core';
+import { ButtonLink } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
 
 /**
- * A founding spot paid by the month or the year (20261027009500, 20261027012700), on Settings → Usage & balance: when
- * it renews and for how much (less a code's discount, or after its free trial), stopping it renewing (or starting it
- * again while it is paid for), and paying a refused renewal with another card. That payment is a founding checkout like the first one, so it goes through the same page
- * that waits for Stripe and sends them there.
+ * A founding spot paid by the month or the year (20261027009500, 20261027012700), on Settings → Usage & balance: what
+ * it costs and when it renews, and the way to Settings → Billing, where its cards, its payment date, stopping it and a
+ * payment that didn't go through are (20261027023600). It keeps the `founding` id, which older emails link to.
  */
 export function FoundingPlanCard({
   workspaceId,
@@ -20,60 +14,31 @@ export function FoundingPlanCard({
   workspaceId: string;
   plan: FoundingPlanFacts & { readonly paidThrough: string };
 }) {
-  const router = useRouter();
-  const [asking, setAsking] = useState(false);
-  const [busy, setBusy] = useState<'stop' | 'keep' | 'pay' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const setRenewing = async (renewing: boolean) => {
-    setBusy(renewing ? 'keep' : 'stop');
-    setError(null);
-    try {
-      unwrap(
-        await apiBrowser().POST('/v1/commands/founding.set_renewing', {
-          body: { workspaceId, renewing },
-        }),
-      );
-      setAsking(false);
-      router.refresh();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const pay = async () => {
-    setBusy('pay');
-    setError(null);
-    try {
-      const started = unwrap(
-        await apiBrowser().POST('/v1/commands/founding.pay_renewal', { body: { workspaceId } }),
-      );
-      // The page that waits for Stripe's address, then sends them there; and the one they come back to.
-      router.push(`/founding/checkout/${started.checkoutId}`);
-    } catch (e) {
-      setError(errorMessage(e));
-      setBusy(null);
-    }
-  };
-
   const refused = plan.renewalProblem !== null;
   // A code's discount comes off while it lasts (20261027014300).
   const nextCents = plan.nextChargeCents ?? plan.priceCents;
-
   return (
     <Card id="founding" className="px-[22px] py-5" data-testid="usage-founding">
-      <h2 className="text-lg font-semibold leading-[1.3] tracking-[-0.005em]">
-        {FOUNDING_PLAN_WORDS.title}
-      </h2>
-      <p className="mt-1 max-w-[460px] text-[13px] text-text-2">
-        {FOUNDING_PLAN_WORDS.price(plan.priceCents, plan.plan)}
-      </p>
-
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold leading-[1.3] tracking-[-0.005em]">
+            {FOUNDING_PLAN_WORDS.title}
+          </h2>
+          <p className="mt-1 max-w-[460px] text-[13px] text-text-2">
+            {FOUNDING_PLAN_WORDS.price(plan.priceCents, plan.plan)}
+          </p>
+        </div>
+        <ButtonLink
+          href={`/app/w/${workspaceId}/settings/billing`}
+          variant={refused ? 'primary' : 'secondary'}
+          data-testid="usage-founding-billing"
+        >
+          {BILLING_WORDS.openBilling}
+        </ButtonLink>
+      </div>
       {refused ? (
         <p className="mt-4 rounded-[10px] bg-danger-soft px-3.5 py-3 text-[13px] text-danger-text">
-          {FOUNDING_PLAN_WORDS.refused(plan.renewalProblem ?? '')}
+          {BILLING_WORDS.owedTitle}. {BILLING_WORDS.usagePointer}
         </p>
       ) : (
         <p className="mt-4 text-[13px]" data-testid="usage-founding-line">
@@ -82,62 +47,11 @@ export function FoundingPlanCard({
               ? FOUNDING_PLAN_WORDS.trial(plan.trialEndsAt, nextCents)
               : FOUNDING_PLAN_WORDS.trialStopped(plan.trialEndsAt)
             : plan.renewing
-              ? FOUNDING_PLAN_WORDS.renews(plan.paidThrough, nextCents)
-              : FOUNDING_PLAN_WORDS.stopped(plan.paidThrough)}
+              ? BILLING_WORDS.payDayLine(plan.paidThrough, nextCents)
+              : FOUNDING_PLAN_WORDS.stopped(plan.paidThrough)}{' '}
+          <span className="text-text-2">{BILLING_WORDS.usagePointer}</span>
         </p>
       )}
-      {error && !asking ? <p className="mt-2 text-[13px] text-danger-text">{error}</p> : null}
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        {refused ? (
-          <Button onClick={pay} disabled={busy !== null} data-testid="usage-founding-pay">
-            {busy === 'pay' ? FOUNDING_PLAN_WORDS.paying : FOUNDING_PLAN_WORDS.pay}
-          </Button>
-        ) : null}
-        {plan.renewing ? (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              setError(null);
-              setAsking(true);
-            }}
-            disabled={busy !== null}
-            data-testid="usage-founding-stop"
-          >
-            {FOUNDING_PLAN_WORDS.stop}
-          </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            onClick={() => setRenewing(true)}
-            disabled={busy !== null}
-            data-testid="usage-founding-keep"
-          >
-            {FOUNDING_PLAN_WORDS.keep}
-          </Button>
-        )}
-      </div>
-
-      <Dialog open={asking} onOpenChange={(o) => (o ? null : setAsking(false))}>
-        <DialogContent
-          title={FOUNDING_PLAN_WORDS.stopTitle}
-          description={FOUNDING_PLAN_WORDS.stopDescription(plan.paidThrough)}
-        >
-          {error ? <p className="mt-3 text-[13px] text-danger-text">{error}</p> : null}
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setAsking(false)}>
-              {FOUNDING_PLAN_WORDS.cancel}
-            </Button>
-            <Button
-              onClick={() => setRenewing(false)}
-              disabled={busy !== null}
-              data-testid="usage-founding-stop-confirm"
-            >
-              {busy === 'stop' ? FOUNDING_PLAN_WORDS.stopping : FOUNDING_PLAN_WORDS.stopConfirm}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </Card>
   );
 }

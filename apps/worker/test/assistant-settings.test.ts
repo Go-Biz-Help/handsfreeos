@@ -340,17 +340,24 @@ describe('settings_help', () => {
   it('leaves only paying on the provider’s page to the person on Usage & balance: topping up and the AI limit are its to do', async () => {
     const { result } = await readTool('settings_help', 'usage', owner);
     const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
-    expect(theirs.map((t) => t.what)).toEqual([
-      'add a card, or use a different one',
-      'pay a refused founding plan renewal with another card',
-    ]);
-    expect(theirs[1]!.steps).toContain(
-      'On Your founding spot, press Pay with another card, then pay on Stripe’s page.',
-    );
+    expect(theirs.map((t) => t.what)).toEqual(['add a card, or use a different one']);
     expect(result['canChange']).toEqual(
       expect.arrayContaining([
         'top up the balance now, from the card on file',
         'the daily AI limit',
+      ]),
+    );
+  });
+
+  it('leaves only typing a card on Stripe’s page to the person on Billing (20261027023600)', async () => {
+    const { result } = await readTool('settings_help', 'billing', owner);
+    const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
+    expect(theirs.map((t) => t.what)).toEqual(['add a card to the plan, or pay with a new card']);
+    expect(theirs[0]!.steps[0]).toBe('Open Settings → Billing.');
+    expect(result['canChange']).toEqual(
+      expect.arrayContaining([
+        'try the cards again now, when a payment is owed',
+        'whether the plan renews',
       ]),
     );
   });

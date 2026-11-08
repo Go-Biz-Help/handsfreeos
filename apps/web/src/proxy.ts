@@ -13,6 +13,8 @@ const PROTECTED = [
   '/invite',
   '/chat-preview',
   '/founding',
+  // The failed-payment page (20261027023600).
+  '/payment',
   '/zoom',
   '/affiliate',
 ];

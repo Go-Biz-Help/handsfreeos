@@ -100,6 +100,11 @@ async function owedOf(
         where workspace_id = ${workspaceId}::uuid and created_at >= ${iso(p.renewal_failed_at)}::timestamptz
         order by created_at desc limit 1`,
   );
+  // The cards are only for whoever manages money (row security), so for everyone else this is null.
+  const [tried] = await rows<{ at: Date | string | null }>(
+    ctx.tx,
+    sql`select max(last_declined_at) as at from app.plan_cards where workspace_id = ${workspaceId}::uuid`,
+  );
   const moreTime =
     p.more_time_until && new Date(p.more_time_until) > new Date() ? p.more_time_until : null;
   return {
@@ -108,6 +113,7 @@ async function owedOf(
     problem: p.renewal_problem,
     nextRetryAt: moreTime ? null : iso(p.next_retry_at),
     moreTimeUntil: iso(moreTime),
+    lastTriedAt: iso(tried?.at),
     timeRequest: req
       ? {
           id: req.id,

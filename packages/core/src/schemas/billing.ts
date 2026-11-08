@@ -38,6 +38,8 @@ export const BillingOwed = z.strictObject({
   nextRetryAt: z.iso.datetime().nullable(),
   /** Staff gave the business until then. */
   moreTimeUntil: z.iso.datetime().nullable(),
+  /** When a card was last declined for it: Try my cards now waits for this to move. Null for whoever can't see cards. */
+  lastTriedAt: z.iso.datetime().nullable(),
   /** The latest request for more time made since it failed. */
   timeRequest: BillingTimeRequest.nullable(),
 });

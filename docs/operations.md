@@ -10370,11 +10370,29 @@ RCS's yearly renewal does:
 - **A year after they pay,** the worker charges $497 to the card the first payment kept, in our own Stripe
   account, and moves the paid year on. The owners and admins of the business are emailed. **Seats out** shows
   "paid through" the date, and whether it renews.
-- **A refused card is not tried again.** The business is emailed, and **Settings** → **Usage & balance** shows
-  the problem with **Pay with another card**, which opens a Stripe page for that year and keeps the new card
-  for the next one. The seat stays on meanwhile, and its row in **Admin** → **Founding** says so in red. Revoke
-  it if they never pay; nothing turns off by itself.
-- **They can stop it renewing** in **Settings** → **Usage & balance**, and start it again while the year is paid
+- **The cards (since 20261027023600, the owner's call of 2026-11-08).** A business can keep several cards on its
+  plan in **Settings** → **Billing**: one default and the rest backups. The default is charged first; when it's
+  declined, the backups are tried in order, and the decline is kept on that card. The card the first payment used
+  is the default to start with. The default can't be removed; another card has to be made the default first. Only
+  someone who manages money sees or changes the cards. The phone app never shows billing.
+- **A declined payment is tried again once a day** for 14 days, each time at a random moment in the next 24
+  hours. The business is emailed after each failure, and **Try my cards now** (or **Add a card and pay**) charges
+  at once. The seat stays on meanwhile, and its row in **Admin** → **Founding** says so in red. Revoke it if they
+  never pay; nothing turns off by itself.
+- **The failed-payment page.** From the next screen anybody in the business opens after a payment fails, the web
+  app puts a page in front of the CRM: pay, add a card, or ask for more time. **Skip for now** hides it for a day
+  on that device, until 72 hours after the payment failed; then it can't be skipped. Settings → Billing stays
+  open. Someone who can't manage money is told who can. The phone app shows "Fix this business on the web", with
+  no price and no link.
+- **Asking for more time.** The business picks the day it thinks it can pay by (up to 30 days out) and can leave a
+  note. That opens a support ticket. Answer it from their page in **Admin** → **Businesses** → **Plan payments**:
+  **Give them until** their day (or **Another day**), or **Say no**. A yes lifts the failed-payment page and
+  pauses the retries until that day, when the cards are tried again. They're emailed either way.
+- **Changing the payment date.** In **Settings** → **Billing** → **Change date**. A later date is charged now for
+  the days it adds (the price × the days added ÷ the days in the period being paid: 365 for a yearly plan, 28 to 31 for a monthly one) and moves once that's
+  paid. An earlier date moves at once, and the days given up come off the next payment. It can't move while a
+  payment is owed.
+- **They can stop it renewing** in **Settings** → **Billing**, and start it again while the year is paid
   for. A seat that was stopped goes back on its own the hour its year is over: it shows under **Seats given
   back** as revoked, "They stopped it renewing", and the seat is free for somebody else.
 - **Each year is charged once,** however often the hourly sweep runs: the charge is keyed on the seat and the
@@ -10429,8 +10447,8 @@ When somebody asks (it arrives as a support ticket from `support@handsfreeos.com
 
 1. **Check it's in time.** In **Admin** → **Businesses**, open their business. The **Founding seat** box says when
    the seat started. Count 30 days from the first payment, not from when they signed up. If it's past 30 days,
-   reply kindly that the money back has passed, and that they can stop it renewing in **Settings** → **Usage &
-   balance**.
+   reply kindly that the money back has passed, and that they can stop it renewing in **Settings** →
+   **Billing**.
 2. **Refund the payment.** In the Stripe dashboard, in **live** mode, go to **Payments** and search for the email
    address they paid with. Open their first $97 or $497 payment, press **Refund**, leave the amount as the full
    payment, pick **Requested by customer** as the reason, and press **Refund**. You should see the payment marked

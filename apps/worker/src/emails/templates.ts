@@ -655,7 +655,7 @@ export function foundingRenewedEmail(input: {
   period: 'month' | 'year';
 }): EmailContent {
   const subject = `Your ${input.offer} spot is renewed for ${input.business}`;
-  const line = `We charged ${input.paid} for another ${input.period} of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing any time in Settings → Usage & balance.`;
+  const line = `We charged ${input.paid} for another ${input.period} of HandsFreeOS at your founding price. It’s paid through ${input.until}. You can stop it renewing, or change its card or date, any time in Settings → Billing.`;
   const text = `${line}\n\nSee it in Settings: ${input.link}`;
   const html = shell(
     para(escapeHtml(line)) +
