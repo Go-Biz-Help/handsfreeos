@@ -376,3 +376,138 @@ export const LearnedWaySetRemovedOutput = z.object({
   /** The ways it changed: one already as asked is left alone. */
   changed: z.array(z.uuid()),
 });
+
+// ------------------------------------------------------------------------------------------------ the AI helper's view
+
+/*
+ * The AI helper (docs/outreach.md, decision 142; docs/socialcontent.md): when one of the extension's steps or reads
+ * doesn't go, the tab sends a view of the page (one numbered line per thing on screen, everything a person wrote
+ * hidden), the worker's AI says what it sees and one move, and the tab takes it. Each add-on asks its own question
+ * (Social Outreach's addons/outreach/helper.ts, AI Social Media Content Creator's addons/socialcontent/helper.ts); the
+ * view, the moves, what's never clicked and the answer's shape are these, kept once.
+ */
+
+/**
+ * Words on a control that takes a step or changes something: never clicked to clear the way, whatever the AI says.
+ * Close, X, Not now, Dismiss, Cancel, OK, Skip, See more and a menu's own button are what it clicks.
+ */
+export const NEVER_CLEAR =
+  /\b(like|unlike|love|care|haha|angry|react\w*|add friend|friend request|confirm|accept|connect|invite|follow|unfollow|following|send|post|publish|comment|reply|share|repost|message|delete|remove|unfriend|block|report|withdraw|decline|ignore|leave|join|cancel (request|invitation)|pay|buy|purchase|subscribe|upgrade|donate|log ?out|sign ?out|deactivate|mute|hide|save|recommend|endorse|tag|poke)\b/i;
+
+/** Whether a control's words let it be clicked to clear the way. */
+export const mayClear = (words: string) => !NEVER_CLEAR.test(words);
+
+/** The longest view sent: a few thousand tokens, so each look costs little. */
+export const HELPER_VIEW_MOST = 24_000;
+/** How "(their name)" shows in the view, for the person the step is for. */
+export const THEIR_NAME = '(their name)';
+
+/** One line of the view: `[12] button "Add Friend (their name)"`, with a link's shape after `→`. */
+const VIEW_LINE = /^\s*\[(\d{1,4})\]\s+(\S+)(?:\s+"((?:[^"\\]|\\.)*)")?(?:\s+→\s+(\S+))?/;
+
+/** A line of the view: its number, what it is, its words (the network's own, a person's hidden) and a link's shape. */
+export interface ViewLine {
+  readonly ref: number;
+  readonly kind: string;
+  readonly words: string;
+  readonly href: string | null;
+}
+
+/** The line for one element: what both ends read. Words are as the view shows them (hidden already). */
+export function viewLine(
+  depth: number,
+  ref: number,
+  kind: string,
+  words: string,
+  href?: string | null,
+): string {
+  const said = words.trim() ? ` ${JSON.stringify(words.trim().slice(0, 120))}` : '';
+  return `${'  '.repeat(Math.min(depth, 12))}[${ref}] ${kind}${said}${href ? ` → ${href}` : ''}`;
+}
+
+/** Every numbered line of a view, by its number. */
+export function viewLines(view: string): Map<number, ViewLine> {
+  const lines = new Map<number, ViewLine>();
+  for (const line of view.split('\n')) {
+    const m = VIEW_LINE.exec(line);
+    if (!m) continue;
+    let words = '';
+    try {
+      words = m[3] === undefined ? '' : (JSON.parse(`"${m[3]}"`) as string);
+    } catch {
+      words = m[3] ?? '';
+    }
+    lines.set(Number(m[1]), { ref: Number(m[1]), kind: m[2]!, words, href: m[4] ?? null });
+  }
+  return lines;
+}
+
+/** A move it took, as the next look is told and the report keeps. */
+export const HelperMoveTaken = z.object({
+  do: z.enum(HELPER_MOVES),
+  /** The element's line from the view, without its number; null for a scroll of the page, Escape or a wait. */
+  on: z.string().trim().max(200).nullable(),
+  went: z.boolean(),
+});
+export type HelperMoveTaken = z.output<typeof HelperMoveTaken>;
+
+/** Its next move: `none` once the way is clear, it has said what changed, or there's nothing more to do. */
+export const HELPER_NEXT = [...HELPER_MOVES, 'none'] as const;
+export type HelperNext = (typeof HELPER_NEXT)[number];
+
+export const HelperLookOutput = z.object({
+  verdict: z.enum(HELPER_VERDICTS),
+  said: z.string(),
+  move: z.object({
+    do: z.enum(HELPER_NEXT),
+    /** The element's number in the view: what a click or a press is on, or the box a scroll moves. */
+    ref: z.int().nullable(),
+    dir: z.enum(['up', 'down']).nullable(),
+  }),
+  /** False when the AI couldn't be asked (its limit, not set up, busy): the step is reported without it. */
+  asked: z.boolean(),
+});
+export type HelperLookOutput = z.output<typeof HelperLookOutput>;
+
+/** What the AI answers, before the check. */
+export const HelperAnswer = z.object({
+  verdict: z.enum(HELPER_VERDICTS),
+  said: z.string(),
+  move: z.object({
+    do: z.enum(HELPER_NEXT),
+    ref: z.int().nullable(),
+    dir: z.enum(['up', 'down']).nullable(),
+  }),
+});
+export type HelperAnswer = z.output<typeof HelperAnswer>;
+
+export const HELPER_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['verdict', 'said', 'move'],
+  properties: {
+    verdict: { type: 'string', enum: [...HELPER_VERDICTS] },
+    said: { type: 'string' },
+    move: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['do', 'ref', 'dir'],
+      properties: {
+        do: { type: 'string', enum: [...HELPER_NEXT] },
+        ref: { type: ['integer', 'null'] },
+        dir: { type: ['string', 'null'], enum: ['up', 'down', null] },
+      },
+    },
+  },
+};
+
+/** The longest thing it says that a report keeps. */
+export const HELPER_SAID_MOST = 400;
+
+/** Without the AI: no move, and the report says it couldn't look. */
+export const HELPER_NOT_ASKED: HelperLookOutput = {
+  verdict: 'unclear',
+  said: '',
+  move: { do: 'none', ref: null, dir: null },
+  asked: false,
+};

@@ -40,6 +40,14 @@ import {
   Users as outreachPeopleIcon,
 } from 'lucide-react';
 import { Headset as salescoachAddonIcon } from 'lucide-react';
+import {
+  BookOpen as socialcontentPlaybookIcon,
+  Lightbulb as socialcontentIdeasIcon,
+  Settings2 as socialcontentSettingsIcon,
+  Sparkles as socialcontentAddonIcon,
+  TrendingUp as socialcontentStandoutsIcon,
+  Users as socialcontentCreatorsIcon,
+} from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -256,6 +264,16 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       'call.panels': () => import('./salescoach/call-panel'),
       // Replies to suggest above a conversation's message box.
       'composer.suggestions': () => import('./salescoach/composer-suggestions'),
+    },
+  },
+  socialcontent: {
+    icon: socialcontentAddonIcon,
+    navIcons: {
+      creators: socialcontentCreatorsIcon,
+      standouts: socialcontentStandoutsIcon,
+      playbook: socialcontentPlaybookIcon,
+      ideas: socialcontentIdeasIcon,
+      gear: socialcontentSettingsIcon,
     },
   },
 };

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Builds the Chrome extension into dist/chrome: its four scripts bundled by esbuild, the panel's page and styles, the
+ * Builds the Chrome extension into dist/chrome: its five scripts bundled by esbuild, the panel's page and styles, the
  * offscreen page that reads Facebook's file, the icons, and manifest.json with the version from package.json. Load
  * dist/chrome with "Load unpacked" on chrome://extensions (README.md).
  *
@@ -73,6 +73,12 @@ const NETWORKS = [
   'https://lnkd.in/*',
 ];
 /**
+ * Instagram's video servers, for AI Social Media Content Creator's watching (src/research/watch.ts, from 0.127.0): the
+ * reading tab fetches a standout's video from them itself, and when the servers don't let the page, the background
+ * fetches it and hands it in. Nothing else is fetched there.
+ */
+const INSTAGRAM_VIDEOS = ['https://*.cdninstagram.com/*', 'https://*.fbcdn.net/*'];
+/**
  * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:
  * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).
  */
@@ -132,7 +138,14 @@ const manifest = {
     'offscreen',
     'idle',
   ],
-  host_permissions: [...FACEBOOK, ...ACCOUNTS_CENTER, ...NETWORKS, ...HFOS, ...FILES],
+  host_permissions: [
+    ...FACEBOOK,
+    ...ACCOUNTS_CENTER,
+    ...NETWORKS,
+    ...INSTAGRAM_VIDEOS,
+    ...HFOS,
+    ...FILES,
+  ],
   content_scripts: [
     { matches: [...FACEBOOK, ...ACCOUNTS_CENTER], js: ['content.js'], run_at: 'document_idle' },
   ],
@@ -146,6 +159,8 @@ const options = {
     background: 'src/background.ts',
     panel: 'src/panel/panel.ts',
     offscreen: 'src/offscreen.ts',
+    // AI Social Media Content Creator's hands, loaded only into its own reading tab (src/research/page.ts).
+    research: 'src/research/page.ts',
   },
   outdir: out,
   bundle: true,

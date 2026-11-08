@@ -67,6 +67,12 @@ describe('the manifest', () => {
     expect(manifest.permissions).toContain('scripting');
   });
 
+  it('reaches Instagram’s video servers, to watch a standout video for the content creator', () => {
+    expect(manifest.host_permissions).toEqual(
+      expect.arrayContaining(['https://*.cdninstagram.com/*', 'https://*.fbcdn.net/*']),
+    );
+  });
+
   it('asks to know when the person is away from their computer, so a read that needs the screen waits for it', () => {
     // Decision 120: chrome.idle, which shows no warning when it's installed.
     expect(manifest.permissions).toContain('idle');

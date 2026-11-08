@@ -149,3 +149,16 @@ export async function askStructured<S extends z.ZodType>(
     );
   }
 }
+
+/**
+ * What a report says when the AI wasn't asked for one of the extension's helpers (Social Outreach's, AI Social Media
+ * Content Creator's): HandsFreeOS's words, then the AI service's own when it refused. Only HandsFreeOS's own Admin
+ * reads it, and without the service's reason a report can't say what to fix.
+ */
+export function notAskedWords(e: AiAskError): string {
+  const cause = e.cause instanceof AiProviderError ? e.cause : null;
+  if (e.code !== 'provider_error' || e.retryable || !cause || cause.code === 'aborted')
+    return e.message;
+  const reason = cause.message.replace(/\s+/g, ' ').trim();
+  return reason ? `${e.message} The AI service said: ${reason}` : e.message;
+}
