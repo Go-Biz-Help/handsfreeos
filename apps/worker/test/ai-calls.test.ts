@@ -1028,7 +1028,22 @@ describe('a call to a lead (AI calls, part 3)', () => {
   const utc = (when: string) => new Date(when).getTime();
   // These numbers are Houston's: Texas calls from 9 AM, and from noon on Sundays, Central time.
   const WEDNESDAY_NOON = utc('2026-11-04T18:00:00Z');
-  const SUNDAY_10AM = utc('2026-11-08T16:00:00Z');
+  const HOUR = 3_600_000;
+  /**
+   * A Sunday, 10 AM in Houston (16:00 UTC, so in standard time), a week ahead or more: the moments the call waits for
+   * are still to come, so the worker's run after each step (on the real clock) leaves them waiting.
+   */
+  const SUNDAY_10AM = (() => {
+    const DAY = 24 * HOUR;
+    const houston = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      hour: 'numeric',
+      hourCycle: 'h23',
+    });
+    let t = Math.ceil(Date.now() / DAY) * DAY + 7 * DAY + 16 * HOUR;
+    while (new Date(t).getUTCDay() !== 0 || houston.format(t) !== '10') t += DAY;
+    return t;
+  })();
   const day = (n: number) => WEDNESDAY_NOON + n * RETRY_AFTER_MS;
 
   /** A lead who agreed to calls and texts in writing, and the workflow's call to them, queued. */
@@ -1096,23 +1111,21 @@ describe('a call to a lead (AI calls, part 3)', () => {
     // Sunday 10 AM in Houston: Texas calls from noon.
     await placeAt(dot.aiCallId, SUNDAY_10AM);
     expect((await aiCallsOf(dot.id))[0]).toMatchObject({ status: 'queued' });
-    expect(new Date((await placeJobAt(dot.aiCallId))!).toISOString()).toBe(
-      '2026-11-08T18:00:00.000Z',
-    );
+    const sundayNoon = SUNDAY_10AM + 2 * HOUR;
+    expect(await placeJobAt(dot.aiCallId)).toBe(sundayNoon);
     expect(placedTo(dot.phone)).toBeUndefined();
 
     // Weekdays only: Monday at 9 AM, Houston time.
+    const monday9am = SUNDAY_10AM + 23 * HOUR;
     await saveAutomations({ hours: { start: '08:00', end: '21:00', weekends: false } });
     try {
-      await placeAt(dot.aiCallId, utc('2026-11-08T18:00:00Z'));
-      expect(new Date((await placeJobAt(dot.aiCallId))!).toISOString()).toBe(
-        '2026-11-09T15:00:00.000Z',
-      );
+      await placeAt(dot.aiCallId, sundayNoon);
+      expect(await placeJobAt(dot.aiCallId)).toBe(monday9am);
       expect(placedTo(dot.phone)).toBeUndefined();
     } finally {
       await saveAutomations();
     }
-    await placeAt(dot.aiCallId, utc('2026-11-09T15:00:00Z'));
+    await placeAt(dot.aiCallId, monday9am);
     expect((await aiCallsOf(dot.id))[0]).toMatchObject({ status: 'calling' });
     expect(placedTo(dot.phone)).toBeDefined();
   });

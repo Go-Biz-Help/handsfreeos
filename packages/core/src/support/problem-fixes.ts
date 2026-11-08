@@ -111,6 +111,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 549,
     said: 'The post showed 15 of its comments with only Instagram’s mark for more after them, nothing to press: the comments are scrolled down to it once now.',
   },
+  {
+    area: 'facebook',
+    job: 'warm_up',
+    note: 'No post of',
+    fixedIn: '0.126.6',
+    pr: 552,
+    said: 'Their profile still showed only Facebook’s loading boxes where the posts go after the four scrolls: a loading box is waited on, in view, a little longer now while no post is drawn yet.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
