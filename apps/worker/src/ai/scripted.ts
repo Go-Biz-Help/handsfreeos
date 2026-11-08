@@ -3262,6 +3262,145 @@ export const DOCUMENT_RULES: readonly ScriptRule[] = [
   { when: /Place the fields on this document\.$/, json: (m) => scriptedPlaceFields(m) },
 ];
 
+/**
+ * AI Social Media Content Creator's niches (addons/socialcontent/niches.ts): the business's own niche from the first
+ * line of its profile, three steady similar ones, and searches made of the niche's words, so the same profile always
+ * gets the same answer.
+ */
+function scriptedSearches(niche: string): Record<string, string[]> {
+  const words = niche
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  const phrase = words.join(' ');
+  return {
+    instagram: [`#${words.join('')}`, `${phrase} tips`],
+    facebook: [`${phrase} tips`],
+    linkedin: [`${phrase} coach`, phrase],
+  };
+}
+function scriptedNiches(message: string): unknown {
+  const profile = unquote(quotedBlock(message, 'business_profile') ?? '');
+  const trade =
+    /\b(plumb|hvac|roof|clean|salon|dental|real estate|landscap|marketing|crm|software)\w*/i.exec(
+      profile,
+    )?.[0];
+  const own = trade
+    ? `${trade.charAt(0).toUpperCase()}${trade.slice(1).toLowerCase()} tips`
+    : 'Small business tips';
+  const similar = ['Small business marketing', 'Running a small business', 'Customer service tips'];
+  return {
+    own: { name: own, searches: scriptedSearches(own) },
+    similar: similar.map((name) => ({
+      name,
+      why: `People who follow ${own.toLowerCase()} also follow ${name.toLowerCase()}.`,
+      searches: scriptedSearches(name),
+    })),
+  };
+}
+
+/**
+ * Its notes (addons/socialcontent/notes.ts): one steady note for each standout asked about, a Playbook of two
+ * sections from the first standouts listed, two ideas based on the first standout, and what a video showed.
+ */
+const refsIn = (message: string, tag: string): string[] =>
+  [...message.matchAll(new RegExp(`<${tag} id="([A-Z]\\d+)">`, 'g'))].map((m) => m[1]!);
+function scriptedNotes(message: string): unknown {
+  return {
+    notes: refsIn(message, 'standout').map((post) => ({
+      post,
+      why: 'It opens with a question its viewers ask, and answers it in the first few seconds, unlike the posts around it.',
+      hook: 'A question in the first line',
+      format: 'Short how to',
+      topic: 'Common mistakes',
+      techniques: ['Open with a question', 'Give one clear tip', 'End with a call to comment'],
+      useIt: 'Answer the question your customers ask most, in the first line.',
+    })),
+  };
+}
+function scriptedPlaybook(message: string): unknown {
+  const refs = refsIn(message, 'standout');
+  return {
+    summary: 'Posts that open with a question and give one clear tip do best.',
+    sections: [
+      {
+        title: 'Hooks',
+        items: [
+          {
+            do: 'Open with the question your customers ask most.',
+            why: 'People stop for a question they have.',
+            examples: refs.slice(0, 2),
+          },
+        ],
+      },
+      {
+        title: 'Formats',
+        items: [
+          {
+            do: 'Keep it to one clear tip.',
+            why: 'One tip is easy to remember and share.',
+            examples: refs.slice(0, 1),
+          },
+        ],
+      },
+    ],
+  };
+}
+function scriptedIdeas(message: string): unknown {
+  const first = /- (S\d+) \(/.exec(message)?.[1];
+  const network =
+    /The business posts on: ([A-Za-z]+)/.exec(message)?.[1]?.toLowerCase() ?? 'instagram';
+  return {
+    ideas: [
+      {
+        title: 'The question we hear most',
+        hook: 'Here’s the question we get every week.',
+        format: 'Short how to',
+        network,
+        outline: 'Ask the question.\nAnswer it in one tip.\nAsk viewers what they’d add.',
+        why: 'Opening with a question works best in the Playbook.',
+        basedOn: first ? [first] : [],
+      },
+      {
+        title: 'One mistake to skip',
+        hook: 'Most people get this one thing wrong.',
+        format: 'Myth busted',
+        network,
+        outline: 'Name the mistake.\nShow the fix.',
+        why: 'One clear tip is easy to share.',
+        basedOn: first ? [first] : [],
+      },
+    ],
+  };
+}
+
+export const SOCIALCONTENT_RULES: readonly ScriptRule[] = [
+  { when: /Write notes on these standout posts\.$/, json: (m) => scriptedNotes(m) },
+  { when: /Write the Playbook from these notes\.$/, json: (m) => scriptedPlaybook(m) },
+  { when: /Suggest content ideas for this business\.$/, json: (m) => scriptedIdeas(m) },
+  {
+    when: /Say what you saw and heard in this video\.$/,
+    json: (m) => ({
+      hook: 'Someone asks a question to the camera.',
+      seen: 'One person talking to the camera in a kitchen, with the tip written on screen.',
+      heard: /\(nothing heard\)/.test(m)
+        ? 'Nothing is said.'
+        : 'They ask a question, then answer it in one tip.',
+      pacing: 'A cut every two seconds.',
+      why: 'It asks a question in the first second and shows the answer on screen.',
+      techniques: ['Ask a question to the camera', 'Write the tip on screen'],
+    }),
+  },
+  { when: /Suggest niches for this business\.$/, json: (message) => scriptedNiches(message) },
+  {
+    when: /Write searches for this niche\.$/,
+    json: (message) => ({
+      searches: scriptedSearches(unquote(quotedBlock(message, 'niche') ?? 'niche')),
+    }),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...FUNNEL_RULES,
   ...INDEED_RULES,
@@ -3277,6 +3416,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...LISTING_RULES,
   ...OUTREACH_RULES,
   ...SALESCOACH_RULES,
+  ...SOCIALCONTENT_RULES,
   ...DOCUMENT_RULES,
 ];
 

@@ -33,6 +33,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | Funnels in the AI teammate                   | `docs/funnels.md`, then `HANDSFREEOS_TEAMMATE_FUNNELS_IMPLEMENTATION_PLAN.md`                                     |
 | Feedback on the AI teammate's replies        | `HANDSFREEOS_AI_FEEDBACK_IMPLEMENTATION_PLAN.md`, then "How the teammate works" in `docs/operations.md`           |
 | The AI Sales Coach add-on                    | `docs/salescoach.md`, then `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`                                       |
+| The AI Social Media Content Creator add-on   | `docs/socialcontent.md`, then `HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`                                |
 | The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |
 | Partners: finding them, commissions, payouts | `HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md`, then decision 81 in `docs/outreach.md`                             |
 | Affiliates: people who sell HandsFreeOS      | `HANDSFREEOS_AFFILIATES_IMPLEMENTATION_PLAN.md`, then `apps/site/AGENTS.md` for the website's `?ref=` links       |

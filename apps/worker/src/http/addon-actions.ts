@@ -13,7 +13,10 @@ import { z } from 'zod';
 import { runAddonAction } from '../addons/actions';
 import { ADDON_WORKER_MODULES } from '../addons/modules';
 import type { AddonWorkerModule } from '../addons/types';
-import { authenticate, parseBody, type HttpDeps } from './common';
+import { authenticate, header, parseBody, type HttpDeps } from './common';
+
+/** What a request may hold, unless its action says more (the server's own limit, http/server.ts). */
+const USUAL_BODY_BYTES = 1_048_576;
 
 const Body = z.strictObject({
   workspaceId: z.uuid(),
@@ -30,15 +33,25 @@ export function registerAddonActionRoutes(
   const noSuchAction = () =>
     HfosError.notFound('That add-on can’t do that here. Refresh the page and try again.');
 
+  // The largest any action takes; each action is held to its own below.
+  const bodyLimit = Math.max(
+    USUAL_BODY_BYTES,
+    ...modules.flatMap((m) => Object.values(m.actions ?? {}).map((a) => a.bodyBytes ?? 0)),
+  );
+
   app.post<{ Params: { addonId: string; name: string } }>(
     '/v1/addons/:addonId/actions/:name',
+    { bodyLimit },
     async (req) => {
       const actor = await authenticate(deps, req);
-      const body = parseBody(Body, req.body);
       const { addonId, name } = req.params;
       const manifest = catalog.find((m) => m.id === addonId);
       const action = modules.find((m) => m.manifest.id === addonId)?.actions?.[name];
       if (!manifest || !action) throw noSuchAction();
+      const sent = Number(header(req, 'content-length') ?? 0);
+      if (sent > (action.bodyBytes ?? USUAL_BODY_BYTES))
+        throw HfosError.rule('payload_too_large', 413, 'That’s too much to send at once.');
+      const body = parseBody(Body, req.body);
       // The add-on on, the permission held and the input checked: the same door the Assistant uses.
       return runAddonAction(deps, deps.httpDb, {
         manifest,

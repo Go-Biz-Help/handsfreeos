@@ -29,10 +29,12 @@ import {
   type HelperLookOutput,
   type HelperWaysOutput,
 } from '@hfos/core/addons/outreach/helper';
-import { AiProviderError } from '@hfos/ai';
 import { LearnedWayShape } from '@hfos/core/problem-report';
 import { asWorker, rows, sql } from '@hfos/db/client';
-import { AiAskError, askStructured } from '../../ai/ask';
+import { AiAskError, askStructured, notAskedWords } from '../../ai/ask';
+
+// Kept with the worker's AI, for every add-on's helper; said here too for what reads it from here.
+export { notAskedWords };
 import type { AddonWorkerAction } from '../types';
 
 export const HELPER_LOOK_ACTION = 'outreach.helper.look';
@@ -63,15 +65,6 @@ export const helperLook: AddonWorkerAction<HelperLookInput> = {
     }
   },
 };
-
-/** What a report says when the AI wasn't asked: HandsFreeOS's words, then the AI service's own when it refused. */
-export function notAskedWords(e: AiAskError): string {
-  const cause = e.cause instanceof AiProviderError ? e.cause : null;
-  if (e.code !== 'provider_error' || e.retryable || !cause || cause.code === 'aborted')
-    return e.message;
-  const reason = cause.message.replace(/\s+/g, ' ').trim();
-  return reason ? `${e.message} The AI service said: ${reason}` : e.message;
-}
 
 export const helperWays: AddonWorkerAction<HelperWaysInput> = {
   permission: 'outreach.use',

@@ -1136,6 +1136,49 @@ whole day, as the list can't be worked out without them (`holdsTheDay` in `src/a
 and Alignable a read put off till you're away counts as the reading's turn, so the list goes next. With nothing on the
 list, the reading goes on. Nothing in HandsFreeOS changes for it.
 
+### Reading for AI Social Media Content Creator, on Instagram, Facebook and LinkedIn (0.127.0)
+
+A second add-on uses the same extension: AI Social Media Content Creator (`socialcontent`, docs/socialcontent.md)
+studies creators in the business's niche and finds the posts that did far better than the posts around them. Its
+reading lives in `src/research/`, apart from everything of Social Outreach's (decision 1 in docs/socialcontent.md):
+
+- **Only on the reading computer.** An owner or admin picks whose computer reads in the add-on's Settings. Its alarm
+  (`hfos-research`) wakes each minute and asks HandsFreeOS for the next thing to read (`socialcontent.work.next`);
+  only that person's computer gets any. It does one thing at a time, in a window of its own beside yours, and closes it
+  when nothing waits.
+- **What it reads on Instagram:** for a niche, the accounts behind its hashtag's top posts and Instagram's search for
+  its words, then up to 30 of their profiles (`socialcontent.creators.found`); a creator's profile; and a studied
+  creator's posts back 12 months (60 days past the last read on a weekly re-read), 12 at a time, saved as it goes
+  (`socialcontent.posts.save`). It reads the answers Instagram's own pages load, asked for from inside the reading tab
+  on your signed-in account (`src/research/instagram.ts`), opening each page as you would.
+- **What it reads on Facebook and LinkedIn** (`src/research/page-read.ts`): the same three things, from the pages
+  themselves, with Social Outreach's readers for each network (`readPage`, through the tab's `read` hand) and a
+  `scroll` hand to load more, as a person scrolls. For a niche, its post search's authors, then its people search
+  (Facebook's pages search); a profile; and someone's posts (a Facebook profile itself, a LinkedIn member's recent
+  activity) until they're past `since` or 3 screens bring nothing new. Reactions count as likes; neither network shows
+  views. A LinkedIn post's time comes from its activity number; a Facebook one's from what it printed. A sign-in page
+  says to sign in. LinkedIn company pages' posts come later.
+- **Watching a standout video** (Instagram's, when the business turned watching on or tried it,
+  `src/research/watch.ts`): it opens the post, asks Instagram for its video (`/api/v1/media/<id>/info/`), fetches the
+  file from Instagram's video servers only (the background fetches it when the tab can't, which is why
+  `*.cdninstagram.com` and `*.fbcdn.net` are among the host permissions), takes up to 12 frames and the first 2 minutes
+  of its sound as a small WAV, and sends them to the worker's `socialcontent.post.watch`. Nothing is shown, played or
+  kept on the computer.
+- **Its own hands in its own tab.** `research.js` (`src/research/page.ts`) is loaded only into its reading tab, by
+  Chrome's `executeScript`, and called the same way, so Social Outreach's script in the tab never hears it. It asks
+  only for the answers in `INSTAGRAM_READS`, never posts, and presses nothing: the AI helper's moves are Close,
+  Escape, a scroll or a wait.
+- **A person's pace, shared warnings.** 6 to 12 seconds between pages and 3 to 7 between answers, at most 400 of
+  them on a network a day. A warning is kept where Social Outreach keeps its own (`src/hfos/warned.ts`), so both stop
+  on that network for the day.
+- **When a read goes wrong** (`src/research/read.ts`), the AI helper looks, as it does for Social Outreach's steps
+  (decision 142): a view of the page with everything a person wrote hidden goes to the worker's
+  `socialcontent.helper.look`, which sorts what it sees and takes one move at a time to clear the way (never a sign-in,
+  a follow or a like), and the read is tried once more when it cleared something. Then a problem report goes to Admin
+  → Problem reports (addon `socialcontent`, job `read.find`, `read.profile` or `read.posts`): Instagram's answer's
+  status and the names of its parts, the page's outline and what the helper did, never a name. Signed out, or a page it
+  can't read, rests that network's reading for 30 minutes; the day's room used or a warning, till tomorrow.
+
 ### A reply with nothing to answer (0.126.2)
 
 The problem check of 4 Nov 2026 found an Instagram draft where "the AI had nothing to write". Instagram's list of chats
@@ -1870,6 +1913,10 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
   addresses, its readers, its steps, its outline. A tab's network is found by its address, never by what the tab
   says, and every save says its network (`platform`), with its links and ids checked against core's kit
   (`NETWORKS[platform].link`, `src/hfos/saves.ts`).
+- **Two add-ons, never mixed.** Social Outreach's work is everything outside `src/research/`; AI Social Media
+  Content Creator's reading is `src/research/`, calling only `socialcontent.*`, its own helper action and core's
+  problem report. They share the extension, each network's pace and its day's warnings, never each other's data, tabs
+  or asks. Research's hands (`research.js`) are never a registered content script.
 - **A network that's off runs nothing.** Its sites are the extension's from install (decision 85), but its script is
   registered only while it's on in HandsFreeOS and Chrome still lets it there (`src/networks/scripts.ts`).
   Nothing of the extension's is ever listed in `web_accessible_resources`: LinkedIn's pages look for extensions by the
@@ -2155,6 +2202,7 @@ networks Chrome lets it on, so HandsFreeOS can say what to press when an ask wai
 | `src/hfos/live.ts`                          | What it tells HandsFreeOS: this computer, the beat, the feed of steps, Start my day and Stop for today, and which computer works                                                                                                                                                                                                                                         |
 | `src/hfos/waiting.ts`                       | What needs you: the number on the icon and Chrome's pop-ups, which open Needs you in HandsFreeOS (its address and words in `src/hfos/needs-you.ts`)                                                                                                                                                                                                                      |
 | `src/tab.ts`, `src/away.ts`                 | The tab a job works in, in view or in a window of its own, and whether you're away, for a read that needs the screen (decision 120)                                                                                                                                                                                                                                      |
+| `src/research/`                             | AI Social Media Content Creator's reading (0.127.0): the runner (`run.ts`), its tab and hands there (`tab.ts`, `page.ts`), its calls (`hfos.ts`), pace, warnings, the AI helper and reports (`read.ts`), Instagram's answers and reads (`instagram.ts`, `instagram-read.ts`), Facebook's and LinkedIn's pages (`page-read.ts`) and watching a video (`watch.ts`)         |
 | `src/background.ts`                         | Opens the side panel, answers its asks, notes the steps the tabs tell it, follows your settings and your day, beats, and wakes the runner and the asks                                                                                                                                                                                                                   |
 | `scripts/build.mjs`                         | Bundles with esbuild and writes `manifest.json`, with the version from `package.json` and LinkedIn's site as optional                                                                                                                                                                                                                                                    |
 | `test/`                                     | The readers and steps on the hand-written pages, the addresses, the outline's hiding, the saves, the jobs and the asks                                                                                                                                                                                                                                                   |

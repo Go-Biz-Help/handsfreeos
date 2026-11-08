@@ -28,6 +28,7 @@ import outreach from './outreach.json';
 import realestateDeals from './realestate-deals.json';
 import realestateRest from './realestate-rest.json';
 import salescoach from './salescoach.json';
+import socialcontent from './socialcontent.json';
 import staff from './staff.json';
 import publicLinks from './public-links.json';
 import onboarding from './onboarding.json';
@@ -84,6 +85,7 @@ export const LEDGER_AREAS = [
   realestateDeals,
   realestateRest,
   salescoach,
+  socialcontent,
   staff,
   publicLinks,
   onboarding,

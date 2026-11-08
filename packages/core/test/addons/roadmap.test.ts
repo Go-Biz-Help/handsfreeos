@@ -115,9 +115,10 @@ describe('the race', () => {
     expect(race).not.toContain('realestate');
     expect(race).not.toContain('hvac');
     expect(race).toContain('plumbing');
-    // AI Sales Coach is being built, so it's out of the race too.
+    // AI Sales Coach and AI Social Media Content Creator are being built, so they're out of the race too.
     expect(race).not.toContain('salescoach');
-    expect(race).toHaveLength(118);
+    expect(race).not.toContain('socialcontent');
+    expect(race).toHaveLength(117);
   });
 
   it('keeps a pick Coming soon until it can be added', () => {

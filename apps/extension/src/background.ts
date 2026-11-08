@@ -14,7 +14,8 @@
  * the person's day (src/hfos/live.ts). It keeps the number of things waiting for the person on its icon, and Chrome's
  * pop-ups about them, which open Needs you in HandsFreeOS (src/hfos/waiting.ts). It keeps each network's messages open
  * and reads them every minute (src/auto/watch.ts), and a reply HandsFreeOS keeps as new has that network's runner
- * draft the answer next (decision 125).
+ * draft the answer next (decision 125). On the computer picked to read for AI Social Media Content Creator, its own
+ * alarm does that add-on's reading, apart from all of Social Outreach's (src/research/run.ts).
  */
 import { answerAsk, askSoon, askTabIds, heardAsk, recoverAsk, signInChanged } from './asks/run';
 import { AUTO_ALARM, answerAuto, replied, runnerTabId, tick, wake } from './auto/run';
@@ -41,6 +42,7 @@ import {
   wakeInstagram,
 } from './auto/instagram';
 import { onAlignableMoved, tabClosed, WATCH_ALARM, watchTick, windowClosed } from './auto/watch';
+import { RESEARCH_ALARM, researchTabIds, researchTick, wakeResearch } from './research/run';
 import { kitOf } from './networks';
 import { isWorking, NETWORKS_KEY, statesNow } from './networks/on';
 import { syncNetworks } from './networks/scripts';
@@ -133,7 +135,8 @@ chrome.runtime.onMessage.addListener(
               tabId === runnerTabId() ||
               tabId === linkedInRunnerTabId() ||
               tabId === alignableRunnerTabId() ||
-              tabId === instagramRunnerTabId());
+              tabId === instagramRunnerTabId() ||
+              researchTabIds().includes(tabId));
           if (!ours && isLooked(message)) void looked(message, kit.platform);
           return;
         }
@@ -188,6 +191,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === LINKEDIN_ALARM) void linkedInTick();
   if (alarm.name === ALIGNABLE_ALARM) void alignableTick();
   if (alarm.name === INSTAGRAM_ALARM) void instagramTick();
+  if (alarm.name === RESEARCH_ALARM) void researchTick();
   if (alarm.name === WATCH_ALARM) void watchTick();
   if (alarm.name === BEAT_ALARM) {
     void beat(true);
@@ -237,12 +241,14 @@ chrome.runtime.onStartup.addListener(() => {
   void wakeLinkedIn();
   void wakeAlignable();
   void wakeInstagram();
+  void wakeResearch();
 });
 chrome.runtime.onInstalled.addListener(() => {
   void wake();
   void wakeLinkedIn();
   void wakeAlignable();
   void wakeInstagram();
+  void wakeResearch();
   void syncNetworks();
   // What the old side panel kept, which nothing reads now.
   void chrome.storage.local.remove(['autoRead', 'hfos.recent']).catch(() => undefined);
