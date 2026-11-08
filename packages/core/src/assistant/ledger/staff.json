@@ -1,26 +1,64 @@
 {
   "area": "staff",
   "title": "HandsFreeOS staff only: the Admin area and the affiliate page (tools here must be offered to staff only)",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-08",
   "files": {
     "apps/mobile/src/app/app/admin/_layout.tsx": "970799f7fc45",
+    "apps/mobile/src/app/app/admin/add-ons.tsx": "a6c29ff249f8",
     "apps/mobile/src/app/app/admin/affiliates.tsx": "59d1ab54b59a",
     "apps/mobile/src/app/app/admin/assistant.tsx": "071ca5b20f59",
     "apps/mobile/src/app/app/admin/businesses/[workspaceId].tsx": "c0ee6129b99e",
+    "apps/mobile/src/app/app/admin/businesses/index.tsx": "c7d3c0715bcc",
     "apps/mobile/src/app/app/admin/demo.tsx": "9bb38f04044e",
     "apps/mobile/src/app/app/admin/founding.tsx": "2443ab3ceedf",
+    "apps/mobile/src/app/app/admin/getting-started.tsx": "8483f9f7609b",
+    "apps/mobile/src/app/app/admin/health.tsx": "a61d1067ac20",
+    "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx": "b9909f70e859",
+    "apps/mobile/src/app/app/admin/ideas/areas.tsx": "60eccd19bd99",
+    "apps/mobile/src/app/app/admin/ideas/index.tsx": "b357f6ee99b3",
+    "apps/mobile/src/app/app/admin/ideas/whats-new.tsx": "b91202344bd2",
     "apps/mobile/src/app/app/admin/index.tsx": "e7adb6dd3284",
     "apps/mobile/src/app/app/admin/notifications.tsx": "48d40a62959c",
     "apps/mobile/src/app/app/admin/problems.tsx": "bff09ad49e6d",
+    "apps/mobile/src/app/app/admin/rates.tsx": "b047afe87e5f",
+    "apps/mobile/src/app/app/admin/replies.tsx": "1051503fb5dc",
+    "apps/mobile/src/app/app/admin/staff.tsx": "d4436f186de0",
     "apps/mobile/src/app/app/admin/tickets/[ticketId].tsx": "c8b4e574af3b",
+    "apps/mobile/src/app/app/admin/tickets/index.tsx": "d01205da8528",
+    "apps/mobile/src/components/admin/assistant-ledger.tsx": "713733dc6460",
+    "apps/mobile/src/components/admin/bits.tsx": "734d8e7cc76d",
+    "apps/mobile/src/components/admin/business-glance.tsx": "fa846a758af9",
+    "apps/mobile/src/components/admin/business-quick-look.tsx": "8239c200c77b",
+    "apps/mobile/src/components/admin/money-desk-bits.tsx": "70a8a8292c51",
+    "apps/mobile/src/components/admin/staff-context.tsx": "23c8c2f75d94",
     "apps/mobile/src/components/demo/demo-player.tsx": "e7110fd458f2",
+    "apps/mobile/src/components/founding/finish-on-web.tsx": "5ba23cd79142",
+    "apps/web/src/app/admin/add-ons/page.tsx": "cfc35c62b384",
+    "apps/web/src/app/admin/affiliates/[affiliateId]/page.tsx": "c996910962e3",
+    "apps/web/src/app/admin/affiliates/page.tsx": "d8d88fccd537",
     "apps/web/src/app/admin/assistant/page.tsx": "6c0985292497",
     "apps/web/src/app/admin/businesses/[workspaceId]/page.tsx": "9b6cf423558b",
+    "apps/web/src/app/admin/businesses/page.tsx": "d1b8573cbbe2",
+    "apps/web/src/app/admin/demo/page.tsx": "dc160e3f12f4",
+    "apps/web/src/app/admin/founding/page.tsx": "ea28a617d8af",
     "apps/web/src/app/admin/getting-started/page.tsx": "2461d1b5b07a",
     "apps/web/src/app/admin/health/page.tsx": "43c27011ac4d",
+    "apps/web/src/app/admin/ideas/[ideaId]/page.tsx": "e61ad13242d3",
+    "apps/web/src/app/admin/ideas/areas/page.tsx": "eecf17712d0b",
+    "apps/web/src/app/admin/ideas/page.tsx": "e6d991f605d6",
+    "apps/web/src/app/admin/ideas/whats-new/page.tsx": "1072f1ba76d0",
     "apps/web/src/app/admin/layout.tsx": "58fe5c481a06",
+    "apps/web/src/app/admin/page.tsx": "bfa9ef5a1616",
+    "apps/web/src/app/admin/problems/[reportId]/page.tsx": "07c6a46bbe3e",
+    "apps/web/src/app/admin/problems/page.tsx": "62ab4f0be771",
+    "apps/web/src/app/admin/problems/ways/page.tsx": "14be6effa3f2",
     "apps/web/src/app/admin/rates/page.tsx": "70c26cb5d1f9",
+    "apps/web/src/app/admin/replies/page.tsx": "b16fab3b24e4",
+    "apps/web/src/app/admin/staff/page.tsx": "df96c8a73bce",
+    "apps/web/src/app/admin/tickets/[ticketId]/page.tsx": "337498edb6d5",
+    "apps/web/src/app/admin/tickets/page.tsx": "8382a3374603",
     "apps/web/src/app/affiliate/page.tsx": "7ba54efd908d",
+    "apps/web/src/app/founding/[token]/page.tsx": "4b894d688fe9",
     "apps/web/src/components/admin/accept-support-invite.tsx": "715e026544a0",
     "apps/web/src/components/admin/addon-picks-admin.tsx": "cfbc4b7b5b98",
     "apps/web/src/components/admin/addon-testing-block.tsx": "a0075b2d3cb4",
@@ -50,6 +88,7 @@
     "apps/web/src/components/admin/saved-replies.tsx": "982fbbfd6749",
     "apps/web/src/components/admin/staff-page.tsx": "135ba8336d76",
     "apps/web/src/components/admin/support-access-ask.tsx": "0a512b1d8a74",
+    "apps/web/src/components/admin/ticket-bits.tsx": "929ed797092b",
     "apps/web/src/components/admin/ticket-queue.tsx": "52eb7266620e",
     "apps/web/src/components/admin/ticket-view.tsx": "05a98d9677e7",
     "apps/web/src/components/admin/video-calls-block.tsx": "df4f418c98d1",
@@ -61,7 +100,7 @@
     "apps/web/src/components/affiliate/affiliate-earnings.tsx": "46700d201d8e",
     "apps/web/src/components/affiliate/affiliate-payouts.tsx": "2d591c4d73b2",
     "apps/web/src/components/affiliate/affiliate-self.tsx": "4e23fb68e41b",
-    "apps/web/src/components/demo/demo-director.tsx": "a6858926fb05",
+    "apps/web/src/components/demo/demo-director.tsx": "43dfbd307ac7",
     "apps/web/src/components/founding/checkout-status.tsx": "dc7886625d47",
     "apps/web/src/components/founding/claim-seat.tsx": "417ac39b9bb5",
     "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
@@ -1919,63 +1958,63 @@
     {
       "path": "Demo director → header, voiceover toggle, Hide",
       "kind": "do",
-      "file": "apps/web/src/components/demo/demo-director.tsx:535",
+      "file": "apps/web/src/components/demo/demo-director.tsx:539",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → Exit",
       "kind": "do",
-      "file": "apps/web/src/components/demo/demo-director.tsx:556",
+      "file": "apps/web/src/components/demo/demo-director.tsx:560",
       "covered": "no",
       "by": "screen-only; as owner it ends view-as (NEVER)"
     },
     {
       "path": "Demo director → frame size, Make it 16:9",
       "kind": "do",
-      "file": "apps/web/src/components/demo/demo-director.tsx:568",
+      "file": "apps/web/src/components/demo/demo-director.tsx:572",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → acting note",
       "kind": "see",
-      "file": "apps/web/src/components/demo/demo-director.tsx:600",
+      "file": "apps/web/src/components/demo/demo-director.tsx:604",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → All scenes, scene header, Copy the voiceover",
       "kind": "do",
-      "file": "apps/web/src/components/demo/demo-director.tsx:612",
+      "file": "apps/web/src/components/demo/demo-director.tsx:616",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → steps with voiceover",
       "kind": "see",
-      "file": "apps/web/src/components/demo/demo-director.tsx:637",
+      "file": "apps/web/src/components/demo/demo-director.tsx:641",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → end of scene, problem",
       "kind": "see",
-      "file": "apps/web/src/components/demo/demo-director.tsx:687",
+      "file": "apps/web/src/components/demo/demo-director.tsx:691",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → Back to scene, pick a scene, scene list",
       "kind": "do",
-      "file": "apps/web/src/components/demo/demo-director.tsx:711",
+      "file": "apps/web/src/components/demo/demo-director.tsx:715",
       "covered": "no",
       "by": "screen-only player"
     },
     {
       "path": "Demo director → Back / Restart / Next, keys hint",
       "kind": "do",
-      "file": "apps/web/src/components/demo/demo-director.tsx:752",
+      "file": "apps/web/src/components/demo/demo-director.tsx:756",
       "covered": "no",
       "by": "screen-only player"
     },
@@ -2102,8 +2141,8 @@
       "path": "Idea → Duplicate: search, matches, no duplicates",
       "kind": "do",
       "file": "apps/web/src/components/admin/idea-team-view.tsx:448",
-      "covered": "partly",
-      "by": "find_ideas search (idea.similar not read)"
+      "covered": "yes",
+      "by": "read_idea_similar with excludeIdeaId, as the Duplicate box asks: up to five still on the board, most alike first"
     },
     {
       "path": "Idea → Duplicate → Merge into, merge note",
@@ -2165,8 +2204,8 @@
       "path": "What's new → editor → Ideas it delivers: find, add, remove",
       "kind": "do",
       "file": "apps/web/src/components/admin/whats-new-admin.tsx:165",
-      "covered": "partly",
-      "by": "find_ideas for ids, then do_whats_new_save"
+      "covered": "yes",
+      "by": "read_idea_similar finds them as the box does; do_whats_new_save takes their ids"
     },
     {
       "path": "What's new → Mark the ideas done",
@@ -2496,6 +2535,636 @@
       "file": "apps/mobile/src/app/app/admin/assistant.tsx:51",
       "covered": "yes",
       "by": "read_assistant_coverage copyGaps: what Share gaps shares"
+    },
+    {
+      "path": "Phone desk → Add-on votes → only admins",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/add-ons.tsx:20",
+      "covered": "yes",
+      "by": "read_addon_pick_overview and do_addon_pick_choose are offered to staff with platform.addons.manage alone, as the screen asks"
+    },
+    {
+      "path": "Phone desk → Add-on votes → intro, next pick at, Waiting: week ending, tie or no votes",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/add-ons.tsx:113",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Phone desk → Add-on votes → Waiting → choice sheet, Choose",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/add-ons.tsx:164",
+      "covered": "yes",
+      "by": "do_addon_pick_choose"
+    },
+    {
+      "path": "Phone desk → Add-on votes → Coming soon, Race with find and Show all",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/add-ons.tsx:176",
+      "covered": "yes",
+      "by": "read_addon_pick_overview has the whole race"
+    },
+    {
+      "path": "Phone desk → Add-on votes → Recent weeks",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/add-ons.tsx:240",
+      "covered": "yes",
+      "by": "read_addon_pick_overview"
+    },
+    {
+      "path": "Phone desk → Businesses → not for your role",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/businesses/index.tsx:54",
+      "covered": "yes",
+      "by": "read_platform_business_list is offered with the same permission the screen asks for"
+    },
+    {
+      "path": "Phone desk → Businesses → search, sort, totals",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/businesses/index.tsx:32",
+      "covered": "yes",
+      "by": "read_platform_business_list search, sort, totals"
+    },
+    {
+      "path": "Phone desk → Businesses → row: name, open tickets, people, last active, Needs a look, plan",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/businesses/index.tsx:120",
+      "covered": "yes",
+      "by": "read_platform_business_list"
+    },
+    {
+      "path": "Phone desk → Businesses → nothing matches, More",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/businesses/index.tsx:139",
+      "covered": "yes",
+      "by": "empty read_platform_business_list; its cursor"
+    },
+    {
+      "path": "Phone desk → Businesses → quick look → glance, Previous / Next",
+      "kind": "see",
+      "file": "apps/mobile/src/components/admin/business-quick-look.tsx:40",
+      "covered": "yes",
+      "by": "read_platform_business_get, read_platform_business_glance and read_platform_wallet_get; rows of read_platform_business_list"
+    },
+    {
+      "path": "Phone desk → Businesses → quick look → Open",
+      "kind": "do",
+      "file": "apps/mobile/src/components/admin/business-quick-look.tsx:153",
+      "covered": "yes",
+      "by": "read_platform_business_get"
+    },
+    {
+      "path": "Phone desk → business glance → flags, activity, lines, set up, problem reports",
+      "kind": "see",
+      "file": "apps/mobile/src/components/admin/business-glance.tsx:45",
+      "covered": "yes",
+      "by": "read_platform_business_glance (problem reports: read_platform_problem_report_list workspaceId)"
+    },
+    {
+      "path": "Phone desk → Getting started → not for your role",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/getting-started.tsx:44",
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts is offered with the permission the screen asks for"
+    },
+    {
+      "path": "Phone desk → Getting started → since, window, count cards, skipped steps",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/getting-started.tsx:58",
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts"
+    },
+    {
+      "path": "Phone desk → Getting started → How far people get → Open Matomo",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/getting-started.tsx:24",
+      "covered": "yes",
+      "by": "read_platform_onboarding_counts matomoUrl, over the same days"
+    },
+    {
+      "path": "Phone desk → Health → not for your role",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/health.tsx:50",
+      "covered": "yes",
+      "by": "read_platform_health_summary is offered with the permission the screen asks for"
+    },
+    {
+      "path": "Phone desk → Health → since, oldest pending, counts",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/health.tsx:62",
+      "covered": "yes",
+      "by": "read_platform_health_summary"
+    },
+    {
+      "path": "Phone desk → Health → last failures",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/health.tsx:117",
+      "covered": "yes",
+      "by": "read_platform_health_summary"
+    },
+    {
+      "path": "Phone desk → Health → AI provider: couldn’t read, facts, why, overruled",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/health.tsx:33",
+      "covered": "yes",
+      "by": "read_platform_ai_provider_get"
+    },
+    {
+      "path": "Phone desk → Health → AI provider → mode",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/health.tsx:175",
+      "covered": "yes",
+      "by": "do_ai_provider_set_mode, offered with platform.ai.manage as the screen asks"
+    },
+    {
+      "path": "Phone desk → Rates → only admins",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/rates.tsx:17",
+      "covered": "yes",
+      "by": "read_platform_rates is offered to staff with platform.rates.manage alone, as the screen asks"
+    },
+    {
+      "path": "Phone desk → Rates → measured over 7 / 30 / 90 days, thin warning, line cards, not editable",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/rates.tsx:26",
+      "covered": "yes",
+      "by": "read_platform_rates days; no rate command exists"
+    },
+    {
+      "path": "Phone desk → Saved replies → intro, list, empty, who keeps them",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/replies.tsx:22",
+      "covered": "yes",
+      "by": "read_support_canned_reply_list"
+    },
+    {
+      "path": "Phone desk → Saved replies → New / Edit sheet: What is it for?, The reply, Save",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/replies.tsx:165",
+      "covered": "yes",
+      "by": "do_support_canned_reply_save"
+    },
+    {
+      "path": "Phone desk → Saved replies → Delete and confirm",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/replies.tsx:183",
+      "covered": "yes",
+      "by": "do_support_canned_reply_delete"
+    },
+    {
+      "path": "Phone desk → Support people → rows, Waiting to accept",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:35",
+      "covered": "yes",
+      "by": "read_support_staff_list"
+    },
+    {
+      "path": "Phone desk → Support people → row → Role sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:296",
+      "covered": "yes",
+      "by": "do_support_staff_set_role role"
+    },
+    {
+      "path": "Phone desk → Support people → row → Suspend / Let back in, confirm",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:307",
+      "covered": "yes",
+      "by": "do_support_staff_set_role status"
+    },
+    {
+      "path": "Phone desk → Support people → row → Remove, confirm",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:316",
+      "covered": "yes",
+      "by": "do_support_staff_remove"
+    },
+    {
+      "path": "Phone desk → Support people → Waiting → Send again / Cancel",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:150",
+      "covered": "yes",
+      "by": "do_support_staff_resend_invitation / do_support_staff_revoke_invitation"
+    },
+    {
+      "path": "Phone desk → Support people → How you sign off: name, Sign-off, Save",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:442",
+      "covered": "yes",
+      "by": "read_platform_me; do_support_staff_save_profile keeps the sign-off when it is left out"
+    },
+    {
+      "path": "Phone desk → Support people → Invite: email, role, Send, Sent to X, Done",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/staff.tsx:537",
+      "covered": "yes",
+      "by": "do_support_staff_invite"
+    },
+    {
+      "path": "Phone desk → Tickets → summary, search, queue filter",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/tickets/index.tsx:40",
+      "covered": "yes",
+      "by": "read_support_queue_summary; read_support_ticket_list search, view"
+    },
+    {
+      "path": "Phone desk → Tickets → empty states, More",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/tickets/index.tsx:114",
+      "covered": "yes",
+      "by": "empty read_support_ticket_list; its cursor"
+    },
+    {
+      "path": "Phone desk → Tickets → row opens the ticket",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/tickets/index.tsx:149",
+      "covered": "yes",
+      "by": "read_support_ticket_get"
+    },
+    {
+      "path": "Phone desk → Ideas → search, area, sort, tabs with counts",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/index.tsx:39",
+      "covered": "yes",
+      "by": "read_idea_triage; read_idea_areas"
+    },
+    {
+      "path": "Phone desk → Ideas → area sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/index.tsx:115",
+      "covered": "yes",
+      "by": "read_idea_triage area; read_idea_areas"
+    },
+    {
+      "path": "Phone desk → Ideas → What’s new and Areas links",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/index.tsx:171",
+      "covered": "yes",
+      "by": "read_whats_new_list; read_idea_areas"
+    },
+    {
+      "path": "Phone desk → Ideas → empty, rows, More",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/index.tsx:187",
+      "covered": "yes",
+      "by": "read_idea_triage; its cursor"
+    },
+    {
+      "path": "Phone desk → Idea areas → leads and admins only",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/areas.tsx:47",
+      "covered": "yes",
+      "by": "do_idea_area_save is offered with the permission the screen asks for"
+    },
+    {
+      "path": "Phone desk → Idea areas → list, Archive / Bring back",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/areas.tsx:24",
+      "covered": "yes",
+      "by": "read_idea_areas; do_idea_area_save archived"
+    },
+    {
+      "path": "Phone desk → Idea areas → Add sheet: name, description, Save",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/areas.tsx:197",
+      "covered": "yes",
+      "by": "do_idea_area_save"
+    },
+    {
+      "path": "Phone desk → What’s new → list, empty, More",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/whats-new.tsx:37",
+      "covered": "yes",
+      "by": "read_whats_new_list includeDrafts"
+    },
+    {
+      "path": "Phone desk → What’s new → Write, Mark the ideas done",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/whats-new.tsx:181",
+      "covered": "yes",
+      "by": "do_whats_new_save; do_whats_new_publish markIdeasDone"
+    },
+    {
+      "path": "Phone desk → What’s new → entry → idea opens it",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/whats-new.tsx:287",
+      "covered": "yes",
+      "by": "find_ideas ideaId"
+    },
+    {
+      "path": "Phone desk → What’s new → entry → Edit / Unpublish / Publish / Delete, confirm",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/whats-new.tsx:301",
+      "covered": "yes",
+      "by": "do_whats_new_save / do_whats_new_unpublish / do_whats_new_publish / do_whats_new_delete"
+    },
+    {
+      "path": "Phone desk → What’s new → editor → Ideas it delivers: find, add, remove",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/whats-new.tsx:589",
+      "covered": "yes",
+      "by": "read_idea_similar finds them as the box does; do_whats_new_save takes their ids"
+    },
+    {
+      "path": "Phone desk → Idea → header: votes, title, status, area, Taken down, merged into",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:135",
+      "covered": "yes",
+      "by": "read_idea_team_view; find_ideas ideaId"
+    },
+    {
+      "path": "Phone desk → Idea → merged into opens that idea",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:179",
+      "covered": "yes",
+      "by": "find_ideas ideaId"
+    },
+    {
+      "path": "Phone desk → Idea → Tidy sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:203",
+      "covered": "yes",
+      "by": "do_idea_edit"
+    },
+    {
+      "path": "Phone desk → Idea → Take down / Put back",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:217",
+      "covered": "yes",
+      "by": "do_idea_set_hidden"
+    },
+    {
+      "path": "Phone desk → Idea → Where it stands sheet: status, note, Email followers",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:229",
+      "covered": "yes",
+      "by": "do_idea_set_status note, notify"
+    },
+    {
+      "path": "Phone desk → Idea → Who is behind it, business opens",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:253",
+      "covered": "yes",
+      "by": "read_idea_team_view; read_platform_business_get"
+    },
+    {
+      "path": "Phone desk → Idea → What happened updates",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:304",
+      "covered": "yes",
+      "by": "find_ideas ideaId story"
+    },
+    {
+      "path": "Phone desk → Idea → comments, Take down / Put back",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:317",
+      "covered": "yes",
+      "by": "find_ideas commentIds; do_idea_set_comment_hidden"
+    },
+    {
+      "path": "Phone desk → Idea → Duplicate: search, matches, Merge sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:341",
+      "covered": "yes",
+      "by": "read_idea_similar with excludeIdeaId; do_idea_merge"
+    },
+    {
+      "path": "Phone desk → Idea → Answer sheet, Post",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/admin/ideas/[ideaId].tsx:383",
+      "covered": "yes",
+      "by": "manage_idea comment"
+    },
+    {
+      "path": "Phone desk → Assistant coverage → ledger: cards, view, area, state, search, More",
+      "kind": "see",
+      "file": "apps/mobile/src/components/admin/assistant-ledger.tsx:33",
+      "covered": "yes",
+      "by": "read_platform_assistant_ledger"
+    },
+    {
+      "path": "Phone desk → every list → needs a signal, couldn’t load, Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/components/admin/bits.tsx:30",
+      "covered": "yes",
+      "by": "tool error words"
+    },
+    {
+      "path": "Phone desk → every list → filter chips, search box, pick sheet",
+      "kind": "do",
+      "file": "apps/mobile/src/components/admin/bits.tsx:76",
+      "covered": "yes",
+      "by": "the inputs of the read each list comes from"
+    },
+    {
+      "path": "Phone desk → money pages → only admins",
+      "kind": "see",
+      "file": "apps/mobile/src/components/admin/money-desk-bits.tsx:19",
+      "covered": "yes",
+      "by": "staff tools are offered by the same permissions the screens check"
+    },
+    {
+      "path": "Phone desk → what your role can do",
+      "kind": "see",
+      "file": "apps/mobile/src/components/admin/staff-context.tsx:22",
+      "covered": "yes",
+      "by": "read_platform_me; staff tools offered by permission"
+    },
+    {
+      "path": "Founding on the phone → Finish on the web, Check again",
+      "kind": "do",
+      "file": "apps/mobile/src/components/founding/finish-on-web.tsx:31",
+      "covered": "never",
+      "by": "the page before a business has an Assistant; paying is the person’s"
+    },
+    {
+      "path": "Founding on the phone → Switch business",
+      "kind": "do",
+      "file": "apps/mobile/src/components/founding/finish-on-web.tsx:42",
+      "covered": "never",
+      "by": "the page before a business has an Assistant; switching business is the screen’s own"
+    },
+    {
+      "path": "Founding on the phone → Sign out",
+      "kind": "do",
+      "file": "apps/mobile/src/components/founding/finish-on-web.tsx:48",
+      "covered": "person",
+      "by": "sign-in is the person’s"
+    },
+    {
+      "path": "Admin area → /admin opens Tickets",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/page.tsx:5",
+      "covered": "yes",
+      "by": "the staff line names the desk’s sections"
+    },
+    {
+      "path": "Admin area → Add-on votes page → only with platform.addons.manage",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/add-ons/page.tsx:16",
+      "covered": "yes",
+      "by": "read_addon_pick_overview and do_addon_pick_choose are offered by the same permission"
+    },
+    {
+      "path": "Admin area → Affiliates page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/affiliates/page.tsx:10",
+      "covered": "yes",
+      "by": "read_platform_affiliates"
+    },
+    {
+      "path": "Admin area → Affiliate page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/affiliates/[affiliateId]/page.tsx:13",
+      "covered": "yes",
+      "by": "read_platform_affiliate"
+    },
+    {
+      "path": "Admin area → Businesses page: search, sort, page from the address",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/page.tsx:14",
+      "covered": "yes",
+      "by": "read_platform_business_list search, sort, cursor"
+    },
+    {
+      "path": "Admin area → Businesses page → can view as",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/businesses/page.tsx:34",
+      "covered": "never",
+      "by": "platform.view_as.start is NEVER"
+    },
+    {
+      "path": "Admin area → Demo player page: where scenes play, the scenes",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/demo/page.tsx:27",
+      "covered": "no",
+      "by": "scenes are web code; no tool"
+    },
+    {
+      "path": "Admin area → Founding page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/founding/page.tsx:14",
+      "covered": "yes",
+      "by": "read_platform_founding"
+    },
+    {
+      "path": "Admin area → Ideas page: tab, sort, search, area, page from the address",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/ideas/page.tsx:27",
+      "covered": "yes",
+      "by": "read_idea_triage"
+    },
+    {
+      "path": "Admin area → Idea areas page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/ideas/areas/page.tsx:12",
+      "covered": "yes",
+      "by": "read_idea_areas"
+    },
+    {
+      "path": "Admin area → What’s new page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/ideas/whats-new/page.tsx:8",
+      "covered": "yes",
+      "by": "read_whats_new_list includeDrafts"
+    },
+    {
+      "path": "Admin area → Idea page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/ideas/[ideaId]/page.tsx:8",
+      "covered": "yes",
+      "by": "find_ideas ideaId; read_idea_team_view"
+    },
+    {
+      "path": "Admin area → Problem reports page: state, area, job, page from the address; grouped",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/problems/page.tsx:28",
+      "covered": "yes",
+      "by": "read_platform_problem_report_list; read_platform_problem_report_groups"
+    },
+    {
+      "path": "Admin area → Problem report page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/problems/[reportId]/page.tsx:9",
+      "covered": "yes",
+      "by": "read_platform_problem_report_get"
+    },
+    {
+      "path": "Admin area → Learned ways page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/problems/ways/page.tsx:14",
+      "covered": "yes",
+      "by": "read_platform_learned_way_list"
+    },
+    {
+      "path": "Admin area → Saved replies page: list, who can change them",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/replies/page.tsx:7",
+      "covered": "yes",
+      "by": "read_support_canned_reply_list; the save and delete tools are offered by the same permission"
+    },
+    {
+      "path": "Admin area → Support people page: list, who can change them",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/staff/page.tsx:11",
+      "covered": "yes",
+      "by": "read_support_staff_list; the change tools are offered by the same permission"
+    },
+    {
+      "path": "Admin area → Tickets page: view, search, page from the address; summary",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/tickets/page.tsx:20",
+      "covered": "yes",
+      "by": "read_support_ticket_list; read_support_queue_summary"
+    },
+    {
+      "path": "Admin area → Ticket page loads",
+      "kind": "see",
+      "file": "apps/web/src/app/admin/tickets/[ticketId]/page.tsx:9",
+      "covered": "yes",
+      "by": "read_support_ticket_get"
+    },
+    {
+      "path": "Ticket → full date and time in your time zone",
+      "kind": "see",
+      "file": "apps/web/src/components/admin/ticket-bits.tsx:38",
+      "covered": "yes",
+      "by": "read_support_ticket_get times; the prompt gives the person’s time zone"
+    },
+    {
+      "path": "Founding claim page → that link doesn’t work",
+      "kind": "see",
+      "file": "apps/web/src/app/founding/[token]/page.tsx:55",
+      "covered": "never",
+      "by": "founding.claim_preview is NOT_FOR_THE_ASSISTANT; the link is the person’s"
+    },
+    {
+      "path": "Founding claim page → not your workspace, use another account",
+      "kind": "see",
+      "file": "apps/web/src/app/founding/[token]/page.tsx:90",
+      "covered": "person",
+      "by": "sign-in is the person’s"
+    },
+    {
+      "path": "Founding claim page → already claimed",
+      "kind": "see",
+      "file": "apps/web/src/app/founding/[token]/page.tsx:105",
+      "covered": "never",
+      "by": "founding.claim_preview is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding claim page → expired or given back",
+      "kind": "see",
+      "file": "apps/web/src/app/founding/[token]/page.tsx:117",
+      "covered": "never",
+      "by": "founding.claim_preview is NOT_FOR_THE_ASSISTANT"
+    },
+    {
+      "path": "Founding claim page → not ready yet",
+      "kind": "see",
+      "file": "apps/web/src/app/founding/[token]/page.tsx:131",
+      "covered": "never",
+      "by": "founding.claim_preview is NOT_FOR_THE_ASSISTANT"
     }
   ],
   "gaps": [

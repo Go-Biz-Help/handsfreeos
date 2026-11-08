@@ -55,6 +55,7 @@ export const SCREEN_READS = [
   'funnel.suggestions',
   'idea.areas',
   'idea.roadmap',
+  'idea.similar',
   'import.get',
   'inbox.summary',
   'invoice.list',
@@ -266,6 +267,8 @@ const SCREEN_READ_MORE: Readonly<Record<string, string>> = {
     'Every area comes with its description, its sort (the order the board lists them in) and whether it’s archived.',
   'idea.roadmap':
     'Its answer comes as the Roadmap tab shows it: Planned, In progress and Done lately (what shipped in the last 90 days, newest first), each with what it means, its count, and each card’s idea number, title, area, votes, whether they voted and since when it’s been there. Without column, each column’s first 15 cards; column reads up to 60 of one. find_ideas reads one idea with its comments and its story, and a column’s status pages through all of it.',
+  'idea.similar':
+    'text is what someone typed: a title, or a few words of one. Its answer is up to five ideas still on the board (none taken down or merged), most alike first, each with its id, number, title, status, votes and whether they voted: what Share an idea shows under its title as they type, and what the team’s Duplicate box on an idea finds (excludeIdeaId leaves that idea out). find_ideas reads one in full.',
   'addon.roadmap':
     'Its answer comes as Add-ons shows it to owners and admins: Coming soon (what the weekly vote picked, with whether this business voted for it), then Vote on what’s next, filtered and sorted as the page does, with the category chips and their counts, the groups to filter by, how many match, and each planned add-on’s addonId, summary, category, groups, Already in HandsFreeOS (what HandsFreeOS already does of it), votes and whether this business voted. The business has one vote on each, cast or taken back by its owners and admins: do_addon_vote and do_addon_unvote take the addonId. A planned add-on is never something to add.',
   'addon_connection.list':
