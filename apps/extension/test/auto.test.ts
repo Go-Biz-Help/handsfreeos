@@ -635,6 +635,35 @@ describe('liking their latest post', () => {
     expect(await liking({ index: 0, url: `${URL}/posts/1` })).toBe('none');
   });
 
+  it('waits on a post Facebook is still loading before their profile counts as having none', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    // Their post isn't drawn yet: only Facebook's loading boxes show where posts go (a problem report of 8 Nov 2026).
+    const box = theirPosts(doc, URL, dana)[0]!.box;
+    const stand = doc.createElement('div');
+    box.replaceWith(stand);
+    const loading = [...doc.querySelectorAll<HTMLElement>('[role="article"]')].filter((a) =>
+      a.querySelector('[role="status"]'),
+    );
+    expect(loading.length).toBeGreaterThan(0);
+    const inView: unknown[] = [];
+    for (const one of loading) one.scrollIntoView = (how?: unknown) => void inView.push(how);
+    setTimeout(() => stand.replaceWith(box), 7_000);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await reading).toHaveLength(1);
+    expect(inView[0]).toEqual({ block: 'center' });
+    // With nothing loading, a profile with no posts is done with after the scrolls, as before.
+    box.replaceWith(stand);
+    for (const one of loading) one.remove();
+    inView.length = 0;
+    let read: unknown[] | null = null;
+    void readTheirPosts(doc, URL, dana, view, 6).then((posts) => (read = posts));
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(read).toEqual([]);
+    expect(inView).toEqual([]);
+  });
+
   it('finds the picked post again from the top once Facebook stops drawing it (decision 138)', async () => {
     vi.useFakeTimers();
     const doc = load('profile-2026.html', URL);
