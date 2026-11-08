@@ -103,6 +103,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 528,
     said: 'Opened by their number at their username, the read found no name (nor the post) the page showed: it looked in a part of the top bar marked main. It takes the page’s own main part now.',
   },
+  {
+    area: 'instagram',
+    job: 'warm_up.comment',
+    note: 'Couldn’t like their comment.',
+    fixedIn: '0.126.5',
+    pr: 549,
+    said: 'The post showed 15 of its comments with only Instagram’s mark for more after them, nothing to press: the comments are scrolled down to it once now.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
