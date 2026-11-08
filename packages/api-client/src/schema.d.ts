@@ -14417,6 +14417,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.creator.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Study a creator from a link to their page (instagram.com/name; Facebook, LinkedIn, TikTok and YouTube come later), or a bare @name with its network. They’re studied straight away, whatever their size: their profile and their posts back 12 months are read next.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.added.
+         */
+        post: operations["command_socialcontent_creator_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.creator.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Study a creator (study: true: their posts back 12 months are read and weighed, then again every week), or skip them (study: false: nothing more is read, and a search never suggests them again). Works on suggested, studied and skipped creators alike.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.creator.decided.
+         */
+        post: operations["command_socialcontent_creator_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.creator.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: what a creator’s profile shows now: their name, bio, followers and when they last posted.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.creator.read.
+         */
+        post: operations["command_socialcontent_creator_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.creators.found": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again. Anyone already known is left as they are, but for their numbers.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.creators.found.
+         */
+        post: operations["command_socialcontent_creators_found"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.find.now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look for creators now, rather than at the monthly look: the reading computer searches each ticked niche on each network studied (or the one given) for creators with 5,000+ followers who posted in the last 30 days, and suggests them to tick.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.work.asked.
+         */
+        post: operations["command_socialcontent_find_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.niche.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a niche for content research to look in for creators, ticked to be searched. The AI writes the words to search each network for it.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.niche.added.
+         */
+        post: operations["command_socialcontent_niche_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.niche.decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick a niche to be searched for creators (picked), or skip it (skipped). Only ticked niches are searched.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.niche.decided.
+         */
+        post: operations["command_socialcontent_niche_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.posts.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: a studied creator’s posts as their page shows them now, up to 100 at a time: each one’s link, when it was posted, its kind, caption and numbers. New posts are kept and known ones get their numbers now; then all of the creator’s posts are weighed again against the 10 posts on each side of each, and the standouts kept.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.posts.saved.
+         */
+        post: operations["command_socialcontent_posts_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.read.now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read a studied creator’s posts again now (creatorId), or every studied creator’s, rather than at the weekly read: new posts, and the numbers of the last 60 days’ posts, which still grow. Their standouts are worked out again after.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.work.asked.
+         */
+        post: operations["command_socialcontent_read_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.settings.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change content research’s settings: the networks creators are looked for and read on (Instagram for now; Facebook, LinkedIn, TikTok and YouTube come in later updates), and whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none). What isn’t given stays as it is.
+         * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
+         */
+        post: operations["command_socialcontent_settings_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.work.finish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: how something the reading computer took ended: done, or failed with why in words the person can read. A creator’s posts read through mark them read now.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.work.finished.
+         */
+        post: operations["command_socialcontent_work_finish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.work.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, oldest first, taken so no other computer does it. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.work.taken.
+         */
+        post: operations["command_socialcontent_work_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.work.stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop something the reading computer was asked to do that’s still waiting or under way (finding creators for a niche, reading a creator’s profile or posts).
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.work.stopped.
+         */
+        post: operations["command_socialcontent_work_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/stage.create": {
         parameters: {
             query?: never;
@@ -22911,6 +23171,86 @@ export interface paths {
          * @description Requires workspace.read.
          */
         post: operations["query_service_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.creator.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The creators content research knows: suggested by a search (for someone to tick), studied (their posts read and weighed), skipped, or found but not fitting (fewer than 5,000 followers or no post in the last 30 days). Each with their network, followers, last post, niche, why they were suggested, how many posts were read and how many stand out. Filter by state or network.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_creator_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.niche.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The niches content research looks in: the business’s own, then the similar ones, each searched, skipped or only suggested so far, with why the AI thinks it’s like the business’s and the words searched on each network.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_niche_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * How content research stands: the networks studied, whose computer reads them, how many creators are suggested, studied and skipped, how many standout posts there are, and what the reading computer was asked to do lately (each with how it went).
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.post.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Studied creators’ posts, newest first: each with its numbers (views, likes, comments, shares) and how many times the median of the 10 posts on each side of it it did, on views and on likes plus comments. A standout did at least 2 times on either. Pass standoutsOnly for the Standouts page, creatorId for one creator’s posts, network to keep to one network, and before (a post’s postedAt) for the next page.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_post_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -58513,6 +58853,574 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_creator_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    link: string;
+                    /** @enum {string} */
+                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bio: string | null;
+                        createdAt: string;
+                        followers: number | null;
+                        /** @enum {string} */
+                        foundBy: "search" | "person";
+                        handle: string;
+                        /** Format: uuid */
+                        id: string;
+                        lastPostAt: string | null;
+                        link: string;
+                        name: string | null;
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        nicheId: string | null;
+                        nicheName: string | null;
+                        postsCount: number;
+                        postsReadAt: string | null;
+                        profileReadAt: string | null;
+                        reading: boolean;
+                        shown: string;
+                        standoutsCount: number;
+                        /** @enum {string} */
+                        state: "suggested" | "studying" | "skipped" | "didnt_fit";
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_creator_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    creatorId: string;
+                    study: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        bio: string | null;
+                        createdAt: string;
+                        followers: number | null;
+                        /** @enum {string} */
+                        foundBy: "search" | "person";
+                        handle: string;
+                        /** Format: uuid */
+                        id: string;
+                        lastPostAt: string | null;
+                        link: string;
+                        name: string | null;
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        nicheId: string | null;
+                        nicheName: string | null;
+                        postsCount: number;
+                        postsReadAt: string | null;
+                        profileReadAt: string | null;
+                        reading: boolean;
+                        shown: string;
+                        standoutsCount: number;
+                        /** @enum {string} */
+                        state: "suggested" | "studying" | "skipped" | "didnt_fit";
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_creator_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    bio?: string | null;
+                    /** Format: uuid */
+                    creatorId: string;
+                    /** @default null */
+                    followers?: number | null;
+                    /** @default null */
+                    lastPostAt?: string | null;
+                    name?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        ok: true;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_creators_found: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    found: {
+                        bio?: string | null;
+                        /** @default null */
+                        followers?: number | null;
+                        handle: string;
+                        /** @default null */
+                        lastPostAt?: string | null;
+                        name?: string | null;
+                    }[];
+                    /** Format: uuid */
+                    workId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        didntFit: number;
+                        suggested: number;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_find_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asked: number;
+                        networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                        niches: number;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_niche_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        addedBy: "ai" | "person";
+                        createdAt: string;
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        own: boolean;
+                        /** @default {} */
+                        searches: {
+                            [key: string]: string[];
+                        };
+                        /** @enum {string} */
+                        state: "suggested" | "picked" | "skipped";
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_niche_decide: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    nicheId: string;
+                    /** @enum {string} */
+                    state: "picked" | "skipped";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        addedBy: "ai" | "person";
+                        createdAt: string;
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                        own: boolean;
+                        /** @default {} */
+                        searches: {
+                            [key: string]: string[];
+                        };
+                        /** @enum {string} */
+                        state: "suggested" | "picked" | "skipped";
+                        why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_posts_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    creatorId: string;
+                    posts: {
+                        caption?: string | null;
+                        /** @default null */
+                        comments?: number | null;
+                        /**
+                         * @default other
+                         * @enum {string}
+                         */
+                        kind?: "video" | "photo" | "carousel" | "text" | "link" | "other";
+                        /** @default null */
+                        likes?: number | null;
+                        /** Format: uri */
+                        link: string;
+                        /** @default false */
+                        pinned?: boolean;
+                        /** Format: date-time */
+                        postedAt: string;
+                        postKey: string;
+                        /** @default null */
+                        seconds?: number | null;
+                        /** @default null */
+                        shares?: number | null;
+                        /** @default null */
+                        views?: number | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        newStandouts: string[];
+                        saved: number;
+                        standouts: number;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_read_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    creatorId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        asked: number;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_settings_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    readerUserId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                        readerName: string | null;
+                        readerUserId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_work_finish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    failure?: string | null;
+                    /** Format: uuid */
+                    workId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        ok: true;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_work_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    reads: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        work: {
+                            creator: {
+                                handle: string;
+                                /** Format: uuid */
+                                id: string;
+                                link: string;
+                                name: string | null;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "find" | "profile" | "posts";
+                            known: string[];
+                            most: number;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            niche: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                searches: string[];
+                            } | null;
+                            since: string | null;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_work_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        askedFor: "person" | "weekly" | "monthly" | "added" | "studying";
+                        createdAt: string;
+                        creatorId: string | null;
+                        creatorShown: string | null;
+                        doneCount: number | null;
+                        failure: string | null;
+                        finishedAt: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "find" | "profile" | "posts";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        nicheId: string | null;
+                        nicheName: string | null;
+                        /** @enum {string} */
+                        state: "waiting" | "taken" | "done" | "failed" | "stopped";
+                        takenAt: string | null;
+                    };
+                };
+            };
+        };
+    };
     command_stage_create: {
         parameters: {
             query?: never;
@@ -90260,6 +91168,237 @@ export interface operations {
                                 resourceId: string;
                             }[];
                             staffUserIds: string[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_creator_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    /** @enum {string} */
+                    state?: "suggested" | "studying" | "skipped" | "didnt_fit";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        creators: {
+                            bio: string | null;
+                            createdAt: string;
+                            followers: number | null;
+                            /** @enum {string} */
+                            foundBy: "search" | "person";
+                            handle: string;
+                            /** Format: uuid */
+                            id: string;
+                            lastPostAt: string | null;
+                            link: string;
+                            name: string | null;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            nicheId: string | null;
+                            nicheName: string | null;
+                            postsCount: number;
+                            postsReadAt: string | null;
+                            profileReadAt: string | null;
+                            reading: boolean;
+                            shown: string;
+                            standoutsCount: number;
+                            /** @enum {string} */
+                            state: "suggested" | "studying" | "skipped" | "didnt_fit";
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_niche_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        niches: {
+                            /** @enum {string} */
+                            addedBy: "ai" | "person";
+                            createdAt: string;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            own: boolean;
+                            /** @default {} */
+                            searches: {
+                                [key: string]: string[];
+                            };
+                            /** @enum {string} */
+                            state: "suggested" | "picked" | "skipped";
+                            why: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            skipped: number;
+                            standouts: number;
+                            studying: number;
+                            suggested: number;
+                            waiting: number;
+                        };
+                        mayManage: boolean;
+                        readerIsMe: boolean;
+                        settings: {
+                            networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                            readerName: string | null;
+                            readerUserId: string | null;
+                        };
+                        work: {
+                            /** @enum {string} */
+                            askedFor: "person" | "weekly" | "monthly" | "added" | "studying";
+                            createdAt: string;
+                            creatorId: string | null;
+                            creatorShown: string | null;
+                            doneCount: number | null;
+                            failure: string | null;
+                            finishedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "find" | "profile" | "posts";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            nicheId: string | null;
+                            nicheName: string | null;
+                            /** @enum {string} */
+                            state: "waiting" | "taken" | "done" | "failed" | "stopped";
+                            takenAt: string | null;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_post_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date-time */
+                    before?: string;
+                    /** Format: uuid */
+                    creatorId?: string;
+                    /** @default 50 */
+                    limit?: number;
+                    /** @enum {string} */
+                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    /** @default false */
+                    standoutsOnly?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        more: boolean;
+                        posts: {
+                            caption: string | null;
+                            comments: number | null;
+                            /** Format: uuid */
+                            creatorId: string;
+                            creatorName: string | null;
+                            creatorShown: string;
+                            engagementTimes: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "video" | "photo" | "carousel" | "text" | "link" | "other";
+                            likes: number | null;
+                            link: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            pinned: boolean;
+                            postedAt: string;
+                            postKey: string;
+                            seconds: number | null;
+                            shares: number | null;
+                            standout: boolean;
+                            standoutOn: ("views" | "engagement" | "both") | null;
+                            views: number | null;
+                            viewsTimes: number | null;
+                            waiting: ("too_new" | "too_few") | null;
                         }[];
                     };
                 };

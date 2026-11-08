@@ -1,0 +1,257 @@
+{
+  "area": "socialcontent",
+  "title": "The AI Social Media Content Creator add-on: Creators, Standouts and Settings",
+  "checkedOn": "2026-11-08",
+  "files": {
+    "apps/web/src/addons/registry.ts": "004a7ec15544",
+    "apps/web/src/addons/socialcontent/creators-page.tsx": "18c2ed634a4d",
+    "apps/web/src/addons/socialcontent/post-card.tsx": "f158d763f151",
+    "apps/web/src/addons/socialcontent/settings-page.tsx": "737d0e7331dc",
+    "apps/web/src/addons/socialcontent/standouts-page.tsx": "3f2efca53a94",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/creators/page.tsx": "f4ae2d8b3e77",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/page.tsx": "f6d978501d91",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/settings/page.tsx": "af3ff673f9d4",
+    "apps/web/src/app/app/w/[workspaceId]/a/socialcontent/standouts/page.tsx": "ebf3c721a49e"
+  },
+  "items": [
+    {
+      "path": "Side menu → AI Social Media Content Creator (opens Creators; Standouts and Settings pop out)",
+      "kind": "do",
+      "file": "apps/web/src/addons/registry.ts:267",
+      "covered": "yes",
+      "by": "add-on directory line in the prompt; SOCIALCONTENT_PLACES link each page"
+    },
+    {
+      "path": "Creators → header: title and how studying works",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:76",
+      "covered": "yes",
+      "by": "socialcontent_overview; the place's words"
+    },
+    {
+      "path": "Creators → Find creators now",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:85",
+      "covered": "yes",
+      "by": "socialcontent_find_creators"
+    },
+    {
+      "path": "Creators → no reading computer notice, with Settings",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:91",
+      "covered": "yes",
+      "by": "socialcontent_overview (settings.readerUserId); socialcontent_save_settings for owners and admins"
+    },
+    {
+      "path": "Creators → Niches: your niche and similar niches, each with why",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:242",
+      "covered": "yes",
+      "by": "socialcontent_list_niches"
+    },
+    {
+      "path": "Creators → Niches → Suggest niches",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:252",
+      "covered": "yes",
+      "by": "socialcontent_suggest_niches (worker action)"
+    },
+    {
+      "path": "Creators → Niches → Search it",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:224",
+      "covered": "yes",
+      "by": "socialcontent_decide_niche (picked)"
+    },
+    {
+      "path": "Creators → Niches → Skip",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:234",
+      "covered": "yes",
+      "by": "socialcontent_decide_niche (skipped)"
+    },
+    {
+      "path": "Creators → Niches → Add a niche",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:289",
+      "covered": "yes",
+      "by": "socialcontent_add_niche"
+    },
+    {
+      "path": "Creators → Add a creator from a link",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:101",
+      "covered": "yes",
+      "by": "socialcontent_add_creator"
+    },
+    {
+      "path": "Creators → tabs: Suggested, Studying, Skipped, with counts",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:128",
+      "covered": "yes",
+      "by": "socialcontent_list_creators (state); socialcontent_overview counts"
+    },
+    {
+      "path": "Creators → a creator: name, network, followers, last post, niche, why suggested, posts read and standouts",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:376",
+      "covered": "yes",
+      "by": "socialcontent_list_creators"
+    },
+    {
+      "path": "Creators → a creator added under 5,000 followers: the note that a search wouldn’t suggest them",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:387",
+      "covered": "yes",
+      "by": "socialcontent_list_creators (followers, foundBy)"
+    },
+    {
+      "path": "Creators → Suggested → Study",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:398",
+      "covered": "yes",
+      "by": "socialcontent_decide_creator (study: true)"
+    },
+    {
+      "path": "Creators → Suggested → Skip",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:401",
+      "covered": "yes",
+      "by": "socialcontent_decide_creator (study: false)"
+    },
+    {
+      "path": "Creators → Studying → See posts (each with how many times its neighbours it did)",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:407",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (creatorId)"
+    },
+    {
+      "path": "Creators → Studying → Read again",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:416",
+      "covered": "yes",
+      "by": "socialcontent_read_creators (creatorId)"
+    },
+    {
+      "path": "Creators → Studying → Stop studying",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:419",
+      "covered": "yes",
+      "by": "socialcontent_decide_creator (study: false)"
+    },
+    {
+      "path": "Creators → Skipped → Study after all",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/creators-page.tsx:429",
+      "covered": "yes",
+      "by": "socialcontent_decide_creator (study: true)"
+    },
+    {
+      "path": "Standouts → header: what makes a standout",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/standouts-page.tsx:99",
+      "covered": "yes",
+      "by": "socialcontent_list_posts description; the place's words"
+    },
+    {
+      "path": "Standouts → All networks filter",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/standouts-page.tsx:109",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (network)"
+    },
+    {
+      "path": "Standouts → All creators filter",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/standouts-page.tsx:127",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (creatorId)"
+    },
+    {
+      "path": "Standouts → a post: creator, network, kind, when, caption, views and likes plus comments, times their normal, standout on what",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:49",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (standoutsOnly)"
+    },
+    {
+      "path": "Standouts → a post → Open post",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-card.tsx:71",
+      "covered": "yes",
+      "by": "socialcontent_list_posts gives each post's link"
+    },
+    {
+      "path": "Standouts → Show more",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/standouts-page.tsx:157",
+      "covered": "yes",
+      "by": "socialcontent_list_posts (before)"
+    },
+    {
+      "path": "Standouts → none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/standouts-page.tsx:141",
+      "covered": "yes",
+      "by": "socialcontent_overview counts.standouts"
+    },
+    {
+      "path": "Settings → Networks: Instagram ticked, the rest Coming later",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:98",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (networks); socialcontent_overview"
+    },
+    {
+      "path": "Settings → Whose computer reads",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:115",
+      "covered": "yes",
+      "by": "socialcontent_overview (settings.readerName, readerIsMe)"
+    },
+    {
+      "path": "Settings → Read on my computer",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:126",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (readerUserId)"
+    },
+    {
+      "path": "Settings → Get the extension",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:135",
+      "covered": "person",
+      "by": "a download into the person's own Chrome; the Assistant can say where it is"
+    },
+    {
+      "path": "Settings → Stop reading",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:144",
+      "covered": "yes",
+      "by": "socialcontent_save_settings (readerUserId: null)"
+    },
+    {
+      "path": "Settings → when it reads on its own (weekly, monthly)",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:155",
+      "covered": "yes",
+      "by": "the place's words; socialcontent_find_creators and socialcontent_read_creators descriptions"
+    },
+    {
+      "path": "Settings → What it’s doing: waiting count and recent work, each with how it went",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:161",
+      "covered": "yes",
+      "by": "socialcontent_overview (counts.waiting, work)"
+    },
+    {
+      "path": "Settings → What it’s doing → Stop",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/settings-page.tsx:226",
+      "covered": "yes",
+      "by": "socialcontent_stop_work"
+    }
+  ],
+  "gaps": []
+}

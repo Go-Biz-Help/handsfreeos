@@ -3262,6 +3262,49 @@ export const DOCUMENT_RULES: readonly ScriptRule[] = [
   { when: /Place the fields on this document\.$/, json: (m) => scriptedPlaceFields(m) },
 ];
 
+/**
+ * AI Social Media Content Creator's niches (addons/socialcontent/niches.ts): the business's own niche from the first
+ * line of its profile, three steady similar ones, and searches made of the niche's words, so the same profile always
+ * gets the same answer.
+ */
+function scriptedSearches(niche: string): Record<string, string[]> {
+  const words = niche
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+  return { instagram: [`#${words.join('')}`, `${words.join(' ')} tips`] };
+}
+function scriptedNiches(message: string): unknown {
+  const profile = unquote(quotedBlock(message, 'business_profile') ?? '');
+  const trade =
+    /\b(plumb|hvac|roof|clean|salon|dental|real estate|landscap|marketing|crm|software)\w*/i.exec(
+      profile,
+    )?.[0];
+  const own = trade
+    ? `${trade.charAt(0).toUpperCase()}${trade.slice(1).toLowerCase()} tips`
+    : 'Small business tips';
+  const similar = ['Small business marketing', 'Running a small business', 'Customer service tips'];
+  return {
+    own: { name: own, searches: scriptedSearches(own) },
+    similar: similar.map((name) => ({
+      name,
+      why: `People who follow ${own.toLowerCase()} also follow ${name.toLowerCase()}.`,
+      searches: scriptedSearches(name),
+    })),
+  };
+}
+
+export const SOCIALCONTENT_RULES: readonly ScriptRule[] = [
+  { when: /Suggest niches for this business\.$/, json: (message) => scriptedNiches(message) },
+  {
+    when: /Write searches for this niche\.$/,
+    json: (message) => ({
+      searches: scriptedSearches(unquote(quotedBlock(message, 'niche') ?? 'niche')),
+    }),
+  },
+];
+
 export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...FUNNEL_RULES,
   ...INDEED_RULES,
@@ -3277,6 +3320,7 @@ export const SCRIPTED_RULES: readonly ScriptRule[] = [
   ...LISTING_RULES,
   ...OUTREACH_RULES,
   ...SALESCOACH_RULES,
+  ...SOCIALCONTENT_RULES,
   ...DOCUMENT_RULES,
 ];
 
