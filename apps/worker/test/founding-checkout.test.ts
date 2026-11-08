@@ -390,6 +390,10 @@ beforeEach(async () => {
   await admin().execute(sql`delete from platform.founding_grants where offer_id = ${PAID}`);
   await admin().execute(sql`delete from platform.founding_offers where id = ${PAID}`);
   await admin().execute(sql`delete from app.workspace_plans where workspace_id = ${workspaceId}`);
+  await admin().execute(sql`delete from app.plan_cards where workspace_id = ${workspaceId}`);
+  await admin().execute(
+    sql`delete from app.plan_time_requests where workspace_id = ${workspaceId}`,
+  );
   await admin().execute(
     sql`insert into platform.founding_offers
           (id, name, seat_cap, price_cents, status, starting_credit_cents, show_counter)
@@ -653,7 +657,7 @@ describe('a seat paid by the year', () => {
       sql`select status::text as status from platform.founding_grants where id = ${grantId}::uuid`,
     );
     expect(g!.status).toBe('active');
-    // Never tried again on its own.
+    // Not tried again until its daily retry is due (20261027023600).
     const charged = s.payments.fake.platformCharges().length;
     await sweep();
     expect(s.payments.fake.platformCharges()).toHaveLength(charged);
@@ -1211,6 +1215,8 @@ describe('the renewal emails', () => {
       period: 'month',
     });
     expect(refused.text).toContain('the monthly $97');
-    expect(refused.text).toContain('charged next month');
+    // Backups were tried, they'll be tried again daily, and the fix is on Settings → Billing (20261027023600).
+    expect(refused.text).toContain('once a day');
+    expect(refused.text).toContain('Settings → Billing');
   });
 });

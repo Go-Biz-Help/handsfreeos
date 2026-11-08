@@ -132,6 +132,7 @@ export * from './look/index';
 // The AI keeps customers' tags and details up to date (0107).
 export * from './contact-ai/index';
 export * from './money/index';
+export * from './billing/index';
 export * from './inbox/index';
 export * from './migrations/index';
 // Ideas, the roadmap and What's new (0102).

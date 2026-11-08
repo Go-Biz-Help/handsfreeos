@@ -53,6 +53,15 @@ import { foundingContact, queueOpinlyEventFrom, visitorIdFor } from '../opinly';
 import { errorMessage } from '../outbox';
 import { PaymentError, PlatformUnsupportedError, type CheckoutEvent } from '../payments/provider';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
+import {
+  billingJobs,
+  chargePlanCards,
+  describePlanCards,
+  keyDay,
+  planCards,
+  STRIPE_LEAST_CENTS,
+  type CardTry,
+} from './billing';
 
 export const FOUNDING_JOBS = {
   /** One checkout: ask Stripe for its page. */
@@ -172,7 +181,7 @@ function checkoutWords(c: CheckoutRow): { productName: string; description: stri
   if (c.renewal_for)
     return {
       productName: `HandsFreeOS — ${c.offer_name}: another ${period ?? 'year'}`,
-      description: `Paid through ${foundingLongDay(periodAfter(c.renewal_for, period ?? 'year'))}. This card is charged ${price} next ${period ?? 'year'}; you can stop it renewing in Settings → Usage & balance.`,
+      description: `Paid through ${foundingLongDay(periodAfter(c.renewal_for, period ?? 'year'))}. This card is charged ${price} next ${period ?? 'year'}; you can stop it renewing in Settings → Billing.`,
     };
   // With a code, the whole deal: "14 days free, then $77.60 a month for the first 3 months, then $97 a month".
   const deal =
@@ -190,15 +199,15 @@ function checkoutWords(c: CheckoutRow): { productName: string; description: stri
     const ends = foundingLongDay(new Date(Date.now() + c.trial_days * 86_400_000).toISOString());
     return {
       productName: `HandsFreeOS — ${c.offer_name}: ${c.trial_days} days free`,
-      description: `Nothing is charged today: ${deal ?? `${c.trial_days} days free`}. This card is charged ${price} when the trial ends, on ${ends}, unless you stop it renewing first in Settings → Usage & balance.`,
+      description: `Nothing is charged today: ${deal ?? `${c.trial_days} days free`}. This card is charged ${price} when the trial ends, on ${ends}, unless you stop it renewing first in Settings → Billing.`,
     };
   }
   if (period)
     return {
       productName: `HandsFreeOS — ${c.offer_name}: the first ${period}`,
       description: deal
-        ? `HandsFreeOS for one business: ${deal}, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`
-        : `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Usage & balance. Texts, calls and AI are billed for what you use.`,
+        ? `HandsFreeOS for one business: ${deal}, charged to this card; you can stop it renewing in Settings → Billing. Texts, calls and AI are billed for what you use.`
+        : `HandsFreeOS for one business. Then ${price} a ${period}, charged to this card; you can stop it renewing in Settings → Billing. Texts, calls and AI are billed for what you use.`,
     };
   return {
     productName: `HandsFreeOS — ${c.offer_name}`,
@@ -393,8 +402,9 @@ export const expireFoundingReservations: JobHandler = async (ctx) => {
 };
 
 /**
- * Hourly: whose paid year is up, one job each, keyed on the seat and the year so a sweep that runs twice queues one;
- * and the seats somebody stopped renewing, whose year is over, go back.
+ * Hourly: whose paid month or year is up, and whose failed payment is due its daily retry (20261027023600), one job
+ * each, keyed on the seat, the period and the try, so a sweep that runs twice queues one; the seats somebody stopped
+ * renewing, whose time is over, go back; and cards kept before they had details are described.
  */
 export const planFoundingRenewals: JobHandler = async (ctx) => {
   const due = await asWorker(ctx.db, {}, (tx) =>
@@ -403,31 +413,58 @@ export const planFoundingRenewals: JobHandler = async (ctx) => {
       workspace_id: string;
       organization_id: string;
       paid_through: string | Date;
-    }>(tx, sql`select * from private.founding_renewals_due(200)`),
+      attempt: number;
+    }>(tx, sql`select * from private.plan_charges_due(200)`),
   );
   for (const d of due) {
     const forPaidThrough = new Date(d.paid_through).toISOString();
+    const attempt = Number(d.attempt ?? 0);
     await asWorker(
       ctx.db,
       { workspaceId: d.workspace_id, organizationId: d.organization_id },
       (tx) =>
         scheduleJob(tx, {
           kind: FOUNDING_JOBS.renew,
-          dedupeKey: renewJobKey(d.grant_id, forPaidThrough),
+          dedupeKey:
+            attempt === 0
+              ? renewJobKey(d.grant_id, forPaidThrough)
+              : `${renewJobKey(d.grant_id, forPaidThrough)}:try${attempt}`,
           runAt: new Date(),
-          payload: { grantId: d.grant_id, forPaidThrough },
+          payload: { grantId: d.grant_id, forPaidThrough, attempt },
           workspaceId: d.workspace_id,
           organizationId: d.organization_id,
         }),
     );
   }
-  if (due.length) ctx.log.info({ due: due.length }, 'founding seat renewals queued');
+  if (due.length) ctx.log.info({ due: due.length }, 'founding seat renewals and retries queued');
   const [ended] = await asWorker(ctx.db, {}, (tx) =>
     rows<{ n: number }>(tx, sql`select private.founding_end_stopped_years() as n`),
   );
   if (Number(ended?.n ?? 0) > 0)
     ctx.log.info({ seats: Number(ended?.n) }, 'founding seats that stopped renewing went back');
+  const described = await describePlanCards(ctx);
+  if (described) ctx.log.info({ cards: described }, 'plan cards described');
   return { rescheduleAt: new Date(Date.now() + HOUR) };
+};
+
+/** Somebody pressed Try my cards now: the same charge a retry makes, as a job of its own (20261027023600). */
+export const onPayNowRequested: EventHandler = async (ctx) => {
+  const { workspaceId, organizationId } = ctx.scope;
+  const payload = (ctx.event.payload ?? {}) as { grantId?: string; forPaidThrough?: string };
+  if (!workspaceId || !organizationId || !payload.grantId || !payload.forPaidThrough) return;
+  await scheduleJob(ctx.tx, {
+    kind: FOUNDING_JOBS.renew,
+    dedupeKey: `${renewJobKey(payload.grantId, payload.forPaidThrough)}:now:${ctx.event.id}`,
+    runAt: new Date(),
+    payload: {
+      grantId: payload.grantId,
+      forPaidThrough: payload.forPaidThrough,
+      attempt: 'now',
+      nonce: ctx.event.id.replaceAll('-', '').slice(0, 6),
+    },
+    workspaceId,
+    organizationId,
+  });
 };
 
 type PlanRow = {
@@ -443,6 +480,8 @@ type PlanRow = {
   stripe_card_id: string | null;
   renewal_stopped_at: string | Date | null;
   renewal_failed_at: string | Date | null;
+  retry_count: number;
+  more_time_until: string | Date | null;
   business: string;
   offer_name: string | null;
 };
@@ -455,7 +494,7 @@ const planRow = (ctx: { db: Db }, scope: TenantScope) =>
             case when o.paid_yearly then 'yearly' else o.billing end as billing,
             p.current_period_end, p.price_cents, private.founding_charge_cents(p.workspace_id) as charge_cents,
             p.stripe_customer_id, p.stripe_card_id, p.renewal_stopped_at, p.renewal_failed_at,
-            w.name as business, o.name as offer_name
+            p.retry_count, p.more_time_until, w.name as business, o.name as offer_name
           from app.workspace_plans p
           join app.workspaces w on w.id = p.workspace_id
           left join platform.founding_grants g on g.id = p.grant_id
@@ -464,22 +503,34 @@ const planRow = (ctx: { db: Db }, scope: TenantScope) =>
     ),
   );
 
-/** One seat's year, charged to the card the first payment kept. */
+/**
+ * One seat's month or year, charged to its cards in turn: the default, then each backup (20261027023600). `attempt` is
+ * 0 for the first try, a daily retry's number, or `now` for somebody pressing Try my cards now.
+ */
 export const renewFoundingSeat: JobHandler = async (ctx) => {
   const scope = tenantOf(ctx.scope);
   const grantId = String(ctx.job.payload['grantId'] ?? '');
   const forPaidThrough = String(ctx.job.payload['forPaidThrough'] ?? '');
+  const rawAttempt = ctx.job.payload['attempt'];
+  const attempt: number | 'now' = rawAttempt === 'now' ? 'now' : Number(rawAttempt ?? 0) || 0;
+  const nonce = String(ctx.job.payload['nonce'] ?? 'x').slice(0, 6);
   if (!grantId || !forPaidThrough) return;
   const [p] = await planRow(ctx, scope);
-  // Revoked, stopped, already renewed, or waiting on another card since this was queued: nothing to charge.
+  const failed = !!p?.renewal_failed_at;
+  // Revoked, stopped, already renewed, or not the try that's due any more: nothing to charge.
   if (
     !p ||
     p.grant_id !== grantId ||
     p.grant_status !== 'active' ||
     p.renewal_stopped_at ||
-    p.renewal_failed_at ||
     !p.current_period_end ||
-    new Date(p.current_period_end).toISOString() !== forPaidThrough
+    new Date(p.current_period_end).toISOString() !== forPaidThrough ||
+    (attempt === 0 && failed) ||
+    (attempt !== 0 && !failed) ||
+    (typeof attempt === 'number' && attempt > 0 && attempt !== Number(p.retry_count) + 1) ||
+    (attempt !== 'now' &&
+      p.more_time_until !== null &&
+      new Date(p.more_time_until).getTime() > Date.now())
   )
     return;
 
@@ -488,6 +539,7 @@ export const renewFoundingSeat: JobHandler = async (ctx) => {
     paymentRef?: string | null;
     paidCents?: number | null;
     problem?: string | null;
+    cards?: CardTry[];
   }) =>
     executeCommand(
       ctx.db,
@@ -500,40 +552,43 @@ export const renewFoundingSeat: JobHandler = async (ctx) => {
         paymentRef: input.paymentRef ?? null,
         paidCents: input.paidCents ?? null,
         problem: input.problem ?? null,
+        attempt,
+        cards: input.cards ?? [],
+        random: Math.random(),
       },
       systemActor(scope),
       workerMeta(),
     );
 
-  if (!p.stripe_card_id)
-    return void (await record({
-      outcome: 'failed',
-      problem: 'There was no card kept to charge it to.',
-    }));
+  // Moving the payment day earlier can leave next to nothing to pay: Stripe won't take under 50¢, so it's let off.
+  const amount = Number(p.charge_cents);
+  if (amount < STRIPE_LEAST_CENTS) return void (await record({ outcome: 'renewed', paidCents: 0 }));
+
+  const cards = await planCards(ctx.db, scope);
+  const tag = attempt === 'now' ? `n${nonce}` : `r${attempt}`;
   try {
-    const result = await ctx.payments.providers.stripe.platform.charge({
-      amountCents: Number(p.charge_cents),
-      method: 'card',
-      sourceToken: p.stripe_card_id,
-      customerRef: p.stripe_customer_id,
+    const charged = await chargePlanCards(ctx, {
+      cards,
+      amountCents: amount,
       description: `HandsFreeOS — ${p.offer_name ?? 'founding spot'}: another ${periodOf(p.billing ?? '') ?? 'year'} for ${p.business}`,
       metadata: { founding_grant_id: grantId, workspace_id: scope.workspaceId },
-      // The seat and the year: however often this runs, that year is charged once.
-      idempotencyKey: `founding-renewal-${grantId}-${forPaidThrough}`,
+      // The seat, the period, the try and the card: however often this runs, each is charged once. The first card's
+      // first try keeps the key it had before backups, so a job running across the deploy charges once too.
+      keyFor: (i) =>
+        attempt === 0 && i === 0
+          ? `founding-renewal-${grantId}-${forPaidThrough}`
+          : `plan-${grantId}-${keyDay(forPaidThrough)}-${tag}-${i}`,
     });
-    if (result.status === 'succeeded')
+    if (charged.status === 'succeeded')
       await record({
         outcome: 'renewed',
-        paymentRef: result.providerPaymentId,
-        paidCents: result.amountCents,
+        paymentRef: charged.result.providerPaymentId,
+        paidCents: charged.result.amountCents,
+        cards: charged.tries,
       });
-    else if (result.status === 'failed')
-      await record({
-        outcome: 'failed',
-        paymentRef: result.providerPaymentId,
-        problem: result.failureMessage ?? 'The card was declined.',
-      });
-    // Still settling: look again in an hour, with the same key, which asks after the same payment.
+    else if (charged.status === 'failed')
+      await record({ outcome: 'failed', problem: charged.problem, cards: charged.tries });
+    // Still settling: look again in an hour, with the same keys, which ask after the same payment.
     else return { rescheduleAt: new Date(Date.now() + HOUR) };
   } catch (e) {
     if (e instanceof PlatformUnsupportedError || (e instanceof PaymentError && e.permanent)) {
@@ -555,7 +610,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
     problem?: string;
     amountCents?: number;
   };
-  const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/usage#founding`;
+  const link = `${ctx.webUrl}/app/w/${scope.workspaceId}/settings/billing`;
   const offer = p.offer_name ?? 'founding';
   const period = periodOf(p.billing ?? '') ?? 'year';
   const mail =
@@ -583,6 +638,7 @@ export const onFoundingBilled: EventHandler = async (ctx) => {
 const iso = (d: string | Date | null): string | null => (d ? new Date(d).toISOString() : null);
 
 export const foundingJobs: JobMap = {
+  ...billingJobs,
   [FOUNDING_JOBS.checkout]: runFoundingCheckout,
   [FOUNDING_JOBS.expire]: expireFoundingReservations,
   [FOUNDING_JOBS.purchase]: reportFoundingPurchase,

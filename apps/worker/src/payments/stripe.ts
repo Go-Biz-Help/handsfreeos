@@ -904,6 +904,10 @@ export function createStripePayments(opts: {
         await api(null, `/payment_methods/${encodeURIComponent(input.token)}/detach`, { body: {} });
       },
 
+      async describeMethod(token) {
+        return cardOf(await api<Json>(null, `/payment_methods/${encodeURIComponent(token)}`));
+      },
+
       charge(input) {
         const amount = requireAmount(input.amountCents);
         return charged(

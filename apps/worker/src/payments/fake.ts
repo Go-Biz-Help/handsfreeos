@@ -1343,6 +1343,19 @@ export function createFakePayments(opts: {
           if (c) c.cards = c.cards.filter((x) => x.token !== input.token);
         },
 
+        async describeMethod(token) {
+          requirePlatform(name);
+          const t = readToken(token);
+          return {
+            token,
+            kind: t.method,
+            brand: t.method === 'ach' ? 'Test Bank' : 'Visa',
+            last4: last4(t.instrument),
+            expiryMonth: t.method === 'ach' ? null : 12,
+            expiryYear: t.method === 'ach' ? null : new Date().getUTCFullYear() + 2,
+          };
+        },
+
         async charge(input: ChargeInput) {
           requirePlatform(name);
           const amount = requireAmount(input.amountCents);

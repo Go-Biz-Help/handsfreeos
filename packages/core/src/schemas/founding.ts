@@ -328,6 +328,24 @@ export const FoundingRecordRenewalInput = z.strictObject({
   paidCents: z.int().min(0).nullable().default(null),
   /** Why the card refused it, in the card company's words. */
   problem: z.string().trim().max(1000).nullable().default(null),
+  /**
+   * Which try this was (20261027023600): 0 the first, then each daily retry's number. `now` is somebody pressing
+   * Try my cards now, which never moves the retries on.
+   */
+  attempt: z.union([z.int().min(0).max(100), z.literal('now')]).default(0),
+  /** What each card said, default first. */
+  cards: z
+    .array(
+      z.strictObject({
+        cardId: uuid,
+        ok: z.boolean(),
+        problem: z.string().trim().max(500).nullable().default(null),
+      }),
+    )
+    .max(20)
+    .default([]),
+  /** A number from 0 to 1 the worker drew, for when in the next day the next retry is. */
+  random: z.number().min(0).max(1).default(0.5),
 });
 
 export const FoundingRecordRenewalOutput = z.strictObject({

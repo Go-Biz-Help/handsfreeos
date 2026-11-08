@@ -680,12 +680,41 @@ export function foundingRenewalFailedEmail(input: {
   const subject = `Your ${input.offer} renewal for ${input.business} didn’t go through`;
   const lines = [
     `We couldn’t take the ${input.period === 'month' ? 'monthly' : 'yearly'} ${input.amount} for your founding spot: ${input.reason}`,
-    `Your spot stays on meanwhile. Pay it with another card in Settings → Usage & balance to keep your founding price; that card is the one charged next ${input.period}.`,
+    'We tried your default card and every backup card. We’ll try them again once a day on our own.',
+    'Please pay it, or add another card, in Settings → Billing. If you need a little longer, you can ask for more time there. After 72 hours, HandsFreeOS stays closed until it’s paid.',
   ];
-  const text = `${lines.join('\n\n')}\n\nPay it in Settings: ${input.link}`;
+  const text = `${lines.join('\n\n')}\n\nOpen Billing: ${input.link}`;
   const html = shell(
     lines.map((l) => para(escapeHtml(l))).join('') +
-      button(input.link, 'Pay it in Settings') +
+      button(input.link, 'Open Billing') +
+      small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
+  );
+  return { subject, text, html };
+}
+
+/** Staff answered a business's request for more time to pay its plan (20261027023600). */
+export function planMoreTimeEmail(input: {
+  business: string;
+  granted: boolean;
+  until: string | null;
+  link: string;
+}): EmailContent {
+  const subject = input.granted
+    ? `You have more time to pay for ${input.business}`
+    : `About your request for more time, for ${input.business}`;
+  const lines = input.granted
+    ? [
+        `Good news: you have until ${input.until} to pay for HandsFreeOS.`,
+        'HandsFreeOS is open again until then. We’ll try your cards that day, so make sure the one you want charged is your default card in Settings → Billing.',
+      ]
+    : [
+        'We couldn’t give you more time to pay for HandsFreeOS this time.',
+        'Please pay now, or add another card, in Settings → Billing. Reply to this email if anything has changed.',
+      ];
+  const text = `${lines.join('\n\n')}\n\nOpen Billing: ${input.link}`;
+  const html = shell(
+    lines.map((l) => para(escapeHtml(l))).join('') +
+      button(input.link, 'Open Billing') +
       small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
   );
   return { subject, text, html };
