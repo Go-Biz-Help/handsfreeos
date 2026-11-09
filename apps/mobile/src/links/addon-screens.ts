@@ -5,7 +5,7 @@
  *
  * Real Estate Agent's screens (round six) live in `app/app/w/[workspaceId]/(tabs)/(more)/a/realestate/`, inside More
  * so the tab bar stays; each route is added here, in its group, once its screen is built. Social Outreach's
- * (decision 44) live beside them in `a/outreach/`.
+ * (decision 44) live beside them in `a/outreach/`, and AI Social Media Content Creator's in `a/socialcontent/`.
  */
 export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   // Real Estate: Deals, My duties, Coordinate, Vendors (board 76–77).
@@ -49,4 +49,11 @@ export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   'a/outreach/playbooks/:playbookId',
   // AI Sales Coach: the live call (its other tabs stay on the web).
   'a/salescoach',
+  // AI Social Media Content Creator (part 5): its first screen and each of its pages.
+  'a/socialcontent',
+  'a/socialcontent/creators',
+  'a/socialcontent/standouts',
+  'a/socialcontent/playbook',
+  'a/socialcontent/ideas',
+  'a/socialcontent/settings',
 ]);

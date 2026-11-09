@@ -127,6 +127,15 @@ export const socialcontentAddon = defineAddon({
       // Not `settings`: that key would put the page in Settings search, which opens it on the web.
       { key: 'gear', label: SOCIALCONTENT_PAGES.gear, icon: 'settings', path: 'settings' },
     ],
+    // On the phone too (part 5): its first screen lists the pages, and Standouts keeps to a network or a creator.
+    phone: [
+      { path: '' },
+      { path: 'creators' },
+      { path: 'standouts', query: ['network', 'creator'] },
+      { path: 'playbook' },
+      { path: 'ideas' },
+      { path: 'settings' },
+    ],
   },
   ai: {
     directory:

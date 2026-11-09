@@ -9,6 +9,7 @@ import { RealestateMore } from './realestate/more';
 import { RE_COPY_KINDS, searchRealestateCopy } from './realestate/search';
 import { SalescoachCallCard } from './salescoach/call-card';
 import { SalescoachMore } from './salescoach/more';
+import { SocialcontentMore } from './socialcontent/more';
 
 /**
  * The add-ons this build of the phone draws, and where each sits in core's screens, as the web's
@@ -63,5 +64,10 @@ export const PHONE_ADDONS: readonly PhoneAddon[] = [
     permission: 'salescoach.use',
     More: SalescoachMore,
     CallCard: SalescoachCallCard,
+  },
+  {
+    addonId: 'socialcontent',
+    permission: 'socialcontent.use',
+    More: SocialcontentMore,
   },
 ];

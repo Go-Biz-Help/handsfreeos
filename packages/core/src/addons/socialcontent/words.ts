@@ -288,6 +288,35 @@ export const SOCIALCONTENT_WORDS = {
     starting: 'Starting…',
     all: 'Everything it did is in Settings.',
   },
+  /** The phone's screens (part 5): its one row under More, its first screen's pages, and what needs signal there. */
+  phone: {
+    more: 'Creators, standout posts, the Playbook and ideas',
+    pages: {
+      creators: (studying: number, suggested: number) =>
+        [
+          studying ? `${count(studying, 'creator')} studied` : null,
+          suggested ? `${suggested.toLocaleString('en-US')} to tick` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ') || 'Your niches, and the creators found in them',
+      standouts: (n: number) => (n ? count(n, 'standout') : 'Posts that beat their normal'),
+      playbook: 'What works for the creators you study',
+      ideas: 'Ideas for your own posts',
+      gear: 'Networks, whose computer reads, and watching videos',
+    },
+    needsSignal: (screen: string) => `${screen} needs signal. Try again when you’re back online.`,
+    tryAgain: 'Try again',
+    loading: 'Loading…',
+    creator: 'Creator',
+    pickCreator: 'Pick a creator',
+    morePosts: 'Show more posts',
+    openProfile: 'Open their page',
+    extensionOnComputer:
+      'Get the extension on that computer: open this add-on’s Settings in HandsFreeOS on the web there, and press Get the extension.',
+    watchAsk: 'Turn on watching videos?',
+    watchYes: 'Turn it on',
+    watchKeep: 'Keep it off',
+  },
   work: {
     kinds: {
       find: (niche: string, network: string) => `Find creators for “${niche}” on ${network}`,
