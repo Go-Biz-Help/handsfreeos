@@ -1214,6 +1214,24 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Chats still loading, LinkedIn's framed messaging, and profiles in professional mode (0.128.4)
+
+The problem check of 9 Nov 2026 (evening) found three things on 0.128.2:
+
+- **A Facebook chat still drawing its box.** A message found no chat open with them: their new chat's window showed
+  the card about them and Facebook's loading mark where the box goes. Writing a message (`writeMessage` in
+  `src/networks/facebook/auto.ts`) now waits up to ten seconds more while a chat window over the page is still drawing
+  its box (`chatLoading`), after its first five.
+- **LinkedIn's conversation in its frame, the tab still at their profile.** Two messages found no box to write in:
+  their profile's Message opened a whole messaging page in LinkedIn's interop frame while the tab's address stayed
+  their profile's, so no window over the page was theirs. On their profile, the box in the frame's messaging page now
+  counts when the frame's open conversation is plainly with them (`messageBoxFor` in `src/networks/linkedin/auto.ts`).
+- **Profiles in professional mode.** Two friend requests said Facebook couldn't tell where things stand on profiles
+  with followers instead of friends, whose row beside Message held a button of the owner's choosing, Message and
+  Follow, and no Add friend. Those buttons ("Book now", "Call now": `PROFILE_ACTION_WORDS` in
+  `src/networks/facebook/vocabulary.ts`) now count with Follow and Search as saying nothing about where you stand, so
+  such a profile is passed over (decision 156), and the page outline shows them.
+
 ### Their other posts, still loading on Facebook (0.128.3)
 
 The problem check of 9 Nov 2026 found three Facebook warm-ups (decision 33) on 0.126.5 saying none of someone's posts

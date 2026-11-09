@@ -556,7 +556,8 @@ function namesWhomOpened(url: URL, opened: string | null): boolean {
 
 /**
  * The box to write to them in: the conversation's own on its page (when it's with them, as far as it says), or the
- * one window over the page that links to them, wherever LinkedIn draws it (its interop box among them: ./dom.ts).
+ * one window over the page that links to them, wherever LinkedIn draws it (its interop box among them: ./dom.ts), or
+ * on their profile, the one in the interop frame's messaging page when its open conversation is with them.
  * Null when there's none, or more than one. `opened` is the link their profile's Message was, when the runner pressed
  * it: a new conversation whose address names whom it named is theirs.
  */
@@ -610,7 +611,18 @@ export function messageBoxFor(
   const theirs = placesOf(doc)
     .flatMap(messageBoxes)
     .filter((box) => !main.contains(box) && isTheirs(box));
-  return theirs.length === 1 ? theirs[0]! : null;
+  if (theirs.length > 0 || address.kind !== 'profile')
+    return theirs.length === 1 ? theirs[0]! : null;
+  // LinkedIn's newer pages may open their conversation as a whole messaging page in the interop frame while the tab
+  // stays at their profile's address (the owner's problem reports of 9 Nov 2026, on 0.128.2): its box counts only when
+  // the frame's open conversation is plainly with them.
+  const framed = pagesOf(doc)
+    .filter((place) => place !== doc)
+    .flatMap((place) => {
+      const chat = readChat(place, address, href);
+      return chat.profile && sameMember(chat.profile, known) ? messageBoxes(place) : [];
+    });
+  return framed.length === 1 ? framed[0]! : null;
 }
 
 /**

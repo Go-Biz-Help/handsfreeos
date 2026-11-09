@@ -645,6 +645,25 @@ describe('a friend request on Facebook', () => {
     expect(await step(request)).toEqual(PASSED_OVER);
   });
 
+  it('passes over one in professional mode, its own button and Follow beside Message (the owner’s reports of 9 Nov 2026)', async () => {
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = noAddFriend();
+      const message = doc.querySelector('[role="button"][aria-label="Message"]')!;
+      message.insertAdjacentHTML(
+        'beforebegin',
+        '<div role="button" aria-label="Book now"><span>Book now</span></div>',
+      );
+      message.insertAdjacentHTML(
+        'afterend',
+        '<div role="button" aria-label="Follow"><span>Follow</span></div>',
+      );
+      return doc;
+    };
+    expect(await step(request)).toEqual(PASSED_OVER);
+    expect(world.posted.filter((p) => p.path === CLOSED)).toHaveLength(1);
+  });
+
   it('hands one over as a page it couldn’t read when a button it doesn’t know is beside Message', async () => {
     world.pages = (url) => {
       if (url !== DANA) return null;
