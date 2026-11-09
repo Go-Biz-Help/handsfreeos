@@ -206,6 +206,11 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
     const networks = input.networks ? [...new Set(input.networks)] : was.networks;
     const readerUserId = input.readerUserId === undefined ? was.readerUserId : input.readerUserId;
     const watchVideos = input.watchVideos ?? was.watchVideos;
+    // Another computer reads now: when the last one checked in says nothing about it.
+    const readerChanged = readerUserId !== was.readerUserId;
+    const seen = readerChanged
+      ? { readerSeenAt: null, readerVersion: null }
+      : { readerSeenAt: was.readerSeenAt, readerVersion: was.readerVersion };
     await ctx.tx
       .insert(settings)
       .values({ workspaceId: ws, networks, readerUserId, watchVideos, updatedBy: me })
@@ -215,6 +220,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
           networks,
           readerUserId,
           watchVideos,
+          ...(readerChanged ? { readerSeenAt: null, readerVersion: null } : {}),
           updatedBy: me,
           updatedAt: changeMoment(ctx.meta),
         },
@@ -224,11 +230,17 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
       entityType: 'socialcontent_settings',
       payload: {
         networks,
-        readerChanged: readerUserId !== was.readerUserId,
+        readerChanged,
         watchVideos,
       },
     });
-    return { networks, readerUserId, watchVideos, readerName: await nameOf(ctx, readerUserId) };
+    return {
+      networks,
+      readerUserId,
+      watchVideos,
+      readerName: await nameOf(ctx, readerUserId),
+      ...seen,
+    };
   },
 });
 

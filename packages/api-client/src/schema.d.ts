@@ -14817,6 +14817,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.work.progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: how something the reading computer took is going, as it goes: what it’s at now, the searches done, and how many accounts it looked at, profiles and posts it read. Shown on the Creators page.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.work.progressed.
+         */
+        post: operations["command_socialcontent_work_progress"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.work.stop": {
         parameters: {
             query?: never;
@@ -59821,7 +59841,9 @@ export interface operations {
                     "application/json": {
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                         readerName: string | null;
+                        readerSeenAt: string | null;
                         readerUserId: string | null;
+                        readerVersion: string | null;
                         watchVideos: boolean;
                     };
                 };
@@ -59901,6 +59923,7 @@ export interface operations {
             content: {
                 "application/json": {
                     reads: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    version?: string;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -59950,6 +59973,46 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_work_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    progress: {
+                        accounts?: number;
+                        now?: string;
+                        posts?: number;
+                        profiles?: number;
+                        searched?: string[];
+                        searches?: number;
+                    };
+                    /** Format: uuid */
+                    workId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {boolean} */
+                        ok: true;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_work_stop: {
         parameters: {
             query?: never;
@@ -59992,6 +60055,16 @@ export interface operations {
                         nicheId: string | null;
                         nicheName: string | null;
                         postId: string | null;
+                        progress: {
+                            accounts?: number;
+                            didntFit?: number;
+                            now?: string;
+                            posts?: number;
+                            profiles?: number;
+                            searched?: string[];
+                            searches?: number;
+                            suggested?: number;
+                        } | null;
                         /** @enum {string} */
                         state: "waiting" | "taken" | "done" | "failed" | "stopped";
                         takenAt: string | null;
@@ -92188,7 +92261,9 @@ export interface operations {
                         settings: {
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                             readerName: string | null;
+                            readerSeenAt: string | null;
                             readerUserId: string | null;
+                            readerVersion: string | null;
                             watchVideos: boolean;
                         };
                         work: {
@@ -92209,6 +92284,16 @@ export interface operations {
                             nicheId: string | null;
                             nicheName: string | null;
                             postId: string | null;
+                            progress: {
+                                accounts?: number;
+                                didntFit?: number;
+                                now?: string;
+                                posts?: number;
+                                profiles?: number;
+                                searched?: string[];
+                                searches?: number;
+                                suggested?: number;
+                            } | null;
                             /** @enum {string} */
                             state: "waiting" | "taken" | "done" | "failed" | "stopped";
                             takenAt: string | null;

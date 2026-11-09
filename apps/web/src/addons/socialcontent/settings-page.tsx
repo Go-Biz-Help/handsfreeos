@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { WorkFacts, workWhat } from './activity-card';
 import type { Overview, Work } from './types';
 import { useAct } from './use-act';
 
@@ -244,13 +245,10 @@ function WorkRow({
   stopping: boolean;
   onStop: () => void;
 }) {
-  const network = networkName(w.network);
-  const what =
-    w.kind === 'find'
-      ? W.work.kinds.find(w.nicheName ?? '', network)
-      : W.work.kinds[w.kind](w.creatorShown ?? '', network);
+  const what = workWhat(w);
+  // Its progress says it better, where it has one.
   const done =
-    w.state === 'done' && w.doneCount !== null
+    w.state === 'done' && w.doneCount !== null && !w.progress
       ? w.kind === 'find'
         ? W.work.found(w.doneCount)
         : w.kind === 'posts'
@@ -272,6 +270,7 @@ function WorkRow({
       <div className="min-w-0 flex-1">
         <div className="text-[13.5px] text-text">{what}</div>
         <div className="text-[12.5px] text-text-3">{facts}</div>
+        <WorkFacts work={w} />
         {w.state === 'failed' && w.failure ? (
           <div className="mt-0.5 text-[12.5px] text-danger-text">{w.failure}</div>
         ) : null}

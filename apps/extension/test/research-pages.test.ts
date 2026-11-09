@@ -51,6 +51,7 @@ vi.mock('../src/research/hfos', () => {
       newStandouts: [],
     })),
     reportProblem: call('report', () => ({ reportId: 'r1' })),
+    workProgress: call('progress', () => ({ ok: true })),
     helperLook: call('helperLook', () => ({
       verdict: 'unclear',
       said: 'Nothing in the way.',
@@ -348,6 +349,17 @@ describe('finding creators', () => {
         lastPostAt: null,
       },
     ]);
+    // What it's doing, for the Creators page: the search, everyone it showed (the known one too), the profiles read.
+    const said = world.calls
+      .filter((c) => c.name === 'progress')
+      .map((c) => c.args[2] as Record<string, unknown>);
+    expect(said[0]).toMatchObject({ now: 'Searching LinkedIn for “home tips”', searches: 1 });
+    expect(said.at(-1)).toMatchObject({
+      now: 'Done',
+      searched: ['home tips'],
+      accounts: 3,
+      profiles: 2,
+    });
   });
 });
 

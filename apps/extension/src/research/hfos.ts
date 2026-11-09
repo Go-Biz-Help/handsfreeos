@@ -6,7 +6,11 @@
 import { isApiErrorBody } from '@hfos/api-client';
 import type { HelperLookOutput, ProblemReport } from '@hfos/core/problem-report';
 import type { ContentNetwork } from '@hfos/core/addons/socialcontent/networks';
-import type { FoundCreator, PostIn } from '@hfos/core/addons/socialcontent/shapes';
+import type {
+  FoundCreator,
+  PostIn,
+  WorkProgressSaid,
+} from '@hfos/core/addons/socialcontent/shapes';
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
 import { api, token } from '../hfos/session';
 import { config } from '../hfos/config';
@@ -53,7 +57,19 @@ export async function researchBusinesses(): Promise<{ id: string; name: string }
 }
 
 export const workNext = (workspaceId: string, reads: ContentNetwork[]) =>
-  got(api().POST('/v1/commands/socialcontent.work.next', { body: { workspaceId, reads } }));
+  got(
+    api().POST('/v1/commands/socialcontent.work.next', {
+      body: { workspaceId, reads, version: chrome.runtime.getManifest().version.slice(0, 20) },
+    }),
+  );
+
+/** How the work it took is going, as it goes (docs/socialcontent.md, "What it's doing"). */
+export const workProgress = (workspaceId: string, workId: string, progress: WorkProgressSaid) =>
+  got(
+    api().POST('/v1/commands/socialcontent.work.progress', {
+      body: { workspaceId, workId, progress },
+    }),
+  );
 
 export const workFinish = (workspaceId: string, workId: string, failure: string | null) =>
   got(
