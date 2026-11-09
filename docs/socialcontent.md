@@ -41,6 +41,8 @@ Admin → Businesses.
 - **Finding creators.** Once a month, and on **Find creators now**, each ticked niche is searched on each network
   studied. The reading computer reads each creator's profile: those with 5,000+ followers who posted in the last 30
   days are **Suggested** to tick; the rest are kept as not fitting, so they aren't read again (decisions 4 and 5).
+  On Instagram, whose hashtags' pages send to its search page now, a search reads who posted what that page shows.
+  A search that showed nobody at all ends saying so, with a problem report, never as done with nobody.
 - **Studying.** A ticked creator's posts are read back 12 months; anyone added from a link is studied straight away,
   whatever their size. Each studied creator is read again once a week: new posts, and the numbers of posts from 60
   days before the last read, since those still grow (decisions 8 and 11).

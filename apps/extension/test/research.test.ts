@@ -369,6 +369,95 @@ describe('finding creators', () => {
   });
 });
 
+describe('finding creators when hashtags’ pages are gone', () => {
+  const findWork = (searches: string[]) =>
+    work({
+      kind: 'find',
+      creator: null,
+      since: null,
+      known: [],
+      niche: { id: CREATOR, name: 'Home services', searches },
+    });
+
+  it('reads who posted what the search page shows, and searches accounts without the #', async () => {
+    const tab = tabWith({
+      '/api/v1/fbsearch/web/top_serp/?enable_metadata=true&query=%23hvacbusiness': {
+        json: {
+          media_grid: {
+            sections: [
+              {
+                layout_content: {
+                  medias: [{ media: { code: 'B1', user: { username: 'serp.author' } } }],
+                },
+              },
+            ],
+          },
+        },
+      },
+      '/api/v1/tags/web_info/': { json: { data: {} } },
+      '/api/v1/web/search/topsearch/?context=blended&query=hvacbusiness&': {
+        json: { users: [{ user: { username: 'named.one' } }] },
+      },
+      '/api/v1/users/web_profile_info/?username=serp.author': { json: profileJson('serp.author') },
+      '/api/v1/users/web_profile_info/?username=named.one': { json: profileJson('named.one') },
+    });
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['#hvacbusiness']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(tab.opened[0]).toBe(`${IG}/explore/search/keyword/?q=%23hvacbusiness`);
+    const found = world.calls.find((c) => c.name === 'found')!.args[2] as { handle: string }[];
+    expect(found.map((f) => f.handle)).toEqual(['serp.author', 'named.one']);
+  });
+
+  it('falls back to who posted the page’s own posts when no answer had anyone', async () => {
+    const tab = tabWith({
+      '/api/v1/fbsearch/web/top_serp/': { json: { media_grid: { sections: [] } } },
+      '/api/v1/tags/web_info/': { json: { data: {} } },
+      '/api/v1/web/search/topsearch/': { json: { users: [] } },
+      [`/api/v1/media/${ig.mediaIdOf('C0DE1')}/info/`]: {
+        json: { items: [{ code: 'C0DE1', user: { username: 'grid.author' } }] },
+      },
+      '/api/v1/users/web_profile_info/?username=grid.author': { json: profileJson('grid.author') },
+    });
+    const hands = tab.hands;
+    tab.hands = async (name: string, ...args: unknown[]) =>
+      name === 'read' ? { authors: [], tag: { posts: [`${IG}/p/C0DE1/`] } } : hands(name, ...args);
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['#plumbingbusiness']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    const found = world.calls.find((c) => c.name === 'found')!.args[2] as { handle: string }[];
+    expect(found.map((f) => f.handle)).toEqual(['grid.author']);
+  });
+
+  it('reports, and says so, when not one search showed anyone', async () => {
+    const tab = tabWith({
+      '/api/v1/fbsearch/web/top_serp/': { json: { media_grid: { sections: [] } } },
+      '/api/v1/tags/web_info/': { json: { data: {} } },
+      '/api/v1/web/search/topsearch/': { json: { users: [] } },
+    });
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['#homeservicebusiness', '#hvacbusiness']),
+      tab: tab as never,
+    });
+    expect(end.failure).toContain('showed nobody');
+    expect(world.calls.some((c) => c.name === 'found')).toBe(false);
+    const sent = world.calls.find((c) => c.name === 'report')!.args[1] as Record<string, unknown>;
+    expect(sent).toMatchObject({
+      addonId: 'socialcontent',
+      area: 'instagram',
+      job: 'read.find',
+      found: expect.objectContaining({ searched: 2, posts: 0, accounts: 0, grid: 0 }),
+    });
+  });
+});
+
 describe('when a read goes wrong', () => {
   it('has the helper look, then reports without naming anyone, and rests Instagram while signed out', async () => {
     world.helper = {

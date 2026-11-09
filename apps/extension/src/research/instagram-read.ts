@@ -3,10 +3,12 @@
  * from the answers Instagram's own pages load (./instagram.ts):
  *
  * - **Find creators** for a niche: for each of its searches, Instagram's search page is opened as a person would, and
- *   the accounts behind the hashtag's top posts (#homeorganizing for "home organizing") and the search's accounts are
- *   gathered, the hashtag's first, as they did well there. Those already known and private accounts are passed over.
- *   Then up to `most` profiles are opened and read, and sent to HandsFreeOS ten at a time, which sorts who fits
- *   (5,000+ followers, a post in the last 30 days).
+ *   the accounts behind the posts it shows (its own answer; a hashtag's page sends there now), behind the hashtag's
+ *   top posts (#homeorganizing for "home organizing"), and whose names match the words are gathered, in that order, as
+ *   the posts did well there. When none of those answers has anyone new, who posted the posts on the page itself is
+ *   read. Those already known and private accounts are passed over. Then up to `most` profiles are opened and read,
+ *   and sent to HandsFreeOS ten at a time, which sorts who fits (5,000+ followers, a post in the last 30 days). When
+ *   not one search showed anyone, it's reported, and the search says so rather than finishing with nobody.
  * - **A profile:** their name, bio, followers and when they last posted.
  * - **Their posts,** back to `since` (12 months the first time; a week's re-read goes back 60 days past the last
  *   read, as numbers still grow): their profile is opened, and their posts asked for 12 at a time, newest first, saved
@@ -34,6 +36,7 @@ import {
   profilePath,
   searchPage,
   searchPath,
+  serpPath,
   tagOf,
   tagPath,
   troubleOf,
@@ -160,11 +163,42 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
   const known = new Set(work.known.map((h) => h.toLowerCase()));
   const gathered = new Map<string, InstagramFoundAccount>();
   const enough = work.most * 2;
-  for (const words of work.niche?.searches ?? []) {
+  const searches = work.niche?.searches ?? [];
+  // What each place gave, for the report when no search showed anyone.
+  const seen = { searched: 0, posts: 0, hashtag: 0, accounts: 0, grid: 0, notThere: 0 };
+  const take = (accounts: readonly InstagramFoundAccount[]): number => {
+    let added = 0;
+    for (const account of accounts)
+      if (
+        !known.has(account.username) &&
+        account.private !== true &&
+        !gathered.has(account.username)
+      ) {
+        gathered.set(account.username, account);
+        added++;
+      }
+    return added;
+  };
+  for (const words of searches) {
     if (gathered.size >= enough) break;
     const opened = await openPage(ctx, searchPage(words));
     if (!opened.ok) return opened.end;
-    const asks: [string, (json: unknown) => InstagramFoundAccount[] | null, string][] = [];
+    seen.searched++;
+    // The posts the search page shows (a hashtag's too: its own page sends there now), the hashtag's answer as it
+    // was, and the accounts whose names match the words (Instagram's account search finds none for "#…").
+    const asks: [
+      string,
+      (json: unknown) => InstagramFoundAccount[] | null,
+      string,
+      keyof typeof seen,
+    ][] = [
+      [
+        serpPath(words),
+        (json) => (typeof json === 'object' && json !== null ? accountsFrom(json) : null),
+        'Search page’s posts',
+        'posts',
+      ],
+    ];
     const tag = tagOf(words);
     if (tag)
       asks.push([
@@ -172,31 +206,59 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
         (json) =>
           typeof json === 'object' && json !== null && 'data' in json ? accountsFrom(json) : null,
         'Hashtag',
+        'hashtag',
       ]);
-    asks.push([
-      searchPath(words),
-      (json) =>
-        typeof json === 'object' &&
-        json !== null &&
-        Array.isArray((json as { users?: unknown }).users)
-          ? accountsFrom(json)
-          : null,
-      'Search',
-    ]);
-    for (const [index, [path, parse, what]] of asks.entries()) {
+    const named = words.replace(/^#/, '').trim();
+    if (named.length >= 2)
+      asks.push([
+        searchPath(named),
+        (json) =>
+          typeof json === 'object' &&
+          json !== null &&
+          Array.isArray((json as { users?: unknown }).users)
+            ? accountsFrom(json)
+            : null,
+        'Search',
+        'accounts',
+      ]);
+    let here = 0;
+    for (const [index, [path, parse, what, place]] of asks.entries()) {
       const got = await answer(ctx, 'find', path, parse, what, index === 0);
       if (!got.ok) {
-        if (got.gone) continue;
+        if (got.gone) {
+          seen.notThere++;
+          continue;
+        }
         return got.end;
       }
-      for (const account of got.value)
-        if (
-          !known.has(account.username) &&
-          account.private !== true &&
-          !gathered.has(account.username)
-        )
-          gathered.set(account.username, account);
+      seen[place] += got.value.length;
+      here += take(got.value);
     }
+    if (here) continue;
+    // None of the answers had anyone new: who posted what the page itself shows.
+    const grid = await gridAuthors(ctx);
+    if (!grid.ok) return grid.end;
+    seen.grid += grid.value.length;
+    take(grid.value);
+  }
+
+  // Not one search showed anyone: Instagram has changed what its search answers, so it's reported to be fixed.
+  if (
+    searches.length &&
+    !gathered.size &&
+    seen.posts + seen.hashtag + seen.accounts + seen.grid === 0
+  ) {
+    await report(
+      ctx,
+      'find',
+      `Find: none of the ${seen.searched} searches on Instagram showed anyone.`,
+      null,
+      { ...seen },
+    );
+    return {
+      failure:
+        'Instagram’s search showed nobody for this niche’s searches. HandsFreeOS got a report so it can be fixed. Meanwhile, add creators you know with Add a creator.',
+    };
   }
 
   let found: FoundCreator[] = [];
@@ -228,6 +290,46 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
   }
   await send();
   return { failure: null };
+}
+
+/** Posts of the search page's grid whose author is asked for, when the link doesn't name them. */
+export const GRID_POSTS_MOST = 6;
+
+/**
+ * Who posted the posts the search page shows: those its links name (/<name>/p/<code>/), else, for a few of its posts,
+ * the account each one's answer names.
+ */
+async function gridAuthors(ctx: ReadCtx): Promise<Got<InstagramFoundAccount[]>> {
+  const page = (await ctx.tab.hands('read')) as {
+    authors?: { author?: { username?: unknown } }[];
+    tag?: { posts?: unknown[] } | null;
+  } | null;
+  const named = (page?.authors ?? [])
+    .map((a) => a.author?.username)
+    .filter((u): u is string => typeof u === 'string')
+    .map((username) => ({ username: username.toLowerCase(), private: null }));
+  if (named.length) return { ok: true, value: named };
+  const accounts: InstagramFoundAccount[] = [];
+  const posts = (page?.tag?.posts ?? []).filter((p): p is string => typeof p === 'string');
+  for (const link of posts.slice(0, GRID_POSTS_MOST)) {
+    const code = /\/(?:p|reel)\/([\w-]+)\//.exec(link)?.[1];
+    const id = code ? mediaIdOf(code) : null;
+    if (!id) continue;
+    const got = await answer(
+      ctx,
+      'find',
+      mediaInfoPath(id),
+      (json) =>
+        typeof json === 'object' && json !== null && 'items' in json ? accountsFrom(json) : null,
+      'Post',
+    );
+    if (!got.ok) {
+      if (got.gone) continue;
+      return got;
+    }
+    accounts.push(...got.value);
+  }
+  return { ok: true, value: accounts };
 }
 
 // ------------------------------------------------------------------------------------------------ a profile
