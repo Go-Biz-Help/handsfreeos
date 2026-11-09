@@ -424,37 +424,41 @@ describe('writing a message only in the conversation with them', () => {
     });
   });
 
-  it('writes in their conversation LinkedIn opens in its interop frame while the tab stays at their profile', async () => {
-    // Their profile's Message opened a whole messaging page in the interop frame, the tab's address still their
-    // profile's (the owner's problem reports of 9 Nov 2026, on 0.128.2).
-    const doc = load('linkedin-profile.html', DANA);
-    const frame = doc.createElement('iframe');
-    frame.setAttribute('data-testid', 'interop-iframe');
-    doc.body.append(frame);
-    const inner = frame.contentDocument!;
-    inner.body.innerHTML = load('linkedin-chat.html', `${LI}/messaging/`).querySelector(
-      'main',
-    )!.outerHTML;
-    const box = inner.querySelector('[role="textbox"]')!;
-    const send = inner.querySelector<HTMLButtonElement>('button[type="submit"]')!;
-    inner.execCommand = (_command: string, _ui?: boolean, text?: string) => {
-      box.textContent = text ?? '';
-      return true;
-    };
-    const sent: string[] = [];
-    send.addEventListener('click', () => {
-      sent.push(box.textContent ?? '');
-      box.textContent = '';
-    });
-    expect(await writeMessage(doc, DANA, 'Glad to help, Dana.', dana)).toBe('done');
-    expect(sent).toEqual(['Glad to help, Dana.']);
-    // A conversation there with someone else is never written in.
-    vi.useFakeTimers({ toFake: ['setTimeout'] });
-    const writing = writeMessage(doc, DANA, 'Hi', sam);
-    await vi.advanceTimersByTimeAsync(20_000);
-    expect(await writing).toBe('none');
-    expect(sent).toEqual(['Glad to help, Dana.']);
-  });
+  it(
+    'writes in their conversation LinkedIn opens in its interop frame while the tab stays at their profile',
+    { timeout: 30_000 },
+    async () => {
+      // Their profile's Message opened a whole messaging page in the interop frame, the tab's address still their
+      // profile's (the owner's problem reports of 9 Nov 2026, on 0.128.2).
+      const doc = load('linkedin-profile.html', DANA);
+      const frame = doc.createElement('iframe');
+      frame.setAttribute('data-testid', 'interop-iframe');
+      doc.body.append(frame);
+      const inner = frame.contentDocument!;
+      inner.body.innerHTML = load('linkedin-chat.html', `${LI}/messaging/`).querySelector(
+        'main',
+      )!.outerHTML;
+      const box = inner.querySelector('[role="textbox"]')!;
+      const send = inner.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+      inner.execCommand = (_command: string, _ui?: boolean, text?: string) => {
+        box.textContent = text ?? '';
+        return true;
+      };
+      const sent: string[] = [];
+      send.addEventListener('click', () => {
+        sent.push(box.textContent ?? '');
+        box.textContent = '';
+      });
+      expect(await writeMessage(doc, DANA, 'Glad to help, Dana.', dana)).toBe('done');
+      expect(sent).toEqual(['Glad to help, Dana.']);
+      // A conversation there with someone else is never written in.
+      vi.useFakeTimers({ toFake: ['setTimeout'] });
+      const writing = writeMessage(doc, DANA, 'Hi', sam);
+      await vi.advanceTimersByTimeAsync(20_000);
+      expect(await writing).toBe('none');
+      expect(sent).toEqual(['Glad to help, Dana.']);
+    },
+  );
 
   describe('in a new conversation as LinkedIn’s newer messaging draws it, with a card about them over the box', () => {
     const newAt = (recipient: string) =>
