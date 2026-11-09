@@ -979,6 +979,24 @@ describe('writing a message', () => {
     expect(sent).toEqual([{ to: 'Write to Riley Quinn', text: 'Here are three times that work.' }]);
   });
 
+  it('waits on their chat window while Facebook is still drawing its box', async () => {
+    const { doc, sent, open } = profileWithChats(rileyChat);
+    // Their new chat's window shows Facebook's loading mark where the box goes (a problem report of 9 Nov 2026).
+    const box = open(danaChat).querySelector<HTMLElement>('[role="textbox"]')!;
+    const loading = doc.createElement('div');
+    loading.setAttribute('role', 'status');
+    loading.setAttribute('aria-label', 'Loading...');
+    box.replaceWith(loading);
+    const drawn = () => loading.replaceWith(box);
+    expect(await writeWhile(drawn, 7_000, doc, URL, 'Hi Dana', dana, ['Dana Reyes'])).toBe('done');
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Hi Dana' }]);
+    // A window with no box and nothing loading is given up on after the first few seconds, as before.
+    box.remove();
+    expect(await writeWhile(() => undefined, 6_000, doc, URL, 'Hi', dana, ['Dana Reyes'])).toBe(
+      'none',
+    );
+  });
+
   it('leaves a box the person is writing in alone, and says when there’s none', async () => {
     const doc = load('chat-2026.html', CHAT);
     doc.querySelector('[role="textbox"][aria-label="Message Dana Reyes"]')!.textContent =

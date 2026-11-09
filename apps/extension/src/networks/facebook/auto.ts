@@ -847,6 +847,34 @@ export function openedWindowLinks(
   return person && sameByKey(person, them) === null ? person : null;
 }
 
+/** Times a writer waits, half a second apart, on a chat window still drawing its box, after the first few seconds. */
+const CHAT_LOADING_WAITS = 20;
+
+/**
+ * Whether a small chat window over the page is still drawing its box: the most around one Close chat that holds no
+ * other Close chat and no box to write in has Facebook's loading mark in it. A window that just opened draws its
+ * messages first and its box after (the owner's problem report of 9 Nov 2026: their new chat's window showed the card
+ * about them and Facebook's loading mark where the box goes, and nothing was sent).
+ */
+function chatLoading(doc: Document): boolean {
+  const main = mainIn(doc);
+  if (!main) return false;
+  return closesIn(doc.body).some((close) => {
+    if (main.contains(close)) return false;
+    let chatWindow: Element | null = null;
+    for (let up = close.parentElement; up && !up.contains(main); up = up.parentElement) {
+      if (closesIn(up).length > 1 || up.querySelectorAll(WRITING).length > 0) break;
+      chatWindow = up;
+    }
+    return (
+      chatWindow !== null &&
+      [...chatWindow.querySelectorAll('[role="status"]')].some((mark) =>
+        /^loading\b/i.test(labelOf(mark)),
+      )
+    );
+  });
+}
+
 /** How a message went: with, when its typing went into another chat's box and stayed there, whose that is. */
 export interface MessageWrote {
   readonly result: AutoResult;
@@ -863,8 +891,8 @@ export interface MessageWrote {
 }
 
 /**
- * Writes a message in their chat, and sends it (decisions 26 and 27): waits a few seconds for their chat's box, types
- * it there, presses the button that sends it (or Enter), and waits for the box to empty. It waits the whole time for a
+ * Writes a message in their chat, and sends it (decisions 26 and 27): waits a few seconds for their chat's box, and
+ * up to ten more while a chat window is still drawing its box (`chatLoading`), types it there, presses the button that sends it (or Enter), and waits for the box to empty. It waits the whole time for a
  * chat that links to them by key, and takes one by name only after, unless the message's text before went into that
  * same box. A box with writing in it already is left alone: the person may be writing there. Nothing is typed unless
  * the focus is in their box, and nothing is sent unless, once typed, it's still their chat's box and no other box took
@@ -886,6 +914,10 @@ export async function writeMessage(
   const last = before?.doc === doc ? before.sentIn : null;
   let box = byKey() ?? (last && theirs() === last ? last : null);
   for (let wait = 0; !box && wait < 10; wait++) {
+    await pause(500);
+    box = byKey();
+  }
+  for (let wait = 0; !box && wait < CHAT_LOADING_WAITS && chatLoading(doc); wait++) {
     await pause(500);
     box = byKey();
   }

@@ -43,9 +43,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'friend_request',
     note: 'Facebook says it couldn’t tell where things stand',
-    fixedIn: '0.126.3',
-    pr: 510,
-    said: 'A tab’s word was taken for the name on profiles with no username (0.126.1, #500); and a profile with no Add friend at all, only Message or Follow, read as a page it couldn’t read: it’s passed over now.',
+    fixedIn: '0.128.4',
+    pr: 562,
+    said: 'A tab’s word was taken for the name on profiles with no username (0.126.1, #500); a profile with no Add friend at all, only Message or Follow, read as a page it couldn’t read (0.126.3, #510); and in professional mode the owner’s own button (“Book now”, “Call now”) hid that there was no Add friend: all three are passed over now.',
   },
   {
     area: 'linkedin',
@@ -126,6 +126,22 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.128.3',
     pr: 556,
     said: 'Only one of their posts was drawn, with more still loading below it, so the AI picked from that one alone: the wait on a loading box goes on now while fewer than six posts are drawn.',
+  },
+  {
+    area: 'facebook',
+    job: 'send',
+    note: 'couldn’t find a chat open with them',
+    fixedIn: '0.128.4',
+    pr: 562,
+    said: 'Their new chat’s window showed Facebook’s loading mark where the box goes: the writer waits up to ten seconds more now while a chat window is still drawing its box.',
+  },
+  {
+    area: 'linkedin',
+    job: 'send',
+    note: 'couldn’t find the box to write in',
+    fixedIn: '0.128.4',
+    pr: 562,
+    said: 'LinkedIn opened the conversation as a messaging page in its interop frame while the tab stayed at their profile: that box counts now when the frame’s conversation is with them.',
   },
 ];
 
