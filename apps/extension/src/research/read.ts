@@ -14,6 +14,9 @@
  *   something. A computer's helper looks at most `RESEARCH_LOOKS_A_DAY` times a day for reading.
  * - **The problem report** (core's `problem_report.send`, addon `socialcontent`): what was read, Instagram's answer's
  *   status, the page's outline and what the helper did, for HandsFreeOS's staff to fix the reader. Never a name.
+ * - **What it's doing** (`Progress`, `socialcontent.work.progress`): what it's at, the searches done, and how many
+ *   accounts, profiles and posts it read, for the Creators page, at once when what it's at changes, else at most
+ *   every `PROGRESS_EVERY_MS`.
  */
 import {
   HELPER_MOVES_MOST,
@@ -29,7 +32,14 @@ import type { Platform } from '@hfos/core/addons/outreach/networks';
 import { keepWarning, warnedNow } from '../hfos/warned';
 import type { PageRead } from '../networks';
 import { reportFound, sectionsIn } from '../jobs/report';
-import { helperLook, reportProblem, ResearchRefused, type ResearchWork } from './hfos';
+import type { WorkProgressSaid } from '@hfos/core/addons/socialcontent/shapes';
+import {
+  helperLook,
+  reportProblem,
+  ResearchRefused,
+  workProgress,
+  type ResearchWork,
+} from './hfos';
 import type { ResearchTab } from './tab';
 
 /** Pages opened and answers asked for on one network in a day, at most. */
@@ -52,6 +62,41 @@ const today = () => new Date().toLocaleDateString('en-CA');
 
 export const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 export const paced = ([low, high]: readonly [number, number]) => low + Math.random() * (high - low);
+
+/** How often, at most, it says how a read is going while what it's at stays the same. */
+export const PROGRESS_EVERY_MS = 15_000;
+
+/**
+ * What a read is doing, said to HandsFreeOS as it goes for the Creators page: at once when what it's at changes (or
+ * when told to), else at most every `PROGRESS_EVERY_MS`. Saying it never stops a read.
+ */
+export class Progress {
+  private said: WorkProgressSaid = {};
+  private sentAt = 0;
+  private sentNow: string | undefined = undefined;
+
+  constructor(private readonly ctx: { businessId: string; work: { id: string } }) {}
+
+  get value(): WorkProgressSaid {
+    return this.said;
+  }
+
+  async say(patch: WorkProgressSaid, now = false): Promise<void> {
+    this.said = { ...this.said, ...patch };
+    const moved = this.said.now !== this.sentNow;
+    if (!now && !moved && Date.now() - this.sentAt < PROGRESS_EVERY_MS) return;
+    this.sentAt = Date.now();
+    this.sentNow = this.said.now;
+    try {
+      await workProgress(this.ctx.businessId, this.ctx.work.id, {
+        ...this.said,
+        ...(this.said.now ? { now: this.said.now.slice(0, 160) } : {}),
+      });
+    } catch {
+      // Out of reach, or stopped meanwhile: the read goes on, and says how it went when it ends.
+    }
+  }
+}
 
 /** What a read is working on. */
 export interface ReadCtx {

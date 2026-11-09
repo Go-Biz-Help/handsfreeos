@@ -1,5 +1,6 @@
 /**
- * AI Social Media Content Creator's manifest and operations, held to the add-on rules (docs/addon-architecture.md). Pure: no database.
+ * AI Social Media Content Creator's manifest and operations, held to the add-on rules (docs/addon-architecture.md),
+ * and the words for what its reading computer is doing. Pure: no database.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,6 +13,7 @@ import {
 } from '../../src/server';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
+import { momentAgo, progressFacts } from '../../src/addons/socialcontent/words';
 
 describe('AI Social Media Content Creator', () => {
   it('has a valid manifest', () => {
@@ -32,5 +34,41 @@ describe('AI Social Media Content Creator', () => {
 
   it('answers searches only as core runs them', () => {
     expect(addonSearchIssues([socialcontentAddonServer])).toEqual([]);
+  });
+});
+
+describe('what the reading computer is doing, in words', () => {
+  const NOW = Date.UTC(2026, 10, 9, 2, 0);
+
+  it('says how long ago it last checked in', () => {
+    expect(momentAgo(null, NOW)).toBeNull();
+    expect(momentAgo(new Date(NOW - 20_000).toISOString(), NOW)).toBe('just now');
+    expect(momentAgo(new Date(NOW - 60_000), NOW)).toBe('1 minute ago');
+    expect(momentAgo(new Date(NOW - 7 * 60_000), NOW)).toBe('7 minutes ago');
+    expect(momentAgo(new Date(NOW - 3 * 3_600_000), NOW)).toBe('3 hours ago');
+  });
+
+  it('says what a piece of work did as short facts', () => {
+    expect(progressFacts(null)).toEqual([]);
+    expect(progressFacts({})).toEqual([]);
+    expect(
+      progressFacts({
+        searched: ['#crm', 'ai automation'],
+        searches: 5,
+        accounts: 42,
+        profiles: 1,
+        posts: 1_200,
+        suggested: 3,
+        didntFit: 9,
+      }),
+    ).toEqual([
+      'Searched 2 of 5: #crm, ai automation',
+      'Looked at 42 accounts',
+      'Read 1 profile',
+      'Read 1,200 posts',
+      '3 suggested, 9 didn’t fit',
+    ]);
+    // Every search done: no "of".
+    expect(progressFacts({ searched: ['#crm'], searches: 1 })).toEqual(['Searched 1: #crm']);
   });
 });

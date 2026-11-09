@@ -56,6 +56,7 @@ vi.mock('../src/research/hfos', () => {
       newStandouts: [],
     })),
     reportProblem: call('report', () => ({ reportId: 'r1' })),
+    workProgress: call('progress', () => ({ ok: true })),
     helperLook: call('helperLook', () => world.helperQueue.shift() ?? world.helper),
     watchSend: call('watchSend', () => ({ watched: true, failure: null })),
   };
@@ -75,6 +76,7 @@ vi.stubGlobal('chrome', {
 const { INSTAGRAM_READS_BY_KIND } = await import('../src/research/instagram-read');
 const { RESEARCH_PACE } = await import('../src/research/read');
 const ig = await import('../src/research/instagram');
+const { NotAway } = await import('../src/away');
 RESEARCH_PACE.openMs = [0, 0];
 RESEARCH_PACE.answerMs = [0, 0];
 RESEARCH_PACE.settleMs = 0;
@@ -82,19 +84,49 @@ RESEARCH_PACE.settleMs = 0;
 /** Instagram's answers by what's asked: a status and a body. */
 type Answers = Record<string, { status?: number; json: unknown }>;
 
-function tabWith(answers: Answers, warnings: string[] = []) {
+/** What the search page holds itself (the tab's `held`), behind another window and in front. */
+interface Held {
+  accounts?: { username: string; private: boolean | null }[];
+  posts?: string[];
+  loaded?: string[];
+  /** Its posts once it's in front: the grid draws only on screen. */
+  inFront?: string[];
+  /** The person isn't away, so it never comes in front. */
+  notAway?: boolean;
+}
+
+function tabWith(answers: Answers, warnings: string[] = [], held: Held = {}) {
   const opened: string[] = [];
   const asked: string[] = [];
   const moves: unknown[] = [];
-  return {
+  let front = false;
+  const tab = {
     opened,
     asked,
     moves,
+    fronted: 0,
     tabId: 7,
     open: async (url: string) => void opened.push(url),
     close: async () => undefined,
+    inFront: async <T>(work: () => Promise<T>): Promise<T> => {
+      if (held.notAway) throw new NotAway();
+      tab.fronted++;
+      front = true;
+      try {
+        return await work();
+      } finally {
+        front = false;
+      }
+    },
     hands: async (name: string, ...args: unknown[]): Promise<unknown> => {
       if (name === 'warnings') return warnings;
+      if (name === 'held')
+        return {
+          accounts: held.accounts ?? [],
+          posts: front ? (held.inFront ?? []) : (held.posts ?? []),
+          loaded: held.loaded ?? [],
+        };
+      if (name === 'scroll') return { moved: true, atEnd: false };
       if (name === 'get') {
         const path = args[0] as string;
         asked.push(path);
@@ -117,6 +149,7 @@ function tabWith(answers: Answers, warnings: string[] = []) {
       return null;
     },
   };
+  return tab;
 }
 
 const profileJson = (username: string, over: Record<string, unknown> = {}) => ({
@@ -269,6 +302,11 @@ describe('Instagram’s answers', () => {
     expect(ig.tagOf('#')).toBeNull();
     expect(ig.INSTAGRAM_READS.test(ig.postsPath('5550001', 'N'))).toBe(true);
     expect(ig.INSTAGRAM_READS.test('/api/v1/friendships/create/1/?x')).toBe(false);
+    expect(ig.INSTAGRAM_READS.test('/api/v1/fbsearch/web/keyword_serp/?query=x')).toBe(true);
+    expect(ig.SEARCH_LOADED.test('/api/v1/feed/timeline/?x=1')).toBe(false);
+    expect(ig.loadedShown('/api/v1/fbsearch/web/top_serp/?enable_metadata=true&query=crm')).toBe(
+      '/api/v1/fbsearch/web/top_serp/?enable_metadata&query',
+    );
   });
 });
 
@@ -307,6 +345,12 @@ describe('reading a creator’s posts', () => {
       .flatMap((c) => c.args[2] as { postKey: string }[]);
     expect(saved.map((p) => p.postKey)).toEqual(['NEW0001', 'MID0001']);
     expect(world.stored['hfos-research-cursor']).toBeUndefined();
+    // What it's doing, for the Creators page: whose posts, and how many it read.
+    const said = world.calls
+      .filter((c) => c.name === 'progress')
+      .map((c) => c.args[2] as Record<string, unknown>);
+    expect(said[0]).toMatchObject({ now: 'Reading @tidy.home.tips’s profile' });
+    expect(said.at(-1)).toMatchObject({ now: 'Done', profiles: 1, posts: 2 });
   });
 
   it('says a private account’s posts can’t be read', async () => {
@@ -412,35 +456,141 @@ describe('finding creators when hashtags’ pages are gone', () => {
     expect(found.map((f) => f.handle)).toEqual(['serp.author', 'named.one']);
   });
 
+  /** Instagram's own answers, each showing nobody. */
+  const nobody: Answers = {
+    '/api/v1/fbsearch/web/top_serp/': { json: { media_grid: { sections: [] } } },
+    '/api/v1/tags/web_info/': { json: { data: {} } },
+    '/api/v1/web/search/topsearch/': { json: { users: [] } },
+  };
+  const gridPost: Answers = {
+    [`/api/v1/media/${ig.mediaIdOf('C0DE1')}/info/`]: {
+      json: { items: [{ code: 'C0DE1', user: { username: 'grid.author' } }] },
+    },
+    '/api/v1/users/web_profile_info/?username=grid.author': { json: profileJson('grid.author') },
+  };
+  const foundHandles = () =>
+    (world.calls.find((c) => c.name === 'found')!.args[2] as { handle: string }[]).map(
+      (f) => f.handle,
+    );
+
   it('falls back to who posted the page’s own posts when no answer had anyone', async () => {
-    const tab = tabWith({
-      '/api/v1/fbsearch/web/top_serp/': { json: { media_grid: { sections: [] } } },
-      '/api/v1/tags/web_info/': { json: { data: {} } },
-      '/api/v1/web/search/topsearch/': { json: { users: [] } },
-      [`/api/v1/media/${ig.mediaIdOf('C0DE1')}/info/`]: {
-        json: { items: [{ code: 'C0DE1', user: { username: 'grid.author' } }] },
-      },
-      '/api/v1/users/web_profile_info/?username=grid.author': { json: profileJson('grid.author') },
-    });
-    const hands = tab.hands;
-    tab.hands = async (name: string, ...args: unknown[]) =>
-      name === 'read' ? { authors: [], tag: { posts: [`${IG}/p/C0DE1/`] } } : hands(name, ...args);
+    const tab = tabWith({ ...nobody, ...gridPost }, [], { posts: ['C0DE1'] });
     const end = await INSTAGRAM_READS_BY_KIND.find({
       businessId: BUSINESS,
       work: findWork(['#plumbingbusiness']),
       tab: tab as never,
     });
     expect(end).toEqual({ failure: null });
-    const found = world.calls.find((c) => c.name === 'found')!.args[2] as { handle: string }[];
-    expect(found.map((f) => f.handle)).toEqual(['grid.author']);
+    expect(foundHandles()).toEqual(['grid.author']);
+    // Its links were there already: no need for the window in front.
+    expect(tab.fronted).toBe(0);
+  });
+
+  it('takes the accounts in the data the search page came with', async () => {
+    const tab = tabWith(
+      {
+        ...nobody,
+        '/api/v1/users/web_profile_info/?username=held.author': {
+          json: profileJson('held.author'),
+        },
+      },
+      [],
+      { accounts: [{ username: 'held.author', private: null }] },
+    );
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['crm software']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(foundHandles()).toEqual(['held.author']);
+  });
+
+  it('asks again for a search answer the page loaded itself, and only search answers', async () => {
+    const keyword = '/api/v1/fbsearch/web/keyword_serp/?query=crm%20software&count=30';
+    const tab = tabWith(
+      {
+        ...nobody,
+        [keyword]: {
+          json: {
+            media_grid: {
+              sections: [{ medias: [{ media: { user: { username: 'loaded.one' } } }] }],
+            },
+          },
+        },
+        '/api/v1/users/web_profile_info/?username=loaded.one': { json: profileJson('loaded.one') },
+      },
+      [],
+      { loaded: ['/api/graphql', '/api/v1/feed/timeline/?x=1', keyword] },
+    );
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['crm software']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(foundHandles()).toEqual(['loaded.one']);
+    expect(tab.asked).toContain(keyword);
+    expect(tab.asked.some((p) => p.startsWith('/api/v1/feed/timeline'))).toBe(false);
+    expect(tab.asked).not.toContain('/api/graphql');
+  });
+
+  it('brings the search page in front for its grid to draw, when its links aren’t there yet', async () => {
+    const tab = tabWith({ ...nobody, ...gridPost }, [], { inFront: ['C0DE1'] });
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['#automation']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(tab.fronted).toBe(1);
+    expect(foundHandles()).toEqual(['grid.author']);
+  });
+
+  it('says to step away when the grid needed the screen and the person wasn’t away', async () => {
+    const tab = tabWith(nobody, [], {
+      notAway: true,
+      loaded: ['/api/v1/fbsearch/web/top_serp/?enable_metadata=true&query=x', '/api/graphql'],
+    });
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['#automation']),
+      tab: tab as never,
+    });
+    expect(end.failure).toContain('away');
+    const sent = world.calls.find((c) => c.name === 'report')!.args[1] as {
+      found: Record<string, unknown>;
+    };
+    expect(sent.found).toMatchObject({
+      notAway: true,
+      loaded: ['/api/v1/fbsearch/web/top_serp/?enable_metadata&query', '/api/graphql'],
+    });
+  });
+
+  it('says what it’s doing as it goes: the searches, the accounts it looked at, the profiles it read', async () => {
+    const tab = tabWith({ ...nobody, ...gridPost }, [], { posts: ['C0DE1'] });
+    await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['#crm', '#automation']),
+      tab: tab as never,
+    });
+    const said = world.calls
+      .filter((c) => c.name === 'progress')
+      .map((c) => c.args[2] as Record<string, unknown>);
+    expect(said[0]).toMatchObject({ now: 'Searching Instagram for “#crm”', searches: 2 });
+    expect(said.some((p) => p.now === 'Searching Instagram for “#automation”')).toBe(true);
+    expect(said.some((p) => String(p.now).startsWith('Reading profiles: 1 of 1'))).toBe(true);
+    expect(said.at(-1)).toMatchObject({
+      now: 'Done',
+      searched: ['#crm', '#automation'],
+      searches: 2,
+      accounts: 1,
+      profiles: 1,
+    });
   });
 
   it('reports, and says so, when not one search showed anyone', async () => {
-    const tab = tabWith({
-      '/api/v1/fbsearch/web/top_serp/': { json: { media_grid: { sections: [] } } },
-      '/api/v1/tags/web_info/': { json: { data: {} } },
-      '/api/v1/web/search/topsearch/': { json: { users: [] } },
-    });
+    const tab = tabWith(nobody);
     const end = await INSTAGRAM_READS_BY_KIND.find({
       businessId: BUSINESS,
       work: findWork(['#homeservicebusiness', '#hvacbusiness']),

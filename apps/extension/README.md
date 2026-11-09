@@ -1149,10 +1149,14 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
 - **What it reads on Instagram:** for a niche, the accounts behind the posts Instagram's search page shows for each
   search (its own answer, `fbsearch/web/top_serp`: a hashtag's page sends there now), behind its hashtag's top posts,
   and whose names match its words (without the #), then up to 30 of their profiles (`socialcontent.creators.found`).
-  When none of those answers has anyone new, who posted the page's own posts is read (their links, else each post's
-  answer for a few of them). When not one search showed anyone, it's reported (`read.find`) and the search ends saying
-  so, never as done with nobody (0.127.1). Also a creator's profile; and a studied
-  creator's posts back 12 months (60 days past the last read on a weekly re-read), 12 at a time, saved as it goes
+  When none of those answers has anyone new, what the search page holds itself is read (the tab's `held` hand,
+  `src/research/held.ts`): the accounts in the data it came with, then the search answers it loaded (from the page's
+  resource timings), asked for again; then who posted the posts it links, each post's answer for a few of them. Its
+  grid draws only on screen, so when its links aren't there yet the window comes in front and scrolls, only while you've
+  been away for 2 minutes (decision 120). When not one search showed anyone, it's reported (`read.find`, with the
+  answers the page loaded, by their names only) and the search ends saying so, never as done with nobody (0.128.0).
+  Also a creator's profile; and a studied creator's posts back 12 months (60 days past the last read on a weekly
+  re-read), 12 at a time, saved as it goes
   (`socialcontent.posts.save`). It reads the answers Instagram's own pages load, asked for from inside the reading tab
   on your signed-in account (`src/research/instagram.ts`), opening each page as you would.
 - **What it reads on Facebook and LinkedIn** (`src/research/page-read.ts`): the same three things, from the pages
@@ -1162,6 +1166,11 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   activity) until they're past `since` or 3 screens bring nothing new. Reactions count as likes; neither network shows
   views. A LinkedIn post's time comes from its activity number; a Facebook one's from what it printed. A sign-in page
   says to sign in. LinkedIn company pages' posts come later.
+- **What it's doing** (`Progress` in `src/research/read.ts`, `socialcontent.work.progress`): each read says what it's
+  at ("Searching Instagram for “#crm”", "Reading profiles: 3 of 20"), the searches done, and how many accounts the
+  searches showed and profiles and posts it read, at once when what it's at changes, else at most every 15 seconds. The
+  Creators page shows it as it goes. Asking for work also says the extension's version, so the page shows when the
+  reading computer last checked in.
 - **Watching a standout video** (Instagram's, when the business turned watching on or tried it,
   `src/research/watch.ts`): it opens the post, asks Instagram for its video (`/api/v1/media/<id>/info/`), fetches the
   file from Instagram's video servers only (the background fetches it when the tab can't, which is why

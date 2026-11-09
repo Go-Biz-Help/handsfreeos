@@ -26,6 +26,7 @@ import {
   WorkFinishInput,
   WorkNextInput,
   WorkNextOutput,
+  WorkProgressInput,
   type WorkKind,
 } from '../shapes';
 import { doneWell, weighPosts } from '../standouts';
@@ -87,6 +88,13 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
     const me = await needReader(ctx);
     const ws = ctx.scope.workspaceId!;
     const s = await settingsOf(ctx);
+    // The page says when the reading computer last asked, and its extension's version (docs: "What it's doing").
+    await rows(
+      ctx.tx,
+      sql`update addon_socialcontent.settings
+          set reader_seen_at = now(), reader_version = coalesce(${input.version ?? null}, reader_version)
+          where workspace_id = ${ws}`,
+    );
     const reads = input.reads.filter((n) => CONTENT_NETWORK_INFO[n].ready);
     await rows(
       ctx.tx,
@@ -216,6 +224,53 @@ export const workFinish = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+export const workProgress = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.work.progress',
+  description:
+    'Extension: how something the reading computer took is going, as it goes: what it’s at now, the searches done, and how many accounts it looked at, profiles and posts it read. Shown on the Creators page.',
+  risk: 0,
+  input: WorkProgressInput,
+  output: z.object({ ok: z.literal(true) }),
+  permission: 'socialcontent.use',
+  scope: inWorkspace,
+  emits: ['socialcontent.work.progressed'],
+  async handler(ctx, input) {
+    const me = await needReader(ctx);
+    const w = await takenWork(ctx, me, input.workId);
+    // What it says replaces what it said before; HandsFreeOS's own counts stay.
+    await rows(
+      ctx.tx,
+      sql`update addon_socialcontent.work
+          set progress = coalesce(progress, '{}'::jsonb) || ${JSON.stringify(input.progress)}::jsonb
+          where id = ${w.id}`,
+    );
+    await ctx.emit({
+      type: 'socialcontent.work.progressed',
+      entityType: 'socialcontent_work',
+      entityId: w.id,
+      payload: { kind: w.kind, network: w.network },
+    });
+    return { ok: true as const };
+  },
+});
+
+/** Adds to HandsFreeOS's own counts on a piece of work's progress. */
+async function countOn(
+  ctx: Parameters<typeof rows>[0],
+  workId: string,
+  counts: { suggested: number; didntFit: number },
+): Promise<void> {
+  if (!counts.suggested && !counts.didntFit) return;
+  await rows(
+    ctx,
+    sql`update addon_socialcontent.work
+        set progress = coalesce(progress, '{}'::jsonb) || jsonb_build_object(
+          'suggested', coalesce((progress->>'suggested')::int, 0) + ${counts.suggested}::int,
+          'didntFit', coalesce((progress->>'didntFit')::int, 0) + ${counts.didntFit}::int)
+        where id = ${workId}`,
+  );
+}
+
 /** "12,400 followers, posted 3 days ago": what a search saw of a creator. */
 function sawWords(followers: number | null, lastPostAt: string | null, now: Date): string {
   const parts = [
@@ -278,6 +333,7 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
       ctx.tx,
       sql`update addon_socialcontent.work set done_count = coalesce(done_count, 0) + ${suggested} where id = ${w.id}`,
     );
+    await countOn(ctx.tx, w.id, { suggested, didntFit });
     await ctx.emit({
       type: 'socialcontent.creators.found',
       entityType: 'socialcontent_work',
@@ -493,6 +549,7 @@ export const postsSave = defineAddonCommand(socialcontentAddon, {
 export const readingCommands = [
   workNext,
   workFinish,
+  workProgress,
   creatorsFound,
   creatorRead,
   postsSave,

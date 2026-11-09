@@ -1,10 +1,11 @@
 'use client';
 /**
- * Creators (docs/socialcontent.md): the niches searched, then the creators found, studied and skipped. Anyone on the
- * team picks niches and creators (one list for the whole business, decision 12): **Suggest niches** has the AI find
- * the business's niche and 3 to 5 like it, **Find creators now** asks the reading computer to search the ticked ones,
- * and **Add a creator** studies someone from a link. A studied creator's posts open under them, each with how many
- * times the posts around it it did.
+ * Creators (docs/socialcontent.md): what the reading computer is doing (./activity-card.tsx), the niches searched,
+ * then the creators found, studied and skipped. Anyone on the team picks niches and creators (one list for the whole
+ * business, decision 12): **Suggest niches** has the AI find the business's own niche (what it sells, never its
+ * customers' trade) and 3 to 5 like it, **Find creators now** asks the reading computer to search the ticked ones, and
+ * **Add a creator** studies someone from a link. A studied creator's posts open under them, each with how many times
+ * the posts around it it did.
  */
 import { CONTENT_NETWORK_INFO, networkName } from '@hfos/core/addons/socialcontent/networks';
 import { DONE_WELL } from '@hfos/core/addons/socialcontent/standouts';
@@ -22,6 +23,7 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { ActivityCard } from './activity-card';
 import { PostCard } from './post-card';
 import type { Creator, Niche, Overview, Post } from './types';
 import { useAct } from './use-act';
@@ -96,6 +98,7 @@ export function CreatorsPage({
           ) : null}
         </Card>
       ) : null}
+      <ActivityCard overview={overview} />
       <NichesCard workspaceId={workspaceId} niches={niches} />
       <Card className="p-4 md:p-5">
         <h2 className="text-[15px] font-semibold">{W.creators.add}</h2>

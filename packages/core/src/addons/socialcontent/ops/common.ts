@@ -18,6 +18,7 @@ import {
   PostNotes,
   PostWatched,
   Searches,
+  WorkProgress,
   type Creator,
   type Niche,
   type Post,
@@ -44,9 +45,13 @@ export const TAKEN_FOR_MS = 2 * 60 * 60 * 1000;
 const iso = (d: Date | null): string | null => (d ? d.toISOString() : null);
 
 /** The business's settings: the networks it studies (only the ones read yet), and whose computer reads. */
-export async function settingsOf(
-  ctx: Ctx,
-): Promise<{ networks: ContentNetwork[]; readerUserId: string | null; watchVideos: boolean }> {
+export async function settingsOf(ctx: Ctx): Promise<{
+  networks: ContentNetwork[];
+  readerUserId: string | null;
+  watchVideos: boolean;
+  readerSeenAt: string | null;
+  readerVersion: string | null;
+}> {
   const [s] = await ctx.tx
     .select()
     .from(settings)
@@ -54,7 +59,13 @@ export async function settingsOf(
   const networks = (s?.networks ?? ['instagram']).filter(
     (n): n is ContentNetwork => isContentNetwork(n) && CONTENT_NETWORK_INFO[n].ready,
   );
-  return { networks, readerUserId: s?.readerUserId ?? null, watchVideos: s?.watchVideos ?? false };
+  return {
+    networks,
+    readerUserId: s?.readerUserId ?? null,
+    watchVideos: s?.watchVideos ?? false,
+    readerSeenAt: s?.readerSeenAt ? s.readerSeenAt.toISOString() : null,
+    readerVersion: s?.readerVersion ?? null,
+  };
 }
 
 /** A person's name as the team sees it. */
@@ -162,6 +173,7 @@ export type WorkRow = {
   asked_for: WorkAskedFor;
   failure: string | null;
   done_count: number | null;
+  progress: unknown;
   created_at: Date | string;
   taken_at: Date | string | null;
   finished_at: Date | string | null;
@@ -184,6 +196,7 @@ export const workOut = (w: WorkRow): Work => ({
   askedFor: w.asked_for,
   failure: w.failure,
   doneCount: w.done_count,
+  progress: w.progress ? (WorkProgress.safeParse(w.progress).data ?? null) : null,
   createdAt: when(w.created_at)!,
   takenAt: when(w.taken_at),
   finishedAt: when(w.finished_at),
@@ -192,7 +205,7 @@ export const workOut = (w: WorkRow): Work => ({
 /** The work's rows with the niche and creator they're about. */
 export const WORK_SELECT = sql`
   select w.id, w.kind, w.network, w.niche_id, n.name as niche_name, w.creator_id, c.handle as creator_handle,
-         c.network as creator_network, w.post_id, w.state, w.asked_for, w.failure, w.done_count, w.created_at, w.taken_at,
+         c.network as creator_network, w.post_id, w.state, w.asked_for, w.failure, w.done_count, w.progress, w.created_at, w.taken_at,
          w.finished_at
   from addon_socialcontent.work w
   left join addon_socialcontent.niches n on n.id = w.niche_id

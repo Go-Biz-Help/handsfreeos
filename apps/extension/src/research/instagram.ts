@@ -26,7 +26,18 @@ export const INSTAGRAM_APP_ID = '936619743392459';
 
 /** The only answers the reading tab asks Instagram for. */
 export const INSTAGRAM_READS =
-  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/topsearch\/\?|fbsearch\/web\/top_serp\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/[\w/]+\/\?|fbsearch\/[\w/]+\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+/** Search answers the search page loaded itself, asked for again when Instagram's own ones show nobody. */
+export const SEARCH_LOADED = /^\/api\/v1\/(fbsearch|web\/search|tags)\/[\w/]+\/\?/;
+/** A loaded answer's path with only the names of what it asked ("…/top_serp/?query&count"), for a report. */
+export const loadedShown = (path: string): string => {
+  const [where, asked = ''] = path.split('?');
+  const names = asked
+    .split('&')
+    .map((part) => part.split('=')[0])
+    .filter(Boolean);
+  return `${where}${names.length ? `?${names.join('&')}` : ''}`.slice(0, 60);
+};
 /** Where Instagram keeps its videos: the only other place the reading tab fetches from, to watch a standout. */
 export const INSTAGRAM_VIDEO_HOSTS = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/;
 

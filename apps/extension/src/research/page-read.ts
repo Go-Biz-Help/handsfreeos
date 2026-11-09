@@ -17,12 +17,14 @@
  *
  * When a page doesn't show what's read, the AI helper looks, then it's read once more when it cleared the way, else
  * reported (./read.ts), as Instagram's reads and Social Outreach's steps are. Watching videos is Instagram's alone.
+ * Each read says what it's doing as it goes (`Progress`), as Instagram's do.
  */
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
 import {
   creatorFromLink,
   creatorLink,
   handleShown,
+  networkName,
   type ContentNetwork,
 } from '@hfos/core/addons/socialcontent/networks';
 import { LIMITS, type FoundCreator, type PostIn } from '@hfos/core/addons/socialcontent/shapes';
@@ -33,6 +35,7 @@ import {
   answerStep,
   helpWith,
   openPage,
+  Progress,
   report,
   type Got,
   type HelperRun,
@@ -353,18 +356,31 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
   const known = new Set(work.known.map((h) => h.toLowerCase()));
   /** Who was gathered, with when a search showed them posting. */
   const gathered = new Map<string, { lastPostAt: string | null }>();
+  /** Everyone the searches showed, known or not, for what it's doing. */
+  const looked = new Set<string>();
   const enough = work.most * 2;
   const now = new Date();
   const gather = (url: string | null, lastPostAt: string | null) => {
     const handle = handleOf(network, url);
+    if (handle) looked.add(handle);
     if (!handle || known.has(handle)) return;
     const had = gathered.get(handle);
     if (!had) gathered.set(handle, { lastPostAt });
     else if (lastPostAt && (!had.lastPostAt || lastPostAt > had.lastPostAt))
       gathered.set(handle, { lastPostAt });
   };
-  for (const words of work.niche?.searches ?? []) {
+  const progress = new Progress(ctx);
+  const searches = (work.niche?.searches ?? []).slice(0, LIMITS.searchesPerNetwork);
+  const searched: string[] = [];
+  const name = networkName(network);
+  for (const words of searches) {
     if (gathered.size >= enough) break;
+    await progress.say({
+      now: `Searching ${name} for “${words}”`,
+      searches: searches.length,
+      searched,
+      accounts: looked.size,
+    });
     for (const [index, page] of ways.searchPages(words).entries()) {
       const opened = await openPage(ctx, page);
       if (!opened.ok) return opened.end;
@@ -387,6 +403,8 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
         }
       }
     }
+    searched.push(words.slice(0, LIMITS.search));
+    await progress.say({ searched, accounts: looked.size });
   }
 
   let found: FoundCreator[] = [];
@@ -395,12 +413,15 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
     await creatorsFound(ctx.businessId, work.id, found.slice(0, LIMITS.foundPerSave));
     found = [];
   };
+  const toRead = Math.min(work.most, gathered.size);
   let read = 0;
   for (const [handle, seen] of gathered) {
     if (read >= work.most) break;
+    await progress.say({ now: `Reading profiles: ${read + 1} of ${toRead}`, profiles: read });
     const got = await readProfile(ctx, handle, 'find');
     if (!got.ok) {
       await send();
+      await progress.say({ profiles: read }, true);
       return got.end;
     }
     read++;
@@ -437,12 +458,20 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
     if (found.length >= FOUND_EVERY) await send();
   }
   await send();
+  await progress.say({ now: 'Done', searched, accounts: looked.size, profiles: read }, true);
   return { failure: null };
 }
+
+/** "@name" or the page's name, as the Creators page shows them. */
+const shownAs = (network: PageNetwork, handle: string) =>
+  handleShown(network as ContentNetwork, handle);
 
 async function profile(ctx: ReadCtx): Promise<ReadEnd> {
   const creator = ctx.work.creator;
   if (!creator) return { failure: 'That creator isn’t there anymore.' };
+  const progress = new Progress(ctx);
+  const network = ctx.work.network as PageNetwork;
+  await progress.say({ now: `Reading ${shownAs(network, creator.handle)}’s profile` }, true);
   const got = await readProfile(ctx, creator.handle, 'profile');
   if (!got.ok) return got.end;
   await creatorRead(ctx.businessId, creator.id, {
@@ -451,6 +480,7 @@ async function profile(ctx: ReadCtx): Promise<ReadEnd> {
     followers: got.value.followers,
     lastPostAt: got.value.lastPostAt,
   });
+  await progress.say({ now: 'Done', profiles: 1 }, true);
   return { failure: null };
 }
 
@@ -464,6 +494,8 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     return {
       failure: `Reading ${handleShown(network as ContentNetwork, creator.handle)}’s posts comes later: for now it reads LinkedIn members’ posts, not company pages’.`,
     };
+  const progress = new Progress(ctx);
+  await progress.say({ now: `Reading ${shownAs(network, creator.handle)}’s profile` }, true);
   const profileGot = await readProfile(ctx, creator.handle, 'posts');
   if (!profileGot.ok) return profileGot.end;
   const name = profileGot.value.name;
@@ -487,6 +519,12 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
       await postsSave(ctx.businessId, creator.id, waiting.slice(i, i + LIMITS.postsPerSave));
     waiting = [];
   };
+  let kept = 0;
+  await progress.say({
+    now: `Reading ${shownAs(network, creator.handle)}’s posts`,
+    profiles: 1,
+    posts: 0,
+  });
   let nothingNew = 0;
   for (let screen = 0; screen < POSTS_SCROLLS_MOST; screen++) {
     const got = await readShown(
@@ -498,6 +536,7 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     );
     if (!got.ok) {
       await save();
+      await progress.say({ posts: kept }, true);
       return got.end;
     }
     let fresh = 0;
@@ -510,20 +549,26 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
       if (seen.has(post.postKey)) continue;
       seen.add(post.postKey);
       fresh++;
-      if (post.postedAt >= since) waiting.push(post);
+      if (post.postedAt >= since) {
+        waiting.push(post);
+        kept++;
+      }
     }
     if (waiting.length >= SAVE_EVERY) await save();
+    await progress.say({ posts: kept });
     if (oldest && oldest < since) break;
     nothingNew = fresh ? 0 : nothingNew + 1;
     if (nothingNew >= NOTHING_NEW_MOST) break;
     const more = await scrollOn(ctx);
     if (!more.ok) {
       await save();
+      await progress.say({ posts: kept }, true);
       return more.end;
     }
     if (!more.value && !fresh) break;
   }
   await save();
+  await progress.say({ now: 'Done', posts: kept }, true);
   // Nothing at all on a page that should list posts: worth a report, but nothing's wrong to say.
   if (!seen.size)
     await report(ctx, 'posts', 'Posts: none of their posts could be read from the page.', null, {});
