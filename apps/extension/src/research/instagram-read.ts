@@ -5,10 +5,16 @@
  * - **Find creators** for a niche: for each of its searches, Instagram's search page is opened as a person would, and
  *   the accounts behind the posts it shows (its own answer; a hashtag's page sends there now), behind the hashtag's
  *   top posts (#homeorganizing for "home organizing"), and whose names match the words are gathered, in that order, as
- *   the posts did well there. When none of those answers has anyone new, who posted the posts on the page itself is
- *   read. Those already known and private accounts are passed over. Then up to `most` profiles are opened and read,
- *   and sent to HandsFreeOS ten at a time, which sorts who fits (5,000+ followers, a post in the last 30 days). When
- *   not one search showed anyone, it's reported, and the search says so rather than finishing with nobody.
+ *   the posts did well there. When none of those answers has anyone new, what the page holds itself is read: the
+ *   accounts in the data it came with, then the search answers it loaded, asked for again; then who posted the posts
+ *   it links, brought in front and scrolled for its grid to draw when it must, which only happens while the person is
+ *   away (decision 120). Those already known and private accounts are passed over. Then up to `most` profiles are
+ *   opened and read, and sent to HandsFreeOS ten at a time, which sorts who fits (5,000+ followers, a post in the last
+ *   30 days). When not one search showed anyone, it's reported with what the page loaded, and the search says so
+ *   rather than finishing with nobody.
+ *
+ * Each read says what it's doing as it goes (`Progress`): the words it's searching, the searches done, the accounts
+ * the searches showed, and the profiles and posts it read, for the Creators page.
  * - **A profile:** their name, bio, followers and when they last posted.
  * - **Their posts,** back to `since` (12 months the first time; a week's re-read goes back 60 days past the last
  *   read, as numbers still grow): their profile is opened, and their posts asked for 12 at a time, newest first, saved
@@ -24,9 +30,12 @@
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
 import type { FoundCreator, PostIn } from '@hfos/core/addons/socialcontent/shapes';
 import { LIMITS } from '@hfos/core/addons/socialcontent/shapes';
+import { NotAway } from '../away';
 import { creatorRead, creatorsFound, postsSave, watchSend } from './hfos';
 import {
   accountsFrom,
+  INSTAGRAM_READS,
+  loadedShown,
   creatorFrom,
   mediaIdOf,
   mediaInfoPath,
@@ -34,6 +43,7 @@ import {
   postsPath,
   profilePage,
   profilePath,
+  SEARCH_LOADED,
   searchPage,
   searchPath,
   serpPath,
@@ -44,12 +54,17 @@ import {
   videoOf,
   type InstagramCreator,
   type InstagramFoundAccount,
+  type InstagramPageProfile,
 } from './instagram';
 import {
   answerStep,
   helpWith,
   openPage,
+  paced,
+  pause,
+  Progress,
   report,
+  RESEARCH_PACE,
   warned,
   type Got,
   type HelperRun,
@@ -126,7 +141,19 @@ async function answer<T>(
           troubleWords(got?.json) ?? 'Please wait a few minutes before you try again.',
         ]),
       };
-    if (trouble === 'not_there') return { ok: false, end: { failure: null }, gone: true };
+    if (trouble === 'not_there')
+      return {
+        ok: false,
+        end: { failure: null },
+        gone: true,
+        why: [
+          String(got?.status ?? 0),
+          troubleWords(got?.json)?.slice(0, 80),
+          partsOf(got?.json).join(',') || null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
     // Once the helper cleared the way and it still didn't come, it's reported with what the helper did.
     const run: HelperRun = before ?? (await helpWith(ctx, read, note));
     if (run.cleared && !before) {
@@ -143,15 +170,57 @@ async function answer<T>(
   return { ok: false, end: couldntRead() };
 }
 
-/** Someone's profile, opened and read. */
+/** Someone's profile as read: from Instagram's answer, or from their page when the answer said "not there". */
+interface ReadCreator {
+  readonly creator: InstagramCreator;
+  /** Read from their page: with the posts it holds. */
+  readonly page: { readonly posts: readonly PostIn[] } | null;
+}
+
+/**
+ * Someone's profile, opened and read: Instagram's answer, or, when it says they aren't there, what their page itself
+ * holds (the data it came with, its description, and the posts its grid links to, whose codes say when they posted).
+ * `gone` only when neither has them.
+ */
 async function readCreator(
   ctx: ReadCtx,
   username: string,
   read: ReadKind,
-): Promise<Got<InstagramCreator>> {
+): Promise<Got<ReadCreator>> {
   const opened = await openPage(ctx, profilePage(username));
   if (!opened.ok) return opened;
-  return answer(ctx, read, profilePath(username), creatorFrom, 'Profile');
+  const got = await answer(ctx, read, profilePath(username), creatorFrom, 'Profile');
+  if (got.ok) return { ok: true, value: { creator: got.value, page: null } };
+  if (!got.gone) return got;
+  const held = await datedHeld(ctx, username);
+  if (!held?.creator) return got;
+  return { ok: true, value: { creator: held.creator, page: { posts: held.posts } } };
+}
+
+/**
+ * What someone's profile page holds, with when they last posted when it can be had: their grid's links may not be
+ * there at first, so it looks again a moment later, then, only while the person is away, with the page in front, as
+ * Chrome draws a page's grid only on screen (decision 120).
+ */
+async function datedHeld(ctx: ReadCtx, username: string): Promise<InstagramPageProfile | null> {
+  const look = () => ctx.tab.hands('profileHeld', username);
+  const undated = (h: InstagramPageProfile | null) =>
+    !!h?.creator && !h.creator.lastPostAt && !h.creator.private && h.creator.posts !== 0;
+  let held = await look();
+  if (!undated(held)) return held;
+  await pause(RESEARCH_PACE.settleMs);
+  held = (await look()) ?? held;
+  if (!undated(held)) return held;
+  try {
+    const front = await ctx.tab.inFront(async () => {
+      await pause(RESEARCH_PACE.settleMs);
+      return look();
+    });
+    if (front?.creator) held = front;
+  } catch (error) {
+    if (!(error instanceof NotAway)) throw error;
+  }
+  return held;
 }
 
 const shown = (handle: string) => `@${handle.replace(/^@/, '')}`;
@@ -162,13 +231,30 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
   const { work } = ctx;
   const known = new Set(work.known.map((h) => h.toLowerCase()));
   const gathered = new Map<string, InstagramFoundAccount>();
+  /** Every account the searches showed, known or not, for what it's doing. */
+  const looked = new Set<string>();
   const enough = work.most * 2;
-  const searches = work.niche?.searches ?? [];
+  const searches = (work.niche?.searches ?? []).slice(0, LIMITS.searchesPerNetwork);
+  const progress = new Progress(ctx);
+  const searched: string[] = [];
   // What each place gave, for the report when no search showed anyone.
-  const seen = { searched: 0, posts: 0, hashtag: 0, accounts: 0, grid: 0, notThere: 0 };
+  const seen = {
+    searched: 0,
+    posts: 0,
+    hashtag: 0,
+    accounts: 0,
+    held: 0,
+    loadedAsked: 0,
+    loadedShowed: 0,
+    grid: 0,
+    notThere: 0,
+  };
+  const loadedSeen = new Set<string>();
+  let notAway = false;
   const take = (accounts: readonly InstagramFoundAccount[]): number => {
     let added = 0;
-    for (const account of accounts)
+    for (const account of accounts) {
+      looked.add(account.username);
       if (
         !known.has(account.username) &&
         account.private !== true &&
@@ -177,10 +263,17 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
         gathered.set(account.username, account);
         added++;
       }
+    }
     return added;
   };
   for (const words of searches) {
     if (gathered.size >= enough) break;
+    await progress.say({
+      now: `Searching Instagram for “${words}”`,
+      searches: searches.length,
+      searched,
+      accounts: looked.size,
+    });
     const opened = await openPage(ctx, searchPage(words));
     if (!opened.ok) return opened.end;
     seen.searched++;
@@ -191,14 +284,7 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
       (json: unknown) => InstagramFoundAccount[] | null,
       string,
       keyof typeof seen,
-    ][] = [
-      [
-        serpPath(words),
-        (json) => (typeof json === 'object' && json !== null ? accountsFrom(json) : null),
-        'Search page’s posts',
-        'posts',
-      ],
-    ];
+    ][] = [[serpPath(words), objectAccounts, 'Search page’s posts', 'posts']];
     const tag = tagOf(words);
     if (tag)
       asks.push([
@@ -234,30 +320,41 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
       seen[place] += got.value.length;
       here += take(got.value);
     }
-    if (here) continue;
-    // None of the answers had anyone new: who posted what the page itself shows.
-    const grid = await gridAuthors(ctx);
-    if (!grid.ok) return grid.end;
-    seen.grid += grid.value.length;
-    take(grid.value);
+    if (!here) {
+      // None of the answers had anyone new: what the page itself holds and loaded, then who posted what it shows.
+      const page = await pageAccounts(ctx, new Set(asks.map(([path]) => path)), seen, loadedSeen);
+      if (!page.ok) return page.end;
+      here += take(page.value.accounts);
+      if (!here) {
+        const grid = await gridAuthors(ctx, page.value.posts);
+        if (!grid.ok) return grid.end;
+        if (grid.value.notAway) notAway = true;
+        seen.grid += grid.value.accounts.length;
+        take(grid.value.accounts);
+      }
+    }
+    searched.push(words.slice(0, LIMITS.search));
+    await progress.say({ searched, accounts: looked.size });
   }
 
   // Not one search showed anyone: Instagram has changed what its search answers, so it's reported to be fixed.
-  if (
-    searches.length &&
-    !gathered.size &&
-    seen.posts + seen.hashtag + seen.accounts + seen.grid === 0
-  ) {
+  if (searches.length && !gathered.size && !looked.size) {
+    await progress.say({ now: 'Instagram’s search showed nobody', searched, accounts: 0 }, true);
     await report(
       ctx,
       'find',
       `Find: none of the ${seen.searched} searches on Instagram showed anyone.`,
       null,
-      { ...seen },
+      {
+        ...seen,
+        notAway,
+        loaded: [...loadedSeen].slice(0, 20),
+      },
     );
     return {
-      failure:
-        'Instagram’s search showed nobody for this niche’s searches. HandsFreeOS got a report so it can be fixed. Meanwhile, add creators you know with Add a creator.',
+      failure: notAway
+        ? 'Instagram showed nobody for this niche’s searches. Its search page shows posts only on screen, which the extension uses only while you’re away from the computer, so press Find creators again before you step away. HandsFreeOS got a report too.'
+        : 'Instagram’s search showed nobody for this niche’s searches. HandsFreeOS got a report so it can be fixed. Meanwhile, add creators you know with Add a creator.',
     };
   }
 
@@ -267,18 +364,37 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
     await creatorsFound(ctx.businessId, work.id, found.slice(0, LIMITS.foundPerSave));
     found = [];
   };
+  const toRead = Math.min(work.most, gathered.size);
   let read = 0;
+  /** Profiles Instagram wouldn't open, what it answered for the first, and those read from their page. */
+  let notOpened = 0;
+  let notOpenedWhy = '';
+  let fromPage = 0;
+  /** Profiles read that didn't say when they last posted, so they can't be suggested. */
+  let undated = 0;
   for (const account of gathered.values()) {
     if (read >= work.most) break;
+    await progress.say({
+      now: `Reading profiles: ${read + notOpened + 1} of ${toRead}`,
+      profiles: read,
+      ...(notOpened ? { notOpened } : {}),
+    });
     const got = await readCreator(ctx, account.username, 'find');
     if (!got.ok) {
-      if (got.gone) continue;
+      if (got.gone) {
+        notOpened++;
+        notOpenedWhy ||= got.why ?? '';
+        continue;
+      }
       await send();
+      await progress.say({ profiles: read, ...(notOpened ? { notOpened } : {}) }, true);
       return got.end;
     }
     read++;
-    const c = got.value;
+    if (got.value.page) fromPage++;
+    const c = got.value.creator;
     if (c.private) continue;
+    if (!c.lastPostAt) undated++;
     found.push({
       handle: c.username,
       name: c.name,
@@ -289,31 +405,126 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
     if (found.length >= FOUND_EVERY) await send();
   }
   await send();
+  const tally = {
+    searched,
+    accounts: looked.size,
+    profiles: read,
+    ...(notOpened ? { notOpened } : {}),
+  };
+  // Profiles Instagram wouldn't open: reported, with what it answered and what the searches gave, so it can be fixed.
+  if (notOpened && notOpened >= read)
+    await report(
+      ctx,
+      'find',
+      `Find: Instagram wouldn’t open ${notOpened} of the ${read + notOpened} profiles the searches showed (it answered ${notOpenedWhy || 'nothing'}).`,
+      null,
+      {
+        ...seen,
+        notAway,
+        profilesRead: read,
+        notOpened,
+        fromPage,
+        undated,
+        loaded: [...loadedSeen].slice(0, 20),
+      },
+    );
+  // Profiles that opened but never said when they last posted: nobody can be suggested, so it's reported too.
+  else if (read && undated >= read)
+    await report(
+      ctx,
+      'find',
+      `Find: none of the ${read} profiles read said when they last posted, so nobody could be suggested.`,
+      null,
+      { ...seen, notAway, profilesRead: read, undated, fromPage },
+    );
+  if (!read && notOpened) {
+    await progress.say({ now: 'Instagram wouldn’t open their profiles', ...tally }, true);
+    return {
+      failure: `Instagram wouldn’t open any of the ${notOpened} profiles its searches showed, so nobody could be suggested. HandsFreeOS got a report so it can be fixed. Meanwhile, add creators you know with Add a creator.`,
+    };
+  }
+  await progress.say({ now: 'Done', ...tally }, true);
   return { failure: null };
 }
 
-/** Posts of the search page's grid whose author is asked for, when the link doesn't name them. */
-export const GRID_POSTS_MOST = 6;
+/** The accounts in an answer that's an object at all. */
+const objectAccounts = (json: unknown): InstagramFoundAccount[] | null =>
+  typeof json === 'object' && json !== null ? accountsFrom(json) : null;
+
+/** Loaded search answers asked for again on one search page, at most. */
+export const LOADED_ASKS_MOST = 2;
 
 /**
- * Who posted the posts the search page shows: those its links name (/<name>/p/<code>/), else, for a few of its posts,
- * the account each one's answer names.
+ * What the search page itself holds (the accounts in the data it came with), then the search answers it loaded that
+ * weren't asked for already, asked for again as the page did. Its post links come back too, for `gridAuthors`.
  */
-async function gridAuthors(ctx: ReadCtx): Promise<Got<InstagramFoundAccount[]>> {
-  const page = (await ctx.tab.hands('read')) as {
-    authors?: { author?: { username?: unknown } }[];
-    tag?: { posts?: unknown[] } | null;
-  } | null;
-  const named = (page?.authors ?? [])
-    .map((a) => a.author?.username)
-    .filter((u): u is string => typeof u === 'string')
-    .map((username) => ({ username: username.toLowerCase(), private: null }));
-  if (named.length) return { ok: true, value: named };
+async function pageAccounts(
+  ctx: ReadCtx,
+  asked: ReadonlySet<string>,
+  seen: { held: number; loadedAsked: number; loadedShowed: number; notThere: number },
+  loadedSeen: Set<string>,
+): Promise<Got<{ accounts: InstagramFoundAccount[]; posts: readonly string[] }>> {
+  const held = await ctx.tab.hands('held');
+  const accounts = [...(held?.accounts ?? [])];
+  seen.held += accounts.length;
+  for (const path of held?.loaded ?? []) loadedSeen.add(loadedShown(path));
+  const again = (held?.loaded ?? [])
+    .filter((path) => SEARCH_LOADED.test(path) && INSTAGRAM_READS.test(path) && !asked.has(path))
+    .slice(0, LOADED_ASKS_MOST);
+  for (const path of again) {
+    seen.loadedAsked++;
+    const got = await answer(ctx, 'find', path, objectAccounts, 'Search page’s own answer', false);
+    if (!got.ok) {
+      if (got.gone) {
+        seen.notThere++;
+        continue;
+      }
+      return got;
+    }
+    seen.loadedShowed += got.value.length;
+    accounts.push(...got.value);
+  }
+  return { ok: true, value: { accounts, posts: held?.posts ?? [] } };
+}
+
+/** Posts of the search page's grid whose author is asked for. */
+export const GRID_POSTS_MOST = 6;
+/** Screens the search page is scrolled, in front, for its grid to draw. */
+export const GRID_SCROLLS = 3;
+
+/**
+ * Who posted the posts the search page shows, for a few of them: the account each one's answer names. The page draws
+ * its grid only on screen, so when its links aren't there yet it's brought in front and scrolled, which happens only
+ * while the person is away (`notAway` when they weren't).
+ */
+async function gridAuthors(
+  ctx: ReadCtx,
+  linked: readonly string[],
+): Promise<Got<{ accounts: InstagramFoundAccount[]; notAway: boolean }>> {
+  let posts = [...linked];
+  let notAway = false;
+  if (!posts.length) {
+    try {
+      posts = await ctx.tab.inFront(async () => {
+        const codes = new Set<string>();
+        for (let screen = 0; screen <= GRID_SCROLLS && codes.size < GRID_POSTS_MOST; screen++) {
+          if (screen) {
+            await pause(paced(RESEARCH_PACE.answerMs));
+            const moved = await ctx.tab.hands('scroll');
+            if (!moved?.moved) break;
+          } else await pause(RESEARCH_PACE.settleMs);
+          for (const code of (await ctx.tab.hands('held'))?.posts ?? []) codes.add(code);
+        }
+        return [...codes];
+      });
+    } catch (error) {
+      if (!(error instanceof NotAway)) throw error;
+      notAway = true;
+    }
+  }
   const accounts: InstagramFoundAccount[] = [];
-  const posts = (page?.tag?.posts ?? []).filter((p): p is string => typeof p === 'string');
-  for (const link of posts.slice(0, GRID_POSTS_MOST)) {
-    const code = /\/(?:p|reel)\/([\w-]+)\//.exec(link)?.[1];
-    const id = code ? mediaIdOf(code) : null;
+  for (const code of posts.slice(0, GRID_POSTS_MOST)) {
+    const id = mediaIdOf(code);
     if (!id) continue;
     const got = await answer(
       ctx,
@@ -322,6 +533,7 @@ async function gridAuthors(ctx: ReadCtx): Promise<Got<InstagramFoundAccount[]>> 
       (json) =>
         typeof json === 'object' && json !== null && 'items' in json ? accountsFrom(json) : null,
       'Post',
+      false,
     );
     if (!got.ok) {
       if (got.gone) continue;
@@ -329,7 +541,7 @@ async function gridAuthors(ctx: ReadCtx): Promise<Got<InstagramFoundAccount[]>> 
     }
     accounts.push(...got.value);
   }
-  return { ok: true, value: accounts };
+  return { ok: true, value: { accounts, notAway } };
 }
 
 // ------------------------------------------------------------------------------------------------ a profile
@@ -337,18 +549,19 @@ async function gridAuthors(ctx: ReadCtx): Promise<Got<InstagramFoundAccount[]>> 
 async function profile(ctx: ReadCtx): Promise<ReadEnd> {
   const creator = ctx.work.creator;
   if (!creator) return { failure: 'That creator isn’t there anymore.' };
+  const progress = new Progress(ctx);
+  await progress.say({ now: `Reading ${shown(creator.handle)}’s profile` }, true);
   const got = await readCreator(ctx, creator.handle, 'profile');
   if (!got.ok)
-    return got.gone
-      ? { failure: `Instagram says ${shown(creator.handle)} isn’t there anymore.` }
-      : got.end;
-  const c = got.value;
+    return got.gone ? await notOpenedEnd(ctx, 'profile', creator.handle, got.why) : got.end;
+  const c = got.value.creator;
   await creatorRead(ctx.businessId, creator.id, {
     name: c.name,
     bio: c.bio,
     followers: c.followers,
     lastPostAt: c.lastPostAt,
   });
+  await progress.say({ now: 'Done', profiles: 1 }, true);
   return { failure: null };
 }
 
@@ -377,12 +590,13 @@ export const postsSince = (posts: readonly PostIn[], since: string): PostIn[] =>
 async function posts(ctx: ReadCtx): Promise<ReadEnd> {
   const creator = ctx.work.creator;
   if (!creator) return { failure: 'That creator isn’t there anymore.' };
+  const progress = new Progress(ctx);
+  await progress.say({ now: `Reading ${shown(creator.handle)}’s profile` }, true);
   const got = await readCreator(ctx, creator.handle, 'posts');
   if (!got.ok)
-    return got.gone
-      ? { failure: `Instagram says ${shown(creator.handle)} isn’t there anymore.` }
-      : got.end;
-  const c = got.value;
+    return got.gone ? await notOpenedEnd(ctx, 'posts', creator.handle, got.why) : got.end;
+  const c = got.value.creator;
+  const onPage = got.value.page;
   await creatorRead(ctx.businessId, creator.id, {
     name: c.name,
     bio: c.bio,
@@ -393,7 +607,10 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     return {
       failure: `${shown(creator.handle)}’s account is private, so its posts can’t be read.`,
     };
+  const since = ctx.work.since ?? new Date(Date.now() - READ_BACK_MS).toISOString();
   if (!c.id) {
+    if (onPage?.posts.length)
+      return pagePosts(ctx, creator, onPage.posts, since, progress, 'no account id');
     await report(
       ctx,
       'posts',
@@ -402,29 +619,86 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     );
     return couldntRead();
   }
-  const since = ctx.work.since ?? new Date(Date.now() - READ_BACK_MS).toISOString();
   let next = await cursorFor(ctx.work.id);
   let waiting: PostIn[] = [];
+  let kept = 0;
   const save = async () => {
     for (let i = 0; i < waiting.length; i += LIMITS.postsPerSave)
       await postsSave(ctx.businessId, creator.id, waiting.slice(i, i + LIMITS.postsPerSave));
     waiting = [];
   };
+  await progress.say({ now: `Reading ${shown(creator.handle)}’s posts`, profiles: 1, posts: 0 });
   for (let page = 0; page < POSTS_PAGES_MOST; page++) {
     const read = await answer(ctx, 'posts', postsPath(c.id, next), postsFrom, 'Posts', false);
     if (!read.ok) {
       await save();
+      // Not one page of their posts came: what their profile page holds, when it holds any.
+      if (read.gone && page === 0 && !kept) {
+        const held = onPage ?? (await ctx.tab.hands('profileHeld', creator.handle));
+        if (held?.posts.length)
+          return pagePosts(ctx, creator, held.posts, since, progress, read.why ?? 'not there');
+      }
+      await progress.say({ posts: kept }, true);
       return read.gone ? { failure: null } : read.end;
     }
-    waiting.push(...postsSince(read.value.posts, since));
+    const these = postsSince(read.value.posts, since);
+    kept += these.length;
+    waiting.push(...these);
     if (waiting.length >= SAVE_EVERY) await save();
+    await progress.say({ posts: kept });
     next = read.value.next;
     if (!next || (read.value.oldest !== null && read.value.oldest < since)) break;
     await keepCursor(ctx.work.id, next);
   }
   await save();
   await keepCursor(ctx.work.id, null);
+  await progress.say({ now: 'Done', posts: kept }, true);
   return { failure: null };
+}
+
+/**
+ * Their posts as their profile page holds them (its first dozen or so), when Instagram's list of their posts didn't
+ * come: saved, and reported, so the list can be fixed.
+ */
+async function pagePosts(
+  ctx: ReadCtx,
+  creator: { id: string; handle: string },
+  posts: readonly PostIn[],
+  since: string,
+  progress: Progress,
+  why: string,
+): Promise<ReadEnd> {
+  const these = postsSince(posts, since);
+  for (let i = 0; i < these.length; i += LIMITS.postsPerSave)
+    await postsSave(ctx.businessId, creator.id, these.slice(i, i + LIMITS.postsPerSave));
+  await report(
+    ctx,
+    'posts',
+    `Posts: Instagram’s list of their posts didn’t come (${why}), so ${these.length} were read from their page.`,
+    null,
+    { pagePosts: posts.length, kept: these.length },
+  );
+  await progress.say({ now: 'Done', profiles: 1, posts: these.length }, true);
+  return { failure: null };
+}
+
+/** A profile Instagram wouldn't open, its page holding nothing either: reported, and said so. */
+async function notOpenedEnd(
+  ctx: ReadCtx,
+  read: ReadKind,
+  handle: string,
+  why: string | undefined,
+): Promise<ReadEnd> {
+  await report(
+    ctx,
+    read,
+    `Profile: Instagram wouldn’t open it (it answered ${why || 'nothing'}), and the page held nothing to read.`,
+    null,
+    {},
+  );
+  return {
+    failure: `Instagram wouldn’t open ${shown(handle)}’s profile. It may be gone or renamed. HandsFreeOS got a report in case Instagram changed something.`,
+  };
 }
 
 // ------------------------------------------------------------------------------------------------ watch a video
@@ -461,6 +735,7 @@ async function watch(ctx: ReadCtx): Promise<ReadEnd> {
   const mediaId = mediaIdOf(post.postKey);
   if (!mediaId)
     return { failure: 'That post’s link can’t be read, so its video can’t be watched.' };
+  await new Progress(ctx).say({ now: 'Watching the video: frames and sound' }, true);
   const opened = await openPage(ctx, post.link);
   if (!opened.ok) return opened.end;
   const got = await answer(ctx, 'watch', mediaInfoPath(mediaId), videoOf, 'Video');

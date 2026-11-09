@@ -26,7 +26,18 @@ export const INSTAGRAM_APP_ID = '936619743392459';
 
 /** The only answers the reading tab asks Instagram for. */
 export const INSTAGRAM_READS =
-  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/topsearch\/\?|fbsearch\/web\/top_serp\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/[\w/]+\/\?|fbsearch\/[\w/]+\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+/** Search answers the search page loaded itself, asked for again when Instagram's own ones show nobody. */
+export const SEARCH_LOADED = /^\/api\/v1\/(fbsearch|web\/search|tags)\/[\w/]+\/\?/;
+/** A loaded answer's path with only the names of what it asked ("…/top_serp/?query&count"), for a report. */
+export const loadedShown = (path: string): string => {
+  const [where, asked = ''] = path.split('?');
+  const names = asked
+    .split('&')
+    .map((part) => part.split('=')[0])
+    .filter(Boolean);
+  return `${where}${names.length ? `?${names.join('&')}` : ''}`.slice(0, 60);
+};
 /** Where Instagram keeps its videos: the only other place the reading tab fetches from, to watch a standout. */
 export const INSTAGRAM_VIDEO_HOSTS = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/;
 
@@ -57,6 +68,33 @@ export function mediaIdOf(code: string): string | null {
   let n = 0n;
   for (const ch of head) n = n * 64n + BigInt(SHORTCODE_LETTERS.indexOf(ch));
   return n > 0n ? n.toString() : null;
+}
+
+/** Where Instagram's numbers start counting time: its own start, in milliseconds (24 Aug 2011). */
+const INSTAGRAM_START_MS = 1_314_220_021_721n;
+
+/**
+ * When a post was posted, from the code in its link: a post's number begins with the milliseconds since Instagram's
+ * start, so its grid's links say when someone posted even when nothing else on the page does. Null when the code
+ * isn't one, or the moment isn't between Instagram's start and tomorrow.
+ */
+export function postedAtOf(code: string, now: number = Date.now()): string | null {
+  const id = mediaIdOf(code);
+  if (!id) return null;
+  const ms = Number((BigInt(id) >> 23n) + INSTAGRAM_START_MS);
+  if (ms <= Number(INSTAGRAM_START_MS) || ms > now + 86_400_000) return null;
+  return new Date(ms).toISOString();
+}
+
+/** When someone last posted, by the newest of their posts' links (a pinned post is older, so it doesn't matter). */
+export function newestPostedAt(codes: readonly string[], now: number = Date.now()): string | null {
+  return (
+    codes
+      .map((code) => postedAtOf(code, now))
+      .filter((t): t is string => !!t)
+      .sort()
+      .at(-1) ?? null
+  );
 }
 
 /** The pages the tab opens, as a person would: someone's profile, and Instagram's search for some words. */
@@ -90,13 +128,17 @@ const moment = (v: unknown): string | null => {
     : null;
 };
 
+/** How deep an answer is looked through, and the data a page came with, which nests far deeper. */
+const ANSWER_DEPTH = 14;
+const PAGE_DEPTH = 48;
+
 /** Everything in an answer, depth first, at most so deep: where a field is kept within it can change. */
-function* everyObject(v: unknown, depth = 0): Generator<Json> {
-  if (depth > 14) return;
-  if (Array.isArray(v)) for (const x of v) yield* everyObject(x, depth + 1);
+function* everyObject(v: unknown, most = ANSWER_DEPTH, depth = 0): Generator<Json> {
+  if (depth > most) return;
+  if (Array.isArray(v)) for (const x of v) yield* everyObject(x, most, depth + 1);
   else if (isObject(v)) {
     yield v;
-    for (const x of Object.values(v)) yield* everyObject(x, depth + 1);
+    for (const x of Object.values(v)) yield* everyObject(x, most, depth + 1);
   }
 }
 
@@ -140,6 +182,108 @@ export function creatorFrom(json: unknown): InstagramCreator | null {
     private: user.is_private === true,
     lastPostAt: newest,
     posts: count(at(media, 'count') ?? user.media_count),
+  };
+}
+
+/** Someone's profile and posts as their profile page holds them, for when Instagram's answer says "not there". */
+export interface InstagramPageProfile {
+  readonly creator: InstagramCreator | null;
+  readonly posts: readonly PostIn[];
+}
+
+/** "12.3K" or "1,204" as a number. */
+const shortNumber = (s: string | undefined): number | null => {
+  const m = s ? /^([\d.,]+)\s*([KkMm])?$/.exec(s.trim()) : null;
+  if (!m) return null;
+  const n = Number(m[1]!.replace(/,/g, ''));
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * (m[2] ? (/[Kk]/.test(m[2]) ? 1_000 : 1_000_000) : 1));
+};
+
+/**
+ * What a profile page's own description says, in either of Instagram's ways: "12K Followers, 300 Following, 1,234
+ * Posts - See Instagram photos and videos from Jane Doe (@janedoe)", or "… Posts - Jane Doe (@janedoe) on Instagram:
+ * "their bio"". Instagram puts it in the page whether or not it's drawn.
+ */
+export function descriptionFacts(description: string | null): {
+  followers: number | null;
+  posts: number | null;
+  name: string | null;
+  bio: string | null;
+} {
+  const d = description ?? '';
+  return {
+    followers: shortNumber(/([\d.,]+\s*[KkMm]?)\s+Followers/i.exec(d)?.[1]),
+    posts: shortNumber(/([\d.,]+\s*[KkMm]?)\s+Posts/i.exec(d)?.[1]),
+    name: text(
+      /\bfrom (.+?) \(@[\w.]+\)/.exec(d)?.[1] ?? /\sPosts\s+-\s+(.+?)\s+\(@[\w.]+\)/i.exec(d)?.[1],
+    ),
+    bio: text(/\(@[\w.]+\) on Instagram:\s*["“]([\s\S]*?)["”]\s*$/.exec(d)?.[1]),
+  };
+}
+
+/**
+ * Someone's profile and posts in the data their profile page came with (its own scripts' JSON) and its description:
+ * the account whose name it is, with their bio and followers, and their posts the page holds, newest first. When they
+ * last posted comes from those posts or, when the data holds none, from the codes of the posts their grid links to
+ * (`linked`). Null creator when the page holds neither them nor their numbers.
+ */
+export function pageProfileFrom(
+  jsons: readonly unknown[],
+  username: string,
+  description: string | null,
+  linked: readonly string[] = [],
+): InstagramPageProfile {
+  const handle = username.toLowerCase();
+  let user: Json | null = null;
+  let score = 0;
+  const posts = new Map<string, PostIn>();
+  for (const json of jsons)
+    for (const o of everyObject(json, PAGE_DEPTH)) {
+      if (typeof o.username === 'string' && o.username.toLowerCase() === handle) {
+        const here = [
+          'biography',
+          'follower_count',
+          'edge_followed_by',
+          'full_name',
+          'is_private',
+        ].filter((k) => k in o).length;
+        if (here > score) {
+          user = o;
+          score = here;
+        }
+      }
+      const by = [at(o, 'user', 'username'), at(o, 'owner', 'username')];
+      if (
+        typeof o.code === 'string' &&
+        by.some((b) => typeof b === 'string' && b.toLowerCase() === handle)
+      ) {
+        const post = postFrom(o);
+        if (post && !posts.has(post.postKey)) posts.set(post.postKey, post);
+      }
+    }
+  const list = [...posts.values()].sort((a, b) => b.postedAt.localeCompare(a.postedAt));
+  const unpinned = list.filter((p) => !p.pinned);
+  const newest = (unpinned.length ? unpinned : list)[0]?.postedAt ?? null;
+  const said = descriptionFacts(description);
+  const fromData = user ? creatorFrom({ data: { user } }) : null;
+  if (!fromData && said.followers === null) return { creator: null, posts: list };
+  return {
+    creator: {
+      id: fromData?.id ?? null,
+      username: handle,
+      name: fromData?.name ?? said.name,
+      bio: fromData?.bio ?? said.bio,
+      followers: fromData?.followers ?? said.followers,
+      private: fromData?.private ?? false,
+      lastPostAt:
+        [fromData?.lastPostAt, newest, newestPostedAt(linked)]
+          .filter((t): t is string => !!t)
+          .sort()
+          .at(-1) ?? null,
+      posts: fromData?.posts ?? said.posts,
+    },
+    posts: list,
   };
 }
 
@@ -273,9 +417,9 @@ const USERNAME = /^[a-z0-9._]{1,30}$/;
  * The accounts an answer shows, each once, in the order shown: whoever a post in it is by (`user` or `owner`), and
  * each account a search lists.
  */
-export function accountsFrom(json: unknown): InstagramFoundAccount[] {
+export function accountsFrom(json: unknown, page = false): InstagramFoundAccount[] {
   const found = new Map<string, InstagramFoundAccount>();
-  for (const o of everyObject(json)) {
+  for (const o of everyObject(json, page ? PAGE_DEPTH : ANSWER_DEPTH)) {
     for (const who of [o.user, o.owner]) {
       if (!isObject(who) || typeof who.username !== 'string') continue;
       const username = who.username.toLowerCase();

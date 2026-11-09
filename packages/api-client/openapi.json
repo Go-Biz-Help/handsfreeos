@@ -115262,13 +115262,27 @@
                     },
                     "watchVideos": {
                       "type": "boolean"
+                    },
+                    "readerSeenAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "readerVersion": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
                     }
                   },
                   "required": [
                     "networks",
                     "readerUserId",
                     "readerName",
-                    "watchVideos"
+                    "watchVideos",
+                    "readerSeenAt",
+                    "readerVersion"
                   ],
                   "additionalProperties": false
                 }
@@ -116223,6 +116237,66 @@
                         }
                       ]
                     },
+                    "progress": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "now": {
+                              "type": "string",
+                              "maxLength": 160
+                            },
+                            "searched": {
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "maxLength": 60
+                              }
+                            },
+                            "searches": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "accounts": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "profiles": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "posts": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 1000000
+                            },
+                            "notOpened": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "suggested": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "didntFit": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "createdAt": {
                       "type": "string"
                     },
@@ -116252,6 +116326,7 @@
                     "askedFor",
                     "failure",
                     "doneCount",
+                    "progress",
                     "createdAt",
                     "takenAt",
                     "finishedAt"
@@ -116492,6 +116567,11 @@
                         "youtube"
                       ]
                     }
+                  },
+                  "version": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "pattern": "^[\\w.-]*$"
                   }
                 },
                 "required": [
@@ -116763,10 +116843,113 @@
         }
       }
     },
+    "/v1/commands/socialcontent.work.progress": {
+      "post": {
+        "operationId": "command_socialcontent_work_progress",
+        "summary": "Extension: how something the reading computer took is going, as it goes: what it’s at now, the searches done, and how many accounts it looked at, profiles and posts it read. Shown on the Creators page.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 0. Requires socialcontent.use. Emits socialcontent.work.progressed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "workId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "progress": {
+                    "type": "object",
+                    "properties": {
+                      "now": {
+                        "type": "string",
+                        "maxLength": 160
+                      },
+                      "searched": {
+                        "maxItems": 8,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 60
+                        }
+                      },
+                      "searches": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100
+                      },
+                      "accounts": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      },
+                      "profiles": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      },
+                      "posts": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "notOpened": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "workId",
+                  "progress"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/socialcontent.creators.found": {
       "post": {
         "operationId": "command_socialcontent_creators_found",
-        "summary": "Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again. Anyone already known is left as they are, but for their numbers.",
+        "summary": "Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again (but for those whose profile didn’t say when they last posted). Anyone already known is left as they are, but for their numbers, and one who didn’t fit and does now is suggested.",
         "tags": [
           "commands"
         ],
@@ -237830,13 +238013,27 @@
                         },
                         "watchVideos": {
                           "type": "boolean"
+                        },
+                        "readerSeenAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "readerVersion": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         }
                       },
                       "required": [
                         "networks",
                         "readerUserId",
                         "readerName",
-                        "watchVideos"
+                        "watchVideos",
+                        "readerSeenAt",
+                        "readerVersion"
                       ],
                       "additionalProperties": false
                     },
@@ -238001,6 +238198,66 @@
                               }
                             ]
                           },
+                          "progress": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "now": {
+                                    "type": "string",
+                                    "maxLength": 160
+                                  },
+                                  "searched": {
+                                    "maxItems": 8,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "maxLength": 60
+                                    }
+                                  },
+                                  "searches": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "accounts": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "profiles": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "posts": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000
+                                  },
+                                  "notOpened": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "suggested": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  },
+                                  "didntFit": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -238030,6 +238287,7 @@
                           "askedFor",
                           "failure",
                           "doneCount",
+                          "progress",
                           "createdAt",
                           "takenAt",
                           "finishedAt"

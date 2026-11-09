@@ -28,7 +28,7 @@ import { inWorkspace, queueWork, readSince, settingsOf } from './common';
 export const nichesPut = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.niches.put',
   description:
-    'Worker: the niches the AI suggested from the business’s profile. Its own niche is kept, ticked, when there isn’t one yet; each similar one not already there is suggested for someone to tick.',
+    'Worker: the niches the AI suggested from the business’s profile. Its own niche is kept, ticked, when there isn’t one yet or the one there was skipped (that one stays, skipped, as a niche like it); when it’s one already kept, that one becomes the own one. Each similar one not already there is suggested for someone to tick.',
   risk: 0,
   input: NichesPutInput,
   output: NichesPutOutput,
@@ -62,7 +62,27 @@ export const nichesPut = defineAddonCommand(socialcontentAddon, {
         room--;
       }
     };
+    // Its own niche, skipped: the new one takes its place as the business's own (the owner, 9 Nov 2026: "I really
+    // need to grow as my niche"), and the old one stays, skipped, among the ones like it.
+    if (input.own)
+      await rows(
+        ctx.tx,
+        sql`update addon_socialcontent.niches set own = false
+            where workspace_id = ${ws} and own and state = 'skipped'
+              and lower(btrim(name)) <> lower(btrim(${input.own.name}))`,
+      );
     if (input.own) await add(input.own, true);
+    // Its own niche is one already kept, as a niche like it: that one is the business's own now, ticked when it was
+    // only suggested. One someone skipped stays as it is.
+    if (input.own)
+      await rows(
+        ctx.tx,
+        sql`update addon_socialcontent.niches
+            set own = true, state = case when state = 'suggested' then 'picked' else state end
+            where workspace_id = ${ws} and lower(btrim(name)) = lower(btrim(${input.own.name}))
+              and not own and state <> 'skipped'
+              and not exists (select 1 from addon_socialcontent.niches o where o.workspace_id = ${ws} and o.own)`,
+      );
     for (const s of input.similar) await add(s, false);
     await ctx.emit({
       type: 'socialcontent.niches.suggested',

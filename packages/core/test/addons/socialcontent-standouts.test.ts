@@ -210,6 +210,14 @@ describe('what the AI says about niches', () => {
     expect(first.similar[0]!.why).toBe('Homeowners who fix things.');
     expect(first.similar[1]!.why).toBeNull();
     expect(checkedNiches(answer, [], true).own).toBeNull();
+    // Its own niche is one already kept: still named, so that one becomes its own.
+    const kept = checkedNiches(
+      { ...answer, own: { name: 'Already here', searches } },
+      ['already here'],
+      false,
+    );
+    expect(kept.own?.name).toBe('Already here');
+    expect(kept.similar.map((s) => s.name)).toEqual(['Home Plumbing', 'HVAC tips', 'Handyman']);
   });
 
   it('keeps at most 5 similar niches', () => {

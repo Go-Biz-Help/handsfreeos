@@ -27,6 +27,7 @@ import type {
   Searches,
   WorkAskedFor,
   WorkKind,
+  WorkProgress,
   WorkState,
 } from './shapes';
 import type { StandoutOn, StandoutWait } from './standouts';
@@ -48,6 +49,8 @@ export const settings = addonSocialcontent.table('settings', {
   networks: text('networks').array().notNull().$type<ContentNetwork[]>().default(['instagram']),
   readerUserId: userRef('reader_user_id'),
   watchVideos: boolean('watch_videos').notNull().default(false),
+  readerSeenAt: ts('reader_seen_at'),
+  readerVersion: text('reader_version'),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -155,6 +158,7 @@ export const work = addonSocialcontent.table(
     finishedAt: ts('finished_at'),
     failure: text('failure'),
     doneCount: integer('done_count'),
+    progress: jsonb('progress').$type<WorkProgress>(),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },

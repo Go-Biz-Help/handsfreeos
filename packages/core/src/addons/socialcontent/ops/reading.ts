@@ -26,9 +26,10 @@ import {
   WorkFinishInput,
   WorkNextInput,
   WorkNextOutput,
+  WorkProgressInput,
   type WorkKind,
 } from '../shapes';
-import { doneWell, weighPosts } from '../standouts';
+import { DONE_WELL, doneWell, weighPosts } from '../standouts';
 import { creators, posts } from '../tables';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '../words';
 import { inWorkspace, queueWork, settingsOf, TAKEN_FOR_MS, type Ctx } from './common';
@@ -87,6 +88,13 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
     const me = await needReader(ctx);
     const ws = ctx.scope.workspaceId!;
     const s = await settingsOf(ctx);
+    // The page says when the reading computer last asked, and its extension's version (docs: "What it's doing").
+    await rows(
+      ctx.tx,
+      sql`update addon_socialcontent.settings
+          set reader_seen_at = now(), reader_version = coalesce(${input.version ?? null}, reader_version)
+          where workspace_id = ${ws}`,
+    );
     const reads = input.reads.filter((n) => CONTENT_NETWORK_INFO[n].ready);
     await rows(
       ctx.tx,
@@ -142,12 +150,16 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
           .from(creators)
           .where(eq(creators.id, w.creator_id))
       : [];
+    // Passed over by a search: everyone known, but those kept as not fitting only because their profile didn't say
+    // when they last posted, with followers enough: they're read again, as their grid's links say it now (9 Nov 2026).
     const known =
       w.kind === 'find'
         ? (
             await rows<{ handle: string }>(
               ctx.tx,
               sql`select handle from addon_socialcontent.creators where workspace_id = ${ws} and network = ${w.network}
+                    and not (state = 'didnt_fit' and last_post_at is null
+                             and coalesce(followers, 0) >= ${DONE_WELL.followersAtLeast})
                   order by created_at desc limit ${LIMITS.knownAtMost}`,
             )
           ).map((r) => r.handle)
@@ -216,6 +228,53 @@ export const workFinish = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+export const workProgress = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.work.progress',
+  description:
+    'Extension: how something the reading computer took is going, as it goes: what it’s at now, the searches done, and how many accounts it looked at, profiles and posts it read. Shown on the Creators page.',
+  risk: 0,
+  input: WorkProgressInput,
+  output: z.object({ ok: z.literal(true) }),
+  permission: 'socialcontent.use',
+  scope: inWorkspace,
+  emits: ['socialcontent.work.progressed'],
+  async handler(ctx, input) {
+    const me = await needReader(ctx);
+    const w = await takenWork(ctx, me, input.workId);
+    // What it says replaces what it said before; HandsFreeOS's own counts stay.
+    await rows(
+      ctx.tx,
+      sql`update addon_socialcontent.work
+          set progress = coalesce(progress, '{}'::jsonb) || ${JSON.stringify(input.progress)}::jsonb
+          where id = ${w.id}`,
+    );
+    await ctx.emit({
+      type: 'socialcontent.work.progressed',
+      entityType: 'socialcontent_work',
+      entityId: w.id,
+      payload: { kind: w.kind, network: w.network },
+    });
+    return { ok: true as const };
+  },
+});
+
+/** Adds to HandsFreeOS's own counts on a piece of work's progress. */
+async function countOn(
+  ctx: Parameters<typeof rows>[0],
+  workId: string,
+  counts: { suggested: number; didntFit: number },
+): Promise<void> {
+  if (!counts.suggested && !counts.didntFit) return;
+  await rows(
+    ctx,
+    sql`update addon_socialcontent.work
+        set progress = coalesce(progress, '{}'::jsonb) || jsonb_build_object(
+          'suggested', coalesce((progress->>'suggested')::int, 0) + ${counts.suggested}::int,
+          'didntFit', coalesce((progress->>'didntFit')::int, 0) + ${counts.didntFit}::int)
+        where id = ${workId}`,
+  );
+}
+
 /** "12,400 followers, posted 3 days ago": what a search saw of a creator. */
 function sawWords(followers: number | null, lastPostAt: string | null, now: Date): string {
   const parts = [
@@ -228,7 +287,7 @@ function sawWords(followers: number | null, lastPostAt: string | null, now: Date
 export const creatorsFound = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.creators.found',
   description:
-    'Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again. Anyone already known is left as they are, but for their numbers.',
+    'Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again (but for those whose profile didn’t say when they last posted). Anyone already known is left as they are, but for their numbers, and one who didn’t fit and does now is suggested.',
   risk: 0,
   input: CreatorsFoundInput,
   output: CreatorsFoundOutput,
@@ -248,6 +307,12 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
       const page = creatorOn(w.network, f.handle.replace(/^@/, '').toLowerCase());
       const good = doneWell(f, now);
       const why = sawWords(f.followers, f.lastPostAt, now) || null;
+      // Kept as not fitting before, when its profile was read again: suggested now counts as a new suggestion.
+      const [before] = await rows<{ state: string }>(
+        ctx.tx,
+        sql`select state from addon_socialcontent.creators
+            where workspace_id = ${ws} and network = ${w.network} and handle = ${page.handle}`,
+      );
       const [r] = await rows<{ state: string; created: boolean }>(
         ctx.tx,
         sql`insert into addon_socialcontent.creators
@@ -272,12 +337,13 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
       if (r?.created) {
         if (r.state === 'suggested') suggested++;
         else didntFit++;
-      }
+      } else if (before?.state === 'didnt_fit' && r?.state === 'suggested') suggested++;
     }
     await rows(
       ctx.tx,
       sql`update addon_socialcontent.work set done_count = coalesce(done_count, 0) + ${suggested} where id = ${w.id}`,
     );
+    await countOn(ctx.tx, w.id, { suggested, didntFit });
     await ctx.emit({
       type: 'socialcontent.creators.found',
       entityType: 'socialcontent_work',
@@ -493,6 +559,7 @@ export const postsSave = defineAddonCommand(socialcontentAddon, {
 export const readingCommands = [
   workNext,
   workFinish,
+  workProgress,
   creatorsFound,
   creatorRead,
   postsSave,

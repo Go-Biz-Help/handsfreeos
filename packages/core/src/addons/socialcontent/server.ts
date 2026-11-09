@@ -18,6 +18,7 @@ export const socialcontentAddonServer: AddonServerModule = {
   notForTheAssistant: {
     'socialcontent.work.next': EXTENSION,
     'socialcontent.work.finish': EXTENSION,
+    'socialcontent.work.progress': EXTENSION,
     'socialcontent.creators.found': EXTENSION,
     'socialcontent.creator.read': EXTENSION,
     'socialcontent.posts.save': EXTENSION,

@@ -31,6 +31,14 @@ export class ResearchTab {
     return this.tab.close();
   }
 
+  /**
+   * Runs `work` with its window in front, for a page that draws only what's on screen: only once the person has been
+   * away for two minutes (decision 120), else it throws `NotAway` (src/away.ts) and the read goes on without it.
+   */
+  inFront<T>(work: () => Promise<T>): Promise<T> {
+    return this.tab.inFront(work);
+  }
+
   /** Calls its hands in the tab, loading them first when the page is new. Null when the tab couldn't be asked. */
   async hands<K extends keyof Hands>(
     name: K,

@@ -209,6 +209,33 @@ export const Idea = z.object({
 });
 export type Idea = z.infer<typeof Idea>;
 
+/**
+ * What the reading computer is doing, as it does it (docs/socialcontent.md, "What it's doing"): the extension's own
+ * account (what it's at now, the searches done, the accounts it looked at, profiles and posts it read), and
+ * HandsFreeOS's counts of who a search suggested and who didn't fit. Every part is optional: a read says only what it
+ * has.
+ */
+export const WorkProgress = z.object({
+  /** What it's at now, in a few words: "Searching Instagram for #crmsoftware". */
+  now: z.string().trim().max(160).optional(),
+  /** The searches done so far, and how many there are. */
+  searched: z.array(z.string().trim().max(LIMITS.search)).max(LIMITS.searchesPerNetwork).optional(),
+  searches: z.number().int().min(0).max(100).optional(),
+  /** Accounts the searches showed, profiles read, posts read. */
+  accounts: z.number().int().min(0).max(100_000).optional(),
+  profiles: z.number().int().min(0).max(100_000).optional(),
+  posts: z.number().int().min(0).max(1_000_000).optional(),
+  /** Profiles Instagram wouldn't open (it said they weren't there, and their page held nothing to read). */
+  notOpened: z.number().int().min(0).max(100_000).optional(),
+  /** HandsFreeOS's own: who a search suggested, and who didn't fit. */
+  suggested: z.number().int().min(0).max(100_000).optional(),
+  didntFit: z.number().int().min(0).max(100_000).optional(),
+});
+export type WorkProgress = z.infer<typeof WorkProgress>;
+/** What the extension may say of its progress: all but HandsFreeOS's own counts. */
+export const WorkProgressSaid = WorkProgress.omit({ suggested: true, didntFit: true });
+export type WorkProgressSaid = z.infer<typeof WorkProgressSaid>;
+
 export const Work = z.object({
   id: uuid,
   kind: z.enum(WORK_KINDS),
@@ -223,6 +250,8 @@ export const Work = z.object({
   askedFor: z.enum(WORK_ASKED_FOR),
   failure: z.string().nullable(),
   doneCount: z.number().int().nullable(),
+  /** What it did, or is doing: null before it started, or from before this was kept. */
+  progress: WorkProgress.nullable(),
   createdAt: z.string(),
   takenAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
@@ -235,6 +264,9 @@ export const Settings = z.object({
   readerName: z.string().nullable(),
   /** Watching standout videos (decision 9): off until an owner or admin turns it on. */
   watchVideos: z.boolean(),
+  /** When the reading computer last asked for work, and its extension's version: null when it never has. */
+  readerSeenAt: z.string().nullable(),
+  readerVersion: z.string().nullable(),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -348,6 +380,13 @@ export const WorkNextInput = z.object({
   workspaceId: uuid,
   /** The networks this build of the extension reads. */
   reads: z.array(Network).max(CONTENT_NETWORKS.length),
+  /** The extension's version, shown with when it last asked. */
+  version: z
+    .string()
+    .trim()
+    .max(20)
+    .regex(/^[\w.-]*$/)
+    .optional(),
 });
 export const WorkNextOutput = z.object({
   work: z
@@ -383,6 +422,12 @@ export const WorkFinishInput = z.object({
   workId: uuid,
   /** Why it didn't work, in words the person can read, or null when it did. */
   failure: clipped(LIMITS.failure).nullable().default(null),
+});
+
+export const WorkProgressInput = z.object({
+  workspaceId: uuid,
+  workId: uuid,
+  progress: WorkProgressSaid,
 });
 
 export const FoundCreator = z.object({

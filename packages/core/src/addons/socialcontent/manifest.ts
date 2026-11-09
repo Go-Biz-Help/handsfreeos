@@ -96,6 +96,7 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.work.asked',
       'socialcontent.work.taken',
       'socialcontent.work.finished',
+      'socialcontent.work.progressed',
       'socialcontent.work.stopped',
       'socialcontent.post.noted',
       'socialcontent.post.watched',

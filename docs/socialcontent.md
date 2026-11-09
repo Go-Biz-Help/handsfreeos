@@ -12,37 +12,60 @@ Admin → Businesses.
 
 ## Where things are
 
-| What                                                     | Where                                                                     |
-| -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| The manifest, its permissions, events and pages          | `packages/core/src/addons/socialcontent/manifest.ts`                      |
-| The tables (and their Drizzle mirror)                    | `supabase/migrations/20261027023800_addon_socialcontent.sql`, `tables.ts` |
-| Which posts stand out, and who has done well             | `standouts.ts` (pure; web, phone and server all use it)                   |
-| Reading a link to someone's page, and each network       | `networks.ts`                                                             |
-| The pages' words                                         | `words.ts`                                                                |
-| What the AI is asked about niches, and how it's checked  | `niches-ai.ts`                                                            |
-| People's operations: settings, niches, creators, posts   | `ops/research.ts`                                                         |
-| The extension's operations: take work, save what it read | `ops/reading.ts`                                                          |
-| The worker's operations: niches, searches, the schedule  | `ops/worker.ts`, and `apps/worker/src/addons/socialcontent/`              |
-| What the AI helper is asked about a read, and its check  | `helper.ts`, and the worker's `apps/worker/src/addons/socialcontent/`     |
-| What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`      |
-| The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                            |
-| The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)             |
-| Instagram's reads, and Facebook's and LinkedIn's         | `instagram-read.ts`; `page-read.ts`                                       |
-| Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                    |
-| The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`     |
-| The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                   |
+| What                                                     | Where                                                                       |
+| -------------------------------------------------------- | --------------------------------------------------------------------------- |
+| The manifest, its permissions, events and pages          | `packages/core/src/addons/socialcontent/manifest.ts`                        |
+| The tables (and their Drizzle mirror)                    | `supabase/migrations/20261027023800_addon_socialcontent.sql`, `tables.ts`   |
+| What the reading computer is doing (`work.progress`)     | `supabase/migrations/20261027023900_socialcontent_progress.sql`             |
+| Which posts stand out, and who has done well             | `standouts.ts` (pure; web, phone and server all use it)                     |
+| Reading a link to someone's page, and each network       | `networks.ts`                                                               |
+| The pages' words                                         | `words.ts`                                                                  |
+| What the AI is asked about niches, and how it's checked  | `niches-ai.ts`                                                              |
+| People's operations: settings, niches, creators, posts   | `ops/research.ts`                                                           |
+| The extension's operations: take work, save what it read | `ops/reading.ts`                                                            |
+| The worker's operations: niches, searches, the schedule  | `ops/worker.ts`, and `apps/worker/src/addons/socialcontent/`                |
+| What the AI helper is asked about a read, and its check  | `helper.ts`, and the worker's `apps/worker/src/addons/socialcontent/`       |
+| What the AI is asked about standouts, and its checks     | `notes-ai.ts`; the asks run in the worker's `socialcontent/notes.ts`        |
+| The Playbook, ideas and Try watching                     | `ops/notes.ts`                                                              |
+| The extension's reading                                  | `apps/extension/src/research/` (its README's 0.127.0 section)               |
+| Instagram's reads, and Facebook's and LinkedIn's         | `instagram-read.ts`; `page-read.ts`                                         |
+| Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                      |
+| The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`       |
+| What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts` |
+| The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                     |
 
 ## How it works
 
 - **Niches.** **Suggest niches** has the AI read the business's profile and knowledge base and name its own niche
   (kept ticked when there isn't one yet) and 3 to 5 like it, each with why and the words to search each network for
-  creators in it. A suggested niche waits for someone to tick it (**Search it**) or **Skip** it. Anyone can add one;
+  creators in it. The own niche is the field the business itself is in, as a creator in that field posts about it
+  (what it makes, sells, does or teaches), never its customers' trade: a CRM and automation company's is like "AI, CRM
+  and automation", not its customers' "home services" (the owner's ask, 9 Nov 2026). At most one of the others is
+  about the customers' world, and its why says so. A skipped own niche gives way to the next suggestion's: only an own niche that isn't skipped counts as
+  the business having one (`hasOwnNiche`). When the AI names as its own niche one already kept, that one becomes the
+  business's own (ticked if it was only suggested; one someone skipped stays skipped). A suggested niche waits for someone to tick it (**Search it**) or **Skip** it. Anyone can add one;
   the AI then writes its searches (`socialcontent.niche.added`), and when it can't, the niche's own name is searched.
 - **Finding creators.** Once a month, and on **Find creators now**, each ticked niche is searched on each network
   studied. The reading computer reads each creator's profile: those with 5,000+ followers who posted in the last 30
   days are **Suggested** to tick; the rest are kept as not fitting, so they aren't read again (decisions 4 and 5).
-  On Instagram, whose hashtags' pages send to its search page now, a search reads who posted what that page shows.
-  A search that showed nobody at all ends saying so, with a problem report, never as done with nobody.
+  On Instagram, whose hashtags' pages send to its search page now, a search reads who posted what that page shows;
+  when its answers show nobody, what the page holds itself (its own data, the answers it loaded), then its grid,
+  which draws only on screen, so it's read in front only while the person is away (decision 120). A search that
+  showed nobody at all ends saying so, with a problem report, never as done with nobody. When Instagram's answer for
+  a profile, or for its posts, says it isn't there, the profile page itself is read (the data it came with, then its
+  description for followers, name and bio), and when they last posted from the posts its grid links to (a post's code
+  says when it was posted; in front only while the person is away, when the grid isn't drawn behind another window).
+  Someone kept as not fitting only because their profile didn't say when they last posted, with 5,000+ followers, is
+  read again by the next search, and suggested when they fit. Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
+  and a search where none opened, or most didn't, ends saying so with a problem report, never as done (9 Nov 2026,
+  after two searches showed 30 accounts and read none).
+- **What it's doing** (the owner's ask, 9 Nov 2026: "so we can know the work it's done"). The Creators page shows,
+  on top, whether the reading computer is there (when it last asked for work, and its extension's version; quiet past
+  10 minutes), what it's doing now (the words it's searching, the searches done, the accounts the searches showed,
+  the profiles and posts it read), how many more wait, and the last three things it did, each with what it found or
+  why it didn't work. The extension says how a read is going as it goes (`socialcontent.work.progress`, into
+  `work.progress`), and HandsFreeOS adds who a search suggested and who didn't fit. Settings → What it's doing shows
+  the same facts on each row.
 - **Studying.** A ticked creator's posts are read back 12 months; anyone added from a link is studied straight away,
   whatever their size. Each studied creator is read again once a week: new posts, and the numbers of posts from 60
   days before the last read, since those still grow (decisions 8 and 11).

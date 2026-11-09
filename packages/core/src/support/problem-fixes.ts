@@ -123,7 +123,7 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'warm_up',
     note: 'None of (their name)’s posts were right to like',
-    fixedIn: '0.127.2',
+    fixedIn: '0.128.3',
     pr: 556,
     said: 'Only one of their posts was drawn, with more still loading below it, so the AI picked from that one alone: the wait on a loading box goes on now while fewer than six posts are drawn.',
   },

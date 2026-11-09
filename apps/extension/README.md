@@ -1149,10 +1149,21 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
 - **What it reads on Instagram:** for a niche, the accounts behind the posts Instagram's search page shows for each
   search (its own answer, `fbsearch/web/top_serp`: a hashtag's page sends there now), behind its hashtag's top posts,
   and whose names match its words (without the #), then up to 30 of their profiles (`socialcontent.creators.found`).
-  When none of those answers has anyone new, who posted the page's own posts is read (their links, else each post's
-  answer for a few of them). When not one search showed anyone, it's reported (`read.find`) and the search ends saying
-  so, never as done with nobody (0.127.1). Also a creator's profile; and a studied
-  creator's posts back 12 months (60 days past the last read on a weekly re-read), 12 at a time, saved as it goes
+  When none of those answers has anyone new, what the search page holds itself is read (the tab's `held` hand,
+  `src/research/held.ts`): the accounts in the data it came with, then the search answers it loaded (from the page's
+  resource timings), asked for again; then who posted the posts it links, each post's answer for a few of them. Its
+  grid draws only on screen, so when its links aren't there yet the window comes in front and scrolls, only while you've
+  been away for 2 minutes (decision 120). When not one search showed anyone, it's reported (`read.find`, with the
+  answers the page loaded, by their names only) and the search ends saying so, never as done with nobody (0.128.0).
+  Also a creator's profile; and a studied creator's posts back 12 months (60 days past the last read on a weekly
+  re-read), 12 at a time, saved as it goes. When Instagram's answer for a profile or its posts says it isn't there
+  (404), the profile page itself is read instead (the tab's `profileHeld` hand: the data the page came with, then its
+  description for followers, name and bio), and those posts are saved. When they last posted comes from the codes of
+  the posts the page's grid links to (a post's number begins with when it was made, `postedAtOf`); the grid may draw
+  late or only on screen, so it looks again a moment later, then in front only while you've been away (decision 120).
+  A search where no profile read said when they last posted is reported (0.128.2). Profiles that wouldn't open at all are counted
+  (`notOpened`); when none of a search's profiles opened, or most didn't, it's reported (`read.find`, with Instagram's
+  status and words) and the search ends saying so, never as done (0.128.1)
   (`socialcontent.posts.save`). It reads the answers Instagram's own pages load, asked for from inside the reading tab
   on your signed-in account (`src/research/instagram.ts`), opening each page as you would.
 - **What it reads on Facebook and LinkedIn** (`src/research/page-read.ts`): the same three things, from the pages
@@ -1162,6 +1173,11 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   activity) until they're past `since` or 3 screens bring nothing new. Reactions count as likes; neither network shows
   views. A LinkedIn post's time comes from its activity number; a Facebook one's from what it printed. A sign-in page
   says to sign in. LinkedIn company pages' posts come later.
+- **What it's doing** (`Progress` in `src/research/read.ts`, `socialcontent.work.progress`): each read says what it's
+  at ("Searching Instagram for “#crm”", "Reading profiles: 3 of 20"), the searches done, and how many accounts the
+  searches showed and profiles and posts it read, at once when what it's at changes, else at most every 15 seconds. The
+  Creators page shows it as it goes. Asking for work also says the extension's version, so the page shows when the
+  reading computer last checked in.
 - **Watching a standout video** (Instagram's, when the business turned watching on or tried it,
   `src/research/watch.ts`): it opens the post, asks Instagram for its video (`/api/v1/media/<id>/info/`), fetches the
   file from Instagram's video servers only (the background fetches it when the tab can't, which is why
@@ -1198,7 +1214,7 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
-### Their other posts, still loading on Facebook (0.127.2)
+### Their other posts, still loading on Facebook (0.128.3)
 
 The problem check of 9 Nov 2026 found three Facebook warm-ups (decision 33) on 0.126.5 saying none of someone's posts
 were right to like when only one had been read: each page showed one of their posts drawn and two or more of Facebook's

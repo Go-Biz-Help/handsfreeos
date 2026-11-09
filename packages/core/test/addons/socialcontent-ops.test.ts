@@ -216,6 +216,33 @@ describe('studying creators', () => {
       ],
     });
     expect(found).toEqual({ suggested: 1, didntFit: 2 });
+    // What it's doing, as it does it: the extension's account, beside HandsFreeOS's own counts.
+    await as(owner, 'socialcontent.work.progress', {
+      workId: work.id,
+      progress: {
+        now: 'Searching Instagram for Home plumbing',
+        searched: ['Home plumbing'],
+        searches: 1,
+        accounts: 7,
+        profiles: 3,
+      },
+    });
+    expect(
+      await refused(
+        as(member, 'socialcontent.work.progress', { workId: work.id, progress: { accounts: 1 } }),
+      ),
+    ).toBe('socialcontent_not_reader');
+    const seen = await as(member, 'socialcontent.overview', {});
+    expect(seen.settings.readerSeenAt).not.toBeNull();
+    expect(seen.work.find((x: Any) => x.id === work.id)?.progress).toEqual({
+      now: 'Searching Instagram for Home plumbing',
+      searched: ['Home plumbing'],
+      searches: 1,
+      accounts: 7,
+      profiles: 3,
+      suggested: 1,
+      didntFit: 2,
+    });
     await as(owner, 'socialcontent.work.finish', { workId: work.id });
     const { creators } = await as(member, 'socialcontent.creator.list', { state: 'suggested' });
     expect(creators.map((c: Any) => c.handle)).toEqual(['pipequeen']);
@@ -484,5 +511,101 @@ describe('studying creators', () => {
         sql`update app.addon_installations set state = 'enabled' where workspace_id = ${ws} and addon_id = 'socialcontent'`,
       );
     }
+  });
+});
+
+describe('the business’s own niche', () => {
+  const niche = (name: string, why: string | null = null) => ({
+    name,
+    why,
+    searches: { instagram: [`#${name.replace(/\W/g, '').toLowerCase()}`] },
+  });
+
+  it('keeps the AI’s own niche, and puts a new one in its place once the old one is skipped', async () => {
+    // Studying creators above added "Home plumbing" by hand; the AI's own niche is kept, ticked, beside it.
+    await worker('socialcontent.niches.put', {
+      own: niche('Home services growth'),
+      similar: [niche('Local trades marketing', 'Your customers follow it.')],
+    });
+    let { niches } = await as(member, 'socialcontent.niche.list');
+    const old = niches.find((n: Any) => n.own);
+    expect(old).toMatchObject({ name: 'Home services growth', state: 'picked' });
+    // Suggested again while it's still theirs: it stays their own.
+    await worker('socialcontent.niches.put', { own: niche('AI, CRM and automation'), similar: [] });
+    ({ niches } = await as(member, 'socialcontent.niche.list'));
+    expect(niches.filter((n: Any) => n.own).map((n: Any) => n.name)).toEqual([
+      'Home services growth',
+    ]);
+    // Skipped (the owner: "I really need to grow as my niche"), the next suggestion takes its place.
+    await as(member, 'socialcontent.niche.decide', { nicheId: old.id, state: 'skipped' });
+    await worker('socialcontent.niches.put', {
+      own: niche('AI, CRM and automation'),
+      similar: [niche('SaaS growth', 'Software businesses post about the same things.')],
+    });
+    ({ niches } = await as(member, 'socialcontent.niche.list'));
+    expect(niches.find((n: Any) => n.own)).toMatchObject({
+      name: 'AI, CRM and automation',
+      state: 'picked',
+    });
+    expect(niches.find((n: Any) => n.id === old.id)).toMatchObject({
+      own: false,
+      state: 'skipped',
+    });
+    expect(niches.find((n: Any) => n.name === 'SaaS growth')).toMatchObject({ state: 'suggested' });
+    // Skipped again, and the AI names one already kept as its own: that one is theirs now, ticked.
+    const second = niches.find((n: Any) => n.own);
+    await as(member, 'socialcontent.niche.decide', { nicheId: second.id, state: 'skipped' });
+    await worker('socialcontent.niches.put', { own: niche('SaaS growth'), similar: [] });
+    ({ niches } = await as(member, 'socialcontent.niche.list'));
+    expect(niches.filter((n: Any) => n.own).map((n: Any) => [n.name, n.state])).toEqual([
+      ['SaaS growth', 'picked'],
+    ]);
+    expect(niches.find((n: Any) => n.id === second.id)).toMatchObject({
+      own: false,
+      state: 'skipped',
+    });
+  });
+});
+
+describe('creators whose profile didn’t say when they last posted', () => {
+  /** The next search for creators, passing over (finishing) anything else waiting first. */
+  async function findWork(): Promise<Any> {
+    for (let i = 0; i < 6; i++) {
+      const w = await nextWork();
+      if (!w) {
+        await as(member, 'socialcontent.find.now');
+        continue;
+      }
+      if (w.kind === 'find') return w;
+      await as(owner, 'socialcontent.work.finish', { workId: w.id });
+    }
+    throw new Error('No search for creators came.');
+  }
+
+  it('reads them again on the next search, and suggests them once they did well', async () => {
+    const first = await findWork();
+    expect(
+      await as(owner, 'socialcontent.creators.found', {
+        workId: first.id,
+        found: [
+          { handle: 'no_date_yet', followers: 29_000, lastPostAt: null },
+          { handle: 'small_no_date', followers: 900, lastPostAt: null },
+        ],
+      }),
+    ).toEqual({ suggested: 0, didntFit: 2 });
+    await as(owner, 'socialcontent.work.finish', { workId: first.id });
+    // The next search passes over everyone known, but the one with followers enough whose date wasn't known.
+    const again = await findWork();
+    expect(again.known).toEqual(expect.arrayContaining(['small_no_date', 'pipequeen']));
+    expect(again.known).not.toContain('no_date_yet');
+    expect(
+      await as(owner, 'socialcontent.creators.found', {
+        workId: again.id,
+        found: [{ handle: 'no_date_yet', followers: 29_000, lastPostAt: ago(4) }],
+      }),
+    ).toEqual({ suggested: 1, didntFit: 0 });
+    await as(owner, 'socialcontent.work.finish', { workId: again.id });
+    const { creators } = await as(member, 'socialcontent.creator.list', { state: 'suggested' });
+    expect(creators.map((c: Any) => c.handle)).toContain('no_date_yet');
   });
 });

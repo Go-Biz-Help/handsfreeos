@@ -30,6 +30,62 @@ export function daysAgo(at: Date | string | null, now: Date | number = Date.now(
   return months < 24 ? `${months} months ago` : `${Math.round(days / 365)} years ago`;
 }
 
+/** "2 minutes ago", "3 hours ago", "yesterday": how long ago a moment was, for what's happening now. */
+export function momentAgo(
+  at: Date | string | null,
+  now: Date | number = Date.now(),
+): string | null {
+  if (!at) return null;
+  const then = at instanceof Date ? at.getTime() : new Date(at).getTime();
+  const minutes = Math.floor(((now instanceof Date ? now.getTime() : now) - then) / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${count(minutes, 'minute')} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${count(hours, 'hour')} ago`;
+  return daysAgo(at, now);
+}
+
+/** The reading computer counts as there when it asked for work in the last few minutes (it asks each minute). */
+export const READER_THERE_MS = 10 * 60_000;
+
+/**
+ * What a piece of work did, or is doing, in short facts: "Searched 3 of 8: #crm, #saas, #automation", "Looked at 24
+ * accounts", "Read 6 profiles", "6 suggested, 14 didn't fit". Only what it has.
+ */
+export function progressFacts(
+  p: {
+    searched?: readonly string[];
+    searches?: number;
+    accounts?: number;
+    profiles?: number;
+    posts?: number;
+    notOpened?: number;
+    suggested?: number;
+    didntFit?: number;
+  } | null,
+): string[] {
+  if (!p) return [];
+  const facts: string[] = [];
+  if (p.searched?.length) {
+    const of = p.searches && p.searches > p.searched.length ? ` of ${p.searches}` : '';
+    facts.push(`Searched ${p.searched.length}${of}: ${p.searched.join(', ')}`);
+  }
+  if (p.accounts) facts.push(`Looked at ${count(p.accounts, 'account')}`);
+  if (p.profiles) facts.push(`Read ${count(p.profiles, 'profile')}`);
+  if (p.posts) facts.push(`Read ${count(p.posts, 'post')}`);
+  if (p.notOpened) facts.push(`Couldn’t open ${count(p.notOpened, 'profile')}`);
+  if (p.suggested || p.didntFit)
+    facts.push(
+      [
+        p.suggested ? `${p.suggested.toLocaleString('en-US')} suggested` : null,
+        p.didntFit ? `${p.didntFit.toLocaleString('en-US')} didn’t fit` : null,
+      ]
+        .filter(Boolean)
+        .join(', '),
+    );
+  return facts;
+}
+
 /** "3.1 times their normal": how far past the posts around it a post did. */
 export const timesWords = (t: number) => `${t.toFixed(1)} times their normal`;
 
@@ -202,7 +258,7 @@ export const SOCIALCONTENT_WORDS = {
     readerStop: 'Stop reading',
     managersOnly: 'Only an owner or admin of this business changes these.',
     extensionHow:
-      'Install the extension (0.127.0 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
+      'Install the extension (0.128.2 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
     getExtension: 'Get the extension',
     watchSaved: (on: boolean) =>
       on ? 'Watching is on: new standout videos are watched as they’re found.' : 'Watching is off.',
@@ -215,6 +271,22 @@ export const SOCIALCONTENT_WORDS = {
     noWork: 'Nothing asked yet.',
     stop: 'Stop',
     stopped: 'Stopped.',
+  },
+  activity: {
+    title: 'What it’s doing',
+    reader: (name: string, ago: string, version: string | null) =>
+      `Reading on ${name}’s computer · checked in ${ago}${version ? ` · extension ${version}` : ''}`,
+    readerQuiet: (name: string, ago: string) =>
+      `${name}’s computer last checked in ${ago}. Open Chrome there with the HandsFreeOS Social extension, and it picks up where it left off.`,
+    readerNever: (name: string) =>
+      `${name}’s computer hasn’t checked in yet. Open Chrome there with the HandsFreeOS Social extension (Get the extension is in Settings here), signed in to HandsFreeOS.`,
+    now: 'Now',
+    waiting: (n: number) => `${count(n, 'more thing')} waiting`,
+    lately: 'Lately',
+    nothing:
+      'Nothing yet. Press Find creators now to search your ticked niches, or add a creator you know.',
+    starting: 'Starting…',
+    all: 'Everything it did is in Settings.',
   },
   work: {
     kinds: {
