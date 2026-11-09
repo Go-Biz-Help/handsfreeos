@@ -44,7 +44,9 @@ The rules and what's built are in `docs/socialcontent.md`. The questions and the
   worked out again for a creator's posts every time their posts are saved, since each post's neighbours change.
 - **What the computer is asked to do is a queue** (`addon_socialcontent.work`): find creators for a niche on a
   network, read a creator's profile, read a creator's posts, and later watch a video. Only the business's reading
-  computer (the person picked in Settings) takes it, oldest first, one at a time.
+  computer (the person picked in Settings) takes it, one at a time: a ticked or added creator first, then searches,
+  then the weekly and monthly reads, each oldest first (9 Nov 2026: a queue of searches had kept ticked creators
+  waiting a day).
 - **The AI** writes the similar niches and the words to search each network for them, and later each standout's notes,
   the Playbook and the ideas. Its use counts under `app.ai_usage` as the add-on's.
 - **Its pages** are one row in the side menu, **AI Social Media Content Creator**, with its pages popping out:

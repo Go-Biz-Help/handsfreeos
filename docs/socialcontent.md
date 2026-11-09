@@ -76,8 +76,10 @@ give it to a business from Admin → Businesses.
 - **The reading computer.** One person's computer reads for the whole business, in Chrome with the HandsFreeOS Social
   extension (decisions 1 and 12). An owner or admin picks it in Settings. What it's asked to do is a queue
   (`addon_socialcontent.work`): find creators for a niche on a network, read a profile, read posts. Only that
-  computer takes work, oldest first, one at a time; what it took and never finished goes back to waiting after 2
-  hours, and anyone can **Stop** what hasn't finished.
+  computer takes work, one at a time: reading a creator someone ticked or added first, then searches for new
+  creators, then the weekly and monthly reads, each oldest first, as a search takes a good part of the day's room on
+  a network. What it took and never finished goes back to waiting after 2 hours, and anyone can **Stop** what hasn't
+  finished.
 - **Notes on standouts** (part 3, decision 10). When saved posts bring new standouts, the worker's notes job runs a
   minute later (once per business): up to 15 standouts with no notes, 5 to an ask, each shown to the AI beside the
   posts around it that did about normal. Each note says why it worked, its hook, format and topic, the techniques

@@ -77,7 +77,7 @@ async function takenWork(ctx: Ctx, me: string, workId: string): Promise<TakenWor
 export const workNext = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.work.next',
   description:
-    'Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, oldest first, taken so no other computer does it. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.',
+    'Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators, then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.',
   risk: 0,
   input: WorkNextInput,
   output: WorkNextOutput,
@@ -112,6 +112,9 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
           order by taken_at limit 1`,
     );
     if (!w) {
+      // A creator someone ticked or added is read before the searches for new ones, and the weekly and monthly reads
+      // go last: a search takes a good part of the day's room on a network, so a queue of them kept the ticked ones
+      // waiting till the next day (9 Nov 2026).
       [w] = await rows<TakenWork>(
         ctx.tx,
         sql`update addon_socialcontent.work set state = 'taken', taken_by = ${me}, taken_at = now()
@@ -119,7 +122,9 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
               select id from addon_socialcontent.work
               where workspace_id = ${ws} and state = 'waiting' and network = any(${list}::text[])
                 and (kind <> 'find' or network = any(${searched}::text[]))
-              order by created_at limit 1
+              order by case when asked_for in ('weekly', 'monthly') then 2 when kind = 'find' then 1 else 0 end,
+                       created_at
+              limit 1
               for update skip locked)
             returning id, kind, network, niche_id, creator_id, post_id, since`,
       );
