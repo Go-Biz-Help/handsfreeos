@@ -252,6 +252,12 @@ describe('studying creators', () => {
   });
 
   it('reads a ticked creator’s posts, and weighs each post against its neighbours', async () => {
+    // A search asked for first still waits: reading the creator someone ticks goes before it.
+    expect((await as(member, 'socialcontent.find.now')).asked).toBe(1);
+    // Where the computer has no room left today for searches, it isn't given one.
+    expect(
+      (await as(owner, 'socialcontent.work.next', { reads: ['instagram'], searchOn: [] })).work,
+    ).toBeNull();
     await as(member, 'socialcontent.creator.decide', { creatorId, study: true });
     // The search read their profile already, so only their posts are asked for.
     const w = await nextWork();
@@ -276,6 +282,10 @@ describe('studying creators', () => {
     expect(saved).toMatchObject({ saved: 5, standouts: 1 });
     expect(saved.newStandouts).toHaveLength(1);
     await as(owner, 'socialcontent.work.finish', { workId: w.id });
+    // Then the search.
+    const search = await nextWork();
+    expect(search).toMatchObject({ kind: 'find', niche: { id: nicheId } });
+    await as(owner, 'socialcontent.work.finish', { workId: search.id });
     expect(await nextWork()).toBeNull();
     await as(owner, 'socialcontent.creator.read', { creatorId, followers: 49_000 });
     const { posts } = await as(member, 'socialcontent.post.list', { standoutsOnly: true });

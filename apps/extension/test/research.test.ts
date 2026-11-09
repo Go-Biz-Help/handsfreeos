@@ -4,7 +4,7 @@
  * storage and the reading tab stood in for. It reads a profile and posts back to `since`, saving as it goes; finds
  * creators by a hashtag's top posts and a search, passing over those known and private; and when an answer doesn't
  * come, has the AI helper look and sends a report that never names anyone. A warning stops Instagram for the day,
- * for both social add-ons. Watching a standout video opens its post, asks for its video, and sends the frames and
+ * for both social add-ons; searches stop before the day's room is used, leaving the rest for ticked creators. Watching a standout video opens its post, asks for its video, and sends the frames and
  * sound the tab took from it.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -74,7 +74,8 @@ vi.stubGlobal('chrome', {
 });
 
 const { INSTAGRAM_READS_BY_KIND } = await import('../src/research/instagram-read');
-const { RESEARCH_PACE } = await import('../src/research/read');
+const { RESEARCH_PACE, RESEARCH_SEARCH_STEPS_A_DAY, RESEARCH_STEPS_A_DAY, roomOn, searchRoomOn } =
+  await import('../src/research/read');
 const ig = await import('../src/research/instagram');
 const { NotAway } = await import('../src/away');
 RESEARCH_PACE.openMs = [0, 0];
@@ -886,6 +887,62 @@ describe('when a read goes wrong', () => {
       instagram: { words: ['Please wait a few minutes before you try again.'] },
     });
     expect(world.calls.some((c) => c.name === 'helperLook')).toBe(false);
+  });
+});
+
+describe('the day’s room', () => {
+  const usedToday = (steps: number) => {
+    world.stored['hfos-research-day'] = {
+      day: new Date().toLocaleDateString('en-CA'),
+      steps: { instagram: steps },
+    };
+  };
+  const theirPosts = () =>
+    tabWith({
+      '/api/v1/users/web_profile_info/': { json: profileJson('tidy.home.tips') },
+      '/api/v1/feed/user/5550001/': {
+        json: { items: [item('NEW0001', 2)], more_available: false },
+      },
+    });
+
+  it('keeps the rest of the day for ticked creators once searches used their share', async () => {
+    usedToday(RESEARCH_SEARCH_STEPS_A_DAY);
+    expect(await searchRoomOn('instagram')).toBe(false);
+    expect(await roomOn('instagram')).toBe(true);
+    const tab = tabWith({});
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: work({
+        kind: 'find',
+        creator: null,
+        since: null,
+        niche: { id: CREATOR, name: 'Home organizing', searches: ['Home organizing'] },
+      }),
+      tab: tab as never,
+    });
+    expect(end.failure).toMatch(/^Searching Instagram for new creators stopped for today/);
+    // Instagram isn't stopped for the day: a ticked creator's posts are still read.
+    expect(end.halt).toBeUndefined();
+    expect(tab.opened).toEqual([]);
+    const read = await INSTAGRAM_READS_BY_KIND.posts({
+      businessId: BUSINESS,
+      work: work({}),
+      tab: theirPosts() as never,
+    });
+    expect(read).toEqual({ failure: null });
+    expect(world.calls.some((c) => c.name === 'postsSave')).toBe(true);
+  });
+
+  it('stops all reading on a network once the whole day is used', async () => {
+    usedToday(RESEARCH_STEPS_A_DAY);
+    expect(await roomOn('instagram')).toBe(false);
+    const end = await INSTAGRAM_READS_BY_KIND.posts({
+      businessId: BUSINESS,
+      work: work({}),
+      tab: theirPosts() as never,
+    });
+    expect(end).toMatchObject({ halt: 'day' });
+    expect(end.failure).toMatch(/^Reading on Instagram stopped for today/);
   });
 });
 

@@ -56,10 +56,19 @@ export async function researchBusinesses(): Promise<{ id: string; name: string }
     .map((w) => ({ id: w.id, name: w.name }));
 }
 
-export const workNext = (workspaceId: string, reads: ContentNetwork[]) =>
+export const workNext = (
+  workspaceId: string,
+  reads: ContentNetwork[],
+  searchOn: ContentNetwork[] = reads,
+) =>
   got(
     api().POST('/v1/commands/socialcontent.work.next', {
-      body: { workspaceId, reads, version: chrome.runtime.getManifest().version.slice(0, 20) },
+      body: {
+        workspaceId,
+        reads,
+        searchOn,
+        version: chrome.runtime.getManifest().version.slice(0, 20),
+      },
     }),
   );
 

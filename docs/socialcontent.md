@@ -76,8 +76,12 @@ give it to a business from Admin → Businesses.
 - **The reading computer.** One person's computer reads for the whole business, in Chrome with the HandsFreeOS Social
   extension (decisions 1 and 12). An owner or admin picks it in Settings. What it's asked to do is a queue
   (`addon_socialcontent.work`): find creators for a niche on a network, read a profile, read posts. Only that
-  computer takes work, oldest first, one at a time; what it took and never finished goes back to waiting after 2
-  hours, and anyone can **Stop** what hasn't finished.
+  computer takes work, one at a time: reading a creator someone ticked or added first, then searches for new
+  creators, then the weekly and monthly reads, each oldest first, as a search takes a good part of the day's room on
+  a network. Searches use at most 300 of a network's 400 a day (from extension 0.129.0); the rest is kept for the
+  creators someone ticks or adds, so one ticked late in the day is still read within minutes while that computer
+  has Chrome open. What it took and never finished goes back to waiting after 2 hours, and anyone can **Stop** what
+  hasn't finished.
 - **Notes on standouts** (part 3, decision 10). When saved posts bring new standouts, the worker's notes job runs a
   minute later (once per business): up to 15 standouts with no notes, 5 to an ask, each shown to the AI beside the
   posts around it that did about normal. Each note says why it worked, its hook, format and topic, the techniques
@@ -129,7 +133,7 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Everything is read through the extension** (decision 3): no network's API and no paid data service. On
   Instagram it reads the answers Instagram's own pages load, asked for from inside its reading tab on the person's
   signed-in account, after opening each page as a person would, at a person's pace (6 to 12 seconds between pages, 3
-  to 7 between answers, at most 400 a network a day). On Facebook and LinkedIn, which load no such answers, it reads
+  to 7 between answers, at most 400 a network a day, of which searches use at most 300). On Facebook and LinkedIn, which load no such answers, it reads
   the pages themselves with the extension's own readers (Social Outreach's), scrolling as a person does: the post
   search, then the people (Facebook: pages) search, for creators; a profile; and someone's posts (a Facebook profile
   itself, a LinkedIn member's recent activity). Neither network shows a post's views to others, so their standouts

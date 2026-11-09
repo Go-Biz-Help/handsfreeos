@@ -1197,7 +1197,10 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   a follow or a like), and the read is tried once more when it cleared something. Then a problem report goes to Admin
   → Problem reports (addon `socialcontent`, job `read.find`, `read.profile` or `read.posts`): Instagram's answer's
   status and the names of its parts, the page's outline and what the helper did, never a name. Signed out, or a page it
-  can't read, rests that network's reading for 30 minutes; the day's room used or a warning, till tomorrow.
+  can't read, rests that network's reading for 30 minutes; the day's room used or a warning, till tomorrow. Searches
+  for new creators use at most 300 of a network's 400 a day (`RESEARCH_SEARCH_STEPS_A_DAY`, 0.129.0): past that, the
+  search stops for the day and the rest is kept for reading creators someone ticked or added, and it tells HandsFreeOS
+  where searches still have room (`searchOn`), so it isn't given a search it can't do.
 
 ### A reply with nothing to answer (0.126.2)
 
@@ -1213,6 +1216,14 @@ was reported. From 0.126.2:
   Before, it was read and never kept, as Instagram shows no times on its messages.
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
+
+### Ticked creators read the same day (0.129.0)
+
+On 9 Nov 2026 two Instagram creators ticked to study in the afternoon weren't read that day: six searches for new
+creators were ahead of them in the queue, and the searches used the whole day's room on Instagram. HandsFreeOS now
+hands out reading a ticked or added creator before any search, and from 0.129.0 searches stop at 300 of the day's 400
+pages and answers on a network, so the rest is there for the creators someone ticks. A search stopped that way says
+so ("Searching Instagram for new creators stopped for today…") and doesn't stop the network for the day.
 
 ### Chats still loading, LinkedIn's framed messaging, and profiles in professional mode (0.128.4)
 

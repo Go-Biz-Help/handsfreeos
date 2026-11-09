@@ -28,7 +28,7 @@ import {
 } from './hfos';
 import { INSTAGRAM_READS_BY_KIND } from './instagram-read';
 import { PAGE_READS_BY_KIND } from './page-read';
-import { roomOn, type ReadCtx, type ReadEnd } from './read';
+import { roomOn, searchRoomOn, type ReadCtx, type ReadEnd } from './read';
 import { ResearchTab } from './tab';
 
 export const RESEARCH_ALARM = 'hfos-research';
@@ -113,11 +113,14 @@ export async function researchTick(): Promise<void> {
 async function next(): Promise<boolean> {
   const reads = await readsNow();
   if (!reads.length) return false;
+  // Searches for new creators only where their share of the day is left: the rest is for ticked creators (./read.ts).
+  const searchOn: ResearchNetwork[] = [];
+  for (const network of reads) if (await searchRoomOn(network)) searchOn.push(network);
   for (const business of await businessesNow()) {
     if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
     let work: ResearchWork | null;
     try {
-      work = (await workNext(business.id, reads)).work;
+      work = (await workNext(business.id, reads, searchOn)).work;
     } catch (error) {
       if (error instanceof ResearchRefused && error.rule === 'socialcontent_not_reader')
         notReaderUntil.set(business.id, Date.now() + NOT_READER_FOR_MS);
