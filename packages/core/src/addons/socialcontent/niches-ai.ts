@@ -140,8 +140,9 @@ export function checkedNiches(
 } {
   const taken = new Set(already.map((a) => a.toLowerCase()));
   const ownName = cleanNicheName(answer.own.name);
+  // Its own niche even when it's one already kept: that one becomes the business's own (socialcontent.niches.put).
   const own =
-    !hasOwn && ownName && !taken.has(ownName.toLowerCase())
+    !hasOwn && ownName
       ? { name: ownName, why: null, searches: cleanSearches(answer.own.searches) }
       : null;
   if (ownName) taken.add(ownName.toLowerCase());

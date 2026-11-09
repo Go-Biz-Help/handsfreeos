@@ -29,7 +29,7 @@ import {
   WorkProgressInput,
   type WorkKind,
 } from '../shapes';
-import { doneWell, weighPosts } from '../standouts';
+import { DONE_WELL, doneWell, weighPosts } from '../standouts';
 import { creators, posts } from '../tables';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '../words';
 import { inWorkspace, queueWork, settingsOf, TAKEN_FOR_MS, type Ctx } from './common';
@@ -150,12 +150,16 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
           .from(creators)
           .where(eq(creators.id, w.creator_id))
       : [];
+    // Passed over by a search: everyone known, but those kept as not fitting only because their profile didn't say
+    // when they last posted, with followers enough: they're read again, as their grid's links say it now (9 Nov 2026).
     const known =
       w.kind === 'find'
         ? (
             await rows<{ handle: string }>(
               ctx.tx,
               sql`select handle from addon_socialcontent.creators where workspace_id = ${ws} and network = ${w.network}
+                    and not (state = 'didnt_fit' and last_post_at is null
+                             and coalesce(followers, 0) >= ${DONE_WELL.followersAtLeast})
                   order by created_at desc limit ${LIMITS.knownAtMost}`,
             )
           ).map((r) => r.handle)
@@ -283,7 +287,7 @@ function sawWords(followers: number | null, lastPostAt: string | null, now: Date
 export const creatorsFound = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.creators.found',
   description:
-    'Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again. Anyone already known is left as they are, but for their numbers.',
+    'Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again (but for those whose profile didn’t say when they last posted). Anyone already known is left as they are, but for their numbers, and one who didn’t fit and does now is suggested.',
   risk: 0,
   input: CreatorsFoundInput,
   output: CreatorsFoundOutput,
@@ -303,6 +307,12 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
       const page = creatorOn(w.network, f.handle.replace(/^@/, '').toLowerCase());
       const good = doneWell(f, now);
       const why = sawWords(f.followers, f.lastPostAt, now) || null;
+      // Kept as not fitting before, when its profile was read again: suggested now counts as a new suggestion.
+      const [before] = await rows<{ state: string }>(
+        ctx.tx,
+        sql`select state from addon_socialcontent.creators
+            where workspace_id = ${ws} and network = ${w.network} and handle = ${page.handle}`,
+      );
       const [r] = await rows<{ state: string; created: boolean }>(
         ctx.tx,
         sql`insert into addon_socialcontent.creators
@@ -327,7 +337,7 @@ export const creatorsFound = defineAddonCommand(socialcontentAddon, {
       if (r?.created) {
         if (r.state === 'suggested') suggested++;
         else didntFit++;
-      }
+      } else if (before?.state === 'didnt_fit' && r?.state === 'suggested') suggested++;
     }
     await rows(
       ctx.tx,

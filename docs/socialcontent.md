@@ -42,7 +42,8 @@ Admin → Businesses.
   (what it makes, sells, does or teaches), never its customers' trade: a CRM and automation company's is like "AI, CRM
   and automation", not its customers' "home services" (the owner's ask, 9 Nov 2026). At most one of the others is
   about the customers' world, and its why says so. A skipped own niche gives way to the next suggestion's: only an own niche that isn't skipped counts as
-  the business having one (`hasOwnNiche`). A suggested niche waits for someone to tick it (**Search it**) or **Skip** it. Anyone can add one;
+  the business having one (`hasOwnNiche`). When the AI names as its own niche one already kept, that one becomes the
+  business's own (ticked if it was only suggested; one someone skipped stays skipped). A suggested niche waits for someone to tick it (**Search it**) or **Skip** it. Anyone can add one;
   the AI then writes its searches (`socialcontent.niche.added`), and when it can't, the niche's own name is searched.
 - **Finding creators.** Once a month, and on **Find creators now**, each ticked niche is searched on each network
   studied. The reading computer reads each creator's profile: those with 5,000+ followers who posted in the last 30
@@ -52,7 +53,10 @@ Admin → Businesses.
   which draws only on screen, so it's read in front only while the person is away (decision 120). A search that
   showed nobody at all ends saying so, with a problem report, never as done with nobody. When Instagram's answer for
   a profile, or for its posts, says it isn't there, the profile page itself is read (the data it came with, then its
-  description for followers and name). Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
+  description for followers, name and bio), and when they last posted from the posts its grid links to (a post's code
+  says when it was posted; in front only while the person is away, when the grid isn't drawn behind another window).
+  Someone kept as not fitting only because their profile didn't say when they last posted, with 5,000+ followers, is
+  read again by the next search, and suggested when they fit. Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
   and a search where none opened, or most didn't, ends saying so with a problem report, never as done (9 Nov 2026,
   after two searches showed 30 accounts and read none).
 - **What it's doing** (the owner's ask, 9 Nov 2026: "so we can know the work it's done"). The Creators page shows,

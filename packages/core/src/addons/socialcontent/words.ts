@@ -258,7 +258,7 @@ export const SOCIALCONTENT_WORDS = {
     readerStop: 'Stop reading',
     managersOnly: 'Only an owner or admin of this business changes these.',
     extensionHow:
-      'Install the extension (0.128.1 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
+      'Install the extension (0.128.2 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
     getExtension: 'Get the extension',
     watchSaved: (on: boolean) =>
       on ? 'Watching is on: new standout videos are watched as they’re found.' : 'Watching is off.',

@@ -95,6 +95,8 @@ interface Held {
   notAway?: boolean;
   /** What each profile's page holds itself (the tab's `profileHeld`). */
   profiles?: Record<string, { creator: unknown; posts: unknown[] }>;
+  /** What a profile's page holds once it's in front, where its grid draws. */
+  profilesInFront?: Record<string, { creator: unknown; posts: unknown[] }>;
 }
 
 function tabWith(answers: Answers, warnings: string[] = [], held: Held = {}) {
@@ -130,7 +132,10 @@ function tabWith(answers: Answers, warnings: string[] = [], held: Held = {}) {
         };
       if (name === 'scroll') return { moved: true, atEnd: false };
       if (name === 'profileHeld')
-        return held.profiles?.[args[0] as string] ?? { creator: null, posts: [] };
+        return (
+          (front ? held.profilesInFront?.[args[0] as string] : undefined) ??
+          held.profiles?.[args[0] as string] ?? { creator: null, posts: [] }
+        );
       if (name === 'get') {
         const path = args[0] as string;
         asked.push(path);
@@ -664,6 +669,93 @@ describe('finding creators when hashtags’ pages are gone', () => {
         lastPostAt: new Date(day(3) * 1000).toISOString(),
       },
     ]);
+  });
+
+  it('reads when they last posted from their grid in front, while you’re away, when the page didn’t say', async () => {
+    const pageOnly = {
+      id: null,
+      username: 'page.only',
+      name: 'Page Only',
+      bio: null,
+      followers: 12_000,
+      private: false,
+      lastPostAt: null,
+      posts: 200,
+    };
+    const tab = tabWith(
+      {
+        ...nobody,
+        '/api/v1/web/search/topsearch/': { json: { users: [{ user: { username: 'page.only' } }] } },
+      },
+      [],
+      {
+        profiles: { 'page.only': { creator: pageOnly, posts: [] } },
+        profilesInFront: {
+          'page.only': {
+            creator: { ...pageOnly, lastPostAt: new Date(day(2) * 1000).toISOString() },
+            posts: [],
+          },
+        },
+      },
+    );
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['crm']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(tab.fronted).toBe(1);
+    expect(world.calls.find((c) => c.name === 'found')!.args[2]).toEqual([
+      expect.objectContaining({
+        handle: 'page.only',
+        lastPostAt: new Date(day(2) * 1000).toISOString(),
+      }),
+    ]);
+    expect(world.calls.some((c) => c.name === 'report')).toBe(false);
+  });
+
+  it('reports when no profile read said when they last posted, as nobody can be suggested', async () => {
+    const tab = tabWith(
+      {
+        ...nobody,
+        '/api/v1/web/search/topsearch/': { json: { users: [{ user: { username: 'page.only' } }] } },
+      },
+      [],
+      {
+        notAway: true,
+        profiles: {
+          'page.only': {
+            creator: {
+              id: null,
+              username: 'page.only',
+              name: null,
+              bio: null,
+              followers: 29_000,
+              private: false,
+              lastPostAt: null,
+              posts: 80,
+            },
+            posts: [],
+          },
+        },
+      },
+    );
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['crm']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(tab.fronted).toBe(0);
+    expect(world.calls.find((c) => c.name === 'found')!.args[2]).toEqual([
+      expect.objectContaining({ handle: 'page.only', followers: 29_000, lastPostAt: null }),
+    ]);
+    const sent = world.calls.find((c) => c.name === 'report')!.args[1] as {
+      note: string;
+      found: Record<string, unknown>;
+    };
+    expect(sent.note).toContain('none of the 1 profiles read said when they last posted');
+    expect(sent.found).toMatchObject({ profilesRead: 1, undated: 1, fromPage: 1 });
   });
 
   it('says so and reports when Instagram wouldn’t open any profile, rather than finishing with nobody', async () => {
