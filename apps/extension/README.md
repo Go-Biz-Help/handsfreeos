@@ -1146,8 +1146,12 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   (`hfos-research`) wakes each minute and asks HandsFreeOS for the next thing to read (`socialcontent.work.next`);
   only that person's computer gets any. It does one thing at a time, in a window of its own beside yours, and closes it
   when nothing waits.
-- **What it reads on Instagram:** for a niche, the accounts behind its hashtag's top posts and Instagram's search for
-  its words, then up to 30 of their profiles (`socialcontent.creators.found`); a creator's profile; and a studied
+- **What it reads on Instagram:** for a niche, the accounts behind the posts Instagram's search page shows for each
+  search (its own answer, `fbsearch/web/top_serp`: a hashtag's page sends there now), behind its hashtag's top posts,
+  and whose names match its words (without the #), then up to 30 of their profiles (`socialcontent.creators.found`).
+  When none of those answers has anyone new, who posted the page's own posts is read (their links, else each post's
+  answer for a few of them). When not one search showed anyone, it's reported (`read.find`) and the search ends saying
+  so, never as done with nobody (0.127.1). Also a creator's profile; and a studied
   creator's posts back 12 months (60 days past the last read on a weekly re-read), 12 at a time, saved as it goes
   (`socialcontent.posts.save`). It reads the answers Instagram's own pages load, asked for from inside the reading tab
   on your signed-in account (`src/research/instagram.ts`), opening each page as you would.

@@ -26,7 +26,7 @@ export const INSTAGRAM_APP_ID = '936619743392459';
 
 /** The only answers the reading tab asks Instagram for. */
 export const INSTAGRAM_READS =
-  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/topsearch\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/topsearch\/\?|fbsearch\/web\/top_serp\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
 /** Where Instagram keeps its videos: the only other place the reading tab fetches from, to watch a standout. */
 export const INSTAGRAM_VIDEO_HOSTS = /(^|\.)(cdninstagram\.com|fbcdn\.net)$/;
 
@@ -36,6 +36,12 @@ export const postsPath = (userId: string, next: string | null = null) =>
   `/api/v1/feed/user/${encodeURIComponent(userId)}/?count=12${next ? `&max_id=${encodeURIComponent(next)}` : ''}`;
 export const searchPath = (words: string) =>
   `/api/v1/web/search/topsearch/?context=blended&query=${encodeURIComponent(words)}&include_reel=true`;
+/**
+ * The posts Instagram's search page shows for some words or a hashtag (/explore/search/keyword/?q=), as that page asks
+ * for them: hashtags' own pages send there now (the owner's Check of 21 Oct 2026), so it's where a hashtag's posts are.
+ */
+export const serpPath = (words: string) =>
+  `/api/v1/fbsearch/web/top_serp/?enable_metadata=true&query=${encodeURIComponent(words)}`;
 export const tagPath = (tag: string) =>
   `/api/v1/tags/web_info/?tag_name=${encodeURIComponent(tag)}`;
 export const mediaInfoPath = (mediaId: string) => `/api/v1/media/${mediaId}/info/`;
