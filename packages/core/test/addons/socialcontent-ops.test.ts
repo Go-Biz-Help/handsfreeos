@@ -254,6 +254,10 @@ describe('studying creators', () => {
   it('reads a ticked creator’s posts, and weighs each post against its neighbours', async () => {
     // A search asked for first still waits: reading the creator someone ticks goes before it.
     expect((await as(member, 'socialcontent.find.now')).asked).toBe(1);
+    // Where the computer has no room left today for searches, it isn't given one.
+    expect(
+      (await as(owner, 'socialcontent.work.next', { reads: ['instagram'], searchOn: [] })).work,
+    ).toBeNull();
     await as(member, 'socialcontent.creator.decide', { creatorId, study: true });
     // The search read their profile already, so only their posts are asked for.
     const w = await nextWork();

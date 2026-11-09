@@ -380,6 +380,11 @@ export const WorkNextInput = z.object({
   workspaceId: uuid,
   /** The networks this build of the extension reads. */
   reads: z.array(Network).max(CONTENT_NETWORKS.length),
+  /**
+   * Of those, where searches for new creators still have room today: the rest of the day's reading is kept for
+   * creators someone ticked or added. Builds before 0.129.0 leave it out: searches on every network it reads.
+   */
+  searchOn: z.array(Network).max(CONTENT_NETWORKS.length).optional(),
   /** The extension's version, shown with when it last asked. */
   version: z
     .string()

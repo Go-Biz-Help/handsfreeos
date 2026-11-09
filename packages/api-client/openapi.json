@@ -116537,7 +116537,7 @@
     "/v1/commands/socialcontent.work.next": {
       "post": {
         "operationId": "command_socialcontent_work_next",
-        "summary": "Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators, then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.",
+        "summary": "Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators (where the computer still has room for them today), then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.",
         "tags": [
           "commands"
         ],
@@ -116555,6 +116555,20 @@
                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                   },
                   "reads": {
+                    "maxItems": 5,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "tiktok",
+                        "youtube"
+                      ]
+                    }
+                  },
+                  "searchOn": {
                     "maxItems": 5,
                     "type": "array",
                     "items": {

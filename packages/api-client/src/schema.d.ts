@@ -14807,7 +14807,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators, then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.
+         * Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators (where the computer still has room for them today), then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.
          * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.work.taken.
          */
         post: operations["command_socialcontent_work_next"];
@@ -59923,6 +59923,7 @@ export interface operations {
             content: {
                 "application/json": {
                     reads: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    searchOn?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                     version?: string;
                     /** Format: uuid */
                     workspaceId: string;

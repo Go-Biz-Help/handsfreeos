@@ -77,7 +77,7 @@ async function takenWork(ctx: Ctx, me: string, workId: string): Promise<TakenWor
 export const workNext = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.work.next',
   description:
-    'Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators, then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.',
+    'Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators (where the computer still has room for them today), then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.',
   risk: 0,
   input: WorkNextInput,
   output: WorkNextOutput,
@@ -104,7 +104,8 @@ export const workNext = defineAddonCommand(socialcontentAddon, {
     );
     if (!reads.length) return { work: null };
     const list = `{${reads.join(',')}}`;
-    const searched = `{${s.networks.join(',') || 'none'}}`;
+    // Searches only on networks studied, and where the computer kept room for them today.
+    const searched = `{${s.networks.filter((n) => (input.searchOn ?? reads).includes(n)).join(',') || 'none'}}`;
     let [w] = await rows<TakenWork>(
       ctx.tx,
       sql`select id, kind, network, niche_id, creator_id, post_id, since from addon_socialcontent.work
