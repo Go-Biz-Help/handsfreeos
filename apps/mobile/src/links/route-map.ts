@@ -157,7 +157,7 @@ export const ROUTES: readonly Rule[] = [
   // section (`#notifications`, where the Assistant's alert cards land) the phone's Notifications screen.
   { web: 'settings', phone: 'settings/notifications', hash: 'notifications' },
   { web: 'settings', phone: 'settings' },
-  // Settings → Usage & balance: the phone has it too, so the wallet's emails, its notifications and the Action
+  // Settings → Billing & Usage: the phone has it too, so the wallet's emails, its notifications and the Action
   // Center's three balance cards open the Balance screen rather than a browser. `?card=` comes with it: it is
   // how the payment provider sends somebody back to the app once they have typed a card.
   { web: 'settings/usage', phone: 'settings/usage', query: ['card'] },

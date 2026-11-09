@@ -324,7 +324,7 @@ export const foundingSeatProblem = (g: FoundingSeatFacts): string | null =>
   g.checkoutStatus === 'paid' && g.checkoutProblem
     ? g.checkoutProblem
     : g.renewalProblem && (g.status === 'active' || g.status === 'reserved')
-      ? `The renewal was refused: ${g.renewalProblem} They can pay it with another card from Settings → Usage & balance. The seat stays on until you revoke it.`
+      ? `The renewal was refused: ${g.renewalProblem} Their cards are tried again once a day, and they can pay or add a card from Settings → Billing & Usage. The seat stays on until you revoke it.`
       : null;
 
 /** Where a seat can go: a workspace, standing for the business it belongs to. A seat is the business's. */
@@ -429,7 +429,7 @@ export function foundingBusinessSeatLine(
 export const foundingBusinessHolds = (seat: Pick<FoundingSeatFacts, 'status'> | null): boolean =>
   seat?.status === 'active' || seat?.status === 'reserved';
 
-// ---------- the business's own plan, on Settings → Usage & balance ----------
+// ---------- the business's own plan, on Settings → Billing & Usage ----------
 
 /** What the card needs of `founding.mine`. */
 export interface FoundingPlanFacts {
@@ -533,7 +533,7 @@ export const FOUNDING_PICK_WORDS = {
         : 'Paid once.',
   pay: (cents: number) => `Pay ${foundingPrice(cents)}`,
   paying: 'Getting the payment page ready…',
-  fine: 'You pay on Stripe’s secure page, and your spot is held for an hour while you do. Stop it renewing any time in Settings → Usage & balance. Texts, calls and AI are billed for what you use.',
+  fine: 'You pay on Stripe’s secure page, and your spot is held for an hour while you do. Stop it renewing any time in Settings → Billing & Usage. Texts, calls and AI are billed for what you use.',
   noneLeft:
     'Every founding spot is taken for now. Email support@handsfreeos.com and we’ll tell you when more open.',
   notYours: (business: string) =>

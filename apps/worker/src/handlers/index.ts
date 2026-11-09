@@ -119,9 +119,15 @@ import { onWalletDeclinedNotice, onWalletEmptyNotice } from '../money/wallet-not
 import { onRefundRequested } from '../money/refunds';
 import {
   onFoundingBilled,
+  onPayNowRequested,
   onFoundingCheckoutRequested,
   onFoundingPaid,
 } from '../founding/checkout';
+import {
+  onMoreTimeAnswered,
+  onPayDayChangeRequested,
+  onPlanCardRemoved,
+} from '../founding/billing';
 import { onBusinessCreated } from '../opinly';
 import { onPlanCardRequested, onPlanChanged } from '../money/subscriptions';
 import { onBridgeCancelled, onBridgeRequested, onVerificationRequested } from '../telephony/cell';
@@ -352,6 +358,12 @@ const ownTeammateAndWorkflows: HandlerMap = withWorkflows(
       // A yearly seat renewed, or the card refused it (20261027009500): the owners and admins are emailed.
       'founding.renewed': onFoundingBilled,
       'founding.renewal_failed': onFoundingBilled,
+      // Billing for a plan (20261027023600): Try my cards now and a later payment day are charged by jobs, a removed
+      // card is forgotten at Stripe, and the owners and admins hear what staff said about more time.
+      'billing.pay_now_requested': onPayNowRequested,
+      'billing.pay_day_change_requested': onPayDayChangeRequested,
+      'billing.card_removed': onPlanCardRemoved,
+      'billing.more_time_answered': onMoreTimeAnswered,
       // A business made in onboarding is a sign-up, told to Opinly when it has a key (opinly.ts).
       'workspace.created': onBusinessCreated,
       // The usage wallet ran low (M16): if it has a card and automatic top-up on, the charge is queued as a job

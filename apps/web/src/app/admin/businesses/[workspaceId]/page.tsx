@@ -26,6 +26,7 @@ import {
   TheirMoneySection,
 } from '@/components/admin/business-glance';
 import { FoundingSeatBlock } from '@/components/admin/founding-seat-block';
+import { PlanBillingBlock } from '@/components/admin/plan-billing-block';
 import { SupportAccessAsk } from '@/components/admin/support-access-ask';
 import { ViewAsButton } from '@/components/admin/view-as';
 import { OwnBusinessBlock } from '@/components/admin/own-business-block';
@@ -62,6 +63,12 @@ export default async function BusinessPage({
   const founding = me.staff?.permissions.includes('platform.founding.manage')
     ? await api
         .POST('/v1/queries/platform.founding.business', { body: { workspaceId } })
+        .then(unwrapPage)
+    : null;
+  // Its plan payments and requests for more time (20261027023600): the same staff.
+  const planBilling = me.staff?.permissions.includes('platform.founding.manage')
+    ? await api
+        .POST('/v1/queries/platform.billing.business', { body: { workspaceId } })
         .then(unwrapPage)
     : null;
   // The same for who sold it: only staff who run the affiliate program see the block.
@@ -159,6 +166,10 @@ export default async function BusinessPage({
 
       {founding ? (
         <FoundingSeatBlock workspaceId={workspaceId} businessName={b.name} founding={founding} />
+      ) : null}
+
+      {planBilling && (planBilling.owed || planBilling.requests.length > 0) ? (
+        <PlanBillingBlock billing={planBilling} />
       ) : null}
 
       {affiliate ? <AffiliateBusinessBlock workspaceId={workspaceId} credit={affiliate} /> : null}

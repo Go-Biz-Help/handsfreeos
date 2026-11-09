@@ -7,7 +7,7 @@
  * back it waits for **Stripe's own event** to turn the spot on — being sent back to this page proves nothing,
  * since anybody can type its address, so the page only ever reads what the database says.
  *
- * A refused renewal, paid with another card from Settings → Usage & balance, comes through here too: then "done" is
+ * A refused renewal, paid with another card from Settings → Billing & Usage, comes through here too: then "done" is
  * the month or year having moved on. A spot the business bought itself from the plan page (20261027012700) goes on
  * to the setup when it's done, and back to the plan page when it didn't go through.
  */
@@ -125,7 +125,7 @@ export function CheckoutStatus({
           {s.renewal
             ? `Paid: your ${s.offerName} spot is renewed through ${longDay(s.paidThrough)}. This card is the one charged next ${period}.`
             : s.billing === 'yearly' || s.billing === 'monthly'
-              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Usage & balance.`
+              ? `Paid, and it’s yours: ${s.offerName}, through ${longDay(s.paidThrough)}. It renews each ${period} on this card; you can stop that any time in Settings → Billing & Usage.`
               : `Paid, and it’s yours: ${s.offerName}, for as long as HandsFreeOS exists.`}{' '}
           A receipt is on its way from Stripe.
         </Note>
@@ -174,7 +174,7 @@ export function CheckoutStatus({
         <Note tone="warn" testId={`checkout-${s.status}`} icon={clock}>
           {s.problem || 'This payment didn’t go through, and nothing was taken.'}{' '}
           {s.renewal
-            ? 'Press Pay with another card in Settings → Usage & balance to try again. Your spot stays on meanwhile.'
+            ? 'Add another card in Settings → Billing & Usage to try again. Your spot stays on meanwhile.'
             : s.selfServe
               ? 'Pick your spot again to start over.'
               : 'Open your claim link again to start over.'}

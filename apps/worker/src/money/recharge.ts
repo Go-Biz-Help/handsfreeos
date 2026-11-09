@@ -29,7 +29,11 @@ import { managers } from '../handlers/telephony';
 import type { EventHandler } from '../handlers/types';
 import type { JobHandler, JobMap } from '../jobs';
 import { accountByExternalId } from '../payments/index';
-import { PlatformUnsupportedError, type PaymentProviderName } from '../payments/provider';
+import {
+  PlatformUnsupportedError,
+  type PaymentProviderName,
+  type PaymentResult,
+} from '../payments/provider';
 import { scheduleJob } from '@hfos/core/server';
 import { systemActor, tenantOf, workerMeta, type TenantScope } from '../services';
 
@@ -270,7 +274,7 @@ export const runRecharge: JobHandler = async (ctx) => {
       row.recharges_in_window,
     );
 
-  const result = await provider.platform.charge({
+  const first = await provider.platform.charge({
     amountCents,
     method: 'card',
     sourceToken: row.method_token,
@@ -279,6 +283,16 @@ export const runRecharge: JobHandler = async (ctx) => {
     customerRef: row.customer_ref,
     metadata: { workspace_id: scope.workspaceId, recharge_id: rechargeId },
   });
+  // The balance's card is the default of the business's one list (20261027023600); when it says no, the backups
+  // are tried in turn, as for the plan, and the first that pays is the top-up.
+  let result = first;
+  if (first.status !== 'succeeded' && row.provider === 'stripe') {
+    const backup = await chargeBackups(ctx, scope, rechargeId, amountCents, row.method_token, {
+      code: first.failureCode,
+      message: first.failureMessage,
+    });
+    if (backup) result = backup;
+  }
 
   // `processing` is a bank transfer, which a wallet never uses; anything but succeeded is the card saying no.
   const succeeded = result.status === 'succeeded';
@@ -317,6 +331,60 @@ export const runRecharge: JobHandler = async (ctx) => {
     ),
   );
 };
+
+/**
+ * After the balance's card (the default) said no: each backup card on the business's list, oldest first, until one
+ * pays. Each card keeps what it said, as the plan's charges do, so the list shows which one was declined. Answers the
+ * payment that went through, or null when none did (the default's decline then stands, for the ladder).
+ */
+async function chargeBackups(
+  ctx: Parameters<JobHandler>[0],
+  scope: TenantScope,
+  rechargeId: string,
+  amountCents: number,
+  defaultToken: string,
+  declined: { code: string | null; message: string | null },
+): Promise<PaymentResult | null> {
+  const platform = ctx.payments.providers.stripe.platform;
+  if (!platform.supported) return null;
+  const cards = await asWorker(ctx.db, scope, async (tx) => {
+    await tx.execute(
+      sql`update app.plan_cards set last_declined_at = now(),
+            last_decline = ${(declined.message ?? declined.code ?? 'Declined.').slice(0, 500)}
+          where workspace_id = ${scope.workspaceId}::uuid and card_ref = ${defaultToken}`,
+    );
+    return rows<{ id: string; customer_ref: string; card_ref: string }>(
+      tx,
+      sql`select id, customer_ref, card_ref from app.plan_cards
+          where workspace_id = ${scope.workspaceId}::uuid and not is_default and card_ref <> ${defaultToken}
+          order by created_at, id`,
+    );
+  });
+  for (const card of cards) {
+    const tried = await platform.charge({
+      amountCents,
+      method: 'card',
+      sourceToken: card.card_ref,
+      idempotencyKey: `wallet-topup:${rechargeId}:${card.id}`.slice(0, 255),
+      description: 'HandsFreeOS usage top-up',
+      customerRef: card.customer_ref,
+      metadata: { workspace_id: scope.workspaceId, recharge_id: rechargeId, card: 'backup' },
+    });
+    const ok = tried.status === 'succeeded';
+    await asWorker(ctx.db, scope, (tx) =>
+      tx.execute(
+        ok
+          ? sql`update app.plan_cards set last_declined_at = null, last_decline = null
+                where id = ${card.id}::uuid and workspace_id = ${scope.workspaceId}::uuid`
+          : sql`update app.plan_cards set last_declined_at = now(),
+                  last_decline = ${(tried.failureMessage ?? tried.failureCode ?? 'Declined.').slice(0, 500)}
+                where id = ${card.id}::uuid and workspace_id = ${scope.workspaceId}::uuid`,
+      ),
+    );
+    if (ok) return tried;
+  }
+  return null;
+}
 
 /** The notice the terms promise, to the people who can act on it. Never a reason not to charge. */
 async function tellThemItWentUp(

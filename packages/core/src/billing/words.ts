@@ -1,0 +1,174 @@
+/**
+ * What Settings → Billing & Usage and the failed-payment page say (20261027023600), once, for the web and the phone. Plain
+ * words, curly apostrophes, and the fix named where there is one.
+ */
+import { formatUtcDate } from '../crm/format';
+import { money } from '../money/format';
+
+const day = (iso: string | null | undefined): string => (iso ? formatUtcDate(new Date(iso)) : '—');
+
+/** "Visa ending 4242", or "The card you paid with" for one whose details Stripe hasn't told us yet. */
+export function planCardName(card: {
+  readonly brand: string | null;
+  readonly last4: string | null;
+}): string {
+  if (!card.last4) return 'The card you paid with';
+  return `${card.brand ?? 'Card'} ending ${card.last4}`;
+}
+
+/** "Expires 12/2028", or nothing. */
+export function planCardExpiry(card: {
+  readonly expiryMonth: number | null;
+  readonly expiryYear: number | null;
+}): string {
+  if (!card.expiryMonth || !card.expiryYear) return '';
+  return `Expires ${String(card.expiryMonth).padStart(2, '0')}/${card.expiryYear}`;
+}
+
+export const BILLING_WORDS = {
+  // ---- cards: one list pays the plan and refills the balance (the owner's 5a) ----
+  cardsTitle: 'Cards',
+  cardsBlurb:
+    'Your default card pays your plan and tops up your balance. If it’s declined, your backup cards are tried in order.',
+  noCards: 'No card yet. Add one to top up your balance for texts, calls and AI.',
+  noCardsPlan: 'No card yet. Add one so your plan can renew.',
+  defaultBadge: 'Default',
+  backupBadge: (n: number) => `Backup ${n}`,
+  declined: (iso: string, why: string | null) =>
+    `Declined ${day(iso)}${why ? `: ${why.replace(/\.$/, '')}` : ''}.`,
+  addCard: 'Add a card',
+  addingCard: 'Opening the card page…',
+  makeDefault: 'Make default',
+  remove: 'Remove',
+  removeTitle: (name: string) => `Remove ${name}?`,
+  removeBody:
+    'It won’t be charged again, for your plan or your balance. You can add it back any time.',
+  removeLastBody:
+    'It’s your only card, so automatic top-up goes off with it, and your balance can’t be topped up until you add another.',
+  removeConfirm: 'Remove card',
+  cardAdded: (name: string) => `${name} added.`,
+  cardAddedDefault: (name: string) => `${name} added, and it’s your default card now.`,
+  cardCancelled: 'No card was added.',
+
+  // ---- the payment day ----
+  payDayTitle: 'Payment date',
+  payDayLine: (iso: string, cents: number) =>
+    `Your next payment is ${money(cents)} on ${day(iso)}.`,
+  payDayCredit: (cents: number) =>
+    `${money(cents)} is taken off it, for the days you gave up when you moved your payment date.`,
+  payDayChange: 'Change date',
+  payDayPick: 'New payment date',
+  payDayLater: (days: number, cents: number, iso: string) =>
+    `That adds ${days} ${days === 1 ? 'day' : 'days'}. You pay ${money(cents)} now for them, then your plan renews on ${day(iso)}.`,
+  payDayEarlier: (days: number, cents: number, iso: string, next: number) =>
+    `That’s ${days} ${days === 1 ? 'day' : 'days'} sooner, so ${money(cents)} comes off. Your next payment is ${money(next)} on ${day(iso)}.`,
+  payDayConfirmLater: (cents: number) => `Pay ${money(cents)} and change date`,
+  payDayConfirmEarlier: 'Change date',
+  payDayCharging: 'Charging your card…',
+  payDayMoved: (iso: string) => `Done. Your plan renews on ${day(iso)} from now on.`,
+  payDayFailed: (why: string) =>
+    `Your payment date didn’t change, because the charge didn’t go through: ${why} Try another card, or pick another date.`,
+  payDayLimits: (earliest: string, latest: string) =>
+    `Pick a day from ${day(earliest)} to ${day(latest)}.`,
+
+  // ---- stopping ----
+  renewingBlurb:
+    'Stop your plan renewing any time. It stays on until the end of what you’ve paid for, and nothing more is charged for it.',
+  stoppedBlurb: 'Your plan is set not to renew. Keep it renewing to stay on it, at the same price.',
+
+  // ---- money owed ----
+  owedTitle: 'Your payment didn’t go through',
+  owedLine: (cents: number, iso: string) =>
+    `We couldn’t take your ${money(cents)} payment on ${day(iso)}.`,
+  owedWhy: (why: string) => `Your bank said: ${why}`,
+  owedRetry: (iso: string) => `We’ll try your cards again on its own on ${day(iso)}.`,
+  owedNoMoreRetries: 'We’ve stopped trying your cards on our own. Pay now, or add another card.',
+  payNow: 'Try my cards now',
+  payingNow: 'Trying your cards…',
+  paidNow: 'Paid. Thank you! Everything’s open again.',
+  stillDeclined: (why: string) =>
+    `That didn’t go through either: ${why} Add another card, or ask for more time.`,
+  addCardAndPay: 'Add a card and pay',
+
+  // ---- the failed-payment page ----
+  blockTitle: 'Your HandsFreeOS payment didn’t go through',
+  blockSkipHint: (lockedAt: string) =>
+    `You can skip this for now, but from ${day(lockedAt)} you’ll need to pay before you can open HandsFreeOS.`,
+  blockLocked:
+    'HandsFreeOS stays closed until the payment goes through, or until we give you more time.',
+  blockNotManager: (who: string | null) =>
+    who
+      ? `Only someone who manages billing can fix this. Ask ${who} to update the card in Settings → Billing & Usage.`
+      : 'Only someone who manages billing can fix this. Ask an owner of this business to update the card in Settings → Billing & Usage.',
+  skip: 'Skip for now',
+  otherBusiness: 'Open another business',
+  skipUntil: (iso: string) => `Skipped until ${day(iso)}.`,
+
+  // ---- more time ----
+  moreTime: 'Ask for more time',
+  moreTimeTitle: 'Ask for more time',
+  moreTimeBlurb:
+    'Tell us the day you think you can pay by. Someone from HandsFreeOS reads every request and will let you know.',
+  moreTimeDate: 'I can pay by',
+  moreTimeNote: 'Anything we should know (optional)',
+  moreTimeSend: 'Send request',
+  moreTimeSending: 'Sending…',
+  moreTimeSent: (iso: string) =>
+    `Request sent. You asked to pay by ${day(iso)}. We’ll email you when it’s answered.`,
+  moreTimeWaiting: (iso: string) =>
+    `You asked for more time, until ${day(iso)}. We’ll let you know soon.`,
+  moreTimeGranted: (iso: string) =>
+    `You have until ${day(iso)} to pay. We’ll try your cards again that day.`,
+  moreTimeDeclined:
+    'We couldn’t give you more time this time. Please pay now, or add another card.',
+  moreTimeLimits: (earliest: string, latest: string) =>
+    `Pick a day from ${day(earliest)} to ${day(latest)}.`,
+  ticketSubject: (business: string) => `More time to pay, for ${business}`,
+  ticketBody: (p: {
+    business: string;
+    payBy: string;
+    amountCents: number;
+    problem: string | null;
+    note: string;
+  }) =>
+    [
+      `${p.business} asked for more time to pay their HandsFreeOS plan.`,
+      '',
+      `They think they can pay by: ${formatUtcDate(new Date(`${p.payBy}T12:00:00Z`))}`,
+      `Owed: ${money(p.amountCents)}`,
+      p.problem ? `Why it failed: ${p.problem}` : null,
+      '',
+      p.note ? `Their note: ${p.note}` : 'They left no note.',
+      '',
+      'Give them more time, or say no, from their page in Admin → Businesses.',
+    ]
+      .filter((l) => l !== null)
+      .join('\n'),
+
+  // ---- Admin, a business's page ----
+  adminTitle: 'Plan payments',
+  adminNothingOwed: 'Nothing owed on their plan.',
+  adminOwed: (cents: number, iso: string, why: string | null) =>
+    `${money(cents)} owed since ${day(iso)}${why ? `: ${why.replace(/\.$/, '')}` : ''}.`,
+  adminCards: (n: number) => (n === 1 ? '1 card on their plan.' : `${n} cards on their plan.`),
+  adminAsked: (payBy: string, who: string | null, asked: string) =>
+    `${who ?? 'Someone'} asked on ${day(asked)} for more time, to pay by ${day(payBy)}.`,
+  adminTicket: (n: number) => `Ticket #${n}`,
+  adminNoNote: 'No note.',
+  adminGranted: (iso: string) => `Given until ${day(iso)}.`,
+  adminDeclined: 'Said no.',
+  adminGrant: (iso: string) => `Give them until ${day(iso)}`,
+  adminOtherDay: 'Another day',
+  adminDecline: 'Say no',
+  adminUntil: 'Give them until',
+
+  // ---- the phone: never a price, a payment or a link (the stores' rule), only that it's fixed on the web ----
+  phoneBlockTitle: 'Fix this business on the web',
+  phoneBlockBody: (business: string) =>
+    `${business} needs its HandsFreeOS account sorted out before it opens again. Sign in to HandsFreeOS on a computer, and it shows you what to do.`,
+  phoneBlockAsk: (business: string, who: string | null) =>
+    `${business} needs its HandsFreeOS account sorted out before it opens again. Ask ${who ?? 'an owner of this business'} to sign in on a computer and fix it.`,
+  phoneSkipHint: (lockedAt: string) => `You can skip this a day at a time until ${day(lockedAt)}.`,
+  phoneLocked: 'It stays closed on the phone until it’s fixed on the web.',
+  phoneCheck: 'Check again',
+} as const;

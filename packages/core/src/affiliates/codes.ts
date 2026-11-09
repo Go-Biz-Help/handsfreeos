@@ -108,7 +108,7 @@ export const AFFILIATE_CODE_WORDS = {
   startTrial: (days: number) => `Start your ${days}-day free trial`,
   /** `when` is the day the trial ends, as the page says dates. */
   trialFine: (when: string) =>
-    `Nothing is charged today. Your card is charged when the trial ends, on ${when}, unless you stop it renewing first in Settings → Usage & balance. That gives your spot back when the trial ends.`,
+    `Nothing is charged today. Your card is charged when the trial ends, on ${when}, unless you stop it renewing first in Settings → Billing & Usage. That gives your spot back when the trial ends.`,
 
   // The lists of codes, the affiliate's own and staff's.
   codes: 'Your codes',

@@ -187,7 +187,7 @@ describe('the daily AI limit', () => {
           where e.workspace_id = ${workspaceId} and e.event_type = 'wallet.ai_limit_changed'`,
     );
     expect(event).toEqual({ before: 1000, after: 250_000 });
-    // Usage & balance shows it, and what the AI has come to today.
+    // Billing & Usage shows it, and what the AI has come to today.
     const wallet = await executeQuery(api(), walletGet, { workspaceId }, human(owner), meta());
     expect(wallet).toMatchObject({ aiDailyLimitCents: 250_000, aiSpentTodayCents: 0 });
     await aiLimit(owner, 1000);
@@ -202,7 +202,7 @@ describe('the daily AI limit', () => {
 });
 
 describe('a business on the balance', () => {
-  // Usage & balance once threw for every business actually on it: the raw rows carry timestamps as text, and
+  // Billing & Usage once threw for every business actually on it: the raw rows carry timestamps as text, and
   // the page read them as dates.
   it('shows its balance, a hold on it, and its statement', async () => {
     const [org] = await rows<{ organization_id: string }>(

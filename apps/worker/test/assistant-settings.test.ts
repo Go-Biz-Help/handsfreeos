@@ -337,20 +337,17 @@ describe('settings_help', () => {
     );
   });
 
-  it('leaves only paying on the provider’s page to the person on Usage & balance: topping up and the AI limit are its to do', async () => {
+  it('leaves only typing a card on Stripe’s page to the person on Billing & Usage: the plan, the cards, topping up and the AI limit are its to do (20261027023600)', async () => {
     const { result } = await readTool('settings_help', 'usage', owner);
     const theirs = result['theyDoThemselves'] as { what: string; steps: string[] }[];
-    expect(theirs.map((t) => t.what)).toEqual([
-      'add a card, or use a different one',
-      'pay a refused founding plan renewal with another card',
-    ]);
-    expect(theirs[1]!.steps).toContain(
-      'On Your founding spot, press Pay with another card, then pay on Stripe’s page.',
-    );
+    expect(theirs.map((t) => t.what)).toEqual(['add a card, or pay with a new card']);
+    expect(theirs[0]!.steps[0]).toBe('Open Settings → Billing & Usage.');
     expect(result['canChange']).toEqual(
       expect.arrayContaining([
-        'top up the balance now, from the card on file',
+        'top up the balance now, from the default card',
         'the daily AI limit',
+        'try the cards again now, when a plan payment is owed',
+        'whether the founding plan renews',
       ]),
     );
   });
@@ -1535,7 +1532,7 @@ describe('the business number', () => {
     );
     expect(getting.card.title).toBe('Get (713) 555-0188');
     expect(getting.card.fields.find((f) => f.label === 'Number')!.value).toBe('(713) 555-0188');
-    // The price, as Settings → Usage & balance shows it to someone who may see prices, on the card and its warning.
+    // The price, as Settings → Billing & Usage shows it to someone who may see prices, on the card and its warning.
     const prices = await q<{ items: { key: string | null; cents: number }[] }>('usage.prices');
     const monthly = `${money(prices.items.find((i) => i.key === 'number.local.month')!.cents)} a month`;
     expect(getting.card.fields.find((f) => f.label === 'Costs')!.value).toBe(monthly);

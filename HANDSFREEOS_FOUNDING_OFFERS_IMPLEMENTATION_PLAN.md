@@ -55,8 +55,8 @@ The owner's call: the Founding Customer seat is **$497 a year**, not $497 once.
 
 - **It renews on its own.** Checkout keeps the card, and the worker charges it when the year is up, the way RCS's
   yearly renewal does. The year is `app.workspace_plans.current_period_end`.
-- **A refused card is not tried again.** The business is emailed and pays that year with another card from
-  Settings → Usage & balance. The seat stays on until staff decide.
+- **A refused card is tried again,** once a day for 14 days, on the backup cards too (§1.4, which replaced "not
+  tried again" on 2026-11-08). The seat stays on until staff decide.
 - **The business can stop it renewing,** and start it again while the year is paid for. A seat that was stopped
   goes back when its year is over.
 - **A seat staff give is a gift** and is never charged.
@@ -101,6 +101,37 @@ Migration `20261027012700`.
   a spot of its own.
 - **The apps hold the gate, not the API.** An unpaid business's commands aren't refused; the web and phone apps just
   don't open it.
+
+### 1.4 Billing: cards, retries, the failed-payment page and more time (decided 2026-11-08)
+
+The owner's words: "Allow them to add a new card at anytime they can have multiple cards and they can determine which
+is the default and which are backups if the default fails then we automatically try the backups." Then: the phone
+stays as it is and sends people to the web; the payment date can move (later is a prorated charge, earlier a prorated
+discount); a failed payment is retried at a random time every 24 hours; a failed-payment page blocks the CRM from the
+next screen, skippable for 24 hours, but not after 72; and they can ask for more time with the day they think they can
+pay, granted case by case through a support request. The owner's picks the same day: 1a (the page stops everyone),
+2a (14 days of retries), 3a (the payment-date sums below), 4a (more time up to 30 days out), **5a** (one list of cards
+pays the plan and tops up the usage balance) and **6b** (all of it on one page, which the owner then named Settings →
+Billing & Usage). Migration `20261027023600`.
+
+- **Cards:** `app.plan_cards`, one default per business (the checkout's card to start with) and backups tried in the
+  order they were added. Settings → Billing & Usage adds them on Stripe's page (`POST /v1/plan/card` on the worker),
+  makes one the default, or removes one. The default can't be removed while there are others, nor while a paid plan
+  renews on it. `workspace_plans.stripe_card_id` still mirrors the default for code from before, and so does the usage
+  balance's card (`private.plan_sync_wallet_card`): the default tops up the balance, and a declined top-up tries the
+  backups in turn (`apps/worker/src/money/recharge.ts`). The phone's Balance adds a card as the new default
+  (`wallet.record_card`).
+- **Retries:** `PLAN_RETRY_DAYS` (14), each at a random moment in the next day (`nextPlanRetryAt`). Try my cards now
+  (`billing.pay_now`) charges at once.
+- **The page:** `paymentBlockOf` in `packages/core/src/billing/rules.ts`, for the web's `/payment/<business>` and the
+  phone's notice. Skip is kept on the device. Everyone in the business sees it; only money.manage can fix it.
+- **More time:** `billing.ask_more_time` (up to 30 days out) opens a ticket; staff answer with
+  `billing.answer_more_time` on the business's page in Admin. A grant sets `more_time_until`, which hides the page and
+  holds the retries until then.
+- **The payment date:** `billing.pay_day_quote` and `billing.change_pay_day`. Later is charged now, by the days added
+  over the days in the period, and moves once paid; earlier moves at once and leaves `pay_day_credit_cents` off the
+  next payment. Not while a payment is owed.
+- **Not done:** pausing (the plan can stop renewing, not pause), and billing on the phone.
 
 ---
 

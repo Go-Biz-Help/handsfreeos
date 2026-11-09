@@ -264,7 +264,7 @@ export function costlyAi(inner: AiProvider = scriptedAi()): AiProvider {
 }
 
 /**
- * Sets a business's own daily AI limit, in cents, as its owner would on Usage & balance (0 pauses its AI, which
+ * Sets a business's own daily AI limit, in cents, as its owner would on Billing & Usage (0 pauses its AI, which
  * a person can't set). Returns what it was, so a test that pauses the AI can put it back.
  */
 export async function setAiLimit(workspaceId: string, cents: number): Promise<number> {

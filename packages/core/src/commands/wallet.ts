@@ -134,7 +134,7 @@ export const walletSetAutoTopup = defineCommand({
       throw HfosError.rule(
         'wallet_no_card',
         409,
-        'There’s no card on your balance yet, so automatic top-up would have nothing to charge. Add one under Card on file in Settings → Usage & balance, then turn it on.',
+        'There’s no card on your balance yet, so automatic top-up would have nothing to charge. Add one under Cards in Settings → Billing & Usage, then turn it on.',
       );
     await ctx.tx
       .update(usageWallets)
@@ -220,7 +220,7 @@ export const walletRequestCard = defineCommand({
 export const walletForgetCard = defineCommand({
   name: 'wallet.forget_card',
   description:
-    'Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep.',
+    'Take the card off the wallet. Automatic top-up goes off with it, because a top-up with nothing to charge is a promise nobody can keep. Only the business’s one card, and not while a paid plan renews on it: with more cards, pick and remove them in Settings → Billing & Usage (billing.set_default_card, billing.remove_card).',
   risk: 3,
   input: WalletRequestCardInput,
   output: WalletCardOutput,
@@ -230,6 +230,32 @@ export const walletForgetCard = defineCommand({
   async handler(ctx) {
     const w = await wallet(ctx);
     if (!w.methodToken) return cardOf(w);
+    // One list of cards pays the plan and refills the balance (20261027023600), and the balance's card is that
+    // list's default. It comes off here only when it's the business's one card and no paid plan renews on it;
+    // otherwise the list is changed in Settings → Billing & Usage, where each card can be picked.
+    const [listed] = await rows<{ id: string | null; others: number; needed: boolean }>(
+      ctx.tx,
+      sql`select (select c.id from app.plan_cards c where c.workspace_id = ${w.workspaceId}::uuid and c.is_default) as id,
+            (select count(*)::int from app.plan_cards c
+              where c.workspace_id = ${w.workspaceId}::uuid and not c.is_default) as others,
+            private.plan_needs_a_card(${w.workspaceId}::uuid) as needed`,
+    );
+    if (Number(listed?.others ?? 0) > 0)
+      throw HfosError.rule(
+        'wallet_card_has_backups',
+        409,
+        'This business has more than one card, so this one can’t come off on its own here. Make another card the default in Settings → Billing & Usage on the web, then remove this one there.',
+      );
+    if (listed?.id && listed.needed)
+      throw HfosError.rule(
+        'wallet_card_pays_plan',
+        409,
+        'This is the card this business’s HandsFreeOS plan renews on, so it stays. Add another card first, then remove this one in Settings → Billing & Usage on the web.',
+      );
+    if (listed?.id)
+      await ctx.tx.execute(
+        sql`select * from private.plan_card_remove(${w.workspaceId}::uuid, ${listed.id}::uuid)`,
+      );
     // The token is cleared here and the provider is told by the worker: the row is the record of intent, and
     // a provider that is down must not stop somebody removing their card.
     await ctx.tx
@@ -272,7 +298,7 @@ export const walletTopUp = defineCommand({
       throw HfosError.rule(
         'wallet_no_card',
         409,
-        'There’s no card on your balance to charge. Add one under Card on file in Settings → Usage & balance first.',
+        'There’s no card on your balance to charge. Add one under Cards in Settings → Billing & Usage first.',
       );
     const amount = input.amountCents ?? w.topupCents;
     const id = crypto.randomUUID();
@@ -345,6 +371,32 @@ export const walletRecordCard = defineCommand({
         ...(w.methodToken ? {} : { autoTopup: true }),
       })
       .where(eq(usageWallets.workspaceId, w.workspaceId));
+    // One list of cards pays the plan and refills the balance (20261027023600): a card put on the balance (from the
+    // phone's Balance) joins it as the default, as it was the balance's one card before, and the old default stays
+    // on as a backup.
+    if (
+      input.provider === 'stripe' &&
+      input.customerRef.length <= 100 &&
+      input.methodToken.length <= 100
+    ) {
+      await ctx.tx.execute(
+        sql`update app.plan_cards set is_default = false
+            where workspace_id = ${w.workspaceId}::uuid and is_default and card_ref <> ${input.methodToken}`,
+      );
+      await ctx.tx.execute(
+        sql`insert into app.plan_cards (workspace_id, organization_id, customer_ref, card_ref, card_brand,
+              card_last4, card_expiry_month, card_expiry_year, is_default)
+            values (${w.workspaceId}::uuid, ${w.organizationId}::uuid, ${input.customerRef}, ${input.methodToken},
+              ${input.cardBrand}, ${input.cardLast4}, ${input.cardExpiryMonth}, ${input.cardExpiryYear}, true)
+            on conflict (workspace_id, card_ref) do update
+              set is_default = true, customer_ref = excluded.customer_ref,
+                  card_brand = coalesce(excluded.card_brand, app.plan_cards.card_brand),
+                  card_last4 = coalesce(excluded.card_last4, app.plan_cards.card_last4),
+                  card_expiry_month = coalesce(excluded.card_expiry_month, app.plan_cards.card_expiry_month),
+                  card_expiry_year = coalesce(excluded.card_expiry_year, app.plan_cards.card_expiry_year)`,
+      );
+      await ctx.tx.execute(sql`select private.plan_sync_default_card(${w.workspaceId}::uuid)`);
+    }
     const after = await wallet(ctx);
     await ctx.emit({
       type: 'wallet.card_saved',

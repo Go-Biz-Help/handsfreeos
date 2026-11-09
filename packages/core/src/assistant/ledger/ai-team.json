@@ -62,9 +62,9 @@
     "apps/web/src/components/workflows/approvals/approvals-board.tsx": "3fdf26c91e68",
     "apps/web/src/components/workflows/approvals/teammate-draft-card.tsx": "2054051581f9",
     "apps/web/src/lib/ai-setup/actions.ts": "5c312e19966a",
-    "packages/core/src/assistant/coverage.ts": "513d0d3dbdb9",
-    "packages/core/src/assistant/screen-reads.ts": "49e4ebf088bb",
-    "packages/core/src/assistant/settings-map.ts": "66e51332b66a",
+    "packages/core/src/assistant/coverage.ts": "2a0f4f6333ff",
+    "packages/core/src/assistant/screen-reads.ts": "c67a783b6ac8",
+    "packages/core/src/assistant/settings-map.ts": "54ae1e6da864",
     "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
     "packages/core/src/assistant/tools-extra.ts": "a6a36461844a",
     "packages/core/src/assistant/tools.ts": "74c944826a17"

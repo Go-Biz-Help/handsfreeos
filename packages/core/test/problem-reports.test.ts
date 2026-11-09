@@ -221,7 +221,7 @@ describe('a limit or a fix (20261027023100)', () => {
     const w = DESK_PROBLEM_SECTION_WORDS;
     expect(w.limitTitle(limit)).toBe('Reyes Roofing · Daily AI limit');
     expect(w.limitSaid(limit)).toContain('stopped 6 times (LinkedIn, Instagram and Alignable)');
-    expect(w.limitSaid(limit)).toContain('Settings → Usage & balance');
+    expect(w.limitSaid(limit)).toContain('Settings → Billing & Usage');
     const network = {
       ...limit,
       limitKind: 'network' as const,

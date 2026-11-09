@@ -114,7 +114,7 @@ describe('one daily AI limit per business, in dollars', () => {
     const was = await setAiLimit(scope.workspaceId, 200);
     try {
       expect(await aiBudget.reached(worker(), scope)).toBe(
-        'This business reached the $2 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+        'This business reached the $2 daily AI limit, so the AI is paused until midnight. An owner or admin can raise the limit in Settings → Billing & Usage.',
       );
       await setAiLimit(scope.workspaceId, 5000);
       expect(await aiBudget.reached(worker(), scope)).toBeNull();
@@ -260,7 +260,7 @@ describe('askStructured', () => {
       await expect(overBudget).rejects.toBeInstanceOf(AiAskError);
       await expect(overBudget).rejects.toMatchObject({
         code: 'budget_reached',
-        message: expect.stringMatching(/paused until midnight.*Settings → Usage & balance/),
+        message: expect.stringMatching(/paused until midnight.*Settings → Billing & Usage/),
       });
     } finally {
       await setAiLimit(scope.workspaceId, was);

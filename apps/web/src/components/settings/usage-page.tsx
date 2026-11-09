@@ -3,7 +3,6 @@ import {
   AI_LIMIT_WORDS,
   BALANCE_WORDS,
   balanceHeadline,
-  cardLine,
   MIN_AI_DAILY_LIMIT_CENTS,
   money,
   parseMoney,
@@ -11,16 +10,9 @@ import {
   usageQuantityWords,
   type SettingKey,
 } from '@hfos/core';
-import { CreditCard, Download, Wallet } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import {
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type ChangeEvent,
-  type ReactNode,
-} from 'react';
+import { useState, useTransition, type ChangeEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +20,6 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, errorMessage, unwrap } from '@/lib/api/client';
-import { walletCard } from '@/lib/api/worker';
 import type { Ok } from '@/lib/api/types';
 import { cn } from '@/lib/utils';
 import { settingAttrs } from './setting-anchor';
@@ -109,16 +100,26 @@ function Row({ entry }: { entry: Entry }) {
   );
 }
 
+/**
+ * Settings → Billing & Usage: the plan and the cards (`plan`, `cards`, from `billing-page.tsx`, the owner's 5a and 6b),
+ * then the balance texts, calls and AI come out of, its automatic top-up, the daily AI limit, prices and the statement.
+ */
 export function UsagePage({
   workspaceId,
   wallet,
   prices,
   statement,
+  plan,
+  cards,
 }: {
   workspaceId: string;
   wallet: Wallet;
   prices: Prices;
   statement: Statement;
+  /** A payment that didn't go through, and the plan with its next payment. Nothing without a plan paid by card. */
+  plan: ReactNode;
+  /** The one list of cards, which pays the plan and tops up the balance. */
+  cards: ReactNode;
 }) {
   const router = useRouter();
   const [saving, startSaving] = useTransition();
@@ -169,35 +170,6 @@ export function UsagePage({
       }
     });
 
-  const forgetCard = () =>
-    startSaving(async () => {
-      try {
-        unwrap(
-          await apiBrowser().POST('/v1/commands/wallet.forget_card', { body: { workspaceId } }),
-        );
-        toast.success(BALANCE_WORDS.cardRemoved);
-        setAutoTopup(false);
-        router.refresh();
-      } catch (e) {
-        toast.error(errorMessage(e));
-      }
-    });
-
-  /**
-   * Phase one: ask the worker for the provider's own card page and go there. The worker builds the address it
-   * sends them back to, so nothing here can point it anywhere else.
-   */
-  const addCard = () =>
-    startSaving(async () => {
-      try {
-        const started = await walletCard({ workspaceId });
-        if (started.stage !== 'started') return;
-        window.location.assign(started.hostedUrl);
-      } catch (e) {
-        toast.error(errorMessage(e));
-      }
-    });
-
   const topUpNow = () =>
     startSaving(async () => {
       try {
@@ -208,45 +180,6 @@ export function UsagePage({
         toast.error(errorMessage(e));
       }
     });
-
-  /**
-   * Phase two: back from the card page. The session on the address is only a name for what happened — the
-   * worker reads the card off the provider itself — and it is taken off the address either way, so a refresh
-   * never saves anything twice.
-   */
-  const returned = useRef(false);
-  useEffect(() => {
-    // Read off the address itself rather than through `useSearchParams`, which would put this page behind a
-    // Suspense boundary for one query parameter it reads once, on the way back from the provider.
-    const mark = new URLSearchParams(window.location.search).get('card');
-    if (!mark || returned.current) return;
-    returned.current = true;
-    window.history.replaceState(null, '', window.location.pathname);
-    if (mark === 'cancelled') {
-      toast.info(BALANCE_WORDS.cardNotSaved);
-      return;
-    }
-    startSaving(async () => {
-      try {
-        const answer = await walletCard({ workspaceId, sessionRef: mark });
-        if (answer.stage === 'saved' && answer.card.cardLast4)
-          toast.success(
-            BALANCE_WORDS.cardSaved(
-              cardLine({
-                brand: answer.card.cardBrand,
-                last4: answer.card.cardLast4,
-                expiryMonth: answer.card.cardExpiryMonth,
-                expiryYear: answer.card.cardExpiryYear,
-              }),
-            ),
-          );
-        else toast.info(BALANCE_WORDS.cardNotSaved);
-        router.refresh();
-      } catch (e) {
-        toast.error(errorMessage(e));
-      }
-    });
-  }, [router, workspaceId]);
 
   /** The statement as a spreadsheet. Built in the browser: it is already on the page. */
   const download = () => {
@@ -271,6 +204,8 @@ export function UsagePage({
 
   return (
     <div className="flex flex-col gap-5" data-testid="usage-page">
+      {plan}
+      {cards}
       <Section
         title={BALANCE_WORDS.balance}
         description={BALANCE_WORDS.balanceDetail}
@@ -395,47 +330,6 @@ export function UsagePage({
         <p className="mt-3 text-[13px] text-text-3" data-testid="usage-ai-today">
           {AI_LIMIT_WORDS.today(wallet.aiSpentTodayCents, wallet.aiDailyLimitCents)}
         </p>
-      </Section>
-
-      <Section
-        title={BALANCE_WORDS.cardTitle}
-        description={BALANCE_WORDS.cardDetail}
-        testId="usage-card"
-        setting="usage.card"
-        action={
-          <div className="flex gap-2">
-            <Button onClick={addCard} disabled={saving} data-testid="usage-add-card">
-              {wallet.card ? BALANCE_WORDS.changeCard : BALANCE_WORDS.addCard}
-            </Button>
-            {wallet.card ? (
-              <Button
-                variant="secondary"
-                onClick={forgetCard}
-                disabled={saving}
-                data-testid="usage-forget-card"
-              >
-                {BALANCE_WORDS.removeCard}
-              </Button>
-            ) : null}
-          </div>
-        }
-      >
-        <div className="mt-4 flex items-center gap-3 text-[13px]">
-          {wallet.card ? (
-            <>
-              <CreditCard className="h-4 w-4 text-text-3" strokeWidth={1.8} />
-              <span>{cardLine(wallet.card)}</span>
-            </>
-          ) : (
-            <>
-              <Wallet className="h-4 w-4 text-text-3" strokeWidth={1.8} />
-              <span className="text-text-2">
-                {wallet.cardRequested ? BALANCE_WORDS.cardWaiting : BALANCE_WORDS.cardNone}
-              </span>
-            </>
-          )}
-        </div>
-        <p className="mt-3 text-[13px] text-text-3">{BALANCE_WORDS.cardOnProvider}</p>
       </Section>
 
       <Section

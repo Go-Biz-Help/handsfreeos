@@ -44,7 +44,7 @@ import {
 } from '@/money/use-wallet';
 
 /**
- * **Balance** — Settings → Usage & balance at phone size: what the business has left, what it has spent, the card
+ * **Balance** — Settings → Billing & Usage at phone size: what the business has left, what it has spent, the card
  * that tops it up, what things cost, and the statement behind the number.
  *
  * Three things make this different from the web's page:

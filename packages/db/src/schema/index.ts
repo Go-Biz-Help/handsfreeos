@@ -7719,6 +7719,72 @@ export const workspacePlans = app.table('workspace_plans', {
   discountUntil: ts('discount_until'),
   /** When a free trial ends and its first charge is due. */
   trialEndsAt: ts('trial_ends_at'),
+  /** Automatic retries made since the payment failed (20261027023600). */
+  retryCount: integer('retry_count').notNull().default(0),
+  /** When the next automatic retry is due; null when none is. */
+  nextRetryAt: ts('next_retry_at'),
+  /** The day retries count from: when the payment failed, or the day more time ran out. */
+  retryFrom: ts('retry_from'),
+  /** Taken off the next payment, after the payment day was moved earlier. */
+  payDayCreditCents: integer('pay_day_credit_cents').notNull().default(0),
+  /** A later payment day waiting on its charge: the new paid-through date, what it costs, and when it was asked. */
+  payDayChangeTo: ts('pay_day_change_to'),
+  payDayChangeCents: integer('pay_day_change_cents'),
+  payDayChangeAskedAt: ts('pay_day_change_asked_at'),
+  payDayChangeAskedBy: uuid('pay_day_change_asked_by').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  /** Why the last later payment day didn't go through. */
+  payDayChangeProblem: text('pay_day_change_problem'),
+  /** Staff gave the business until then to pay: no failed-payment page, and no retries, until it passes. */
+  moreTimeUntil: ts('more_time_until'),
+  ...timestamps(),
+});
+
+/**
+ * A plan's cards (20261027023600): one is the default, the rest are backups, tried oldest first when it is declined.
+ * Each keeps the Stripe customer it is attached to. Ids, brand and last four only: Stripe holds the card.
+ */
+export const planCards = app.table(
+  'plan_cards',
+  {
+    id: id(),
+    workspaceId: workspaceRef(),
+    organizationId: orgRef(),
+    customerRef: text('customer_ref').notNull(),
+    cardRef: text('card_ref').notNull(),
+    cardBrand: text('card_brand'),
+    cardLast4: text('card_last4'),
+    cardExpiryMonth: smallint('card_expiry_month'),
+    cardExpiryYear: smallint('card_expiry_year'),
+    isDefault: boolean('is_default').notNull().default(false),
+    addedBy: uuid('added_by').references(() => users.id, { onDelete: 'set null' }),
+    lastDeclinedAt: ts('last_declined_at'),
+    lastDecline: text('last_decline'),
+    ...timestamps(),
+  },
+  (t) => [unique().on(t.workspaceId, t.cardRef)],
+);
+
+export const planTimeRequestStatus = app.enum('plan_time_request_status', [
+  'pending',
+  'granted',
+  'declined',
+]);
+
+/** Asking for more time to pay a failed plan payment (20261027023600): the day, a note, and the ticket it opened. */
+export const planTimeRequests = app.table('plan_time_requests', {
+  id: id(),
+  workspaceId: workspaceRef(),
+  organizationId: orgRef(),
+  askedBy: uuid('asked_by').references(() => users.id, { onDelete: 'set null' }),
+  payBy: date('pay_by').notNull(),
+  note: text('note').notNull().default(''),
+  ticketId: uuid('ticket_id').references(() => tickets.id, { onDelete: 'set null' }),
+  status: planTimeRequestStatus('status').notNull().default('pending'),
+  grantedUntil: date('granted_until'),
+  answeredBy: uuid('answered_by').references(() => users.id, { onDelete: 'set null' }),
+  answeredAt: ts('answered_at'),
   ...timestamps(),
 });
 

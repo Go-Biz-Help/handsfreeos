@@ -687,6 +687,7 @@ export function createSquarePayments(opts: {
       readCardSession: () => Promise.reject(new PlatformUnsupportedError('square')),
       saveMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
       forgetMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
+      describeMethod: () => Promise.reject(new PlatformUnsupportedError('square')),
       charge: () => Promise.reject(new PlatformUnsupportedError('square')),
       createCheckout: () => Promise.reject(new PlatformUnsupportedError('square')),
       checkoutCard: () => Promise.reject(new PlatformUnsupportedError('square')),

@@ -158,6 +158,37 @@ export function walletCard(input: {
   return workerPost('/v1/wallet/card', input);
 }
 
+/** What `POST /v1/plan/card` answers: a page to go to, the card it came back with, or neither. */
+export type PlanCardAnswer =
+  | { readonly stage: 'started'; readonly hostedUrl: string }
+  | { readonly stage: 'cancelled' }
+  | {
+      readonly stage: 'saved';
+      readonly card: {
+        readonly id: string;
+        readonly isDefault: boolean;
+        readonly brand: string | null;
+        readonly last4: string | null;
+      };
+      /** A payment that didn't go through is being tried again on it. */
+      readonly paying: boolean;
+    };
+
+/**
+ * Adding a card to the business's HandsFreeOS plan (20261027023600; whoever manages money, the worker checks), from
+ * Settings → Billing & Usage or the failed-payment page. Called twice, as `walletCard` is: once for Stripe's page, and once
+ * with the session they came back on. Where they come back to is built by the worker from `from`, never named here.
+ */
+export function planCard(input: {
+  workspaceId: string;
+  sessionRef?: string;
+  makeDefault?: boolean;
+  payNow?: boolean;
+  from?: 'usage' | 'payment';
+}): Promise<PlanCardAnswer> {
+  return workerPost('/v1/plan/card', input);
+}
+
 /** What `POST /v1/partners/payout-card` answers: a page to go to, the card it came back with, or neither. */
 export type PartnerPayoutCardAnswer =
   | { readonly stage: 'started'; readonly hostedUrl: string }

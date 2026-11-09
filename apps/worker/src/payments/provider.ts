@@ -641,6 +641,8 @@ export interface PlatformPayments {
     idempotencyKey: string;
   }): Promise<SavedMethod>;
   forgetMethod(input: { customerRef: string; token: string }): Promise<void>;
+  /** A saved card's brand, last four and expiry, asked of the provider (a plan card kept before we stored them). */
+  describeMethod(token: string): Promise<SavedMethod>;
   /** A top-up. A declined card is a returned `failed`, never an exception: it is an answer, not a breakdown. */
   charge(input: ChargeInput): Promise<PaymentResult>;
   /** A hosted page to pay us once. Square refuses, like everything else here. */

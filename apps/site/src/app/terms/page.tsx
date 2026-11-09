@@ -58,7 +58,7 @@ export default function TermsPage() {
           <li>
             Texts, calls, phone numbers and AI replies are billed on top, at the per-use rates shown
             in your account. They come out of a usage balance, and every charge appears on the
-            statement on your Usage &amp; balance page.
+            statement on your Billing &amp; Usage page.
           </li>
           <li>
             <strong>If that balance runs out, outgoing texts and outgoing calls stop</strong>, and
@@ -71,7 +71,7 @@ export default function TermsPage() {
             turn it off: when the balance falls below the amount you set, we charge your card for
             the top-up amount you set. If several top-ups are needed in a short period, we raise the
             amount each time so that it is one larger charge instead of many small ones, up to a cap
-            shown on your Usage &amp; balance page. That page says whenever a top-up has been raised
+            shown on your Billing &amp; Usage page. That page says whenever a top-up has been raised
             and why, and{' '}
             <strong>we email you before charging more than twice your own top-up amount</strong>.
             Raising your own amount stops it happening. You can turn automatic top-up off, change

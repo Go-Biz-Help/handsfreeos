@@ -23,6 +23,7 @@ import { problemReportQueries } from './problem-reports';
 import { assistantLedgerQueries } from './assistant-ledger';
 import { teammateViewQueries } from './teammate-view';
 import { foundingQueries } from './founding';
+import { billingQueries } from './billing';
 import { affiliateQueries } from './affiliates';
 import { supportQueries } from './support';
 import { ideaQueries } from './ideas';
@@ -289,6 +290,7 @@ export const queries: readonly QueryDef[] = [
   // Viewing the app as a teammate (20261018000100).
   ...teammateViewQueries,
   ...foundingQueries,
+  ...billingQueries,
   // HandsFreeOS's own affiliate program (20261027014000).
   ...affiliateQueries,
   me,
@@ -535,6 +537,7 @@ export * from './wallet';
 export * from './port';
 export * from './branded-domain';
 export * from './founding';
+export * from './billing';
 export * from './affiliates';
 export * from './offer';
 export * from './main-offer';

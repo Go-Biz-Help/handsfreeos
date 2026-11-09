@@ -48,7 +48,7 @@ describe('the route map', () => {
       settings: { href: 'settings', later: false },
       // Its Notifications section, where the Assistant's alert cards land: the phone's Notifications screen.
       'settings#notifications': { href: 'settings/notifications', later: false },
-      // Settings → Usage & balance: the wallet's emails and notifications open the phone's Balance screen.
+      // Settings → Billing & Usage: the wallet's emails and notifications open the phone's Balance screen.
       'settings/usage': { href: 'settings/usage', later: false },
       // Settings → Main offer: its Review step and the live version are on the phone too.
       'settings/main-offer': { href: 'settings/main-offer', later: false },

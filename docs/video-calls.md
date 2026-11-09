@@ -535,9 +535,9 @@ of 3 November 2026). LiveKit bills two things: every connection's minutes ($0.00
 down to each one ($0.12 a GB). Its own report of each call needs its $500-a-month Scale plan, so HandsFreeOS measures
 both itself.
 
-The owner's answers (2026-11-03): **1** the AI listener's connection is charged too; **2** Usage & balance shows the
+The owner's answers (2026-11-03): **1** the AI listener's connection is charged too; **2** Billing & Usage shows the
 price as a person-minute plus a GB ("Video calls: 0.075¢ a person per minute, plus 18¢ for each GB of video watched");
-**3** each call's cost shows only in Usage & balance, not on the appointment; **4** calls already charged stay as
+**3** each call's cost shows only in Billing & Usage, not on the appointment; **4** calls already charged stay as
 they are; **5** sending smaller videos in big meetings comes later, after a month of real numbers.
 
 Part 1, built, only measures. The balance is still charged the flat `video.minute` until part 2 prices calls from

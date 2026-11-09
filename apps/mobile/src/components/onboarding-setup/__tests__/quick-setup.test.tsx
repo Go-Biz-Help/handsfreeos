@@ -549,7 +549,7 @@ describe('the screens after the first', () => {
       code: 'rule',
       rule: 'wallet_short',
       message:
-        'There isn’t enough on your balance for a phone number’s first month. Top up in Settings → Usage & balance, then try again.',
+        'There isn’t enough on your balance for a phone number’s first month. Top up in Settings → Billing & Usage, then try again.',
     });
     mockAppFetch.mockImplementation(async () =>
       numbersFound([
@@ -581,7 +581,7 @@ describe('the screens after the first', () => {
     // Not enough on the balance: it says where to top up, and stays.
     await fireEvent.press(screen.getByTestId('setup-number-buy'));
     expect(await screen.findByTestId('setup-number-buy-error')).toHaveTextContent(
-      'Top up in Settings → Usage & balance',
+      'Top up in Settings → Billing & Usage',
       { exact: false },
     );
 

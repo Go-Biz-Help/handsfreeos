@@ -59,7 +59,7 @@ describe('the notice cards', () => {
     })!;
     expect(notice.title).toBe('Lone Star HVAC reached its daily AI limit');
     expect(notice.sub).toBe(
-      'The AI pauses until midnight. An owner or admin can raise the limit in Settings → Usage & balance.',
+      'The AI pauses until midnight. An owner or admin can raise the limit in Settings → Billing & Usage.',
     );
     expect(notice.tone).toBe('warning');
     expect(assistantNoticeAction(notice)).toBe(null);
@@ -72,7 +72,7 @@ describe('the notice cards', () => {
     })!;
     expect(notice.title).toBe('Lone Star HVAC’s balance has run out');
     expect(notice.sub).toBe(
-      'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Usage & balance.',
+      'The AI pauses until it’s topped up. An owner or admin can top up in Settings → Billing & Usage.',
     );
     expect(notice.tone).toBe('warning');
     expect(assistantNoticeAction(notice)).toBe(null);

@@ -49,6 +49,7 @@ import {
   workspaces,
 } from '@hfos/db/schema';
 import { giveBackOnRefund, notePlanPayment, takeBackOnRefund } from '../affiliates/earn';
+import { nextPlanRetryAt } from '../billing/rules';
 import { formatUtcDate } from '../crm/format';
 import { HfosError } from '../errors';
 import { foundingPriceWords } from '../support/founding-words';
@@ -84,6 +85,7 @@ import {
   FoundingOfferOutput,
 } from '../schemas/founding';
 import type { CommandContext } from '../kernel/types';
+import { keepCheckoutCard, noteCardTries } from './billing';
 
 /** Staff act on HandsFreeOS, not inside a business — the only scope that resolves a staff role. */
 const onPlatform = () => ({ kind: 'platform' as const });
@@ -183,7 +185,7 @@ function asRefusal(err: unknown): never {
     throw HfosError.rule(
       'founding_not_yearly',
       409,
-      'This business’s founding seat isn’t paid by the year, so there’s nothing to renew. Refresh Settings → Usage & balance to see where it stands.',
+      'This business’s founding seat isn’t paid by the year, so there’s nothing to renew. Refresh Settings → Billing & Usage to see where it stands.',
     );
   if (detail === 'founding_year_over')
     throw HfosError.rule(
@@ -195,7 +197,7 @@ function asRefusal(err: unknown): never {
     throw HfosError.rule(
       'founding_renewal_not_due',
       409,
-      'There’s no renewal waiting to be paid. Refresh Settings → Usage & balance to see where your founding seat stands.',
+      'There’s no renewal waiting to be paid. Refresh Settings → Billing & Usage to see where your founding seat stands.',
     );
   // Approve checks the business first (aBusiness); this is one deleted in between.
   if (constraint === 'founding_grants_organization_id_fkey')
@@ -902,7 +904,7 @@ export const foundingBuy = defineCommand({
   risk: 3,
   input: FoundingBuyInput,
   output: FoundingStartCheckoutOutput,
-  // Whoever manages what the business pays us: the people on Settings → Usage & balance.
+  // Whoever manages what the business pays us: the people on Settings → Billing & Usage.
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['founding.checkout_requested'],
@@ -1050,6 +1052,21 @@ export const foundingRecordCheckoutPaid = defineCommand({
         payload: { grantId: done.grant_id, offerId: done.offer_id, paymentRef: input.paymentRef },
       });
     if (done.outcome !== 'no_seat') await keepCheckoutPayment(ctx, input.checkoutId);
+    // The card the page kept is the plan's default card from now on (20261027023600), and a renewal paid on it ends
+    // the daily retries.
+    if (done.outcome === 'activated' || done.outcome === 'renewed')
+      await keepCheckoutCard(ctx, input.workspaceId, input.customerRef, input.cardRef);
+    if (done.outcome === 'renewed')
+      await ctx.tx
+        .update(workspacePlans)
+        .set({
+          retryCount: 0,
+          nextRetryAt: null,
+          retryFrom: null,
+          moreTimeUntil: null,
+          payDayCreditCents: 0,
+        })
+        .where(eq(workspacePlans.workspaceId, input.workspaceId));
     return { checkoutId: input.checkoutId, outcome: done.outcome };
   },
 });
@@ -1131,7 +1148,7 @@ export const foundingSetRenewing = defineCommand({
   risk: 3,
   input: FoundingSetRenewingInput,
   output: FoundingSetRenewingOutput,
-  // Whoever manages what the business pays us: the people on Settings → Usage & balance, where this is.
+  // Whoever manages what the business pays us: the people on Settings → Billing & Usage, where this is.
   permission: 'money.manage',
   scope: inWorkspace,
   emits: ['founding.renewal_stopped', 'founding.renewal_resumed'],
@@ -1206,13 +1223,13 @@ export const foundingPayRenewal = defineCommand({
 export const foundingRecordRenewal = defineCommand({
   name: 'founding.record_renewal',
   description:
-    'Worker: what the monthly or yearly charge for a founding seat did. Renewed moves the paid month or year on; a refused card is written down for the business to pay with another card, and nothing is charged again until it does. The seat stays on either way.',
+    'Worker: what the monthly or yearly charge for a founding seat did, through every card in turn. Renewed moves the paid month or year on; refused is written down, the business is shown the failed-payment page, and the cards are tried again once a day at a random time (20261027023600). The seat stays on either way.',
   risk: 3,
   input: FoundingRecordRenewalInput,
   output: FoundingRecordRenewalOutput,
   permission: null,
   scope: inWorkspace,
-  emits: ['founding.renewed', 'founding.renewal_failed'],
+  emits: ['founding.renewed', 'founding.renewal_failed', 'founding.renewal_retry_failed'],
   actors: ['system'],
   async handler(ctx, input) {
     const workspaceId = ctx.scope.workspaceId!;
@@ -1224,10 +1241,12 @@ export const foundingRecordRenewal = defineCommand({
       renewal_count: number;
       charge_cents: number;
       offer_id: string | null;
+      retry_count: number;
+      retry_from: Date | string | null;
     }>(
       ctx.tx,
       // What this month or year costs: the price, less a code's discount while it lasts (20261027014300).
-      sql`select p.grant_id, p.current_period_end, p.renewal_failed_at, p.renewal_count,
+      sql`select p.grant_id, p.current_period_end, p.renewal_failed_at, p.renewal_count, p.retry_count, p.retry_from,
                  private.founding_charge_cents(p.workspace_id) as charge_cents,
                  (select g.offer_id from platform.founding_grants g where g.id = p.grant_id) as offer_id
           from app.workspace_plans p where p.workspace_id = ${workspaceId}::uuid for update of p`,
@@ -1250,10 +1269,12 @@ export const foundingRecordRenewal = defineCommand({
                                                where g.id = ${input.grantId}::uuid)),
                      interval '1 year'),
                    renewal_count = renewal_count + 1, renewal_problem = null, renewal_failed_at = null,
-                   status = 'active'
+                   status = 'active', retry_count = 0, next_retry_at = null, retry_from = null,
+                   more_time_until = null, pay_day_credit_cents = 0
              where workspace_id = ${workspaceId}::uuid
             returning current_period_end`,
       );
+      await noteCardTries(ctx, workspaceId, input.cards);
       const next = new Date(moved!.current_period_end);
       await ctx.emit({
         type: 'founding.renewed',
@@ -1285,13 +1306,53 @@ export const foundingRecordRenewal = defineCommand({
       return { grantId: input.grantId, outcome: 'recorded' as const };
     }
 
-    if (plan.renewal_failed_at) return { grantId: input.grantId, outcome: 'already' as const };
     const problem = input.problem ?? 'The card was declined.';
-    // Past due, not off: the seat stays on until staff decide, as the owner asked.
+    // A retry, or somebody pressing Try my cards now (20261027023600): only an answer for the try that was due counts.
+    if (plan.renewal_failed_at) {
+      if (input.attempt === 0) return { grantId: input.grantId, outcome: 'already' as const };
+      const retry = input.attempt !== 'now';
+      if (retry && input.attempt !== plan.retry_count + 1)
+        return { grantId: input.grantId, outcome: 'already' as const };
+      const from = new Date(plan.retry_from ?? plan.renewal_failed_at);
+      const next = retry ? nextPlanRetryAt(from, plan.retry_count + 1, input.random) : undefined;
+      await ctx.tx
+        .update(workspacePlans)
+        .set({
+          renewalProblem: problem,
+          ...(retry ? { retryCount: plan.retry_count + 1, nextRetryAt: next ?? null } : {}),
+        })
+        .where(eq(workspacePlans.workspaceId, workspaceId));
+      await noteCardTries(ctx, workspaceId, input.cards);
+      await ctx.emit({
+        type: 'founding.renewal_retry_failed',
+        entityType: 'founding_grant',
+        entityId: input.grantId,
+        payload: {
+          problem,
+          attempt: input.attempt,
+          nextRetryAt: next ? next.toISOString() : null,
+          lastRetry: retry && !next,
+        },
+        after: { retry: String(input.attempt), reason: problem.slice(0, 200) },
+      });
+      return { grantId: input.grantId, outcome: 'recorded' as const };
+    }
+    // Past due, not off: the seat stays on until staff decide, as the owner asked. The cards are tried again once a
+    // day from tomorrow, and the business sees the failed-payment page from its next screen (20261027023600).
+    const failedAt = new Date();
     await ctx.tx
       .update(workspacePlans)
-      .set({ renewalProblem: problem, renewalFailedAt: new Date(), status: 'past_due' })
+      .set({
+        renewalProblem: problem,
+        renewalFailedAt: failedAt,
+        status: 'past_due',
+        retryCount: 0,
+        retryFrom: failedAt,
+        nextRetryAt: nextPlanRetryAt(failedAt, 0, input.random),
+        moreTimeUntil: null,
+      })
       .where(eq(workspacePlans.workspaceId, workspaceId));
+    await noteCardTries(ctx, workspaceId, input.cards);
     await ctx.emit({
       type: 'founding.renewal_failed',
       entityType: 'founding_grant',
