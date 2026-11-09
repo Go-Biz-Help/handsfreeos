@@ -428,6 +428,26 @@ import {
   RequestSetAsideInput,
   RequestSetAsideOutput,
 } from '@hfos/core/addons/outreach/waiting';
+import {
+  Creator as SocialcontentCreator,
+  CreatorAddInput as SocialcontentCreatorAddInput,
+  CreatorDecideInput as SocialcontentCreatorDecideInput,
+  FindNowInput as SocialcontentFindNowInput,
+  FindNowOutput as SocialcontentFindNowOutput,
+  Idea as SocialcontentIdea,
+  IdeaDecideInput as SocialcontentIdeaDecideInput,
+  Niche as SocialcontentNiche,
+  NicheAddInput as SocialcontentNicheAddInput,
+  NicheDecideInput as SocialcontentNicheDecideInput,
+  ReadNowInput as SocialcontentReadNowInput,
+  ReadNowOutput as SocialcontentReadNowOutput,
+  Settings as SocialcontentSettings,
+  SettingsSaveInput as SocialcontentSettingsSaveInput,
+  WatchTryInput as SocialcontentWatchTryInput,
+  WatchTryOutput as SocialcontentWatchTryOutput,
+  Work as SocialcontentWork,
+  WorkStopInput as SocialcontentWorkStopInput,
+} from '@hfos/core/addons/socialcontent/shapes';
 
 /**
  * The commands the phone may send: exactly the phone's contract (`packages/core/test/contract/mobile-contract.json`),
@@ -856,6 +876,30 @@ export const PHONE_COMMANDS = {
   'safety.help': command(ONLINE, SafetyHelpInput, SafetyCheckInOutput),
   'safety_contact.remove': command(ONLINE, SafetyContactRemoveInput, SafetyContactRemoveOutput),
   'safety_contact.save': command(ONLINE, SafetyContactSaveInput, SafetyContactOutput),
+  // AI Social Media Content Creator's screens (part 5), with signal: niches and creators picked, added and found,
+  // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped.
+  'socialcontent.creator.add': command(ONLINE, SocialcontentCreatorAddInput, SocialcontentCreator),
+  'socialcontent.creator.decide': command(
+    ONLINE,
+    SocialcontentCreatorDecideInput,
+    SocialcontentCreator,
+  ),
+  'socialcontent.find.now': command(ONLINE, SocialcontentFindNowInput, SocialcontentFindNowOutput),
+  'socialcontent.idea.decide': command(ONLINE, SocialcontentIdeaDecideInput, SocialcontentIdea),
+  'socialcontent.niche.add': command(ONLINE, SocialcontentNicheAddInput, SocialcontentNiche),
+  'socialcontent.niche.decide': command(ONLINE, SocialcontentNicheDecideInput, SocialcontentNiche),
+  'socialcontent.read.now': command(ONLINE, SocialcontentReadNowInput, SocialcontentReadNowOutput),
+  'socialcontent.settings.save': command(
+    ONLINE,
+    SocialcontentSettingsSaveInput,
+    SocialcontentSettings,
+  ),
+  'socialcontent.watch.try': command(
+    ONLINE,
+    SocialcontentWatchTryInput,
+    SocialcontentWatchTryOutput,
+  ),
+  'socialcontent.work.stop': command(ONLINE, SocialcontentWorkStopInput, SocialcontentWork),
   'subscription.request_card': command(FRESH, SubscriptionRequestCardInput, SubscriptionCardOutput),
   'task.complete': command(ANYTIME, TaskCompleteInput, TaskCompleteOutput),
   'task.create': command(ANYTIME, TaskCreateInput, TaskCreateOutput),

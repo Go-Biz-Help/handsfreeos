@@ -14961,6 +14961,208 @@
         "required": ["workspaceId", "checkInId", "latitude", "longitude"]
       }
     },
+    "socialcontent.creator.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          }
+        },
+        "required": ["workspaceId", "link"]
+      }
+    },
+    "socialcontent.creator.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creatorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "study": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "creatorId", "study"]
+      }
+    },
+    "socialcontent.find.now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.idea.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ideaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["new", "saved", "used", "skipped"]
+          }
+        },
+        "required": ["workspaceId", "ideaId", "state"]
+      }
+    },
+    "socialcontent.niche.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": ["workspaceId", "name"]
+      }
+    },
+    "socialcontent.niche.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nicheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["picked", "skipped"]
+          }
+        },
+        "required": ["workspaceId", "nicheId", "state"]
+      }
+    },
+    "socialcontent.read.now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creatorId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.settings.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "networks": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            }
+          },
+          "readerUserId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watchVideos": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.watch.try": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.work.stop": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "workId"]
+      }
+    },
     "subscription.request_card": {
       "offline": {
         "freshMinutes": 30
@@ -17089,6 +17291,112 @@
           }
         },
         "required": ["workspaceId", "q", "kind"]
+      }
+    },
+    "socialcontent.creator.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["suggested", "studying", "skipped", "didnt_fit"]
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.idea.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["new", "saved", "used", "skipped"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.niche.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.overview": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.playbook.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.post.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creatorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standoutsOnly": {
+            "default": false,
+            "type": "boolean"
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          },
+          "before": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": ["workspaceId"]
       }
     }
   },

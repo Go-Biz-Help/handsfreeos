@@ -67,7 +67,8 @@ Each part is its own pull request.
    and the ideas list turns it into posts for the business.
 4. **Watching the videos.** A switch in Settings, off to start, with the notice that it uses more AI, and **Try it on a
    few videos**: the person picks up to 5 standouts and sees what watching adds, without turning the switch on.
-5. **The phone's pages.**
+5. **The phone's pages.** Built (9 Nov 2026): one row under More opening a first screen of its pages, and Creators,
+   Standouts, the Playbook, Ideas and Settings, each as the web's, with signal.
 6. **Facebook and LinkedIn.**
 7. **TikTok and YouTube**, with their popular-first sort for the all-time best.
 

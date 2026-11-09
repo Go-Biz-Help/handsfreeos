@@ -198,6 +198,19 @@ const ONLINE_COMMANDS = [
   // The bell (20261027012600): opening it sees its notifications, and pressing one, or its push, opens it.
   'notification.seen',
   'notification.read',
+  // AI Social Media Content Creator's screens (docs/socialcontent.md, part 5), with signal: a niche added, searched or
+  // skipped, a creator added from a link, ticked, skipped or studied after all, finding creators or reading someone
+  // again now, its settings, trying watching on a few videos, stopping work, and an idea saved, used or skipped.
+  'socialcontent.niche.add',
+  'socialcontent.niche.decide',
+  'socialcontent.creator.add',
+  'socialcontent.creator.decide',
+  'socialcontent.find.now',
+  'socialcontent.read.now',
+  'socialcontent.settings.save',
+  'socialcontent.watch.try',
+  'socialcontent.work.stop',
+  'socialcontent.idea.decide',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -320,6 +333,14 @@ const QUERIES = [
   // Search everything, with signal: the box, and one kind a page at a time (the search plan, stage 3).
   'search.everything',
   'search.kind',
+  // AI Social Media Content Creator's screens, with signal (part 5): what it's doing, the niches, the creators, their
+  // posts and the standouts, the Playbook and the ideas.
+  'socialcontent.overview',
+  'socialcontent.niche.list',
+  'socialcontent.creator.list',
+  'socialcontent.post.list',
+  'socialcontent.playbook.get',
+  'socialcontent.idea.list',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

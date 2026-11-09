@@ -6,9 +6,9 @@ far better than the posts around them, and works out why, so the business can pl
 The owner's decisions and the build order are in `HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`; the numbers
 below (decision 1, and so on) are its decisions. Built: the add-on, its tables, the standout math, the work queue and
 the web pages (part 1); the extension reading Instagram, with the AI helper and problem reports when a read goes wrong
-(part 2); the AI's notes, the Playbook and ideas (part 3); watching Instagram videos, opt-in (part 4); and reading
-Facebook and LinkedIn (part 6). The add-on is in `development`, offered to nobody; staff give it to a business from
-Admin → Businesses.
+(part 2); the AI's notes, the Playbook and ideas (part 3); watching Instagram videos, opt-in (part 4); the phone's
+pages (part 5); and reading Facebook and LinkedIn (part 6). The add-on is in `development`, offered to nobody; staff
+give it to a business from Admin → Businesses.
 
 ## Where things are
 
@@ -32,6 +32,7 @@ Admin → Businesses.
 | Watching a video in the reading tab                      | `apps/extension/src/research/watch.ts`                                      |
 | The web pages                                            | `apps/web/src/addons/socialcontent/`, routes under `a/socialcontent/`       |
 | What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts` |
+| The phone's pages                                        | `apps/mobile/src/addons/socialcontent/`, routes under `a/socialcontent/`    |
 | The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                     |
 
 ## How it works
@@ -92,6 +93,16 @@ Admin → Businesses.
   to the worker's `socialcontent.post.watch`, where what's said is heard (charged as speech) and the AI looks at the
   frames and reads the words. Nothing is kept but the AI's notes: the hook, what's on screen, what's said, the pacing,
   why it worked.
+- **On the phone** (part 5). Its one row at the top of More opens its first screen, which lists Creators (how many
+  are studied and wait to be ticked), Standouts (how many), the Playbook, Ideas and Settings, as the web's side menu
+  pops them out of its one row. Each page does what the web's does, at phone size: Creators has what it's doing, the
+  niches, adding a creator from a link, the three lists, and a studied creator's posts in a sheet; Standouts keeps to
+  a network (chips) or one creator (a sheet to pick from), and a link's `?network=` and `?creator=` open it that way;
+  Settings asks again in a sheet, with the notice, before watching videos is turned on, and says the extension goes
+  on a computer rather than offering the download. Nothing is kept on the phone: each screen asks with signal, says
+  it needs signal with none, and Creators and Settings ask again every half minute while they're open. Its commands
+  are online commands in the phone's contract (`packages/core/test/contract/mobile-contract.json`); the worker's
+  actions (Suggest niches, Write it again, Get ideas) go through `workerPost`, as on the web.
 
 ## When a read goes wrong
 
@@ -146,5 +157,5 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 
 ## Not yet
 
-- The phone's pages (part 5), TikTok and YouTube (part 7).
+- TikTok and YouTube (part 7).
 - LinkedIn company pages' posts (members' posts are read), and watching Facebook's and LinkedIn's videos.
