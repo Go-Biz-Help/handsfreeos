@@ -611,7 +611,7 @@ describe('liking their latest post', () => {
     vi.useFakeTimers();
     const doc = load('profile-2026.html', URL);
     const reading = readTheirPosts(doc, URL, dana, view, 6);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(15_000);
     const posts = await reading;
     expect(posts).toHaveLength(1);
     expect(posts[0]).toMatchObject({ liked: true, pictures: ['May be an image of text'] });
@@ -664,11 +664,36 @@ describe('liking their latest post', () => {
     expect(inView).toEqual([]);
   });
 
+  it('waits on posts Facebook is still loading before the AI picks from the one drawn so far', async () => {
+    vi.useFakeTimers();
+    const doc = load('profile-2026.html', URL);
+    // One of their posts is drawn and the rest are still loading (the problem reports of 8 Nov 2026 evening).
+    const box = theirPosts(doc, URL, dana)[0]!.box;
+    const loading = [...doc.querySelectorAll<HTMLElement>('[role="article"]')].filter((a) =>
+      a.querySelector('[role="status"]'),
+    );
+    expect(loading.length).toBeGreaterThan(0);
+    const inView: unknown[] = [];
+    for (const one of loading) one.scrollIntoView = (how?: unknown) => void inView.push(how);
+    setTimeout(() => box.after(box.cloneNode(true)), 6_000);
+    const reading = readTheirPosts(doc, URL, dana, view, 6);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await reading).toHaveLength(2);
+    expect(inView[0]).toEqual({ block: 'center' });
+    // As many drawn as it reads: no wait, whatever is still loading below.
+    inView.length = 0;
+    let read: unknown[] | null = null;
+    void readTheirPosts(doc, URL, dana, view, 2).then((posts) => (read = posts));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(read).toHaveLength(2);
+    expect(inView).toEqual([]);
+  });
+
   it('finds the picked post again from the top once Facebook stops drawing it (decision 138)', async () => {
     vi.useFakeTimers();
     const doc = load('profile-2026.html', URL);
     const reading = readTheirPosts(doc, URL, dana, view, 6);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(15_000);
     const [post] = await reading;
     const like = doc.querySelector<HTMLElement>('[aria-label="Remove Like"]')!;
     like.setAttribute('aria-label', 'Like');
@@ -708,7 +733,7 @@ describe('liking their latest post', () => {
     let pressed = 0;
     like.addEventListener('click', () => pressed++);
     const reading = readTheirPosts(doc, URL, dana, view, 6);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(15_000);
     const [post] = await reading;
     expect(post!.liked).toBe(false);
     const going = likeTheirPost(doc, URL, dana, { index: 0, url: post!.url });
@@ -736,7 +761,7 @@ describe('liking their latest post', () => {
     const doc = load('profile-2026.html', URL);
     const other = { id: null, username: 'sam.carter', url: `${FB}/sam.carter` };
     const reading = readTheirPosts(doc, URL, other, view, 6);
-    await vi.advanceTimersByTimeAsync(10_000);
+    await vi.advanceTimersByTimeAsync(15_000);
     expect(await reading).toEqual([]);
   });
 });

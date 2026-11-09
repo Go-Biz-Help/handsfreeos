@@ -1198,6 +1198,14 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Their other posts, still loading on Facebook (0.127.2)
+
+The problem check of 9 Nov 2026 found three Facebook warm-ups (decision 33) on 0.126.5 saying none of someone's posts
+were right to like when only one had been read: each page showed one of their posts drawn and two or more of Facebook's
+loading boxes below it, still loading, after the read's four scrolls. So the AI picked from that one post alone. The
+wait on a loading box from 0.126.6 now goes on while fewer posts are drawn than the read takes (six), anyone's, not only
+while none is. With six or more drawn, or nothing loading, it's done with after the scrolls, as before.
+
 ### Their posts, still loading on Facebook (0.126.6)
 
 The problem check of 8 Nov 2026 found a Facebook warm-up (decision 33) saying someone had no post to like while their

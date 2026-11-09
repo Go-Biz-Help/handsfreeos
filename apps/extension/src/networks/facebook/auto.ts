@@ -221,7 +221,7 @@ export function theirPosts(
   return found;
 }
 
-/** Times it waits on a post Facebook is still loading, while it hasn't drawn any posts yet. */
+/** Times it waits on a post Facebook is still loading, while it has drawn fewer posts than it reads. */
 const LOADING_WAITS = 5;
 
 /**
@@ -238,9 +238,11 @@ function postLoading(doc: Document): Element | null {
 
 /**
  * Reads the latest few posts on someone's profile that are theirs (decision 33), scrolling a little while fewer are
- * drawn, for the AI to pick one to like. With no post drawn yet, anyone's, while Facebook shows one loading, it waits on
- * that one, in view, a little longer before their profile counts as having none (the owner's problem report of 8 Nov
- * 2026: still loading after the scrolls, so their friend request went without a like).
+ * drawn, for the AI to pick one to like. While Facebook has drawn fewer posts than it reads, anyone's, and shows one
+ * still loading, it waits on that one, in view, a little longer: before their profile counts as having none (the
+ * owner's problem report of 8 Nov 2026: still loading after the scrolls, so their friend request went without a like),
+ * and before the AI picks from the one or two drawn so far (the reports of 8 Nov 2026 evening: one post read, the rest
+ * still loading, none of it right to like).
  */
 export async function readTheirPosts(
   doc: Document,
@@ -255,8 +257,8 @@ export async function readTheirPosts(
     await pause(1_200);
     found = theirPosts(doc, href, profile);
   }
-  for (let wait = 0; found.length === 0 && wait < LOADING_WAITS; wait++) {
-    if (postBoxes(mainOf(doc)).length > 0) break;
+  for (let wait = 0; found.length < most && wait < LOADING_WAITS; wait++) {
+    if (postBoxes(mainOf(doc)).length >= most) break;
     const loading = postLoading(doc);
     if (!loading) break;
     (loading as HTMLElement).scrollIntoView?.({ block: 'center' });
