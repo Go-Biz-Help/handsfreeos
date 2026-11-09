@@ -59985,6 +59985,7 @@ export interface operations {
                 "application/json": {
                     progress: {
                         accounts?: number;
+                        notOpened?: number;
                         now?: string;
                         posts?: number;
                         profiles?: number;
@@ -60058,6 +60059,7 @@ export interface operations {
                         progress: {
                             accounts?: number;
                             didntFit?: number;
+                            notOpened?: number;
                             now?: string;
                             posts?: number;
                             profiles?: number;
@@ -92287,6 +92289,7 @@ export interface operations {
                             progress: {
                                 accounts?: number;
                                 didntFit?: number;
+                                notOpened?: number;
                                 now?: string;
                                 posts?: number;
                                 profiles?: number;

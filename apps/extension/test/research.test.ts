@@ -93,6 +93,8 @@ interface Held {
   inFront?: string[];
   /** The person isn't away, so it never comes in front. */
   notAway?: boolean;
+  /** What each profile's page holds itself (the tab's `profileHeld`). */
+  profiles?: Record<string, { creator: unknown; posts: unknown[] }>;
 }
 
 function tabWith(answers: Answers, warnings: string[] = [], held: Held = {}) {
@@ -127,6 +129,8 @@ function tabWith(answers: Answers, warnings: string[] = [], held: Held = {}) {
           loaded: held.loaded ?? [],
         };
       if (name === 'scroll') return { moved: true, atEnd: false };
+      if (name === 'profileHeld')
+        return held.profiles?.[args[0] as string] ?? { creator: null, posts: [] };
       if (name === 'get') {
         const path = args[0] as string;
         asked.push(path);
@@ -351,6 +355,37 @@ describe('reading a creator’s posts', () => {
       .map((c) => c.args[2] as Record<string, unknown>);
     expect(said[0]).toMatchObject({ now: 'Reading @tidy.home.tips’s profile' });
     expect(said.at(-1)).toMatchObject({ now: 'Done', profiles: 1, posts: 2 });
+  });
+
+  it('reads their posts from their page when Instagram’s list of them isn’t there', async () => {
+    const tab = tabWith(
+      {
+        '/api/v1/users/web_profile_info/': { json: profileJson('tidy.home.tips') },
+        '/api/v1/feed/user/': { status: 404, json: { message: 'not found' } },
+      },
+      [],
+      {
+        profiles: {
+          'tidy.home.tips': {
+            creator: null,
+            posts: [ig.postFrom(item('PAGE001', 3))!, ig.postFrom(item('PAGE002', 60))!],
+          },
+        },
+      },
+    );
+    const end = await INSTAGRAM_READS_BY_KIND.posts({
+      businessId: BUSINESS,
+      work: work({}),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    const saved = world.calls
+      .filter((c) => c.name === 'postsSave')
+      .flatMap((c) => c.args[2] as { postKey: string }[]);
+    // Since is 30 days back: the 60-day-old one is left out.
+    expect(saved.map((p) => p.postKey)).toEqual(['PAGE001']);
+    const sent = world.calls.find((c) => c.name === 'report')!.args[1] as { note: string };
+    expect(sent.note).toContain('read from their page');
   });
 
   it('says a private account’s posts can’t be read', async () => {
@@ -587,6 +622,78 @@ describe('finding creators when hashtags’ pages are gone', () => {
       accounts: 1,
       profiles: 1,
     });
+  });
+
+  it('reads a profile from its page when Instagram’s answer says it isn’t there', async () => {
+    const tab = tabWith(
+      {
+        ...nobody,
+        '/api/v1/web/search/topsearch/': { json: { users: [{ user: { username: 'page.only' } }] } },
+      },
+      [],
+      {
+        profiles: {
+          'page.only': {
+            creator: {
+              id: null,
+              username: 'page.only',
+              name: 'Page Only',
+              bio: 'CRM tips',
+              followers: 12_000,
+              private: false,
+              lastPostAt: new Date(day(3) * 1000).toISOString(),
+              posts: 200,
+            },
+            posts: [],
+          },
+        },
+      },
+    );
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['crm']),
+      tab: tab as never,
+    });
+    expect(end).toEqual({ failure: null });
+    expect(world.calls.find((c) => c.name === 'found')!.args[2]).toEqual([
+      {
+        handle: 'page.only',
+        name: 'Page Only',
+        bio: 'CRM tips',
+        followers: 12_000,
+        lastPostAt: new Date(day(3) * 1000).toISOString(),
+      },
+    ]);
+  });
+
+  it('says so and reports when Instagram wouldn’t open any profile, rather than finishing with nobody', async () => {
+    const tab = tabWith({
+      ...nobody,
+      '/api/v1/web/search/topsearch/': {
+        json: { users: [{ user: { username: 'one.gone' } }, { user: { username: 'two.gone' } }] },
+      },
+      '/api/v1/users/web_profile_info/': {
+        status: 404,
+        json: { message: 'User not found', status: 'fail' },
+      },
+    });
+    const end = await INSTAGRAM_READS_BY_KIND.find({
+      businessId: BUSINESS,
+      work: findWork(['crm']),
+      tab: tab as never,
+    });
+    expect(end.failure).toContain('wouldn’t open any of the 2 profiles');
+    expect(world.calls.some((c) => c.name === 'found')).toBe(false);
+    const sent = world.calls.find((c) => c.name === 'report')!.args[1] as {
+      note: string;
+      found: Record<string, unknown>;
+    };
+    expect(sent.note).toContain('404 · User not found');
+    expect(sent.found).toMatchObject({ accounts: 2, notOpened: 2, profilesRead: 0 });
+    const said = world.calls
+      .filter((c) => c.name === 'progress')
+      .map((c) => c.args[2] as Record<string, unknown>);
+    expect(said.at(-1)).toMatchObject({ accounts: 2, profiles: 0, notOpened: 2 });
   });
 
   it('reports, and says so, when not one search showed anyone', async () => {

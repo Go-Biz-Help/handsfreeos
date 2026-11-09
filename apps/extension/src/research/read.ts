@@ -114,10 +114,18 @@ export interface ReadEnd {
   readonly halt?: 'day' | 'while';
 }
 
-/** A read's step: what it got, or how it ended. `gone`: the network says it isn't there. */
+/**
+ * A read's step: what it got, or how it ended. `gone`: the network says it isn't there, and `why`, what it answered
+ * (its status, its own short words, the names of its answer's parts), for a report.
+ */
 export type Got<T> =
   | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly end: ReadEnd; readonly gone?: boolean };
+  | {
+      readonly ok: false;
+      readonly end: ReadEnd;
+      readonly gone?: boolean;
+      readonly why?: string;
+    };
 
 /** A network's name as Social Outreach keeps its warnings (they're the same networks). */
 const platformOf = (network: ContentNetwork) => network as Platform;

@@ -140,7 +140,19 @@ async function answer<T>(
           troubleWords(got?.json) ?? 'Please wait a few minutes before you try again.',
         ]),
       };
-    if (trouble === 'not_there') return { ok: false, end: { failure: null }, gone: true };
+    if (trouble === 'not_there')
+      return {
+        ok: false,
+        end: { failure: null },
+        gone: true,
+        why: [
+          String(got?.status ?? 0),
+          troubleWords(got?.json)?.slice(0, 80),
+          partsOf(got?.json).join(',') || null,
+        ]
+          .filter(Boolean)
+          .join(' · '),
+      };
     // Once the helper cleared the way and it still didn't come, it's reported with what the helper did.
     const run: HelperRun = before ?? (await helpWith(ctx, read, note));
     if (run.cleared && !before) {
@@ -157,15 +169,30 @@ async function answer<T>(
   return { ok: false, end: couldntRead() };
 }
 
-/** Someone's profile, opened and read. */
+/** Someone's profile as read: from Instagram's answer, or from their page when the answer said "not there". */
+interface ReadCreator {
+  readonly creator: InstagramCreator;
+  /** Read from their page: with the posts it holds. */
+  readonly page: { readonly posts: readonly PostIn[] } | null;
+}
+
+/**
+ * Someone's profile, opened and read: Instagram's answer, or, when it says they aren't there, what their page itself
+ * holds (the data it came with, and its description). `gone` only when neither has them.
+ */
 async function readCreator(
   ctx: ReadCtx,
   username: string,
   read: ReadKind,
-): Promise<Got<InstagramCreator>> {
+): Promise<Got<ReadCreator>> {
   const opened = await openPage(ctx, profilePage(username));
   if (!opened.ok) return opened;
-  return answer(ctx, read, profilePath(username), creatorFrom, 'Profile');
+  const got = await answer(ctx, read, profilePath(username), creatorFrom, 'Profile');
+  if (got.ok) return { ok: true, value: { creator: got.value, page: null } };
+  if (!got.gone) return got;
+  const held = await ctx.tab.hands('profileHeld', username);
+  if (!held?.creator) return got;
+  return { ok: true, value: { creator: held.creator, page: { posts: held.posts } } };
 }
 
 const shown = (handle: string) => `@${handle.replace(/^@/, '')}`;
@@ -311,18 +338,31 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
   };
   const toRead = Math.min(work.most, gathered.size);
   let read = 0;
+  /** Profiles Instagram wouldn't open, what it answered for the first, and those read from their page. */
+  let notOpened = 0;
+  let notOpenedWhy = '';
+  let fromPage = 0;
   for (const account of gathered.values()) {
     if (read >= work.most) break;
-    await progress.say({ now: `Reading profiles: ${read + 1} of ${toRead}`, profiles: read });
+    await progress.say({
+      now: `Reading profiles: ${read + notOpened + 1} of ${toRead}`,
+      profiles: read,
+      ...(notOpened ? { notOpened } : {}),
+    });
     const got = await readCreator(ctx, account.username, 'find');
     if (!got.ok) {
-      if (got.gone) continue;
+      if (got.gone) {
+        notOpened++;
+        notOpenedWhy ||= got.why ?? '';
+        continue;
+      }
       await send();
-      await progress.say({ profiles: read }, true);
+      await progress.say({ profiles: read, ...(notOpened ? { notOpened } : {}) }, true);
       return got.end;
     }
     read++;
-    const c = got.value;
+    if (got.value.page) fromPage++;
+    const c = got.value.creator;
     if (c.private) continue;
     found.push({
       handle: c.username,
@@ -334,7 +374,35 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
     if (found.length >= FOUND_EVERY) await send();
   }
   await send();
-  await progress.say({ now: 'Done', searched, accounts: looked.size, profiles: read }, true);
+  const tally = {
+    searched,
+    accounts: looked.size,
+    profiles: read,
+    ...(notOpened ? { notOpened } : {}),
+  };
+  // Profiles Instagram wouldn't open: reported, with what it answered and what the searches gave, so it can be fixed.
+  if (notOpened && notOpened >= read)
+    await report(
+      ctx,
+      'find',
+      `Find: Instagram wouldn’t open ${notOpened} of the ${read + notOpened} profiles the searches showed (it answered ${notOpenedWhy || 'nothing'}).`,
+      null,
+      {
+        ...seen,
+        notAway,
+        profilesRead: read,
+        notOpened,
+        fromPage,
+        loaded: [...loadedSeen].slice(0, 20),
+      },
+    );
+  if (!read && notOpened) {
+    await progress.say({ now: 'Instagram wouldn’t open their profiles', ...tally }, true);
+    return {
+      failure: `Instagram wouldn’t open any of the ${notOpened} profiles its searches showed, so nobody could be suggested. HandsFreeOS got a report so it can be fixed. Meanwhile, add creators you know with Add a creator.`,
+    };
+  }
+  await progress.say({ now: 'Done', ...tally }, true);
   return { failure: null };
 }
 
@@ -444,10 +512,8 @@ async function profile(ctx: ReadCtx): Promise<ReadEnd> {
   await progress.say({ now: `Reading ${shown(creator.handle)}’s profile` }, true);
   const got = await readCreator(ctx, creator.handle, 'profile');
   if (!got.ok)
-    return got.gone
-      ? { failure: `Instagram says ${shown(creator.handle)} isn’t there anymore.` }
-      : got.end;
-  const c = got.value;
+    return got.gone ? await notOpenedEnd(ctx, 'profile', creator.handle, got.why) : got.end;
+  const c = got.value.creator;
   await creatorRead(ctx.businessId, creator.id, {
     name: c.name,
     bio: c.bio,
@@ -487,10 +553,9 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
   await progress.say({ now: `Reading ${shown(creator.handle)}’s profile` }, true);
   const got = await readCreator(ctx, creator.handle, 'posts');
   if (!got.ok)
-    return got.gone
-      ? { failure: `Instagram says ${shown(creator.handle)} isn’t there anymore.` }
-      : got.end;
-  const c = got.value;
+    return got.gone ? await notOpenedEnd(ctx, 'posts', creator.handle, got.why) : got.end;
+  const c = got.value.creator;
+  const onPage = got.value.page;
   await creatorRead(ctx.businessId, creator.id, {
     name: c.name,
     bio: c.bio,
@@ -501,7 +566,10 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     return {
       failure: `${shown(creator.handle)}’s account is private, so its posts can’t be read.`,
     };
+  const since = ctx.work.since ?? new Date(Date.now() - READ_BACK_MS).toISOString();
   if (!c.id) {
+    if (onPage?.posts.length)
+      return pagePosts(ctx, creator, onPage.posts, since, progress, 'no account id');
     await report(
       ctx,
       'posts',
@@ -510,7 +578,6 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     );
     return couldntRead();
   }
-  const since = ctx.work.since ?? new Date(Date.now() - READ_BACK_MS).toISOString();
   let next = await cursorFor(ctx.work.id);
   let waiting: PostIn[] = [];
   let kept = 0;
@@ -524,6 +591,12 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     const read = await answer(ctx, 'posts', postsPath(c.id, next), postsFrom, 'Posts', false);
     if (!read.ok) {
       await save();
+      // Not one page of their posts came: what their profile page holds, when it holds any.
+      if (read.gone && page === 0 && !kept) {
+        const held = onPage ?? (await ctx.tab.hands('profileHeld', creator.handle));
+        if (held?.posts.length)
+          return pagePosts(ctx, creator, held.posts, since, progress, read.why ?? 'not there');
+      }
       await progress.say({ posts: kept }, true);
       return read.gone ? { failure: null } : read.end;
     }
@@ -540,6 +613,51 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
   await keepCursor(ctx.work.id, null);
   await progress.say({ now: 'Done', posts: kept }, true);
   return { failure: null };
+}
+
+/**
+ * Their posts as their profile page holds them (its first dozen or so), when Instagram's list of their posts didn't
+ * come: saved, and reported, so the list can be fixed.
+ */
+async function pagePosts(
+  ctx: ReadCtx,
+  creator: { id: string; handle: string },
+  posts: readonly PostIn[],
+  since: string,
+  progress: Progress,
+  why: string,
+): Promise<ReadEnd> {
+  const these = postsSince(posts, since);
+  for (let i = 0; i < these.length; i += LIMITS.postsPerSave)
+    await postsSave(ctx.businessId, creator.id, these.slice(i, i + LIMITS.postsPerSave));
+  await report(
+    ctx,
+    'posts',
+    `Posts: Instagram’s list of their posts didn’t come (${why}), so ${these.length} were read from their page.`,
+    null,
+    { pagePosts: posts.length, kept: these.length },
+  );
+  await progress.say({ now: 'Done', profiles: 1, posts: these.length }, true);
+  return { failure: null };
+}
+
+/** A profile Instagram wouldn't open, its page holding nothing either: reported, and said so. */
+async function notOpenedEnd(
+  ctx: ReadCtx,
+  read: ReadKind,
+  handle: string,
+  why: string | undefined,
+): Promise<ReadEnd> {
+  await report(
+    ctx,
+    read,
+    `Profile: Instagram wouldn’t open it (it answered ${why || 'nothing'}), and the page held nothing to read.`,
+    null,
+    {},
+  );
+  return {
+    failure: `Instagram wouldn’t open ${shown(handle)}’s profile. It may be gone or renamed. HandsFreeOS got a report in case Instagram changed something.`,
+  };
 }
 
 // ------------------------------------------------------------------------------------------------ watch a video

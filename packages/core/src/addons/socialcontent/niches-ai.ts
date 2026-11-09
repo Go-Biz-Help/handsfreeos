@@ -123,6 +123,13 @@ export function cleanSearches(raw: Record<string, readonly string[]>): Searches 
 }
 
 /** The niches as kept: names cleaned, none the same as one already there or each other, at most 5 similar. */
+/**
+ * Whether the business has its own niche still: one that isn't skipped. A skipped one doesn't count, so the AI names
+ * a new one to take its place (the owner, 9 Nov 2026: "I really need to grow as my niche").
+ */
+export const hasOwnNiche = (niches: readonly { own: boolean; state: string }[]): boolean =>
+  niches.some((n) => n.own && n.state !== 'skipped');
+
 export function checkedNiches(
   answer: NichesAnswer,
   already: readonly string[],

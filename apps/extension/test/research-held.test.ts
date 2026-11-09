@@ -5,7 +5,8 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
-import { HELD_MOST, heldOn } from '../src/research/held';
+import { HELD_MOST, heldOn, profileHeldOn } from '../src/research/held';
+import { descriptionFacts } from '../src/research/instagram';
 
 const IG = 'https://www.instagram.com';
 const HREF = `${IG}/explore/search/keyword/?q=crm`;
@@ -78,5 +79,103 @@ describe('what the search page holds', () => {
     const kept = heldOn(doc, HREF, many).loaded;
     expect(kept).toHaveLength(HELD_MOST.loaded);
     expect(kept.at(-1)).toBe(`/api/v1/thing/${HELD_MOST.loaded + 4}/`);
+  });
+});
+
+describe('what a profile page holds', () => {
+  const NOW = Math.round(Date.UTC(2026, 10, 8, 12) / 1000);
+  /** Deeper than an answer is looked through, as a page's data nests. */
+  const nested = (inner: unknown, levels: number): unknown =>
+    levels ? { require: [['ScheduledServerJS', { __bbox: nested(inner, levels - 1) }]] } : inner;
+
+  it('reads its description: followers, posts and name', () => {
+    expect(
+      descriptionFacts(
+        '12.5K Followers, 300 Following, 1,234 Posts - See Instagram photos and videos from Jane Doe (@jane.doe)',
+      ),
+    ).toEqual({ followers: 12_500, posts: 1_234, name: 'Jane Doe' });
+    expect(descriptionFacts('2M Followers, 1 Following, 87 Posts')).toMatchObject({
+      followers: 2_000_000,
+      posts: 87,
+    });
+    expect(descriptionFacts(null)).toEqual({ followers: null, posts: null, name: null });
+  });
+
+  it('finds them and their posts deep in the data the page came with', () => {
+    const doc = pageWith(
+      `<meta name="description" content="9,100 Followers, 10 Following, 40 Posts - See Instagram photos and videos from Crm Coach (@crm.coach)">` +
+        data(
+          nested(
+            {
+              user: {
+                pk: '777',
+                username: 'crm.coach',
+                full_name: 'CRM Coach',
+                biography: 'Sales systems',
+                follower_count: 9_123,
+                is_private: false,
+              },
+              edges: [
+                {
+                  node: {
+                    code: 'NEWER01',
+                    taken_at: NOW - 2 * 86_400,
+                    media_type: 1,
+                    like_count: 50,
+                    user: { username: 'crm.coach' },
+                  },
+                },
+                {
+                  node: {
+                    code: 'PINNED1',
+                    taken_at: NOW - 1 * 86_400,
+                    media_type: 1,
+                    timeline_pinned_user_ids: [1],
+                    user: { username: 'crm.coach' },
+                  },
+                },
+                {
+                  node: {
+                    code: 'OTHER01',
+                    taken_at: NOW,
+                    media_type: 1,
+                    user: { username: 'someone.else' },
+                  },
+                },
+              ],
+            },
+            9,
+          ),
+        ),
+    );
+    const held = profileHeldOn(doc, 'crm.coach');
+    expect(held.creator).toEqual({
+      id: '777',
+      username: 'crm.coach',
+      name: 'CRM Coach',
+      bio: 'Sales systems',
+      followers: 9_123,
+      private: false,
+      lastPostAt: new Date((NOW - 2 * 86_400) * 1000).toISOString(),
+      posts: 40,
+    });
+    expect(held.posts.map((p) => p.postKey)).toEqual(['PINNED1', 'NEWER01']);
+  });
+
+  it('falls back to its description when its data doesn’t hold them, and to nothing at all', () => {
+    const doc = pageWith(
+      `<meta property="og:description" content="15K Followers, 2 Following, 300 Posts - See Instagram photos and videos from Big One (@big.one)">`,
+    );
+    expect(profileHeldOn(doc, 'big.one').creator).toEqual({
+      id: null,
+      username: 'big.one',
+      name: 'Big One',
+      bio: null,
+      followers: 15_000,
+      private: false,
+      lastPostAt: null,
+      posts: 300,
+    });
+    expect(profileHeldOn(pageWith(''), 'nobody.here')).toEqual({ creator: null, posts: [] });
   });
 });

@@ -13,6 +13,7 @@ import {
 } from '../../src/server';
 import { socialcontentAddon } from '../../src/addons/socialcontent/manifest';
 import { socialcontentAddonServer } from '../../src/addons/socialcontent/server';
+import { hasOwnNiche } from '../../src/addons/socialcontent/niches-ai';
 import { momentAgo, progressFacts } from '../../src/addons/socialcontent/words';
 
 describe('AI Social Media Content Creator', () => {
@@ -70,5 +71,21 @@ describe('what the reading computer is doing, in words', () => {
     ]);
     // Every search done: no "of".
     expect(progressFacts({ searched: ['#crm'], searches: 1 })).toEqual(['Searched 1: #crm']);
+    expect(progressFacts({ accounts: 30, profiles: 0, notOpened: 30 })).toEqual([
+      'Looked at 30 accounts',
+      'Couldn’t open 30 profiles',
+    ]);
+  });
+
+  it('counts only an own niche that isn’t skipped, so a new one takes a skipped one’s place', () => {
+    expect(hasOwnNiche([])).toBe(false);
+    expect(hasOwnNiche([{ own: true, state: 'picked' }])).toBe(true);
+    expect(hasOwnNiche([{ own: true, state: 'suggested' }])).toBe(true);
+    expect(
+      hasOwnNiche([
+        { own: true, state: 'skipped' },
+        { own: false, state: 'picked' },
+      ]),
+    ).toBe(false);
   });
 });

@@ -1156,7 +1156,11 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   been away for 2 minutes (decision 120). When not one search showed anyone, it's reported (`read.find`, with the
   answers the page loaded, by their names only) and the search ends saying so, never as done with nobody (0.128.0).
   Also a creator's profile; and a studied creator's posts back 12 months (60 days past the last read on a weekly
-  re-read), 12 at a time, saved as it goes
+  re-read), 12 at a time, saved as it goes. When Instagram's answer for a profile or its posts says it isn't there
+  (404), the profile page itself is read instead (the tab's `profileHeld` hand: the data the page came with, then its
+  description for followers and name), and those posts are saved. Profiles that wouldn't open at all are counted
+  (`notOpened`); when none of a search's profiles opened, or most didn't, it's reported (`read.find`, with Instagram's
+  status and words) and the search ends saying so, never as done (0.128.1)
   (`socialcontent.posts.save`). It reads the answers Instagram's own pages load, asked for from inside the reading tab
   on your signed-in account (`src/research/instagram.ts`), opening each page as you would.
 - **What it reads on Facebook and LinkedIn** (`src/research/page-read.ts`): the same three things, from the pages
