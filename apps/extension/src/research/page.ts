@@ -16,14 +16,16 @@
  * - `watch`: a standout video watched for the AI (./watch.ts): a few frames from it, and its sound.
  * - `held`: what the page holds whether or not it's drawn, for Instagram's search page behind another window: the
  *   accounts in the data it came with (its own scripts' JSON, never the person's own account), the posts it links, and
- *   the answers it loaded from its own site, as the page asked for them.
+ *   the answers it loaded from its own site, as the page asked for them. `profileHeld`: on someone's profile page,
+ *   their profile and posts as the page holds them, for when Instagram's answer says they aren't there.
  * - `view` and `move`: the AI helper's (core's addons/socialcontent/helper.ts), as Social Outreach's steps have
  *   (src/networks/helper-view.ts): a view of the page with everything a person wrote hidden, and one move on it that
  *   clears the way. Never a press: a read has no button of its own.
  */
 import { kitHere } from '../networks';
 import { HelperHands, type HelperMoveAsk, type HelperMoveDone } from '../networks/helper-view';
-import { heldOn, type ResearchHeld } from './held';
+import { heldOn, profileHeldOn, type ResearchHeld } from './held';
+import type { InstagramPageProfile } from './instagram';
 import { INSTAGRAM_APP_ID, INSTAGRAM_READS } from './instagram';
 import { watchVideo, type WatchAsk, type Watched } from './watch';
 
@@ -63,17 +65,27 @@ export interface ResearchHands {
   move(ask: HelperMoveAsk): Promise<HelperMoveDone>;
   watch(ask: WatchAsk): Promise<Watched>;
   held(): ResearchHeld;
+  /** On someone's profile page: their profile and posts as the page holds them. */
+  profileHeld(username: string): InstagramPageProfile;
 }
 
 /** What each network's pages send with what they ask for. */
 function headersFor(platform: string): Record<string, string> | null {
   if (platform !== 'instagram') return null;
   const csrf = /(?:^|;\s*)csrftoken=([^;]+)/.exec(document.cookie)?.[1];
+  // The claim Instagram's own pages send with each answer they ask for, kept for the tab by the page itself.
+  let claim: string | null = null;
+  try {
+    claim = sessionStorage.getItem('www-claim-v2');
+  } catch {
+    // No storage here: asked for without it.
+  }
   return {
     accept: '*/*',
     'x-ig-app-id': INSTAGRAM_APP_ID,
     'x-requested-with': 'XMLHttpRequest',
     ...(csrf ? { 'x-csrftoken': csrf } : {}),
+    ...(claim && /^[\w:.=+/-]{1,200}$/.test(claim) ? { 'x-ig-www-claim': claim } : {}),
   };
 }
 
@@ -140,5 +152,6 @@ if (kit && !here.hfosResearch) {
       }
       return heldOn(document, location.href, entries);
     },
+    profileHeld: (username) => profileHeldOn(document, username),
   };
 }

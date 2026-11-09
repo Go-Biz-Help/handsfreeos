@@ -10,6 +10,7 @@
  */
 import {
   checkedNiches,
+  hasOwnNiche,
   cleanSearches,
   NICHES_SCHEMA,
   NICHES_SYSTEM,
@@ -28,15 +29,19 @@ import { AiAskError, askStructured } from '../../ai/ask';
 import { businessText } from './business';
 import type { AddonScopeContext, AddonSubscriber, AddonWorkerAction } from '../types';
 
-/** The niches already kept here: their names, and whether one is the business's own. */
+/**
+ * The niches already kept here: their names, and whether the business has its own one still. A skipped own niche
+ * doesn't count, so the AI names a new one to take its place (the owner, 9 Nov 2026: "I really need to grow as my
+ * niche"; `socialcontent.niches.put` moves the skipped one among the similar ones).
+ */
 async function nichesHere(ctx: AddonScopeContext): Promise<{ names: string[]; hasOwn: boolean }> {
   const found = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ name: string; own: boolean }>(
+    rows<{ name: string; own: boolean; state: string }>(
       tx,
-      sql`select name, own from addon_socialcontent.niches where workspace_id = ${ctx.scope.workspaceId}`,
+      sql`select name, own, state from addon_socialcontent.niches where workspace_id = ${ctx.scope.workspaceId}`,
     ),
   );
-  return { names: found.map((f) => f.name), hasOwn: found.some((f) => f.own) };
+  return { names: found.map((f) => f.name), hasOwn: hasOwnNiche(found) };
 }
 
 /** Has the AI suggest the business's niche and ones like it. How many new ones were kept. */

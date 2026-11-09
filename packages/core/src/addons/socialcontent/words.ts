@@ -59,6 +59,7 @@ export function progressFacts(
     accounts?: number;
     profiles?: number;
     posts?: number;
+    notOpened?: number;
     suggested?: number;
     didntFit?: number;
   } | null,
@@ -72,6 +73,7 @@ export function progressFacts(
   if (p.accounts) facts.push(`Looked at ${count(p.accounts, 'account')}`);
   if (p.profiles) facts.push(`Read ${count(p.profiles, 'profile')}`);
   if (p.posts) facts.push(`Read ${count(p.posts, 'post')}`);
+  if (p.notOpened) facts.push(`Couldn’t open ${count(p.notOpened, 'profile')}`);
   if (p.suggested || p.didntFit)
     facts.push(
       [
@@ -256,7 +258,7 @@ export const SOCIALCONTENT_WORDS = {
     readerStop: 'Stop reading',
     managersOnly: 'Only an owner or admin of this business changes these.',
     extensionHow:
-      'Install the extension (0.128.0 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
+      'Install the extension (0.128.1 or later) in Chrome on that computer, sign in to it with your HandsFreeOS account, and stay signed in there to each network it studies (Instagram, Facebook, LinkedIn). It reads while Chrome is open, in a window of its own.',
     getExtension: 'Get the extension',
     watchSaved: (on: boolean) =>
       on ? 'Watching is on: new standout videos are watched as they’re found.' : 'Watching is off.',

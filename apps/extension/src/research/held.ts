@@ -2,10 +2,17 @@
  * What a reading tab's page holds whether or not it's drawn (./page.ts `held`; docs/socialcontent.md, "Finding
  * creators"), for Instagram's search page behind another window, where Chrome draws nothing: the accounts in the data
  * the page came with (its own scripts' JSON, never the person's own account), the posts it links, and the answers it
- * loaded from its own site, as the page asked for them.
+ * loaded from its own site, as the page asked for them. On someone's profile page, `profileHeldOn`: their profile and
+ * posts in the data the page came with, and what its description says, for when Instagram's answer says they aren't
+ * there.
  */
 import { ownOf } from '../networks/instagram/read';
-import { accountsFrom, type InstagramFoundAccount } from './instagram';
+import {
+  accountsFrom,
+  pageProfileFrom,
+  type InstagramFoundAccount,
+  type InstagramPageProfile,
+} from './instagram';
 
 /** What `held` finds: accounts in the page's own data, the posts it links (their codes), and the answers it loaded. */
 export interface ResearchHeld {
@@ -38,7 +45,7 @@ export function heldOn(
     } catch {
       continue;
     }
-    for (const account of accountsFrom(json))
+    for (const account of accountsFrom(json, true))
       if (account.username !== own && !accounts.has(account.username))
         accounts.set(account.username, account);
     if (accounts.size >= HELD_MOST.accounts) break;
@@ -71,4 +78,29 @@ export function heldOn(
     posts: [...posts],
     loaded: [...loaded].slice(-HELD_MOST.loaded),
   };
+}
+
+/** The page's own data that mentions some words: its scripts' JSON, each read once, the biggest let go. */
+function pageData(doc: Document, mentions: string): unknown[] {
+  const out: unknown[] = [];
+  const needle = mentions.toLowerCase();
+  for (const script of doc.querySelectorAll('script[type="application/json"]')) {
+    const text = script.textContent ?? '';
+    if (text.length > HELD_MOST.scriptChars || !text.toLowerCase().includes(needle)) continue;
+    try {
+      out.push(JSON.parse(text));
+    } catch {
+      // Not data after all.
+    }
+  }
+  return out;
+}
+
+/** Someone's profile and posts as their profile page holds them (`profileHeld`). */
+export function profileHeldOn(doc: Document, username: string): InstagramPageProfile {
+  const description =
+    doc.querySelector('meta[name="description"]')?.getAttribute('content') ??
+    doc.querySelector('meta[property="og:description"]')?.getAttribute('content') ??
+    null;
+  return pageProfileFrom(pageData(doc, `"${username}"`), username, description);
 }

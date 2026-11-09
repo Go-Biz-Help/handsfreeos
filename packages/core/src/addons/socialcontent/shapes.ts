@@ -225,6 +225,8 @@ export const WorkProgress = z.object({
   accounts: z.number().int().min(0).max(100_000).optional(),
   profiles: z.number().int().min(0).max(100_000).optional(),
   posts: z.number().int().min(0).max(1_000_000).optional(),
+  /** Profiles Instagram wouldn't open (it said they weren't there, and their page held nothing to read). */
+  notOpened: z.number().int().min(0).max(100_000).optional(),
   /** HandsFreeOS's own: who a search suggested, and who didn't fit. */
   suggested: z.number().int().min(0).max(100_000).optional(),
   didntFit: z.number().int().min(0).max(100_000).optional(),
