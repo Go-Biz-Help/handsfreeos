@@ -1158,7 +1158,10 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   Also a creator's profile; and a studied creator's posts back 12 months (60 days past the last read on a weekly
   re-read), 12 at a time, saved as it goes. When Instagram's answer for a profile or its posts says it isn't there
   (404), the profile page itself is read instead (the tab's `profileHeld` hand: the data the page came with, then its
-  description for followers and name), and those posts are saved. Profiles that wouldn't open at all are counted
+  description for followers, name and bio), and those posts are saved. When they last posted comes from the codes of
+  the posts the page's grid links to (a post's number begins with when it was made, `postedAtOf`); the grid may draw
+  late or only on screen, so it looks again a moment later, then in front only while you've been away (decision 120).
+  A search where no profile read said when they last posted is reported (0.128.2). Profiles that wouldn't open at all are counted
   (`notOpened`); when none of a search's profiles opened, or most didn't, it's reported (`read.find`, with Instagram's
   status and words) and the search ends saying so, never as done (0.128.1)
   (`socialcontent.posts.save`). It reads the answers Instagram's own pages load, asked for from inside the reading tab

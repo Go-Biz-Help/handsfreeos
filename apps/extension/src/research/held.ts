@@ -27,6 +27,24 @@ export const HELD_MOST = { accounts: 60, posts: 24, loaded: 40, scriptChars: 3_0
 /** A post's code in a link to it: /p/<code>/, /reel/<code>/, or either under someone's name. */
 const POST_LINK = /^\/(?:[\w.]+\/)?(?:p|reel)\/([\w-]+)\/?/;
 
+/** The codes of the posts a page links to, each once, at most `HELD_MOST.posts`. */
+function postLinks(doc: Document, href: string): string[] {
+  const origin = new URL(href).origin;
+  const posts = new Set<string>();
+  for (const a of doc.querySelectorAll('a[href]')) {
+    let url: URL;
+    try {
+      url = new URL(a.getAttribute('href')!, href);
+    } catch {
+      continue;
+    }
+    const code = url.origin === origin ? POST_LINK.exec(url.pathname)?.[1] : undefined;
+    if (code) posts.add(code);
+    if (posts.size >= HELD_MOST.posts) break;
+  }
+  return [...posts];
+}
+
 /** What the page holds whether or not it's drawn (`held`). */
 export function heldOn(
   doc: Document,
@@ -50,18 +68,7 @@ export function heldOn(
         accounts.set(account.username, account);
     if (accounts.size >= HELD_MOST.accounts) break;
   }
-  const posts = new Set<string>();
-  for (const a of doc.querySelectorAll('a[href]')) {
-    let url: URL;
-    try {
-      url = new URL(a.getAttribute('href')!, href);
-    } catch {
-      continue;
-    }
-    const code = url.origin === origin ? POST_LINK.exec(url.pathname)?.[1] : undefined;
-    if (code) posts.add(code);
-    if (posts.size >= HELD_MOST.posts) break;
-  }
+  const posts = postLinks(doc, href);
   const loaded = new Set<string>();
   for (const { name } of entries) {
     let url: URL;
@@ -75,7 +82,7 @@ export function heldOn(
   }
   return {
     accounts: [...accounts.values()].slice(0, HELD_MOST.accounts),
-    posts: [...posts],
+    posts,
     loaded: [...loaded].slice(-HELD_MOST.loaded),
   };
 }
@@ -96,11 +103,19 @@ function pageData(doc: Document, mentions: string): unknown[] {
   return out;
 }
 
-/** Someone's profile and posts as their profile page holds them (`profileHeld`). */
+/**
+ * Someone's profile and posts as their profile page holds them (`profileHeld`): its data and description, and the
+ * posts its grid links to, whose codes say when they posted.
+ */
 export function profileHeldOn(doc: Document, username: string): InstagramPageProfile {
   const description =
     doc.querySelector('meta[name="description"]')?.getAttribute('content') ??
     doc.querySelector('meta[property="og:description"]')?.getAttribute('content') ??
     null;
-  return pageProfileFrom(pageData(doc, `"${username}"`), username, description);
+  return pageProfileFrom(
+    pageData(doc, `"${username}"`),
+    username,
+    description,
+    postLinks(doc, doc.URL),
+  );
 }

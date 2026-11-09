@@ -14607,7 +14607,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again. Anyone already known is left as they are, but for their numbers.
+         * Extension: the creators a search for a niche found on a network, with what each one’s profile showed. Those with 5,000+ followers who posted in the last 30 days are suggested to tick; the rest are kept as not fitting, so they aren’t read again (but for those whose profile didn’t say when they last posted). Anyone already known is left as they are, but for their numbers, and one who didn’t fit and does now is suggested.
          * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.creators.found.
          */
         post: operations["command_socialcontent_creators_found"];

@@ -552,5 +552,60 @@ describe('the business’s own niche', () => {
       state: 'skipped',
     });
     expect(niches.find((n: Any) => n.name === 'SaaS growth')).toMatchObject({ state: 'suggested' });
+    // Skipped again, and the AI names one already kept as its own: that one is theirs now, ticked.
+    const second = niches.find((n: Any) => n.own);
+    await as(member, 'socialcontent.niche.decide', { nicheId: second.id, state: 'skipped' });
+    await worker('socialcontent.niches.put', { own: niche('SaaS growth'), similar: [] });
+    ({ niches } = await as(member, 'socialcontent.niche.list'));
+    expect(niches.filter((n: Any) => n.own).map((n: Any) => [n.name, n.state])).toEqual([
+      ['SaaS growth', 'picked'],
+    ]);
+    expect(niches.find((n: Any) => n.id === second.id)).toMatchObject({
+      own: false,
+      state: 'skipped',
+    });
+  });
+});
+
+describe('creators whose profile didn’t say when they last posted', () => {
+  /** The next search for creators, passing over (finishing) anything else waiting first. */
+  async function findWork(): Promise<Any> {
+    for (let i = 0; i < 6; i++) {
+      const w = await nextWork();
+      if (!w) {
+        await as(member, 'socialcontent.find.now');
+        continue;
+      }
+      if (w.kind === 'find') return w;
+      await as(owner, 'socialcontent.work.finish', { workId: w.id });
+    }
+    throw new Error('No search for creators came.');
+  }
+
+  it('reads them again on the next search, and suggests them once they did well', async () => {
+    const first = await findWork();
+    expect(
+      await as(owner, 'socialcontent.creators.found', {
+        workId: first.id,
+        found: [
+          { handle: 'no_date_yet', followers: 29_000, lastPostAt: null },
+          { handle: 'small_no_date', followers: 900, lastPostAt: null },
+        ],
+      }),
+    ).toEqual({ suggested: 0, didntFit: 2 });
+    await as(owner, 'socialcontent.work.finish', { workId: first.id });
+    // The next search passes over everyone known, but the one with followers enough whose date wasn't known.
+    const again = await findWork();
+    expect(again.known).toEqual(expect.arrayContaining(['small_no_date', 'pipequeen']));
+    expect(again.known).not.toContain('no_date_yet');
+    expect(
+      await as(owner, 'socialcontent.creators.found', {
+        workId: again.id,
+        found: [{ handle: 'no_date_yet', followers: 29_000, lastPostAt: ago(4) }],
+      }),
+    ).toEqual({ suggested: 1, didntFit: 0 });
+    await as(owner, 'socialcontent.work.finish', { workId: again.id });
+    const { creators } = await as(member, 'socialcontent.creator.list', { state: 'suggested' });
+    expect(creators.map((c: Any) => c.handle)).toContain('no_date_yet');
   });
 });

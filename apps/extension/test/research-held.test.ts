@@ -6,7 +6,7 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { HELD_MOST, heldOn, profileHeldOn } from '../src/research/held';
-import { descriptionFacts } from '../src/research/instagram';
+import { descriptionFacts, newestPostedAt, postedAtOf } from '../src/research/instagram';
 
 const IG = 'https://www.instagram.com';
 const HREF = `${IG}/explore/search/keyword/?q=crm`;
@@ -84,6 +84,17 @@ describe('what the search page holds', () => {
 
 describe('what a profile page holds', () => {
   const NOW = Math.round(Date.UTC(2026, 10, 8, 12) / 1000);
+  const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  /** A post's code as Instagram makes one at a moment: its number is the time since Instagram's start, then more. */
+  const codeFor = (ms: number): string => {
+    let n = ((BigInt(ms) - 1_314_220_021_721n) << 23n) | 1234n;
+    let code = '';
+    while (n > 0n) {
+      code = LETTERS[Number(n % 64n)] + code;
+      n /= 64n;
+    }
+    return code;
+  };
   /** Deeper than an answer is looked through, as a page's data nests. */
   const nested = (inner: unknown, levels: number): unknown =>
     levels ? { require: [['ScheduledServerJS', { __bbox: nested(inner, levels - 1) }]] } : inner;
@@ -93,12 +104,65 @@ describe('what a profile page holds', () => {
       descriptionFacts(
         '12.5K Followers, 300 Following, 1,234 Posts - See Instagram photos and videos from Jane Doe (@jane.doe)',
       ),
-    ).toEqual({ followers: 12_500, posts: 1_234, name: 'Jane Doe' });
+    ).toEqual({ followers: 12_500, posts: 1_234, name: 'Jane Doe', bio: null });
+    expect(
+      descriptionFacts(
+        '29K Followers, 512 Following, 1,005 Posts - Sam Sells (@sam.sells) on Instagram: "AI for sales teams. DM me"',
+      ),
+    ).toEqual({
+      followers: 29_000,
+      posts: 1_005,
+      name: 'Sam Sells',
+      bio: 'AI for sales teams. DM me',
+    });
     expect(descriptionFacts('2M Followers, 1 Following, 87 Posts')).toMatchObject({
       followers: 2_000_000,
       posts: 87,
     });
-    expect(descriptionFacts(null)).toEqual({ followers: null, posts: null, name: null });
+    expect(descriptionFacts(null)).toEqual({ followers: null, posts: null, name: null, bio: null });
+  });
+
+  it('knows when a post was posted from the code in its link', () => {
+    const at = Date.UTC(2026, 10, 5, 15, 30);
+    const code = codeFor(at);
+    expect(code).toHaveLength(11);
+    expect(postedAtOf(code, NOW * 1000)).toBe(new Date(at).toISOString());
+    // A private account's longer code starts with the same one.
+    expect(postedAtOf(`${code}AbCdEfGhIjKlMnOpQrStUvWxYz012`, NOW * 1000)).toBe(
+      new Date(at).toISOString(),
+    );
+    expect(postedAtOf('not a code!', NOW * 1000)).toBeNull();
+    expect(postedAtOf(codeFor(NOW * 1000 + 3 * 86_400_000), NOW * 1000)).toBeNull();
+    expect(
+      newestPostedAt(
+        [codeFor(Date.UTC(2025, 0, 1)), code, codeFor(Date.UTC(2026, 9, 1))],
+        NOW * 1000,
+      ),
+    ).toBe(new Date(at).toISOString());
+    expect(newestPostedAt([], NOW * 1000)).toBeNull();
+  });
+
+  it('reads when they last posted from the posts their grid links to, when its data doesn’t say', () => {
+    const newest = Date.UTC(2026, 10, 6, 9);
+    const doc = new JSDOM(
+      `<!doctype html><html><head><meta name="description" content="29K Followers, 512 Following, 1,005 Posts - Sam Sells (@sam.sells) on Instagram: &quot;AI for sales&quot;"></head><body>` +
+        `<a href="/sam.sells/p/${codeFor(Date.UTC(2024, 1, 1))}/">pinned</a>` +
+        `<a href="/sam.sells/p/${codeFor(newest)}/">newest</a>` +
+        `<a href="/reel/${codeFor(Date.UTC(2026, 10, 1))}/">reel</a>` +
+        `<a href="https://elsewhere.example/p/${codeFor(NOW * 1000)}/">not Instagram</a>` +
+        `</body></html>`,
+      { url: `${IG}/sam.sells/` },
+    ).window.document;
+    expect(profileHeldOn(doc, 'sam.sells').creator).toEqual({
+      id: null,
+      username: 'sam.sells',
+      name: 'Sam Sells',
+      bio: 'AI for sales',
+      followers: 29_000,
+      private: false,
+      lastPostAt: new Date(newest).toISOString(),
+      posts: 1_005,
+    });
   });
 
   it('finds them and their posts deep in the data the page came with', () => {

@@ -70,6 +70,33 @@ export function mediaIdOf(code: string): string | null {
   return n > 0n ? n.toString() : null;
 }
 
+/** Where Instagram's numbers start counting time: its own start, in milliseconds (24 Aug 2011). */
+const INSTAGRAM_START_MS = 1_314_220_021_721n;
+
+/**
+ * When a post was posted, from the code in its link: a post's number begins with the milliseconds since Instagram's
+ * start, so its grid's links say when someone posted even when nothing else on the page does. Null when the code
+ * isn't one, or the moment isn't between Instagram's start and tomorrow.
+ */
+export function postedAtOf(code: string, now: number = Date.now()): string | null {
+  const id = mediaIdOf(code);
+  if (!id) return null;
+  const ms = Number((BigInt(id) >> 23n) + INSTAGRAM_START_MS);
+  if (ms <= Number(INSTAGRAM_START_MS) || ms > now + 86_400_000) return null;
+  return new Date(ms).toISOString();
+}
+
+/** When someone last posted, by the newest of their posts' links (a pinned post is older, so it doesn't matter). */
+export function newestPostedAt(codes: readonly string[], now: number = Date.now()): string | null {
+  return (
+    codes
+      .map((code) => postedAtOf(code, now))
+      .filter((t): t is string => !!t)
+      .sort()
+      .at(-1) ?? null
+  );
+}
+
 /** The pages the tab opens, as a person would: someone's profile, and Instagram's search for some words. */
 export const profilePage = (username: string) =>
   `${INSTAGRAM_HOME}/${encodeURIComponent(username)}/`;
@@ -174,31 +201,38 @@ const shortNumber = (s: string | undefined): number | null => {
 };
 
 /**
- * What a profile page's own description says: "12K Followers, 300 Following, 1,234 Posts - See Instagram photos and
- * videos from Jane Doe (@janedoe)". Instagram puts it in the page whether or not it's drawn.
+ * What a profile page's own description says, in either of Instagram's ways: "12K Followers, 300 Following, 1,234
+ * Posts - See Instagram photos and videos from Jane Doe (@janedoe)", or "… Posts - Jane Doe (@janedoe) on Instagram:
+ * "their bio"". Instagram puts it in the page whether or not it's drawn.
  */
 export function descriptionFacts(description: string | null): {
   followers: number | null;
   posts: number | null;
   name: string | null;
+  bio: string | null;
 } {
   const d = description ?? '';
   return {
     followers: shortNumber(/([\d.,]+\s*[KkMm]?)\s+Followers/i.exec(d)?.[1]),
     posts: shortNumber(/([\d.,]+\s*[KkMm]?)\s+Posts/i.exec(d)?.[1]),
-    name: text(/\bfrom (.+?) \(@[\w.]+\)/.exec(d)?.[1]),
+    name: text(
+      /\bfrom (.+?) \(@[\w.]+\)/.exec(d)?.[1] ?? /\sPosts\s+-\s+(.+?)\s+\(@[\w.]+\)/i.exec(d)?.[1],
+    ),
+    bio: text(/\(@[\w.]+\) on Instagram:\s*["“]([\s\S]*?)["”]\s*$/.exec(d)?.[1]),
   };
 }
 
 /**
  * Someone's profile and posts in the data their profile page came with (its own scripts' JSON) and its description:
- * the account whose name it is, with their bio and followers, and their posts the page holds, newest first. Null
- * creator when the page holds neither them nor their numbers.
+ * the account whose name it is, with their bio and followers, and their posts the page holds, newest first. When they
+ * last posted comes from those posts or, when the data holds none, from the codes of the posts their grid links to
+ * (`linked`). Null creator when the page holds neither them nor their numbers.
  */
 export function pageProfileFrom(
   jsons: readonly unknown[],
   username: string,
   description: string | null,
+  linked: readonly string[] = [],
 ): InstagramPageProfile {
   const handle = username.toLowerCase();
   let user: Json | null = null;
@@ -239,11 +273,11 @@ export function pageProfileFrom(
       id: fromData?.id ?? null,
       username: handle,
       name: fromData?.name ?? said.name,
-      bio: fromData?.bio ?? null,
+      bio: fromData?.bio ?? said.bio,
       followers: fromData?.followers ?? said.followers,
       private: fromData?.private ?? false,
       lastPostAt:
-        [fromData?.lastPostAt, newest]
+        [fromData?.lastPostAt, newest, newestPostedAt(linked)]
           .filter((t): t is string => !!t)
           .sort()
           .at(-1) ?? null,

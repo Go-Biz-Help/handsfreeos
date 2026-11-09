@@ -54,6 +54,7 @@ import {
   videoOf,
   type InstagramCreator,
   type InstagramFoundAccount,
+  type InstagramPageProfile,
 } from './instagram';
 import {
   answerStep,
@@ -178,7 +179,8 @@ interface ReadCreator {
 
 /**
  * Someone's profile, opened and read: Instagram's answer, or, when it says they aren't there, what their page itself
- * holds (the data it came with, and its description). `gone` only when neither has them.
+ * holds (the data it came with, its description, and the posts its grid links to, whose codes say when they posted).
+ * `gone` only when neither has them.
  */
 async function readCreator(
   ctx: ReadCtx,
@@ -190,9 +192,35 @@ async function readCreator(
   const got = await answer(ctx, read, profilePath(username), creatorFrom, 'Profile');
   if (got.ok) return { ok: true, value: { creator: got.value, page: null } };
   if (!got.gone) return got;
-  const held = await ctx.tab.hands('profileHeld', username);
+  const held = await datedHeld(ctx, username);
   if (!held?.creator) return got;
   return { ok: true, value: { creator: held.creator, page: { posts: held.posts } } };
+}
+
+/**
+ * What someone's profile page holds, with when they last posted when it can be had: their grid's links may not be
+ * there at first, so it looks again a moment later, then, only while the person is away, with the page in front, as
+ * Chrome draws a page's grid only on screen (decision 120).
+ */
+async function datedHeld(ctx: ReadCtx, username: string): Promise<InstagramPageProfile | null> {
+  const look = () => ctx.tab.hands('profileHeld', username);
+  const undated = (h: InstagramPageProfile | null) =>
+    !!h?.creator && !h.creator.lastPostAt && !h.creator.private && h.creator.posts !== 0;
+  let held = await look();
+  if (!undated(held)) return held;
+  await pause(RESEARCH_PACE.settleMs);
+  held = (await look()) ?? held;
+  if (!undated(held)) return held;
+  try {
+    const front = await ctx.tab.inFront(async () => {
+      await pause(RESEARCH_PACE.settleMs);
+      return look();
+    });
+    if (front?.creator) held = front;
+  } catch (error) {
+    if (!(error instanceof NotAway)) throw error;
+  }
+  return held;
 }
 
 const shown = (handle: string) => `@${handle.replace(/^@/, '')}`;
@@ -342,6 +370,8 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
   let notOpened = 0;
   let notOpenedWhy = '';
   let fromPage = 0;
+  /** Profiles read that didn't say when they last posted, so they can't be suggested. */
+  let undated = 0;
   for (const account of gathered.values()) {
     if (read >= work.most) break;
     await progress.say({
@@ -364,6 +394,7 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
     if (got.value.page) fromPage++;
     const c = got.value.creator;
     if (c.private) continue;
+    if (!c.lastPostAt) undated++;
     found.push({
       handle: c.username,
       name: c.name,
@@ -393,8 +424,18 @@ async function find(ctx: ReadCtx): Promise<ReadEnd> {
         profilesRead: read,
         notOpened,
         fromPage,
+        undated,
         loaded: [...loadedSeen].slice(0, 20),
       },
+    );
+  // Profiles that opened but never said when they last posted: nobody can be suggested, so it's reported too.
+  else if (read && undated >= read)
+    await report(
+      ctx,
+      'find',
+      `Find: none of the ${read} profiles read said when they last posted, so nobody could be suggested.`,
+      null,
+      { ...seen, notAway, profilesRead: read, undated, fromPage },
     );
   if (!read && notOpened) {
     await progress.say({ now: 'Instagram wouldn’t open their profiles', ...tally }, true);
