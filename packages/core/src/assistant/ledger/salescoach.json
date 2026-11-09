@@ -1,13 +1,15 @@
 {
   "area": "salescoach",
   "title": "The AI Sales Coach add-on and any add-on page drawn by the generic add-on route",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-09",
   "files": {
     "apps/mobile/src/addons/gate.tsx": "7be28a0fe47e",
     "apps/mobile/src/addons/salescoach/call-card.tsx": "e11b62dde145",
     "apps/mobile/src/addons/salescoach/live.tsx": "d4318f640442",
     "apps/mobile/src/addons/salescoach/more.tsx": "6375527d5542",
-    "apps/web/src/addons/registry.ts": "004a7ec15544",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/_layout.tsx": "a70094e99ef9",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/index.tsx": "fc20cb64c8ce",
+    "apps/web/src/addons/registry.ts": "e9761d069e05",
     "apps/web/src/addons/salescoach/call-panel.tsx": "04eeac0b46c2",
     "apps/web/src/addons/salescoach/calls-view.tsx": "9df2ca234691",
     "apps/web/src/addons/salescoach/composer-suggestions.tsx": "aa5c423c9d4e",
@@ -20,6 +22,7 @@
     "apps/web/src/addons/salescoach/trends-view.tsx": "ad456906d697",
     "apps/web/src/addons/salescoach/zoom-panel.tsx": "9e4ed51950d7",
     "apps/web/src/app/app/w/[workspaceId]/a/[addonId]/[[...path]]/page.tsx": "fd2cbf1adffc",
+    "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx": "4a553bbb886b",
     "apps/web/src/components/addons/unavailable.tsx": "e52287367cb9",
     "apps/web/src/components/money/person-picker.tsx": "8aeb51e81ba0"
   },
@@ -27,7 +30,7 @@
     {
       "path": "Side menu → AI Sales Coach (opens Live call)",
       "kind": "do",
-      "file": "apps/web/src/addons/registry.ts:258",
+      "file": "apps/web/src/addons/registry.ts:260",
       "covered": "yes",
       "by": "add-on directory line in the prompt; salescoach_live reads the page"
     },
@@ -1094,6 +1097,62 @@
       "file": "apps/web/src/app/app/w/[workspaceId]/a/[addonId]/[[...path]]/page.tsx:22",
       "covered": "yes",
       "by": "find_capabilities; add-on tools offered only to holders"
+    },
+    {
+      "path": "AI Sales Coach page → opens on Live call; ?view= Calls, Trends or Playbooks",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx:31",
+      "covered": "yes",
+      "by": "salescoach_live; salescoach_list_calls; salescoach_trends; salescoach_list_playbooks"
+    },
+    {
+      "path": "AI Sales Coach page → Calls → one call (&call=)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx:34",
+      "covered": "yes",
+      "by": "salescoach_get_call"
+    },
+    {
+      "path": "AI Sales Coach page → Trends over 4 to 26 weeks (&weeks=), one rep (&rep=)",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx:37",
+      "covered": "yes",
+      "by": "salescoach_trends weeks and userId, as the page asks"
+    },
+    {
+      "path": "AI Sales Coach page → off: not available here; no salescoach.use: not found",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx:42",
+      "covered": "yes",
+      "by": "add-on tools are refused while it’s off and offered only to holders of salescoach.use; find_capabilities turnedOff"
+    },
+    {
+      "path": "AI Sales Coach page → who may write playbooks and see others’ calls",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx:94",
+      "covered": "yes",
+      "by": "salescoach_playbook_save is offered with salescoach.manage; row security keeps others’ calls to people with salescoach.review, as the page checks"
+    },
+    {
+      "path": "AI Sales Coach page → who may delete a call",
+      "kind": "see",
+      "file": "apps/web/src/app/app/w/[workspaceId]/a/salescoach/page.tsx:96",
+      "covered": "never",
+      "by": "salescoach.call.delete is notForTheAssistant: it deletes for good"
+    },
+    {
+      "path": "Phone → AI Sales Coach → only with salescoach.use, inside More",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/_layout.tsx:16",
+      "covered": "yes",
+      "by": "add-on tools offered only to holders of salescoach.use; find_capabilities turnedOff / restricted"
+    },
+    {
+      "path": "Phone → AI Sales Coach → the live call; its other tabs open on the web",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/index.tsx:8",
+      "covered": "yes",
+      "by": "salescoach_live; the Calls, Trends and Playbooks reads give the same as the web’s tabs"
     }
   ],
   "gaps": [
