@@ -86,9 +86,9 @@ give it to a business from Admin → Businesses.
   creators someone ticks or adds, so one ticked late in the day is still read within minutes while that computer
   has Chrome open. What it took and never finished goes back to waiting after 2 hours, and anyone can **Stop** what
   hasn't finished.
-- **Notes on standouts** (part 3, decision 10). When saved posts bring new standouts, the worker's notes job runs a
-  minute later (once per business): up to 15 standouts with no notes, 5 to an ask, each shown to the AI beside the
-  posts around it that did about normal. Each note says why it worked, its hook, format and topic, the techniques
+- **Notes on standouts** (part 3, decision 10). When posts are saved, the worker's notes job runs a minute later (once
+  per business, and once more after when posts are saved while it runs, so none is missed): up to 15 standouts with
+  no notes, 5 to an ask, each shown to the AI beside the posts around it that did about normal. Each note says why it worked, its hook, format and topic, the techniques
   used, and how the business could use it. Creators' captions are quoted as data, never instructions.
 - **The Playbook** is written from the notes once 3 standouts are noted, and again each time 5 more are, or on
   **Write it again**: a summary and sections of what to do and why, each with standouts as examples.

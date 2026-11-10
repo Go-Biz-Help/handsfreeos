@@ -1,8 +1,8 @@
 /**
  * AI Social Media Content Creator's notes (docs/socialcontent.md, parts 3 and 4): what the AI makes of the standouts.
  *
- * - **Posts saved with new standouts** (`socialcontent.posts.saved`) queue `socialcontent.notes` a minute later, once
- *   per business, so a creator read page by page is noted in one go.
+ * - **Posts saved** (`socialcontent.posts.saved`) queue `socialcontent.notes` a minute later, once per business, so a
+ *   creator read page by page is noted in one go; a save while it runs has it run once more after.
  * - **The notes job** notes up to 15 standouts that have none (5 to an ask, each beside the posts around it that did
  *   about normal), then writes the Playbook once 3 are noted and again each time 5 more are, then suggests ideas
  *   when the Playbook is new and fewer than 5 new ideas wait. More standouts left: it runs again in two minutes.
@@ -382,13 +382,19 @@ export async function suggestIdeas(
 
 // ------------------------------------------------------------------------------------------------ the job
 
-/** Posts saved with new standouts: the notes job, a minute from now, once per business. */
+/**
+ * Posts saved: the notes job, a minute from now, once per business. With new standouts, and also without, so a
+ * standout an earlier run left without notes is noted on the next save (the job asks the AI only about unnoted ones).
+ */
 export const onPostsSaved = async (ctx: AddonEventContext): Promise<void> => {
-  const payload = ctx.event.payload as { newStandouts?: unknown } | null;
-  if (!Array.isArray(payload?.newStandouts) || !payload.newStandouts.length) return;
   await queueNotes(ctx, new Date(Date.now() + SOON_MS));
 };
 
+/**
+ * Queues the notes job. When it's already running, it runs once more after (`pullEarlier`): on 10 Nov 2026 a
+ * creator's posts were saved while the run for another's was writing the Playbook, and that run had already picked
+ * its standouts, so two were never noted.
+ */
 export async function queueNotes(ctx: AddonScopeContext, runAt: Date): Promise<void> {
   await asWorker(ctx.db, ctx.scope, (tx) =>
     scheduleAddonJob(
@@ -402,6 +408,7 @@ export async function queueNotes(ctx: AddonScopeContext, runAt: Date): Promise<v
         workspaceId: ctx.scope.workspaceId,
         organizationId: ctx.scope.organizationId,
       },
+      { pullEarlier: true },
     ),
   );
 }
