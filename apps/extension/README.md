@@ -1217,6 +1217,19 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Profiles with no posts, and drafts the AI answered with nothing (0.129.1)
+
+The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
+
+- **Warm-ups on profiles with no posts.** Two warm-ups said there was no post to like on profiles where Facebook's
+  own line under Posts says there are none to show (hidden from you, or never posted). Nothing went wrong there, so
+  it's no longer a problem report: Facebook's post reader says so (`saysNoPosts` in `src/networks/facebook/auto.ts`,
+  its words in `NO_POSTS_WORDS`, which page outlines now keep), and the warm-up ends as found done (decision 145's
+  `skip`) while their friend request still goes without a like.
+- **A draft the AI answered with nothing.** About 1 of every 25 of the AI's answers for outreach came back with no
+  words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
+  so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
+
 ### Ticked creators read the same day (0.129.0)
 
 On 9 Nov 2026 two Instagram creators ticked to study in the afternoon weren't read that day: six searches for new

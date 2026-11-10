@@ -25,6 +25,7 @@ import {
   chatsOpen,
   likeTheirPost,
   readTheirPosts,
+  saysNoPosts,
   MESSAGE_PATH,
   openMessage,
   sameByKey,
@@ -687,6 +688,16 @@ describe('liking their latest post', () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(read).toHaveLength(2);
     expect(inView).toEqual([]);
+  });
+
+  it('reads Facebook’s line saying they have no posts, never the same words in a post', () => {
+    const doc = load('profile-2026.html', URL);
+    expect(saysNoPosts(doc)).toBe(false);
+    const post = theirPosts(doc, URL, dana)[0]!.box;
+    post.insertAdjacentHTML('beforeend', '<span>No posts available</span>');
+    expect(saysNoPosts(doc)).toBe(false);
+    post.insertAdjacentHTML('afterend', '<span dir="auto">No posts available</span>');
+    expect(saysNoPosts(doc)).toBe(true);
   });
 
   it('finds the picked post again from the top once Facebook stops drawing it (decision 138)', async () => {

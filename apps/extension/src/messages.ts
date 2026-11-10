@@ -563,7 +563,12 @@ export type AutoAnswer =
 /** The posts of theirs read on their profile, for the AI to pick one to like. */
 export type PostsAsk = Extract<AutoAsk, { readonly type: 'hfos-their-posts' }>;
 export type PostsAnswer =
-  | { readonly ok: true; readonly posts: readonly TheirPost[] }
+  | {
+      readonly ok: true;
+      readonly posts: readonly TheirPost[];
+      /** None read, and the network says they have no posts to show: nothing went wrong. */
+      readonly none?: true;
+    }
   | { readonly ok: false; readonly error: string };
 
 /** What it answers: how the step went, or the place along the path pressed; an error off the download pages. */

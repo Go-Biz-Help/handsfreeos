@@ -42,9 +42,13 @@ export const PROFILE_ACTION_WORDS: ReadonlySet<string> = new Set([
   'watch video',
 ]);
 
+/** Facebook's line under a profile's Posts when it shows none of theirs: hidden from you, or never posted. */
+export const NO_POSTS_WORDS: ReadonlySet<string> = new Set(['no posts available', 'no posts yet']);
+
 /** Lower-case, exactly as Facebook shows them. */
 export const UI_WORDS: ReadonlySet<string> = new Set([
   ...PROFILE_ACTION_WORDS,
+  ...NO_POSTS_WORDS,
   'aa',
   'about',
   'accept',
