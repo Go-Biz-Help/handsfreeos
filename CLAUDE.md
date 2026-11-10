@@ -35,6 +35,7 @@ Read the doc for the area you're changing before writing code. Most have a secti
 | The AI Sales Coach add-on                    | `docs/salescoach.md`, then `HANDSFREEOS_SALES_COACH_IMPLEMENTATION_PLAN.md`                                       |
 | The AI Social Media Content Creator add-on   | `docs/socialcontent.md`, then `HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md`                                |
 | The Social Outreach add-on                   | `docs/outreach.md`, then `apps/extension/README.md` for the browser extension it works with                       |
+| The Contractor Operations add-on             | `docs/contractor.md`, then `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`                             |
 | Partners: finding them, commissions, payouts | `HANDSFREEOS_PARTNERS_IMPLEMENTATION_PLAN.md`, then decision 81 in `docs/outreach.md`                             |
 | Affiliates: people who sell HandsFreeOS      | `HANDSFREEOS_AFFILIATES_IMPLEMENTATION_PLAN.md`, then `apps/site/AGENTS.md` for the website's `?ref=` links       |
 | The browser extension                        | `apps/extension/README.md`                                                                                        |

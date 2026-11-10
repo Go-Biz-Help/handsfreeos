@@ -17,6 +17,7 @@ import { realestateAddon } from './realestate/manifest';
 import { outreachAddon } from './outreach/manifest';
 import { salescoachAddon } from './salescoach/manifest';
 import { socialcontentAddon } from './socialcontent/manifest';
+import { contractorAddon } from './contractor/manifest';
 
 /** The add-ons with code: one line each, which `pnpm addon:new` writes. */
 export const BUILT_ADDONS: Catalog = [
@@ -24,6 +25,7 @@ export const BUILT_ADDONS: Catalog = [
   outreachAddon,
   salescoachAddon,
   socialcontentAddon,
+  contractorAddon,
 ];
 
 /**
