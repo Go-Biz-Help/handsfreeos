@@ -56,6 +56,10 @@ give it to a business from Admin → Businesses.
   a profile, or for its posts, says it isn't there, the profile page itself is read (the data it came with, then its
   description for followers, name and bio), and when they last posted from the posts its grid links to (a post's code
   says when it was posted; in front only while the person is away, when the grid isn't drawn behind another window).
+  A studied creator's posts are then asked for by their account's number (from the page's own name for itself when
+  Instagram's profile answer isn't there), then by their name; when neither list comes, the posts the page holds, else
+  each post its grid links to, one at a time back to the read's start, and a problem report says which ways didn't
+  come (extension 0.130.0, 10 Nov 2026, after both ticked creators' posts reads ended with nothing).
   Someone kept as not fitting only because their profile didn't say when they last posted, with 5,000+ followers, is
   read again by the next search, and suggested when they fit. Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
   and a search where none opened, or most didn't, ends saying so with a problem report, never as done (9 Nov 2026,

@@ -240,6 +240,27 @@ describe('what a profile page holds', () => {
       lastPostAt: null,
       posts: 300,
     });
-    expect(profileHeldOn(pageWith(''), 'nobody.here')).toEqual({ creator: null, posts: [] });
+    expect(profileHeldOn(pageWith(''), 'nobody.here')).toEqual({
+      creator: null,
+      posts: [],
+      linked: [],
+    });
+  });
+
+  it('takes their account’s number from the name their page gives itself, for asking for their posts', () => {
+    const doc = pageWith(
+      `<meta name="description" content="15K Followers, 2 Following, 300 Posts - See Instagram photos and videos from Big One (@big.one)">` +
+        `<script type="application/json">{"require":[["PolarisProfilePageContentQuery",{"page_id":"profilePage_8642097531"}]]}</script>` +
+        `<a href="/big.one/p/C0DE1/">a post</a>`,
+    );
+    const held = profileHeldOn(doc, 'big.one');
+    expect(held.creator?.id).toBe('8642097531');
+    expect(held.linked).toEqual(['C0DE1']);
+    expect(
+      profileHeldOn(
+        pageWith('<meta name="description" content="1K Followers, 2 Following, 3 Posts">'),
+        'x',
+      ).creator?.id,
+    ).toBeNull();
   });
 });
