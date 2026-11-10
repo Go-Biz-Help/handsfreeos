@@ -1,5 +1,6 @@
 import {
   AI_SETUP_FIELD_WORDS as AW,
+  aiSetupOpenHoursNote,
   aiSetupProblemAt,
   CUSTOMER_SOURCES,
   LINK_WORDS,
@@ -30,7 +31,14 @@ import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 import { ActivityIndicator, AppState, Pressable, Share, View } from 'react-native';
 
-import { Field, Option, Pills, ServicesField, TextArea } from '@/components/ai-setup/fields';
+import {
+  Field,
+  OpenHoursNote,
+  Option,
+  Pills,
+  ServicesField,
+  TextArea,
+} from '@/components/ai-setup/fields';
 import { HoursField } from '@/components/ai-setup/hours';
 import {
   Check,
@@ -379,6 +387,7 @@ export function HoursScreen({ state, answers, setAi, problems, name }: OwnScreen
       <Reading state={state} name={name} />
       <View className="gap-1">
         <Label>{AW.openHours}</Label>
+        <OpenHoursNote note={aiSetupOpenHoursNote(state, answers.ai.openHours, name)} />
         <HoursField
           value={answers.ai.openHours}
           onChange={(next) => setAi('openHours', next)}

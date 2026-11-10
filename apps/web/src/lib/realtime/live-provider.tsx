@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { isOwnRequest } from '@/lib/api/own-requests';
 import { supabaseBrowser } from '@/lib/supabase/client';
+import { browserAccessToken } from '@/lib/supabase/token';
 
 /**
  * What the database broadcasts for every event in the workspace: ids only, never row data. For the inbox's and
@@ -113,8 +114,7 @@ export function LiveProvider({
 
     async function connect() {
       if (stopped) return;
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      const token = await browserAccessToken();
       if (!token) {
         startPolling();
         scheduleReconnect();

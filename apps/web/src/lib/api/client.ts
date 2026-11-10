@@ -3,7 +3,7 @@ import { createApiClient, type ApiClient } from '@hfos/api-client';
 import { VIEW_AS_HEADER } from '@hfos/core';
 import { installDemoFetch } from '../demo/browser';
 import { publicEnv } from '../env';
-import { supabaseBrowser } from '../supabase/client';
+import { browserAccessToken, renewedAccessToken } from '../supabase/token';
 import { readViewCookie } from '../view-as';
 import { ApiError, errorMessage, unwrap } from './errors';
 import { mintCorrelationId } from './own-requests';
@@ -13,19 +13,33 @@ export { ApiError, errorMessage, unwrap };
 let client: ApiClient | undefined;
 
 /**
- * Typed API client for Client Components; sends the current Supabase access token and a correlation id, and the view
- * the page is in when it's viewing as a teammate (read per request, so starting or stopping one needs no new client).
+ * Sends a request, and once more with a renewed sign-in when the API says the sign-in is no good: it refuses that
+ * before anything runs, so sending it again can't do anything twice. Looked up per request, so the demo player's
+ * answers (lib/demo) reach this client too.
+ */
+async function sendSignedIn(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const again = input instanceof Request ? input.clone() : null;
+  const res = await globalThis.fetch(input, init);
+  if (res.status !== 401 || !again) return res;
+  const token = await renewedAccessToken();
+  if (!token) return res;
+  again.headers.set('authorization', `Bearer ${token}`);
+  return globalThis.fetch(again, init);
+}
+
+/**
+ * Typed API client for Client Components; sends the current Supabase access token (judged by the server's clock, see
+ * lib/supabase/token) and a correlation id, and the view the page is in when it's viewing as a teammate (read per
+ * request, so starting or stopping one needs no new client).
  */
 export function apiBrowser(): ApiClient {
   if (!client) {
     installDemoFetch();
     client = createApiClient({
       baseUrl: publicEnv.apiUrl,
-      getToken: async () =>
-        (await supabaseBrowser().auth.getSession()).data.session?.access_token ?? null,
+      getToken: browserAccessToken,
       correlationId: mintCorrelationId,
-      // Looked up per request, so the demo player's answers (lib/demo) reach this client too.
-      fetch: (input, init) => globalThis.fetch(input, init),
+      fetch: sendSignedIn,
     });
     client.use({
       onRequest({ request }) {

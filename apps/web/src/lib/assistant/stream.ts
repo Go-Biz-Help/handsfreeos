@@ -2,7 +2,7 @@
 import { AssistantEvent } from '@hfos/core';
 import { ApiError } from '../api/errors';
 import { publicEnv } from '../env';
-import { supabaseBrowser } from '../supabase/client';
+import { browserAccessToken } from '../supabase/token';
 import type { PageRecord } from './page-record';
 
 /** One question, as the worker takes it (AssistantAskInput). */
@@ -32,7 +32,7 @@ export interface DecisionOut {
 const UNREACHABLE = 'The Assistant isn’t reachable right now. Try again in a minute.';
 
 async function headers(): Promise<Record<string, string>> {
-  const token = (await supabaseBrowser().auth.getSession()).data.session?.access_token;
+  const token = await browserAccessToken();
   if (!token) throw new ApiError(401, 'unauthenticated', 'Sign in to continue.');
   return {
     authorization: `Bearer ${token}`,

@@ -1,7 +1,7 @@
 'use client';
 import type { PolicyUpdateInput, PolicyUpdateOutput, PreflightCheck } from '@hfos/core';
 import { publicEnv } from '../env';
-import { supabaseBrowser } from '../supabase/client';
+import { browserAccessToken } from '../supabase/token';
 import { ApiError } from './errors';
 import { mintCorrelationId } from './own-requests';
 import type { VideoTicket } from './public-booking';
@@ -11,7 +11,7 @@ import type { VideoTicket } from './public-booking';
  * signed-in user's access token. Errors come back in the API's shape, so callers handle them the same way.
  */
 export async function workerPost<T>(path: string, body: unknown): Promise<T> {
-  const token = (await supabaseBrowser().auth.getSession()).data.session?.access_token;
+  const token = await browserAccessToken();
   if (!token) throw new ApiError(401, 'unauthenticated', 'Sign in to continue.');
   let res: Response;
   try {

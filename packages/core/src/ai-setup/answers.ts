@@ -86,6 +86,15 @@ const WEEKDAYS_9_TO_5: WeeklyHours = [1, 2, 3, 4, 5].map((day) => ({
   end: '17:00',
 }));
 
+/**
+ * "When you’re open" as the screen starts (`startingAiSetupAnswers`), when the business hasn't saved hours and its
+ * website doesn't give them: weekdays 9 to 5, like every other hours box (each person, a service, the hours Ava
+ * answers). Only a guess, and the screen says so (`aiSetupOpenHoursNote`): a guess left as it is becomes the hours Ava
+ * tells customers. The answers' own default stays the business's (`DEFAULT_OPEN_HOURS`), since phones on old builds
+ * rely on it (test/mobile-contract.test.ts).
+ */
+export const AI_SETUP_START_HOURS: WeeklyHours = WEEKDAYS_9_TO_5;
+
 const unique = (list: readonly string[]) => new Set(list).size === list.length;
 
 const findings = z

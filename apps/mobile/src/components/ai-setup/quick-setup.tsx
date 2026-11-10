@@ -15,6 +15,7 @@ import {
   aiSetupStepTitle,
   aiSetupSummary,
   aiSetupTestQuestions,
+  aiSetupTouchedAfterSave,
   chosenAiSetupTemplate,
   cleanAiSetupAnswers,
   mergeAiSetupAnswers,
@@ -259,7 +260,7 @@ export function AiQuickSetup({
         if (startPick !== undefined) touched.current.clear();
         const [fresh, fresher] = await Promise.all([calls.get(), calls.findings()]);
         adopt(fresh, true);
-        touched.current.clear();
+        touched.current = aiSetupTouchedAfterSave(touched.current, saved.reached);
         setStartPick(undefined);
         setFindings(fresher);
         setCarrying(false);
@@ -273,7 +274,8 @@ export function AiQuickSetup({
       } else {
         const saved = await calls.save({ step, answers: clean });
         reached.current = saved.reached;
-        touched.current.clear();
+        // The server keeps the screens finished; an answer changed further on (then Back) stays changed.
+        touched.current = aiSetupTouchedAfterSave(touched.current, saved.reached);
         setAnswers(clean);
         setCarrying(false);
         go(after);

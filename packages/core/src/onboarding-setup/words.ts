@@ -160,6 +160,10 @@ export const ONBOARDING_SETUP_WORDS = {
   /** Someone who can set the business up but not use what a stop opens (a custom role). */
   cantDo:
     'Your role can’t change this part of the business. Ask an owner of this business to do it, or carry on.',
+  /** A save refused because the sign-in ran out: what's on screen is kept on the device (`onboardingSetupUnsavedOf`). */
+  signedOut:
+    'You were signed out, so this screen isn’t saved yet. What you entered is kept on this computer: sign in again and carry on from here.',
+  signInAgain: 'Sign in again',
 
   // Your business, before it's made
   agency: 'I run an agency that manages several businesses',
