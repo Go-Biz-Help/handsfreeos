@@ -74,8 +74,8 @@ const OWN_SCREENS: Readonly<
   },
   email: { title: EMAIL_SETUP_WORDS.senderTitle, hint: EMAIL_SETUP_WORDS.senderHint },
   email_records: {
-    title: 'Add your domain’s records',
-    hint: 'They let HandsFreeOS send email as your domain, so it lands in inboxes, not spam.',
+    title: EMAIL_SETUP_WORDS.recordsScreenTitle,
+    hint: EMAIL_SETUP_WORDS.recordsScreenHint,
   },
   email_own: { title: EMAIL_SETUP_WORDS.ownTitle, hint: EMAIL_SETUP_WORDS.ownHint },
   paid: {

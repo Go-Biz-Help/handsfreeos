@@ -444,9 +444,7 @@ export const personLocalPartFor = (firstName: string | null | undefined): string
     .slice(0, 40);
 
 /** The free address still has the random letters it was made with: `bellas-salon-a2ceda`. */
-export const freeAddressLooksRandom = (
-  state: Pick<EmailSetupState, 'free' | 'slug'>,
-): boolean =>
+export const freeAddressLooksRandom = (state: Pick<EmailSetupState, 'free' | 'slug'>): boolean =>
   !!state.free &&
   !!state.slug &&
   (state.free.localPart === state.slug || state.free.localPart.startsWith(`${state.slug}-`));
@@ -720,6 +718,9 @@ export const EMAIL_SETUP_WORDS = {
     host
       ? `${domain} is managed at ${host}. These let HandsFreeOS send as it.`
       : `Add these where ${domain}’s DNS is managed, usually where you bought it. They let HandsFreeOS send as it.`,
+  recordsScreenTitle: 'Add your domain’s records',
+  recordsScreenHint:
+    'They let HandsFreeOS send email as your domain, so it lands in inboxes, not spam.',
   recordsMaking: 'Making your records. This takes a few seconds.',
   receiveLabel: (domain: string) => `Get email at ${domain} here too`,
   receiveHint: 'Nobody gets email there today, so nothing is moved.',
