@@ -18,9 +18,9 @@ export const socialcontentAddon = defineAddon({
   id: 'socialcontent',
   name: 'AI Social Media Content Creator',
   summary:
-    'Finds creators in your niche whose posts beat their normal, works out why, and turns it into notes and ideas for your own content.',
+    'Finds creators in your niche whose posts beat their normal, works out why, and writes your own posts on a content calendar.',
   description:
-    'It finds creators in your niche and niches like it who have done well, reads their posts back 12 months, and picks out the ones that did much better than the posts around them. Then the AI works out why each one worked, writes down the hooks, techniques and methods, and turns them into ideas for your own posts.',
+    'It finds creators in your niche and niches like it who have done well, reads their posts back 12 months, and picks out the ones that did much better than the posts around them. Then the AI works out why each one worked, writes down the hooks, techniques and methods, and turns them into ideas for your own posts. Then it writes your posts, with their pictures, on a calendar two weeks ahead, each waiting for your OK.',
   category: 'marketing',
   version: '0.1.0',
   // One more whenever its data changes shape; the worker brings each business's data up a step at a time
@@ -39,11 +39,15 @@ export const socialcontentAddon = defineAddon({
       'what to post',
       'instagram content',
       'content plan',
+      'content calendar',
+      'write my posts',
+      'social media posts',
     ],
     exampleNeeds: [
       'find out what kind of posts do well in my niche',
       'give me ideas for what to post on Instagram',
       'study the creators in my industry',
+      'write my social media posts for the next two weeks',
     ],
     groups: ['Social Media', 'Content Marketing'],
   },
@@ -53,6 +57,13 @@ export const socialcontentAddon = defineAddon({
       label: 'Content research',
       description:
         'Creators in your niche and niches like it, and their posts that beat their normal.',
+      permission: 'socialcontent.use',
+    },
+    {
+      id: 'socialcontent.posts',
+      label: 'Your posts',
+      description:
+        'Your own posts, written by the AI with their pictures, on a calendar two weeks ahead, each waiting for your OK.',
       permission: 'socialcontent.use',
     },
     {
@@ -69,19 +80,31 @@ export const socialcontentAddon = defineAddon({
       key: 'socialcontent.use',
       label: 'Use AI Social Media Content Creator',
       description:
-        'See the creators, standout posts, the AI’s notes, the Playbook and content ideas, pick niches and creators to study, and ask for them to be read again.',
+        'See the creators, standout posts, the AI’s notes, the Playbook and content ideas, pick niches and creators to study, ask for them to be read again, and write, change and OK the business’s own posts.',
       defaultRoles: ['admin', 'member'],
     },
     {
       key: 'socialcontent.manage',
       label: 'Set up content research',
       description:
-        'Pick the networks studied, whose computer reads them, and whether the AI watches standout videos.',
+        'Pick the networks studied, whose computer reads them, whether the AI watches standout videos, and the calendar’s plan.',
       defaultRoles: ['admin'],
       requires: ['socialcontent.use'],
     },
   ],
-  tables: ['creators', 'ideas', 'niches', 'playbook', 'posts', 'settings', 'work'],
+  // Each of the business's own posts is a Social post record (part 8): its pictures are core files on it, and its
+  // timeline, tasks and search work unchanged. Its migration makes the kind where the add-on was already on.
+  recordKinds: [
+    {
+      key: 'socialcontent_post',
+      singular: 'Social post',
+      plural: 'Social posts',
+      nameLabel: 'Title',
+      icon: 'file',
+      writePermission: 'socialcontent.use',
+    },
+  ],
+  tables: ['content', 'creators', 'ideas', 'niches', 'playbook', 'posts', 'settings', 'work'],
   events: {
     emits: [
       'socialcontent.settings.saved',
@@ -103,6 +126,12 @@ export const socialcontentAddon = defineAddon({
       'socialcontent.playbook.written',
       'socialcontent.ideas.added',
       'socialcontent.idea.decided',
+      'socialcontent.content.written',
+      'socialcontent.content.saved',
+      'socialcontent.content.approved',
+      'socialcontent.content.skipped',
+      'socialcontent.content.pictured',
+      'socialcontent.calendar.filled',
     ],
     // A niche someone added: the AI writes the words to search each network for it. Posts saved with new
     // standouts: the AI notes them, and the Playbook and ideas follow.
@@ -110,7 +139,14 @@ export const socialcontentAddon = defineAddon({
   },
   // Each studied creator read again once a week; new creators looked for once a month (decision 11); the AI's
   // notes on new standouts, a few at a time.
-  jobs: ['socialcontent.weekly', 'socialcontent.monthly', 'socialcontent.notes'],
+  // The calendar topped up once a week from the first fill (decision 18), and each post's pictures made.
+  jobs: [
+    'socialcontent.weekly',
+    'socialcontent.monthly',
+    'socialcontent.notes',
+    'socialcontent.calendar',
+    'socialcontent.pictures',
+  ],
   billing: { model: 'free' },
   ui: {
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).
@@ -124,6 +160,12 @@ export const socialcontentAddon = defineAddon({
       },
       { key: 'playbook', label: SOCIALCONTENT_PAGES.playbook, icon: 'book-open', path: 'playbook' },
       { key: 'ideas', label: SOCIALCONTENT_PAGES.ideas, icon: 'lightbulb', path: 'ideas' },
+      {
+        key: 'calendar',
+        label: SOCIALCONTENT_PAGES.calendar,
+        icon: 'calendar',
+        path: 'calendar',
+      },
       // Not `settings`: that key would put the page in Settings search, which opens it on the web.
       { key: 'gear', label: SOCIALCONTENT_PAGES.gear, icon: 'settings', path: 'settings' },
     ],
@@ -139,7 +181,7 @@ export const socialcontentAddon = defineAddon({
   },
   ai: {
     directory:
-      'social media content research: the niches searched, creators found and studied on Instagram, Facebook and LinkedIn (TikTok and YouTube later), their posts with how many times their normal each did, the standout posts with the AI’s notes on why each worked (and what it saw and heard watching Instagram videos), the Playbook of what works, content ideas to save, use or skip, asking the reading computer to find, read or try watching now, and its settings (the networks, whose computer reads in Chrome with the HandsFreeOS Social extension, and watching videos, which uses more AI)',
+      'social media content research: the niches searched, creators found and studied on Instagram, Facebook and LinkedIn (TikTok and YouTube later), their posts with how many times their normal each did, the standout posts with the AI’s notes on why each worked (and what it saw and heard watching Instagram videos), the Playbook of what works, content ideas to save, use or skip, the business’s own posts on a content calendar two weeks ahead (written by the AI from the Playbook and saved ideas, with pictures designed by the AI or photo-style from the AI or the person’s own; each waits for an OK, or the week is OK’d in one go; posting through the extension comes in later updates), the calendar’s plan (posts a week on Instagram, Facebook and LinkedIn and the time), asking the reading computer to find, read or try watching now, and its settings (the networks, whose computer reads in Chrome with the HandsFreeOS Social extension, and watching videos, which uses more AI, the calendar’s plan, the Facebook Page and where Facebook posts go)',
     places: SOCIALCONTENT_PLACES,
     lookAlikes: SOCIALCONTENT_LOOK_ALIKES,
   },

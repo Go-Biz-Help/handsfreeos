@@ -11,6 +11,7 @@ export const SOCIALCONTENT_PAGES = {
   standouts: 'Standouts',
   playbook: 'Playbook',
   ideas: 'Ideas',
+  calendar: 'Calendar',
   // Not `settings`: that key would put the page in Settings search, which opens it on the web.
   gear: 'Settings',
 } as const;
@@ -198,7 +199,7 @@ export const SOCIALCONTENT_WORDS = {
   ideas: {
     title: 'Ideas',
     intro:
-      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Save the ones you like, and mark them used once you’ve posted them.',
+      'Ideas for your own posts, from the Playbook and what HandsFreeOS knows about your business. Write the post from one, and it goes on your Calendar. Saved ideas are written first when the calendar fills.',
     none: 'No ideas yet. Get ideas once there’s a Playbook.',
     get: 'Get ideas',
     getting: 'Thinking…',
@@ -206,6 +207,7 @@ export const SOCIALCONTENT_WORDS = {
     tabs: { new: 'New', saved: 'Saved', used: 'Used', skipped: 'Skipped' },
     save: 'Save',
     use: 'Mark used',
+    write: 'Write the post',
     skip: 'Skip',
     again: 'Back to new',
     hook: 'Hook',
@@ -271,6 +273,16 @@ export const SOCIALCONTENT_WORDS = {
     noWork: 'Nothing asked yet.',
     stop: 'Stop',
     stopped: 'Stopped.',
+    posting: 'Posting',
+    postingIntro:
+      'How many of your own posts a week the AI writes for each network, and when they go, in your business’s time zone. The Calendar fills two weeks ahead from this.',
+    perWeek: (network: string) => `Posts a week on ${network}`,
+    perWeekOption: (n: number) => (n ? `${n} a week` : 'Off'),
+    at: 'at',
+    timeFor: (network: string) => `Time for ${network}`,
+    facebookPage: 'Your Facebook Page',
+    savePage: 'Save',
+    facebookWhere: 'Where Facebook posts go',
   },
   activity: {
     title: 'What it’s doing',
@@ -287,6 +299,127 @@ export const SOCIALCONTENT_WORDS = {
       'Nothing yet. Press Find creators now to search your ticked niches, or add a creator you know.',
     starting: 'Starting…',
     all: 'Everything it did is in Settings.',
+  },
+  /** The business's own posts and their calendar (part 8). */
+  calendar: {
+    title: 'Calendar',
+    intro:
+      'Your own posts for the next two weeks, written by the AI from your Playbook and ideas. Nothing goes up until you OK it.',
+    fill: 'Fill the calendar',
+    filling: 'Writing posts…',
+    fillAsked:
+      'Writing posts for the open days. They show here as they’re written, each waiting for your OK.',
+    fillNothing: 'Every day in your plan already has a post.',
+    filled: (ago: string | null, next: string | null) =>
+      [ago ? `Filled ${ago}` : null, next ? `fills again ${next}` : null]
+        .filter(Boolean)
+        .join(' · '),
+    neverFilled:
+      'Press Fill the calendar to have the AI write posts for the open days in your plan. After that it tops up once a week on its own.',
+    approveWeek: 'OK the week',
+    approvedWeek: (n: number, notReady: number) =>
+      [
+        n ? `OK’d ${count(n, 'post')}.` : 'Nothing new to OK this week.',
+        notReady ? `${count(notReady, 'post')} still need something first.` : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    write: 'Write a post',
+    writing: 'Writing…',
+    written: 'Written. It’s waiting for your OK.',
+    open: 'Open day',
+    openHint: (network: string, time: string) => `${network} at ${time}`,
+    writeFor: 'Write one',
+    undated: 'No day yet',
+    plan: 'Your plan',
+    planEdit: 'Change the plan in Settings.',
+    planLine: (network: string, perWeek: number, time: string) =>
+      perWeek ? `${network}: ${count(perWeek, 'post')} a week at ${time}` : `${network}: off`,
+    ready: (n: number) =>
+      n
+        ? `${count(n, 'post')} OK’d. Posting them through the extension comes in the next updates.`
+        : null,
+    empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+  },
+  post: {
+    states: {
+      draft: 'Waiting for your OK',
+      ready: 'OK’d',
+      posting: 'Posting…',
+      posted: 'Posted',
+      failed: 'Didn’t post',
+      skipped: 'Skipped',
+    },
+    formats: { photo: 'Picture', carousel: 'Carousel', video: 'Video', text: 'Words only' },
+    ways: {
+      design: 'Designed by the AI',
+      photo: 'Photo-style, by the AI',
+      own: 'Your own',
+    },
+    waysHint: {
+      design:
+        'A picture with words on it, in your colour: tips, steps, a quote, a big claim, or each slide of a carousel.',
+      photo: 'A lifelike picture with no words, made by OpenAI’s image AI. It costs 9¢ each.',
+      own: 'A photo or video you take: the real you, your team or your work.',
+    },
+    pictureStates: {
+      none: null,
+      waiting: 'Waiting to make the picture…',
+      making: 'Making the picture…',
+      made: null,
+      failed: 'The picture didn’t work.',
+    },
+    title: 'Title',
+    words: 'Words',
+    hook: 'Hook',
+    hashtags: 'Hashtags',
+    hashtagsHint: 'Without the #, separated by spaces. They’re added at the end when it goes up.',
+    slides: 'Slides',
+    slide: (n: number) => `Slide ${n}`,
+    addSlide: 'Add a slide',
+    script: 'Script',
+    lines: 'What to say',
+    shots: 'What to film',
+    picture: 'Picture',
+    pictureShows: 'What it shows',
+    makePicture: 'Make the picture',
+    makeAgain: 'Make it again',
+    makeAsk: 'What to change (optional)',
+    makeAsked: 'Making it. It shows here in a minute.',
+    switchTo: (way: string) => `Switch to ${way.toLowerCase()}`,
+    upload: 'Add your photo',
+    uploading: 'Adding…',
+    remove: 'Remove',
+    videoLater:
+      'Record the video from the script. Adding the video and posting it comes with Instagram posting, in a later update.',
+    facebookWhere: 'Where on Facebook',
+    facebookWhereOptions: { profile: 'Your profile', page: 'Your Page' },
+    when: 'When it goes',
+    time: 'Time',
+    needsPage: 'Add your Facebook Page’s link in Settings → Posting first.',
+    noDay: 'No day yet',
+    save: 'Save',
+    saved: 'Saved.',
+    unOkd: 'Saved. Changing it took the OK back, so OK it again when it’s right.',
+    approve: 'OK it',
+    approved: 'OK’d. It goes up at its time once posting comes in the next updates.',
+    takeBack: 'Take the OK back',
+    takenBack: 'The OK is taken back.',
+    skip: 'Skip it',
+    skipped: 'Skipped. Its day is open again.',
+    restore: 'Bring it back',
+    restored: 'It’s back, waiting for your OK.',
+    rewrite: 'Write it again',
+    rewriteAsk: 'What to change (optional)',
+    rewritten: 'Written again. It’s waiting for your OK.',
+    fromIdea: 'From an idea',
+    madeByAi: 'Written by the AI',
+    approvedBy: (name: string | null, ago: string | null) =>
+      `OK’d${name ? ` by ${name}` : ''}${ago ? ` ${ago}` : ''}`,
+    network: 'Network',
+    format: 'Format',
   },
   /** The phone's screens (part 5): its one row under More, its first screen's pages, and what needs signal there. */
   phone: {

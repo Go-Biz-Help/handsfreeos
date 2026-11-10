@@ -15,6 +15,14 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { users, workspaces } from '@hfos/db/schema';
+import type {
+  CalendarPlan,
+  ContentFormat,
+  ContentState,
+  FacebookWhere,
+  PictureState,
+  PictureWay,
+} from './calendar';
 import type { ContentNetwork } from './networks';
 import type {
   CreatorState,
@@ -51,6 +59,14 @@ export const settings = addonSocialcontent.table('settings', {
   watchVideos: boolean('watch_videos').notNull().default(false),
   readerSeenAt: ts('reader_seen_at'),
   readerVersion: text('reader_version'),
+  plan: jsonb('plan').notNull().$type<CalendarPlan>().default({}),
+  facebookPage: text('facebook_page'),
+  facebookWhere: text('facebook_where')
+    .array()
+    .notNull()
+    .$type<FacebookWhere[]>()
+    .default(['profile']),
+  filledAt: ts('filled_at'),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
@@ -200,6 +216,45 @@ export const ideas = addonSocialcontent.table(
   (t) => [unique().on(t.workspaceId, t.id)],
 );
 
+/**
+ * The business's own posts (part 8): one row for each Social post record, with what the add-on keeps about it. The
+ * record holds its title (the record's name) and its pictures (core files on the record, in `fileIds` order).
+ */
+export const content = addonSocialcontent.table(
+  'content',
+  {
+    recordId: uuid('record_id').primaryKey(),
+    workspaceId: workspaceRef(),
+    ideaId: uuid('idea_id'),
+    network: text('network').notNull().$type<ContentNetwork>(),
+    format: text('format').notNull().$type<ContentFormat>().default('photo'),
+    words: text('words').notNull().default(''),
+    hook: text('hook'),
+    hashtags: text('hashtags').array().notNull().default([]),
+    slides: jsonb('slides').notNull().$type<{ heading: string; body: string }[]>().default([]),
+    script: jsonb('script').$type<{ lines: string[]; shots: string[] }>(),
+    picture: text('picture'),
+    pictureWay: text('picture_way').notNull().$type<PictureWay>().default('design'),
+    pictureState: text('picture_state').notNull().$type<PictureState>().default('none'),
+    pictureFailure: text('picture_failure'),
+    design: jsonb('design').$type<Record<string, unknown>>(),
+    fileIds: uuid('file_ids').array().notNull().default([]),
+    facebookWhere: text('facebook_where').array().notNull().$type<FacebookWhere[]>().default([]),
+    state: text('state').notNull().$type<ContentState>().default('draft'),
+    postAt: ts('post_at'),
+    approvedBy: userRef('approved_by'),
+    approvedAt: ts('approved_at'),
+    postedAt: ts('posted_at'),
+    postLink: text('post_link'),
+    failure: text('failure'),
+    madeBy: text('made_by').notNull().$type<'ai' | 'person'>().default('ai'),
+    createdBy: userRef('created_by'),
+    createdAt: ts('created_at').notNull().defaultNow(),
+    updatedAt: ts('updated_at').notNull().defaultNow(),
+  },
+  (t) => [unique().on(t.workspaceId, t.recordId)],
+);
+
 export const SOCIALCONTENT_TABLES = {
   settings,
   niches,
@@ -208,4 +263,5 @@ export const SOCIALCONTENT_TABLES = {
   work,
   playbook,
   ideas,
+  content,
 } as const;

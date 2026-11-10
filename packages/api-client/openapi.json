@@ -115166,7 +115166,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), and whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, and where its Facebook posts go (the profile, the Page or both). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -115212,6 +115212,59 @@
                   },
                   "watchVideos": {
                     "type": "boolean"
+                  },
+                  "plan": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin"
+                      ]
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "perWeek": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 7
+                        },
+                        "time": {
+                          "type": "string",
+                          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                        }
+                      },
+                      "required": [
+                        "perWeek",
+                        "time"
+                      ]
+                    }
+                  },
+                  "facebookPage": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 500,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "facebookWhere": {
+                    "minItems": 1,
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "profile",
+                        "page"
+                      ]
+                    }
                   }
                 },
                 "required": [
@@ -115274,6 +115327,90 @@
                         "string",
                         "null"
                       ]
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "perWeek",
+                            "time"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "facebook": {
+                          "type": "object",
+                          "properties": {
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "perWeek",
+                            "time"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "perWeek",
+                            "time"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "facebookPage": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "facebookWhere": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "page"
+                        ]
+                      }
                     }
                   },
                   "required": [
@@ -115282,7 +115419,10 @@
                     "readerName",
                     "watchVideos",
                     "readerSeenAt",
-                    "readerVersion"
+                    "readerVersion",
+                    "plan",
+                    "facebookPage",
+                    "facebookWhere"
                   ],
                   "additionalProperties": false
                 }
@@ -116525,6 +116665,1214 @@
                   },
                   "required": [
                     "asked"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/socialcontent.content.save": {
+      "post": {
+        "operationId": "command_socialcontent_content_save",
+        "summary": "Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, or when it goes (null for no day yet). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.content.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "postId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "network": {
+                    "type": "string",
+                    "enum": [
+                      "instagram",
+                      "facebook",
+                      "linkedin"
+                    ]
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "photo",
+                      "carousel",
+                      "video",
+                      "text"
+                    ]
+                  },
+                  "words": {
+                    "type": "string",
+                    "maxLength": 3000
+                  },
+                  "hook": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "hashtags": {
+                    "maxItems": 30,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 41
+                    }
+                  },
+                  "slides": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "heading": {
+                          "type": "string"
+                        },
+                        "body": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "heading",
+                        "body"
+                      ]
+                    }
+                  },
+                  "script": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "lines": {
+                            "maxItems": 20,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "shots": {
+                            "maxItems": 12,
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "lines",
+                          "shots"
+                        ]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "picture": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 600
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "pictureWay": {
+                    "type": "string",
+                    "enum": [
+                      "design",
+                      "photo",
+                      "own"
+                    ]
+                  },
+                  "fileIds": {
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    }
+                  },
+                  "facebookWhere": {
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "profile",
+                        "page"
+                      ]
+                    }
+                  },
+                  "postAt": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date-time",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "postId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "tiktok",
+                        "youtube"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "photo",
+                        "carousel",
+                        "video",
+                        "text"
+                      ]
+                    },
+                    "words": {
+                      "type": "string"
+                    },
+                    "hook": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "slides": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "heading": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "heading",
+                          "body"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "script": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shots": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "lines",
+                            "shots"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "picture": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictureWay": {
+                      "type": "string",
+                      "enum": [
+                        "design",
+                        "photo",
+                        "own"
+                      ]
+                    },
+                    "pictureState": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "waiting",
+                        "making",
+                        "made",
+                        "failed"
+                      ]
+                    },
+                    "pictureFailure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictures": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "bucket": {
+                            "type": "string"
+                          },
+                          "objectPath": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mimeType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "bucket",
+                          "objectPath",
+                          "name",
+                          "mimeType"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "facebookWhere": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "page"
+                        ]
+                      }
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "ready",
+                        "posting",
+                        "posted",
+                        "failed",
+                        "skipped"
+                      ]
+                    },
+                    "postAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postLink": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "failure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "madeBy": {
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "ideaId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stillNeeds": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "network",
+                    "format",
+                    "words",
+                    "hook",
+                    "hashtags",
+                    "slides",
+                    "script",
+                    "picture",
+                    "pictureWay",
+                    "pictureState",
+                    "pictureFailure",
+                    "pictures",
+                    "facebookWhere",
+                    "state",
+                    "postAt",
+                    "approvedBy",
+                    "approvedAt",
+                    "postedAt",
+                    "postLink",
+                    "failure",
+                    "madeBy",
+                    "ideaId",
+                    "stillNeeds",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/socialcontent.content.approve": {
+      "post": {
+        "operationId": "command_socialcontent_content_approve",
+        "summary": "OK one of the business’s own posts so it goes up at its time (decision 15: nothing goes up without an OK), or take the OK back (ok: false). It needs everything a post needs first: words, its pictures or slides, a day ahead, and for Facebook where it goes.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved, socialcontent.content.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "postId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "ok": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "postId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "tiktok",
+                        "youtube"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "photo",
+                        "carousel",
+                        "video",
+                        "text"
+                      ]
+                    },
+                    "words": {
+                      "type": "string"
+                    },
+                    "hook": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "slides": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "heading": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "heading",
+                          "body"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "script": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shots": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "lines",
+                            "shots"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "picture": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictureWay": {
+                      "type": "string",
+                      "enum": [
+                        "design",
+                        "photo",
+                        "own"
+                      ]
+                    },
+                    "pictureState": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "waiting",
+                        "making",
+                        "made",
+                        "failed"
+                      ]
+                    },
+                    "pictureFailure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictures": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "bucket": {
+                            "type": "string"
+                          },
+                          "objectPath": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mimeType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "bucket",
+                          "objectPath",
+                          "name",
+                          "mimeType"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "facebookWhere": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "page"
+                        ]
+                      }
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "ready",
+                        "posting",
+                        "posted",
+                        "failed",
+                        "skipped"
+                      ]
+                    },
+                    "postAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postLink": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "failure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "madeBy": {
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "ideaId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stillNeeds": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "network",
+                    "format",
+                    "words",
+                    "hook",
+                    "hashtags",
+                    "slides",
+                    "script",
+                    "picture",
+                    "pictureWay",
+                    "pictureState",
+                    "pictureFailure",
+                    "pictures",
+                    "facebookWhere",
+                    "state",
+                    "postAt",
+                    "approvedBy",
+                    "approvedAt",
+                    "postedAt",
+                    "postLink",
+                    "failure",
+                    "madeBy",
+                    "ideaId",
+                    "stillNeeds",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/socialcontent.content.approve_week": {
+      "post": {
+        "operationId": "command_socialcontent_content_approve_week",
+        "summary": "OK the week in one go (decision 15): every draft of the business’s own posts going in the next 7 days that has everything it needs. Says how many it OK’d, and which still need something, and what.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "from": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approved": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "notReady": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "postId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "needs": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "postId",
+                          "title",
+                          "needs"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "approved",
+                    "notReady"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/socialcontent.content.skip": {
+      "post": {
+        "operationId": "command_socialcontent_content_skip",
+        "summary": "Skip one of the business’s own posts, so it doesn’t go up and its day is open again for another (an OK’d one loses its OK), or bring a skipped one back as a draft waiting for an OK (skip: false).",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires socialcontent.use. Emits socialcontent.content.skipped.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "postId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "skip": {
+                    "default": true,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "postId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "tiktok",
+                        "youtube"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "photo",
+                        "carousel",
+                        "video",
+                        "text"
+                      ]
+                    },
+                    "words": {
+                      "type": "string"
+                    },
+                    "hook": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "slides": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "heading": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "heading",
+                          "body"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "script": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shots": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "lines",
+                            "shots"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "picture": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictureWay": {
+                      "type": "string",
+                      "enum": [
+                        "design",
+                        "photo",
+                        "own"
+                      ]
+                    },
+                    "pictureState": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "waiting",
+                        "making",
+                        "made",
+                        "failed"
+                      ]
+                    },
+                    "pictureFailure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictures": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "bucket": {
+                            "type": "string"
+                          },
+                          "objectPath": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mimeType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "bucket",
+                          "objectPath",
+                          "name",
+                          "mimeType"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "facebookWhere": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "page"
+                        ]
+                      }
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "ready",
+                        "posting",
+                        "posted",
+                        "failed",
+                        "skipped"
+                      ]
+                    },
+                    "postAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postLink": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "failure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "madeBy": {
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "ideaId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stillNeeds": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "network",
+                    "format",
+                    "words",
+                    "hook",
+                    "hashtags",
+                    "slides",
+                    "script",
+                    "picture",
+                    "pictureWay",
+                    "pictureState",
+                    "pictureFailure",
+                    "pictures",
+                    "facebookWhere",
+                    "state",
+                    "postAt",
+                    "approvedBy",
+                    "approvedAt",
+                    "postedAt",
+                    "postLink",
+                    "failure",
+                    "madeBy",
+                    "ideaId",
+                    "stillNeeds",
+                    "createdAt",
+                    "updatedAt"
                   ],
                   "additionalProperties": false
                 }
@@ -239317,6 +240665,90 @@
                             "string",
                             "null"
                           ]
+                        },
+                        "plan": {
+                          "type": "object",
+                          "properties": {
+                            "instagram": {
+                              "type": "object",
+                              "properties": {
+                                "perWeek": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 7
+                                },
+                                "time": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              },
+                              "required": [
+                                "perWeek",
+                                "time"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "facebook": {
+                              "type": "object",
+                              "properties": {
+                                "perWeek": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 7
+                                },
+                                "time": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              },
+                              "required": [
+                                "perWeek",
+                                "time"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "linkedin": {
+                              "type": "object",
+                              "properties": {
+                                "perWeek": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 7
+                                },
+                                "time": {
+                                  "type": "string",
+                                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                                }
+                              },
+                              "required": [
+                                "perWeek",
+                                "time"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "instagram",
+                            "facebook",
+                            "linkedin"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "facebookPage": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "facebookWhere": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "profile",
+                              "page"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -239325,7 +240757,10 @@
                         "readerName",
                         "watchVideos",
                         "readerSeenAt",
-                        "readerVersion"
+                        "readerVersion",
+                        "plan",
+                        "facebookPage",
+                        "facebookWhere"
                       ],
                       "additionalProperties": false
                     },
@@ -240698,6 +242133,1466 @@
                   "required": [
                     "ideas",
                     "examples"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/socialcontent.calendar.get": {
+      "post": {
+        "operationId": "query_socialcontent_calendar_get",
+        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires socialcontent.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "from": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "days": {
+                    "default": 15,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 42
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timeZone": {
+                      "type": "string"
+                    },
+                    "today": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "from": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    },
+                    "days": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "plan": {
+                      "type": "object",
+                      "properties": {
+                        "instagram": {
+                          "type": "object",
+                          "properties": {
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "perWeek",
+                            "time"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "facebook": {
+                          "type": "object",
+                          "properties": {
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "perWeek",
+                            "time"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "linkedin": {
+                          "type": "object",
+                          "properties": {
+                            "perWeek": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 7
+                            },
+                            "time": {
+                              "type": "string",
+                              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                            }
+                          },
+                          "required": [
+                            "perWeek",
+                            "time"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "instagram",
+                        "facebook",
+                        "linkedin"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "open": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "network": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin"
+                            ]
+                          },
+                          "date": {
+                            "type": "string",
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                          },
+                          "at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "network",
+                          "date",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "network": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "tiktok",
+                              "youtube"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "photo",
+                              "carousel",
+                              "video",
+                              "text"
+                            ]
+                          },
+                          "words": {
+                            "type": "string"
+                          },
+                          "hook": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "slides": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "heading": {
+                                  "type": "string"
+                                },
+                                "body": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "heading",
+                                "body"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "script": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "shots": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "lines",
+                                  "shots"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "picture": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "pictureWay": {
+                            "type": "string",
+                            "enum": [
+                              "design",
+                              "photo",
+                              "own"
+                            ]
+                          },
+                          "pictureState": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "waiting",
+                              "making",
+                              "made",
+                              "failed"
+                            ]
+                          },
+                          "pictureFailure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "pictures": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "fileId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "bucket": {
+                                  "type": "string"
+                                },
+                                "objectPath": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mimeType": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "fileId",
+                                "bucket",
+                                "objectPath",
+                                "name",
+                                "mimeType"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "facebookWhere": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "profile",
+                                "page"
+                              ]
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "ready",
+                              "posting",
+                              "posted",
+                              "failed",
+                              "skipped"
+                            ]
+                          },
+                          "postAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postLink": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "failure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "madeBy": {
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "ideaId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stillNeeds": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "network",
+                          "format",
+                          "words",
+                          "hook",
+                          "hashtags",
+                          "slides",
+                          "script",
+                          "picture",
+                          "pictureWay",
+                          "pictureState",
+                          "pictureFailure",
+                          "pictures",
+                          "facebookWhere",
+                          "state",
+                          "postAt",
+                          "approvedBy",
+                          "approvedAt",
+                          "postedAt",
+                          "postLink",
+                          "failure",
+                          "madeBy",
+                          "ideaId",
+                          "stillNeeds",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "undated": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "network": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "tiktok",
+                              "youtube"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "photo",
+                              "carousel",
+                              "video",
+                              "text"
+                            ]
+                          },
+                          "words": {
+                            "type": "string"
+                          },
+                          "hook": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "slides": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "heading": {
+                                  "type": "string"
+                                },
+                                "body": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "heading",
+                                "body"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "script": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "shots": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "lines",
+                                  "shots"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "picture": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "pictureWay": {
+                            "type": "string",
+                            "enum": [
+                              "design",
+                              "photo",
+                              "own"
+                            ]
+                          },
+                          "pictureState": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "waiting",
+                              "making",
+                              "made",
+                              "failed"
+                            ]
+                          },
+                          "pictureFailure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "pictures": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "fileId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "bucket": {
+                                  "type": "string"
+                                },
+                                "objectPath": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mimeType": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "fileId",
+                                "bucket",
+                                "objectPath",
+                                "name",
+                                "mimeType"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "facebookWhere": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "profile",
+                                "page"
+                              ]
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "ready",
+                              "posting",
+                              "posted",
+                              "failed",
+                              "skipped"
+                            ]
+                          },
+                          "postAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postLink": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "failure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "madeBy": {
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "ideaId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stillNeeds": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "network",
+                          "format",
+                          "words",
+                          "hook",
+                          "hashtags",
+                          "slides",
+                          "script",
+                          "picture",
+                          "pictureWay",
+                          "pictureState",
+                          "pictureFailure",
+                          "pictures",
+                          "facebookWhere",
+                          "state",
+                          "postAt",
+                          "approvedBy",
+                          "approvedAt",
+                          "postedAt",
+                          "postLink",
+                          "failure",
+                          "madeBy",
+                          "ideaId",
+                          "stillNeeds",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "filledAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "nextFillAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ideasSaved": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "ready": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "facebookPage": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "mayManage": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "timeZone",
+                    "today",
+                    "from",
+                    "days",
+                    "plan",
+                    "open",
+                    "posts",
+                    "undated",
+                    "filledAt",
+                    "nextFillAt",
+                    "ideasSaved",
+                    "ready",
+                    "facebookPage",
+                    "mayManage"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/socialcontent.content.get": {
+      "post": {
+        "operationId": "query_socialcontent_content_get",
+        "summary": "One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, and what it still needs before it can be OK’d.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires socialcontent.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "postId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "postId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "network": {
+                      "type": "string",
+                      "enum": [
+                        "instagram",
+                        "facebook",
+                        "linkedin",
+                        "tiktok",
+                        "youtube"
+                      ]
+                    },
+                    "format": {
+                      "type": "string",
+                      "enum": [
+                        "photo",
+                        "carousel",
+                        "video",
+                        "text"
+                      ]
+                    },
+                    "words": {
+                      "type": "string"
+                    },
+                    "hook": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "hashtags": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "slides": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "heading": {
+                            "type": "string"
+                          },
+                          "body": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "heading",
+                          "body"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "script": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "shots": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "lines",
+                            "shots"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "picture": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictureWay": {
+                      "type": "string",
+                      "enum": [
+                        "design",
+                        "photo",
+                        "own"
+                      ]
+                    },
+                    "pictureState": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "waiting",
+                        "making",
+                        "made",
+                        "failed"
+                      ]
+                    },
+                    "pictureFailure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pictures": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "bucket": {
+                            "type": "string"
+                          },
+                          "objectPath": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "mimeType": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "fileId",
+                          "bucket",
+                          "objectPath",
+                          "name",
+                          "mimeType"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "facebookWhere": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "profile",
+                          "page"
+                        ]
+                      }
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "ready",
+                        "posting",
+                        "posted",
+                        "failed",
+                        "skipped"
+                      ]
+                    },
+                    "postAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedBy": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "approvedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postedAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "postLink": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "failure": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "madeBy": {
+                      "type": "string",
+                      "enum": [
+                        "ai",
+                        "person"
+                      ]
+                    },
+                    "ideaId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stillNeeds": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "updatedAt": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "network",
+                    "format",
+                    "words",
+                    "hook",
+                    "hashtags",
+                    "slides",
+                    "script",
+                    "picture",
+                    "pictureWay",
+                    "pictureState",
+                    "pictureFailure",
+                    "pictures",
+                    "facebookWhere",
+                    "state",
+                    "postAt",
+                    "approvedBy",
+                    "approvedAt",
+                    "postedAt",
+                    "postLink",
+                    "failure",
+                    "madeBy",
+                    "ideaId",
+                    "stillNeeds",
+                    "createdAt",
+                    "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/socialcontent.content.list": {
+      "post": {
+        "operationId": "query_socialcontent_content_list",
+        "summary": "The business’s own posts, newest first: drafts waiting for an OK, OK’d ones, posted ones or skipped ones (pass state to keep to one, network to keep to one network).",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires socialcontent.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "ready",
+                      "posting",
+                      "posted",
+                      "failed",
+                      "skipped"
+                    ]
+                  },
+                  "network": {
+                    "type": "string",
+                    "enum": [
+                      "instagram",
+                      "facebook",
+                      "linkedin",
+                      "tiktok",
+                      "youtube"
+                    ]
+                  },
+                  "limit": {
+                    "default": 50,
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "posts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "network": {
+                            "type": "string",
+                            "enum": [
+                              "instagram",
+                              "facebook",
+                              "linkedin",
+                              "tiktok",
+                              "youtube"
+                            ]
+                          },
+                          "format": {
+                            "type": "string",
+                            "enum": [
+                              "photo",
+                              "carousel",
+                              "video",
+                              "text"
+                            ]
+                          },
+                          "words": {
+                            "type": "string"
+                          },
+                          "hook": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "hashtags": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "slides": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "heading": {
+                                  "type": "string"
+                                },
+                                "body": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "heading",
+                                "body"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "script": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "shots": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "lines",
+                                  "shots"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "picture": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "pictureWay": {
+                            "type": "string",
+                            "enum": [
+                              "design",
+                              "photo",
+                              "own"
+                            ]
+                          },
+                          "pictureState": {
+                            "type": "string",
+                            "enum": [
+                              "none",
+                              "waiting",
+                              "making",
+                              "made",
+                              "failed"
+                            ]
+                          },
+                          "pictureFailure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "pictures": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "fileId": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "bucket": {
+                                  "type": "string"
+                                },
+                                "objectPath": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "mimeType": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "fileId",
+                                "bucket",
+                                "objectPath",
+                                "name",
+                                "mimeType"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "facebookWhere": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "profile",
+                                "page"
+                              ]
+                            }
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "draft",
+                              "ready",
+                              "posting",
+                              "posted",
+                              "failed",
+                              "skipped"
+                            ]
+                          },
+                          "postAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedBy": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "approvedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "postLink": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "failure": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "madeBy": {
+                            "type": "string",
+                            "enum": [
+                              "ai",
+                              "person"
+                            ]
+                          },
+                          "ideaId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "stillNeeds": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "title",
+                          "network",
+                          "format",
+                          "words",
+                          "hook",
+                          "hashtags",
+                          "slides",
+                          "script",
+                          "picture",
+                          "pictureWay",
+                          "pictureState",
+                          "pictureFailure",
+                          "pictures",
+                          "facebookWhere",
+                          "state",
+                          "postAt",
+                          "approvedBy",
+                          "approvedAt",
+                          "postedAt",
+                          "postLink",
+                          "failure",
+                          "madeBy",
+                          "ideaId",
+                          "stillNeeds",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "posts"
                   ],
                   "additionalProperties": false
                 }

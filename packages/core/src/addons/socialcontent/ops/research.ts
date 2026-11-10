@@ -152,7 +152,7 @@ export const overview = defineAddonQuery(socialcontentAddon, {
 export const settingsSave = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.settings.save',
   description:
-    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), and whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off). What isn’t given stays as it is.',
+    'Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, and where its Facebook posts go (the profile, the Page or both). What isn’t given stays as it is.',
   risk: 1,
   input: SettingsSaveInput,
   output: SettingsOut,
@@ -168,13 +168,16 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
         i.readerUserId !== undefined ? 'whose computer reads' : null,
         i.watchVideos === true ? 'turn on watching videos (it uses a lot more AI)' : null,
         i.watchVideos === false ? 'turn off watching videos' : null,
+        i.plan ? 'the calendar’s plan' : null,
+        i.facebookPage !== undefined ? 'the Facebook Page' : null,
+        i.facebookWhere ? 'where Facebook posts go' : null,
       ].filter((p): p is string => !!p);
       return parts.length
         ? `Change AI Social Media Content Creator’s settings: ${parts.join(', ')}`
         : 'Change AI Social Media Content Creator’s settings';
     },
     description:
-      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), and `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on). Leave out what doesn’t change.',
+      'Change AI Social Media Content Creator’s settings: `networks`, the networks creators are looked for and read on, `readerUserId`, the team member whose computer reads them in Chrome with the HandsFreeOS Social extension (null for none), `watchVideos`, whether new standout videos are watched (it uses about 10 to 20 times the AI of notes alone for each video, so say so before turning it on), `plan`, the calendar’s plan for each network given (`perWeek` 0 to 7, `time` as HH:MM in the business’s time zone), `facebookPage`, the business’s Facebook Page link (null for none), and `facebookWhere`, where its Facebook posts go (["profile"], ["page"] or both). Leave out what doesn’t change.',
     outcome: () => ({ words: W.settings.saved, path: 'a/socialcontent/settings' }),
   },
   emits: ['socialcontent.settings.saved'],
@@ -203,6 +206,13 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
       }
     }
     const was = await settingsOf(ctx);
+    const plan = input.plan ? { ...was.plan, ...input.plan } : was.plan;
+    const facebookPage = input.facebookPage === undefined ? was.facebookPage : input.facebookPage;
+    const facebookWhere = input.facebookWhere
+      ? [...new Set(input.facebookWhere)]
+      : was.facebookWhere.length
+        ? was.facebookWhere
+        : ['profile' as const];
     const networks = input.networks ? [...new Set(input.networks)] : was.networks;
     const readerUserId = input.readerUserId === undefined ? was.readerUserId : input.readerUserId;
     const watchVideos = input.watchVideos ?? was.watchVideos;
@@ -213,13 +223,25 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
       : { readerSeenAt: was.readerSeenAt, readerVersion: was.readerVersion };
     await ctx.tx
       .insert(settings)
-      .values({ workspaceId: ws, networks, readerUserId, watchVideos, updatedBy: me })
+      .values({
+        workspaceId: ws,
+        networks,
+        readerUserId,
+        watchVideos,
+        plan,
+        facebookPage,
+        facebookWhere,
+        updatedBy: me,
+      })
       .onConflictDoUpdate({
         target: settings.workspaceId,
         set: {
           networks,
           readerUserId,
           watchVideos,
+          plan,
+          facebookPage,
+          facebookWhere,
           ...(readerChanged ? { readerSeenAt: null, readerVersion: null } : {}),
           updatedBy: me,
           updatedAt: changeMoment(ctx.meta),
@@ -232,6 +254,7 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
         networks,
         readerChanged,
         watchVideos,
+        planChanged: input.plan !== undefined,
       },
     });
     return {
@@ -240,6 +263,9 @@ export const settingsSave = defineAddonCommand(socialcontentAddon, {
       watchVideos,
       readerName: await nameOf(ctx, readerUserId),
       ...seen,
+      plan,
+      facebookPage,
+      facebookWhere,
     };
   },
 });

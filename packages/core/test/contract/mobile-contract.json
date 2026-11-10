@@ -15128,6 +15128,49 @@
           },
           "watchVideos": {
             "type": "boolean"
+          },
+          "plan": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": ["instagram", "facebook", "linkedin"]
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "perWeek": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "time": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                }
+              },
+              "required": ["perWeek", "time"]
+            }
+          },
+          "facebookPage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "facebookWhere": {
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["profile", "page"]
+            }
           }
         },
         "required": ["workspaceId"]
@@ -17263,9 +17306,9 @@
             "maxLength": 120
           },
           "kind": {
-            "description": "A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam",
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$"
+            "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$",
+            "description": "A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam"
           },
           "includeArchived": {
             "default": false,
