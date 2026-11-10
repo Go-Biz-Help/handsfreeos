@@ -710,7 +710,7 @@
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:135",
       "covered": "yes",
-      "by": "socialcontent_fill_calendar (worker action), on a Confirm card"
+      "by": "socialcontent_fill_calendar (worker action), on its own"
     },
     {
       "path": "Calendar → OK the week (when posts wait for an OK)",
@@ -850,7 +850,7 @@
       "kind": "do",
       "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:576",
       "covered": "yes",
-      "by": "socialcontent_make_post_picture (way, ask), on a Confirm card"
+      "by": "socialcontent_make_post_picture (way, ask), on its own"
     },
     {
       "path": "Post → Picture → Add your photo",

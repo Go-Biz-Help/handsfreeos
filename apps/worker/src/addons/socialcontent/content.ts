@@ -440,7 +440,7 @@ export const fillCalendarNow: AddonWorkerAction<Record<string, never>> = {
     tool: 'socialcontent_fill_calendar',
     description:
       'Fill the business’s content calendar: the AI writes a post for each open day in the plan over the next two weeks (saved ideas first, then new ones, then from the Playbook), each waiting for an OK, with their pictures. After that it tops up once a week on its own. Says how many open days there are; the posts show on the calendar as they’re written, over a few minutes.',
-    autonomy: 'confirm',
+    autonomy: 'auto',
     keywords: ['fill calendar', 'content calendar', 'plan my posts', 'next two weeks of posts'],
   },
   input: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
@@ -536,7 +536,7 @@ export const makePictureNow: AddonWorkerAction<z.output<typeof PictureInput>> = 
     tool: 'socialcontent_make_post_picture',
     description:
       'Make the pictures for one of the business’s own posts again, or another way: "design" for a picture with words on it in the business’s colour (and each slide of a carousel), "photo" for a lifelike picture with no words from OpenAI’s image AI (9¢ each). ask says what to change. They replace the AI’s earlier pictures and take the post’s OK back; they show on the post in a minute.',
-    autonomy: 'confirm',
+    autonomy: 'auto',
     keywords: ['make picture', 'new image', 'design', 'photo for post'],
   },
   input: PictureInput,
