@@ -2517,6 +2517,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.job.make_project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a service call a project: it gets its phases (the business’s starter phases unless they’re given), and its % done comes from them from now on.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.made_project.
+         */
+        post: operations["command_contractor_job_make_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a job: a service call, or a project that starts with its phases, for a customer at one of their properties (or a new address), with its trade, job lead, start day and deadline.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.opened, contractor.property.added.
+         */
+        post: operations["command_contractor_job_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.set_money": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a job’s price to the customer and its budget: labor, materials and other costs (in cents), and labor hours. Only what’s given changes; null clears it. For people who may see job costs and profit.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.job.money_set.
+         */
+        post: operations["command_contractor_job_set_money"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.set_percent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set how far along a service call is (0 to 100%). A project’s % done comes from its phases instead.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.percent_set.
+         */
+        post: operations["command_contractor_job_set_percent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a job along: new, scheduled, in progress, on hold, done or cancelled. On hold and cancelled need a reason.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.status_changed.
+         */
+        post: operations["command_contractor_job_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.team_add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone on the business’s team on a job’s team, beside its job lead.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.team_changed.
+         */
+        post: operations["command_contractor_job_team_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.team_remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a job’s team. The job and their work on it stay.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.team_changed.
+         */
+        post: operations["command_contractor_job_team_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a job’s name, trade, work to do, start day, deadline, job lead, customer or property (an existing one, or a new address). Only what’s given changes; null clears it.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.updated, contractor.property.added.
+         */
+        post: operations["command_contractor_job_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a phase at the end of a job’s phases, with its start day and deadline. A service call with its first phase becomes a project.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phase.added, contractor.job.made_project.
+         */
+        post: operations["command_contractor_phase_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a phase from a project, with its dates and % done. The job and everything else on it stay.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.phase.removed.
+         */
+        post: operations["command_contractor_phase_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a job’s phases in a new order: every one of its phases, once each, first to last.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phases.reordered.
+         */
+        post: operations["command_contractor_phase_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a phase: its name, start day, deadline, status (not started, started, done) or % done. Done is 100%; 100% is done.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phase.updated.
+         */
+        post: operations["command_contractor_phase_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.property.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a property by its address, owned by a customer when one is given.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.property.added.
+         */
+        post: operations["command_contractor_property_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.archive": {
         parameters: {
             query?: never;
@@ -18377,6 +18637,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.job.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One job whole: its status, customer, property, trade, dates, work to do, lead and team, phases, visits, and (for people who may see job costs) its price and budget.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_job_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.job.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s jobs, open ones first by deadline: all, mine (I lead it or am on its team) or late, by status, by customer or property, or by words in its name, customer or property.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_job_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, and who can be on a job.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.property.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s properties, each with its owners and how many jobs it has had: a customer’s first (or only theirs), or found by words in the address.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_property_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/conversation.get": {
         parameters: {
             query?: never;
@@ -30661,6 +31001,491 @@ export interface operations {
                         /** Format: uuid */
                         sweepId: string;
                         total: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_make_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    phases?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        phases: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    customerPersonId?: string | null;
+                    details?: string;
+                    dueOn?: string | null;
+                    /**
+                     * @default service
+                     * @enum {string}
+                     */
+                    kind?: "service" | "project";
+                    leadUserId?: string | null;
+                    name: string;
+                    newPropertyAddress?: string;
+                    phases?: string[];
+                    propertyId?: string | null;
+                    startsOn?: string | null;
+                    trade?: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                        phases: number;
+                        propertyId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_set_money: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    laborCents?: number | null;
+                    laborHours?: number | null;
+                    materialsCents?: number | null;
+                    otherCents?: number | null;
+                    priceCents?: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_set_percent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    percentDone: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        percentDone: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    reason?: string;
+                    /** @enum {string} */
+                    status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** @enum {string} */
+                        status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_team_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_team_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    customerPersonId?: string | null;
+                    details?: string | null;
+                    dueOn?: string | null;
+                    /** Format: uuid */
+                    jobId: string;
+                    leadUserId?: string | null;
+                    name?: string;
+                    newPropertyAddress?: string;
+                    propertyId?: string | null;
+                    startsOn?: string | null;
+                    trade?: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueOn?: string | null;
+                    /** Format: uuid */
+                    jobId: string;
+                    name: string;
+                    startsOn?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        madeProject: boolean;
+                        /** Format: uuid */
+                        phaseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phaseId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        jobPercentDone: number;
+                        /** Format: uuid */
+                        phaseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    phaseIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueOn?: string | null;
+                    name?: string;
+                    percentDone?: number;
+                    /** Format: uuid */
+                    phaseId: string;
+                    startsOn?: string | null;
+                    /** @enum {string} */
+                    status?: "not_started" | "in_progress" | "done";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        jobPercentDone: number;
+                        /** Format: uuid */
+                        phaseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_property_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    ownerPersonId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** Format: uuid */
+                        propertyId: string;
                     };
                 };
             };
@@ -70559,6 +71384,294 @@ export interface operations {
                             details: boolean;
                             tags: boolean;
                         };
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_job_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        customer: {
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                        } | null;
+                        daysLate: number | null;
+                        details: string | null;
+                        doneAt: string | null;
+                        dueOn: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "service" | "project";
+                        lead: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        } | null;
+                        money: {
+                            laborCents: number | null;
+                            laborHours: number | null;
+                            marginBp: number | null;
+                            materialsCents: number | null;
+                            otherCents: number | null;
+                            priceCents: number | null;
+                            profitCents: number | null;
+                            totalCents: number | null;
+                        } | null;
+                        name: string;
+                        nextVisitAt: string | null;
+                        percentDone: number;
+                        phaseList: {
+                            daysLate: number | null;
+                            doneAt: string | null;
+                            dueOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            percentDone: number;
+                            position: number;
+                            startsOn: string | null;
+                            /** @enum {string} */
+                            status: "not_started" | "in_progress" | "done";
+                        }[];
+                        phases: {
+                            count: number;
+                            done: number;
+                        };
+                        property: {
+                            name: string;
+                            /** Format: uuid */
+                            recordId: string;
+                        } | null;
+                        /** Format: uuid */
+                        recordTypeId: string;
+                        startsOn: string | null;
+                        /** @enum {string} */
+                        status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                        statusAt: string;
+                        statusReason: string | null;
+                        team: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        trade: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                        updatedAt: string;
+                        visits: {
+                            /** Format: uuid */
+                            appointmentId: string;
+                            endsAt: string;
+                            startsAt: string;
+                            status: string;
+                            title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_job_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customerPersonId?: string;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    filter?: "all" | "mine" | "late";
+                    /** @default false */
+                    includeClosed?: boolean;
+                    /** Format: uuid */
+                    propertyId?: string;
+                    search?: string;
+                    status?: ("new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        jobs: {
+                            customer: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                            daysLate: number | null;
+                            dueOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "service" | "project";
+                            lead: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            name: string;
+                            nextVisitAt: string | null;
+                            percentDone: number;
+                            phases: {
+                                count: number;
+                                done: number;
+                            };
+                            property: {
+                                name: string;
+                                /** Format: uuid */
+                                recordId: string;
+                            } | null;
+                            startsOn: string | null;
+                            /** @enum {string} */
+                            status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                            statusAt: string;
+                            statusReason: string | null;
+                            trade: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                            updatedAt: string;
+                        }[];
+                        truncated: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            doneThisMonth: number;
+                            late: number;
+                            onHold: number;
+                            open: number;
+                        };
+                        kinds: {
+                            /** Format: uuid */
+                            job: string;
+                            /** Format: uuid */
+                            property: string;
+                        };
+                        may: {
+                            assign: boolean;
+                            costs: boolean;
+                            manage: boolean;
+                        };
+                        name: string;
+                        people: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        settings: {
+                            /** @default [] */
+                            phases: string[];
+                            /** @default [] */
+                            trades: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general")[];
+                        };
+                        /** Format: date */
+                        today: string;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_property_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customerPersonId?: string;
+                    /** @default false */
+                    onlyTheirs?: boolean;
+                    search?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        properties: {
+                            jobs: number;
+                            name: string;
+                            owners: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                            /** Format: uuid */
+                            recordId: string;
+                        }[];
                     };
                 };
             };

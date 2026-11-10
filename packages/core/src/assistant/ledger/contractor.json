@@ -1,0 +1,435 @@
+{
+  "area": "contractor",
+  "title": "The Contractor Operations add-on: Jobs (board and list), New job, a job’s page and Settings, on the web",
+  "checkedOn": "2026-11-10",
+  "files": {
+    "apps/web/src/addons/contractor/bits.tsx": "88d65e8f4655",
+    "apps/web/src/addons/contractor/job-dialogs.tsx": "6af231b59e1a",
+    "apps/web/src/addons/contractor/job-page.tsx": "6891ab30052e",
+    "apps/web/src/addons/contractor/jobs-home.tsx": "b0933950703d",
+    "apps/web/src/addons/contractor/new-job-dialog.tsx": "21677be650ca",
+    "apps/web/src/addons/contractor/phases-card.tsx": "aecb968a30f3",
+    "apps/web/src/addons/contractor/property-picker.tsx": "0f3215dde1de",
+    "apps/web/src/addons/contractor/settings-link.tsx": "114eae047876",
+    "apps/web/src/addons/contractor/settings-page.tsx": "8185a1014546",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/jobs/[jobId]/page.tsx": "fe9655ec5251",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/page.tsx": "d4bceddd201d",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/settings/page.tsx": "e3ee1a1ab2b8"
+  },
+  "items": [
+    {
+      "path": "Side menu → Contractor Operations (opens Jobs; Settings pops out for owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/registry.ts:280",
+      "covered": "yes",
+      "by": "add-on directory line in the prompt; CONTRACTOR_PLACES link each page"
+    },
+    {
+      "path": "Add-ons → Contractor Operations → settings: what its settings are, with Open Contractor settings",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-link.tsx:24",
+      "covered": "yes",
+      "by": "the Settings place; read_addon_settings"
+    },
+    {
+      "path": "Jobs → header: business name and what the page is for",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:80",
+      "covered": "yes",
+      "by": "contractor_overview (name); the place's words"
+    },
+    {
+      "path": "Jobs → New job",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:83",
+      "covered": "yes",
+      "by": "contractor_open_job"
+    },
+    {
+      "path": "Jobs → Pick your trade notice (owners and admins, while no trade is picked), with Pick your trade",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:95",
+      "covered": "yes",
+      "by": "contractor_overview (settings.trades, may.manage); do_addon_save_settings settings.trades"
+    },
+    {
+      "path": "Jobs → counts: Open, Late, On hold, Done this month (Open and Late filter the list)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:100",
+      "covered": "yes",
+      "by": "contractor_overview (counts)"
+    },
+    {
+      "path": "Jobs → filters: All jobs, My jobs, Late",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:112",
+      "covered": "yes",
+      "by": "contractor_list_jobs (filter)"
+    },
+    {
+      "path": "Jobs → Search jobs",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:147",
+      "covered": "yes",
+      "by": "contractor_list_jobs (search)"
+    },
+    {
+      "path": "Jobs → Show done and cancelled",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:151",
+      "covered": "yes",
+      "by": "contractor_list_jobs (includeClosed)"
+    },
+    {
+      "path": "Jobs → Board or List",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:160",
+      "covered": "yes",
+      "by": "contractor_list_jobs answers both: the board is the list grouped by status"
+    },
+    {
+      "path": "Jobs → no jobs yet, or none match",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:169",
+      "covered": "yes",
+      "by": "contractor_list_jobs (empty)"
+    },
+    {
+      "path": "Jobs → Board → a column per status, with how many",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:264",
+      "covered": "yes",
+      "by": "contractor_list_jobs (status)"
+    },
+    {
+      "path": "Jobs → Board → a job’s card: name, kind, customer, property, % done, deadline or days late, lead, why it’s on hold",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:289",
+      "covered": "yes",
+      "by": "contractor_list_jobs (each job’s row)"
+    },
+    {
+      "path": "Jobs → Board → a job’s card opens its page",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:305",
+      "covered": "yes",
+      "by": "contractor_get_job; the A job place links it"
+    },
+    {
+      "path": "Jobs → List → each job: name, kind, trade and lead; status; customer and property; % done and phases done; deadline; next visit",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:354",
+      "covered": "yes",
+      "by": "contractor_list_jobs (each job’s row, nextVisitAt, phases)"
+    },
+    {
+      "path": "Jobs → showing the first jobs only, search to find others",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:188",
+      "covered": "yes",
+      "by": "contractor_list_jobs (truncated)"
+    },
+    {
+      "path": "New job → Job name",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:132",
+      "covered": "yes",
+      "by": "contractor_open_job (name)"
+    },
+    {
+      "path": "New job → What kind of job: Service call or Project, with what each means",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:140",
+      "covered": "yes",
+      "by": "contractor_open_job (kind)"
+    },
+    {
+      "path": "New job → Customer (search, from Contacts)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:150",
+      "covered": "yes",
+      "by": "find_people; contractor_open_job (customerPersonId)"
+    },
+    {
+      "path": "New job → Property: one of your properties by address (the customer’s first), or a new address",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:167",
+      "covered": "yes",
+      "by": "contractor_list_properties; contractor_open_job (propertyId or newPropertyAddress)"
+    },
+    {
+      "path": "New job → Trade",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:178",
+      "covered": "yes",
+      "by": "contractor_open_job (trade)"
+    },
+    {
+      "path": "New job → Job lead (someone else only for owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:199",
+      "covered": "yes",
+      "by": "contractor_open_job (leadUserId); contractor_overview (people, may.assign)"
+    },
+    {
+      "path": "New job → Starts and Deadline",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:214",
+      "covered": "yes",
+      "by": "contractor_open_job (startsOn, dueOn)"
+    },
+    {
+      "path": "New job → Work to do",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:232",
+      "covered": "yes",
+      "by": "contractor_open_job (details)"
+    },
+    {
+      "path": "New job → a project starts with these phases",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:243",
+      "covered": "yes",
+      "by": "contractor_open_job (phases, else the starter phases); contractor_overview (settings.phases)"
+    },
+    {
+      "path": "New job → Start the job (opens its page)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/new-job-dialog.tsx:257",
+      "covered": "yes",
+      "by": "contractor_open_job"
+    },
+    {
+      "path": "A job → back to Jobs",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:80",
+      "covered": "yes",
+      "by": "the Jobs place"
+    },
+    {
+      "path": "A job → header: name, status, kind, days late, trade, why it’s on hold or cancelled",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:88",
+      "covered": "yes",
+      "by": "contractor_get_job"
+    },
+    {
+      "path": "A job → Status (New, Scheduled, In progress, On hold, Done, Cancelled)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:109",
+      "covered": "yes",
+      "by": "contractor_set_job_status"
+    },
+    {
+      "path": "A job → On hold or Cancelled → Why",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-dialogs.tsx:102",
+      "covered": "yes",
+      "by": "contractor_set_job_status (reason)"
+    },
+    {
+      "path": "A job → Book a visit (for the job, its customer filled in)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:121",
+      "covered": "yes",
+      "by": "book_appointment (customRecordId: the job)"
+    },
+    {
+      "path": "A job → Notes, files and tasks (the job’s record page)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:128",
+      "covered": "yes",
+      "by": "core's record tools (find_records, notes, tasks, files) on the job's record"
+    },
+    {
+      "path": "A job → Details: customer, property, starts, deadline (and days left or late), work to do",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:135",
+      "covered": "yes",
+      "by": "contractor_get_job"
+    },
+    {
+      "path": "A job → Details → customer and property open their pages",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:151",
+      "covered": "yes",
+      "by": "get_person; find_records"
+    },
+    {
+      "path": "A job → Details → Edit",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:142",
+      "covered": "yes",
+      "by": "contractor_update_job"
+    },
+    {
+      "path": "A job → Edit → name, customer, property (or a new address), trade, lead, starts, deadline, work to do",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-dialogs.tsx:191",
+      "covered": "yes",
+      "by": "contractor_update_job"
+    },
+    {
+      "path": "A job → Phases: each phase in order, with its number, start, deadline (days left or late) and when it was done",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:103",
+      "covered": "yes",
+      "by": "contractor_get_job (phaseList)"
+    },
+    {
+      "path": "A job → Phases → how many are done",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:66",
+      "covered": "yes",
+      "by": "contractor_get_job (phases)"
+    },
+    {
+      "path": "A job → Phases → none yet: Make it a project",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:91",
+      "covered": "yes",
+      "by": "contractor_make_project"
+    },
+    {
+      "path": "A job → Phases → move a phase up or down",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:110",
+      "covered": "yes",
+      "by": "contractor_reorder_phases"
+    },
+    {
+      "path": "A job → Phases → a phase’s status (Not started, Started, Done)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:152",
+      "covered": "yes",
+      "by": "contractor_update_phase (status)"
+    },
+    {
+      "path": "A job → Phases → a phase’s % done",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:163",
+      "covered": "yes",
+      "by": "contractor_update_phase (percentDone)"
+    },
+    {
+      "path": "A job → Phases → edit a phase: name, starts, deadline",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-dialogs.tsx:520",
+      "covered": "yes",
+      "by": "contractor_update_phase (name, startsOn, dueOn)"
+    },
+    {
+      "path": "A job → Phases → remove a phase, asked first",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:182",
+      "covered": "yes",
+      "by": "contractor_remove_phase (on a Confirm card)"
+    },
+    {
+      "path": "A job → Phases → Add a phase (the first makes it a project)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/phases-card.tsx:228",
+      "covered": "yes",
+      "by": "contractor_add_phase"
+    },
+    {
+      "path": "A job → Visits: each visit’s time, title and status",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:207",
+      "covered": "yes",
+      "by": "contractor_get_job (visits)"
+    },
+    {
+      "path": "A job → % done, with how it’s worked out (from its phases, or set by hand)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:328",
+      "covered": "yes",
+      "by": "contractor_get_job (percentDone, phases)"
+    },
+    {
+      "path": "A job → % done → set it by hand (a service call)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:343",
+      "covered": "yes",
+      "by": "contractor_set_job_percent"
+    },
+    {
+      "path": "A job → Team: the job lead, and everyone else on it",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:383",
+      "covered": "yes",
+      "by": "contractor_get_job (lead, team)"
+    },
+    {
+      "path": "A job → Team → take someone off",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:417",
+      "covered": "yes",
+      "by": "contractor_remove_from_job_team"
+    },
+    {
+      "path": "A job → Team → Add to the team",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:460",
+      "covered": "yes",
+      "by": "contractor_add_to_job_team"
+    },
+    {
+      "path": "A job → Budget and price (people who may see job costs): price, labor, materials, other, budget, labor hours, planned profit, margin (red below 20%)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:493",
+      "covered": "yes",
+      "by": "contractor_get_job (money, only for contractor.costs)"
+    },
+    {
+      "path": "A job → Budget and price → Edit: price, labor, materials, other costs, labor hours",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-dialogs.tsx:404",
+      "covered": "yes",
+      "by": "contractor_set_job_budget"
+    },
+    {
+      "path": "Settings → Your trades",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:88",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.trades"
+    },
+    {
+      "path": "Settings → Start from a trade’s starter phases",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:108",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.phases (the trade’s starters, from the Settings place)"
+    },
+    {
+      "path": "Settings → Phases for a new project: each in order, move up or down, remove",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:124",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.phases"
+    },
+    {
+      "path": "Settings → what new projects start with when no list is set",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:153",
+      "covered": "yes",
+      "by": "contractor_overview (settings); the Settings place"
+    },
+    {
+      "path": "Settings → add a phase",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:172",
+      "covered": "yes",
+      "by": "do_addon_save_settings settings.phases"
+    },
+    {
+      "path": "Settings → Save settings",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:185",
+      "covered": "yes",
+      "by": "do_addon_save_settings"
+    }
+  ],
+  "gaps": []
+}

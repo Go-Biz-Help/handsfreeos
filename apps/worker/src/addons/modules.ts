@@ -8,10 +8,12 @@ import { realestateAddonWorker } from './realestate/index';
 import { outreachAddonWorker } from './outreach/index';
 import { salescoachAddonWorker } from './salescoach/index';
 import { socialcontentAddonWorker } from './socialcontent/index';
+import { contractorAddonWorker } from './contractor/index';
 
 export const ADDON_WORKER_MODULES: readonly AddonWorkerModule[] = [
   realestateAddonWorker,
   outreachAddonWorker,
   salescoachAddonWorker,
   socialcontentAddonWorker,
+  contractorAddonWorker,
 ];

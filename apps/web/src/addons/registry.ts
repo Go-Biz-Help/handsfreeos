@@ -48,6 +48,7 @@ import {
   TrendingUp as socialcontentStandoutsIcon,
   Users as socialcontentCreatorsIcon,
 } from 'lucide-react';
+import { HardHat as contractorAddonIcon, Settings2 as contractorSettingsIcon } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -275,5 +276,10 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       ideas: socialcontentIdeasIcon,
       gear: socialcontentSettingsIcon,
     },
+  },
+  contractor: {
+    icon: contractorAddonIcon,
+    navIcons: { gear: contractorSettingsIcon },
+    settings: () => import('./contractor/settings-link'),
   },
 };
