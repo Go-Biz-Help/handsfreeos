@@ -1071,6 +1071,7 @@ describe('the business’s own posts', () => {
         admin(),
         sql`update addon_socialcontent.content
               set state = 'posted', post_at = ${at}::timestamptz, posted_at = ${at}::timestamptz,
+                  approved_at = ${at}::timestamptz,
                   posted_to = ${JSON.stringify([{ place: 'feed', link: `${link}${i}`, at }])}::jsonb,
                   numbers = ${JSON.stringify({ feed: { d7: { at, days: 7, views: null, likes: 9, comments: 1, shares: null } } })}::jsonb
             where record_id = ${other.postId}`,
