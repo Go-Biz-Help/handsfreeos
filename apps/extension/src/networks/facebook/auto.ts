@@ -21,7 +21,7 @@ import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, readPost } from './po
 import type { TidyPlan } from './tidy';
 import type { Named, ProfilePage, ProfileRef } from './types';
 import { classifyUrl, FACEBOOK } from './urls';
-import { UI_WORDS } from './vocabulary';
+import { NO_POSTS_WORDS, UI_WORDS } from './vocabulary';
 
 export type AutoJob = 'friend_request' | 'confirm';
 
@@ -219,6 +219,20 @@ export function theirPosts(
     });
   }
   return found;
+}
+
+/**
+ * Whether Facebook says their profile has no posts: its own line under Posts ("No posts available"), outside any post.
+ * A warm-up then has nothing to like, and nothing went wrong (the owner's problem reports of 2 and 9 Nov 2026).
+ */
+export function saysNoPosts(doc: Document): boolean {
+  const main = mainOf(doc);
+  const posts = [...postBoxes(main), ...main.querySelectorAll('[role="article"]')];
+  return [...main.querySelectorAll('span')].some(
+    (line) =>
+      NO_POSTS_WORDS.has(clean(line.textContent).toLowerCase()) &&
+      !posts.some((post) => post.contains(line)),
+  );
 }
 
 /** Times it waits on a post Facebook is still loading, while it has drawn fewer posts than it reads. */

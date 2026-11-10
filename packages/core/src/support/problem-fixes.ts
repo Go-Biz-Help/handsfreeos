@@ -115,9 +115,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'warm_up',
     note: 'No post of',
-    fixedIn: '0.126.6',
-    pr: 552,
-    said: 'Their profile still showed only Facebook’s loading boxes where the posts go after the four scrolls: a loading box is waited on, in view, a little longer now while no post is drawn yet.',
+    fixedIn: '0.130.1',
+    pr: 565,
+    said: 'Their profile still showed only Facebook’s loading boxes where the posts go after the four scrolls: a loading box is waited on, in view, a little longer now while no post is drawn yet (0.126.6, #552); and on a profile where Facebook’s own line says there are no posts, the warm-up ends as found done, with no report.',
   },
   {
     area: 'facebook',
@@ -150,6 +150,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     fixedIn: '0.130.0',
     pr: 564,
     said: 'Instagram’s profile answer is gone (404), so a creator’s profile came from their page with no account number and their posts read stopped: their posts are asked for by the number their page names itself with, then by their name, then one at a time from their grid.',
+  },
+  {
+    area: 'facebook',
+    job: 'draft',
+    note: 'The AI couldn’t write that just now',
+    fixedIn: '0.130.1',
+    pr: 565,
+    said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all, and the draft said it couldn’t write one: the worker asks the AI once more first now.',
   },
 ];
 

@@ -60,6 +60,7 @@ import {
   openMessage,
   readGroupFeed,
   readTheirPosts,
+  saysNoPosts,
   writeComment,
   writeMessage,
   type ChatsBefore,
@@ -126,11 +127,10 @@ async function autoStep(ask: AutoAsk): Promise<AutoAnswer | PostsAnswer> {
   const kind = classifyUrl(location.href).kind;
   if (ask.type === 'hfos-their-posts' || ask.type === 'hfos-like-post') {
     if (kind !== 'profile') return { ok: false, error: 'Facebook didn’t open their profile.' };
-    if (ask.type === 'hfos-their-posts')
-      return {
-        ok: true,
-        posts: await readTheirPosts(document, location.href, ask.profile, window, ask.most),
-      };
+    if (ask.type === 'hfos-their-posts') {
+      const posts = await readTheirPosts(document, location.href, ask.profile, window, ask.most);
+      return { ok: true, posts, ...(!posts.length && saysNoPosts(document) ? { none: true } : {}) };
+    }
     return {
       ok: true,
       ...(await likeTheirPost(document, location.href, ask.profile, ask, window)),
