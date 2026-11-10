@@ -59,7 +59,8 @@ give it to a business from Admin → Businesses.
   A studied creator's posts are then asked for by their account's number (from the page's own name for itself when
   Instagram's profile answer isn't there), then by their name; when neither list comes, the posts the page holds, else
   each post its grid links to, one at a time back to the read's start, and a problem report says which ways didn't
-  come (extension 0.130.0, 10 Nov 2026, after both ticked creators' posts reads ended with nothing).
+  come (extension 0.130.0, 10 Nov 2026, after both ticked creators' posts reads ended with nothing). Their page is
+  scrolled in front, only while the person is away, for up to 50 of their posts (0.131.0).
   Someone kept as not fitting only because their profile didn't say when they last posted, with 5,000+ followers, is
   read again by the next search, and suggested when they fit. Profiles that still wouldn't open are counted (**Couldn’t open N profiles**),
   and a search where none opened, or most didn't, ends saying so with a problem report, never as done (9 Nov 2026,
@@ -86,9 +87,9 @@ give it to a business from Admin → Businesses.
   creators someone ticks or adds, so one ticked late in the day is still read within minutes while that computer
   has Chrome open. What it took and never finished goes back to waiting after 2 hours, and anyone can **Stop** what
   hasn't finished.
-- **Notes on standouts** (part 3, decision 10). When saved posts bring new standouts, the worker's notes job runs a
-  minute later (once per business): up to 15 standouts with no notes, 5 to an ask, each shown to the AI beside the
-  posts around it that did about normal. Each note says why it worked, its hook, format and topic, the techniques
+- **Notes on standouts** (part 3, decision 10). When posts are saved, the worker's notes job runs a minute later (once
+  per business, and once more after when posts are saved while it runs, so none is missed): up to 15 standouts with
+  no notes, 5 to an ask, each shown to the AI beside the posts around it that did about normal. Each note says why it worked, its hook, format and topic, the techniques
   used, and how the business could use it. Creators' captions are quoted as data, never instructions.
 - **The Playbook** is written from the notes once 3 standouts are noted, and again each time 5 more are, or on
   **Write it again**: a summary and sections of what to do and why, each with standouts as examples.
