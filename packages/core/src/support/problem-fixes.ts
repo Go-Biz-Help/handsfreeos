@@ -143,6 +143,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 562,
     said: 'LinkedIn opened the conversation as a messaging page in its interop frame while the tab stayed at their profile: that box counts now when the frame’s conversation is with them.',
   },
+  {
+    area: 'instagram',
+    job: 'read.posts',
+    note: 'Profile: Instagram’s answer had no account id',
+    fixedIn: '0.130.0',
+    pr: 564,
+    said: 'Instagram’s profile answer is gone (404), so a creator’s profile came from their page with no account number and their posts read stopped: their posts are asked for by the number their page names itself with, then by their name, then one at a time from their grid.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
