@@ -50,6 +50,57 @@ export function momentAgo(
 export const READER_THERE_MS = 10 * 60_000;
 
 /**
+ * What the Calendar says about putting OK'd posts up (part 9): how many wait, whose computer puts them up, and
+ * whether it's checked in lately; with a warning when nobody's computer posts or it's been quiet. The web and the phone
+ * both show these.
+ */
+export function postingLines(
+  c: {
+    readonly ready: number;
+    readonly poster: {
+      readonly name: string | null;
+      readonly mine: boolean;
+      readonly seenAt: string | null;
+    } | null;
+    readonly postsOn: readonly string[];
+    readonly posts: readonly { readonly network: string; readonly state: string }[];
+  },
+  networkNameOf: (network: string) => string,
+  now: number = Date.now(),
+): { readonly text: string; readonly warn: boolean }[] {
+  const out: { text: string; warn: boolean }[] = [];
+  const ready = SOCIALCONTENT_WORDS.calendar.ready(c.ready);
+  if (ready) out.push({ text: ready, warn: false });
+  const later = [
+    ...new Set(
+      c.posts
+        .filter((p) => !c.postsOn.includes(p.network) && p.state !== 'skipped')
+        .map((p) => networkNameOf(p.network)),
+    ),
+  ];
+  if (!c.ready && !later.length) return out;
+  if (c.ready) {
+    if (!c.poster) out.push({ text: SOCIALCONTENT_WORDS.calendar.posterNone, warn: true });
+    else {
+      out.push({
+        text: SOCIALCONTENT_WORDS.calendar.poster(c.poster.name, c.poster.mine),
+        warn: false,
+      });
+      const seen = c.poster.seenAt ? new Date(c.poster.seenAt).getTime() : null;
+      if (seen === null) out.push({ text: SOCIALCONTENT_WORDS.calendar.posterNever, warn: true });
+      else if (now - seen >= READER_THERE_MS)
+        out.push({
+          text: SOCIALCONTENT_WORDS.calendar.posterQuiet(momentAgo(c.poster.seenAt, now) ?? ''),
+          warn: true,
+        });
+    }
+  }
+  if (later.length)
+    out.push({ text: SOCIALCONTENT_WORDS.calendar.laterOn(later.join(' and ')), warn: false });
+  return out;
+}
+
+/**
  * What a piece of work did, or is doing, in short facts: "Searched 3 of 8: #crm, #saas, #automation", "Looked at 24
  * accounts", "Read 6 profiles", "6 suggested, 14 didn't fit". Only what it has.
  */
@@ -335,10 +386,20 @@ export const SOCIALCONTENT_WORDS = {
     planEdit: 'Change the plan in Settings.',
     planLine: (network: string, perWeek: number, time: string) =>
       perWeek ? `${network}: ${count(perWeek, 'post')} a week at ${time}` : `${network}: off`,
-    ready: (n: number) =>
-      n
-        ? `${count(n, 'post')} OK’d. Posting them through the extension comes in the next updates.`
-        : null,
+    ready: (n: number) => (n ? `${count(n, 'post')} OK’d, going up at their times.` : null),
+    /** Who puts the OK'd posts up (part 9): the reading computer, in Chrome with the extension. */
+    poster: (name: string | null, mine: boolean) =>
+      mine
+        ? 'They go up from your computer, in Chrome with the HandsFreeOS Social extension, while Chrome is open.'
+        : `They go up from ${name ? `${name}’s` : 'a teammate’s'} computer, in Chrome with the HandsFreeOS Social extension, while Chrome is open there.`,
+    posterQuiet: (ago: string) =>
+      `That computer last checked in ${ago}. Posts wait until Chrome is open there again, up to a day after their time.`,
+    posterNever:
+      'That computer hasn’t checked in yet. Open Chrome there with the HandsFreeOS Social extension, signed in to HandsFreeOS.',
+    posterNone:
+      'No computer puts them up yet. An owner or admin picks one in Settings → Whose computer reads.',
+    laterOn: (networks: string) =>
+      `Posting on ${networks} comes in a later update: copy those and post them yourself until then.`,
     empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
     today: 'Today',
     tomorrow: 'Tomorrow',
@@ -404,7 +465,26 @@ export const SOCIALCONTENT_WORDS = {
     saved: 'Saved.',
     unOkd: 'Saved. Changing it took the OK back, so OK it again when it’s right.',
     approve: 'OK it',
-    approved: 'OK’d. It goes up at its time once posting comes in the next updates.',
+    approved: 'OK’d. It goes up at its time.',
+    postNow: 'Post it now',
+    postingNow: 'Putting it up…',
+    postNowAsked: 'It goes up in a minute or two, from the computer that posts.',
+    postedOn: (ago: string | null) => `Posted${ago ? ` ${ago}` : ''}`,
+    seeIt: {
+      profile: 'See it on your profile',
+      page: 'See it on your Page',
+      feed: (network: string) => `See it on ${network}`,
+    },
+    wentUp: {
+      profile: 'On your profile',
+      page: 'On your Page',
+      feed: (network: string) => `On ${network}`,
+    },
+    didntPost: 'Didn’t post',
+    tryAgain:
+      'Fix what it says, then press Post it now. Places it already went up in are left out, so it never goes up twice there.',
+    copy: 'Copy the words',
+    copied: 'Copied.',
     takeBack: 'Take the OK back',
     takenBack: 'The OK is taken back.',
     skip: 'Skip it',
@@ -449,6 +529,19 @@ export const SOCIALCONTENT_WORDS = {
     watchAsk: 'Turn on watching videos?',
     watchYes: 'Turn it on',
     watchKeep: 'Keep it off',
+  },
+  /** What HandsFreeOS says about a post that didn't go up (part 9), on the post and the Calendar. */
+  posting: {
+    unsure: (network: string) =>
+      `The computer that posts started putting it up but never said how it went, so it may have gone up. Look on ${network}: if it isn’t there, press Post it now.`,
+    late: 'The computer that posts wasn’t on within a day of its time. Pick a new day and OK it again, or press Post it now.',
+    noVideo: 'It has no video yet. Add your video to the post, then press Post it now.',
+    noPicture:
+      'Its pictures aren’t on the post anymore. Make the picture again or add your own, then press Post it now.',
+    notOn: (network: string) =>
+      `The extension doesn’t post on ${network} yet. Copy the words and post it yourself, or skip it.`,
+    stoppedAt: (place: string, why: string) => `${place}: ${why}`,
+    gone: 'That post isn’t going up anymore. The extension moves on to the next one.',
   },
   work: {
     kinds: {

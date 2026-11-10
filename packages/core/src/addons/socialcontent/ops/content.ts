@@ -13,7 +13,7 @@ import { and, eq } from 'drizzle-orm';
 import { addDays, daysBetween, localDateOf, localInstant } from '../../../calendar/engine/zoned';
 import { customRecordUpdate } from '../../../commands/custom-record';
 import { HfosError } from '../../../errors';
-import { requireHuman } from '../../../kernel/actor';
+import { requireHuman, userIdOf } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
 import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
@@ -23,6 +23,7 @@ import {
   emptySlots,
   formatFor,
   hasPictures,
+  POSTING,
   slotsAhead,
   stillNeeds,
   type ContentState,
@@ -149,6 +150,8 @@ function fromRaw(r: RawRow): ContentRow {
     postLink: (r['post_link'] as string | null) ?? null,
     failure: (r['failure'] as string | null) ?? null,
     madeBy: r['made_by'] as ContentRow['madeBy'],
+    postingAt: asDate(r['posting_at']),
+    postedTo: Array.isArray(r['posted_to']) ? (r['posted_to'] as ContentRow['postedTo']) : [],
     createdBy: (r['created_by'] as string | null) ?? null,
     createdAt: asDate(r['created_at'])!,
     updatedAt: asDate(r['updated_at'])!,
@@ -231,6 +234,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       approvedAt: c.approvedAt?.toISOString() ?? null,
       postedAt: c.postedAt?.toISOString() ?? null,
       postLink: c.postLink,
+      postedTo: Array.isArray(c.postedTo) ? c.postedTo : [],
       failure: c.failure,
       madeBy: c.madeBy,
       ideaId: c.ideaId,
@@ -248,6 +252,15 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
       updatedAt: c.updatedAt.toISOString(),
     });
   });
+}
+
+/** A person's name as the business sees it. */
+async function nameOf(ctx: Ctx, userId: string): Promise<string | null> {
+  const [u] = await rows<{ name: string | null }>(
+    ctx.tx,
+    sql`select coalesce(nullif(btrim(full_name), ''), email::text) as name from app.users where id = ${userId}::uuid`,
+  );
+  return u?.name ?? null;
 }
 
 /** The day range a calendar shows, as instants in the business's time zone. */
@@ -315,6 +328,15 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
         : null,
       ideasSaved: counts?.saved ?? 0,
       ready: counts?.ready ?? 0,
+      poster: s.readerUserId
+        ? {
+            name: await nameOf(ctx, s.readerUserId),
+            mine: userIdOf(ctx.actor) === s.readerUserId,
+            seenAt: s.readerSeenAt,
+            version: s.readerVersion,
+          }
+        : null,
+      postsOn: [...POSTING.networks],
       facebookPage: s.facebookPage,
       mayManage: mayManage(ctx),
     };

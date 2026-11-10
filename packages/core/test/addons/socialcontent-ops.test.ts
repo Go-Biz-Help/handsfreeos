@@ -820,4 +820,171 @@ describe('the business’s own posts', () => {
     const { posts } = await as(member, 'socialcontent.content.list');
     expect(posts.map((p: Any) => p.id)).toEqual(expect.arrayContaining([linkedinId, facebookId]));
   });
+  it('puts an OK’d post up from the reading computer once its time comes, and only once', async () => {
+    expect(
+      await refused(as(member, 'socialcontent.post.next', { networks: ['facebook', 'linkedin'] })),
+    ).toBe('socialcontent_not_reader');
+    // Its time hasn't come.
+    expect(
+      (await as(owner, 'socialcontent.post.next', { networks: ['facebook', 'linkedin'] })).post,
+    ).toBeNull();
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set post_at = now() - interval '1 minute'
+          where record_id = ${linkedinId}`,
+    );
+    // Not on a network the extension didn't say it posts on.
+    expect(
+      (await as(owner, 'socialcontent.post.next', { networks: ['facebook'] })).post,
+    ).toBeNull();
+    const { post } = await as(owner, 'socialcontent.post.next', {
+      networks: ['facebook', 'linkedin'],
+      version: '0.132.0',
+    });
+    expect(post).toMatchObject({
+      id: linkedinId,
+      network: 'linkedin',
+      places: ['feed'],
+      text: 'A drip or a leak? Here’s how to tell.\n\n#plumbing',
+      files: [],
+    });
+    // Taken: nobody gets it twice, and nobody changes it while it goes up.
+    expect(
+      (await as(owner, 'socialcontent.post.next', { networks: ['facebook', 'linkedin'] })).post,
+    ).toBeNull();
+    expect(
+      await refused(as(member, 'socialcontent.content.save', { postId: linkedinId, words: 'x' })),
+    ).toBe('socialcontent_post_posting');
+    expect(
+      await refused(
+        as(member, 'socialcontent.post.went', {
+          postId: linkedinId,
+          went: [{ place: 'feed', posted: true }],
+        }),
+      ),
+    ).toBe('socialcontent_not_reader');
+    const went = await as(owner, 'socialcontent.post.went', {
+      postId: linkedinId,
+      went: [
+        {
+          place: 'feed',
+          posted: true,
+          link: 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000001/',
+        },
+      ],
+    });
+    expect(went).toMatchObject({
+      state: 'posted',
+      postLink: 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000001/',
+      failure: null,
+    });
+    expect(went.postedTo).toEqual([
+      expect.objectContaining({ place: 'feed', link: expect.stringContaining('linkedin.com') }),
+    ]);
+    expect(
+      await refused(as(member, 'socialcontent.content.post_now', { postId: linkedinId })),
+    ).toBe('socialcontent_post_posted');
+  });
+
+  it('keeps the places a Facebook post went up, and tries only the rest again with Post it now', async () => {
+    const made = await worker('socialcontent.content.put', {
+      network: 'facebook',
+      post: written({ title: 'Shut-off valve', words: 'Know where your shut-off valve is.' }),
+    });
+    const id = made.postId;
+    const now = await as(member, 'socialcontent.content.post_now', { postId: id });
+    expect(now).toMatchObject({ state: 'ready', facebookWhere: ['profile', 'page'] });
+    expect(Date.parse(now.postAt)).toBeLessThanOrEqual(Date.now());
+    const first = await as(owner, 'socialcontent.post.next', { networks: ['facebook'] });
+    expect(first.post).toMatchObject({
+      id,
+      places: ['profile', 'page'],
+      facebookPage: 'https://www.facebook.com/pipedreams',
+    });
+    const half = await as(owner, 'socialcontent.post.went', {
+      postId: id,
+      went: [
+        { place: 'profile', posted: true, link: null },
+        { place: 'page', posted: false, failure: 'Business Suite didn’t show Create post.' },
+      ],
+    });
+    expect(half.state).toBe('failed');
+    expect(half.failure).toMatch(/^On your Page: Business Suite/);
+    expect(half.postedTo.map((p: Any) => p.place)).toEqual(['profile']);
+    await as(member, 'socialcontent.content.post_now', { postId: id });
+    const again = await as(owner, 'socialcontent.post.next', { networks: ['facebook'] });
+    expect(again.post).toMatchObject({ id, places: ['page'] });
+    const done = await as(owner, 'socialcontent.post.went', {
+      postId: id,
+      went: [{ place: 'page', posted: true, link: 'https://www.facebook.com/pipedreams/posts/1' }],
+    });
+    expect(done).toMatchObject({
+      state: 'posted',
+      postLink: 'https://www.facebook.com/pipedreams/posts/1',
+    });
+    expect(done.postedTo.map((p: Any) => p.place)).toEqual(['profile', 'page']);
+  });
+
+  it('puts one back when nothing was pressed, and marks as didn’t post one that never said or waited too long', async () => {
+    const make = async (title: string) =>
+      (
+        await worker('socialcontent.content.put', {
+          network: 'linkedin',
+          post: written({ title, words: `${title}: a tip.` }),
+        })
+      ).postId as string;
+    const back = await make('Back');
+    await as(member, 'socialcontent.content.post_now', { postId: back });
+    await as(owner, 'socialcontent.post.next', { networks: ['linkedin'] });
+    const waits = await as(owner, 'socialcontent.post.went', {
+      postId: back,
+      went: [],
+      again: true,
+      failure: 'LinkedIn warned.',
+    });
+    expect(waits).toMatchObject({ state: 'ready', failure: null });
+    // Taken and never said how it went: it may have gone up, so it isn't tried again on its own.
+    await as(owner, 'socialcontent.post.next', { networks: ['linkedin'] });
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set posting_at = now() - interval '30 minutes'
+          where record_id = ${back}`,
+    );
+    const late = await make('Late');
+    await as(member, 'socialcontent.content.post_now', { postId: late });
+    await rows(
+      admin(),
+      sql`update addon_socialcontent.content set post_at = now() - interval '2 days'
+          where record_id = ${late}`,
+    );
+    expect(
+      (await as(owner, 'socialcontent.post.next', { networks: ['linkedin'] })).post,
+    ).toBeNull();
+    const unsure = await as(member, 'socialcontent.content.get', { postId: back });
+    expect(unsure).toMatchObject({ state: 'failed' });
+    expect(unsure.failure).toMatch(/may have gone up\. Look on LinkedIn/);
+    const tooLate = await as(member, 'socialcontent.content.get', { postId: late });
+    expect(tooLate.failure).toMatch(/wasn’t on within a day/);
+    // A late answer still counts.
+    const said = await as(owner, 'socialcontent.post.went', {
+      postId: back,
+      went: [{ place: 'feed', posted: true }],
+    });
+    expect(said.state).toBe('posted');
+  });
+
+  it('won’t put up now what the extension doesn’t post yet, and says whose computer posts', async () => {
+    const ig = await worker('socialcontent.content.put', {
+      network: 'instagram',
+      post: written({ title: 'Reel idea', format: 'photo', pictureWay: 'design' }),
+    });
+    expect(await refused(as(member, 'socialcontent.content.post_now', { postId: ig.postId }))).toBe(
+      'socialcontent_post_not_posted_here',
+    );
+    const cal = await as(member, 'socialcontent.calendar.get');
+    expect(cal.postsOn).toEqual(['facebook', 'linkedin']);
+    expect(cal.poster).toMatchObject({ mine: false, version: '0.132.0' });
+    expect(cal.poster.seenAt).not.toBeNull();
+    expect((await as(owner, 'socialcontent.calendar.get')).poster.mine).toBe(true);
+  });
 });

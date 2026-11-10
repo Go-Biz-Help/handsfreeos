@@ -6,7 +6,11 @@
  * own world, so no other script in the tab hears what it's asked.
  *
  * - `get`: one of the answers the network's own pages load (./instagram.ts `INSTAGRAM_READS`), on the person's own
- *   signed-in account, as the page asks for it. Nothing else: it never posts, and never asks another site.
+ *   signed-in account, as the page asks for it. Nothing else: it never asks another site.
+ * - `post`: puts up one of the business's own posts, OK'd by a person (part 9, ./post-here.ts): its words and its
+ *   pictures in the network's own box, then Post. It's the only thing these hands post, and only when the
+ *   background asks with a post HandsFreeOS handed it (./posting.ts). `pageId`: a Facebook Page's number, from its
+ *   page, for Business Suite.
  * - `read`: the page as its network's readers see it (Facebook's and LinkedIn's: a profile, its posts, a search's
  *   people and posts), for the reads that go by the page itself (./page-read.ts). `scroll`: one screen further down,
  *   as a person scrolls, for the network to load more.
@@ -25,6 +29,7 @@
 import { kitHere } from '../networks';
 import { HelperHands, type HelperMoveAsk, type HelperMoveDone } from '../networks/helper-view';
 import { heldOn, profileHeldOn, type ResearchHeld } from './held';
+import { pageIdHere, postHere, type PostAsk, type PostDone } from './post-here';
 import type { InstagramPageProfile } from './instagram';
 import { INSTAGRAM_APP_ID, INSTAGRAM_READS } from './instagram';
 import { watchVideo, type WatchAsk, type Watched } from './watch';
@@ -67,6 +72,10 @@ export interface ResearchHands {
   held(): ResearchHeld;
   /** On someone's profile page: their profile and posts as the page holds them. */
   profileHeld(username: string): InstagramPageProfile;
+  /** Puts up one of the business's own OK'd posts in the box the page shows. */
+  post(ask: PostAsk): Promise<PostDone>;
+  /** On a Facebook Page: its number. */
+  pageId(): string | null;
 }
 
 /** What each network's pages send with what they ask for. */
@@ -153,5 +162,7 @@ if (kit && !here.hfosResearch) {
       return heldOn(document, location.href, entries);
     },
     profileHeld: (username) => profileHeldOn(document, username),
+    post: (ask) => postHere(document, ask),
+    pageId: () => pageIdHere(document, location.href),
   };
 }

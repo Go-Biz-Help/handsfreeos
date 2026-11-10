@@ -73,6 +73,11 @@ describe('the manifest', () => {
     );
   });
 
+  it('reaches Meta Business Suite, to put the business’s OK’d posts up on its Facebook Page, never with its script', () => {
+    expect(manifest.host_permissions).toContain('https://business.facebook.com/*');
+    expect(JSON.stringify(manifest.content_scripts)).not.toContain('business.facebook.com');
+  });
+
   it('asks to know when the person is away from their computer, so a read that needs the screen waits for it', () => {
     // Decision 120: chrome.idle, which shows no warning when it's installed.
     expect(manifest.permissions).toContain('idle');
