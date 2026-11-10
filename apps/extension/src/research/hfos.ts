@@ -12,6 +12,7 @@ import type {
   WorkProgressSaid,
 } from '@hfos/core/addons/socialcontent/shapes';
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
+import type { PostingNetwork, PostPlace } from '@hfos/core/addons/socialcontent/calendar';
 import { api, token } from '../hfos/session';
 import { config } from '../hfos/config';
 
@@ -109,6 +110,40 @@ export const postsSave = (workspaceId: string, creatorId: string, posts: PostIn[
   got(
     api().POST('/v1/commands/socialcontent.posts.save', {
       body: { workspaceId, creatorId, posts },
+    }),
+  );
+
+/** The next of the business's own OK'd posts due to go up (part 9), taken so it goes up once. */
+export const postNext = (workspaceId: string, networks: PostingNetwork[], version: string) =>
+  got(
+    api().POST('/v1/commands/socialcontent.post.next', {
+      body: { workspaceId, networks, version: version.slice(0, 20) },
+    }),
+  );
+
+/** How putting a post up went, place by place; `again` when nothing was pressed. */
+export const postWent = (
+  workspaceId: string,
+  postId: string,
+  said: {
+    went: { place: PostPlace; posted: boolean; link: string | null; failure: string | null }[];
+    again: boolean;
+    failure: string | null;
+  },
+) =>
+  got(
+    api().POST('/v1/commands/socialcontent.post.went', {
+      body: {
+        workspaceId,
+        postId,
+        went: said.went.map((w) => ({
+          ...w,
+          link: w.link && /^https:\/\//.test(w.link) ? w.link.slice(0, 500) : null,
+          failure: w.failure?.slice(0, 300) ?? null,
+        })),
+        again: said.again,
+        failure: said.failure?.slice(0, 300) ?? null,
+      },
     }),
   );
 

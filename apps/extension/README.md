@@ -1233,6 +1233,35 @@ The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
   words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
   so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
 
+### Putting the business's own posts up (0.132.0)
+
+AI Social Media Content Creator's part 9 (`docs/socialcontent.md`, "Posting"). Each minute, before any reading, the
+reading computer asks HandsFreeOS for the next OK'd post whose time has come (`socialcontent.post.next`) on the
+networks it posts on with no warning today (Facebook and LinkedIn; Instagram comes with part 10), and puts it up from
+its reading window (`src/research/posting.ts`):
+
+- **Its pictures** (or the person's video) are fetched from HandsFreeOS's storage on the person's own sign-in, and
+  handed to the tab as files.
+- **Facebook, the profile:** the home feed's "What's on your mind" box; words typed, pictures added, **Next** when
+  Facebook asks for it, then **Post**. Its link comes from the top of their own profile, by its first words.
+- **Facebook, the Page:** the Page's number from its page, then Meta Business Suite's Create post for it
+  (`business.facebook.com`, in the manifest from 0.132.0), so the person's own profile is never switched to the Page
+  while Social Outreach works as them. A tick for Instagram that's on there is turned off (Instagram has its own post).
+- **LinkedIn:** the feed's **Start a post**, then LinkedIn's **Next** or **Done** after its picture editor, then
+  **Post**; the link from **View post**, else from their own posts.
+- **Adding the files** (`src/research/post-here.ts`) tries the box's own file field, pasting them into the words, the
+  box's photo button with the computer's file picker held back (`holdPicker` in `src/research/tab.ts`, in the page's
+  own world, so no window opens on the person's screen), then dropping them on the box, until the box shows them.
+- **Never twice:** once Post is pressed in a place, it's never pressed there again on its own; a post that may have
+  gone up is the person's to look at (`socialcontent.post.went` keeps each place it went up). A network's warning
+  stops posting and reading there for the day, for both social add-ons, and the post goes back to waiting.
+- **When a place doesn't work,** the post says why on the Calendar (with **Post it now** to try again) and a problem
+  report goes to Admin → Problem reports with job `post.profile`, `post.page` or `post.feed`: what it did (`steps`),
+  and the page's outline. Never a name.
+
+Built from the networks' usual words and roles, not yet from page outlines of these boxes: the first reports will
+say what to fix.
+
 ### Up to 50 of a creator's posts from their grid (0.131.0)
 
 On 10 Nov 2026 the first posts reads on 0.130.0 worked, one post at a time, but read only the 12 posts their profile

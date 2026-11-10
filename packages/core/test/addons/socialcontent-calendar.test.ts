@@ -9,11 +9,16 @@ import {
   DEFAULT_PLAN,
   emptySlots,
   formatFor,
+  placesFor,
+  placesLeft,
   planOf,
+  POSTING,
+  postText,
   slotsAhead,
   stillNeeds,
   type ReadyCheck,
 } from '../../src/addons/socialcontent/calendar';
+import { postingLines } from '../../src/addons/socialcontent/words';
 import {
   checkedDesign,
   checkedPost,
@@ -277,5 +282,72 @@ describe('checking what the AI designs', () => {
     expect(prompt).toContain('A plumber fixing a sink.');
     expect(prompt).toContain('Also: make it brighter');
     expect(prompt).toMatch(/No words, letters, logos/);
+  });
+});
+
+describe('putting posts up (part 9)', () => {
+  it('goes to the profile, the Page or both on Facebook, and the feed elsewhere', () => {
+    expect(placesFor('facebook', ['page', 'profile'])).toEqual(['profile', 'page']);
+    expect(placesFor('facebook', [])).toEqual(['profile']);
+    expect(placesFor('linkedin', ['profile'])).toEqual(['feed']);
+    expect(placesFor('instagram', [])).toEqual(['feed']);
+  });
+
+  it('never puts it up again where it went up already', () => {
+    expect(placesLeft('facebook', ['profile', 'page'], [{ place: 'profile' }])).toEqual(['page']);
+    expect(placesLeft('linkedin', [], [{ place: 'feed' }])).toEqual([]);
+  });
+
+  it('adds the hashtags after a blank line, and keeps within what the network takes', () => {
+    expect(postText('facebook', '  Three ways to save time. ', ['crm', '#automation'])).toBe(
+      'Three ways to save time.\n\n#crm #automation',
+    );
+    expect(postText('linkedin', 'Words only', [])).toBe('Words only');
+    const long = postText('linkedin', 'x'.repeat(3_500), ['tag']);
+    expect(long.length).toBeLessThanOrEqual(POSTING.textMost.linkedin);
+    expect(long.endsWith('…\n\n#tag')).toBe(true);
+  });
+
+  it('posts on Facebook and LinkedIn for now', () => {
+    expect(POSTING.networks).toEqual(['facebook', 'linkedin']);
+  });
+
+  it('says whose computer puts the OK’d posts up, and warns when it’s quiet or there’s none', () => {
+    const name = (n: string) => n.toUpperCase();
+    const base = { ready: 2, postsOn: ['facebook', 'linkedin'], posts: [] };
+    expect(postingLines({ ...base, poster: null }, name).map((l) => l.warn)).toEqual([false, true]);
+    const fresh = postingLines(
+      {
+        ...base,
+        poster: { name: 'Sam', mine: false, seenAt: new Date(NOW - 60_000).toISOString() },
+      },
+      name,
+      NOW,
+    );
+    expect(fresh).toHaveLength(2);
+    expect(fresh[1]!.text).toMatch(/Sam’s computer/);
+    const quiet = postingLines(
+      {
+        ...base,
+        poster: { name: null, mine: true, seenAt: new Date(NOW - 3_600_000).toISOString() },
+      },
+      name,
+      NOW,
+    );
+    expect(quiet.at(-1)!.warn).toBe(true);
+    expect(quiet.at(-1)!.text).toMatch(/1 hour ago/);
+    const later = postingLines(
+      {
+        ready: 0,
+        poster: null,
+        postsOn: ['facebook'],
+        posts: [{ network: 'instagram', state: 'draft' }],
+      },
+      name,
+      NOW,
+    );
+    expect(later).toEqual([
+      { text: expect.stringMatching(/INSTAGRAM comes in a later update/), warn: false },
+    ]);
   });
 });

@@ -11,14 +11,16 @@ import {
   CONTENT_FORMATS,
   FACEBOOK_WHERE,
   hasPictures,
+  POSTING,
   POSTING_NETWORKS,
+  postText,
   type ContentFormat,
   type FacebookWhere,
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
-import { ImagePlus, Trash2 } from 'lucide-react';
+import { Copy, ExternalLink, ImagePlus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { uploadFile } from '@/components/files/upload-zone';
@@ -202,6 +204,22 @@ export function PostSheet({
           .then(unwrap),
       ok ? W.post.approved : W.post.takenBack,
     );
+  const postNow = () =>
+    act(
+      'now',
+      () =>
+        api
+          .POST('/v1/commands/socialcontent.content.post_now', {
+            body: { workspaceId, postId: p.id },
+          })
+          .then(unwrap),
+      W.post.postNowAsked,
+    );
+  const copyWords = () =>
+    void navigator.clipboard
+      .writeText(postText(p.network as PostingNetwork, p.words, p.hashtags))
+      .then(() => toast.success(W.post.copied))
+      .catch(() => undefined);
   const skip = (skipIt: boolean) =>
     act(
       skipIt ? 'skip' : 'restore',
@@ -268,6 +286,8 @@ export function PostSheet({
   const making = p.pictureState === 'waiting' || p.pictureState === 'making';
   const pictures = hasPictures(d.format);
   const other = (busyKey: string) => busy !== null && busy !== busyKey;
+  // The extension puts posts up on these networks (part 9); the rest are copied and posted by hand for now.
+  const postsHere = (POSTING.networks as readonly string[]).includes(p.network);
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()}>
@@ -284,7 +304,37 @@ export function PostSheet({
         }
       >
         <div className="space-y-4" data-testid="socialcontent-post-sheet">
-          {p.postLink ? (
+          {p.postedTo.length ? (
+            <div className="space-y-1" data-testid="socialcontent-post-went">
+              {p.state === 'posted' ? (
+                <p className="text-[13px] font-medium text-text">
+                  {W.post.postedOn(p.postedAt ? daysAgo(p.postedAt) : null)}
+                </p>
+              ) : null}
+              {p.postedTo.map((w) =>
+                w.link ? (
+                  <a
+                    key={w.place}
+                    href={w.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-[13px] text-accent-text underline"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                    {w.place === 'feed'
+                      ? W.post.seeIt.feed(networkName(p.network))
+                      : W.post.seeIt[w.place]}
+                  </a>
+                ) : (
+                  <p key={w.place} className="text-[13px] text-text-2">
+                    {w.place === 'feed'
+                      ? W.post.wentUp.feed(networkName(p.network))
+                      : W.post.wentUp[w.place]}
+                  </p>
+                ),
+              )}
+            </div>
+          ) : p.postLink ? (
             <a
               href={p.postLink}
               target="_blank"
@@ -294,7 +344,17 @@ export function PostSheet({
               {p.postLink}
             </a>
           ) : null}
-          {p.failure ? <p className="text-[13px] text-danger-text">{p.failure}</p> : null}
+          {p.failure ? (
+            <div
+              className="rounded-card bg-danger-soft p-3 text-[13px] text-danger-text"
+              data-testid="socialcontent-post-failure"
+            >
+              <p>{p.failure}</p>
+              {p.state === 'failed' && postsHere ? (
+                <p className="mt-1 text-text-2">{W.post.tryAgain}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <Field label={W.post.title} htmlFor="post-title">
             <Input
@@ -642,13 +702,31 @@ export function PostSheet({
                     {W.post.approve}
                   </Button>
                 ) : p.state === 'ready' || p.state === 'failed' ? (
-                  <Button
-                    variant="secondary"
-                    loading={busy === 'unok'}
-                    disabled={other('unok')}
-                    onClick={() => void approve(false)}
-                  >
-                    {W.post.takeBack}
+                  <>
+                    {postsHere ? (
+                      <Button
+                        loading={busy === 'now'}
+                        disabled={other('now') || making}
+                        onClick={() => void postNow()}
+                        data-testid="socialcontent-post-now"
+                      >
+                        {W.post.postNow}
+                      </Button>
+                    ) : null}
+                    <Button
+                      variant="secondary"
+                      loading={busy === 'unok'}
+                      disabled={other('unok')}
+                      onClick={() => void approve(false)}
+                    >
+                      {W.post.takeBack}
+                    </Button>
+                  </>
+                ) : null}
+                {!postsHere && !dirty ? (
+                  <Button variant="ghost" onClick={copyWords}>
+                    <Copy className="h-4 w-4" aria-hidden />
+                    {W.post.copy}
                   </Button>
                 ) : null}
                 {p.state === 'skipped' ? (

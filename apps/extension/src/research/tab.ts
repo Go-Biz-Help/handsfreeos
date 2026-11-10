@@ -39,6 +39,50 @@ export class ResearchTab {
     return this.tab.inFront(work);
   }
 
+  /**
+   * Holds back the computer's file picker in the tab's page (part 9, ./post-here.ts): a file field the page asks to
+   * open is marked (`data-hfos-picked`) and kept on the page for the hands to give the post's files to, instead of a
+   * window opening on the person's screen. Only in this tab, until it opens another page. In the page's own world, as
+   * the page asks for the picker there.
+   */
+  async holdPicker(): Promise<boolean> {
+    const tabId = this.tab.tabId;
+    if (tabId === null) return false;
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => {
+          const page = globalThis as { hfosPickerHeld?: boolean };
+          if (page.hfosPickerHeld) return;
+          page.hfosPickerHeld = true;
+          const keep = (input: HTMLInputElement) => {
+            input.setAttribute('data-hfos-picked', '1');
+            if (!input.isConnected) {
+              input.style.display = 'none';
+              document.body.appendChild(input);
+            }
+          };
+          const click = HTMLInputElement.prototype.click;
+          HTMLInputElement.prototype.click = function (this: HTMLInputElement) {
+            if (this.type === 'file') return keep(this);
+            return click.call(this);
+          };
+          const picker = HTMLInputElement.prototype.showPicker;
+          if (picker)
+            HTMLInputElement.prototype.showPicker = function (this: HTMLInputElement) {
+              if (this.type === 'file') return keep(this);
+              return picker.call(this);
+            };
+        },
+      });
+      return true;
+    } catch (error) {
+      console.warn('HandsFreeOS Social couldn’t hold back the file picker', error);
+      return false;
+    }
+  }
+
   /** Calls its hands in the tab, loading them first when the page is new. Null when the tab couldn't be asked. */
   async hands<K extends keyof Hands>(
     name: K,
