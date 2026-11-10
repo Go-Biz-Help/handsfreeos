@@ -96,8 +96,8 @@ interface Held {
   notAway?: boolean;
   /** What each profile's page holds itself (the tab's `profileHeld`): with the codes its grid links to. */
   profiles?: Record<string, { creator: unknown; posts: unknown[]; linked?: string[] }>;
-  /** What a profile's page holds once it's in front, where its grid draws. */
-  profilesInFront?: Record<string, { creator: unknown; posts: unknown[] }>;
+  /** What a profile's page holds once it's in front, where its grid draws (and draws more as it's scrolled). */
+  profilesInFront?: Record<string, { creator: unknown; posts: unknown[]; linked?: string[] }>;
 }
 
 function tabWith(answers: Answers, warnings: string[] = [], held: Held = {}) {
@@ -492,6 +492,43 @@ describe('reading a creator’s posts', () => {
       const sent = world.calls.find((c) => c.name === 'report')!.args[1] as { note: string };
       expect(sent.note).toContain('2 were read one at a time');
       expect(sent.note).toContain('by name: 404');
+    });
+
+    it('scrolls their page in front for more of their grid while it’s all since the read’s start', async () => {
+      const first = [codeFor(2), codeFor(3)];
+      const below = [codeFor(5, 7n), codeFor(8, 7n)];
+      const answers = Object.fromEntries(
+        [...first, ...below].map((code, i) => [
+          ig.mediaInfoPath(ig.mediaIdOf(code)!),
+          { json: { items: [item(`GRID00${i}`, [2, 3, 5, 8][i]!)] } },
+        ]),
+      );
+      const tab = tabWith(answers, [], {
+        profiles: fromPage(null, first),
+        profilesInFront: fromPage(null, [...first, ...below, codeFor(45)]),
+      });
+      expect(await read(tab)).toEqual({ failure: null });
+      expect(tab.fronted).toBe(1);
+      expect(savedKeys()).toEqual(['GRID000', 'GRID001', 'GRID002', 'GRID003']);
+      // The one from before since, further down, was never asked for.
+      expect(tab.asked.filter((p) => p.startsWith('/api/v1/media/'))).toHaveLength(4);
+    });
+
+    it('reads what their page showed when you aren’t away to bring it in front', async () => {
+      const first = [codeFor(2), codeFor(3)];
+      const tab = tabWith(
+        Object.fromEntries(
+          first.map((code, i) => [
+            ig.mediaInfoPath(ig.mediaIdOf(code)!),
+            { json: { items: [item(`GRID00${i}`, i + 2)] } },
+          ]),
+        ),
+        [],
+        { notAway: true, profiles: fromPage(null, first) },
+      );
+      expect(await read(tab)).toEqual({ failure: null });
+      expect(tab.fronted).toBe(0);
+      expect(savedKeys()).toEqual(['GRID000', 'GRID001']);
     });
 
     it('reports what each way answered, and says so, when not one of their posts comes', async () => {

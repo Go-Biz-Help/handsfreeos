@@ -671,11 +671,59 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
 }
 
 /** The most of their grid's posts asked for one at a time, when no list of their posts comes. */
-export const GRID_READS_MOST = 24;
+export const GRID_READS_MOST = 50;
+/** Screens their profile is scrolled, in front, for their grid to show more of their posts. */
+export const PROFILE_SCROLLS = 10;
 
 /**
- * Their posts when no list of them came: what their profile page holds, else each post its grid links to, newest
- * first back to `since`, asked for one at a time (two that don't come in a row, before any did, end it). What it read
+ * More of the posts their grid links to, newest first after any pinned ones: while the furthest down is still since
+ * the read's start and fewer than `GRID_READS_MOST` are, their profile is brought in front and scrolled, as its grid
+ * draws more only on screen. That happens only while the person is away; when they aren't, what it has is kept. Two
+ * screens that show nothing new, or the page not moving, end it.
+ */
+async function moreLinked(
+  ctx: ReadCtx,
+  handle: string,
+  linked: readonly string[],
+  since: string,
+): Promise<readonly string[]> {
+  const sinceStart = (codes: readonly string[]) =>
+    codes.filter((code) => (postedAtOf(code) ?? '') >= since).length;
+  const more = (codes: readonly string[]) =>
+    codes.length > 0 &&
+    (postedAtOf(codes.at(-1)!) ?? '') >= since &&
+    sinceStart(codes) < GRID_READS_MOST;
+  if (!more(linked)) return linked;
+  try {
+    return await ctx.tab.inFront(async () => {
+      const codes = [...linked];
+      const seen = new Set(codes);
+      let quiet = 0;
+      for (let screen = 0; screen < PROFILE_SCROLLS && more(codes) && quiet < 2; screen++) {
+        await pause(paced(RESEARCH_PACE.answerMs));
+        const moved = await ctx.tab.hands('scroll');
+        await pause(RESEARCH_PACE.settleMs);
+        const before = codes.length;
+        for (const code of (await ctx.tab.hands('profileHeld', handle))?.linked ?? [])
+          if (!seen.has(code)) {
+            seen.add(code);
+            codes.push(code);
+          }
+        quiet = codes.length > before ? 0 : quiet + 1;
+        if (!moved?.moved) break;
+      }
+      return codes;
+    });
+  } catch (error) {
+    if (!(error instanceof NotAway)) throw error;
+    return linked;
+  }
+}
+
+/**
+ * Their posts when no list of them came: what their profile page holds, else each post its grid links to (scrolled
+ * for more, `moreLinked`), newest first back to `since`, asked for one at a time (two that don't come in a row,
+ * before any did, end it). What it read
  * is saved and reported, so the list can be fixed; when nothing came, it's reported with what each way answered.
  */
 async function unlisted(
@@ -688,7 +736,7 @@ async function unlisted(
 ): Promise<ReadEnd> {
   const held = onPage ?? (await datedHeld(ctx, creator.handle));
   if (held?.posts.length) return pagePosts(ctx, creator, held.posts, since, progress, why);
-  const linked = held?.linked ?? [];
+  const linked = await moreLinked(ctx, creator.handle, held?.linked ?? [], since);
   const codes = linked
     .filter((code) => (postedAtOf(code) ?? '') >= since)
     .slice(0, GRID_READS_MOST);

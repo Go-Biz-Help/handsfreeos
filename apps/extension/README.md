@@ -1160,7 +1160,8 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   profile page itself is read instead (the tab's `profileHeld` hand: the data the page came with, then its description
   for followers, name and bio, and their account's number from the page's own name for itself). Their posts are asked
   for by that number, then by their name (`/api/v1/feed/user/<name>/username/`); when neither list comes, the posts
-  the page holds are saved, else each post its grid links to is asked for one at a time (0.130.0). When they last posted comes from the codes of
+  the page holds are saved, else each post its grid links to is asked for one at a time (0.130.0), scrolled in front
+  while you're away for up to 50 (0.131.0). When they last posted comes from the codes of
   the posts the page's grid links to (a post's number begins with when it was made, `postedAtOf`); the grid may draw
   late or only on screen, so it looks again a moment later, then in front only while you've been away (decision 120).
   A search where no profile read said when they last posted is reported (0.128.2). Profiles that wouldn't open at all are counted
@@ -1232,6 +1233,16 @@ The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
   words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
   so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
 
+### Up to 50 of a creator's posts from their grid (0.131.0)
+
+On 10 Nov 2026 the first posts reads on 0.130.0 worked, one post at a time, but read only the 12 posts their profile
+first shows: standouts were judged against too few. From 0.131.0, while the furthest of their grid's posts is still
+since the read's start and fewer than 50 are, their profile is brought in front and scrolled (`moreLinked` in
+`src/research/instagram-read.ts`), as Instagram's grid draws more only on screen, and only while you've been away
+(decision 120). Up to 10 screens; two that show nothing new end it. Their page gives back up to 90 of its grid's
+links (`HELD_MOST.profilePosts`). Each post read is one of the day's steps, so a read cut off by the day's room
+saves what it read.
+
 ### Their posts, when Instagram's list of them isn't there (0.130.0)
 
 On 10 Nov 2026 both ticked creators' posts reads ended in 10 seconds with nothing saved: Instagram's answer for their
@@ -1243,7 +1254,7 @@ posts by, and the read stopped there ("no account id"). From 0.130.0 a posts rea
 - **By their name** (`postsByNamePath`), as Instagram's profile page asks when it has no number: the same answer, read
   on page by page the same way.
 - **One at a time** when neither list comes: the posts the page's data holds, else each post its grid links to
-  (`/api/v1/media/<number>/info/`, the number from its code), newest first back to the read's start, at most 24. Two
+  (`/api/v1/media/<number>/info/`, the number from its code), newest first back to the read's start, at most 24 (50 from 0.131.0). Two
   that don't come in a row, before any did, end it.
 
 A way that doesn't come while another does has no helper and no report. When the posts were read one at a time, or
