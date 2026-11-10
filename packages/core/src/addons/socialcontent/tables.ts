@@ -22,6 +22,7 @@ import type {
   FacebookWhere,
   PictureState,
   PictureWay,
+  PostedTo,
 } from './calendar';
 import type { ContentNetwork } from './networks';
 import type {
@@ -248,6 +249,8 @@ export const content = addonSocialcontent.table(
     postLink: text('post_link'),
     failure: text('failure'),
     madeBy: text('made_by').notNull().$type<'ai' | 'person'>().default('ai'),
+    postingAt: ts('posting_at'),
+    postedTo: jsonb('posted_to').notNull().$type<PostedTo[]>().default([]),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

@@ -14837,6 +14837,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.content.post_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one of the business’s own posts up now, from the computer that posts (in Chrome with the HandsFreeOS Social extension), instead of at its time: an OK’d one, or one that didn’t post. It counts as the OK (decision 15), so it needs everything a post needs. Places it already went up in are left out. It goes up in a minute or two while that computer has Chrome open.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
+         */
+        post: operations["command_socialcontent_content_post_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.content.save": {
         parameters: {
             query?: never;
@@ -15031,6 +15051,46 @@ export interface paths {
          * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.niche.decided.
          */
         post: operations["command_socialcontent_niche_decide"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posting, socialcontent.content.failed.
+         */
+        post: operations["command_socialcontent_post_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.went": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: how putting one of the business’s own posts up went, place by place (Facebook profile, Page, a feed): each place it went up is kept with its link, so trying again never puts it up twice there. Up everywhere is posted; any place that didn’t take it is didn’t post, with why. Nothing pressed (again) puts it back to waiting.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posted, socialcontent.content.failed.
+         */
+        post: operations["command_socialcontent_post_went"];
         delete?: never;
         options?: never;
         head?: never;
@@ -60393,6 +60453,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -60444,6 +60510,89 @@ export interface operations {
                             postId: string;
                             title: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_post_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
                     };
                 };
             };
@@ -60528,6 +60677,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -60607,6 +60762,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -60977,6 +61138,151 @@ export interface operations {
                         /** @enum {string} */
                         state: "suggested" | "picked" | "skipped";
                         why: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    version?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: {
+                            facebookPage: string | null;
+                            files: {
+                                bucket: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                            places: ("profile" | "page" | "feed")[];
+                            postAt: string | null;
+                            text: string;
+                            title: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_went: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    again?: boolean;
+                    /** @default null */
+                    failure?: string | null;
+                    /** Format: uuid */
+                    postId: string;
+                    went: {
+                        /** @default null */
+                        failure?: string | null;
+                        /** @default null */
+                        link?: string | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                        posted: boolean;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
                     };
                 };
             };
@@ -93696,6 +94002,12 @@ export interface operations {
                                 time: string;
                             };
                         };
+                        poster: {
+                            mine: boolean;
+                            name: string | null;
+                            seenAt: string | null;
+                            version: string | null;
+                        } | null;
                         posts: {
                             approvedAt: string | null;
                             approvedBy: string | null;
@@ -93729,6 +94041,12 @@ export interface operations {
                             pictureWay: "design" | "photo" | "own";
                             postAt: string | null;
                             postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
                             postLink: string | null;
                             script: {
                                 lines: string[];
@@ -93745,6 +94063,7 @@ export interface operations {
                             updatedAt: string;
                             words: string;
                         }[];
+                        postsOn: ("instagram" | "facebook" | "linkedin")[];
                         ready: number;
                         timeZone: string;
                         today: string;
@@ -93781,6 +94100,12 @@ export interface operations {
                             pictureWay: "design" | "photo" | "own";
                             postAt: string | null;
                             postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
                             postLink: string | null;
                             script: {
                                 lines: string[];
@@ -93859,6 +94184,12 @@ export interface operations {
                         pictureWay: "design" | "photo" | "own";
                         postAt: string | null;
                         postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
                         postLink: string | null;
                         script: {
                             lines: string[];
@@ -93941,6 +94272,12 @@ export interface operations {
                             pictureWay: "design" | "photo" | "own";
                             postAt: string | null;
                             postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
                             postLink: string | null;
                             script: {
                                 lines: string[];

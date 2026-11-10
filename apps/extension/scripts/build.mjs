@@ -79,6 +79,12 @@ const NETWORKS = [
  */
 const INSTAGRAM_VIDEOS = ['https://*.cdninstagram.com/*', 'https://*.fbcdn.net/*'];
 /**
+ * Meta Business Suite, where AI Social Media Content Creator puts the business's OK'd posts up on its Facebook Page
+ * (src/research/posting.ts, from 0.132.0), so the person's own profile is never switched to the Page. No script of the
+ * extension's runs there but the reading tab's own, loaded into that one tab.
+ */
+const BUSINESS_SUITE = ['https://business.facebook.com/*'];
+/**
  * The person's own files, which Chrome opens to the extension only once they turn on **Allow access to file URLs**:
  * the zips Facebook gave them, read where Chrome downloaded them (src/hfos/files.ts).
  */
@@ -143,6 +149,7 @@ const manifest = {
     ...ACCOUNTS_CENTER,
     ...NETWORKS,
     ...INSTAGRAM_VIDEOS,
+    ...BUSINESS_SUITE,
     ...HFOS,
     ...FILES,
   ],

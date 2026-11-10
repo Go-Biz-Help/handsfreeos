@@ -11,6 +11,7 @@ import {
   FACEBOOK_WHERE,
   PICTURE_STATES,
   PICTURE_WAYS,
+  POST_PLACES,
   POSTING_NETWORKS,
 } from './calendar';
 import { POST_LIMITS } from './posts-ai';
@@ -20,6 +21,7 @@ export const PostingNetwork = z.enum(POSTING_NETWORKS);
 export const ContentFormat = z.enum(CONTENT_FORMATS);
 export const PictureWay = z.enum(PICTURE_WAYS);
 export const FacebookWhere = z.enum(FACEBOOK_WHERE);
+export const PostPlace = z.enum(POST_PLACES);
 
 const LocalDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -72,6 +74,8 @@ export const Content = z.object({
   approvedAt: z.string().nullable(),
   postedAt: z.string().nullable(),
   postLink: z.string().nullable(),
+  /** Each place it went up so far (part 9): its link when the network showed one, and when. */
+  postedTo: z.array(z.object({ place: PostPlace, link: z.string().nullable(), at: z.string() })),
   failure: z.string().nullable(),
   madeBy: z.enum(['ai', 'person']),
   ideaId: uuid.nullable(),
@@ -114,8 +118,22 @@ export const CalendarGetOutput = z.object({
   nextFillAt: z.string().nullable(),
   /** Ideas saved to make, which a fill uses first. */
   ideasSaved: z.number().int(),
-  /** Posts OK'd and waiting to go: posting itself comes with the next updates. */
+  /** Posts OK'd and waiting to go up at their times. */
   ready: z.number().int(),
+  /**
+   * The computer that puts them up (the reading computer, in Chrome with the extension, part 9): whose it is, whether
+   * it's the person's own, when it last checked in and its extension's version. Null when none is picked.
+   */
+  poster: z
+    .object({
+      name: z.string().nullable(),
+      mine: z.boolean(),
+      seenAt: z.string().nullable(),
+      version: z.string().nullable(),
+    })
+    .nullable(),
+  /** The networks the extension puts posts up on; the rest wait for a later update. */
+  postsOn: z.array(PostingNetwork),
   facebookPage: z.string().nullable(),
   mayManage: z.boolean(),
 });
@@ -172,6 +190,64 @@ export const ContentSkipInput = z.object({
   postId: uuid,
   /** false brings a skipped post back as a draft. */
   skip: z.boolean().default(true),
+});
+
+export const ContentPostNowInput = z.object({ workspaceId: uuid, postId: uuid });
+
+// ------------------------------------------------------------------------------------------------ the extension
+
+/** One of a post's files as the extension fetches it to put up: a picture, or the person's video. */
+export const PostFile = z.object({
+  bucket: z.string(),
+  objectPath: z.string(),
+  name: z.string(),
+  mimeType: z.string().nullable(),
+});
+
+export const PostNextInput = z.object({
+  workspaceId: uuid,
+  /** The networks this build of the extension posts on, with no warning today. */
+  networks: z.array(PostingNetwork).max(POSTING_NETWORKS.length),
+  version: z.string().max(20).optional(),
+});
+export const DuePost = z.object({
+  id: uuid,
+  title: z.string(),
+  network: PostingNetwork,
+  format: ContentFormat,
+  /** The words as they go up, hashtags at the end. */
+  text: z.string(),
+  files: z.array(PostFile),
+  /** Where it still goes up, in order: places it went up already are left out. */
+  places: z.array(PostPlace),
+  /** The business's Facebook Page's link, for a post to the Page. */
+  facebookPage: z.string().nullable(),
+  postAt: z.string().nullable(),
+});
+export type DuePost = z.infer<typeof DuePost>;
+export const PostNextOutput = z.object({ post: DuePost.nullable() });
+
+export const PostWentInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  /** How each place it tried went. */
+  went: z
+    .array(
+      z.object({
+        place: PostPlace,
+        posted: z.boolean(),
+        link: z.url().max(500).nullable().default(null),
+        failure: z.string().max(300).nullable().default(null),
+      }),
+    )
+    .max(POST_PLACES.length),
+  /**
+   * Nothing was pressed (a warning on the network, signed out, Chrome closing): it goes back to waiting and goes up
+   * on a later turn, while its time is still recent.
+   */
+  again: z.boolean().default(false),
+  /** Why, when nothing was tried or it stopped before a place. */
+  failure: z.string().max(300).nullable().default(null),
 });
 
 // ------------------------------------------------------------------------------------------------ the worker

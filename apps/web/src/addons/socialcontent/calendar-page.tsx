@@ -4,12 +4,17 @@
  * two weeks after, day by day, written by the AI from the Playbook and saved ideas. Each waits for an OK (decision
  * 15): open one to change it, OK it or skip it, or **OK the week** in one go. Open days in the plan show where a post
  * is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
- * on its own (decision 18). Posting itself comes in the next updates.
+ * on its own (decision 18). OK'd posts go up at their times from the reading computer (part 9): Facebook and
+ * LinkedIn for now, and the card says whose computer that is and when it last checked in.
  */
 import { addDays, localDateOf } from '@hfos/core';
 import { POSTING_NETWORKS, type PostingNetwork } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
-import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import {
+  SOCIALCONTENT_WORDS as W,
+  daysAgo,
+  postingLines,
+} from '@hfos/core/addons/socialcontent/words';
 import { CalendarCheck, CalendarPlus, PenLine } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -174,9 +179,17 @@ export function CalendarPage({
           ).join(' · ')}
           . {W.calendar.planEdit}
         </p>
-        {W.calendar.ready(c.ready) ? (
-          <p className="mt-2 text-[12.5px] text-text-3">{W.calendar.ready(c.ready)}</p>
-        ) : null}
+        {postingLines(c, (n) => networkName(n as PostingNetwork)).map((l) => (
+          <p
+            key={l.text}
+            className={
+              l.warn ? 'mt-2 text-[12.5px] text-warning-text' : 'mt-2 text-[12.5px] text-text-3'
+            }
+            data-testid="socialcontent-calendar-posting"
+          >
+            {l.text}
+          </p>
+        ))}
       </Card>
 
       {!c.posts.length && !c.undated.length && !c.open.length ? (
