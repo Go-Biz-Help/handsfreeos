@@ -49,6 +49,13 @@ export function overview(over: Partial<Overview> = {}): Overview {
       watchVideos: false,
       readerSeenAt: ago(2),
       readerVersion: '0.128.2',
+      plan: {
+        instagram: { perWeek: 3, time: '09:00' },
+        facebook: { perWeek: 3, time: '12:00' },
+        linkedin: { perWeek: 2, time: '08:00' },
+      },
+      facebookPage: null,
+      facebookWhere: ['profile'],
     },
     readerIsMe: true,
     mayManage: true,

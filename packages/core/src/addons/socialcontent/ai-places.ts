@@ -15,6 +15,8 @@ const G = W.settings;
 const B = W.playbook;
 const I = W.ideas;
 const V = W.watch;
+const K = W.calendar;
+const O = W.post;
 
 export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
   {
@@ -75,23 +77,51 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
     where: [NAME, P.ideas],
     onScreen: [
       `${I.get}, and ${I.tabs.new}, ${I.tabs.saved}, ${I.tabs.used} and ${I.tabs.skipped}`,
-      `Each idea: its network, format, title, ${I.hook}, ${I.outline}, ${I.why} and the standouts it’s based on; ${I.save}, ${I.use} and ${I.skip} (or ${I.again} on used and skipped ones)`,
+      `Each idea: its network, format, title, ${I.hook}, ${I.outline}, ${I.why} and the standouts it’s based on; ${I.write} (the AI writes the post and opens it on the ${P.calendar}), ${I.save}, ${I.use} and ${I.skip} (or ${I.again} on used and skipped ones)`,
     ],
     howTo: [
       'New ideas come on their own each time the Playbook is written, while fewer than 5 new ones wait',
       `More ideas: ${I.get}. It needs a Playbook first`,
+      `Turn an idea into a post: ${I.write}. It goes on the next open day in the plan for its network, waiting for an OK`,
     ],
-    canChange: ['get ideas, and save, mark used, skip or put back an idea'],
+    canChange: [
+      'get ideas, write the post from an idea, and save, mark used, skip or put back an idea',
+    ],
     path: 'ideas',
   },
   {
+    label: P.calendar,
+    what: 'the business’s own posts for today and the next two weeks, written by the AI, each waiting for an OK',
+    where: [NAME, P.calendar],
+    onScreen: [
+      `${K.fill}, ${K.approveWeek} (when posts wait for an OK) and ${K.write}`,
+      `When it was last filled and when it fills again, ${K.plan} (how many posts a week on each network and at what time), and how many are OK’d`,
+      `Each day: its posts (network, time, format, ${O.states.draft}, ${O.states.ready}, ${O.states.skipped} and the rest, the picture, title and first line, and what one still needs before it can go) and each ${K.open} with ${K.writeFor}; posts with ${K.undated} below`,
+      `Opening a post: ${O.title}, ${O.network}, ${O.format}, ${O.when} and ${O.time}, ${O.facebookWhere} on Facebook, ${O.hook}, ${O.words}, ${O.hashtags}, ${O.slides} on a carousel and ${O.script} on a video`,
+      `Its ${O.picture}: ${O.ways.design} (words on a picture in the business’s colour), ${O.ways.photo} (9¢ each) or ${O.ways.own}; ${O.makeAgain} with ${O.makeAsk}, ${O.switchTo(O.ways.design)} or ${O.switchTo(O.ways.photo)}, ${O.upload} and ${O.remove}`,
+      `${O.save}, ${O.approve} or ${O.takeBack}, ${O.skip} or ${O.restore}, and ${O.rewrite} with ${O.rewriteAsk}`,
+    ],
+    howTo: [
+      `Fill two weeks of posts: ${K.fill}. The AI writes one for each open day in the plan from saved ideas, new ideas and the Playbook, and tops up once a week on its own after the first time`,
+      `OK posts: ${O.approve} on one, or ${K.approveWeek} for every post waiting in the next 7 days that’s ready. Changing an OK’d post takes the OK back`,
+      `Change how often and when: ${NAME} → ${P.gear} → ${G.posting} (owners and admins)`,
+      `Facebook posts go to the person’s profile, their Page or both; posting to the Page needs its link in ${NAME} → ${P.gear} → ${G.posting}`,
+      'Posting through the extension comes in the next updates: OK’d posts wait until then',
+    ],
+    canChange: [
+      'fill the calendar, write a post (for an open day, a network or from an idea), change a post’s words, day, time and picture, make its picture again or switch its kind, OK it or the whole week, take the OK back, skip it or bring it back, and write it again',
+    ],
+    path: 'calendar',
+  },
+  {
     label: P.gear,
-    what: 'the networks studied, whose computer reads them, watching videos, and what the reading computer is doing',
+    what: 'the networks studied, whose computer reads them, watching videos, the posting plan, and what the reading computer is doing',
     where: [NAME, P.gear],
     onScreen: [
       `${G.networks}: Instagram, Facebook and LinkedIn; TikTok and YouTube say ${G.coming}`,
       `${G.reader}: whose computer reads, ${G.readOnMine} and ${G.getExtension}`,
       `${V.title}: ${V.on} (off until turned on, with the notice that it uses a lot more AI) and ${V.tryIt} (up to 5 of the newest standout videos, once)`,
+      `${G.posting}: posts a week and the time for Instagram, Facebook and LinkedIn, ${G.facebookPage} and ${G.facebookWhere} (profile, Page or both)`,
       `${G.doing}: what’s waiting, and what was asked lately with how it went, each waiting one with ${G.stop}`,
     ],
     howTo: [
@@ -100,7 +130,7 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
       `Test watching before turning it on: ${V.tryIt} (owners and admins)`,
     ],
     canChange: [
-      'pick the networks, whose computer reads and whether new standout videos are watched (owners and admins), try watching a few videos, and stop waiting work',
+      'pick the networks, whose computer reads, whether new standout videos are watched, and the posting plan, Facebook Page and where Facebook posts go (owners and admins), try watching a few videos, and stop waiting work',
     ],
     path: 'settings',
   },
@@ -110,4 +140,5 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
 export const SOCIALCONTENT_LOOK_ALIKES: readonly string[] = [
   'Its Settings page is the add-on’s own (AI Social Media Content Creator → Settings), not the business’s Settings.',
   'Creators here are people outside the business whose posts it studies, never customers or contacts.',
+  'Its Calendar is the business’s own social posts (AI Social Media Content Creator → Calendar), not the appointments Calendar.',
 ];

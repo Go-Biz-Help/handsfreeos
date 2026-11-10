@@ -3,6 +3,7 @@
  * limits on what's saved. Browser-safe: the web, the phone, the extension and the worker read them.
  */
 import { z } from 'zod';
+import { CALENDAR, FACEBOOK_WHERE, POSTING_NETWORKS } from './calendar';
 import { CONTENT_NETWORKS } from './networks';
 
 export const uuid = z.uuid();
@@ -258,6 +259,18 @@ export const Work = z.object({
 });
 export type Work = z.infer<typeof Work>;
 
+/** How many posts a week on one network, and when ('HH:MM' in the business's time zone): the calendar's plan. */
+export const NetworkPlanShape = z.object({
+  perWeek: z.number().int().min(0).max(CALENDAR.perWeekMost),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+});
+export const PlanShape = z.object({
+  instagram: NetworkPlanShape,
+  facebook: NetworkPlanShape,
+  linkedin: NetworkPlanShape,
+});
+export const PlanSaveShape = z.partialRecord(z.enum(POSTING_NETWORKS), NetworkPlanShape);
+
 export const Settings = z.object({
   networks: z.array(Network),
   readerUserId: uuid.nullable(),
@@ -267,6 +280,11 @@ export const Settings = z.object({
   /** When the reading computer last asked for work, and its extension's version: null when it never has. */
   readerSeenAt: z.string().nullable(),
   readerVersion: z.string().nullable(),
+  /** The calendar's plan for the business's own posts (decision 18). */
+  plan: PlanShape,
+  /** The business's Facebook Page, and where its Facebook posts go (decision 17). */
+  facebookPage: z.string().nullable(),
+  facebookWhere: z.array(z.enum(FACEBOOK_WHERE)),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -349,6 +367,16 @@ export const SettingsSaveInput = z.object({
   /** Whose computer reads; null for none. */
   readerUserId: uuid.nullable().optional(),
   watchVideos: z.boolean().optional(),
+  /** The calendar's plan: for each network given, posts a week (0 to 7) and the time they go. */
+  plan: PlanSaveShape.optional(),
+  /** The business's Facebook Page's link; null for none. */
+  facebookPage: z
+    .url({ protocol: /^https?$/ })
+    .max(500)
+    .nullable()
+    .optional(),
+  /** Where its Facebook posts go: the person's profile, the Page, or both. */
+  facebookWhere: z.array(z.enum(FACEBOOK_WHERE)).min(1).max(2).optional(),
 });
 
 /** A standout a Playbook item or an idea came from, to open. */

@@ -662,6 +662,9 @@ importers:
       '@fastify/websocket':
         specifier: ^11.3.1
         version: 11.3.1
+      '@fontsource/inter':
+        specifier: 5.3.0
+        version: 5.3.0
       '@hfos/ai':
         specifier: workspace:*
         version: link:../../packages/ai
@@ -715,7 +718,7 @@ importers:
         version: 0.35.4(@types/node@22.20.2)
       unpdf:
         specifier: 1.8.1
-        version: 1.8.1
+        version: 1.8.1(@napi-rs/canvas@1.0.13)
       ws:
         specifier: ^8.21.3
         version: 8.21.3
@@ -2271,6 +2274,9 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fontsource/inter@5.3.0':
+    resolution: {integrity: sha512-RofMylZmjlJEfELXeNHFWBRcSs75rGU/6bV2S2jfnvv/3rPXPGe0LgUJTklcHZ9lM4OZmAVFhcJPnACfb91A3g==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -10376,6 +10382,8 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
+  '@fontsource/inter@5.3.0': {}
+
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -17642,7 +17650,9 @@ snapshots:
       '@expo/metro-config': 57.0.12(expo@57.0.24)(supports-color@10.2.2)(typescript@6.0.3)
       metro-transform-worker: 0.87.1(supports-color@10.2.2)
 
-  unpdf@1.8.1: {}
+  unpdf@1.8.1(@napi-rs/canvas@1.0.13):
+    optionalDependencies:
+      '@napi-rs/canvas': 1.0.13
 
   unpipe@1.0.0: {}
 

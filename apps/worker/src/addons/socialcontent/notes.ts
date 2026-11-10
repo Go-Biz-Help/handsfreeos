@@ -130,7 +130,7 @@ const POST_COLUMNS = sql.raw(
 );
 
 /** The AI's own trouble in words a person can read, for the actions a person presses. */
-function aiRefusal(e: AiAskError): HfosError {
+export function aiRefusal(e: AiAskError): HfosError {
   switch (e.code) {
     case 'ai_unavailable':
       return HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);

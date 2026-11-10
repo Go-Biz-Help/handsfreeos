@@ -12,3 +12,8 @@ export type {
   StandoutRef,
   Work,
 } from '@hfos/core/addons/socialcontent/shapes';
+export type {
+  CalendarView,
+  Content,
+  ContentPicture,
+} from '@hfos/core/addons/socialcontent/content-shapes';

@@ -7,7 +7,8 @@
  */
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, PenLine } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -64,6 +65,20 @@ export function IdeasPage({
         ),
       (out) => W.ideas.got(out.added),
     );
+  const router = useRouter();
+  const write = (i: Idea) =>
+    act(
+      `${i.id}:write`,
+      () =>
+        workerPost<{ postId: string }>(
+          '/v1/addons/socialcontent/actions/socialcontent.content.write',
+          { workspaceId, input: { ideaId: i.id } },
+        ),
+      W.calendar.written,
+    ).then((out) => {
+      if (out?.postId)
+        router.push(`/app/w/${workspaceId}/a/socialcontent/calendar?post=${out.postId}`);
+    });
   const decide = (i: Idea, state: State) =>
     act(
       `${i.id}:${state}`,
@@ -122,6 +137,7 @@ export function IdeasPage({
                   examples={byId}
                   busy={busy}
                   onDecide={(state) => void decide(i, state)}
+                  onWrite={() => void write(i)}
                 />
               ))}
             </div>
@@ -137,12 +153,28 @@ function IdeaCard({
   examples,
   busy,
   onDecide,
+  onWrite,
 }: {
   idea: Idea;
   examples: ReadonlyMap<string, StandoutRef>;
   busy: string | null;
   onDecide: (state: State) => void;
+  onWrite: () => void;
 }) {
+  const writeIt =
+    i.state === 'new' || i.state === 'saved' ? (
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={busy === `${i.id}:write`}
+        disabled={busy !== null && busy !== `${i.id}:write`}
+        onClick={onWrite}
+        data-testid="socialcontent-idea-write"
+      >
+        <PenLine className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        {busy === `${i.id}:write` ? W.calendar.writing : W.ideas.write}
+      </Button>
+    ) : null;
   const button = (state: State, label: string, variant: 'primary' | 'secondary' | 'ghost') => (
     <Button
       size="sm"
@@ -186,6 +218,7 @@ function IdeaCard({
         examples={examples}
       />
       <div className="mt-3 flex flex-wrap gap-2">
+        {writeIt}
         {i.state === 'new' ? (
           <>
             {button('saved', W.ideas.save, 'primary')}
