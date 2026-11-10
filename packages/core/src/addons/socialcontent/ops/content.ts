@@ -244,6 +244,7 @@ export async function contentOut(ctx: Ctx, list: readonly ContentRow[]): Promise
         words: c.words,
         slides: Array.isArray(c.slides) ? c.slides : [],
         fileIds: pictures.map((p) => p.fileId),
+        videos: pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
         postAt: c.postAt,
         facebookWhere: c.facebookWhere,
         facebookPage: s.facebookPage,
@@ -511,13 +512,13 @@ async function okOne(
 ): Promise<string | null> {
   if (c.state === 'ready') return null;
   if (c.state === 'skipped') return POST_REFUSALS.skipped;
-  const pictures = await rows<{ id: string }>(
+  const pictures = await rows<{ id: string; mime_type: string | null }>(
     ctx.tx,
     c.fileIds.length
-      ? sql`select id from app.files where workspace_id = ${ctx.scope.workspaceId!}
+      ? sql`select id, mime_type from app.files where workspace_id = ${ctx.scope.workspaceId!}
               and id = any(${`{${c.fileIds.join(',')}}`}::uuid[]) and record_id = ${c.recordId}::uuid
               and status = 'ready' and deleted_at is null`
-      : sql`select null::uuid as id where false`,
+      : sql`select null::uuid as id, null::text as mime_type where false`,
   );
   const needs = stillNeeds({
     network: c.network,
@@ -525,6 +526,7 @@ async function okOne(
     words: c.words,
     slides: Array.isArray(c.slides) ? c.slides : [],
     fileIds: pictures.map((p) => p.id),
+    videos: pictures.filter((p) => p.mime_type?.startsWith('video/')).length,
     postAt: c.postAt,
     facebookWhere: c.facebookWhere,
     facebookPage,

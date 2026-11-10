@@ -4,6 +4,7 @@
  * writes and designs. No database.
  */
 import { describe, expect, it } from 'vitest';
+import { ATTACHMENT_MAX_BYTES, FileBeginUploadInput } from '../../src/schemas/file';
 import {
   CALENDAR,
   DEFAULT_PLAN,
@@ -113,6 +114,7 @@ describe('what a post still needs', () => {
     words: 'Three ways to save time this week.',
     slides: [],
     fileIds: ['f1'],
+    videos: 0,
     postAt: '2026-11-11T15:00:00Z',
     facebookWhere: [],
   };
@@ -133,8 +135,21 @@ describe('what a post still needs', () => {
     ).toBeNull();
   });
 
-  it('lets a video go without its file, since it’s added when it posts', () => {
-    expect(stillNeeds({ ...ready, format: 'video', fileIds: [] })).toBeNull();
+  it('needs the person’s own video for a video post (part 10)', () => {
+    expect(stillNeeds({ ...ready, format: 'video', fileIds: [] })).toMatch(/no video yet/);
+    expect(stillNeeds({ ...ready, format: 'video', fileIds: ['v1'], videos: 1 })).toBeNull();
+    // The video is kept as a file on the post, as phones record it, up to 25 MB.
+    for (const mimeType of ['video/mp4', 'video/quicktime', 'video/webm'])
+      expect(
+        FileBeginUploadInput.safeParse({
+          workspaceId: '00000000-0000-4000-8000-000000000001',
+          recordType: 'custom_record',
+          recordId: '00000000-0000-4000-8000-000000000002',
+          name: 'tip.mov',
+          mimeType,
+          sizeBytes: ATTACHMENT_MAX_BYTES,
+        }).success,
+      ).toBe(true);
   });
 
   it('asks where on Facebook, and for the Page’s link before posting to the Page', () => {
@@ -308,8 +323,8 @@ describe('putting posts up (part 9)', () => {
     expect(long.endsWith('…\n\n#tag')).toBe(true);
   });
 
-  it('posts on Facebook and LinkedIn for now', () => {
-    expect(POSTING.networks).toEqual(['facebook', 'linkedin']);
+  it('posts on Facebook and LinkedIn (part 9), and Instagram (part 10)', () => {
+    expect(POSTING.networks).toEqual(['facebook', 'linkedin', 'instagram']);
   });
 
   it('says whose computer puts the OK’d posts up, and warns when it’s quiet or there’s none', () => {

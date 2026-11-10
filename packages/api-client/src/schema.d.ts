@@ -34272,7 +34272,7 @@ export interface operations {
                     /** Format: uuid */
                     id?: string;
                     /** @enum {string} */
-                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm";
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm" | "video/mp4" | "video/quicktime" | "video/webm";
                     name: string;
                     /** Format: uuid */
                     recordId: string;

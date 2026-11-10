@@ -3736,7 +3736,10 @@
               "audio/mp4",
               "audio/aac",
               "audio/mpeg",
-              "audio/webm"
+              "audio/webm",
+              "video/mp4",
+              "video/quicktime",
+              "video/webm"
             ]
           },
           "sizeBytes": {

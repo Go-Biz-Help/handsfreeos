@@ -159,19 +159,22 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, `gpt-image-2`) makes a lifelike picture
     with no words from the AI's description, cropped to 1080 by 1350. Charged 9¢ each on the balance (`ai.image`),
     and only when the balance has room. Without `OPENAI_API_KEY` posts get designed pictures only.
-  - **Your own**: **Add your photo** uploads to the post's files; a video's file comes with Instagram posting.
+  - **Your own**: **Add your photo** uploads to the post's files. A video post needs the person's own video: they
+    record it from the script and add it with **Add your video** (up to 25 MB, core's most for a file), which takes
+    the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
+    and the attachments bucket from `20261027025150_attachments_take_videos.sql`).
     The sheet's **Make it again**, **Switch to designed** and **Switch to photo-style** make it again, with what to
     change.
 - **The OK** (decision 15). Every post waits for an OK: **OK it** on one, or **OK the week** for every post going in
-  the next 7 days that has everything it needs (words, its pictures or 2 slides, a day at least a minute ahead, and on
+  the next 7 days that has everything it needs (words, its pictures or 2 slides, a video's own video, a day at least a minute ahead, and on
   Facebook where it goes, with the Page's link when it goes to the Page). What one still needs is shown on the post
   and said by OK the week. Changing an OK'd post takes the OK back; **Skip it** opens its day again.
 
 ## Posting
 
-Part 9 (decisions 15 to 17). An OK'd post goes up at its time from the business's reading computer, in Chrome with
-the HandsFreeOS Social extension (0.132.0 or later), while Chrome is open there. Facebook and LinkedIn now; Instagram
-comes with part 10, and until then the post's sheet offers **Copy the words**.
+Parts 9 and 10 (decisions 15 to 17). An OK'd post goes up at its time from the business's reading computer, in Chrome
+with the HandsFreeOS Social extension, while Chrome is open there: Facebook and LinkedIn from 0.132.0, Instagram from
+0.133.0. The post's sheet offers **Copy the words** on any network the extension doesn't post on.
 
 - **Each minute, before any reading,** the extension asks for the next post due (`socialcontent.post.next`) on the
   networks it posts on with no warning today. HandsFreeOS hands it the OK'd post whose time has come, soonest first,
@@ -179,7 +182,7 @@ comes with part 10, and until then the post's sheet offers **Copy the words**.
   takes), its pictures (or the person's video, on a video post), the places it still goes, and the Page's link. It's
   taken (`posting`), so it goes up once.
 - **Where it goes** (`placesFor`): on Facebook the person's profile, the business's Page, or both, in that order
-  (decision 17); on LinkedIn their feed. Each place it went up is kept (`posted_to`, with its link when the network
+  (decision 17); on LinkedIn and Instagram their feed. Each place it went up is kept (`posted_to`, with its link when the network
   shows one), so trying again never puts it up twice there.
 - **Putting it up** (the extension's `research/posting.ts` and `post-here.ts`): the pictures are fetched from
   HandsFreeOS's storage on the person's own sign-in; the network's box is opened, the words typed, the pictures added
@@ -188,6 +191,10 @@ comes with part 10, and until then the post's sheet offers **Copy the words**.
   person's profile is never switched to the Page while Social Outreach works as them; a tick for Instagram there is
   turned off. Its link comes from the network (LinkedIn's View post), else from the top of the profile, the Page or
   their own posts by its first words.
+- **Instagram** (part 10): **Create** on its home page (then **Post** when it asks which kind), the pictures or the
+  person's video into Create new post, **OK** when it says a video goes up as a reel, **Next** past cropping and
+  editing, then the words in the caption box and **Share**. Its link comes from the person's own newest posts, as
+  Instagram's page asks for them, by its first words.
 - **How it went** (`socialcontent.post.went`): up everywhere is **Posted**, with **See it on your profile**, **your
   Page** or **LinkedIn**; any place that didn't take it is **Didn't post**, saying why and where. A network's warning
   before anything was pressed stops posting and reading there for the day, for both social add-ons, and the post goes
@@ -265,7 +272,8 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 
 ## Not yet
 
-- Posting on Instagram through the extension, with the person's videos (part 10). Until then, copy the words.
+- Videos over 25 MB: core's most for a file. A longer video needs making smaller first (phones offer it when
+  sharing).
 - Posting's boxes are built from the networks' usual words and roles, not yet from page outlines of them: the first
   problem reports (`post.*`) will say what to fix.
 - Reading the business's own posts after 2 and 7 days, and its standouts in the Playbook (part 11).

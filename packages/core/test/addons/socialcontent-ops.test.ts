@@ -973,16 +973,18 @@ describe('the business’s own posts', () => {
     expect(said.state).toBe('posted');
   });
 
-  it('won’t put up now what the extension doesn’t post yet, and says whose computer posts', async () => {
-    const ig = await worker('socialcontent.content.put', {
+  it('won’t put a video up before its video is added (part 10), and says whose computer posts', async () => {
+    const reel = await worker('socialcontent.content.put', {
       network: 'instagram',
-      post: written({ title: 'Reel idea', format: 'photo', pictureWay: 'design' }),
+      post: written({ title: 'Reel idea', format: 'video', pictureWay: 'own' }),
     });
-    expect(await refused(as(member, 'socialcontent.content.post_now', { postId: ig.postId }))).toBe(
-      'socialcontent_post_not_posted_here',
-    );
+    expect(
+      await refused(as(member, 'socialcontent.content.post_now', { postId: reel.postId })),
+    ).toBe('socialcontent_post_not_ready');
+    const shown = await as(member, 'socialcontent.content.get', { postId: reel.postId });
+    expect(shown.stillNeeds).toMatch(/no video yet/);
     const cal = await as(member, 'socialcontent.calendar.get');
-    expect(cal.postsOn).toEqual(['facebook', 'linkedin']);
+    expect(cal.postsOn).toEqual(['facebook', 'linkedin', 'instagram']);
     expect(cal.poster).toMatchObject({ mine: false, version: '0.132.0' });
     expect(cal.poster.seenAt).not.toBeNull();
     expect((await as(owner, 'socialcontent.calendar.get')).poster.mine).toBe(true);

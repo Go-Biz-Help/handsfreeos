@@ -10,6 +10,9 @@
  *   for Instagram that's on is turned off (Instagram has its own post, part 10), and it presses **Publish**.
  * - **LinkedIn:** their feed's **Start a post**, the same way, with LinkedIn's **Next** or **Done** after the pictures
  *   when it shows its picture editor.
+ * - **Instagram (part 10):** **Create** in its side menu (then **Post**, when Instagram asks which kind), the pictures
+ *   or the person's video into Create new post's file field, **OK** when Instagram says a video goes up as a reel,
+ *   **Next** past cropping and editing, then the words in its caption box (only while it's empty) and **Share**.
  *
  * Pictures and the person's video come in as files from HandsFreeOS (the background fetches them). They're added the
  * ways a person can: the box's own file field (`input[type=file]`), pasting them into the words, the network's photo
@@ -29,8 +32,8 @@ export interface PostFileIn {
   readonly base64: string;
 }
 
-/** Which composer: Facebook's over its feed, Business Suite's for a Page, or LinkedIn's over its feed. */
-export type PostWhere = 'facebook' | 'business' | 'linkedin';
+/** Which composer: Facebook's over its feed, Business Suite's for a Page, LinkedIn's over its feed, or Instagram's. */
+export type PostWhere = 'facebook' | 'business' | 'linkedin' | 'instagram';
 
 export interface PostAsk {
   readonly where: PostWhere;
@@ -73,6 +76,19 @@ const PUBLISHED =
   /\b(your post (is|was|has been) (now )?(published|shared|live)|post published|post shared)\b/i;
 /** A box to tick for Instagram in Business Suite's "Post to". */
 const INSTAGRAM = /\binstagram\b/i;
+/** Instagram's Create in its side menu, and Post in the small menu it opens to ask which kind. */
+export const IG_CREATE = /^(create|new post)$/i;
+const IG_KIND = /^post$/i;
+/** Create new post's button that opens the computer's file picker. */
+const IG_PICK = /^select (from (your )?computer|photos( and videos)?)$/i;
+/** Instagram's note that a video goes up as a reel, and its OK. */
+const IG_OK = /^ok$/i;
+/** Instagram's words once a post or reel is up, and when it didn't take it. */
+export const IG_SHARED =
+  /\b(your (post|reel) (has been|was) shared|(post|reel) shared|shared to your (profile|feed))\b/i;
+const IG_NOT_SHARED = /\b(could ?n[o’']?t be shared|could ?n[o’']?t share)\b/i;
+/** The longest Instagram takes to put a video up after Share. */
+const IG_VIDEO_MS = 170_000;
 
 const WAIT_MS = 8_000;
 const POSTING_MS = 30_000;
@@ -332,6 +348,200 @@ function wordsIn(element: Element): string {
   return clean(parts.join(' '));
 }
 
+/** The dialog over Instagram's page now: its newest, the one a person sees on top. */
+function igDialog(doc: Document): Element | null {
+  return [...doc.querySelectorAll(OVER_THE_PAGE)].filter(shown).at(-1) ?? null;
+}
+
+/** Whether Instagram took the files: it moved on to cropping (Next), asked about reels (OK), or shows them. */
+function igTook(doc: Document): boolean {
+  const box = igDialog(doc);
+  return (
+    !!box &&
+    (!!controlIn(box, NEXT) ||
+      !!controlIn(box, IG_OK) ||
+      mediaCount(box) > 0 ||
+      !!box.querySelector('[style*="blob:"]'))
+  );
+}
+
+async function igTookThem(doc: Document): Promise<boolean> {
+  return !!(await waitFor(() => (igTook(doc) ? true : null), 10_000));
+}
+
+/** The signed-in person's Instagram name, from their Profile link in the side menu: where their own posts are. */
+export function instagramMe(doc: Document): string | null {
+  for (const link of doc.querySelectorAll<HTMLAnchorElement>('a[href]')) {
+    if (link.closest(OVER_THE_PAGE)) continue;
+    const isProfile =
+      /^profile$/i.test(wordsOf(link)) ||
+      !!link.querySelector('img[alt$="profile picture" i]') ||
+      /^profile$/i.test(clean(link.querySelector('span')?.textContent));
+    if (!isProfile) continue;
+    const m = /^\/([\w.]{1,30})\/?$/.exec(link.getAttribute('href') ?? '');
+    if (m && !['explore', 'reels', 'direct', 'accounts'].includes(m[1]!)) return m[1]!;
+  }
+  return null;
+}
+
+/**
+ * Puts the post up on Instagram: Create (then Post), the files into Create new post, OK for a reel, Next past
+ * cropping and editing, the words in the caption box, then Share. The words go in last, as Instagram asks for them.
+ */
+async function instagramPost(
+  doc: Document,
+  ask: PostAsk,
+  steps: string[],
+  end: (result: PostDone['result'], pressed?: boolean) => PostDone,
+): Promise<PostDone> {
+  let box = igDialog(doc);
+  const hasField = (d: Element | null) =>
+    !!d && [...d.querySelectorAll<HTMLInputElement>('input[type="file"]')].some(takesMedia);
+  if (!hasField(box)) {
+    const create = [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].find(
+      (c) =>
+        shown(c) &&
+        !c.closest(OVER_THE_PAGE) &&
+        (says(c, IG_CREATE) || !!c.querySelector('svg[aria-label="New post" i]')),
+    );
+    if (!create) return end('none');
+    // Anything saying Post before Create was pressed (a comment's) is never the kind to pick.
+    const before = new Set(
+      [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].filter((c) =>
+        says(c, IG_KIND),
+      ),
+    );
+    create.click();
+    steps.push('start');
+    let picked = false;
+    box = await waitFor(() => {
+      const d = igDialog(doc);
+      if (hasField(d)) return d;
+      const kind = picked
+        ? null
+        : [...doc.querySelectorAll<HTMLElement>(`${CONTROLS}, a[href]`)].find(
+            (c) => shown(c) && !before.has(c) && says(c, IG_KIND),
+          );
+      if (kind) {
+        kind.click();
+        picked = true;
+        steps.push('kind');
+      }
+      return null;
+    });
+  }
+  if (!box) return end('none');
+  steps.push('box');
+  if (!ask.files.length) return end('no_media');
+  const files = filesOf(doc, ask.files);
+  let took = false;
+  const field = [...box.querySelectorAll<HTMLInputElement>('input[type="file"]')].find(takesMedia);
+  if (field) {
+    giveFiles(field, files);
+    steps.push('media:field');
+    took = await igTookThem(doc);
+  }
+  const pick = !took ? controlIn(box, IG_PICK) : null;
+  if (pick) {
+    pick.click();
+    steps.push('media:button');
+    const asked = await waitFor(
+      () => doc.querySelector<HTMLInputElement>('input[type="file"][data-hfos-picked]'),
+      3_000,
+    );
+    if (asked) {
+      asked.removeAttribute('data-hfos-picked');
+      giveFiles(asked, files);
+      steps.push('media:asked');
+      took = await igTookThem(doc);
+    }
+  }
+  const win = windowOf(doc);
+  const dropped = !took ? transferOf(doc, files) : null;
+  if (dropped && win.DragEvent) {
+    const target = box.querySelector('[role="presentation"]') ?? box;
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      target.dispatchEvent(
+        new win.DragEvent(type, { dataTransfer: dropped, bubbles: true, cancelable: true }),
+      );
+      await pause(150);
+    }
+    steps.push('media:drop');
+    took = await igTookThem(doc);
+  }
+  if (!took) return end('no_media');
+  steps.push('media');
+  // OK for a reel, then Next past cropping and editing, until the caption box and Share show.
+  let caption: { box: Element; writing: HTMLElement; share: HTMLElement } | null = null;
+  for (let round = 0; round < 8 && !caption; round++) {
+    const now = igDialog(doc);
+    if (!now) return end('not_sent');
+    const writing = [...now.querySelectorAll<HTMLElement>(WRITING_BOX)].find(shown);
+    const share = controlIn(now, POST);
+    if (writing && share) {
+      caption = { box: now, writing, share };
+      break;
+    }
+    const ok = controlIn(now, IG_OK);
+    const next = ok ? null : controlIn(now, NEXT);
+    if (ok) {
+      ok.click();
+      steps.push('reel:ok');
+    } else if (next) {
+      next.click();
+      steps.push('next');
+    }
+    // Waits for the step to change: the control pressed goes, or the caption box shows.
+    const pressed = ok ?? next;
+    await waitFor(
+      () =>
+        (pressed && !pressed.isConnected) ||
+        (pressed && !shown(pressed)) ||
+        [...(igDialog(doc)?.querySelectorAll(WRITING_BOX) ?? [])].some(shown)
+          ? true
+          : null,
+      pressed ? 6_000 : 2_000,
+    );
+    await pause(600);
+  }
+  if (!caption) return end('not_sent');
+  const { writing } = caption;
+  // Something written there already is the person's: left alone.
+  if (clean(writing.textContent) || (writing as HTMLTextAreaElement).value) return end('not_sent');
+  writing.focus();
+  writing.click();
+  await pause(300);
+  if (writing.tagName === 'TEXTAREA') {
+    (writing as HTMLTextAreaElement).value = ask.text;
+    writing.dispatchEvent(new win.Event('input', { bubbles: true }));
+  } else doc.execCommand('insertText', false, ask.text);
+  await pause(800);
+  if (!clean(writing.textContent) && !(writing as HTMLTextAreaElement).value)
+    return end('not_sent');
+  steps.push('typed');
+  const share = controlIn(caption.box, POST) ?? caption.share;
+  share.click();
+  steps.push('post');
+  const video = ask.files.some((f) => f.type.startsWith('video/'));
+  const went = await waitFor(
+    () => {
+      // What Instagram's boxes over the page say, never a post in the feed behind them.
+      const words = [...doc.querySelectorAll(OVER_THE_PAGE)].map(wordsIn).join(' ');
+      if (IG_NOT_SHARED.test(words)) return 'no';
+      return IG_SHARED.test(words) ? 'yes' : null;
+    },
+    video ? IG_VIDEO_MS : POSTING_MS * 2,
+  );
+  if (went !== 'yes') return end('not_sent', true);
+  // Closes Instagram's "shared" box, as a person would.
+  const close = [...doc.querySelectorAll<HTMLElement>(CONTROLS)].find(
+    (c) =>
+      shown(c) && (/^close$/i.test(wordsOf(c)) || !!c.querySelector('svg[aria-label="Close" i]')),
+  );
+  close?.click();
+  return end('done', true);
+}
+
 /** Puts the post up in the composer the page shows. */
 export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
   const steps: string[] = [];
@@ -345,6 +555,7 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
     url,
     steps,
   });
+  if (ask.where === 'instagram') return instagramPost(doc, ask, steps, end);
   const find = ask.where === 'business' ? businessComposer : composerIn;
   let box = find(doc);
   if (!box && ask.where !== 'business') {

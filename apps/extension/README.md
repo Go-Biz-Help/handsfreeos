@@ -1233,11 +1233,30 @@ The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
   words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
   so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
 
+### Putting the business's own posts up on Instagram (0.133.0)
+
+AI Social Media Content Creator's part 10 (`docs/socialcontent.md`, "Posting"). Instagram joins Facebook and LinkedIn:
+an OK'd Instagram post goes up from the reading window on Instagram's home page (`instagramPost` in
+`src/research/post-here.ts`):
+
+- **Create** in the side menu, then **Post** when Instagram asks which kind (only a **Post** that showed after Create
+  was pressed, never a comment's).
+- **The pictures, or the person's video,** into Create new post's file field (else **Select from computer** with the
+  file picker held back, else dropped on it). **OK** when Instagram says a video goes up as a reel, then **Next** past
+  cropping and editing.
+- **The words** in the caption box, only while it's empty, then **Share**, and waiting for "Your post has been
+  shared" (up to about 3 minutes for a video; "couldn't be shared" ends it). Instagram's words are read piece by piece
+  (`wordsIn`), as its boxes put them side by side with no space between.
+- **Its link** comes from the person's own newest posts, as Instagram's page asks for them (their name from the
+  Profile link in its side menu, the `me` hand), by its first words.
+- A post's files are handed to the tab up to 40 MB together, within what Chrome passes to a page in one go; a video is
+  up to 25 MB, core's most for a file.
+
 ### Putting the business's own posts up (0.132.0)
 
 AI Social Media Content Creator's part 9 (`docs/socialcontent.md`, "Posting"). Each minute, before any reading, the
 reading computer asks HandsFreeOS for the next OK'd post whose time has come (`socialcontent.post.next`) on the
-networks it posts on with no warning today (Facebook and LinkedIn; Instagram comes with part 10), and puts it up from
+networks it posts on with no warning today (Facebook and LinkedIn; Instagram from 0.133.0), and puts it up from
 its reading window (`src/research/posting.ts`):
 
 - **Its pictures** (or the person's video) are fetched from HandsFreeOS's storage on the person's own sign-in, and

@@ -27,7 +27,7 @@
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "920958354456",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
-    "apps/web/src/addons/socialcontent/post-sheet.tsx": "bccf2f8c47cf",
+    "apps/web/src/addons/socialcontent/post-sheet.tsx": "a125cbb2ea80",
     "apps/web/src/addons/socialcontent/settings-page.tsx": "00dbae5e4677",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
@@ -785,140 +785,168 @@
     {
       "path": "Post → header: title, network, state, who OK’d it and when",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:293",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:318",
       "covered": "yes",
       "by": "socialcontent_get_own_post (state, approvedBy, approvedAt)"
     },
     {
       "path": "Post → where it went up: Posted when, and See it on your profile / your Page / LinkedIn for each place, with its link",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:307",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:332",
       "covered": "yes",
       "by": "socialcontent_get_own_post (postedAt, postedTo, postLink)"
     },
     {
       "path": "Post → why it didn’t post, and what to do next",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:347",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:372",
       "covered": "yes",
       "by": "socialcontent_get_own_post (state, failure); the place’s words"
     },
     {
       "path": "Post → Title, Network, Format",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:359",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:384",
       "covered": "yes",
       "by": "socialcontent_save_own_post (title, network, format)"
     },
     {
       "path": "Post → When it goes: day and time, in the business’s time zone",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:403",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:428",
       "covered": "yes",
       "by": "socialcontent_save_own_post (postAt)"
     },
     {
       "path": "Post → Where on Facebook: your profile, your Page; the note to add the Page’s link first",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:425",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:450",
       "covered": "yes",
       "by": "socialcontent_save_own_post (facebookWhere); stillNeeds says what’s missing"
     },
     {
       "path": "Post → Hook, Words, Hashtags",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:450",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:475",
       "covered": "yes",
       "by": "socialcontent_save_own_post (hook, words, hashtags)"
     },
     {
       "path": "Post → Slides on a carousel: each heading and words, Add a slide, Remove",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:480",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:505",
       "covered": "yes",
       "by": "socialcontent_save_own_post (slides)"
     },
     {
-      "path": "Post → Script on a video: what to say, what to film; the note that adding the video comes later",
+      "path": "Post → Script on a video: what to say, what to film",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:540",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:565",
       "covered": "yes",
       "by": "socialcontent_save_own_post (script); the place’s words"
     },
     {
+      "path": "Post → Your video on a video post: the person’s video, playing with its controls",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:584",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (its files, video ones by type); the place’s words"
+    },
+    {
+      "path": "Post → Your video → Remove",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:596",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (fileIds without it)"
+    },
+    {
+      "path": "Post → Your video → Add your video / Use another video",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:620",
+      "covered": "person",
+      "by": "an upload from the person’s own device; the Assistant can say where and how big"
+    },
+    {
+      "path": "Post → Your video → the note to record it from the script, up to 25 MB",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:638",
+      "covered": "yes",
+      "by": "the place’s words (howTo)"
+    },
+    {
       "path": "Post → Picture: the pictures, how it was made, making or didn’t work and why",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:564",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:644",
       "covered": "yes",
       "by": "socialcontent_get_own_post (pictures, pictureWay, pictureState, pictureFailure)"
     },
     {
       "path": "Post → Picture → Remove a picture",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:580",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:660",
       "covered": "yes",
       "by": "socialcontent_save_own_post (fileIds)"
     },
     {
       "path": "Post → Picture → What it shows",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:607",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:687",
       "covered": "yes",
       "by": "socialcontent_save_own_post (picture)"
     },
     {
       "path": "Post → Picture → Make it again / Switch to designed / Switch to photo-style, with what to change",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:636",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:716",
       "covered": "yes",
       "by": "socialcontent_make_post_picture (way, ask), on its own"
     },
     {
       "path": "Post → Picture → Add your photo",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:659",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:739",
       "covered": "person",
       "by": "an upload from the person’s own device; the Assistant can say where"
     },
     {
       "path": "Post → Save",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:693",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:773",
       "covered": "yes",
       "by": "socialcontent_save_own_post"
     },
     {
       "path": "Post → OK it / Take the OK back",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:700",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:780",
       "covered": "yes",
       "by": "socialcontent_approve_own_post (ok), on a Confirm card"
     },
     {
-      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook or LinkedIn)",
+      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn or Instagram)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:706",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:786",
       "covered": "yes",
       "by": "socialcontent_post_own_post_now, on a Confirm card"
     },
     {
       "path": "Post → Copy the words (networks the extension doesn’t post on yet)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:727",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:807",
       "covered": "yes",
       "by": "socialcontent_get_own_post (words, hashtags): the Assistant shows the words to copy"
     },
     {
       "path": "Post → Skip it / Bring it back",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:739",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:819",
       "covered": "yes",
       "by": "socialcontent_skip_own_post (skip)"
     },
     {
       "path": "Post → Write it again, with what to change",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:767",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:847",
       "covered": "yes",
       "by": "socialcontent_rewrite_own_post (worker action)"
     },

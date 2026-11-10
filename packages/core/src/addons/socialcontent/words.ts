@@ -453,8 +453,11 @@ export const SOCIALCONTENT_WORDS = {
     upload: 'Add your photo',
     uploading: 'Adding…',
     remove: 'Remove',
-    videoLater:
-      'Record the video from the script. Adding the video and posting it comes with Instagram posting, in a later update.',
+    video: 'Your video',
+    addVideo: 'Add your video',
+    otherVideo: 'Use another video',
+    videoHint:
+      'Record the video from the script, then add it here. Up to 25 MB: about a minute at 720p. Your phone can make it smaller when you share it.',
     facebookWhere: 'Where on Facebook',
     facebookWhereOptions: { profile: 'Your profile', page: 'Your Page' },
     when: 'When it goes',

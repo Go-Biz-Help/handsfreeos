@@ -1,8 +1,8 @@
 /**
  * Putting the business's own posts up through the extension (HANDSFREEOS_CONTENT_CREATOR_IMPLEMENTATION_PLAN.md,
- * part 9; docs/socialcontent.md, "Posting"). An OK'd post goes up at its time from the business's reading computer,
- * in Chrome with the HandsFreeOS Social extension: on Facebook (the person's profile, the business's Page, or both,
- * decision 17) and LinkedIn (their feed); Instagram comes with part 10.
+ * parts 9 and 10; docs/socialcontent.md, "Posting"). An OK'd post goes up at its time from the business's reading
+ * computer, in Chrome with the HandsFreeOS Social extension: on Facebook (the person's profile, the business's Page,
+ * or both, decision 17), LinkedIn and Instagram (their feed).
  *
  * - `socialcontent.post.next` (the extension, each minute): the next OK'd post whose time has come, on the networks
  *   the extension posts on, taken so it's put up once. First it marks as didn't post what was taken and never said how
@@ -315,13 +315,12 @@ export const contentPostNow = defineAddonCommand(socialcontentAddon, {
       words: c.words,
       slides: Array.isArray(c.slides) ? c.slides : [],
       fileIds: shown!.pictures.map((p) => p.fileId),
+      videos: shown!.pictures.filter((p) => p.mimeType?.startsWith('video/')).length,
       postAt: at,
       facebookWhere: c.facebookWhere,
       facebookPage: s.facebookPage,
     });
     if (needs) throw HfosError.rule('socialcontent_post_not_ready', 409, needs);
-    if (c.format === 'video' && !shown!.pictures.some((p) => p.mimeType?.startsWith('video/')))
-      throw HfosError.rule('socialcontent_post_not_ready', 409, W.posting.noVideo);
     await ctx.tx
       .update(content)
       .set({
