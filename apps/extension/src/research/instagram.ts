@@ -7,9 +7,11 @@
  * - **A profile** (/api/v1/users/web_profile_info/): their name, bio, followers, whether the account is private, its
  *   id (for their posts), and when they last posted, from the newest posts its grid starts with (a pinned post can be
  *   old, so it counts only when nothing else is there).
- * - **Their posts** (/api/v1/feed/user/<id>/), 12 at a time, newest first: each one's code, link, when it was posted,
- *   its kind, caption, views (a video's plays), likes, comments and length, and whether it's pinned; and where the next
- *   page starts. A post that hides its likes reads as none, never as 0.
+ * - **Their posts** (/api/v1/feed/user/<id>/, or /api/v1/feed/user/<name>/username/ when their id isn't known or
+ *   that list isn't there), 12 at a time, newest first: each one's code, link, when it was posted, its kind, caption,
+ *   views (a video's plays), likes, comments and length, and whether it's pinned; and where the next page starts. A
+ *   post that hides its likes reads as none, never as 0. One post alone (/api/v1/media/<number>/info/) reads the same
+ *   way, for when neither list comes.
  * - **A search** (/api/v1/web/search/topsearch/) and **a hashtag's top posts** (/api/v1/tags/web_info/): the accounts
  *   they show, by name, in the order shown: a hashtag's top posts' authors first, as they did well in the niche.
  * - **A video** (/api/v1/media/<number>/info/), for watching a standout (part 4): its file on Instagram's own video
@@ -26,7 +28,7 @@ export const INSTAGRAM_APP_ID = '936619743392459';
 
 /** The only answers the reading tab asks Instagram for. */
 export const INSTAGRAM_READS =
-  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/\?|web\/search\/[\w/]+\/\?|fbsearch\/[\w/]+\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
+  /^\/api\/v1\/(users\/web_profile_info\/\?|feed\/user\/[\w.]+\/(username\/)?\?|web\/search\/[\w/]+\/\?|fbsearch\/[\w/]+\/\?|tags\/web_info\/\?|media\/\d{1,25}\/info\/$)/;
 /** Search answers the search page loaded itself, asked for again when Instagram's own ones show nobody. */
 export const SEARCH_LOADED = /^\/api\/v1\/(fbsearch|web\/search|tags)\/[\w/]+\/\?/;
 /** A loaded answer's path with only the names of what it asked ("…/top_serp/?query&count"), for a report. */
@@ -45,6 +47,9 @@ export const profilePath = (username: string) =>
   `/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
 export const postsPath = (userId: string, next: string | null = null) =>
   `/api/v1/feed/user/${encodeURIComponent(userId)}/?count=12${next ? `&max_id=${encodeURIComponent(next)}` : ''}`;
+/** Their posts by their name, as Instagram's profile page asks when it has no id to ask by: the same answer. */
+export const postsByNamePath = (username: string, next: string | null = null) =>
+  `/api/v1/feed/user/${encodeURIComponent(username)}/username/?count=12${next ? `&max_id=${encodeURIComponent(next)}` : ''}`;
 export const searchPath = (words: string) =>
   `/api/v1/web/search/topsearch/?context=blended&query=${encodeURIComponent(words)}&include_reel=true`;
 /**
@@ -189,6 +194,8 @@ export function creatorFrom(json: unknown): InstagramCreator | null {
 export interface InstagramPageProfile {
   readonly creator: InstagramCreator | null;
   readonly posts: readonly PostIn[];
+  /** The codes of the posts their grid links to, to read one at a time when no list of their posts comes. */
+  readonly linked?: readonly string[];
 }
 
 /** "12.3K" or "1,204" as a number. */
@@ -233,6 +240,7 @@ export function pageProfileFrom(
   username: string,
   description: string | null,
   linked: readonly string[] = [],
+  pageId: string | null = null,
 ): InstagramPageProfile {
   const handle = username.toLowerCase();
   let user: Json | null = null;
@@ -267,10 +275,10 @@ export function pageProfileFrom(
   const newest = (unpinned.length ? unpinned : list)[0]?.postedAt ?? null;
   const said = descriptionFacts(description);
   const fromData = user ? creatorFrom({ data: { user } }) : null;
-  if (!fromData && said.followers === null) return { creator: null, posts: list };
+  if (!fromData && said.followers === null) return { creator: null, posts: list, linked };
   return {
     creator: {
-      id: fromData?.id ?? null,
+      id: fromData?.id ?? pageId,
       username: handle,
       name: fromData?.name ?? said.name,
       bio: fromData?.bio ?? said.bio,
@@ -284,6 +292,7 @@ export function pageProfileFrom(
       posts: fromData?.posts ?? said.posts,
     },
     posts: list,
+    linked,
   };
 }
 
@@ -344,6 +353,9 @@ export function postsFrom(json: unknown): InstagramPostsPage | null {
       .sort()[0] ?? null;
   return { posts, next, oldest };
 }
+
+/** One post, from its own answer (/api/v1/media/<number>/info/): null when the answer has none. */
+export const postOf = (json: unknown): PostIn | null => postsFrom(json)?.posts[0] ?? null;
 
 // ------------------------------------------------------------------------------------------------ a video
 

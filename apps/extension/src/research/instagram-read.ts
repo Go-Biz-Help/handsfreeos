@@ -39,6 +39,9 @@ import {
   creatorFrom,
   mediaIdOf,
   mediaInfoPath,
+  postedAtOf,
+  postOf,
+  postsByNamePath,
   postsFrom,
   postsPath,
   profilePage,
@@ -55,6 +58,7 @@ import {
   type InstagramCreator,
   type InstagramFoundAccount,
   type InstagramPageProfile,
+  type InstagramPostsPage,
 } from './instagram';
 import {
   answerStep,
@@ -104,7 +108,7 @@ const partsOf = (json: unknown): string[] =>
 /**
  * One of Instagram's answers, read by `parse`. When it doesn't come: a warning stops Instagram for the day; "not
  * there" is said back; anything else has the helper look, and when it cleared the way it's asked once more, else
- * reported.
+ * reported. `quiet` says back anything but a warning as "not there", for an answer with another way to ask after it.
  */
 async function answer<T>(
   ctx: ReadCtx,
@@ -113,6 +117,7 @@ async function answer<T>(
   parse: (json: unknown) => T | null,
   what: string,
   first = true,
+  quiet = false,
 ): Promise<Got<T>> {
   let before: HelperRun | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -141,18 +146,20 @@ async function answer<T>(
           troubleWords(got?.json) ?? 'Please wait a few minutes before you try again.',
         ]),
       };
-    if (trouble === 'not_there')
+    if (trouble === 'not_there' || quiet)
       return {
         ok: false,
         end: { failure: null },
         gone: true,
-        why: [
-          String(got?.status ?? 0),
-          troubleWords(got?.json)?.slice(0, 80),
-          partsOf(got?.json).join(',') || null,
-        ]
-          .filter(Boolean)
-          .join(' · '),
+        why: got
+          ? [
+              String(got.status || 'nothing'),
+              troubleWords(got.json)?.slice(0, 80),
+              partsOf(got.json).join(',') || null,
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : 'no answer',
       };
     // Once the helper cleared the way and it still didn't come, it's reported with what the helper did.
     const run: HelperRun = before ?? (await helpWith(ctx, read, note));
@@ -173,8 +180,8 @@ async function answer<T>(
 /** Someone's profile as read: from Instagram's answer, or from their page when the answer said "not there". */
 interface ReadCreator {
   readonly creator: InstagramCreator;
-  /** Read from their page: with the posts it holds. */
-  readonly page: { readonly posts: readonly PostIn[] } | null;
+  /** Read from their page: with the posts it holds, and the codes of those its grid links to. */
+  readonly page: Pick<InstagramPageProfile, 'posts' | 'linked'> | null;
 }
 
 /**
@@ -194,7 +201,10 @@ async function readCreator(
   if (!got.gone) return got;
   const held = await datedHeld(ctx, username);
   if (!held?.creator) return got;
-  return { ok: true, value: { creator: held.creator, page: { posts: held.posts } } };
+  return {
+    ok: true,
+    value: { creator: held.creator, page: { posts: held.posts, linked: held.linked } },
+  };
 }
 
 /**
@@ -608,17 +618,12 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
       failure: `${shown(creator.handle)}’s account is private, so its posts can’t be read.`,
     };
   const since = ctx.work.since ?? new Date(Date.now() - READ_BACK_MS).toISOString();
-  if (!c.id) {
-    if (onPage?.posts.length)
-      return pagePosts(ctx, creator, onPage.posts, since, progress, 'no account id');
-    await report(
-      ctx,
-      'posts',
-      'Profile: Instagram’s answer had no account id to ask for their posts by.',
-      null,
-    );
-    return couldntRead();
-  }
+  // The ways to ask for their list of posts, in turn: by their account's number when it's known (from Instagram's
+  // answer or their page's own name for itself), then by their name, as their page asks when it has no number.
+  const id = c.id;
+  const ways: { how: string; pathOf: (next: string | null) => string }[] = [];
+  if (id) ways.push({ how: 'by number', pathOf: (next) => postsPath(id, next) });
+  ways.push({ how: 'by name', pathOf: (next) => postsByNamePath(creator.handle, next) });
   let next = await cursorFor(ctx.work.id);
   let waiting: PostIn[] = [];
   let kept = 0;
@@ -628,31 +633,118 @@ async function posts(ctx: ReadCtx): Promise<ReadEnd> {
     waiting = [];
   };
   await progress.say({ now: `Reading ${shown(creator.handle)}’s posts`, profiles: 1, posts: 0 });
-  for (let page = 0; page < POSTS_PAGES_MOST; page++) {
-    const read = await answer(ctx, 'posts', postsPath(c.id, next), postsFrom, 'Posts', false);
-    if (!read.ok) {
-      await save();
-      // Not one page of their posts came: what their profile page holds, when it holds any.
-      if (read.gone && page === 0 && !kept) {
-        const held = onPage ?? (await ctx.tab.hands('profileHeld', creator.handle));
-        if (held?.posts.length)
-          return pagePosts(ctx, creator, held.posts, since, progress, read.why ?? 'not there');
-      }
-      await progress.say({ posts: kept }, true);
-      return read.gone ? { failure: null } : read.end;
+  let list: { pathOf: (next: string | null) => string; page: InstagramPostsPage } | null = null;
+  const tried: string[] = [];
+  for (const { how, pathOf } of ways) {
+    const first = await answer(ctx, 'posts', pathOf(next), postsFrom, 'Posts', false, true);
+    if (first.ok) {
+      list = { pathOf, page: first.value };
+      break;
     }
-    const these = postsSince(read.value.posts, since);
+    if (!first.gone) return first.end;
+    tried.push(`${how}: ${first.why}`);
+  }
+  // No list of their posts came either way: what their page holds, else its grid's posts one at a time.
+  if (!list) return unlisted(ctx, creator, onPage, since, progress, tried.join('; '));
+  let page = list.page;
+  for (let read = 1; ; read++) {
+    const these = postsSince(page.posts, since);
     kept += these.length;
     waiting.push(...these);
     if (waiting.length >= SAVE_EVERY) await save();
     await progress.say({ posts: kept });
-    next = read.value.next;
-    if (!next || (read.value.oldest !== null && read.value.oldest < since)) break;
+    next = page.next;
+    if (!next || (page.oldest !== null && page.oldest < since) || read >= POSTS_PAGES_MOST) break;
     await keepCursor(ctx.work.id, next);
+    const more = await answer(ctx, 'posts', list.pathOf(next), postsFrom, 'Posts', false);
+    if (!more.ok) {
+      await save();
+      await progress.say({ posts: kept }, true);
+      return more.gone ? { failure: null } : more.end;
+    }
+    page = more.value;
   }
   await save();
   await keepCursor(ctx.work.id, null);
   await progress.say({ now: 'Done', posts: kept }, true);
+  return { failure: null };
+}
+
+/** The most of their grid's posts asked for one at a time, when no list of their posts comes. */
+export const GRID_READS_MOST = 24;
+
+/**
+ * Their posts when no list of them came: what their profile page holds, else each post its grid links to, newest
+ * first back to `since`, asked for one at a time (two that don't come in a row, before any did, end it). What it read
+ * is saved and reported, so the list can be fixed; when nothing came, it's reported with what each way answered.
+ */
+async function unlisted(
+  ctx: ReadCtx,
+  creator: { id: string; handle: string },
+  onPage: Pick<InstagramPageProfile, 'posts' | 'linked'> | null,
+  since: string,
+  progress: Progress,
+  why: string,
+): Promise<ReadEnd> {
+  const held = onPage ?? (await datedHeld(ctx, creator.handle));
+  if (held?.posts.length) return pagePosts(ctx, creator, held.posts, since, progress, why);
+  const linked = held?.linked ?? [];
+  const codes = linked
+    .filter((code) => (postedAtOf(code) ?? '') >= since)
+    .slice(0, GRID_READS_MOST);
+  // Their grid links posts, none since the read's start: nothing new to read.
+  if (linked.length && !codes.length) {
+    await progress.say({ now: 'Done', profiles: 1, posts: 0 }, true);
+    return { failure: null };
+  }
+  const read: PostIn[] = [];
+  let missed: string | null = null;
+  let missedInRow = 0;
+  const saveRead = async () => {
+    for (let i = 0; i < read.length; i += LIMITS.postsPerSave)
+      await postsSave(ctx.businessId, creator.id, read.slice(i, i + LIMITS.postsPerSave));
+  };
+  for (const code of codes) {
+    const number = mediaIdOf(code);
+    if (!number) continue;
+    const got = await answer(ctx, 'posts', mediaInfoPath(number), postOf, 'Post', false, true);
+    if (!got.ok) {
+      if (!got.gone) {
+        await saveRead();
+        await progress.say({ posts: read.length }, true);
+        return got.end;
+      }
+      missed = got.why ?? 'nothing';
+      if (!read.length && ++missedInRow >= 2) break;
+      continue;
+    }
+    missedInRow = 0;
+    read.push(got.value);
+    await progress.say({ posts: read.length });
+  }
+  if (!read.length) {
+    await report(
+      ctx,
+      'posts',
+      `Posts: Instagram’s list of their posts didn’t come (${why || 'nothing asked'}), and ${
+        codes.length
+          ? `their grid’s posts didn’t either (${missed ?? 'nothing'})`
+          : 'their page linked none of them'
+      }.`,
+      null,
+      { gridLinks: linked.length, asked: codes.length },
+    );
+    return couldntRead();
+  }
+  await saveRead();
+  await report(
+    ctx,
+    'posts',
+    `Posts: Instagram’s list of their posts didn’t come (${why}), so ${read.length} were read one at a time from their grid.`,
+    null,
+    { gridLinks: linked.length, read: read.length },
+  );
+  await progress.say({ now: 'Done', profiles: 1, posts: read.length }, true);
   return { failure: null };
 }
 
