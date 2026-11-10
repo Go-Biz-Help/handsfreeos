@@ -161,7 +161,10 @@ beforeAll(async () => {
   );
   const [p] = await rows<{ id: string }>(
     admin(),
-    sql`insert into app.people (workspace_id, first_name, last_name) values (${ws}, 'Dana', 'Reyes') returning id`,
+    // Eli and the member are on the customer: someone who doesn't manage money bills, and sees the estimates of,
+    // only the customers they're on.
+    sql`insert into app.people (workspace_id, first_name, last_name, owner_user_id, team_user_ids)
+        values (${ws}, 'Dana', 'Reyes', ${estimator.id}, array[${member.id}]::uuid[]) returning id`,
   );
   customerId = p!.id;
 }, 60_000);

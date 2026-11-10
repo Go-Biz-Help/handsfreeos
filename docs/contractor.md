@@ -104,7 +104,9 @@ the job it's for, what each line costs, and an owner's or admin's OK.
   the first.
 - **Who sees what** (decision 11). Item costs, how the business estimates and each estimate's costs are read only
   with `contractor.costs`, by row security. Someone on a job without it sees that the job has an estimate, its
-  status and its total (as Money shows them), and none of what it costs.
+  status and its total where Money would show them the estimate (they're on its customer, or manage money), and
+  none of what it costs. Core's own rule stands in the builder too: someone who bills without managing money
+  writes estimates only for the customers they're on (`money_not_your_customer`).
 
 ## Rules worth knowing before changing anything
 

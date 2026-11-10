@@ -3435,6 +3435,95 @@
                 "type": "null"
               }
             ]
+          },
+          "options": {
+            "anyOf": [
+              {
+                "minItems": 2,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "lines": {
+                      "default": [],
+                      "maxItems": 200,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "description": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1000000
+                          },
+                          "unitLabel": {
+                            "default": "each",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "unitPriceCents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          },
+                          "taxable": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "discountCents": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          }
+                        },
+                        "required": ["name", "quantity", "unitPriceCents"]
+                      }
+                    }
+                  },
+                  "required": ["name"]
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId", "personId"]
@@ -3653,6 +3742,95 @@
               {
                 "type": "string",
                 "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "anyOf": [
+              {
+                "minItems": 2,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "lines": {
+                      "default": [],
+                      "maxItems": 200,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "description": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1000000
+                          },
+                          "unitLabel": {
+                            "default": "each",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "unitPriceCents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          },
+                          "taxable": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "discountCents": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          }
+                        },
+                        "required": ["name", "quantity", "unitPriceCents"]
+                      }
+                    }
+                  },
+                  "required": ["name"]
+                }
               },
               {
                 "type": "null"
