@@ -12,13 +12,23 @@ import {
   networkName,
   type ContentNetwork,
 } from '@hfos/core/addons/socialcontent/networks';
+import {
+  CALENDAR,
+  FACEBOOK_WHERE,
+  POSTING_NETWORKS,
+  type FacebookWhere,
+  type NetworkPlan,
+  type PostingNetwork,
+} from '@hfos/core/addons/socialcontent/calendar';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import { useState } from 'react';
 import { Download } from 'lucide-react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button, buttonClassName } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input, Select } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -53,7 +63,14 @@ export function SettingsPage({
 
   const save = (
     key: string,
-    body: { networks?: ContentNetwork[]; readerUserId?: string | null; watchVideos?: boolean },
+    body: {
+      networks?: ContentNetwork[];
+      readerUserId?: string | null;
+      watchVideos?: boolean;
+      plan?: Partial<Record<PostingNetwork, NetworkPlan>>;
+      facebookPage?: string | null;
+      facebookWhere?: FacebookWhere[];
+    },
     done: string = W.settings.saved,
   ) =>
     act(
@@ -212,6 +229,13 @@ export function SettingsPage({
         <p className="text-[13.5px] text-text-2">{W.settings.schedule}</p>
       </Card>
 
+      <PostingCard
+        settings={settings}
+        mayManage={mayManage}
+        busy={busy}
+        onSave={(key, body) => void save(key, body)}
+      />
+
       <Card className="p-4 md:p-5" data-testid="socialcontent-work">
         <h2 className="text-[15px] font-semibold">{W.settings.doing}</h2>
         <p className="mt-1 text-[13px] text-text-2">
@@ -282,5 +306,122 @@ function WorkRow({
         </Button>
       ) : null}
     </li>
+  );
+}
+
+/** Posting (decisions 17 and 18): the calendar's plan, the business's Facebook Page, and where Facebook posts go. */
+function PostingCard({
+  settings,
+  mayManage,
+  busy,
+  onSave,
+}: {
+  settings: Overview['settings'];
+  mayManage: boolean;
+  busy: string | null;
+  onSave: (
+    key: string,
+    body: {
+      plan?: Partial<Record<PostingNetwork, NetworkPlan>>;
+      facebookPage?: string | null;
+      facebookWhere?: FacebookWhere[];
+    },
+  ) => void;
+}) {
+  const [page, setPage] = useState(settings.facebookPage ?? '');
+  const off = !mayManage || busy !== null;
+  const setPlan = (n: PostingNetwork, change: Partial<NetworkPlan>) =>
+    onSave(`plan:${n}`, { plan: { [n]: { ...settings.plan[n], ...change } } });
+  const where = (w: FacebookWhere, on: boolean) => {
+    const next = on
+      ? [...settings.facebookWhere, w]
+      : settings.facebookWhere.filter((x) => x !== w);
+    if (next.length) onSave(`where:${w}`, { facebookWhere: next });
+  };
+  return (
+    <Card className="p-4 md:p-5" data-testid="socialcontent-posting">
+      <h2 className="text-[15px] font-semibold">{W.settings.posting}</h2>
+      <p className="mt-1 text-[13px] text-text-2">{W.settings.postingIntro}</p>
+      <div className="mt-3 space-y-2.5">
+        {POSTING_NETWORKS.map((n) => (
+          <div
+            key={n}
+            className="flex flex-wrap items-center gap-2"
+            data-testid={`socialcontent-plan-${n}`}
+          >
+            <span className="w-24 text-[13.5px] font-medium">{networkName(n)}</span>
+            <Select
+              selectSize="sm"
+              className="w-[150px]"
+              value={settings.plan[n].perWeek}
+              disabled={off}
+              aria-label={W.settings.perWeek(networkName(n))}
+              onChange={(e) => setPlan(n, { perWeek: Number(e.target.value) })}
+            >
+              {Array.from({ length: CALENDAR.perWeekMost + 1 }, (_, k) => (
+                <option key={k} value={k}>
+                  {W.settings.perWeekOption(k)}
+                </option>
+              ))}
+            </Select>
+            <span className="text-[13px] text-text-3">{W.settings.at}</span>
+            <Input
+              inputSize="sm"
+              type="time"
+              className="w-[120px]"
+              defaultValue={settings.plan[n].time}
+              disabled={off || settings.plan[n].perWeek === 0}
+              aria-label={W.settings.timeFor(networkName(n))}
+              onBlur={(e) => {
+                const time = e.target.value;
+                if (/^\d{2}:\d{2}$/.test(time) && time !== settings.plan[n].time)
+                  setPlan(n, { time });
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4">
+        <div className="text-[13.5px] font-medium">{W.settings.facebookPage}</div>
+        <div className="mt-1.5 flex flex-wrap gap-2">
+          <Input
+            inputSize="sm"
+            className="min-w-0 flex-1"
+            value={page}
+            placeholder="https://www.facebook.com/yourpage"
+            disabled={!mayManage}
+            onChange={(e) => setPage(e.target.value)}
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={busy === 'page'}
+            disabled={off || page.trim() === (settings.facebookPage ?? '')}
+            onClick={() => onSave('page', { facebookPage: page.trim() || null })}
+          >
+            {W.settings.savePage}
+          </Button>
+        </div>
+      </div>
+      <div className="mt-4">
+        <div className="text-[13.5px] font-medium">{W.settings.facebookWhere}</div>
+        <div className="mt-1.5 flex flex-wrap gap-4">
+          {FACEBOOK_WHERE.map((w) => (
+            <Checkbox
+              key={w}
+              label={W.post.facebookWhereOptions[w]}
+              checked={settings.facebookWhere.includes(w)}
+              disabled={
+                off || (settings.facebookWhere.includes(w) && settings.facebookWhere.length === 1)
+              }
+              onChange={(e) => where(w, e.target.checked)}
+            />
+          ))}
+        </div>
+      </div>
+      {!mayManage ? (
+        <p className="mt-3 text-[12.5px] text-text-3">{W.settings.managersOnly}</p>
+      ) : null}
+    </Card>
   );
 }

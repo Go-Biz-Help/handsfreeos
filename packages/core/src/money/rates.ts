@@ -103,6 +103,12 @@ export const USAGE_KEYS = [
   'lookup.line_type',
   /** Who a landline is registered to: a business or a person. US numbers only. */
   'lookup.caller_name',
+  // ---------- pictures the AI makes ----------
+  /**
+   * One photo-style picture from OpenAI's image model, for a business's own social post (AI Social Media Content
+   * Creator, 20261027025000). A picture Claude designs is drawn by the worker and costs only the AI's words.
+   */
+  'ai.image',
 ] as const;
 export type UsageKey = (typeof USAGE_KEYS)[number];
 
@@ -156,6 +162,7 @@ export const USAGE_KEY_UNITS: Readonly<Record<UsageKey, UsageUnit>> = {
   'a2p.campaign.month': 'month',
   'lookup.line_type': 'fee',
   'lookup.caller_name': 'fee',
+  'ai.image': 'fee',
 };
 
 /**
@@ -588,6 +595,15 @@ export const SEED_RATES: readonly {
     roundUpTo: 'none',
     notes:
       'Asking the phone company who a landline is registered to (Twilio Lookup Caller Name, $0.01, US only), before an AI call to someone with no yes. Charged 2¢.',
+  },
+  {
+    key: 'ai.image',
+    costMicros: 60_000,
+    markupBp: 15_000,
+    minChargeCents: 9,
+    roundUpTo: 'none',
+    notes:
+      'One photo-style picture from OpenAI’s image model (portrait, medium quality), about $0.06. Charged 9¢.',
   },
 ];
 

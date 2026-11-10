@@ -619,3 +619,205 @@ describe('creators whose profile didn’t say when they last posted', () => {
     expect(creators.map((c: Any) => c.handle)).toContain('no_date_yet');
   });
 });
+
+describe('the business’s own posts', () => {
+  const written = (over: Record<string, unknown> = {}) => ({
+    title: 'Is that drip a leak?',
+    format: 'text',
+    hook: 'Got a drip?',
+    words: 'Here’s how to tell a drip from a leak.',
+    hashtags: ['plumbing'],
+    slides: [],
+    script: null,
+    picture: null,
+    pictureWay: 'own',
+    ...over,
+  });
+  let linkedinId: string;
+  let facebookId: string;
+
+  beforeAll(async () => {
+    // Its kind of record, as turning it on makes it (the business above was put in straight).
+    for (const k of socialcontentAddon.recordKinds ?? [])
+      await rows(
+        admin(),
+        sql`insert into app.custom_record_types (workspace_id, key, singular, plural, name_label, icon, position,
+              addon_id, write_permission)
+            values (${ws}, ${k.key}, ${k.singular}, ${k.plural}, ${k.nameLabel ?? 'Name'}, ${k.icon ?? 'box'}, 900,
+              'socialcontent', ${k.writePermission})`,
+      );
+  });
+
+  it('lets owners and admins, not the team, set the plan and the Facebook Page', async () => {
+    expect(
+      await refused(
+        as(member, 'socialcontent.settings.save', {
+          plan: { linkedin: { perWeek: 5, time: '08:00' } },
+        }),
+      ),
+    ).toBe('forbidden');
+    const saved = await as(owner, 'socialcontent.settings.save', {
+      plan: { linkedin: { perWeek: 5, time: '07:30' } },
+      facebookPage: 'https://www.facebook.com/pipedreams',
+      facebookWhere: ['profile', 'page'],
+    });
+    expect(saved).toMatchObject({
+      plan: { linkedin: { perWeek: 5, time: '07:30' }, instagram: { perWeek: 3 } },
+      facebookPage: 'https://www.facebook.com/pipedreams',
+      facebookWhere: ['profile', 'page'],
+    });
+    const cal = await as(member, 'socialcontent.calendar.get');
+    expect(cal.plan.linkedin).toEqual({ perWeek: 5, time: '07:30' });
+    expect(cal.filledAt).toBeNull();
+    // Five a week on LinkedIn is every weekday in the two weeks shown, none of them today.
+    const linkedin = cal.open.filter((o: Any) => o.network === 'linkedin');
+    expect(linkedin.length).toBeGreaterThanOrEqual(9);
+    expect(linkedin.some((o: Any) => o.date === cal.today)).toBe(false);
+  });
+
+  it('keeps what the AI writes as a Social post waiting for an OK, on its day, and marks its idea used', async () => {
+    const cal = await as(member, 'socialcontent.calendar.get');
+    const slot = cal.open.find((o: Any) => o.network === 'linkedin');
+    const [idea] = (await as(member, 'socialcontent.idea.list', { state: 'new' })).ideas;
+    expect(
+      await refused(
+        as(member, 'socialcontent.content.put', { network: 'linkedin', post: written() }),
+      ),
+    ).toBe('forbidden');
+    const made = await worker('socialcontent.content.put', {
+      network: 'linkedin',
+      ideaId: idea.id,
+      postAt: new Date(slot.at).toISOString(),
+      post: written(),
+      askedBy: member.id,
+    });
+    expect(made).toMatchObject({ created: true });
+    linkedinId = made.postId;
+    const post = await as(member, 'socialcontent.content.get', { postId: linkedinId });
+    expect(post).toMatchObject({
+      title: 'Is that drip a leak?',
+      network: 'linkedin',
+      format: 'text',
+      state: 'draft',
+      ideaId: idea.id,
+      stillNeeds: null,
+    });
+    const after = await as(member, 'socialcontent.calendar.get');
+    expect(after.posts.map((p: Any) => p.id)).toContain(linkedinId);
+    expect(after.open).not.toContainEqual(
+      expect.objectContaining({ network: 'linkedin', date: slot.date }),
+    );
+    expect(
+      (await as(member, 'socialcontent.idea.list', { state: 'used' })).ideas.map((i: Any) => i.id),
+    ).toContain(idea.id);
+    // It's a record like any other, of the add-on's kind.
+    const [rec] = await rows<{ name: string; key: string }>(
+      admin(),
+      sql`select r.name, t.key from app.custom_records r join app.custom_record_types t on t.id = r.type_id
+          where r.id = ${linkedinId}`,
+    );
+    expect(rec).toEqual({ name: 'Is that drip a leak?', key: 'socialcontent_post' });
+  });
+
+  it('OKs a post with everything it needs, and takes the OK back when it changes', async () => {
+    const okd = await as(member, 'socialcontent.content.approve', { postId: linkedinId });
+    expect(okd).toMatchObject({ state: 'ready' });
+    expect(okd.approvedAt).not.toBeNull();
+    const changed = await as(member, 'socialcontent.content.save', {
+      postId: linkedinId,
+      title: 'Drip or leak?',
+      words: 'A drip or a leak? Here’s how to tell.',
+    });
+    expect(changed).toMatchObject({ title: 'Drip or leak?', state: 'draft', approvedAt: null });
+    const [rec] = await rows<{ name: string }>(
+      admin(),
+      sql`select name from app.custom_records where id = ${linkedinId}`,
+    );
+    expect(rec!.name).toBe('Drip or leak?');
+    // Saving with nothing changed keeps an OK.
+    await as(member, 'socialcontent.content.approve', { postId: linkedinId });
+    expect(
+      await as(member, 'socialcontent.content.save', {
+        postId: linkedinId,
+        title: 'Drip or leak?',
+      }),
+    ).toMatchObject({ state: 'ready' });
+    expect(
+      await as(member, 'socialcontent.content.approve', { postId: linkedinId, ok: false }),
+    ).toMatchObject({
+      state: 'draft',
+    });
+  });
+
+  it('won’t OK a post still missing something, and says what', async () => {
+    const cal = await as(member, 'socialcontent.calendar.get');
+    const slot = cal.open.find((o: Any) => o.network === 'facebook');
+    const made = await worker('socialcontent.content.put', {
+      network: 'facebook',
+      postAt: new Date(slot.at).toISOString(),
+      post: written({
+        title: 'Winter pipes',
+        format: 'photo',
+        pictureWay: 'design',
+        picture: 'A frozen pipe.',
+      }),
+    });
+    facebookId = made.postId;
+    const post = await as(member, 'socialcontent.content.get', { postId: facebookId });
+    // Facebook posts go where Settings says, and a picture post waits for its picture.
+    expect(post).toMatchObject({ facebookWhere: ['profile', 'page'], pictureState: 'waiting' });
+    expect(post.stillNeeds).toMatch(/no picture/);
+    expect(await refused(as(member, 'socialcontent.content.approve', { postId: facebookId }))).toBe(
+      'socialcontent_post_not_ready',
+    );
+    // A day that has passed can't be picked to OK it.
+    await as(member, 'socialcontent.content.save', { postId: linkedinId, postAt: ago(1) });
+    expect(await refused(as(member, 'socialcontent.content.approve', { postId: linkedinId }))).toBe(
+      'socialcontent_post_not_ready',
+    );
+    await as(member, 'socialcontent.content.save', {
+      postId: linkedinId,
+      postAt: new Date(cal.open.find((o: Any) => o.network === 'linkedin').at).toISOString(),
+    });
+  });
+
+  it('OKs the week: every post ready to go, and says which still need something', async () => {
+    const week = await as(member, 'socialcontent.content.approve_week');
+    expect(week.approved).toBe(1);
+    expect(week.notReady).toEqual([
+      expect.objectContaining({
+        postId: facebookId,
+        title: 'Winter pipes',
+        needs: expect.stringMatching(/no picture/),
+      }),
+    ]);
+    expect((await as(member, 'socialcontent.content.get', { postId: linkedinId })).state).toBe(
+      'ready',
+    );
+  });
+
+  it('skips a post so its day is open again, and brings it back', async () => {
+    const before = await as(member, 'socialcontent.content.get', { postId: facebookId });
+    const skipped = await as(member, 'socialcontent.content.skip', { postId: facebookId });
+    expect(skipped.state).toBe('skipped');
+    const day = (await as(member, 'socialcontent.calendar.get')).open.filter(
+      (o: Any) => o.network === 'facebook',
+    );
+    expect(day.map((o: Any) => Date.parse(o.at))).toContain(Date.parse(before.postAt));
+    expect(await refused(as(member, 'socialcontent.content.approve', { postId: facebookId }))).toBe(
+      'socialcontent_post_not_ready',
+    );
+    expect(
+      (await as(member, 'socialcontent.content.skip', { postId: facebookId, skip: false })).state,
+    ).toBe('draft');
+  });
+
+  it('notes when the calendar was filled, and when it fills again', async () => {
+    await worker('socialcontent.calendar.filled', { written: 2 });
+    const cal = await as(member, 'socialcontent.calendar.get');
+    expect(cal.filledAt).not.toBeNull();
+    expect(Date.parse(cal.nextFillAt) - Date.parse(cal.filledAt)).toBe(7 * DAY);
+    const { posts } = await as(member, 'socialcontent.content.list');
+    expect(posts.map((p: Any) => p.id)).toEqual(expect.arrayContaining([linkedinId, facebookId]));
+  });
+});

@@ -276,6 +276,11 @@ export interface WorkerEnv {
   readonly openAiAssistantModel: string;
   /** The backup on calls, whatever model they use on Claude: a fast one keeps the pauses short. */
   readonly openAiVoiceModel: string;
+  /**
+   * OpenAI's image model, for photo-style pictures on a business's own social posts (pictures.ts). Uses
+   * OPENAI_API_KEY; without it, those pictures are designed instead.
+   */
+  readonly openAiImageModel: string;
   /** Who is emailed when the AI moves to OpenAI and back (AI_ALERT_EMAILS, else PLATFORM_OWNER_EMAILS). */
   readonly aiAlertEmails: readonly string[];
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
@@ -788,6 +793,7 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     openAiModel: env.OPENAI_MODEL?.trim() || 'gpt-6-sol',
     openAiAssistantModel: env.OPENAI_ASSISTANT_MODEL?.trim() || 'gpt-6-sol',
     openAiVoiceModel: env.OPENAI_VOICE_MODEL?.trim() || 'gpt-6-luna',
+    openAiImageModel: env.OPENAI_IMAGE_MODEL?.trim() || 'gpt-image-2',
     aiAlertEmails: aiAlertEmails.length ? aiAlertEmails : emails(env.PLATFORM_OWNER_EMAILS),
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,

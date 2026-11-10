@@ -42,6 +42,7 @@ import {
 import { Headset as salescoachAddonIcon } from 'lucide-react';
 import {
   BookOpen as socialcontentPlaybookIcon,
+  CalendarDays as socialcontentCalendarIcon,
   Lightbulb as socialcontentIdeasIcon,
   Settings2 as socialcontentSettingsIcon,
   Sparkles as socialcontentAddonIcon,
@@ -274,6 +275,7 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       standouts: socialcontentStandoutsIcon,
       playbook: socialcontentPlaybookIcon,
       ideas: socialcontentIdeasIcon,
+      calendar: socialcontentCalendarIcon,
       gear: socialcontentSettingsIcon,
     },
   },

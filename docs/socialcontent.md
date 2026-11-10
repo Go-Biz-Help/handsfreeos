@@ -7,8 +7,9 @@ The owner's decisions and the build order are in `HANDSFREEOS_CONTENT_CREATOR_IM
 below (decision 1, and so on) are its decisions. Built: the add-on, its tables, the standout math, the work queue and
 the web pages (part 1); the extension reading Instagram, with the AI helper and problem reports when a read goes wrong
 (part 2); the AI's notes, the Playbook and ideas (part 3); watching Instagram videos, opt-in (part 4); the phone's
-pages (part 5); and reading Facebook and LinkedIn (part 6). The add-on is in `development`, offered to nobody; staff
-give it to a business from Admin → Businesses.
+pages (part 5); reading Facebook and LinkedIn (part 6); and writing the business's own posts on a Calendar, with
+designed, photo-style and its own pictures (part 8, below under "Making posts"). The add-on is in `development`,
+offered to nobody; staff give it to a business from Admin → Businesses.
 
 ## Where things are
 
@@ -34,6 +35,14 @@ give it to a business from Admin → Businesses.
 | What it's doing, on the Creators page                    | `activity-card.tsx` there; the extension's `Progress` in `research/read.ts` |
 | The phone's pages                                        | `apps/mobile/src/addons/socialcontent/`, routes under `a/socialcontent/`    |
 | The Assistant's checklist for its screens                | `packages/core/src/assistant/ledger/socialcontent.json`                     |
+| The business's own posts: the table, plan and post kind  | `supabase/migrations/20261027025000_socialcontent_calendar.sql`             |
+| The plan, its open days, and what a post still needs     | `calendar.ts` (pure)                                                        |
+| What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                |
+| People's operations on posts: calendar, save, OK, skip   | `ops/content.ts`; the worker's keep in `ops/worker.ts`                      |
+| Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                     |
+| Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)       |
+| OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                               |
+| The Calendar page and a post's sheet                     | `calendar-page.tsx` and `post-sheet.tsx` in the web's folder                |
 
 ## How it works
 
@@ -113,6 +122,48 @@ give it to a business from Admin → Businesses.
   are online commands in the phone's contract (`packages/core/test/contract/mobile-contract.json`); the worker's
   actions (Suggest niches, Write it again, Get ideas) go through `workerPost`, as on the web.
 
+## Making posts
+
+Part 8 (decisions 13 to 20). The business's own posts, written by the AI from the Playbook and its ideas, on a
+**Calendar** page beside the others. Posting them through the extension is parts 9 and 10; until then an OK'd post
+waits, and the Calendar says so.
+
+- **A Social post is a record** of a kind this add-on manages (`socialcontent_post`, "Social posts"), so its pictures
+  are core files on it, it has a timeline and search finds it. What only a post has is its row in
+  `addon_socialcontent.content`: the network, format (picture, carousel, video or words only), words, hook, hashtags,
+  slides or script, what its picture shows and how it's made, its pictures (file ids, in order), where on Facebook it
+  goes, when it goes, and its state (waiting for an OK, OK'd, posting, posted, didn't post, skipped). The kind is made
+  when the add-on is turned on; the migration made it for businesses that already had it.
+- **The plan** is in Settings → Posting (owners and admins): posts a week on Instagram, Facebook and LinkedIn (0 to
+  7; 3, 3 and 2 at first) and a time for each, in the business's time zone. 1 a week lands on Wednesday, 2 on Tuesday
+  and Thursday, 3 on Monday, Wednesday and Friday, and so on (`WEEKDAYS_FOR`). Settings also takes the Facebook Page's
+  link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with.
+- **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
+  state, and each open day in the plan (a network's day with no post, or only a skipped one) with **Write one**.
+  **Fill the calendar** has the worker write a post for every open day from tomorrow on: 5 at a time, 30 seconds
+  apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
+  on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
+  open day; **Write the post** on an idea does the same for the idea's network and marks it used.
+- **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 10 hashtags, Facebook like a
+  neighbour, LinkedIn a lesson and a question), as the business, never inventing results, prices or reviews. Its
+  answer is checked (`checkedPost`): Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept
+  apart from the words, and the AI picks how the picture is made. **Write it again** takes what to change.
+- **Pictures** (decision 14), made in the worker's `socialcontent.pictures` job, one post at a time:
+  - **Designed by the AI** (the default for tips, steps, quotes, claims and every carousel slide): Claude picks a
+    layout (bold, clean or split), the colours (from the business's colour, kept readable) and the words for each page;
+    the worker draws each page as a 1080 by 1350 PNG with Inter. Words are drawn, never left to an image model, so
+    they're spelled right; emoji are left out. Charged as the AI's words, like any ask.
+  - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, `gpt-image-2`) makes a lifelike picture
+    with no words from the AI's description, cropped to 1080 by 1350. Charged 9¢ each on the balance (`ai.image`),
+    and only when the balance has room. Without `OPENAI_API_KEY` posts get designed pictures only.
+  - **Your own**: **Add your photo** uploads to the post's files; a video's file comes with Instagram posting.
+    The sheet's **Make it again**, **Switch to designed** and **Switch to photo-style** make it again, with what to
+    change.
+- **The OK** (decision 15). Every post waits for an OK: **OK it** on one, or **OK the week** for every post going in
+  the next 7 days that has everything it needs (words, its pictures or 2 slides, a day at least a minute ahead, and on
+  Facebook where it goes, with the Page's link when it goes to the Page). What one still needs is shown on the post
+  and said by OK the week. Changing an OK'd post takes the OK back; **Skip it** opens its day again.
+
 ## When a read goes wrong
 
 The same help Social Outreach's steps get (decision 142 in docs/outreach.md), for a read instead of a step:
@@ -160,11 +211,23 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - **Only networks the extension reads can be picked** (`CONTENT_NETWORK_INFO[n].ready`: Instagram, Facebook and
   LinkedIn). The rest show as coming later (decision 2). LinkedIn's creators are read weekly and monthly on their own,
   like the others (the owner's pick, 8 Nov).
+- **Nothing the business posts goes up without a person's OK** (decision 15). The AI writes drafts; OKing one is risk
+  2, so the Assistant asks first. Changing an OK'd post takes its OK back. The worker writes posts and pictures only
+  through its own commands (`socialcontent.content.put`, `.pictured`), which make the record through core's
+  `custom_record.create`, so the system may run that command (and `custom_record.update`) for an add-on.
+- **Words on pictures are drawn by the worker, never by an image model** (decision 14): OpenAI's pictures are asked
+  for with no words in them.
 - **Watching videos is opt-in** (decision 9, part 4): a switch that starts off, a notice that it uses more AI, and a
   way to try it on a few videos first. Only networks marked `watches` are watched (Instagram). The video is fetched
   only from Instagram's video servers, and the worker takes a watch only from the reading computer, for work it took.
 
 ## Not yet
 
+- Posting the business's posts through the extension: Facebook and LinkedIn (part 9), then Instagram with videos
+  (part 10). OK'd posts wait until then.
+- Reading the business's own posts after 2 and 7 days, and its standouts in the Playbook (part 11).
+- The Calendar and a post's sheet on the phone (part 12).
+- Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
+  its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).
 - LinkedIn company pages' posts (members' posts are read), and watching Facebook's and LinkedIn's videos.

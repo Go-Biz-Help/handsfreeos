@@ -22,8 +22,20 @@ import {
   PostWatchedInput,
   WorkQueueInput,
 } from '../shapes';
-import { creators, ideas, niches, playbook, posts } from '../tables';
-import { inWorkspace, queueWork, readSince, settingsOf } from './common';
+import { content, creators, ideas, niches, playbook, posts, settings } from '../tables';
+import { inWorkspace, queueWork, readSince, settingsOf, type Ctx } from './common';
+import { HfosError } from '../../../errors';
+import { executeCommandWithin } from '../../../kernel/execute';
+import { changeMoment } from '../../../kernel/moment';
+import { customRecordCreate, customRecordUpdate } from '../../../commands/custom-record';
+import { formatFor, hasPictures } from '../calendar';
+import {
+  CalendarFilledInput,
+  ContentPicturedInput,
+  ContentPutInput,
+  ContentPutOutput,
+} from '../content-shapes';
+import { loadContent, needChangeable } from './content';
 
 export const nichesPut = defineAddonCommand(socialcontentAddon, {
   name: 'socialcontent.niches.put',
@@ -291,6 +303,205 @@ export const ideasPut = defineAddonCommand(socialcontentAddon, {
   },
 });
 
+/** The kind of record a Social post is, in this business. */
+export async function postKindId(ctx: Ctx): Promise<string> {
+  const [k] = await rows<{ id: string }>(
+    ctx.tx,
+    sql`select id from app.custom_record_types
+        where workspace_id = ${ctx.scope.workspaceId!} and addon_id = 'socialcontent' and key = 'socialcontent_post'
+          and archived_at is null`,
+  );
+  if (!k)
+    throw HfosError.rule(
+      'socialcontent_no_post_kind',
+      409,
+      'Social posts aren’t set up in this business yet. An owner turns AI Social Media Content Creator off and on again in Settings → Add-ons, and they are.',
+    );
+  return k.id;
+}
+
+export const contentPut = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.content.put',
+  description:
+    'Worker: a post the AI wrote for the business, kept as a Social post record waiting for an OK, for a day in the calendar or none; or a post written again, which takes its OK back. The idea it came from is marked used.',
+  risk: 0,
+  input: ContentPutInput,
+  output: ContentPutOutput,
+  permission: 'socialcontent.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['socialcontent.content.written', 'socialcontent.idea.decided'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const p = input.post;
+    const format = formatFor(input.network, p.format);
+    // An AI-made picture is made after it's kept; the person's own waits for them.
+    const pictureState =
+      hasPictures(format) && p.pictureWay !== 'own' ? ('waiting' as const) : ('none' as const);
+    const fields = {
+      network: input.network,
+      format,
+      words: p.words,
+      hook: p.hook,
+      hashtags: p.hashtags,
+      slides: format === 'carousel' ? p.slides : [],
+      script: format === 'video' ? p.script : null,
+      picture: p.picture,
+      pictureWay: p.pictureWay,
+      pictureFailure: null,
+      updatedAt: changeMoment(ctx.meta),
+    };
+    let postId = input.postId ?? null;
+    let created = false;
+    if (postId) {
+      const was = await loadContent(ctx, postId, { lock: true });
+      needChangeable(was);
+      if (p.title !== was.title)
+        await executeCommandWithin(ctx, customRecordUpdate, {
+          workspaceId: ws,
+          customRecordId: postId,
+          name: p.title,
+        });
+      await ctx.tx
+        .update(content)
+        .set({
+          ...fields,
+          // Its pictures stay until new ones are made (or, for its own, until the person changes them).
+          pictureState:
+            pictureState === 'waiting' ? 'waiting' : was.fileIds.length ? 'made' : 'none',
+          design: null,
+          state: was.state === 'skipped' ? 'skipped' : 'draft',
+          approvedBy: null,
+          approvedAt: null,
+          failure: null,
+        })
+        .where(eq(content.recordId, postId));
+    } else {
+      const made = await executeCommandWithin(ctx, customRecordCreate, {
+        workspaceId: ws,
+        typeId: await postKindId(ctx),
+        name: p.title,
+      });
+      postId = made.output.customRecordId;
+      created = true;
+      const s = await settingsOf(ctx);
+      await ctx.tx.insert(content).values({
+        ...fields,
+        recordId: postId,
+        workspaceId: ws,
+        ideaId: input.ideaId,
+        pictureState,
+        facebookWhere: input.network === 'facebook' ? s.facebookWhere : [],
+        postAt: input.postAt ? new Date(input.postAt) : null,
+        madeBy: 'ai',
+        createdBy: input.askedBy,
+      });
+    }
+    if (created && input.ideaId) {
+      const used = await ctx.tx
+        .update(ideas)
+        .set({
+          state: 'used',
+          decidedAt: changeMoment(ctx.meta),
+          updatedAt: changeMoment(ctx.meta),
+        })
+        .where(and(eq(ideas.id, input.ideaId), eq(ideas.workspaceId, ws)))
+        .returning({ id: ideas.id });
+      if (used.length)
+        await ctx.emit({
+          type: 'socialcontent.idea.decided',
+          entityType: 'socialcontent_idea',
+          entityId: input.ideaId,
+          payload: { state: 'used' },
+        });
+    }
+    await ctx.emit({
+      type: 'socialcontent.content.written',
+      entityType: 'custom_record',
+      entityId: postId,
+      payload: {
+        postId,
+        network: input.network,
+        format,
+        again: !created,
+        postAt: input.postAt,
+        ideaId: input.ideaId,
+      },
+    });
+    return { postId, created };
+  },
+});
+
+export const contentPictured = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.content.pictured',
+  description:
+    'Worker: where a post’s AI-made pictures are (waiting, being made, made, or failed with why), and the pictures it made, which take the place of the earlier ones on the post (those stay among its files). New pictures take a post’s OK back.',
+  risk: 0,
+  input: ContentPicturedInput,
+  output: z.object({ ok: z.literal(true) }),
+  permission: 'socialcontent.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['socialcontent.content.pictured'],
+  async handler(ctx, input) {
+    const was = await loadContent(ctx, input.postId, { lock: true });
+    needChangeable(was);
+    const made = input.state === 'made' && input.fileIds;
+    const newPictures = made && JSON.stringify(input.fileIds) !== JSON.stringify(was.fileIds);
+    const unOk = newPictures && (was.state === 'ready' || was.state === 'failed');
+    await ctx.tx
+      .update(content)
+      .set({
+        pictureState: input.state,
+        pictureFailure: input.state === 'failed' ? (input.failure ?? null) : null,
+        ...(input.way ? { pictureWay: input.way } : {}),
+        ...(made ? { fileIds: input.fileIds } : {}),
+        ...(input.design !== undefined ? { design: input.design } : {}),
+        ...(unOk
+          ? { state: 'draft' as const, approvedBy: null, approvedAt: null, failure: null }
+          : {}),
+        updatedAt: changeMoment(ctx.meta),
+      })
+      .where(eq(content.recordId, was.recordId));
+    if (input.state === 'made' || input.state === 'failed')
+      await ctx.emit({
+        type: 'socialcontent.content.pictured',
+        entityType: 'custom_record',
+        entityId: was.recordId,
+        payload: { postId: was.recordId, state: input.state, pictures: input.fileIds?.length ?? 0 },
+      });
+    // The AI's earlier pictures stay among the post's files, for the person to use or remove.
+    return { ok: true as const };
+  },
+});
+
+export const calendarFilled = defineAddonCommand(socialcontentAddon, {
+  name: 'socialcontent.calendar.filled',
+  description: 'Worker: the calendar was filled, with how many posts it wrote.',
+  risk: 0,
+  input: CalendarFilledInput,
+  output: z.object({ ok: z.literal(true) }),
+  permission: 'socialcontent.use',
+  actors: ['system'],
+  scope: inWorkspace,
+  emits: ['socialcontent.calendar.filled'],
+  async handler(ctx, input) {
+    const ws = ctx.scope.workspaceId!;
+    const at = changeMoment(ctx.meta);
+    await ctx.tx
+      .insert(settings)
+      .values({ workspaceId: ws, filledAt: at })
+      .onConflictDoUpdate({ target: settings.workspaceId, set: { filledAt: at } });
+    await ctx.emit({
+      type: 'socialcontent.calendar.filled',
+      entityType: 'socialcontent_settings',
+      entityId: ws,
+      payload: { written: input.written },
+    });
+    return { ok: true as const };
+  },
+});
+
 export const workerCommands = [
   nichesPut,
   nicheSearchesPut,
@@ -299,4 +510,7 @@ export const workerCommands = [
   postWatched,
   playbookPut,
   ideasPut,
+  contentPut,
+  contentPictured,
+  calendarFilled,
 ] as const;

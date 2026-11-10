@@ -84,3 +84,48 @@ Each part is its own pull request.
 - Reading goes back **12 months**; a weekly read takes new posts and the numbers of posts from the last 60 days, which
   still grow.
 - Finding reads at most **30 profiles** for each niche on each network at a time.
+
+## Making and posting the business's own content (Chris, 2026-11-10)
+
+The research works (10 Nov 2026: creators read, standouts noted, a Playbook and ideas). Chris asked what's next for
+"creating the content, creating a calendar of content, and then using the extension to post that content". The plan
+and its eight questions are in the Claude Doc "Content Creator: write, plan and post"; Chris answered
+"1a 2a&b 3a&b 4a 5c 6a 7a 8a" at 19:17 UTC, and at 19:19: "for the image ai we can use claude design technology as
+well as open ai image generation depending on the image". Facebook and LinkedIn research stay off in his business
+for now on purpose, and TikTok and YouTube (part 7) wait.
+
+| Question                    | Answer                                                                                                                                                                                                                                                                          |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 13. Where it lives          | **Inside this add-on**, as one more page: **Calendar**. Add-ons can't share data, so the planned Social Media Scheduler couldn't see these ideas.                                                                                                                               |
+| 14. Pictures                | **The person's own photos and videos, and AI pictures from the start.** **Claude designs** the pictures with words on them (carousel slides, tips, quotes, in the business's colour); **OpenAI makes** the photo-style ones. The AI picks for each post; the person can switch. |
+| 15. The OK before it posts  | **Both:** every post waits for an OK, and **OK the week** OKs every finished post in the next 7 days in one go.                                                                                                                                                                 |
+| 16. Instagram               | **The extension posts it** from the computer, with the photo or video.                                                                                                                                                                                                          |
+| 17. Which Facebook          | **Both** the person's profile and the business's Page: Settings names the Page, and each Facebook post says where it goes.                                                                                                                                                      |
+| 18. How far ahead           | **Two weeks**, topped up each week.                                                                                                                                                                                                                                             |
+| 19. Learning from own posts | **Yes:** the business's own posts are read after 2 and 7 days, and its own standouts go into the Playbook beside the creators'.                                                                                                                                                 |
+| 20. The phone               | **Calendar, editing and the OK on the phone too.**                                                                                                                                                                                                                              |
+
+### How it fits
+
+- **Each post the business makes is a record** of a kind this add-on manages, **Social post**, so its pictures are
+  core files on it (the person's photos upload the way any record's files do), its history is a timeline, and search
+  finds it. What only a post has (its network, words, hashtags, slides or script, when it goes, whether it's OK'd and
+  where it went) is the add-on's own row about the record, `addon_socialcontent.content`.
+- **The AI writes, a person OKs.** A post the AI writes waits as a draft; nothing goes up without an OK (risk 2).
+  Changing an OK'd post's words or pictures takes its OK back.
+- **The calendar is the plan in Settings:** how many posts a week on each network, and roughly when. Filling it takes
+  ideas (saved ones first, then new), writes a post for each empty slot in the next 14 days, and marks the idea used.
+  It fills on its own once a week, and on **Fill the calendar** now.
+- **Pictures are made in the worker.** A designed picture is Claude's design (a layout, the words, the colours),
+  drawn to a PNG by the worker; a photo-style one is OpenAI's, from the AI's description of it. Either is kept as a
+  file on the post. A made photo is charged per picture on the balance (`ai.image`); a design is charged as the AI's
+  words, like any other ask.
+
+### The parts
+
+8. **Write and plan on the web (this part).** Social posts, writing one from an idea (or again), designed and
+   photo-style pictures and the person's own photos, the calendar with its plan, the OK and OK the week.
+9. **Posting on Facebook and LinkedIn** through the extension, after the OK, at its time.
+10. **Posting on Instagram** through the extension, with the person's videos too.
+11. **Learning from the business's own posts**: their numbers after 2 and 7 days, and its standouts in the Playbook.
+12. **The phone's pages** for all of it.

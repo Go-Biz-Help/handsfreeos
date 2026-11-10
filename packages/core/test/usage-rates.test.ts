@@ -198,6 +198,8 @@ describe('the seeded card', () => {
       // Asking the phone company about a number before an AI call with no yes, at 1.5× Twilio Lookup's price.
       'lookup.line_type': 2,
       'lookup.caller_name': 2,
+      // A photo-style picture from OpenAI for a social post, at 1.5× about what one costs.
+      'ai.image': 9,
     });
   });
 

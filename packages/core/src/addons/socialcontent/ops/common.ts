@@ -5,6 +5,13 @@
 import { rows, sql } from '@hfos/db/client';
 import { eq } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
+import {
+  FACEBOOK_WHERE,
+  planOf,
+  type FacebookWhere,
+  type NetworkPlan,
+  type PostingNetwork,
+} from '../calendar';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
 import {
   CONTENT_NETWORK_INFO,
@@ -51,6 +58,10 @@ export async function settingsOf(ctx: Ctx): Promise<{
   watchVideos: boolean;
   readerSeenAt: string | null;
   readerVersion: string | null;
+  plan: Record<PostingNetwork, NetworkPlan>;
+  facebookPage: string | null;
+  facebookWhere: FacebookWhere[];
+  filledAt: string | null;
 }> {
   const [s] = await ctx.tx
     .select()
@@ -65,7 +76,22 @@ export async function settingsOf(ctx: Ctx): Promise<{
     watchVideos: s?.watchVideos ?? false,
     readerSeenAt: s?.readerSeenAt ? s.readerSeenAt.toISOString() : null,
     readerVersion: s?.readerVersion ?? null,
+    plan: planOf(s?.plan),
+    facebookPage: s?.facebookPage ?? null,
+    facebookWhere: (s?.facebookWhere ?? ['profile']).filter((w): w is FacebookWhere =>
+      (FACEBOOK_WHERE as readonly string[]).includes(w),
+    ),
+    filledAt: s?.filledAt ? s.filledAt.toISOString() : null,
   };
+}
+
+/** The business's time zone: the calendar's days and times are its. */
+export async function timeZoneOf(ctx: Ctx): Promise<string> {
+  const [w] = await rows<{ timezone: string | null }>(
+    ctx.tx,
+    sql`select timezone from app.workspaces where id = ${ctx.scope.workspaceId!}`,
+  );
+  return w?.timezone || 'America/Chicago';
 }
 
 /** A person's name as the team sees it. */

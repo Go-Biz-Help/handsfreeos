@@ -208,3 +208,10 @@ export function monthOf(at: Date | number, timeZone: string): string {
  */
 export const lineCheckUsageKey = (checkId: string, what: 'line_type' | 'caller_name'): string =>
   `lookup:${need(checkId, 'line check id')}:${what}`;
+
+/**
+ * One photo-style picture the AI made for a business's social post (`ai.image`), by the file it was kept as: OpenAI
+ * bills each picture, so each is its own charge, and a picture kept again after a crash lands on the same one.
+ */
+export const aiImageUsageKey = (fileId: string): string =>
+  `ai-image:${need(fileId, 'picture file id')}`;
