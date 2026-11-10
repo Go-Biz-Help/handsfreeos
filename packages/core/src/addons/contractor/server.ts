@@ -10,6 +10,18 @@
 import type { AddonServerModule } from '../server';
 import { contractorAddon } from './manifest';
 import {
+  estimateAskOk,
+  estimateBuilder,
+  estimateFillJob,
+  estimateList,
+  estimateOk,
+  estimateSave,
+  estimateSendBuilt,
+  estimatingSave,
+  itemCostList,
+  itemCostSet,
+} from './ops/estimates';
+import {
   jobFollowVisit,
   jobMakeProject,
   jobOpen,
@@ -41,7 +53,14 @@ export const contractorAddonServer: AddonServerModule = {
     phaseRemove,
     phaseReorder,
     jobFollowVisit,
+    estimateSave,
+    estimateAskOk,
+    estimateOk,
+    estimateSendBuilt,
+    estimatingSave,
+    itemCostSet,
+    estimateFillJob,
   ],
-  queries: [overview, jobList, jobGet, propertyList],
+  queries: [overview, jobList, jobGet, propertyList, estimateBuilder, estimateList, itemCostList],
   notForTheAssistant: {},
 };

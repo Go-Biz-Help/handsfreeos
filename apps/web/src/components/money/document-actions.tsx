@@ -46,6 +46,7 @@ export function SendDialog({
   documentId,
   person,
   onSent,
+  send,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -54,6 +55,14 @@ export function SendDialog({
   documentId: string;
   person: Person;
   onSent?: () => void;
+  /**
+   * The send of the add-on whose builder wrote the estimate, in place of core's: it checks what core can't see
+   * (a lowest margin, say), and core sends it from there.
+   */
+  send?: (how: {
+    channels: ('sms' | 'email')[];
+    message: string | null;
+  }) => Promise<{ number: string | null }>;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(true);
@@ -108,8 +117,9 @@ export function SendDialog({
             onClick={() =>
               void act(async () => {
                 const note = message.trim() || null;
-                const out =
-                  kind === 'estimate'
+                const out = send
+                  ? await send({ channels, message: note })
+                  : kind === 'estimate'
                     ? unwrap(
                         await apiBrowser().POST('/v1/commands/estimate.send', {
                           body: { workspaceId, estimateId: documentId, channels, message: note },

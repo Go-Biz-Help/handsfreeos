@@ -5,7 +5,10 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 
 export const metadata: Metadata = { title: 'Contractor settings' };
 
-/** Contractor Operations' settings: the trades the business does, and a new project's phases. Owners and admins. */
+/**
+ * Contractor Operations' settings: the trades the business does, a new project's phases, and how it estimates (its
+ * lowest margin, starting markup and labor's hourly price and cost). Owners and admins.
+ */
 export default async function ContractorSettingsRoute({
   params,
 }: {
@@ -17,6 +20,13 @@ export default async function ContractorSettingsRoute({
     const overview = await api
       .POST('/v1/queries/contractor.overview', { body: { workspaceId } })
       .then(unwrapPage);
-    return <ContractorSettingsPage workspaceId={workspaceId} settings={overview.settings} />;
+    return (
+      <ContractorSettingsPage
+        workspaceId={workspaceId}
+        settings={overview.settings}
+        estimating={overview.estimating}
+        mayApprove={overview.may.approve}
+      />
+    );
   });
 }

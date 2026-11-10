@@ -6,8 +6,10 @@
  * One add-on for every trade (the owner's decision 1, 2026-11-10): electricians, plumbers, HVAC, roofers, remodelers
  * and general contractors pick their trades in its settings. Part 1 is jobs and projects: a job is a record of its
  * own kind, at a property (another kind it keeps) the customer owns, and starts as a service call; with phases it's
- * a project, with deadlines, a budget and % done. Estimates with costs, crews and work orders, materials, time and
- * job costing, the phone's field screens and the AI helpers come in parts 2 to 7.
+ * a project, with deadlines, a budget and % done. Part 2 is costs and estimates: what each price list item costs,
+ * an estimate builder with labor, materials, markup, profit and margin that writes an ordinary HandsFreeOS estimate,
+ * and a lowest margin under which an estimate waits for an owner's or admin's OK. Crews and work orders, materials,
+ * time and job costing, the phone's field screens and the AI helpers come in parts 3 to 7.
  *
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
@@ -47,12 +49,19 @@ export const contractorAddon = defineAddon({
       'general contractor',
       'phases',
       'job budget',
+      'estimate builder',
+      'job costing',
+      'markup',
+      'profit margin',
+      'good better best',
     ],
     exampleNeeds: [
       'keep track of my jobs and projects',
       'see which jobs are running late',
       'manage a remodel in phases',
       'track every job at a customer’s property',
+      'see the profit in an estimate before I send it',
+      'stop estimates going out under my margin',
     ],
     industries: [
       'home_services',
@@ -78,6 +87,13 @@ export const contractorAddon = defineAddon({
       id: 'contractor.costs',
       label: 'Job budgets and profit',
       description: 'What each job is priced at, what it should cost, and the profit planned.',
+      permission: 'contractor.costs',
+    },
+    {
+      id: 'contractor.estimates',
+      label: 'Estimates with costs',
+      description:
+        'An estimate builder with labor, materials, markup, profit and margin, good, better and best options, and a lowest margin an owner or admin OKs going under.',
       permission: 'contractor.costs',
     },
     {
@@ -110,6 +126,14 @@ export const contractorAddon = defineAddon({
       description: 'Pick the business’s trades and the phases a new project starts with.',
       defaultRoles: ['admin'],
       requires: ['contractor.use'],
+    },
+    {
+      key: 'contractor.approve',
+      label: 'OK estimates under the lowest margin',
+      description:
+        'OK an estimate that’s under the business’s lowest margin so it can be sent, and set that margin, the starting markup and labor’s hourly price and cost (the owner’s decision 6).',
+      defaultRoles: ['admin'],
+      requires: ['contractor.costs'],
     },
   ],
   recordKinds: [
@@ -159,7 +183,17 @@ export const contractorAddon = defineAddon({
       cardinality: 'many_to_one',
     },
   ],
-  tables: ['jobs', 'phases', 'team', 'money'],
+  tables: [
+    'jobs',
+    'phases',
+    'team',
+    'money',
+    'estimating',
+    'item_costs',
+    'estimates',
+    'estimate_costs',
+    'estimate_oks',
+  ],
   events: {
     emits: [
       'contractor.job.opened',
@@ -174,10 +208,27 @@ export const contractorAddon = defineAddon({
       'contractor.phase.removed',
       'contractor.phases.reordered',
       'contractor.property.added',
+      'contractor.estimate.saved',
+      'contractor.estimate.ok_asked',
+      'contractor.estimate.okayed',
+      'contractor.estimate.sent',
+      'contractor.estimating.saved',
+      'contractor.item_cost.set',
     ],
     // A visit booked on a job moves it to Scheduled; a tech tapping Started on one of its visits moves it to In
-    // progress (apps/worker/src/addons/contractor/index.ts).
-    consumes: ['appointment.booked', 'job.status_changed'],
+    // progress. An estimate the customer approves fills its job's price and budget. An OK asked for on an estimate
+    // is an alert for the owners and admins until it's given, the estimate changes or it goes out
+    // (apps/worker/src/addons/contractor/index.ts).
+    consumes: [
+      'appointment.booked',
+      'job.status_changed',
+      'estimate.accepted',
+      'estimate.voided',
+      'contractor.estimate.saved',
+      'contractor.estimate.ok_asked',
+      'contractor.estimate.okayed',
+      'contractor.estimate.sent',
+    ],
   },
   billing: { model: 'free' },
   settings: { version: 1, permission: 'contractor.manage', workspace: ContractorSettingsSchema },
@@ -185,6 +236,20 @@ export const contractorAddon = defineAddon({
     // Its pages in the side menu, which pop out from its one row (the owner's decision, 2026-10-09).
     nav: [
       { key: 'jobs', label: CONTRACTOR_PAGES.jobs, icon: 'hard-hat', path: '' },
+      {
+        key: 'estimates',
+        label: CONTRACTOR_PAGES.estimates,
+        icon: 'file-text',
+        path: 'estimates',
+        permission: 'contractor.costs',
+      },
+      {
+        key: 'costs',
+        label: CONTRACTOR_PAGES.costs,
+        icon: 'calculator',
+        path: 'costs',
+        permission: 'contractor.costs',
+      },
       // Not `settings`: that key would put the page in Settings search, which opens it on the web.
       {
         key: 'gear',
@@ -195,10 +260,12 @@ export const contractorAddon = defineAddon({
       },
     ],
     settingsPath: 'settings',
+    // On core's estimate page: an estimate built here shows its costs and profit, and opens in its builder.
+    slots: [{ slot: 'estimate.panels', permission: 'contractor.costs' }],
   },
   ai: {
     directory:
-      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with)',
+      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it',
     places: CONTRACTOR_PLACES,
     lookAlikes: CONTRACTOR_LOOK_ALIKES,
   },

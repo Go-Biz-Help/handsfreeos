@@ -905,7 +905,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /** "Take off 10% = −$900.90, spread over the lines before tax". */
-function DocumentDiscount({
+export function DocumentDiscount({
   draft,
   set,
   discountCents,
@@ -960,7 +960,7 @@ function DocumentDiscount({
   );
 }
 
-function DepositCard({
+export function DepositCard({
   draft,
   set,
   depositCents,

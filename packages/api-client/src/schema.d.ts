@@ -2517,6 +2517,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.estimate.ask_ok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask an owner or admin to OK an estimate that’s under the business’s lowest margin, or has lines with no cost, so it can be sent. They’re told on Home and their phones.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.estimate.ok_asked.
+         */
+        post: operations["command_contractor_estimate_ask_ok"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.ok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OK an estimate that’s under the business’s lowest margin, or has lines with no cost, so it can be sent as it is now. Any later change to the estimate needs a fresh OK. For owners and admins.
+         * @description Risk level 2. Requires contractor.approve. Emits contractor.estimate.okayed.
+         */
+        post: operations["command_contractor_estimate_ok"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write or save an estimate with what it costs to do: one option for one price, or two or three (good, better, best), each with every one of its lines, and each line’s kind (labor, material, other) and what one unit costs. It makes an ordinary HandsFreeOS estimate, for the job named and that job’s customer. It stays a draft, and is saved whole: what’s left out is cleared. For people who may see job costs and who may bill.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.estimate.saved.
+         */
+        post: operations["command_contractor_estimate_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an estimate the builder wrote to its customer, by text or email. Refused while it waits for an owner’s or admin’s OK: an option under the lowest margin, or a labor or material line with no cost. From there it’s an ordinary HandsFreeOS estimate: its number, its link and the customer’s page.
+         * @description Risk level 2. Requires contractor.costs. Emits contractor.estimate.sent.
+         */
+        post: operations["command_contractor_estimate_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimating.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set how the business estimates: its lowest margin (an estimate under it waits for an owner’s or admin’s OK), the markup a new line starts with, and what an hour of labor sells for and costs. Only what’s given changes. For owners and admins.
+         * @description Risk level 2. Requires contractor.approve. Emits contractor.estimating.saved.
+         */
+        post: operations["command_contractor_estimating_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.item_cost.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set what one of a price list item costs the business, and how it’s costed (labor by the hour, a material, or other); null takes the cost off. The builder fills a line’s cost from it. For people who may see job costs.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.item_cost.set.
+         */
+        post: operations["command_contractor_item_cost_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/contractor.job.make_project": {
         parameters: {
             query?: never;
@@ -18637,6 +18757,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.estimate.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One estimate as its builder needs it: the estimate itself, what each line costs, each option’s profit and margin, whether it’s waiting for an owner’s or admin’s OK, the job it’s for, and how the business estimates. With no estimate named, what a new one for a job starts from. For people who may see job costs.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_estimate_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.estimate.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The estimates built in Contractor Operations, newest first: all of them, one job’s, or only the drafts waiting for an owner’s or admin’s OK. Each with its status, customer, total, options, job and whether an OK was asked for or given. No costs.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_estimate_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.item_cost.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s price list with what each item costs it: its price, its cost, how it’s costed (labor, material, other) and the margin between them. For people who may see job costs.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_item_cost_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/contractor.job.get": {
         parameters: {
             query?: never;
@@ -18687,7 +18867,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, and who can be on a job.
+         * Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, who can be on a job, how the business estimates (for people who may see job costs), and how many estimates wait for this person’s OK.
          * @description Requires contractor.use.
          */
         post: operations["query_contractor_overview"];
@@ -31001,6 +31181,309 @@ export interface operations {
                         /** Format: uuid */
                         sweepId: string;
                         total: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_ask_ok: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_ok: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision?: number;
+                    deposit?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    discount?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    /** Format: uuid */
+                    estimateId?: string;
+                    expiresOn?: string | null;
+                    jobId?: string | null;
+                    notes?: string | null;
+                    options: {
+                        lines: {
+                            /** @default null */
+                            description?: string | null;
+                            /** @default 0 */
+                            discountCents?: number;
+                            /**
+                             * @default material
+                             * @enum {string}
+                             */
+                            kind?: "labor" | "material" | "other";
+                            name: string;
+                            /** @default null */
+                            productId?: string | null;
+                            quantity: number;
+                            /** @default true */
+                            taxable?: boolean;
+                            /** @default null */
+                            unitCostCents?: number | null;
+                            /** @default each */
+                            unitLabel?: string;
+                            unitPriceCents: number;
+                        }[];
+                        /** @default  */
+                        name?: string;
+                    }[];
+                    /** Format: uuid */
+                    personId?: string;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            asked: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            canSend: boolean;
+                            lowest: {
+                                marginBp: number | null;
+                                name: string | null;
+                            } | null;
+                            minMarginBp: number;
+                            needsOk: ("margin" | "uncosted") | null;
+                            ok: {
+                                at: string;
+                                by: string | null;
+                                note: string | null;
+                            } | null;
+                            options: {
+                                costCents: number;
+                                laborCents: number;
+                                laborHours: number;
+                                marginBp: number | null;
+                                materialsCents: number;
+                                name: string | null;
+                                otherCents: number;
+                                position: number;
+                                priceCents: number;
+                                profitCents: number;
+                                uncosted: number;
+                            }[];
+                            uncosted: number;
+                        };
+                        created: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        revision: number;
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default [
+                     *       "email"
+                     *     ]
+                     */
+                    channels?: ("sms" | "email")[];
+                    /** Format: uuid */
+                    estimateId: string;
+                    /** @default null */
+                    message?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimating_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    laborCostCents?: number;
+                    laborRateCents?: number;
+                    markupBp?: number;
+                    minMarginBp?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        laborCostCents: number;
+                        laborRateCents: number;
+                        markupBp: number;
+                        minMarginBp: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_item_cost_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    costCents: number | null;
+                    /** @enum {string} */
+                    kind?: "labor" | "material" | "other";
+                    /** Format: uuid */
+                    productId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        productId: string;
                     };
                 };
             };
@@ -71432,6 +71915,312 @@ export interface operations {
             };
         };
     };
+    query_contractor_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId?: string;
+                    /** Format: uuid */
+                    jobId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            asked: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            canSend: boolean;
+                            lowest: {
+                                marginBp: number | null;
+                                name: string | null;
+                            } | null;
+                            minMarginBp: number;
+                            needsOk: ("margin" | "uncosted") | null;
+                            ok: {
+                                at: string;
+                                by: string | null;
+                                note: string | null;
+                            } | null;
+                            options: {
+                                costCents: number;
+                                laborCents: number;
+                                laborHours: number;
+                                marginBp: number | null;
+                                materialsCents: number;
+                                name: string | null;
+                                otherCents: number;
+                                position: number;
+                                priceCents: number;
+                                profitCents: number;
+                                uncosted: number;
+                            }[];
+                            uncosted: number;
+                        } | null;
+                        costs: {
+                            /** @enum {string} */
+                            kind: "labor" | "material" | "other";
+                            line: number;
+                            option: number;
+                            unitCostCents: number | null;
+                        }[];
+                        estimate: {
+                            acceptedAt: string | null;
+                            acceptedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            acceptedName: string | null;
+                            acceptedVia: ("link" | "staff") | null;
+                            acceptedWording: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            builtBy: {
+                                addonId: string;
+                                name: string;
+                                running: boolean;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            declinedAt: string | null;
+                            declinedReason: string | null;
+                            deposit: {
+                                amountCents: number;
+                                /** @enum {string} */
+                                kind: "none" | "percent" | "amount";
+                                percentBp: number;
+                            };
+                            depositCents: number;
+                            expiresOn: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            lines: {
+                                allocatedCents: number;
+                                amountCents: number;
+                                description: string | null;
+                                discountCents: number;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                netCents: number;
+                                position: number;
+                                productId: string | null;
+                                quantity: number;
+                                taxable: boolean;
+                                unitLabel: string;
+                                unitPriceCents: number;
+                            }[];
+                            linkVersion: number;
+                            notes: string | null;
+                            number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
+                            options: {
+                                depositCents: number;
+                                lines: {
+                                    allocatedCents: number;
+                                    amountCents: number;
+                                    description: string | null;
+                                    discountCents: number;
+                                    name: string;
+                                    netCents: number;
+                                    position: number;
+                                    productId: string | null;
+                                    quantity: number;
+                                    taxable: boolean;
+                                    unitLabel: string;
+                                    unitPriceCents: number;
+                                }[];
+                                name: string;
+                                picked: boolean;
+                                position: number;
+                                totals: {
+                                    currency: string;
+                                    discountCents: number;
+                                    discountPercentBp: number | null;
+                                    subtotalCents: number;
+                                    taxableBaseCents: number;
+                                    taxCents: number;
+                                    taxLabel: string | null;
+                                    taxRateBp: number;
+                                    totalCents: number;
+                                };
+                            }[];
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            revision: number;
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                            voidReason: string | null;
+                        } | null;
+                        estimating: {
+                            laborCostCents: number;
+                            laborRateCents: number;
+                            markupBp: number;
+                            minMarginBp: number;
+                        };
+                        job: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        may: {
+                            approve: boolean;
+                            bill: boolean;
+                        };
+                        person: {
+                            email: string | null;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            phone: string | null;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_estimate_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId?: string;
+                    /** @default false */
+                    waitingOk?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        estimates: {
+                            asked: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            createdAt: string;
+                            customer: string;
+                            /** Format: uuid */
+                            id: string;
+                            job: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            number: string | null;
+                            okStands: boolean;
+                            optionCount: number;
+                            optionName: string | null;
+                            status: string;
+                            title: string | null;
+                            totalCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_item_cost_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            costCents: number | null;
+                            description: string | null;
+                            /** @enum {string} */
+                            kind: "labor" | "material" | "other";
+                            marginBp: number | null;
+                            name: string;
+                            /** Format: uuid */
+                            productId: string;
+                            /** @enum {string} */
+                            productKind: "product" | "service" | "fee";
+                            taxable: boolean;
+                            unitLabel: string;
+                            unitPriceCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_contractor_job_get: {
         parameters: {
             query?: never;
@@ -71646,6 +72435,13 @@ export interface operations {
                             onHold: number;
                             open: number;
                         };
+                        estimatesWaitingOk: number;
+                        estimating: {
+                            laborCostCents: number;
+                            laborRateCents: number;
+                            markupBp: number;
+                            minMarginBp: number;
+                        } | null;
                         kinds: {
                             /** Format: uuid */
                             job: string;
@@ -71653,6 +72449,7 @@ export interface operations {
                             property: string;
                         };
                         may: {
+                            approve: boolean;
                             assign: boolean;
                             costs: boolean;
                             manage: boolean;

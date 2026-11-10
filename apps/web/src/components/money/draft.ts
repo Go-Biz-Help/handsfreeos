@@ -52,6 +52,11 @@ export interface DraftLine {
   taxable: boolean;
   /** Money off this line, before the document discount is shared out. */
   discountCents: number;
+  /**
+   * What an add-on's own builder keeps beside the line (what it costs, say). It's copied with the line and never
+   * sent by this editor: the add-on's save reads it.
+   */
+  extra?: Readonly<Record<string, unknown>>;
 }
 
 /** One of an estimate's options (good, better, best): its name and its own lines. */
