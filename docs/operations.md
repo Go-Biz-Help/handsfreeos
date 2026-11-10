@@ -5556,8 +5556,8 @@ A campaign paused with "Email campaigns aren't set up on HandsFreeOS yet" means 
 ### Postmark Part M: HandsFreeOS's own mail at handsfreeos.com
 
 HandsFreeOS's own business can use `handsfreeos.com` as its email (M19): `chris@handsfreeos.com` becomes
-Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in **Inbox → My mail**, and
-only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
+Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in Chris's **Inbox**, marked
+**Only you** (and in **Inbox → My mail**, which shows only his own), and only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
 receives the whole domain and posts it to the worker, and the production server already sends for it.
 `support@` and `help@` (everything in `SUPPORT_ADDRESSES`) stay the support desk's.
 
@@ -5579,7 +5579,7 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
    `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
 5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
-   - Within a minute it shows in **Inbox → My mail**, and Chris's phone buzzes.
+   - Within a minute it shows in the **Inbox** marked **Only you** (and in **My mail**), and Chris's phone buzzes.
    - Nobody else in the business sees it.
    - Reply from HandsFreeOS. The reply arrives from `chris@handsfreeos.com`, and answering it lands in the same
      thread.

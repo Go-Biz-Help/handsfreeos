@@ -107,7 +107,8 @@ export function InboxShell({
   // that has narrowed its inbox (everyone who doesn't set up the channels, 0106) lands on them, because that is
   // what they came for; everybody else lands where they always have. Nothing is hidden either way — pressing
   // Everyone still shows them what they may see.
-  // The person's own mail (M19), beside the team's: its own Inbox, Other mail and Spam.
+  // The person's own mail (M19) is in the list beside the team's, each thread of theirs marked "Only you". My mail
+  // (`?mail=mine`) narrows it to their own alone: its own Inbox, Other mail and Spam.
   const mailbox: InboxMailbox = params.get('mail') === 'mine' ? 'mine' : 'team';
   const home: InboxBoxKey =
     mailbox === 'team' && narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';

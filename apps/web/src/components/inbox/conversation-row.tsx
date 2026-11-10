@@ -7,7 +7,7 @@ import {
   rowName,
   type RowChip,
 } from '@hfos/core';
-import { AlarmClock, DoorOpen, Layers, Mail, MessageCircle } from 'lucide-react';
+import { AlarmClock, DoorOpen, Layers, Lock, Mail, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { StageBadge } from '@/components/crm/chips';
 import { Avatar } from '@/components/ui/avatar';
@@ -21,6 +21,13 @@ import { SocialMark } from './social-bits';
 /** One chip under a row, as core words it. */
 function Chip({ chip }: { chip: RowChip }) {
   switch (chip.kind) {
+    case 'private':
+      // The person's own mail among the team's (M19): the lock the thread shows inside, on the row.
+      return (
+        <Pill icon={Lock} testId="row-private">
+          {chip.label}
+        </Pill>
+      );
     case 'needs_person':
       return <NeedTag />;
     case 'wait':

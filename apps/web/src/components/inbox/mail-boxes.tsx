@@ -6,8 +6,9 @@ import { cn } from '@/lib/utils';
 export type MailBoxKey = keyof typeof MAIL_BOX_NAMES;
 
 /**
- * The email boxes beside the team's Inbox (M19): the person's own mail, when they have an address of their own,
- * and the team's Other mail and Spam. Each says how many are unread (Spam, how many are in it).
+ * The email boxes beside the Inbox (M19): My mail, when the person has an address of their own, which narrows the
+ * list to their own mail (it is in the Inbox beside the team's anyway, marked "Only you"); and Other mail and Spam,
+ * the person's own beside the team's. Each says how many are unread (Spam, how many are in it).
  */
 export function MailBoxes({
   on,
