@@ -18,11 +18,15 @@ let client: ApiClient | undefined;
  * answers (lib/demo) reach this client too.
  */
 async function sendSignedIn(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  const again = input instanceof Request ? input.clone() : null;
-  const res = await globalThis.fetch(input, init);
-  if (res.status !== 401 || !again) return res;
+  if (!(input instanceof Request)) return globalThis.fetch(input, init);
+  // The body read once, so the same bytes can go twice. (A cloned request's body goes as a stream, which the browser's
+  // own tools, and the browser tests' `postDataJSON`, can't read.)
+  const body = input.method === 'GET' || input.method === 'HEAD' ? null : await input.arrayBuffer();
+  const res = await globalThis.fetch(new Request(input, { body }), init);
+  if (res.status !== 401) return res;
   const token = await renewedAccessToken();
   if (!token) return res;
+  const again = new Request(input, { body });
   again.headers.set('authorization', `Bearer ${token}`);
   return globalThis.fetch(again, init);
 }
