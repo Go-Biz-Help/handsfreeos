@@ -259,7 +259,7 @@ export const assistantTools = [
   define({
     name: 'list_inbox',
     description:
-      'Open conversations in the inbox: mine, unassigned or all, optionally only customers waiting on a reply (looked for among the newest 100). For snoozed, closed, archived, My mail, Other mail, Spam or unread ones, use find_conversations.',
+      'Open conversations in the inbox: mine, unassigned or all, optionally only customers waiting on a reply (looked for among the newest 100). The person’s own mail is among them (in mine and all, marked private), as the inbox shows it. For snoozed, closed, archived, only their own mail (My mail), Other mail, Spam or unread ones, use find_conversations.',
     input: z.object({
       box: z.enum(['mine', 'unassigned', 'all']).default('all'),
       waitingOnly: z.boolean().default(false),

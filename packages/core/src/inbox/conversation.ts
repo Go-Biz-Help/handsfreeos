@@ -5,7 +5,7 @@
 import { isSocialChannel, SOCIAL_CHANNEL_NAMES } from '../messaging/social';
 import type { ConversationChannel } from '../schemas/conversation';
 import type { WordPart } from './composer';
-import { firstName } from './list';
+import { firstName, ONLY_YOU } from './list';
 import { zonedWhen } from './time';
 
 type UserRef = { readonly id: string; readonly fullName: string };
@@ -236,11 +236,13 @@ export const CONVERSATION_ACTIONS = {
 
 /** What a thread in someone's own mail says about itself (M19). */
 export const PRIVATE_THREAD_WORDS = {
-  badge: 'Only you',
+  /** Inside the thread, as on its row in the list. */
+  badge: ONLY_YOU,
   banner: 'Only you can see this. Share it with the team to hand it to them.',
   /** Beside My mail in the inbox. */
   onlyYou: 'only you see it',
-  back: 'Team inbox',
+  /** Out of My mail, back to everything: the team's threads with the person's own among them. */
+  back: 'Show all',
   /** Where a customer's details would be. */
   panel:
     'Mail to your own address stays out of Contacts while it’s yours. Share it with the team to add them as a customer.',

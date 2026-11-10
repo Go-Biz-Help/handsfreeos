@@ -204,6 +204,15 @@ describe('the list', () => {
     expect(chips({ channel: 'chat', person: null, onSiteNow: true })).toEqual([
       'on_site:On the site now',
     ]);
+    // The viewer's own mail among the team's (M19): marked first, and never offered as a new customer.
+    expect(
+      chips({
+        channel: 'email',
+        person: null,
+        private: true,
+        awaitingReplySince: '2026-09-17T12:00:00Z',
+      }),
+    ).toEqual(['private:Only you', 'wait:Waiting 40 min']);
   });
 
   /**

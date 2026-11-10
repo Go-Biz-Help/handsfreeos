@@ -19827,7 +19827,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.
+         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search. The person’s own mail shows beside the team’s (in Mine, All, Other mail, Spam and Archived), or alone with mailbox mine.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_list"];
@@ -19847,7 +19847,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Unread and open counts for the badges, and how many customers are waiting too long.
+         * Unread and open counts for the badges (the person’s own mail among them, as the list shows it), and how many customers are waiting too long.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_summary"];

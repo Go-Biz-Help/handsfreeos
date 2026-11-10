@@ -282,6 +282,26 @@ Settings → Email and the Inbox on the web, the phone's boxes, push for someone
   `email.filed`). It uses the customer-message switch and category, whose Reply and Call work on
   it and which every app build knows. Other mail and Spam push nobody.
 
+**Own mail in the same list (Chris, 2026-11-10).** Chris didn't want his own mail kept apart from
+the team's, so it now shows in one list with a mark. His picks:
+
+- **Web and phone.** `inbox.list` (`mailbox` `team`) returns the team's threads and the viewer's own,
+  and core's `inInbox` does the same on the phone, which already held its person's own threads. No
+  migration and no sync change.
+- **The mark** is a lock and **Only you** on the row (`conversationChips`' `private` chip, first),
+  the same words the thread shows inside.
+- **Which boxes.** Someone's own mail is theirs, so it's in **Mine** and **All**. It's never in
+  **Unassigned**, **Needs a person** or the AI teammate's box. Their own Other mail and Spam show
+  in the team's **Other mail** and **Spam**, and Archived lists theirs too.
+- **My mail stays** as a filter that shows only their own, with its own Inbox, Other mail and Spam.
+  Its way back reads **Show all**.
+- **Badges** count their own unread mail in Mine and All (and the menu's Inbox badge), on their
+  screen only. Waiting, Needs a person and the AI teammate's count stay the team's.
+- **The AI teammate never reads or answers anyone's own mail**, as before.
+- A sender who writes to both someone's own address and a team one is **two rows**, never one with
+  two lanes (`GROUP_KEY` and `customerKeyOf` keep own mail apart), so sharing or answering one never
+  reaches the other.
+
 ### Step 5 — HandsFreeOS's own business (done, 2026-09-30)
 
 Set `is_platform` on the HandsFreeOS business, add `handsfreeos.com`, add `chris@` as Chris's

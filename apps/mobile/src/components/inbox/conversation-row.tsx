@@ -15,7 +15,16 @@ import * as React from 'react';
 import { Pressable, View } from 'react-native';
 
 import { useAiColors } from '@/components/drafts';
-import { Clock, Globe, Mail, MessageCircle, Phone, Sparkles, UserRound } from '@/components/icons';
+import {
+  Clock,
+  Globe,
+  Lock,
+  Mail,
+  MessageCircle,
+  Phone,
+  Sparkles,
+  UserRound,
+} from '@/components/icons';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
@@ -58,6 +67,14 @@ export function RowChipView({ chip }: { chip: RowChip }) {
   const ai = useAiColors();
   const base = 'h-[22px] flex-row items-center gap-1 rounded-[6px] px-1.5';
   switch (chip.kind) {
+    case 'private':
+      // The person's own mail among the team's (M19): the lock the thread shows inside, on the row.
+      return (
+        <View className={cn(base, 'bg-card-2')} testID="row-private">
+          <Icon as={Lock} className="size-3 text-text-2" strokeWidth={1.75} />
+          <Text className="text-xs font-medium text-text-2">{chip.label}</Text>
+        </View>
+      );
     case 'wait':
       return (
         <View className={cn(base, 'bg-warning-soft')} testID="wait-chip">

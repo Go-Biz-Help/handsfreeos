@@ -220,14 +220,42 @@ describe('mail to someone’s own address', () => {
     expect(toTeam.conversationId).toBe(teamMail.conversationId);
   });
 
-  it('shows in its person’s own mailbox, and in nobody’s team inbox', async () => {
+  it('shows in its person’s own mail and among the team’s for them, and in nobody else’s inbox', async () => {
     const got = await receive(`pal-${token()}@example.com`, chrisAddress);
     const ids = async (u: TestUser, mailbox: 'team' | 'mine') =>
       (await ask(inboxList, { workspaceId: wsId, mailbox, limit: 100 }, u)).items.map((i) => i.id);
     expect(await ids(chris, 'mine')).toContain(got.conversationId);
-    expect(await ids(chris, 'team')).not.toContain(got.conversationId);
-    for (const u of [owner, admin, member])
+    expect(await ids(chris, 'team')).toContain(got.conversationId);
+    for (const u of [owner, admin, member]) {
       expect(await ids(u, 'team')).not.toContain(got.conversationId);
+      expect(await ids(u, 'mine')).not.toContain(got.conversationId);
+    }
+  });
+
+  it('is its own row among the team’s, marked, in Mine and never in Unassigned or the AI teammate’s boxes', async () => {
+    const pal = `pal-${token()}@example.com`;
+    const own = await receive(pal, chrisAddress, { subject: 'Lunch?' });
+    const teamMail = await receive(pal, team.id, { subject: 'A quote, please' });
+    const list = async (u: TestUser, input: Record<string, unknown> = {}) =>
+      (await ask(inboxList, { workspaceId: wsId, limit: 100, ...input }, u)).items;
+    // Wherever the team's thread was filed, the two are never one row, nor lanes of each other.
+    const everything = async (u: TestUser) => [
+      ...(await list(u)),
+      ...(await list(u, { box: 'other' })),
+    ];
+    const seen = await everything(chris);
+    const mine = seen.find((i) => i.id === own.conversationId);
+    expect(mine).toMatchObject({ private: true });
+    expect(mine!.lanes.map((l) => l.id)).toEqual([own.conversationId]);
+    const theirs = seen.find((i) => i.id === teamMail.conversationId);
+    expect(theirs).toMatchObject({ private: false });
+    expect(theirs!.lanes.map((l) => l.id)).not.toContain(own.conversationId);
+    const ids = async (box: string) => (await list(chris, { box })).map((i) => i.id);
+    expect(await ids('mine')).toContain(own.conversationId);
+    for (const box of ['unassigned', 'needs_person', 'ai'])
+      expect(await ids(box)).not.toContain(own.conversationId);
+    for (const u of [owner, admin, member])
+      expect((await everything(u)).map((i) => i.id)).not.toContain(own.conversationId);
   });
 });
 
@@ -459,16 +487,22 @@ describe('linking the team’s thread to a customer', () => {
 describe('the inbox badge', () => {
   it('counts someone’s own unread mail for them alone, and shows My mail only to who has any', async () => {
     const before = await ask(inboxSummary, { workspaceId: wsId }, chris);
+    const theirs = await ask(inboxSummary, { workspaceId: wsId }, member);
     expect(before.mail.own).toBe(true);
     await receive(`buddy-${token()}@example.com`, chrisAddress);
     const after = await ask(inboxSummary, { workspaceId: wsId }, chris);
     expect(after.mail.mine).toBe(before.mail.mine + 1);
-    // Their own mail isn't the team's, so the team's badge doesn't move.
-    expect(after.unread.all).toBe(before.unread.all);
-    expect((await ask(inboxSummary, { workspaceId: wsId }, member)).mail).toMatchObject({
-      mine: 0,
-      own: false,
+    // It's in their list beside the team's, so it counts in their Mine and All, and never in Unassigned.
+    expect(after.unread).toEqual({
+      mine: before.unread.mine + 1,
+      unassigned: before.unread.unassigned,
+      all: before.unread.all + 1,
     });
+    expect(after.open.all).toBe(before.open.all + 1);
+    // Nobody else's badge moves.
+    const still = await ask(inboxSummary, { workspaceId: wsId }, member);
+    expect(still.unread).toEqual(theirs.unread);
+    expect(still.mail).toMatchObject({ mine: 0, own: false });
   });
 });
 
