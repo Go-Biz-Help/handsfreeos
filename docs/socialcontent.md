@@ -10,7 +10,8 @@ the web pages (part 1); the extension reading Instagram, with the AI helper and 
 pages (part 5); reading Facebook and LinkedIn (part 6); and writing the business's own posts on a Calendar, with
 designed, photo-style and its own pictures (part 8, below under "Making posts"); and putting OK'd posts up on
 Facebook and LinkedIn through the extension (part 9, "Posting"), and on Instagram with the person's videos (part 10);
-and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers").
+and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers");
+and the Calendar and its posts on the phone (part 12, under "On the phone").
 The add-on is in `development`,
 offered to nobody; staff give it to a business from Admin → Businesses.
 
@@ -129,6 +130,21 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   it needs signal with none, and Creators and Settings ask again every half minute while they're open. Its commands
   are online commands in the phone's contract (`packages/core/test/contract/mobile-contract.json`); the worker's
   actions (Suggest niches, Write it again, Get ideas) go through `workerPost`, as on the web.
+- **The Calendar on the phone** (part 12). Its first screen lists the Calendar too, at the web's own address
+  (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, when it
+  filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
+  and Went up lately with each post's latest numbers. A post opens on its own screen at `calendar?post=<id>`, as the
+  web's sheet does, so a link to one opens it there too. That screen changes everything the sheet does (title,
+  network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
+  words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
+  person's own photos (made smaller first, to 2048 px) or video (up to 25 MB) from the phone, OKs it or takes the OK
+  back, Post it now, Skip it, and Write it again. On a network the extension doesn't post on yet, Share the words
+  hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
+  `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
+  `.approve_week`, `.post_now`, `.skip`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
+  straight away (as an anytime command would only be queued) and put the file in storage between. The screens ask
+  again every 20 seconds (the Calendar) and 15 (a post) while open, so a picture being made or a post going up shows
+  when it's done.
 
 ## Making posts
 
@@ -310,7 +326,6 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
 - Posting's boxes are built from the networks' usual words and roles, not yet from page outlines of them: the first
   problem reports (`post.*`) will say what to fix.
 - Reading a Facebook or LinkedIn post's shares and views: neither shows them on the post's own page.
-- The Calendar and a post's sheet on the phone (part 12).
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
 - TikTok and YouTube (part 7).

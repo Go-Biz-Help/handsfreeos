@@ -21,8 +21,10 @@ import {
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import {
   SOCIALCONTENT_WORDS as W,
+  clockOf,
   daysAgo,
   numbersLines,
+  timeShown,
 } from '@hfos/core/addons/socialcontent/words';
 import { Copy, ExternalLink, ImagePlus, Trash2, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -54,15 +56,8 @@ export const STATE_BADGE: Record<Content['state'], BadgeVariant> = {
   skipped: 'gray',
 };
 
-/** "Wed, Nov 12, 9:00 AM" in the business's time zone. */
-export function timeIn(at: string, timeZone: string, withDay = false): string {
-  return new Intl.DateTimeFormat('en-US', {
-    ...(withDay ? { weekday: 'short', month: 'short', day: 'numeric' } : {}),
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone,
-  }).format(new Date(at));
-}
+/** "Wed, Nov 12, 9:00 AM" in the business's time zone (core's, shared with the phone). */
+export const timeIn = timeShown;
 
 /**
  * One of a post's pictures, or the person's video, through a short-lived link from the person's own storage session.
@@ -104,18 +99,6 @@ export function PostPicture({
   );
 }
 
-/** The time of day in the business's zone, 'HH:MM'. */
-function clockIn(at: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZone,
-  }).formatToParts(new Date(at));
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
-  return `${get('hour')}:${get('minute')}`;
-}
-
 type Draft = {
   title: string;
   network: PostingNetwork;
@@ -148,7 +131,7 @@ function draftOf(p: Content, timeZone: string): Draft {
     picture: p.picture ?? '',
     facebookWhere: [...p.facebookWhere],
     day: p.postAt ? localDateOf(Date.parse(p.postAt), timeZone) : '',
-    time: p.postAt ? clockIn(p.postAt, timeZone) : '09:00',
+    time: p.postAt ? clockOf(p.postAt, timeZone) : '09:00',
   };
 }
 

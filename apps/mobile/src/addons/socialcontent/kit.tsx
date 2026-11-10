@@ -34,7 +34,8 @@ export const SOCIALCONTENT_USE = 'socialcontent.use';
 export const SOCIALCONTENT_MANAGE = 'socialcontent.manage';
 
 /** Its pages, as the web's addresses name them (`/a/socialcontent/creators`); '' is its first screen. */
-export type SocialcontentPage = '' | 'creators' | 'standouts' | 'playbook' | 'ideas' | 'settings';
+export type SocialcontentPage =
+  '' | 'creators' | 'standouts' | 'playbook' | 'ideas' | 'calendar' | 'settings';
 
 /** A page's address, the web's own: `/app/w/<business>/a/socialcontent/standouts?network=instagram`. */
 export function socialcontentPath(
@@ -55,6 +56,7 @@ export const PAGE_TITLES: Readonly<Record<Exclude<SocialcontentPage, ''>, string
   standouts: SOCIALCONTENT_PAGES.standouts,
   playbook: SOCIALCONTENT_PAGES.playbook,
   ideas: SOCIALCONTENT_PAGES.ideas,
+  calendar: SOCIALCONTENT_PAGES.calendar,
   settings: SOCIALCONTENT_PAGES.gear,
 };
 

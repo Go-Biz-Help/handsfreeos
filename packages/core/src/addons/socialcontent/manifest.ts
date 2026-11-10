@@ -185,6 +185,7 @@ export const socialcontentAddon = defineAddon({
       { path: 'standouts', query: ['network', 'creator'] },
       { path: 'playbook' },
       { path: 'ideas' },
+      { path: 'calendar', query: ['post'] },
       { path: 'settings' },
     ],
   },

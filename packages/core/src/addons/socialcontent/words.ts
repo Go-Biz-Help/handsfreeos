@@ -3,6 +3,7 @@
  * Assistant's places (./ai-places.ts) name the screens in them. Plain words, short sentences, curly apostrophes.
  * Browser-safe and pure.
  */
+import { addDays } from '../../calendar/engine/zoned';
 import type { PostedTo, PostPlace } from './calendar';
 import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
 import { DONE_WELL, STANDOUT } from './standouts';
@@ -46,6 +47,81 @@ export function momentAgo(
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${count(hours, 'hour')} ago`;
   return daysAgo(at, now);
+}
+
+/** "9:00 AM" from "09:00". */
+export function clockShown(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const hour = ((h! + 11) % 12) + 1;
+  return `${hour}:${String(m).padStart(2, '0')} ${h! < 12 ? 'AM' : 'PM'}`;
+}
+
+/** "Wed, Nov 12, 9:00 AM" (or just "9:00 AM") in the business's time zone. */
+export function timeShown(at: string, timeZone: string, withDay = false): string {
+  return new Intl.DateTimeFormat('en-US', {
+    ...(withDay ? { weekday: 'short', month: 'short', day: 'numeric' } : {}),
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone,
+  }).format(new Date(at));
+}
+
+/** A moment's time of day in the business's zone, "HH:MM", as a post's time is picked. */
+export function clockOf(at: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).formatToParts(new Date(at));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
+  return `${get('hour')}:${get('minute')}`;
+}
+
+/** A day on the Calendar: "Today", "Tomorrow", else "Wednesday, Nov 12". */
+export function dayShown(date: string, today: string): string {
+  const C = SOCIALCONTENT_WORDS.calendar;
+  if (date === today) return C.today;
+  if (date === addDays(today, 1)) return C.tomorrow;
+  const [y, m, d] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  }).format(new Date(Date.UTC(y!, m! - 1, d!)));
+}
+
+/** "in 6 days", "tomorrow", "today". */
+export function daysUntil(at: string, now: number = Date.now()): string {
+  const days = Math.ceil((Date.parse(at) - now) / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'tomorrow';
+  return `in ${days} days`;
+}
+
+/** When the Calendar was filled and fills again, or how to fill it the first time. */
+export function filledLine(
+  c: { readonly filledAt: string | null; readonly nextFillAt: string | null },
+  now: number = Date.now(),
+): string {
+  const C = SOCIALCONTENT_WORDS.calendar;
+  return c.filledAt
+    ? C.filled(daysAgo(c.filledAt, now), c.nextFillAt ? daysUntil(c.nextFillAt, now) : null)
+    : C.neverFilled;
+}
+
+/** The plan in a line: "Your plan: Instagram: 3 posts a week at 9:00 AM · … Change the plan in Settings." */
+export function planShown(
+  plan: Readonly<Record<string, { readonly perWeek: number; readonly time: string }>>,
+  networks: readonly string[],
+  networkNameOf: (network: string) => string,
+): string {
+  const C = SOCIALCONTENT_WORDS.calendar;
+  const lines = networks
+    .filter((n) => plan[n])
+    .map((n) => C.planLine(networkNameOf(n), plan[n]!.perWeek, clockShown(plan[n]!.time)));
+  return `${C.plan}: ${lines.join(' · ')}. ${C.planEdit}`;
 }
 
 /** The reading computer counts as there when it asked for work in the last few minutes (it asks each minute). */
@@ -575,7 +651,7 @@ export const SOCIALCONTENT_WORDS = {
   },
   /** The phone's screens (part 5): its one row under More, its first screen's pages, and what needs signal there. */
   phone: {
-    more: 'Creators, standout posts, the Playbook and ideas',
+    more: 'Creators, standout posts, the Playbook, ideas and your Calendar',
     pages: {
       creators: (studying: number, suggested: number) =>
         [
@@ -587,6 +663,7 @@ export const SOCIALCONTENT_WORDS = {
       standouts: (n: number) => (n ? count(n, 'standout') : 'Posts that beat their normal'),
       playbook: 'What works for the creators you study',
       ideas: 'Ideas for your own posts',
+      calendar: 'Your own posts, two weeks ahead, and how they did',
       gear: 'Networks, whose computer reads, and watching videos',
     },
     needsSignal: (screen: string) => `${screen} needs signal. Try again when you’re back online.`,
@@ -601,6 +678,8 @@ export const SOCIALCONTENT_WORDS = {
     watchAsk: 'Turn on watching videos?',
     watchYes: 'Turn it on',
     watchKeep: 'Keep it off',
+    /** A post's words handed to the phone's share sheet (Copy, or the network's own app). */
+    shareWords: 'Share the words',
   },
   /** What HandsFreeOS says about a post that didn't go up (part 9), on the post and the Calendar. */
   posting: {
