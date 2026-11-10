@@ -394,7 +394,7 @@ describe('the Calendar’s days and times, as the web and the phone both show th
   it('names today and tomorrow, and other days by their weekday', () => {
     expect(dayShown('2026-11-10', '2026-11-10')).toBe('Today');
     expect(dayShown('2026-11-11', '2026-11-10')).toBe('Tomorrow');
-    expect(dayShown('2026-11-13', '2026-11-10')).toBe('Friday, Nov 13');
+    expect(dayShown('2026-11-13', '2026-11-10')).toBe('Friday, November 13');
   });
 
   it('says when it filled and fills again, or how to start', () => {

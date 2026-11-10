@@ -994,11 +994,11 @@ describe('the business’s own posts', () => {
     const link = 'https://www.linkedin.com/feed/update/urn:li:activity:7300000000000000001/';
     const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString();
     // Going up set its first read for 2 days on.
-    const [due] = await rows<{ checks_due_at: Date }>(
+    const [due] = await rows<{ checks_due_at: string | Date }>(
       admin(),
       sql`select checks_due_at from addon_socialcontent.content where record_id = ${linkedinId}`,
     );
-    expect(due!.checks_due_at.getTime() - Date.now()).toBeGreaterThan(1.9 * DAY);
+    expect(new Date(due!.checks_due_at).getTime() - Date.now()).toBeGreaterThan(1.9 * DAY);
     expect(await refused(as(member, 'socialcontent.own.next', { networks: ['linkedin'] }))).toBe(
       'socialcontent_not_reader',
     );

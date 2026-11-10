@@ -3,7 +3,8 @@
  * Assistant's places (./ai-places.ts) name the screens in them. Plain words, short sentences, curly apostrophes.
  * Browser-safe and pure.
  */
-import { addDays } from '../../calendar/engine/zoned';
+import { addDays, localDateOf, zonedParts } from '../../calendar/engine/zoned';
+import { fmtDateLong, fmtDateShort, fmtTime } from '../../calendar/when';
 import type { PostedTo, PostPlace } from './calendar';
 import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
 import { DONE_WELL, STANDOUT } from './standouts';
@@ -56,40 +57,24 @@ export function clockShown(time: string): string {
   return `${hour}:${String(m).padStart(2, '0')} ${h! < 12 ? 'AM' : 'PM'}`;
 }
 
-/** "Wed, Nov 12, 9:00 AM" (or just "9:00 AM") in the business's time zone. */
+/** "Wed, Nov 12, 9:00 AM" (or just "9:00 AM") in the business's time zone, by core's calendar words. */
 export function timeShown(at: string, timeZone: string, withDay = false): string {
-  return new Intl.DateTimeFormat('en-US', {
-    ...(withDay ? { weekday: 'short', month: 'short', day: 'numeric' } : {}),
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone,
-  }).format(new Date(at));
+  const clock = fmtTime(at, timeZone);
+  return withDay ? `${fmtDateShort(localDateOf(Date.parse(at), timeZone))}, ${clock}` : clock;
 }
 
 /** A moment's time of day in the business's zone, "HH:MM", as a post's time is picked. */
 export function clockOf(at: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZone,
-  }).formatToParts(new Date(at));
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
-  return `${get('hour')}:${get('minute')}`;
+  const p = zonedParts(Date.parse(at), timeZone);
+  return `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`;
 }
 
-/** A day on the Calendar: "Today", "Tomorrow", else "Wednesday, Nov 12". */
+/** A day on the Calendar: "Today", "Tomorrow", else "Wednesday, November 12". */
 export function dayShown(date: string, today: string): string {
   const C = SOCIALCONTENT_WORDS.calendar;
   if (date === today) return C.today;
   if (date === addDays(today, 1)) return C.tomorrow;
-  const [y, m, d] = date.split('-').map(Number);
-  return new Intl.DateTimeFormat('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(y!, m! - 1, d!)));
+  return fmtDateLong(date);
 }
 
 /** "in 6 days", "tomorrow", "today". */
