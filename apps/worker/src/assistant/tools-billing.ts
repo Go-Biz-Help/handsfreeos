@@ -54,6 +54,7 @@ import type { MoneyLinks } from '../money/links';
 import { longDayLabel } from './calendar-format';
 import type { ToolContext, ToolOutcome } from './runtime';
 import {
+  builtElsewhere,
   moneyPaths,
   noContact,
   paymentHow as paymentWords,
@@ -192,6 +193,19 @@ interface Estimate {
   voidedAt: string | null;
   createdAt: string;
   assignee: { id: string; fullName: string } | null;
+  /** Good, better, best: empty for an estimate with one price. */
+  options: {
+    position: number;
+    name: string;
+    lines: LineOut[];
+    totals: Totals;
+    depositCents: number;
+    picked: boolean;
+  }[];
+  /** The option its own lines and totals are: the first until one is picked. */
+  optionName: string | null;
+  /** The add-on whose builder wrote it; while it runs here, it's changed and sent from there. */
+  builtBy: { addonId: string; name: string; running: boolean } | null;
 }
 interface EstimateGet {
   estimate: Estimate;
@@ -400,6 +414,11 @@ interface LineIn {
   discountCents: number;
 }
 /** A line as the model writes it. */
+/** One of an estimate's options as the model gives it: its name and all of its own lines. */
+interface OptionArg {
+  name?: string;
+  lines?: LineArg[];
+}
 interface LineArg {
   productId?: string;
   name?: string;
@@ -450,6 +469,7 @@ async function catalogueFor(db: Db, ctx: ToolContext, args: Args): Promise<Map<s
   const asked = [
     ...(list<LineArg>(args['lines']) ?? []),
     ...(list<LineArg>(args['addLines']) ?? []),
+    ...(list<OptionArg>(args['options']) ?? []).flatMap((o) => o.lines ?? []),
   ];
   if (!asked.some((l) => l.productId)) return new Map();
   const { products } = await query<{ products: Product[] }>(db, ctx, 'product.list');
@@ -499,6 +519,48 @@ function lineFrom(l: LineArg, products: Map<string, Product>, settings: MoneySet
     taxable: l.taxable ?? settings.tax.newProductsTaxable,
     discountCents,
   };
+}
+
+/**
+ * An estimate's options as the model gave them (good, better, best), each with all of its own lines. Null goes back
+ * to one price, and nothing given leaves the options as they are.
+ */
+function optionsFrom(
+  args: Args,
+  products: Map<string, Product>,
+  settings: MoneySettings,
+): { name: string; lines: LineIn[] }[] | null | undefined {
+  if (args['options'] === undefined) return undefined;
+  if (args['options'] === null) return null;
+  const mixed = (['lines', 'addLines', 'removeLines', 'changeLines'] as const).find(
+    (k) => args[k] !== undefined,
+  );
+  if (mixed)
+    throw HfosError.validation(
+      [{ path: mixed, message: 'Pass one or the other.' }],
+      'Pass the options, each with all of its own lines, or lines for one price — not both.',
+    );
+  const options = (list<OptionArg>(args['options']) ?? []).map((o) => {
+    const name = str(o.name) ?? '';
+    const lines = (o.lines ?? []).map((l) => lineFrom(l, products, settings));
+    if (!lines.length)
+      throw HfosError.validation(
+        [{ path: 'options', message: 'Add a line.' }],
+        `The “${name}” option needs at least one line: a productId from the catalogue, or a name and unitPrice.`,
+      );
+    return { name, lines };
+  });
+  const seen = new Set<string>();
+  for (const o of options) {
+    const key = o.name.toLowerCase();
+    if (seen.has(key))
+      throw HfosError.validation(
+        [{ path: 'options', message: 'Give each option its own name.' }],
+        `Two options are called “${o.name}”. Give each its own name, like Good, Better and Best.`,
+      );
+    seen.add(key);
+  }
+  return options;
 }
 
 /**
@@ -605,15 +667,35 @@ const CHANGES = [
   'note',
   'leadId',
 ] as const;
-const ESTIMATE_CHANGES = [...CHANGES, 'depositPercent', 'depositDollars', 'goodUntil'] as const;
+const ESTIMATE_CHANGES = [
+  ...CHANGES,
+  'options',
+  'depositPercent',
+  'depositDollars',
+  'goodUntil',
+] as const;
 const INVOICE_CHANGES = [...CHANGES, 'dueOn', 'terms', 'connectionId'] as const;
 
 interface Draft {
   kind: 'estimate' | 'invoice';
   /** The draft being changed, or null for a new one. */
-  before: { id: string; number: string | null; revision: number; totalCents: number } | null;
+  before: {
+    id: string;
+    number: string | null;
+    revision: number;
+    totalCents: number;
+    /** How many options it has now. */
+    options: number;
+  } | null;
   person: Person;
   lines: LineIn[];
+  /**
+   * Estimates: its options (good, better, best) as it will read once saved; none for one price. `lines` are then
+   * its first option's.
+   */
+  options: { name: string; lines: LineIn[] }[];
+  /** And what the save says about them: the options whole, null to go back to one price, or nothing to keep them. */
+  optionsSent: { name: string; lines: LineIn[] }[] | null | undefined;
   discount: Terms;
   /** Estimates: the deposit shown on the card, and the one sent (left out keeps it, or takes the default). */
   deposit: Terms;
@@ -635,6 +717,8 @@ interface Draft {
   startedBy: string | null;
   account: string | null;
   totals: DocumentTotals;
+  /** Each option's total, in order, under the one discount and tax. */
+  optionTotals: number[];
   settings: MoneySettings;
 }
 
@@ -676,14 +760,15 @@ async function draftOf(
     kind === 'estimate' ? termsFrom(args['depositPercent'], args['depositDollars']) : undefined;
   const discount = termsFrom(args['discountPercent'], args['discountDollars']);
 
-  let draft: Omit<Draft, 'totals' | 'account' | 'settings'>;
+  let draft: Omit<Draft, 'totals' | 'optionTotals' | 'account' | 'settings'>;
   if (!id) {
     if (!str(args['personId']))
       throw HfosError.validation(
         [{ path: 'personId', message: 'Who is it for?' }],
         'Say who it is for: a personId from search_customers.',
       );
-    const lines = linesAfter(args, [], products, settings);
+    const options = (kind === 'estimate' ? optionsFrom(args, products, settings) : null) ?? [];
+    const lines = options[0]?.lines ?? linesAfter(args, [], products, settings);
     if (!lines.length)
       throw HfosError.validation(
         [{ path: 'lines', message: 'Add a line.' }],
@@ -698,6 +783,8 @@ async function draftOf(
       before: null,
       person: await personOf(db, ctx, args['personId']),
       lines,
+      options,
+      optionsSent: options.length ? options : undefined,
       discount: discount ?? { kind: 'none' },
       deposit: deposit ?? settings.deposit,
       depositSent: deposit,
@@ -731,13 +818,25 @@ async function draftOf(
         409,
         `An ${kind} stays with the customer it was written for. Write a new one instead.`,
       );
-    const lines = linesAfter(args, doc.lines.map(lineIn), products, settings);
+    const est = kind === 'estimate' ? (doc as Estimate) : null;
+    // An add-on's builder wrote it and checks it before it goes out, so it's changed there.
+    if (est?.builtBy?.running) throw builtElsewhere(est.builtBy.name, 'change');
+    const asked = est ? optionsFrom(args, products, settings) : undefined;
+    const lines = asked?.[0]?.lines ?? linesAfter(args, doc.lines.map(lineIn), products, settings);
     if (!lines.length)
       throw HfosError.validation(
         [{ path: 'lines', message: 'Keep a line.' }],
         `That would leave the ${kind} with no lines, and it needs at least one. Keep a line, or add one in addLines.`,
       );
-    const est = kind === 'estimate' ? (doc as Estimate) : null;
+    // Left alone, the options it has stay, and the lines are its first option's (as the command keeps them).
+    const options =
+      asked === null
+        ? []
+        : (asked ??
+          (est?.options ?? []).map((o, i) => ({
+            name: o.name,
+            lines: i === 0 ? lines : o.lines.map(lineIn),
+          })));
     const terms =
       kind === 'invoice' ? termsOf(args, settings) : { words: undefined, clearsDay: false };
     draft = {
@@ -747,9 +846,13 @@ async function draftOf(
         number: doc.number,
         revision: doc.revision,
         totalCents: doc.totals.totalCents,
+        options: est?.options.length ?? 0,
       },
       person: doc.person,
       lines,
+      options,
+      // Going back to one price is only worth saying for an estimate that has options.
+      optionsSent: asked === null && !est?.options.length ? undefined : asked,
       discount: discount ?? discountNow(doc.totals),
       deposit: deposit ?? (est ? depositNow(est.deposit) : { kind: 'none' }),
       depositSent: deposit,
@@ -779,8 +882,21 @@ async function draftOf(
     deposit: kind === 'estimate' ? draft.deposit : undefined,
     taxRateBp: settings.tax.rateBp,
   });
-  // The editor won't save a deposit bigger than the total, or one set to nothing; neither does this.
-  const problem = kind === 'estimate' ? depositProblem(draft.deposit, totals.totalCents) : null;
+  const optionTotals = draft.options.map(
+    (o) =>
+      computeTotals({
+        lines: o.lines,
+        discount: draft.discount,
+        deposit: draft.deposit,
+        taxRateBp: settings.tax.rateBp,
+      }).totalCents,
+  );
+  // The editor won't save a deposit bigger than the total, or one set to nothing; neither does this. With
+  // options, a set amount has to fit inside the smallest, since they may pick that one.
+  const problem =
+    kind === 'estimate'
+      ? depositProblem(draft.deposit, Math.min(totals.totalCents, ...optionTotals))
+      : null;
   if (problem) throw HfosError.validation([{ path: 'deposit', message: problem }], problem);
 
   let account: string | null = null;
@@ -806,7 +922,19 @@ async function draftOf(
       account = mine[0] ? accountLabel(mine[0]) : null;
     }
   }
-  return { ...draft, totals, account, settings };
+  return { ...draft, totals, optionTotals, account, settings };
+}
+
+/** "Good $900 · Better $4,800 · Best $7,450". */
+const optionsWords = (options: readonly { name: string }[], totals: readonly number[]) =>
+  options.map((o, i) => `${o.name} ${money(totals[i] ?? 0)}`).join(' · ');
+
+/** What a save comes to: the total, or with options, how many and from what to what. */
+function savedWords(d: Draft): string {
+  if (!d.options.length) return money(d.totals.totalCents);
+  const low = Math.min(...d.optionTotals);
+  const high = Math.max(...d.optionTotals);
+  return `${counted(d.options.length, 'option')}, ${money(low)}${high > low ? ` to ${money(high)}` : ''}`;
 }
 
 /** "$1,284.50 · after $90 off · with $64.50 sales tax". */
@@ -825,6 +953,9 @@ function totalWords(d: Draft): string {
 
 function depositWords(d: Draft): string {
   if (d.deposit.kind === 'none' || d.totals.depositCents <= 0) return 'None';
+  // With options, a percentage is of whichever they pick.
+  if (d.options.length && d.deposit.kind === 'percent')
+    return `${percentLabel(d.deposit.percentBp ?? 0)} of the option they pick, up front`;
   return d.deposit.kind === 'percent'
     ? `${money(d.totals.depositCents)} up front (${percentLabel(d.deposit.percentBp ?? 0)})`
     : `${money(d.totals.depositCents)} up front`;
@@ -982,11 +1113,21 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
         { label: 'For', value: d.title ?? '' },
         { label: 'Visit', value: visit?.visit ?? '' },
       ];
+      // With options, each is a row with its own total; there is no one total to show.
+      const optionRows: Field[] = d.options.map((o, i) => ({
+        label: clip(o.name, 48),
+        value: `${counted(o.lines.length, 'line')} · ${money(d.optionTotals[i] ?? 0)}`,
+      }));
       const tail: Field[] = [
-        { label: 'Total', value: totalWords(d) },
-        ...(d.before && d.before.totalCents !== d.totals.totalCents
-          ? [{ label: 'Was', value: money(d.before.totalCents) }]
-          : []),
+        ...(optionRows.length
+          ? []
+          : [
+              { label: 'Total', value: totalWords(d) },
+              ...(d.before && d.before.totalCents !== d.totals.totalCents
+                ? [{ label: 'Was', value: money(d.before.totalCents) }]
+                : []),
+            ]),
+        ...(d.optionsSent === null ? [{ label: 'Options', value: 'Taken off: one price' }] : []),
         ...(kind === 'estimate' ? [{ label: 'Deposit', value: depositWords(d) }] : []),
         {
           label: dayLabel,
@@ -1003,7 +1144,18 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
       // A card holds ten lines. The lines' preview gives way to the rest, so a note, a lead or a date that
       // changes is always on the card the person says yes to.
       const room = CARD_FIELDS - [...head, ...tail].filter((f) => f.value).length;
-      const fields: Field[] = [...head, ...linePreview(d.lines, room), ...tail];
+      const fields: Field[] = [
+        ...head,
+        ...(optionRows.length ? optionRows : linePreview(d.lines, room)),
+        ...tail,
+      ];
+      // A change to the lines of an estimate that keeps its options is a change to its first one.
+      const firstOnly =
+        !!d.before && d.options.length > 0 && d.optionsSent === undefined
+          ? (['lines', 'addLines', 'removeLines', 'changeLines'] as const).some(
+              (k) => args[k] !== undefined,
+            )
+          : false;
       const draftName = d.before?.number ?? `the draft ${kind}`;
       return {
         card: billCard(toolCallId, tool, {
@@ -1018,12 +1170,24 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
               kind: 'note',
               text: `It stays a draft. Nothing goes to ${firstName(who)} until you send it.`,
             },
+            ...(d.options.length
+              ? [
+                  {
+                    kind: 'note',
+                    text: firstOnly
+                      ? `These lines are the “${d.options[0]!.name}” option’s. The other options stay as they are.`
+                      : `${firstName(who)} picks one option when they approve. The discount and the deposit apply to whichever they pick.`,
+                  },
+                ]
+              : []),
           ],
         }),
         result: {
           waiting: true,
           customer: who,
-          total: money(d.totals.totalCents),
+          ...(d.options.length
+            ? { options: optionsWords(d.options, d.optionTotals) }
+            : { total: money(d.totals.totalCents) }),
           lines: d.lines.length,
           ...(kind === 'estimate' ? { deposit: depositWords(d) } : {}),
           ...(visit
@@ -1055,17 +1219,24 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
               notes: d.notes ?? null,
               expiresOn: d.day,
               ...(d.depositSent ? { deposit: d.depositSent } : {}),
+              ...(d.optionsSent !== undefined ? { options: d.optionsSent } : {}),
             })
           : await command<{ estimateId: string }>(
               db,
               ctx,
               'estimate.create',
-              defined({ ...header, notes: d.notes, deposit: d.depositSent, expiresOn: d.day }),
+              defined({
+                ...header,
+                notes: d.notes,
+                deposit: d.depositSent,
+                expiresOn: d.day,
+                options: d.optionsSent ?? undefined,
+              }),
             );
         return {
           outcome: d.before
-            ? `Saved the draft · ${money(d.totals.totalCents)}`
-            : `Draft estimate for ${who} saved · ${money(d.totals.totalCents)}`,
+            ? `Saved the draft · ${savedWords(d)}`
+            : `Draft estimate for ${who} saved · ${savedWords(d)}`,
           href: moneyPaths(ctx.workspaceId).estimate(out.estimateId),
           command: d.before ? 'estimate.update' : 'estimate.create',
         };
@@ -1114,6 +1285,21 @@ function writeTool(kind: 'estimate' | 'invoice'): SettingsConfirmTool {
 
 const estimateName = (e: { number: string | null }) => e.number ?? 'the draft estimate';
 const invoiceName = (i: { number: string | null }) => i.number ?? 'the draft invoice';
+
+/**
+ * The option a yes is for. An estimate with options needs one named, by its number; one with one price takes none.
+ */
+function optionChosen(e: Estimate, asked: unknown): Estimate['options'][number] | null {
+  if (!e.options.length) return null;
+  const offered = e.options.map((o) => `${o.position} (${o.name})`).join(', ');
+  const chosen = e.options.find((o) => o.position === num(asked));
+  if (!chosen)
+    throw HfosError.validation(
+      [{ path: 'option', message: 'Say which option they chose.' }],
+      `This estimate offers ${counted(e.options.length, 'option')}. Say which one they chose in option: ${offered}.`,
+    );
+  return chosen;
+}
 
 const manageEstimate: SettingsConfirmTool = {
   async prepare(db, ctx, args, toolCallId) {
@@ -1183,12 +1369,18 @@ const manageEstimate: SettingsConfirmTool = {
                 'That estimate can’t be approved as it stands. Write a new one and send it instead.'),
         );
       const name = str(args['name']) ?? who;
+      const chosen = optionChosen(e, args['option']);
       return {
         card: billCard(toolCallId, 'manage_estimate', {
           title: `Mark ${estimateName(e)} approved?`,
           personId: e.person.id,
           fields: [
-            ...base,
+            ...(chosen
+              ? [
+                  ...base.slice(0, 2),
+                  { label: 'Option', value: `${chosen.name} · ${money(chosen.totals.totalCents)}` },
+                ]
+              : base),
             { label: 'Who said yes', value: name },
             { label: 'Note', value: str(args['note']) ?? '' },
           ],
@@ -1198,22 +1390,34 @@ const manageEstimate: SettingsConfirmTool = {
               kind: 'note',
               text: 'Recorded in your name, with the moment, as a yes taken by phone or in person — never as their own approval.',
             },
-            ...(e.depositCents > 0
+            ...((chosen?.depositCents ?? e.depositCents) > 0
               ? [
                   {
                     kind: 'note',
-                    text: `It asks for ${money(e.depositCents)} up front. Turn it into an invoice to collect it.`,
+                    text: `It asks for ${money(chosen?.depositCents ?? e.depositCents)} up front. Turn it into an invoice to collect it.`,
                   },
                 ]
               : []),
           ],
         }),
-        result: { waiting: true, estimate: estimateName(e), name },
+        result: {
+          waiting: true,
+          estimate: estimateName(e),
+          name,
+          ...(chosen ? { option: chosen.name } : {}),
+        },
       };
     }
     // make_invoice
     const notYet = estimateInvoiceProblem(e.status as EstimateStatus);
     if (notYet) throw HfosError.rule('estimate_not_answered', 409, notYet);
+    // With options, the invoice is for the one they picked, so it waits for their yes.
+    if (e.options.length && e.status !== 'accepted')
+      throw HfosError.rule(
+        'estimate_pick_option',
+        409,
+        `This estimate offers ${counted(e.options.length, 'option')}, and ${first} hasn’t picked one yet. Once they approve one, or you record their yes with manage_estimate record_yes and the option, it can be invoiced.`,
+      );
     const depositOnly = args['bill'] === 'deposit_only';
     if (depositOnly && e.depositCents <= 0)
       throw HfosError.rule(
@@ -1279,10 +1483,12 @@ const manageEstimate: SettingsConfirmTool = {
     }
     if (act === 'record_yes') {
       const { estimate: e } = await estimateOf(db, ctx, estimateId);
+      const chosen = optionChosen(e, args['option']);
       await command(db, ctx, 'estimate.mark_accepted', {
         estimateId,
         name: str(args['name']) ?? e.person.fullName,
         note: str(args['note']) ?? null,
+        ...(chosen ? { option: chosen.position } : {}),
       });
       return {
         outcome: 'Marked approved',
@@ -2599,12 +2805,28 @@ async function estimateDocument(
       id: e.id,
       number: e.number,
       state,
-      canChange: e.status === 'draft',
+      canChange: e.status === 'draft' && !e.builtBy?.running,
       customer: { personId: e.person.id, name: e.person.fullName },
       for: e.title,
       leadId: e.leadId,
       startedBy: e.assignee?.fullName ?? null,
       lines: linesResult(e.lines),
+      // Good, better, best: each option's own lines and total. The lines above are the picked one's, or the
+      // first's until the customer picks.
+      ...(e.options.length
+        ? {
+            options: e.options.map((o) => ({
+              option: o.position,
+              name: o.name,
+              picked: e.status === 'accepted' && o.picked,
+              lines: linesResult(o.lines),
+              total: money(o.totals.totalCents),
+              deposit: o.depositCents > 0 ? money(o.depositCents) : 'none',
+            })),
+            linesAre: e.optionName,
+          }
+        : {}),
+      ...(e.builtBy?.running ? { builtIn: e.builtBy.name } : {}),
       ...totalsResult(e.totals),
       discount: discountResult(e.totals),
       total: money(e.totals.totalCents),
@@ -2635,7 +2857,20 @@ async function estimateDocument(
       type: 'money',
       title: `${e.number ?? 'Draft estimate'} · ${e.person.fullName}`,
       value: money(e.totals.totalCents),
-      detail: [state, e.title].filter(Boolean).join(' · '),
+      detail: [
+        state,
+        e.title,
+        e.options.length
+          ? e.status === 'accepted'
+            ? `the “${e.optionName ?? ''}” option`
+            : optionsWords(
+                e.options,
+                e.options.map((o) => o.totals.totalCents),
+              )
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       tone: toneOf(e.state),
       stats: [
         ...(e.depositCents > 0

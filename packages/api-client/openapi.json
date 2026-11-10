@@ -40982,7 +40982,7 @@
     "/v1/commands/estimate.create": {
       "post": {
         "operationId": "command_estimate_create",
-        "summary": "Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It stays a draft until it is sent.",
+        "summary": "Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It can offer two or three options (good, better, best), each with its own lines, for the customer to pick from. It stays a draft until it is sent.",
         "tags": [
           "commands"
         ],
@@ -41181,6 +41181,102 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "lines": {
+                              "default": [],
+                              "maxItems": 200,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "productId": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "description": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1000000
+                                  },
+                                  "unitLabel": {
+                                    "default": "each",
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "unitPriceCents": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  },
+                                  "taxable": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "discountCents": {
+                                    "default": 0,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "quantity",
+                                  "unitPriceCents"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -41252,7 +41348,7 @@
     "/v1/commands/estimate.update": {
       "post": {
         "operationId": "command_estimate_update",
-        "summary": "Save a draft estimate: its header and all of its lines at once, against the revision you loaded. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.",
+        "summary": "Save a draft estimate: its header and all of its lines at once, against the revision you loaded, with its options (good, better, best) when it offers more than one. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.",
         "tags": [
           "commands"
         ],
@@ -41457,6 +41553,102 @@
                       }
                     ]
                   },
+                  "options": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "lines": {
+                              "default": [],
+                              "maxItems": 200,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "productId": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "description": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1000000
+                                  },
+                                  "unitLabel": {
+                                    "default": "each",
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "unitPriceCents": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  },
+                                  "taxable": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "discountCents": {
+                                    "default": 0,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "quantity",
+                                  "unitPriceCents"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "baseRevision": {
                     "type": "integer",
                     "minimum": 1,
@@ -41652,7 +41844,7 @@
     "/v1/commands/estimate.mark_accepted": {
       "post": {
         "operationId": "command_estimate_mark_accepted",
-        "summary": "Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval.",
+        "summary": "Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval. For an estimate that offers options, say which one they chose.",
         "tags": [
           "commands"
         ],
@@ -41684,6 +41876,18 @@
                       {
                         "type": "string",
                         "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "option": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3
                       },
                       {
                         "type": "null"
@@ -41744,6 +41948,31 @@
                     },
                     "wording": {
                       "type": "string"
+                    },
+                    "option": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "position": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "position",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -41753,7 +41982,8 @@
                     "acceptedName",
                     "acceptedVia",
                     "acceptedHash",
-                    "wording"
+                    "wording",
+                    "option"
                   ],
                   "additionalProperties": false
                 }
@@ -176202,6 +176432,17 @@
                           "depositCents": {
                             "type": "number"
                           },
+                          "optionCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "optionName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "expiresOn": {
                             "anyOf": [
                               {
@@ -176293,6 +176534,8 @@
                           "totals",
                           "deposit",
                           "depositCents",
+                          "optionCount",
+                          "optionName",
                           "expiresOn",
                           "sentAt",
                           "firstViewedAt",
@@ -176553,6 +176796,17 @@
                         "depositCents": {
                           "type": "number"
                         },
+                        "optionCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "optionName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "expiresOn": {
                           "anyOf": [
                             {
@@ -176787,6 +177041,187 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "lines": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "position": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "productId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "type": "number"
+                                    },
+                                    "unitLabel": {
+                                      "type": "string"
+                                    },
+                                    "unitPriceCents": {
+                                      "type": "number"
+                                    },
+                                    "taxable": {
+                                      "type": "boolean"
+                                    },
+                                    "discountCents": {
+                                      "type": "number"
+                                    },
+                                    "allocatedCents": {
+                                      "type": "number"
+                                    },
+                                    "amountCents": {
+                                      "type": "number"
+                                    },
+                                    "netCents": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "position",
+                                    "productId",
+                                    "name",
+                                    "description",
+                                    "quantity",
+                                    "unitLabel",
+                                    "unitPriceCents",
+                                    "taxable",
+                                    "discountCents",
+                                    "allocatedCents",
+                                    "amountCents",
+                                    "netCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "totals": {
+                                "type": "object",
+                                "properties": {
+                                  "subtotalCents": {
+                                    "type": "number"
+                                  },
+                                  "discountCents": {
+                                    "type": "number"
+                                  },
+                                  "discountPercentBp": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "taxableBaseCents": {
+                                    "type": "number"
+                                  },
+                                  "taxCents": {
+                                    "type": "number"
+                                  },
+                                  "taxRateBp": {
+                                    "type": "number"
+                                  },
+                                  "taxLabel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "totalCents": {
+                                    "type": "number"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "subtotalCents",
+                                  "discountCents",
+                                  "discountPercentBp",
+                                  "taxableBaseCents",
+                                  "taxCents",
+                                  "taxRateBp",
+                                  "taxLabel",
+                                  "totalCents",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "depositCents": {
+                                "type": "number"
+                              },
+                              "picked": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "position",
+                              "name",
+                              "lines",
+                              "totals",
+                              "depositCents",
+                              "picked"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "builtBy": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "addonId": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "running": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "addonId",
+                                "name",
+                                "running"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -176802,6 +177237,8 @@
                         "totals",
                         "deposit",
                         "depositCents",
+                        "optionCount",
+                        "optionName",
                         "expiresOn",
                         "sentAt",
                         "firstViewedAt",
@@ -176818,7 +177255,9 @@
                         "acceptedWording",
                         "declinedReason",
                         "voidReason",
-                        "lines"
+                        "lines",
+                        "options",
+                        "builtBy"
                       ],
                       "additionalProperties": false
                     },
@@ -179733,6 +180172,17 @@
                           "depositCents": {
                             "type": "number"
                           },
+                          "optionCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "optionName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "expiresOn": {
                             "anyOf": [
                               {
@@ -179824,6 +180274,8 @@
                           "totals",
                           "deposit",
                           "depositCents",
+                          "optionCount",
+                          "optionName",
                           "expiresOn",
                           "sentAt",
                           "firstViewedAt",

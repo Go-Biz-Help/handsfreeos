@@ -81,6 +81,12 @@ export type SlotEntities = EverySlot<{
     readonly onUse: (text: string) => void;
   };
   'main_offer.panels': object;
+  /** An estimate's page in Money. `builtBy` is the add-on whose builder wrote it, if one did. */
+  'estimate.panels': {
+    readonly estimateId: string;
+    readonly status: string;
+    readonly builtBy: string | null;
+  };
 }>;
 
 /** What a panel in slot `S` is drawn with. */

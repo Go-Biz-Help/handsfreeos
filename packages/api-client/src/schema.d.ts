@@ -3907,7 +3907,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It stays a draft until it is sent.
+         * Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It can offer two or three options (good, better, best), each with its own lines, for the customer to pick from. It stays a draft until it is sent.
          * @description Risk level 1. Requires money.bill. Emits estimate.created.
          */
         post: operations["command_estimate_create"];
@@ -3927,7 +3927,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval.
+         * Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval. For an estimate that offers options, say which one they chose.
          * @description Risk level 2. Requires money.bill. Emits estimate.accepted.
          */
         post: operations["command_estimate_mark_accepted"];
@@ -3967,7 +3967,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a draft estimate: its header and all of its lines at once, against the revision you loaded. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.
+         * Save a draft estimate: its header and all of its lines at once, against the revision you loaded, with its options (good, better, best) when it offers more than one. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.
          * @description Risk level 1. Requires money.bill. Emits estimate.updated.
          */
         post: operations["command_estimate_update"];
@@ -33791,6 +33791,25 @@ export interface operations {
                         unitPriceCents: number;
                     }[];
                     notes?: string | null;
+                    options?: {
+                        /** @default [] */
+                        lines?: {
+                            /** @default null */
+                            description?: string | null;
+                            /** @default 0 */
+                            discountCents?: number;
+                            name: string;
+                            /** @default null */
+                            productId?: string | null;
+                            quantity: number;
+                            /** @default true */
+                            taxable?: boolean;
+                            /** @default each */
+                            unitLabel?: string;
+                            unitPriceCents: number;
+                        }[];
+                        name: string;
+                    }[] | null;
                     /** Format: uuid */
                     personId: string;
                     title?: string | null;
@@ -33834,6 +33853,7 @@ export interface operations {
                     estimateId: string;
                     name: string;
                     note?: string | null;
+                    option?: number | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -33855,6 +33875,10 @@ export interface operations {
                         acceptedVia: "link" | "staff";
                         /** Format: uuid */
                         estimateId: string;
+                        option: {
+                            name: string;
+                            position: number;
+                        } | null;
                         /** @enum {string} */
                         status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
                         wording: string;
@@ -33960,6 +33984,25 @@ export interface operations {
                         unitPriceCents: number;
                     }[];
                     notes?: string | null;
+                    options?: {
+                        /** @default [] */
+                        lines?: {
+                            /** @default null */
+                            description?: string | null;
+                            /** @default 0 */
+                            discountCents?: number;
+                            name: string;
+                            /** @default null */
+                            productId?: string | null;
+                            quantity: number;
+                            /** @default true */
+                            taxable?: boolean;
+                            /** @default each */
+                            unitLabel?: string;
+                            unitPriceCents: number;
+                        }[];
+                        name: string;
+                    }[] | null;
                     /** Format: uuid */
                     personId: string;
                     title?: string | null;
@@ -73158,6 +73201,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            builtBy: {
+                                addonId: string;
+                                name: string;
+                                running: boolean;
+                            } | null;
                             /** Format: date-time */
                             createdAt: string;
                             declinedAt: string | null;
@@ -73193,6 +73241,39 @@ export interface operations {
                             linkVersion: number;
                             notes: string | null;
                             number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
+                            options: {
+                                depositCents: number;
+                                lines: {
+                                    allocatedCents: number;
+                                    amountCents: number;
+                                    description: string | null;
+                                    discountCents: number;
+                                    name: string;
+                                    netCents: number;
+                                    position: number;
+                                    productId: string | null;
+                                    quantity: number;
+                                    taxable: boolean;
+                                    unitLabel: string;
+                                    unitPriceCents: number;
+                                }[];
+                                name: string;
+                                picked: boolean;
+                                position: number;
+                                totals: {
+                                    currency: string;
+                                    discountCents: number;
+                                    discountPercentBp: number | null;
+                                    subtotalCents: number;
+                                    taxableBaseCents: number;
+                                    taxCents: number;
+                                    taxLabel: string | null;
+                                    taxRateBp: number;
+                                    totalCents: number;
+                                };
+                            }[];
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -73295,6 +73376,8 @@ export interface operations {
                             id: string;
                             leadId: string | null;
                             number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -77923,6 +78006,8 @@ export interface operations {
                             id: string;
                             leadId: string | null;
                             number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
                             person: {
                                 email: string | null;
                                 fullName: string;

@@ -32,15 +32,23 @@ import { cn } from '@/lib/utils';
 import { connectionLabel, SendDialog, VoidDialog } from './document-actions';
 import {
   accountsFor,
+  addOption,
   depositTerms,
   draftBody,
   draftProblem,
   draftTotals,
   firstAccount,
   newLine,
+  optionLines,
+  OPTIONS_MAX,
+  optionsBody,
+  removeOption,
+  smallestTotalCents,
+  withOptionLines,
   type DocumentDraft,
   type DraftLine,
 } from './draft';
+import { OptionsBar } from './estimate-options';
 import { unitWord } from './document-view';
 import { LineSheet } from './line-sheet';
 import { MoneyInput, PercentInput, QuantityInput } from './money-input';
@@ -100,6 +108,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const [sheetKey, setSheetKey] = useState<string | null>(null);
   const [openTotals, setOpenTotals] = useState(false);
   const [wantsTheirs, setWantsTheirs] = useState(false);
+  // Which option's lines are on screen. Kept beside the draft, so looking at another option isn't a change.
+  const [openOption, setOpenOption] = useState(0);
+  const active = Math.min(openOption, Math.max(0, draft.options.length - 1));
   /**
    * The phone's sticky totals bar grows when the totals are opened, so a spacer of a fixed height would let
    * it cover the last line of the sheet. It is measured instead, and the spacer is whatever it really is.
@@ -123,18 +134,19 @@ export function DocumentEditor(props: DocumentEditorProps) {
   const theirs = firstAccount(connections);
 
   const set = (patch: Partial<DocumentDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  // Lines are the open option's, or the document's own when it has one price.
   const setLine = (key: string, patch: Partial<DraftLine>) =>
-    setDraft((d) => ({
-      ...d,
-      lines: d.lines.map((l) => (l.key === key ? { ...l, ...patch } : l)),
-    }));
+    setDraft((d) =>
+      withOptionLines(d, active, (lines) =>
+        lines.map((l) => (l.key === key ? { ...l, ...patch } : l)),
+      ),
+    );
   const removeLine = (key: string) =>
-    setDraft((d) => ({ ...d, lines: d.lines.filter((l) => l.key !== key) }));
+    setDraft((d) => withOptionLines(d, active, (lines) => lines.filter((l) => l.key !== key)));
   const addLine = (picked: PickedProduct) =>
-    setDraft((d) => ({
-      ...d,
-      lines: [
-        ...d.lines,
+    setDraft((d) =>
+      withOptionLines(d, active, (lines) => [
+        ...lines,
         newLine({
           productId: picked.productId,
           name: picked.name,
@@ -143,20 +155,25 @@ export function DocumentEditor(props: DocumentEditorProps) {
           unitLabel: picked.unitLabel,
           taxable: picked.taxable,
         }),
-      ],
-    }));
+      ]),
+    );
 
-  const totals = useMemo(() => draftTotals(draft, settings), [draft, settings]);
+  const lines = optionLines(draft, active);
+  const option = draft.options[active] ?? null;
+  const totals = useMemo(() => draftTotals(draft, settings, active), [draft, settings, active]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(edit.draft);
   const problem = draftProblem(draft);
+  // A deposit of a set amount has to fit inside the smallest option, since they may pick that one.
   const depositIssue =
-    kind === 'estimate' ? depositProblem(depositTerms(draft), totals.totalCents) : null;
+    kind === 'estimate'
+      ? depositProblem(depositTerms(draft), smallestTotalCents(draft, settings))
+      : null;
   // Only a document this page was loaded with can go stale: a draft created here has no server props behind it.
   const stale = props.documentId !== null && props.documentId === documentId && revision > edit.rev;
   const taxed = settings.tax.rateBp > 0;
   const today = localDateOf(Date.now(), timeZone);
   const expiresOn = draft.expiresOn ?? addDays(today, settings.estimateGoodForDays);
-  const sheetLine = draft.lines.find((l) => l.key === sheetKey) ?? null;
+  const sheetLine = lines.find((l) => l.key === sheetKey) ?? null;
 
   // "Load their version" waits for the refresh to land rather than adopting whatever was on screen when it
   // was pressed, so the button is honest however slow the round trip is.
@@ -182,7 +199,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
     try {
       const header = draftBody(draft, workspaceId);
       if (kind === 'estimate') {
-        const ends = { deposit: depositTerms(draft), expiresOn: draft.expiresOn };
+        const ends = {
+          deposit: depositTerms(draft),
+          expiresOn: draft.expiresOn,
+          options: optionsBody(draft),
+        };
         const out = documentId
           ? unwrap(
               await apiBrowser().POST('/v1/commands/estimate.update', {
@@ -463,6 +484,34 @@ export function DocumentEditor(props: DocumentEditorProps) {
               </span>
             </div>
 
+            {kind === 'estimate' ? (
+              <OptionsBar
+                options={draft.options.map((o, i) => ({
+                  key: o.key,
+                  name: o.name,
+                  totalCents: draftTotals(draft, settings, i).totalCents,
+                }))}
+                active={active}
+                max={OPTIONS_MAX}
+                onPick={setOpenOption}
+                onAdd={() => {
+                  // The new option opens, ready for what makes it different.
+                  setOpenOption(Math.max(1, draft.options.length));
+                  setDraft(addOption);
+                }}
+                onRename={(index, name) =>
+                  setDraft((d) => ({
+                    ...d,
+                    options: d.options.map((o, i) => (i === index ? { ...o, name } : o)),
+                  }))
+                }
+                onRemove={(index) => {
+                  setOpenOption(0);
+                  setDraft((d) => removeOption(d, index));
+                }}
+              />
+            ) : null}
+
             {/* Desk: a row each */}
             <div className="max-md:hidden">
               <div
@@ -478,7 +527,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
                 <span className="text-right">Amount</span>
                 <span />
               </div>
-              {draft.lines.map((line) => (
+              {lines.map((line) => (
                 <div
                   key={line.key}
                   className={cn('grid items-center gap-2.5 border-t border-border py-2', GRID)}
@@ -555,7 +604,7 @@ export function DocumentEditor(props: DocumentEditorProps) {
 
             {/* Phone: a card each, with the full editor a tap away */}
             <ul className="flex flex-col gap-2.5 md:hidden">
-              {draft.lines.map((line) => (
+              {lines.map((line) => (
                 <li
                   key={line.key}
                   className="flex flex-col gap-2 rounded-card border border-border bg-card p-3 shadow-1"
@@ -617,9 +666,11 @@ export function DocumentEditor(props: DocumentEditorProps) {
               ))}
             </ul>
 
-            {draft.lines.length === 0 ? (
+            {lines.length === 0 ? (
               <p className="border-t border-border py-4 text-[13px] text-text-3">
-                Nothing on it yet. Add a line, or pick one from the catalogue.
+                {option
+                  ? `Nothing in “${option.name.trim() || 'this option'}” yet. Add a line, or pick one from the catalogue.`
+                  : 'Nothing on it yet. Add a line, or pick one from the catalogue.'}
               </p>
             ) : null}
 
@@ -687,7 +738,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
         {/* The right-hand column: totals, deposit or terms, and what happens on Send */}
         <div className="flex flex-col gap-4">
           <Card className="px-[18px] py-4 max-md:hidden">
-            <h2 className="mb-1.5 text-base font-semibold tracking-tight">Totals</h2>
+            <h2 className="mb-1.5 text-base font-semibold tracking-tight">
+              {option ? `Totals for “${option.name.trim() || 'this option'}”` : 'Totals'}
+            </h2>
             {totalsBlock}
             {taxed ? (
               <MoneyNote icon={<Info className="h-3.5 w-3.5" strokeWidth={1.75} />}>
@@ -713,6 +766,13 @@ export function DocumentEditor(props: DocumentEditorProps) {
           <Card className="px-[18px] py-4">
             <h2 className="mb-1 text-base font-semibold tracking-tight">When you send</h2>
             <TotalRow label="Goes by" value="Text and email" />
+            {draft.options.length ? (
+              <TotalRow
+                label="Options"
+                value={`${draft.options.length}, and they pick one`}
+                testId="send-options"
+              />
+            ) : null}
             {kind === 'estimate' ? (
               <TotalRow
                 label="Good until"
@@ -760,7 +820,9 @@ export function DocumentEditor(props: DocumentEditorProps) {
         {/* Opened, the bar shows the breakdown only: its own big Total is right underneath. */}
         {openTotals ? <div className="px-0.5">{totalsBreakdown}</div> : null}
         <div className="flex items-center justify-between px-0.5">
-          <span className="text-[15px] font-semibold">Total</span>
+          <span className="text-[15px] font-semibold">
+            {option ? `Total for “${option.name.trim() || 'this option'}”` : 'Total'}
+          </span>
           <span className="text-[22px] font-semibold tabular-nums" data-testid="phone-total">
             {money(totals.totalCents)}
           </span>

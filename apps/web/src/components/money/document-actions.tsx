@@ -235,16 +235,20 @@ export function MarkAcceptedDialog({
   workspaceId,
   estimateId,
   personName,
+  options = [],
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId: string;
   estimateId: string;
   personName: string;
+  /** Its options, when it offers them: saying yes means saying which. */
+  options?: readonly { position: number; name: string; totalCents: number }[];
 }) {
   const router = useRouter();
   const [name, setName] = useState(personName);
   const [note, setNote] = useState('');
+  const [option, setOption] = useState('');
   const [busy, act] = useAction();
 
   return (
@@ -254,6 +258,23 @@ export function MarkAcceptedDialog({
         description="Recorded in your name, with the moment, so the estimate reads honestly later."
       >
         <div className="mt-4 flex flex-col gap-3.5" data-testid="accepted-dialog">
+          {options.length ? (
+            <Field label="Which option they chose" htmlFor="accepted-option">
+              <Select
+                id="accepted-option"
+                value={option}
+                onChange={(e) => setOption(e.target.value)}
+                data-testid="accepted-option"
+              >
+                <option value="">Pick one</option>
+                {options.map((o) => (
+                  <option key={o.position} value={o.position}>
+                    {o.name} · {money(o.totalCents)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
           <Field label="Who said yes" htmlFor="accepted-name">
             <Input
               id="accepted-name"
@@ -279,7 +300,7 @@ export function MarkAcceptedDialog({
           </DialogClose>
           <Button
             loading={busy}
-            disabled={!name.trim()}
+            disabled={!name.trim() || (options.length > 0 && !option)}
             data-testid="accepted-confirm"
             onClick={() =>
               void act(async () => {
@@ -290,6 +311,7 @@ export function MarkAcceptedDialog({
                       estimateId,
                       name: name.trim(),
                       note: note.trim() || null,
+                      ...(options.length ? { option: Number(option) } : {}),
                     },
                   }),
                 );

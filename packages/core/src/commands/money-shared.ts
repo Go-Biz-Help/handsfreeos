@@ -44,7 +44,7 @@ import {
   type InvoiceStatus,
   type MoneySettings,
 } from '../money/index';
-import type { MoneyLineInput, MoneyTerms } from '../schemas/money';
+import type { EstimateOptionInput, MoneyLineInput, MoneyTerms } from '../schemas/money';
 
 export const DOCUMENT_COUNTER_KINDS = ['estimate', 'invoice'] as const;
 export type DocumentKind = (typeof DOCUMENT_COUNTER_KINDS)[number];
@@ -324,6 +324,12 @@ export type EstimateRow = {
   declined_reason: string | null;
   voided_at: Date | string | null;
   void_reason: string | null;
+  /** How many options it offers (0 for one price), which one its own lines are, and that one's name. */
+  option_count: number;
+  option_position: number | null;
+  option_name: string | null;
+  /** The add-on whose builder wrote it. */
+  addon_id: string | null;
   created_at: Date | string;
   revision: number;
 };
@@ -460,6 +466,8 @@ export const estimateSelect = sql`
     e.expires_on::text as expires_on, e.sent_at, e.first_viewed_at, e.accepted_at, e.accepted_via,
     e.accepted_by, coalesce(nullif(cu.full_name, ''), cu.email::text) as accepted_by_name,
     e.accepted_name, e.accepted_wording, e.declined_at, e.declined_reason, e.voided_at, e.void_reason,
+    coalesce(jsonb_array_length(e.options), 0) as option_count, e.option_position,
+    e.options -> (e.option_position - 1) ->> 'name' as option_name, e.addon_id,
     e.created_at, ${ESTIMATE_REVISION}
   from app.estimates e
   left join app.people pe on pe.id = e.person_id
@@ -630,6 +638,8 @@ export function estimateOut(r: EstimateRow, now: number, timeZone: string) {
     totals: totalsOf(r),
     deposit: depositTermsOf(r),
     depositCents: depositOf(r),
+    optionCount: Math.round(num(r.option_count)),
+    optionName: r.option_name,
     expiresOn: r.expires_on,
     sentAt: moneyIso(r.sent_at),
     firstViewedAt: moneyIso(r.first_viewed_at),
@@ -861,6 +871,182 @@ export function subscriptionOut(r: SubscriptionRow) {
     lastError: r.last_error,
     createdAt: isoAt(r.created_at),
   };
+}
+
+// ---------- an estimate's options: good, better, best (20261027024100) ----------
+
+/**
+ * One option as `app.estimates.options` keeps it: its name, its lines as they were written and the totals core
+ * worked out for it, frozen with the estimate when it goes out. `private.estimate_pick_option` reads the same
+ * shape to copy the picked one in, so a key renamed here is renamed there.
+ */
+export interface StoredEstimateOption {
+  readonly name: string;
+  readonly lines: readonly {
+    readonly productId: string | null;
+    readonly name: string;
+    readonly description: string | null;
+    readonly quantity: number;
+    readonly unitLabel: string;
+    readonly unitPriceCents: number;
+    readonly taxable: boolean;
+    readonly discountCents: number;
+    readonly amountCents: number;
+  }[];
+  readonly totals: {
+    readonly subtotalCents: number;
+    readonly discountCents: number;
+    readonly taxableBaseCents: number;
+    readonly taxCents: number;
+    readonly totalCents: number;
+  };
+}
+
+/** Why a set of options can't be saved, or null: each needs a name of its own. */
+export function estimateOptionsProblem(options: readonly EstimateOptionInput[]): string | null {
+  const seen = new Set<string>();
+  for (const o of options) {
+    const key = o.name.trim().toLowerCase();
+    if (seen.has(key))
+      return `Two options are both called “${o.name.trim()}”. Give each one its own name.`;
+    seen.add(key);
+  }
+  return null;
+}
+
+/**
+ * Each option's figures, in order, under the one discount, deposit and tax rate the estimate carries: "10% off"
+ * is 10% off whichever they pick.
+ */
+export function optionDrafts(
+  options: readonly EstimateOptionInput[],
+  settings: MoneySettings,
+  terms: { discount?: MoneyTerms; deposit?: MoneyTerms; taxRateBp?: number; taxLabel?: string },
+): { readonly name: string; readonly draft: DocumentDraft }[] {
+  return options.map((o) => ({ name: o.name.trim(), draft: draftOf(o.lines, settings, terms) }));
+}
+
+/** The options as the estimate row keeps them. */
+export function storedOptions(
+  drafts: readonly { readonly name: string; readonly draft: DocumentDraft }[],
+): StoredEstimateOption[] {
+  return drafts.map(({ name, draft }) => ({
+    name,
+    lines: draft.lines.map((l) => ({
+      productId: l.productId ?? null,
+      name: l.name,
+      description: l.description ?? null,
+      quantity: l.quantity,
+      unitLabel: l.unitLabel,
+      unitPriceCents: l.unitPriceCents,
+      taxable: l.taxable,
+      discountCents: Math.max(0, Math.round(l.discountCents)),
+      amountCents: lineAmountCents(l.quantity, l.unitPriceCents),
+    })),
+    totals: {
+      subtotalCents: draft.totals.subtotalCents,
+      discountCents: draft.totals.discountCents,
+      taxableBaseCents: draft.totals.taxableBaseCents,
+      taxCents: draft.totals.taxCents,
+      totalCents: draft.totals.totalCents,
+    },
+  }));
+}
+
+/** An estimate's options as they're kept, in order; none for an estimate with one price. */
+export async function estimateOptionsOf(
+  tx: Tx,
+  estimateId: string,
+): Promise<StoredEstimateOption[]> {
+  const [row] = await rows<{ options: StoredEstimateOption[] | null }>(
+    tx,
+    sql`select options from app.estimates where id = ${estimateId}::uuid`,
+  );
+  return row?.options ?? [];
+}
+
+/** A kept option's lines as a command takes them back, for a save that changes only some of the options. */
+export const optionLinesIn = (o: StoredEstimateOption): MoneyLineInput[] =>
+  o.lines.map((l) => ({
+    productId: l.productId,
+    name: l.name,
+    description: l.description,
+    quantity: l.quantity,
+    unitLabel: l.unitLabel,
+    unitPriceCents: l.unitPriceCents,
+    taxable: l.taxable,
+    discountCents: l.discountCents,
+  }));
+
+/**
+ * The options as the API returns them: each with its lines, its totals block and what the estimate's deposit
+ * comes to on it. The tax rate, the discount as it was written and the deposit terms are the estimate's own.
+ */
+export function estimateOptionsOut(
+  stored: readonly StoredEstimateOption[],
+  row: Pick<
+    EstimateRow,
+    | 'id'
+    | 'discount_percent_bp'
+    | 'tax_rate_bp'
+    | 'tax_label'
+    | 'currency'
+    | 'deposit_percent_bp'
+    | 'deposit_cents'
+    | 'option_position'
+  >,
+) {
+  return stored.map((o, i) => {
+    const asRows: MoneyLineRow[] = o.lines.map((l, n) => ({
+      id: '',
+      document_id: row.id,
+      position: n,
+      product_id: l.productId,
+      name: l.name,
+      description: l.description,
+      quantity: String(l.quantity),
+      unit_label: l.unitLabel,
+      unit_price_cents: l.unitPriceCents,
+      taxable: l.taxable,
+      discount_cents: l.discountCents,
+      amount_cents: l.amountCents,
+    }));
+    return {
+      position: i + 1,
+      name: o.name,
+      lines: linesOut(asRows, o.totals.discountCents).map((l) => ({
+        position: l.position,
+        productId: l.productId,
+        name: l.name,
+        description: l.description,
+        quantity: l.quantity,
+        unitLabel: l.unitLabel,
+        unitPriceCents: l.unitPriceCents,
+        taxable: l.taxable,
+        discountCents: l.discountCents,
+        allocatedCents: l.allocatedCents,
+        amountCents: l.amountCents,
+        netCents: l.netCents,
+      })),
+      totals: {
+        subtotalCents: o.totals.subtotalCents,
+        discountCents: o.totals.discountCents,
+        discountPercentBp: row.discount_percent_bp,
+        taxableBaseCents: o.totals.taxableBaseCents,
+        taxCents: o.totals.taxCents,
+        taxRateBp: row.tax_rate_bp,
+        taxLabel: row.tax_label,
+        totalCents: o.totals.totalCents,
+        currency: row.currency,
+      },
+      depositCents: depositOf({
+        deposit_percent_bp: row.deposit_percent_bp,
+        deposit_cents: row.deposit_cents,
+        total_cents: o.totals.totalCents,
+      }),
+      picked: row.option_position === i + 1,
+    };
+  });
 }
 
 /** `lineOut` for one line with no document discount to share (a get always has the document's). */
