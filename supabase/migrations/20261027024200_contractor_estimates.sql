@@ -121,3 +121,9 @@ create table addon_contractor.estimate_oks (
 create index estimate_oks_workspace_idx on addon_contractor.estimate_oks (workspace_id, estimate_id);
 create index estimate_oks_ok_by_idx on addon_contractor.estimate_oks (ok_by) where ok_by is not null;
 select private.addon_table_policies('addon_contractor.estimate_oks', 'contractor.use', 'contractor.approve', 'contractor.approve');
+
+-- Owners and admins in businesses where the add-on already runs get the new permission now.
+select private.refresh_workspace_access(wa.user_id, wa.workspace_id)
+from app.workspace_access wa
+join app.addon_installations i on i.workspace_id = wa.workspace_id
+where i.addon_id = 'contractor' and i.state = 'enabled';
