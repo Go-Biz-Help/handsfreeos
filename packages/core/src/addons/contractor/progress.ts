@@ -7,6 +7,7 @@
  * (the owner's decision 2, 2026-11-10). A project's % done is the average of its phases' (a done phase counts 100);
  * a service call's is what someone set, and 100 once it's done.
  */
+import { localDateOf } from '../../calendar/engine/zoned';
 
 export const JOB_KINDS = ['service', 'project'] as const;
 export type JobKind = (typeof JOB_KINDS)[number];
@@ -76,16 +77,8 @@ export function phasePercentFromStatus(status: PhaseStatus, percent: number): nu
  * The business's today, as `YYYY-MM-DD`, in its time zone: deadlines are days, and a job due today isn't late until
  * the day is over there.
  */
-export function todayIn(timeZone: string, at: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(at);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  return `${get('year')}-${get('month')}-${get('day')}`;
-}
+export const todayIn = (timeZone: string, at: Date = new Date()): string =>
+  localDateOf(at.getTime(), timeZone);
 
 /** Past its deadline and not finished. Days compare as `YYYY-MM-DD` text. */
 export const isLate = (dueOn: string | null, finished: boolean, today: string) =>
