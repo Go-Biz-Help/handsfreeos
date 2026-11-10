@@ -13,6 +13,7 @@ import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import {
   SOCIALCONTENT_WORDS as W,
   daysAgo,
+  numbersLines,
   postingLines,
 } from '@hfos/core/addons/socialcontent/words';
 import { CalendarCheck, CalendarPlus, PenLine } from 'lucide-react';
@@ -61,10 +62,13 @@ export function CalendarPage({
   const [openId, setOpenId] = useState<string | null>(openPostId);
   const [fetched, setFetched] = useState<Content | null>(null);
 
-  const all = useMemo(() => [...c.posts, ...c.undated], [c.posts, c.undated]);
+  const all = useMemo(
+    () => [...c.posts, ...c.undated, ...c.recent],
+    [c.posts, c.undated, c.recent],
+  );
   const open = all.find((p) => p.id === openId) ?? (fetched?.id === openId ? fetched : null);
 
-  // A post asked for that isn't in these two weeks (an older one, or one further ahead) is read on its own.
+  // A post asked for that isn't on the page (an older one, or one further ahead) is read on its own.
   useEffect(() => {
     if (!openId || all.some((p) => p.id === openId)) return;
     let gone = false;
@@ -249,6 +253,17 @@ export function CalendarPage({
         </section>
       ) : null}
 
+      {c.recent.length ? (
+        <section data-testid="socialcontent-recent">
+          <h2 className="mb-2 text-[13px] font-semibold text-text-2">{W.calendar.recent}</h2>
+          <div className="space-y-2">
+            {c.recent.map((p) => (
+              <PostRow key={p.id} post={p} timeZone={c.timeZone} onOpen={() => show(p.id)} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {open ? (
         <PostSheet
           key={open.id}
@@ -288,6 +303,8 @@ function PostRow({
   onOpen: () => void;
 }) {
   const first = p.pictures[0];
+  // A post that went up: its latest numbers, or that it did well, in one line.
+  const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork)).at(-1);
   return (
     <button
       type="button"
@@ -314,6 +331,14 @@ function PostRow({
         </div>
         {p.state === 'draft' && p.stillNeeds ? (
           <div className="mt-1 text-[12.5px] text-warning-text">{p.stillNeeds}</div>
+        ) : null}
+        {numbers ? (
+          <div
+            className={`mt-1 text-[12.5px] ${numbers.well ? 'text-success-text' : 'text-text-3'}`}
+            data-testid={`socialcontent-post-${p.id}-numbers`}
+          >
+            {numbers.text}
+          </div>
         ) : null}
       </div>
     </button>

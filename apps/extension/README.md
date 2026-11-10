@@ -1233,6 +1233,23 @@ The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
   words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
   so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
 
+### Reading how the business's own posts did (0.134.0)
+
+AI Social Media Content Creator's part 11 (`docs/socialcontent.md`, "Its own posts' numbers"). About 2 and 7 days
+after one of the business's own posts went up, the reading window reads its numbers (`src/research/own.ts`), each
+minute after posting and before any reading:
+
+- It asks for the next post whose read is due (`socialcontent.own.next`) on the networks it posts on with no warning
+  today, and opens the post by its link in each place it went up.
+- **Instagram:** the post's own answer by the number in its link (`mediaIdOf`, `mediaInfoPath`, read by `postOf` as
+  a creator's post is): views on a video, likes, comments and shares.
+- **Facebook and LinkedIn:** the post's own page, by the network's reader (`shownOf`); the post is the one that starts
+  the way its words do (`ownPostOf`, past "…" and See more), else the first. Its reactions count as likes, with its
+  comments; neither shows views or shares there.
+- It says what each place showed (`socialcontent.own.read`), or why it couldn't be read ("didn't show the post at its
+  link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
+  asked for again later, since one handed out is put off half an hour.
+
 ### Putting the business's own posts up on Instagram (0.133.0)
 
 AI Social Media Content Creator's part 10 (`docs/socialcontent.md`, "Posting"). Instagram joins Facebook and LinkedIn:

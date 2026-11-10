@@ -3,6 +3,8 @@
  * Assistant's places (./ai-places.ts) name the screens in them. Plain words, short sentences, curly apostrophes.
  * Browser-safe and pure.
  */
+import type { PostedTo, PostPlace } from './calendar';
+import { hasNumbers, OWN, type DoneWell, type OwnNumbers, type OwnNumbersRead } from './own';
 import { DONE_WELL, STANDOUT } from './standouts';
 
 /** Its pages, which pop out of its one row in the side menu. */
@@ -97,6 +99,62 @@ export function postingLines(
   }
   if (later.length)
     out.push({ text: SOCIALCONTENT_WORDS.calendar.laterOn(later.join(' and ')), warn: false });
+  return out;
+}
+
+/** A read's numbers in a line: "1,240 views · 86 likes · 9 comments", only those the network showed. */
+export function numbersLine(r: OwnNumbersRead): string {
+  if (!hasNumbers(r)) return SOCIALCONTENT_WORDS.post.numbers.couldnt(r.failure);
+  const parts = [
+    r.views !== null ? count(r.views, 'view') : null,
+    r.likes !== null ? count(r.likes, 'like') : null,
+    r.comments !== null ? count(r.comments, 'comment') : null,
+    r.shares !== null ? count(r.shares, 'share') : null,
+  ].filter((p): p is string => p !== null);
+  return parts.length ? parts.join(' · ') : SOCIALCONTENT_WORDS.post.numbers.noneShown;
+}
+
+/**
+ * How one of the business's own posts did (part 11), in lines to show: each place it went up, its numbers after about
+ * 2 days and about 7, and whether it did well against the business's own others (`well`). Before its first read it
+ * says when they're read; nothing for a post that hasn't gone up. The web and the phone both show these.
+ */
+export function numbersLines(
+  c: {
+    readonly network: string;
+    readonly postedTo: readonly PostedTo[];
+    readonly numbers: OwnNumbers;
+    readonly doneWell: DoneWell | null;
+  },
+  networkNameOf: (network: string) => string,
+): { text: string; well: boolean }[] {
+  const W = SOCIALCONTENT_WORDS.post;
+  if (!c.postedTo.length) return [];
+  const several = c.postedTo.length > 1;
+  const where = (place: PostPlace) =>
+    place === 'feed' ? W.wentUp.feed(networkNameOf(c.network)) : W.wentUp[place];
+  const out: { text: string; well: boolean }[] = [];
+  for (const p of c.postedTo) {
+    const reads = c.numbers[p.place] ?? {};
+    for (const r of [reads.d2, reads.d7]) {
+      if (!r) continue;
+      const line = `${W.numbers.after(r.days)}: ${numbersLine(r)}`;
+      out.push({
+        text: several ? `${where(p.place)}, ${line.charAt(0).toLowerCase()}${line.slice(1)}` : line,
+        well: false,
+      });
+    }
+  }
+  if (!out.length) return [{ text: W.numbers.soon, well: false }];
+  if (c.doneWell)
+    out.push({
+      text: W.numbers.doneWell(
+        c.doneWell.times,
+        c.doneWell.on,
+        several ? where(c.doneWell.place) : null,
+      ),
+      well: true,
+    });
   return out;
 }
 
@@ -236,7 +294,7 @@ export const SOCIALCONTENT_WORDS = {
   playbook: {
     title: 'Playbook',
     intro:
-      'What works for the creators you study, written by the AI from its notes on their standouts. Use it to plan your own posts.',
+      'What works for the creators you study, and for your own posts that did best, written by the AI from its notes on their standouts. Use it to plan your own posts.',
     none: 'No Playbook yet. Once a few standouts have the AI’s notes, it writes one here.',
     write: 'Write it again',
     writing: 'Writing…',
@@ -244,6 +302,7 @@ export const SOCIALCONTENT_WORDS = {
     written: (when: string, n: number) => `Written ${when} from ${count(n, 'standout')}.`,
     newSince: (n: number) => `${count(n, 'standout')} noted since.`,
     examples: 'From',
+    yourPost: 'Your post',
     nothingToWrite:
       'There’s nothing to write a Playbook from yet: no standout has the AI’s notes. Study creators first, then their standouts get notes on their own.',
   },
@@ -401,6 +460,7 @@ export const SOCIALCONTENT_WORDS = {
     laterOn: (networks: string) =>
       `Posting on ${networks} comes in a later update: copy those and post them yourself until then.`,
     empty: 'No posts yet. Fill the calendar, or write one from an idea under Ideas.',
+    recent: 'Went up lately',
     today: 'Today',
     tomorrow: 'Tomorrow',
   },
@@ -484,6 +544,15 @@ export const SOCIALCONTENT_WORDS = {
       feed: (network: string) => `On ${network}`,
     },
     didntPost: 'Didn’t post',
+    numbers: {
+      title: 'How it did',
+      after: (days: number) => `After ${days === 1 ? '1 day' : `${days} days`}`,
+      soon: `Its numbers are read ${OWN.firstDays} and ${OWN.secondDays} days after it went up.`,
+      noneShown: 'no numbers shown',
+      couldnt: (why: string) => `couldn’t read its numbers. ${why}`,
+      doneWell: (times: number, on: 'views' | 'engagement' | 'both', where: string | null) =>
+        `It did well: ${times} times your usual ${on === 'views' ? 'views' : on === 'both' ? 'views, likes and comments' : 'likes and comments'}${where ? ` ${where.charAt(0).toLowerCase()}${where.slice(1)}` : ''}. It goes into the Playbook.`,
+    },
     tryAgain:
       'Fix what it says, then press Post it now. Places it already went up in are left out, so it never goes up twice there.',
     copy: 'Copy the words',

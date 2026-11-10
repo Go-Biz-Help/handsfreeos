@@ -25,6 +25,7 @@ import type {
   PostedTo,
 } from './calendar';
 import type { ContentNetwork } from './networks';
+import type { DoneWell, OwnNumbers } from './own';
 import type {
   CreatorState,
   IdeaState,
@@ -251,6 +252,9 @@ export const content = addonSocialcontent.table(
     madeBy: text('made_by').notNull().$type<'ai' | 'person'>().default('ai'),
     postingAt: ts('posting_at'),
     postedTo: jsonb('posted_to').notNull().$type<PostedTo[]>().default([]),
+    numbers: jsonb('numbers').notNull().$type<OwnNumbers>().default({}),
+    checksDueAt: ts('checks_due_at'),
+    doneWell: jsonb('done_well').$type<DoneWell>(),
     createdBy: userRef('created_by'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),

@@ -19,7 +19,11 @@ import {
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
-import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
+import {
+  SOCIALCONTENT_WORDS as W,
+  daysAgo,
+  numbersLines,
+} from '@hfos/core/addons/socialcontent/words';
 import { Copy, ExternalLink, ImagePlus, Trash2, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -310,6 +314,8 @@ export function PostSheet({
   const making = p.pictureState === 'waiting' || p.pictureState === 'making';
   const pictures = hasPictures(d.format);
   const videos = p.pictures.filter((x) => x.mimeType?.startsWith('video/'));
+  // How it did, 2 and 7 days after it went up (part 11).
+  const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork));
   const other = (busyKey: string) => busy !== null && busy !== busyKey;
   // The extension puts posts up on these networks (part 9); the rest are copied and posted by hand for now.
   const postsHere = (POSTING.networks as readonly string[]).includes(p.network);
@@ -368,6 +374,21 @@ export function PostSheet({
             >
               {p.postLink}
             </a>
+          ) : null}
+          {numbers.length ? (
+            <div className="space-y-1" data-testid="socialcontent-post-numbers">
+              <div className="text-[13px] font-medium">{W.post.numbers.title}</div>
+              {numbers.map((l) => (
+                <p
+                  key={l.text}
+                  className={
+                    l.well ? 'text-[13px] font-medium text-success-text' : 'text-[13px] text-text-2'
+                  }
+                >
+                  {l.text}
+                </p>
+              ))}
+            </div>
           ) : null}
           {p.failure ? (
             <div

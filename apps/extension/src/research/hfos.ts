@@ -13,6 +13,7 @@ import type {
 } from '@hfos/core/addons/socialcontent/shapes';
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
 import type { PostingNetwork, PostPlace } from '@hfos/core/addons/socialcontent/calendar';
+import type { OwnRead } from '@hfos/core/addons/socialcontent/own';
 import { api, token } from '../hfos/session';
 import { config } from '../hfos/config';
 
@@ -143,6 +144,35 @@ export const postWent = (
         })),
         again: said.again,
         failure: said.failure?.slice(0, 300) ?? null,
+      },
+    }),
+  );
+
+/** The next of the business's own posts whose numbers are due to be read (part 11), put off half an hour as it's handed out. */
+export const ownNext = (workspaceId: string, networks: PostingNetwork[]) =>
+  got(api().POST('/v1/commands/socialcontent.own.next', { body: { workspaceId, networks } }));
+
+/** What one of the business's own posts showed in each place, at its read about 2 or 7 days on. */
+export const ownRead = (
+  workspaceId: string,
+  postId: string,
+  read: OwnRead,
+  reads: {
+    place: PostPlace;
+    views: number | null;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    failure: string | null;
+  }[],
+) =>
+  got(
+    api().POST('/v1/commands/socialcontent.own.read', {
+      body: {
+        workspaceId,
+        postId,
+        read,
+        reads: reads.map((r) => ({ ...r, failure: r.failure?.slice(0, 300) ?? null })),
       },
     }),
   );

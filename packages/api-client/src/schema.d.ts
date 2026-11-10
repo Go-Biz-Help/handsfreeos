@@ -15057,6 +15057,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.own.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts whose numbers are due to be read (about 2 and 7 days after it went up), on the networks given: the places to read, each by its link, and its words. It’s put off half an hour as it’s handed out. Null when none is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_own_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.own.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: what one of the business’s own posts showed in each place it went up, at its read about 2 or 7 days on (views where the network shows them, likes, comments, shares), or why a place couldn’t be read. Kept on the post; at the 7-day read it’s weighed against the business’s own other posts there, and one that did well goes into the Playbook.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well.
+         */
+        post: operations["command_socialcontent_own_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.post.next": {
         parameters: {
             query?: never;
@@ -23927,7 +23967,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_calendar_get"];
@@ -23947,7 +23987,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, and what it still needs before it can be OK’d.
+         * One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_content_get"];
@@ -60424,6 +60464,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -60437,6 +60485,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -60543,6 +60607,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -60556,6 +60628,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -60648,6 +60736,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -60661,6 +60757,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -60733,6 +60845,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -60746,6 +60866,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -61143,6 +61279,172 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_own_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                            places: {
+                                link: string;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            /** @enum {string} */
+                            read: "d2" | "d7";
+                            text: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_own_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** @enum {string} */
+                    read: "d2" | "d7";
+                    reads: {
+                        /** @default null */
+                        comments?: number | null;
+                        /** @default null */
+                        failure?: string | null;
+                        /** @default null */
+                        likes?: number | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                        /** @default null */
+                        shares?: number | null;
+                        /** @default null */
+                        views?: number | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_post_next: {
         parameters: {
             query?: never;
@@ -61233,6 +61535,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -61246,6 +61556,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -94012,6 +94338,14 @@ export interface operations {
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
                             facebookWhere: ("profile" | "page")[];
                             failure: string | null;
                             /** @enum {string} */
@@ -94025,6 +94359,22 @@ export interface operations {
                             madeBy: "ai" | "person";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
                             picture: string | null;
                             pictureFailure: string | null;
                             pictures: {
@@ -94065,12 +94415,18 @@ export interface operations {
                         }[];
                         postsOn: ("instagram" | "facebook" | "linkedin")[];
                         ready: number;
-                        timeZone: string;
-                        today: string;
-                        undated: {
+                        recent: {
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
                             facebookWhere: ("profile" | "page")[];
                             failure: string | null;
                             /** @enum {string} */
@@ -94084,6 +94440,103 @@ export interface operations {
                             madeBy: "ai" | "person";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
+                            picture: string | null;
+                            pictureFailure: string | null;
+                            pictures: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                            /** @enum {string} */
+                            pictureWay: "design" | "photo" | "own";
+                            postAt: string | null;
+                            postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            postLink: string | null;
+                            script: {
+                                lines: string[];
+                                shots: string[];
+                            } | null;
+                            slides: {
+                                body: string;
+                                heading: string;
+                            }[];
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            stillNeeds: string | null;
+                            title: string;
+                            updatedAt: string;
+                            words: string;
+                        }[];
+                        timeZone: string;
+                        today: string;
+                        undated: {
+                            approvedAt: string | null;
+                            approvedBy: string | null;
+                            createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
+                            facebookWhere: ("profile" | "page")[];
+                            failure: string | null;
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            hashtags: string[];
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ideaId: string | null;
+                            /** @enum {string} */
+                            madeBy: "ai" | "person";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
                             picture: string | null;
                             pictureFailure: string | null;
                             pictures: {
@@ -94155,6 +94608,14 @@ export interface operations {
                         approvedAt: string | null;
                         approvedBy: string | null;
                         createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
                         facebookWhere: ("profile" | "page")[];
                         failure: string | null;
                         /** @enum {string} */
@@ -94168,6 +94629,22 @@ export interface operations {
                         madeBy: "ai" | "person";
                         /** @enum {string} */
                         network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
                         picture: string | null;
                         pictureFailure: string | null;
                         pictures: {
@@ -94243,6 +94720,14 @@ export interface operations {
                             approvedAt: string | null;
                             approvedBy: string | null;
                             createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
                             facebookWhere: ("profile" | "page")[];
                             failure: string | null;
                             /** @enum {string} */
@@ -94256,6 +94741,22 @@ export interface operations {
                             madeBy: "ai" | "person";
                             /** @enum {string} */
                             network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
                             picture: string | null;
                             pictureFailure: string | null;
                             pictures: {

@@ -38,6 +38,7 @@ import {
   PostWentInput,
 } from '../content-shapes';
 import { socialcontentAddon } from '../manifest';
+import { nextCheckAt } from '../own';
 import { networkName } from '../networks';
 import { content } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
@@ -256,6 +257,8 @@ export const postWent = defineAddonCommand(socialcontentAddon, {
         failure,
         postingAt: null,
         ...(state === 'posted' ? { postedAt: at } : {}),
+        // Its numbers are read 2 and 7 days after it first went up (part 11).
+        checksDueAt: c.checksDueAt ?? nextCheckAt(postedTo, c.numbers),
         updatedAt: at,
       })
       .where(eq(content.recordId, c.recordId));

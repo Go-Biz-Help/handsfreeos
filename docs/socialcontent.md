@@ -9,7 +9,9 @@ the web pages (part 1); the extension reading Instagram, with the AI helper and 
 (part 2); the AI's notes, the Playbook and ideas (part 3); watching Instagram videos, opt-in (part 4); the phone's
 pages (part 5); reading Facebook and LinkedIn (part 6); and writing the business's own posts on a Calendar, with
 designed, photo-style and its own pictures (part 8, below under "Making posts"); and putting OK'd posts up on
-Facebook and LinkedIn through the extension (part 9, "Posting"). The add-on is in `development`,
+Facebook and LinkedIn through the extension (part 9, "Posting"), and on Instagram with the person's videos (part 10);
+and reading how its own posts did, with the ones that did well in the Playbook (part 11, "Its own posts' numbers").
+The add-on is in `development`,
 offered to nobody; staff give it to a business from Admin → Businesses.
 
 ## Where things are
@@ -47,6 +49,8 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | Posting: where a post goes, its words as they go up      | `calendar.ts` (`placesFor`, `postText`, `POSTING`)                               |
 | Posting: the next post due, how it went, Post it now     | `ops/posting.ts`; `supabase/migrations/20261027025100_socialcontent_posting.sql` |
 | The extension putting a post up                          | `apps/extension/src/research/posting.ts` and `post-here.ts`                      |
+| Its own posts' numbers: when they're read, doing well    | `own.ts` (pure); `ops/own.ts`; `20261027025200_socialcontent_own_numbers.sql`    |
+| The extension reading its own posts' numbers             | `apps/extension/src/research/own.ts`                                             |
 
 ## How it works
 
@@ -209,6 +213,33 @@ with the HandsFreeOS Social extension, while Chrome is open there: Facebook and 
 - **When a place doesn't work,** a problem report goes to Admin → Problem reports with job `post.profile`,
   `post.page` or `post.feed`: what the hands did, step by step, and the page's outline. Never a name.
 
+## Its own posts' numbers
+
+Part 11 (decision 19). About 2 and 7 days after a post went up, the reading computer reads its numbers in each place
+it went up with a link, from 0.134.0 of the extension; at 7 days it's weighed against the business's own other posts
+there, and one that did well goes into the Playbook beside the creators' standouts.
+
+- **When** (`nextCheckAt`, `checkDue` in `own.ts`): going up sets `checks_due_at` for 2 days after it first went up
+  anywhere; once every place has its 2-day read, for 7 days; then none. A 2-day read missed until the 7th day is left
+  out, and the 7-day read takes its place. Only places that went up with a link are read.
+- **Each minute, after posting,** the extension asks for the next post whose read is due (`socialcontent.own.next`,
+  reader only), on the networks it posts on with no warning today. It's put off half an hour as it's handed out
+  (`OWN.takenMs`), so a read never answered is simply asked again; reading twice changes nothing.
+- **Reading** (the extension's `research/own.ts`): it opens the post by its link. On Instagram it reads the post's own
+  answer by the number in its link (views on a video, likes, comments, shares), as a creator's post is read; on
+  Facebook and LinkedIn the post's own page by the network's reader (reactions as likes, and comments: neither shows
+  views or shares there). A warning stops it there for the day, for both social add-ons, with nothing said.
+- **What it showed** (`socialcontent.own.read`): kept by place and read in `numbers`, each read once; a place that
+  couldn't be read keeps why. The post's sheet shows **How it did** ("After 2 days: 1,240 views · 86 likes"), and the
+  Calendar lists **Went up lately** (the 30 days before its days) with each post's latest line (`numbersLines`,
+  shared with the phone).
+- **Doing well** (`ownDoneWell`): at the 7-day read each place is weighed against the business's own posts there with
+  their 7-day numbers, by the same rule as a creator's standouts (`STANDOUT`: 2 times the middle of up to 10 on each
+  side, at least 4 that show the same number, and the least numbers a standout needs). The best place is kept
+  (`done_well`), and `socialcontent.content.done_well` has the worker write the Playbook again, from the creators'
+  noted standouts and up to 10 of the business's own posts that did well (`<own_posts>`, examples `O1`…), shown as
+  **Your post** among its examples.
+
 ## When a read goes wrong
 
 The same help Social Outreach's steps get (decision 142 in docs/outreach.md), for a read instead of a step:
@@ -266,6 +297,8 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   its own; one that may have gone up is the person's to look at, and Post it now leaves out the places it went up in.
 - **A Page's post never switches the person's profile:** it goes through Meta Business Suite, so Social Outreach,
   working at the same time, stays the person.
+- **The business's own posts are weighed only against its own** (part 11): in the same place, by their 7-day numbers,
+  never against creators', so a small business's good post counts as one.
 - **Watching videos is opt-in** (decision 9, part 4): a switch that starts off, a notice that it uses more AI, and a
   way to try it on a few videos first. Only networks marked `watches` are watched (Instagram). The video is fetched
   only from Instagram's video servers, and the worker takes a watch only from the reading computer, for work it took.
@@ -276,7 +309,7 @@ The same help Social Outreach's steps get (decision 142 in docs/outreach.md), fo
   sharing).
 - Posting's boxes are built from the networks' usual words and roles, not yet from page outlines of them: the first
   problem reports (`post.*`) will say what to fix.
-- Reading the business's own posts after 2 and 7 days, and its standouts in the Playbook (part 11).
+- Reading a Facebook or LinkedIn post's shares and views: neither shows them on the post's own page.
 - The Calendar and a post's sheet on the phone (part 12).
 - Removing a post's older AI pictures: a picture made again replaces them on the post, but the old files stay among
   its files, since deleting a file is a person's step.
