@@ -94,8 +94,8 @@ interface Held {
   inFront?: string[];
   /** The person isn't away, so it never comes in front. */
   notAway?: boolean;
-  /** What each profile's page holds itself (the tab's `profileHeld`). */
-  profiles?: Record<string, { creator: unknown; posts: unknown[] }>;
+  /** What each profile's page holds itself (the tab's `profileHeld`): with the codes its grid links to. */
+  profiles?: Record<string, { creator: unknown; posts: unknown[]; linked?: string[] }>;
   /** What a profile's page holds once it's in front, where its grid draws. */
   profilesInFront?: Record<string, { creator: unknown; posts: unknown[] }>;
 }
@@ -311,6 +311,8 @@ describe('Instagram’s answers', () => {
     expect(ig.tagOf('Home organizing!')).toBe('homeorganizing');
     expect(ig.tagOf('#')).toBeNull();
     expect(ig.INSTAGRAM_READS.test(ig.postsPath('5550001', 'N'))).toBe(true);
+    expect(ig.INSTAGRAM_READS.test(ig.postsByNamePath('tidy.home.tips', 'N'))).toBe(true);
+    expect(ig.INSTAGRAM_READS.test('/api/v1/feed/user/tidy.home.tips/following/?x')).toBe(false);
     expect(ig.INSTAGRAM_READS.test('/api/v1/friendships/create/1/?x')).toBe(false);
     expect(ig.INSTAGRAM_READS.test('/api/v1/fbsearch/web/keyword_serp/?query=x')).toBe(true);
     expect(ig.SEARCH_LOADED.test('/api/v1/feed/timeline/?x=1')).toBe(false);
@@ -392,6 +394,130 @@ describe('reading a creator’s posts', () => {
     expect(saved.map((p) => p.postKey)).toEqual(['PAGE001']);
     const sent = world.calls.find((c) => c.name === 'report')!.args[1] as { note: string };
     expect(sent.note).toContain('read from their page');
+  });
+
+  describe('when Instagram’s profile answer isn’t there', () => {
+    const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    /** A post's code as Instagram makes one some days ago: its number starts with the time since Instagram's start. */
+    const codeFor = (daysAgo: number, more = 1234n): string => {
+      let n = ((BigInt(NOW - daysAgo * 86_400_000) - 1_314_220_021_721n) << 23n) | more;
+      let code = '';
+      while (n > 0n) {
+        code = LETTERS[Number(n % 64n)] + code;
+        n /= 64n;
+      }
+      return code;
+    };
+    const fromPage = (id: string | null, linked: string[] = []) => ({
+      'tidy.home.tips': {
+        creator: {
+          id,
+          username: 'tidy.home.tips',
+          name: 'Made Up Creator',
+          bio: null,
+          followers: 48_000,
+          private: false,
+          lastPostAt: new Date(day(2) * 1000).toISOString(),
+          posts: 310,
+        },
+        posts: [],
+        linked,
+      },
+    });
+    const savedKeys = () =>
+      world.calls
+        .filter((c) => c.name === 'postsSave')
+        .flatMap((c) => (c.args[2] as { postKey: string }[]).map((p) => p.postKey));
+    const read = (tab: ReturnType<typeof tabWith>) =>
+      INSTAGRAM_READS_BY_KIND.posts({ businessId: BUSINESS, work: work({}), tab: tab as never });
+
+    it('asks for their posts by the number their page names itself with', async () => {
+      const tab = tabWith(
+        {
+          '/api/v1/feed/user/5550009/?': {
+            json: { items: [item('NEW0001', 2), item('OLD0001', 45)], more_available: false },
+          },
+        },
+        [],
+        { profiles: fromPage('5550009') },
+      );
+      expect(await read(tab)).toEqual({ failure: null });
+      expect(savedKeys()).toEqual(['NEW0001']);
+      expect(tab.asked.filter((p) => p.startsWith('/api/v1/feed/'))).toEqual([
+        '/api/v1/feed/user/5550009/?count=12',
+      ]);
+      expect(world.calls.some((c) => c.name === 'report' || c.name === 'helperLook')).toBe(false);
+    });
+
+    it('asks by their name when it has no number, or that list isn’t there, and reads on from it', async () => {
+      const tab = tabWith(
+        {
+          '/api/v1/feed/user/tidy.home.tips/username/?count=12&max_id=NEXT_1': {
+            json: { items: [item('MID0001', 20), item('OLD0001', 45)], more_available: false },
+          },
+          '/api/v1/feed/user/tidy.home.tips/username/': {
+            json: { items: [item('NEW0001', 2)], more_available: true, next_max_id: 'NEXT_1' },
+          },
+          '/api/v1/feed/user/5550009/': { status: 500, json: null },
+        },
+        [],
+        { profiles: fromPage('5550009') },
+      );
+      expect(await read(tab)).toEqual({ failure: null });
+      expect(savedKeys()).toEqual(['NEW0001', 'MID0001']);
+      expect(tab.asked.filter((p) => p.startsWith('/api/v1/feed/'))).toEqual([
+        '/api/v1/feed/user/5550009/?count=12',
+        '/api/v1/feed/user/tidy.home.tips/username/?count=12',
+        '/api/v1/feed/user/tidy.home.tips/username/?count=12&max_id=NEXT_1',
+      ]);
+      // The first way not coming isn't a problem while another does: no helper, no report.
+      expect(world.calls.some((c) => c.name === 'report' || c.name === 'helperLook')).toBe(false);
+    });
+
+    it('reads the posts their grid links to one at a time when no list comes', async () => {
+      const newest = codeFor(2);
+      const older = codeFor(10);
+      const tab = tabWith(
+        {
+          [ig.mediaInfoPath(ig.mediaIdOf(newest)!)]: { json: { items: [item('NEWEST1', 2)] } },
+          [ig.mediaInfoPath(ig.mediaIdOf(older)!)]: { json: { items: [item('OLDER01', 10)] } },
+        },
+        [],
+        { profiles: fromPage(null, [newest, older, codeFor(60)]) },
+      );
+      expect(await read(tab)).toEqual({ failure: null });
+      expect(savedKeys()).toEqual(['NEWEST1', 'OLDER01']);
+      // The one from before since was never asked for.
+      expect(tab.asked.filter((p) => p.startsWith('/api/v1/media/'))).toHaveLength(2);
+      const sent = world.calls.find((c) => c.name === 'report')!.args[1] as { note: string };
+      expect(sent.note).toContain('2 were read one at a time');
+      expect(sent.note).toContain('by name: 404');
+    });
+
+    it('reports what each way answered, and says so, when not one of their posts comes', async () => {
+      const tab = tabWith({}, [], {
+        profiles: fromPage(null, [codeFor(2), codeFor(3), codeFor(4)]),
+      });
+      const end = await read(tab);
+      expect(end).toMatchObject({ halt: 'while' });
+      expect(end.failure).toContain('HandsFreeOS got a report');
+      // Two of their grid's posts didn't come, so the third was never asked for.
+      expect(tab.asked.filter((p) => p.startsWith('/api/v1/media/'))).toHaveLength(2);
+      expect(savedKeys()).toEqual([]);
+      const sent = world.calls.filter((c) => c.name === 'report');
+      expect(sent).toHaveLength(1);
+      expect((sent[0]!.args[1] as { note: string }).note).toMatch(
+        /list of their posts didn’t come \(by name: 404.*their grid’s posts didn’t either/,
+      );
+      expect(world.calls.some((c) => c.name === 'helperLook')).toBe(false);
+    });
+
+    it('finishes with nothing new when their grid’s posts are all from before the read’s start', async () => {
+      const tab = tabWith({}, [], { profiles: fromPage(null, [codeFor(60), codeFor(90)]) });
+      expect(await read(tab)).toEqual({ failure: null });
+      expect(tab.asked.filter((p) => p.startsWith('/api/v1/media/'))).toEqual([]);
+      expect(world.calls.some((c) => c.name === 'report')).toBe(false);
+    });
   });
 
   it('says a private account’s posts can’t be read', async () => {

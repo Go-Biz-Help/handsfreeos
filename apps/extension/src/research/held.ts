@@ -104,8 +104,8 @@ function pageData(doc: Document, mentions: string): unknown[] {
 }
 
 /**
- * Someone's profile and posts as their profile page holds them (`profileHeld`): its data and description, and the
- * posts its grid links to, whose codes say when they posted.
+ * Someone's profile and posts as their profile page holds them (`profileHeld`): its data and description, the posts
+ * its grid links to, whose codes say when they posted, and their account's number from the page's name for itself.
  */
 export function profileHeldOn(doc: Document, username: string): InstagramPageProfile {
   const description =
@@ -117,5 +117,20 @@ export function profileHeldOn(doc: Document, username: string): InstagramPagePro
     username,
     description,
     postLinks(doc, doc.URL),
+    profilePageId(doc),
   );
+}
+
+/** A profile page's own name for itself ("profilePage_<their account's number>"), whose number asks for their posts. */
+const PROFILE_PAGE_ID = /"profilePage_(\d{1,25})"/;
+
+/** Their account's number, from the name the profile page gives itself in its own scripts; null when it gives none. */
+function profilePageId(doc: Document): string | null {
+  for (const script of doc.querySelectorAll('script')) {
+    const text = script.textContent ?? '';
+    if (text.length > HELD_MOST.scriptChars) continue;
+    const id = PROFILE_PAGE_ID.exec(text)?.[1];
+    if (id) return id;
+  }
+  return null;
 }
