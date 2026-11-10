@@ -489,9 +489,8 @@ describe('reading a creator’s posts', () => {
       expect(savedKeys()).toEqual(['NEWEST1', 'OLDER01']);
       // The one from before since was never asked for.
       expect(tab.asked.filter((p) => p.startsWith('/api/v1/media/'))).toHaveLength(2);
-      const sent = world.calls.find((c) => c.name === 'report')!.args[1] as { note: string };
-      expect(sent.note).toContain('2 were read one at a time');
-      expect(sent.note).toContain('by name: 404');
+      // Read one at a time is the usual way now: not a problem to report.
+      expect(world.calls.some((c) => c.name === 'report')).toBe(false);
     });
 
     it('scrolls their page in front for more of their grid while it’s all since the read’s start', async () => {

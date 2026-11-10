@@ -1257,8 +1257,9 @@ posts by, and the read stopped there ("no account id"). From 0.130.0 a posts rea
   (`/api/v1/media/<number>/info/`, the number from its code), newest first back to the read's start, at most 24 (50 from 0.131.0). Two
   that don't come in a row, before any did, end it.
 
-A way that doesn't come while another does has no helper and no report. When the posts were read one at a time, or
-not at all, a problem report (`read.posts`) says what each way answered, so the list can be fixed. Their grid's posts
+A way that doesn't come while another does has no helper and no report. When no post came at all, a problem report
+(`read.posts`) says what each way answered. (Until 0.131.0 a read done one at a time was reported too; it's the
+usual way now, so it isn't.) Their grid's posts
 all being older than the read's start finishes with nothing new, no report.
 
 ### Ticked creators read the same day (0.129.0)

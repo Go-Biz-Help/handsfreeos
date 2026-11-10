@@ -723,8 +723,7 @@ async function moreLinked(
 /**
  * Their posts when no list of them came: what their profile page holds, else each post its grid links to (scrolled
  * for more, `moreLinked`), newest first back to `since`, asked for one at a time (two that don't come in a row,
- * before any did, end it). What it read
- * is saved and reported, so the list can be fixed; when nothing came, it's reported with what each way answered.
+ * before any did, end it). What it read is saved; when nothing came, it's reported with what each way answered.
  */
 async function unlisted(
   ctx: ReadCtx,
@@ -784,14 +783,8 @@ async function unlisted(
     );
     return couldntRead();
   }
+  // Read one at a time is the usual way now (neither list has come since 10 Nov 2026), so it isn't reported.
   await saveRead();
-  await report(
-    ctx,
-    'posts',
-    `Posts: Instagram’s list of their posts didn’t come (${why}), so ${read.length} were read one at a time from their grid.`,
-    null,
-    { gridLinks: linked.length, read: read.length },
-  );
   await progress.say({ now: 'Done', profiles: 1, posts: read.length }, true);
   return { failure: null };
 }

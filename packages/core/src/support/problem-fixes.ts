@@ -159,6 +159,14 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     pr: 565,
     said: 'About 1 in 25 of the AI’s answers for outreach came back with no words at all, and the draft said it couldn’t write one: the worker asks the AI once more first now.',
   },
+  {
+    area: 'instagram',
+    job: 'read.posts',
+    note: 'Posts: Instagram’s list of their posts didn’t come',
+    fixedIn: '0.131.0',
+    pr: 566,
+    said: 'Neither of Instagram’s lists of a creator’s posts comes any more (404 by number and by name), so their posts are read one at a time from their grid, scrolled for up to 50: the usual way now, so a read done that way isn’t reported.',
+  },
 ];
 
 /** Whether an entry can clear anything: it names its version or its time. */
