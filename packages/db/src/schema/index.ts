@@ -1855,6 +1855,14 @@ export const emailDomains = app.table('email_domains', {
   ownershipProvedAt: ts('ownership_proved_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /**
+   * What happens once its records check out (the business email step, 20261027025600): the team address made and
+   * the default, the person's own address, receiving its mail. Cleared once done.
+   */
+  plan: jsonb('plan').$type<Json>().notNull().default({}),
+  /** Where its mail goes now (none, google, microsoft…) and where its DNS is managed, as the worker last looked. */
+  mailHost: text('mail_host'),
+  dnsHost: text('dns_host'),
 });
 
 /** A sending address: on the shared subdomain (no domain) or on a verified workspace domain. */

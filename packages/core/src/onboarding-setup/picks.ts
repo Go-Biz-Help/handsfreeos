@@ -12,6 +12,7 @@ import {
   type AiSetupTemplate,
 } from '../ai-setup/plan';
 import type { SavedSetupStart } from '../ai-setup/templates';
+import { startingEmailSetupAnswers } from '../messaging/email-setup';
 import type { OnboardingGoal } from '../onboarding/steps';
 import {
   OnboardingSetupAnswers,
@@ -77,6 +78,7 @@ export function startingOwnAnswers(
     hasEin: null,
     payWith: state.payments.provider ?? start.payWith ?? 'later',
     reviewLink: state.reviewLink ?? '',
+    email: startingEmailSetupAnswers(state.email),
   });
 }
 

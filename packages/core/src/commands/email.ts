@@ -16,6 +16,7 @@ import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
 import { SHARED_MAIL_DOMAIN } from '../messaging/email';
+import { emailDomainPlanOf } from '../messaging/email-setup';
 import { scheduleJob, workspaceMessaging } from '../messaging/store';
 import {
   EmailAddressCreateInput,
@@ -242,6 +243,175 @@ async function clearDefault(ctx: CommandContext) {
   return previous ?? null;
 }
 
+/**
+ * Adds a sending address, the default one when asked (the old default steps down first), with its event. Null when
+ * the address is already taken. The checks are the caller's: email_address.create's, or a domain's plan once it
+ * verified (applyDomainPlan).
+ */
+async function insertAddress(
+  ctx: CommandContext,
+  a: {
+    readonly domain: { readonly id: string; readonly domain: string } | null;
+    readonly localPart: string;
+    readonly displayName: string;
+    readonly isDefault: boolean;
+    readonly ownerUserId: string | null;
+  },
+): Promise<{ id: string; address: string } | null> {
+  const previous = a.isDefault ? await clearDefault(ctx) : null;
+  // The database fills in the address from the name and domain; this copy only satisfies the insert.
+  const [row] = await ctx.tx
+    .insert(emailAddresses)
+    .values({
+      workspaceId: ctx.scope.workspaceId!,
+      emailDomainId: a.domain?.id ?? null,
+      localPart: a.localPart,
+      address: `${a.localPart}@${a.domain?.domain ?? SHARED_MAIL_DOMAIN}`,
+      displayName: a.displayName,
+      isDefault: a.isDefault,
+      // It can send from the start: the shared subdomain and a verified domain both already pass Postmark.
+      verifiedAt: new Date(),
+      createdBy: userIdOf(ctx.actor),
+      ownerUserId: a.ownerUserId,
+    })
+    .onConflictDoNothing({ target: emailAddresses.address })
+    .returning({ id: emailAddresses.id, address: emailAddresses.address });
+  if (!row) {
+    // Nothing went in, so the old default stays the default.
+    if (previous)
+      await ctx.tx
+        .update(emailAddresses)
+        .set({ isDefault: true })
+        .where(eq(emailAddresses.id, previous.id));
+    return null;
+  }
+  await ctx.emit({
+    type: 'email_address.created',
+    entityType: 'email_address',
+    entityId: row.id,
+    payload: {
+      address: row.address,
+      emailDomainId: a.domain?.id ?? null,
+      isDefault: a.isDefault,
+      ...(previous ? { previousDefaultId: previous.id } : {}),
+    },
+    after: {
+      address: row.address,
+      displayName: a.displayName,
+      isDefault: a.isDefault,
+      ...(a.ownerUserId ? { ownerUserId: a.ownerUserId } : {}),
+      ...(previous ? { previousDefault: previous.address } : {}),
+    },
+  });
+  return row;
+}
+
+/**
+ * What a domain was set up to do once its records check out (the business email step, messaging/email-setup.ts):
+ * its team address made and made the default, the person's own address made, and its mail received (as picked, else
+ * when nobody got email there before). Runs as the domain verifies (email_domain.record, as the worker), or straight
+ * away for a domain that already has. A part that can't be done any more (the name taken since, its person gone) is
+ * left out. The plan is cleared once it ran, so a domain that lapses and verifies again changes nothing.
+ */
+export async function applyDomainPlan(
+  ctx: CommandContext,
+  emailDomainId: string,
+): Promise<string[]> {
+  const d = await loadDomain(ctx, emailDomainId);
+  const plan = emailDomainPlanOf(d.plan);
+  if (d.status !== 'verified' || (!plan.team && !plan.own && plan.receive === undefined))
+    return [];
+  const ws = ctx.scope.workspaceId!;
+  const changes: string[] = [];
+  const existing = async (address: string) =>
+    (
+      await ctx.tx
+        .select({
+          id: emailAddresses.id,
+          isDefault: emailAddresses.isDefault,
+          ownerUserId: emailAddresses.ownerUserId,
+          workspaceId: emailAddresses.workspaceId,
+        })
+        .from(emailAddresses)
+        .where(eq(emailAddresses.address, address))
+    )[0] ?? null;
+  if (plan.team) {
+    const address = `${plan.team.localPart}@${d.domain}`;
+    const have = await existing(address);
+    if (!have) {
+      const made = await insertAddress(ctx, {
+        domain: d,
+        localPart: plan.team.localPart,
+        displayName: plan.team.displayName,
+        isDefault: true,
+        ownerUserId: null,
+      });
+      if (made) changes.push(`Emails go out from ${address}`);
+    } else if (have.workspaceId === ws && !have.ownerUserId) {
+      if (!have.isDefault) {
+        const previous = await clearDefault(ctx);
+        await ctx.tx
+          .update(emailAddresses)
+          .set({ isDefault: true, displayName: plan.team.displayName })
+          .where(eq(emailAddresses.id, have.id));
+        await ctx.emit({
+          type: 'email_address.updated',
+          entityType: 'email_address',
+          entityId: have.id,
+          payload: {
+            fields: ['isDefault', 'displayName'],
+            ...(previous ? { previousDefaultId: previous.id } : {}),
+          },
+          before: { isDefault: false },
+          after: {
+            address,
+            isDefault: true,
+            ...(previous ? { previousDefault: previous.address } : {}),
+          },
+        });
+      }
+      changes.push(`Emails go out from ${address}`);
+    }
+  }
+  if (plan.own) {
+    const address = `${plan.own.localPart}@${d.domain}`;
+    const [here] = await rows<{ ok: boolean; has: boolean }>(
+      ctx.tx,
+      sql`select private.works_in(${plan.own.userId}::uuid, ${ws}::uuid) as ok,
+            exists (select 1 from app.email_addresses a
+                    where a.workspace_id = ${ws} and a.owner_user_id = ${plan.own.userId}) as has`,
+    );
+    if (here?.ok && !here.has && !(await existing(address))) {
+      const made = await insertAddress(ctx, {
+        domain: d,
+        localPart: plan.own.localPart,
+        displayName: plan.team?.displayName ?? d.domain,
+        isDefault: false,
+        ownerUserId: plan.own.userId,
+      });
+      if (made) changes.push(`Makes ${address}, which only its person reads`);
+    }
+  }
+  const receive = plan.receive ?? (!!plan.team && (d.mailHost === 'none' || d.mailHost === 'handsfreeos'));
+  if (receive && d.receiving === 'off' && !(await heldElsewhere(ctx, d.domain, d.id)).receiving) {
+    await ctx.tx
+      .update(emailDomains)
+      .set({ receiving: 'pending' })
+      .where(eq(emailDomains.id, d.id));
+    await ctx.emit({
+      type: 'email_domain.receiving_requested',
+      entityType: 'email_domain',
+      entityId: d.id,
+      payload: { domain: d.domain },
+      before: { receiving: d.receiving },
+      after: { domain: d.domain, receiving: 'pending' },
+    });
+    changes.push(`Mail to ${d.domain} comes to your Inbox once its MX record is in`);
+  }
+  await ctx.tx.update(emailDomains).set({ plan: {} }).where(eq(emailDomains.id, d.id));
+  return changes;
+}
+
 // ---------- the business's own domains ----------
 
 export const emailDomainAdd = defineCommand({
@@ -386,7 +556,13 @@ export const emailDomainRecord = defineCommand({
   output: EmailDomainRecordOutput,
   permission: 'channels.manage',
   scope: inWorkspace,
-  emits: ['email_domain.checked'],
+  // A domain set up from the business email step makes its addresses and starts receiving as it verifies.
+  emits: [
+    'email_domain.checked',
+    'email_address.created',
+    'email_address.updated',
+    'email_domain.receiving_requested',
+  ],
   actors: ['system'],
   async handler(ctx, input) {
     const d = await loadDomain(ctx, input.emailDomainId);
@@ -421,6 +597,8 @@ export const emailDomainRecord = defineCommand({
     if (input.dkimValue !== undefined) patch.dkimValue = input.dkimValue;
     if (input.returnPathHost !== undefined) patch.returnPathHost = input.returnPathHost;
     if (input.returnPathValue !== undefined) patch.returnPathValue = input.returnPathValue;
+    if (input.mailHost !== undefined) patch.mailHost = input.mailHost;
+    if (input.dnsHost !== undefined) patch.dnsHost = input.dnsHost;
     if (input.dkimVerified && !d.dkimVerifiedAt) patch.dkimVerifiedAt = now;
     if (input.returnPathVerified && !d.returnPathVerifiedAt) patch.returnPathVerifiedAt = now;
     // A record a check found missing loses its stamp, so Settings → Email shows it as not found again.
@@ -438,6 +616,8 @@ export const emailDomainRecord = defineCommand({
       before: { status: d.status },
       after: { domain: d.domain, status, ...(input.error ? { error: input.error } : {}) },
     });
+    // What the business email step planned for it: its team address the default, and so on.
+    if (status === 'verified' && !wasVerified) await applyDomainPlan(ctx, d.id);
     return { emailDomainId: d.id, status, changed };
   },
 });
@@ -607,50 +787,20 @@ export const emailAddressCreate = defineCommand({
   scope: inWorkspace,
   emits: ['email_address.created'],
   async handler(ctx, input) {
-    const workspaceId = ctx.scope.workspaceId!;
     const domain = input.emailDomainId ? await loadDomain(ctx, input.emailDomainId) : null;
     if (namesReserved(domain?.domain ?? null) && isReservedLocalPart(input.localPart))
       throw reserved(input.localPart, domain?.domain ?? null);
     if (domain && domain.status !== 'verified') throw unverified(domain.domain);
     const where = `${input.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`;
     if (input.ownerUserId) await checkOwner(ctx, input.ownerUserId, where, domain, input.isDefault);
-    const previous = input.isDefault ? await clearDefault(ctx) : null;
-    // The database fills in the address from the name and domain; this copy only satisfies the insert.
-    const [row] = await ctx.tx
-      .insert(emailAddresses)
-      .values({
-        workspaceId,
-        emailDomainId: domain?.id ?? null,
-        localPart: input.localPart,
-        address: `${input.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`,
-        displayName: input.displayName,
-        isDefault: input.isDefault,
-        // It can send from the start: the shared subdomain and a verified domain both already pass Postmark.
-        verifiedAt: new Date(),
-        createdBy: userIdOf(ctx.actor),
-        ownerUserId: input.ownerUserId ?? null,
-      })
-      .onConflictDoNothing({ target: emailAddresses.address })
-      .returning({ id: emailAddresses.id, address: emailAddresses.address });
-    if (!row) throw addressTaken(`${input.localPart}@${domain?.domain ?? SHARED_MAIL_DOMAIN}`);
-    await ctx.emit({
-      type: 'email_address.created',
-      entityType: 'email_address',
-      entityId: row.id,
-      payload: {
-        address: row.address,
-        emailDomainId: domain?.id ?? null,
-        isDefault: input.isDefault,
-        ...(previous ? { previousDefaultId: previous.id } : {}),
-      },
-      after: {
-        address: row.address,
-        displayName: input.displayName,
-        isDefault: input.isDefault,
-        ...(input.ownerUserId ? { ownerUserId: input.ownerUserId } : {}),
-        ...(previous ? { previousDefault: previous.address } : {}),
-      },
+    const row = await insertAddress(ctx, {
+      domain,
+      localPart: input.localPart,
+      displayName: input.displayName,
+      isDefault: input.isDefault,
+      ownerUserId: input.ownerUserId ?? null,
     });
+    if (!row) throw addressTaken(where);
     return { emailAddressId: row.id, address: row.address };
   },
 });

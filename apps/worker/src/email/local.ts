@@ -144,6 +144,13 @@ export function createLocalEmail(opts: {
       async owns(domain) {
         return !/^squat-/.test(domain);
       },
+      // Nobody gets email at a domain yet, except a mail-… one (Google Workspace); every domain is at GoDaddy.
+      async hosts(domain) {
+        return {
+          mx: /^mail-/.test(domain) ? ['aspmx.l.google.com'] : [],
+          ns: ['ns51.domaincontrol.com', 'ns52.domaincontrol.com'],
+        };
+      },
       // A server for every domain, except elsewhere-… (another account receives it) and full-… (no room left).
       async openInbound(domain) {
         if (/^elsewhere-/.test(domain))

@@ -1,5 +1,14 @@
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
-import { HANDSFREEOS_DOMAIN } from '@hfos/core';
+import {
+  dnsHostFor,
+  dnsHostOf,
+  emailDomainPlanOf,
+  emailDomainRecords,
+  HANDSFREEOS_DOMAIN,
+  INBOUND_MX_HOST,
+  mailHostOf,
+  ownershipHost,
+} from '@hfos/core';
 import {
   emailDomainRecord,
   emailDomainRecordInbound,
@@ -22,7 +31,11 @@ import { SealedMismatch, withSealedParts } from '../addons/sealed';
 import { renderEmailHtml } from '../email/render';
 import { emailBrandFor } from '../look/public';
 import { oneClickUrl, unsubscribeToken } from '../email/unsubscribe';
-import { emailDomainLapsedEmail, emailDomainVerifiedEmail } from '../emails/templates';
+import {
+  emailDomainLapsedEmail,
+  emailDomainStepsEmail,
+  emailDomainVerifiedEmail,
+} from '../emails/templates';
 import { sendThroughMailbox } from '../mailbox/send';
 import { errorMessage } from '../outbox';
 import {
@@ -256,6 +269,25 @@ export async function ownershipFound(
   return domains.owns(d.domain, d.ownershipToken);
 }
 
+/**
+ * Where the domain's mail goes now and where its DNS is managed, for the business email step's steps and its "Get
+ * email here too": each left out when DNS didn't answer, so what was found before stays.
+ */
+export async function domainHosts(
+  domains: EmailDomains,
+  domain: string,
+): Promise<{ mailHost?: string; dnsHost?: string }> {
+  try {
+    const { mx, ns } = await domains.hosts(domain);
+    return {
+      ...(mx ? { mailHost: mailHostOf(mx, INBOUND_MX_HOST) } : {}),
+      ...(ns ? { dnsHost: dnsHostOf(ns) } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
 async function recordDomain(
   ctx: HandlerContext,
   scope: TenantScope,
@@ -264,6 +296,7 @@ async function recordDomain(
   error?: string,
 ) {
   const found = state ? await ownershipFound(ctx.email.domains, d) : undefined;
+  const hosts = await domainHosts(ctx.email.domains, d.domain);
   await executeCommand(
     ctx.db,
     emailDomainRecord,
@@ -273,6 +306,7 @@ async function recordDomain(
       ...(state ? domainRecordInput(state) : {}),
       ...(found === undefined ? {} : { ownershipFound: found }),
       ...(error ? { error } : {}),
+      ...hosts,
     },
     systemActor(scope),
     metaOf(ctx),
@@ -343,8 +377,91 @@ export const onEmailDomainChecked: EventHandler = async (ctx) => {
           `your ${ctx.email.mailDomain} address`,
         link,
       })
-    : emailDomainVerifiedEmail({ business, domain: d.domain, link });
+    : emailDomainVerifiedEmail({
+        business,
+        domain: d.domain,
+        link,
+        sender: await defaultOn(ctx.tx, scope.workspaceId, d.id),
+      });
   for (const r of recipients) await ctx.mailer.send({ to: r.email, ...mail });
+};
+
+/** The default address, when it's on this domain: booking emails switched to it as the domain verified. */
+async function defaultOn(tx: Tx, workspaceId: string, emailDomainId: string): Promise<string | null> {
+  const [a] = await tx
+    .select({ address: emailAddresses.address })
+    .from(emailAddresses)
+    .where(
+      and(
+        eq(emailAddresses.workspaceId, workspaceId),
+        eq(emailAddresses.emailDomainId, emailDomainId),
+        eq(emailAddresses.isDefault, true),
+      ),
+    );
+  return a?.address ?? null;
+}
+
+/**
+ * The business email step's "Send the steps" (email_domain.send_steps): the domain's records, with the steps for
+ * where it's managed, to the person who asked or to whoever looks after the domain. The MX record goes too while the
+ * domain is set to get its mail here.
+ */
+export const onEmailDomainStepsRequested: EventHandler = async (ctx) => {
+  const scope = tenantOf(ctx.scope);
+  const p = ctx.event.payload as { to?: string; by?: string };
+  const d = await loadDomain(ctx);
+  if (!d || !p.to) return;
+  const [who] = await rows<{ business: string; by: string | null }>(
+    ctx.tx,
+    sql`select w.name as business,
+          (select coalesce(nullif(btrim(u.full_name), ''), u.email::text) from app.users u where u.id = ${p.by ?? null}::uuid) as by
+        from app.workspaces w where w.id = ${scope.workspaceId}`,
+  );
+  const plan = emailDomainPlanOf(d.plan);
+  const receive =
+    d.receiving !== 'off' ||
+    (plan.receive ?? (!!plan.team && (d.mailHost === 'none' || d.mailHost === 'handsfreeos')));
+  const records = emailDomainRecords(
+    {
+      domain: d.domain,
+      dkimHost: d.dkimHost,
+      dkimValue: d.dkimValue,
+      returnPathHost: d.returnPathHost,
+      returnPathValue: d.returnPathValue,
+      dkimVerifiedAt: null,
+      returnPathVerifiedAt: null,
+      ownershipHost: d.domain === HANDSFREEOS_DOMAIN ? null : ownershipHost(d.domain),
+      ownershipToken: d.ownershipToken,
+      ownershipProvedAt: null,
+      // The MX record goes with them while the domain is set to get its mail here.
+      receiving: receive ? 'pending' : 'off',
+      mxVerifiedAt: null,
+    },
+    INBOUND_MX_HOST,
+  );
+  if (!records.length) return;
+  const host = dnsHostFor(d.dnsHost);
+  const mail = emailDomainStepsEmail({
+    business: who?.business ?? 'your business',
+    by: who?.by ?? 'Someone',
+    domain: d.domain,
+    host: host
+      ? {
+          label: host.label,
+          url: host.url,
+          where: host.where,
+          add: host.add,
+          ...(host.note ? { note: host.note } : {}),
+        }
+      : null,
+    records: records.map((r) => ({
+      type: r.type,
+      host: r.host,
+      value: r.value,
+      ...(r.priority != null ? { priority: r.priority } : {}),
+    })),
+  });
+  await ctx.mailer.send({ to: p.to, ...mail });
 };
 
 /** A receiving domain's MX check (scheduled.ts): now, every 15 minutes while it waits, and daily after. */

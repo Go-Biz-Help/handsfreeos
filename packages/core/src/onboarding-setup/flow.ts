@@ -96,16 +96,20 @@ export function onboardingSetupHomeOf(
 }
 
 /**
- * "Finish my part": the screens only the owner can do, their booking page (it books their time) and payments (they
- * go to their own account), each while it's still to do; then "Stay in the loop", the test chat and what works.
- * `at`, the screen open now, stays in it once done, so a page loaded again on it carries on from there.
+ * "Finish my part": the screens only the owner can do, their own email address (on the business's own domain), their
+ * booking page (it books their time) and payments (they go to their own account), each while it's still to do; then
+ * "Stay in the loop", the test chat and what works. `at`, the screen open now, stays in it once done, so a page
+ * loaded again on it carries on from there.
  */
 export function onboardingSetupOwnerScreens(
-  answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'payWith'>,
-  state: Pick<OnboardingSetupState, 'booking' | 'payments'>,
+  answers: Pick<OnboardingSetupAnswers, 'booksTime' | 'payWith' | 'email'>,
+  state: Pick<OnboardingSetupState, 'booking' | 'payments' | 'email'>,
   at?: OnboardingSetupScreen,
 ): OnboardingSetupScreen[] {
   return [
+    ...(answers.email.with === 'domain' && (!state.email.mine || at === 'email_own')
+      ? (['email_own'] as const)
+      : []),
     ...(answers.booksTime && (!state.booking.on || at === 'booking') ? (['booking'] as const) : []),
     ...(answers.payWith !== 'later' && (!state.payments.active || at === 'paid')
       ? (['paid'] as const)
@@ -150,7 +154,9 @@ export const onboardingSetupOwnerPart = (
   answers: Pick<OnboardingSetupAnswers, 'payWith'>,
 ): string[] =>
   screens.flatMap((s) =>
-    s === 'booking'
+    s === 'email_own'
+      ? [HW.partEmail]
+      : s === 'booking'
       ? [HW.partBooking]
       : s === 'paid'
         ? [HW.partPaid(PAY_WITH_LABELS[answers.payWith])]

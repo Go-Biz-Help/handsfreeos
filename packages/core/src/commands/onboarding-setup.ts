@@ -63,6 +63,7 @@ import { aiSetupFinish, saveBusiness } from './ai-setup';
 import { calendarCreate, calendarSetStatus } from './calendar';
 import { bookingSiteSetPage, bookingSiteUpdate, serviceCreate } from './calendar-catalog';
 import { chatWidgetUpdate } from './chat-widget';
+import { emailSetupSave } from './email-setup';
 import { scheduleSet } from './calendar-hours';
 import { knowledgeProfileUpdate } from './knowledge';
 import { membershipInvite } from './membership.invite';
@@ -410,7 +411,7 @@ async function answerSetupChat(
 export const onboardingSetupSave = defineCommand({
   name: 'onboarding_setup.save',
   description:
-    'Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.',
+    'Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); “Your business email” sets the address booking emails go out from, the domain’s mail and your own address (as email_setup.save does); and the review link is saved for thank-you texts.',
   risk: 2,
   input: OnboardingSetupSaveInput,
   output: OnboardingSetupSaveOutput,
@@ -486,6 +487,20 @@ export const onboardingSetupSave = defineCommand({
         // It books the owner's own time, on their hours: someone setting it up for them leaves it to them.
         if (answers.booksTime && !(await forClient(ctx))) await makeBookingPage(ctx, answers, out);
         break;
+      case 'email':
+      case 'email_records':
+      case 'email_own': {
+        // An address just for the person is theirs to make: someone setting it up for the owner leaves it to them.
+        if (input.screen === 'email_own' && (await forClient(ctx))) break;
+        const saved = await executeCommandWithin(ctx, emailSetupSave, {
+          workspaceId: ws,
+          part:
+            input.screen === 'email' ? 'sender' : input.screen === 'email_records' ? 'records' : 'own',
+          email: answers.email,
+        });
+        out.changes.push(...saved.output.changes);
+        break;
+      }
       case 'paid':
         await saveReviewLink(ctx, settings, answers.reviewLink, out);
         break;

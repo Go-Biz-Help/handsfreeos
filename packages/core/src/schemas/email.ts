@@ -137,6 +137,12 @@ export const EmailDomainRecordInput = z.object({
    */
   ownershipFound: z.boolean().nullable().optional(),
   error: z.string().trim().min(1).max(2000).nullable().optional(),
+  /**
+   * Where the domain's mail goes now (from its MX: none, google, microsoft…) and where its DNS is managed (from its
+   * name servers: godaddy, cloudflare…), for the business email step. Absent keeps what is stored.
+   */
+  mailHost: z.string().trim().min(1).max(40).optional(),
+  dnsHost: z.string().trim().min(1).max(40).optional(),
 });
 export const EmailDomainRecordOutput = z.object({
   emailDomainId: uuid,

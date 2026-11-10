@@ -49,6 +49,7 @@ import {
   OnboardingSetupAnswers,
   pickerKeyOf,
   NO_LOOK,
+  NO_EMAIL_SETUP,
   planAiSetup,
   planOnboardingBooking,
   planOnboardingPage,
@@ -124,6 +125,7 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
     forClient: false,
     phones: 0,
     look: NO_LOOK,
+    email: NO_EMAIL_SETUP,
     ...patch,
   };
 }
