@@ -50,6 +50,13 @@ again on arrival, which is also what stops a crafted POST filling in a hidden qu
 **A form never rubs anything out.** It fills a blank field on a customer and adds what wasn't there; a
 customer leaving the email box empty this time doesn't erase the address on file.
 
+**A sent form always has someone to save it under** (2026-11-11). Who it is comes from the questions the business
+pointed at the customer's fields; failing that, an email question is their email, a phone question their phone, and
+a short answer whose words ask for nothing but a name ("First Name", "Your last name", "Full name") is their name
+(`contactFromAnswers` in `forms/submit.ts`). With no name at all, a new customer is saved under their number or
+email (`intakeName`, as a text is) until somebody adds one. Shop Your Solar's contact form had name boxes that saved
+to nowhere, and a new customer's form failed with "Something went wrong on our side".
+
 **Answers keep the version they were given on**, and each answer carries the question's wording as it read
 at the time. Rewording a question never rewrites what somebody already said.
 

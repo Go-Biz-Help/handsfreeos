@@ -64,14 +64,46 @@ function firstOfType(
   return null;
 }
 
+/** The words of a short answer that asks for nothing but a name: "First name", "Your last name", "Full name:". */
+const NAME_TITLES = {
+  first: /^(your\s+)?first[\s-]*name\s*[?:*]?$/i,
+  last: /^(your\s+)?(last|sur|family)[\s-]*name\s*[?:*]?$/i,
+  whole: /^(your\s+)?(full\s+)?name\s*[?:*]?$/i,
+} as const;
+
+/** The first answer to a short answer nobody pointed anywhere whose words plainly ask for that name. */
+function namedByTitle(
+  definition: FormDefinition,
+  answers: AnswerSheet,
+  which: keyof typeof NAME_TITLES,
+): AnswerValue {
+  for (const question of allQuestions(definition))
+    if (
+      question.type === 'short_text' &&
+      !question.mapTo &&
+      NAME_TITLES[which].test(question.title.trim())
+    ) {
+      const value = answers[question.id];
+      if (value !== undefined && value !== null && value !== '') return value;
+    }
+  return null;
+}
+
 /**
  * Who the answers say this is. The business's own mapping comes first; failing that, an email question is
  * an email address and a phone question is a phone number, because a business that drops an "Email" field
- * on a form plainly means it to reach the customer.
+ * on a form plainly means it to reach the customer. A short answer called "First name" or "Last name" that
+ * saves to nowhere is their name for the same reason.
  */
 export function contactFromAnswers(definition: FormDefinition, answers: AnswerSheet): FormContact {
-  const first = text(mapped(definition, answers, 'person.first_name'));
-  const last = text(mapped(definition, answers, 'person.last_name'));
+  const first = text(
+    mapped(definition, answers, 'person.first_name') ??
+      namedByTitle(definition, answers, 'first') ??
+      namedByTitle(definition, answers, 'whole'),
+  );
+  const last = text(
+    mapped(definition, answers, 'person.last_name') ?? namedByTitle(definition, answers, 'last'),
+  );
   const email = text(
     mapped(definition, answers, 'person.email') ?? firstOfType(definition, answers, 'email'),
   );

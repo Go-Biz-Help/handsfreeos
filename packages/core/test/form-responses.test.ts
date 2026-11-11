@@ -608,6 +608,63 @@ describe('sending it', () => {
   });
 });
 
+describe('a form whose questions save to nowhere (Shop Your Solar, 2026-11-11)', () => {
+  /** Published with only these questions, none of them pointed at the customer's fields. */
+  async function unmappedForm(name: string, questions: Record<string, unknown>[]) {
+    const created = await run(formCreate, { workspaceId: wsId, name }, owner);
+    const pageId = ((await formRow(created.formId)).definition as { pages: { id: string }[] })
+      .pages[0]!.id;
+    const saved = await run(
+      formSaveDraft,
+      {
+        workspaceId: wsId,
+        formId: created.formId,
+        baseRevision: 1,
+        ops: questions.map((q) => addQuestion(pageId, q)),
+      },
+      owner,
+    );
+    await run(
+      formPublish,
+      { workspaceId: wsId, formId: created.formId, baseRevision: saved.revision },
+      owner,
+    );
+    return created.formId;
+  }
+
+  it('takes the name from "First Name" and "Last Name" boxes for someone new', async () => {
+    const formId = await unmappedForm('Contact Form', [
+      question('First Name', { id: qid('first'), type: 'short_text', required: true }),
+      question('Last Name', { id: qid('last'), type: 'short_text', required: true }),
+      question('Your email', { id: qid('mail'), type: 'email', required: true }),
+      question('Your phone', { id: qid('cell'), type: 'phone' }),
+    ]);
+    const sent = await submit(await start(formId), {
+      [qid('first')]: 'Marisol',
+      [qid('last')]: 'Ortega',
+      [qid('mail')]: 'marisol.unmapped@example.com',
+    });
+    const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
+    expect([person!.firstName, person!.lastName]).toEqual(['Marisol', 'Ortega']);
+    expect(person!.email).toBe('marisol.unmapped@example.com');
+    expect((await responseRow(sent.responseId)).status).toBe('completed');
+  });
+
+  it('still sends with no name at all, saving them under their email until somebody adds one', async () => {
+    const formId = await unmappedForm('Just an email', [
+      question('Where can we reach you?', { id: qid('mail'), type: 'email', required: true }),
+      question('What do you need?', { id: qid('need'), type: 'long_text' }),
+    ]);
+    const sent = await submit(await start(formId), {
+      [qid('mail')]: 'no.name.given@example.com',
+      [qid('need')]: 'A quote',
+    });
+    const [person] = await admin().select().from(people).where(eq(people.id, sent.personId!));
+    expect(person!.firstName).toBe('no.name.given');
+    expect(person!.email).toBe('no.name.given@example.com');
+  });
+});
+
 describe('a funnel: details saved part way, and personal links', () => {
   /** Name, email and phone on a page that saves their details, then a page with one more question. */
   async function funnel(name: string) {
