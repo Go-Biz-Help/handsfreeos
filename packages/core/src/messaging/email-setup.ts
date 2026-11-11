@@ -106,7 +106,12 @@ export const MAIL_HOST_LABELS: Readonly<Record<MailHost, string>> = {
   other: 'another mail service',
 };
 
-const host = (h: string) => h.trim().toLowerCase().replace(/\.+$/, '');
+/** A host name as DNS gives it, lower case without its trailing dot. Never longer than a host name can be (253). */
+const host = (h: string) => {
+  let out = h.trim().toLowerCase().slice(0, 254);
+  while (out.endsWith('.')) out = out.slice(0, -1);
+  return out;
+};
 
 /**
  * Where mail to the domain goes, from the names its MX records point at ([] for none). A "null MX" (one record
@@ -193,7 +198,7 @@ export const DNS_HOSTS: readonly DnsHost[] = [
   {
     key: 'hostinger',
     label: 'Hostinger',
-    ns: /(^|\.)(dns-parking\.com|hostinger\.[a-z.]+)$/,
+    ns: /(^|\.)(dns-parking\.com|hostinger\.[a-z]{2,6}(\.[a-z]{2})?)$/,
     url: 'https://hpanel.hostinger.com/domains',
     where: 'DNS / Nameservers',
     add: 'Add Record',

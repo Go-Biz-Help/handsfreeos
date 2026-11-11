@@ -103,6 +103,14 @@ describe('where a domain’s mail and DNS are', () => {
     expect(dnsHostOf(['ada.ns.cloudflare.com.'])).toBe('cloudflare');
     expect(dnsHostOf(['ns-1.awsdns-01.org'])).toBe('route53');
     expect(dnsHostOf(['ns1.example-dns.net'])).toBe('other');
+    expect(dnsHostOf(['ns1.dns-parking.com'])).toBe('hostinger');
+    expect(dnsHostOf(['ns1.hostinger.co.uk'])).toBe('hostinger');
+    // Whatever DNS answers, reading it stays quick.
+    const long = `${'hostinger.'.repeat(5_000)}!`;
+    const started = Date.now();
+    dnsHostOf([long, `${'.'.repeat(50_000)}x`]);
+    expect(mailHostOf([`a${'.'.repeat(50_000)}!`], INBOUND)).toBe('other');
+    expect(Date.now() - started).toBeLessThan(500);
     expect(dnsHostOf([])).toBe('other');
     expect(dnsHostFor('godaddy')?.label).toBe('GoDaddy');
     expect(dnsHostFor('other')).toBeNull();
