@@ -2837,6 +2837,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.material.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a material to a job: what it is, how much the job needs, and optionally the visit it’s for, how much is ordered or delivered already, its supplier and the day it’s expected. Picked from the price list, it takes the item’s name, unit and cost.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.material.added.
+         */
+        post: operations["command_contractor_material_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.material.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a material off a job’s list, with everything counted for it and its cost. The rest of the job stays.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.material.removed.
+         */
+        post: operations["command_contractor_material_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.material.set_cost": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set what one of a job’s material costs the business; null takes the cost off. For people who may see job costs.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.material.cost_set.
+         */
+        post: operations["command_contractor_material_set_cost"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.material.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a material on a job: how much is needed, ordered, delivered, used, wasted or returned, its name and unit, the visit it’s for, its supplier, the day it’s expected and its note. It records what happened; it orders nothing.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.material.updated.
+         */
+        post: operations["command_contractor_material_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/contractor.phase.add": {
         parameters: {
             query?: never;
@@ -19397,6 +19477,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.material.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A job’s materials: what it needs and how much of each is ordered, delivered, used, wasted and returned, what’s still short, and (for people who may see job costs) what they cost.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_material_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/contractor.overview": {
         parameters: {
             query?: never;
@@ -19447,7 +19547,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, and its checklist.
+         * A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, its checklist, and the job’s materials it needs.
          * @description Requires contractor.use.
          */
         post: operations["query_contractor_work_order_get"];
@@ -32501,6 +32601,178 @@ export interface operations {
                         changed: boolean;
                         /** Format: uuid */
                         jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_material_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** @default 0 */
+                    delivered?: number;
+                    /** Format: date */
+                    expectedOn?: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    name?: string;
+                    /** @default 1 */
+                    needed?: number;
+                    note?: string;
+                    /** @default 0 */
+                    ordered?: number;
+                    /** Format: uuid */
+                    productId?: string;
+                    supplier?: string;
+                    unitCostCents?: number;
+                    unitLabel?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        materialId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_material_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    materialId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        materialId: string;
+                        state: ("to_order" | "ordered" | "here" | "used") | null;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_material_set_cost: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    materialId: string;
+                    unitCostCents: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        materialId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_material_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    appointmentId?: string | null;
+                    delivered?: number;
+                    expectedOn?: string | null;
+                    /** Format: uuid */
+                    materialId: string;
+                    name?: string;
+                    needed?: number;
+                    note?: string | null;
+                    ordered?: number;
+                    returned?: number;
+                    supplier?: string | null;
+                    unitLabel?: string;
+                    used?: number;
+                    wasted?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        materialId: string;
+                        state: ("to_order" | "ordered" | "here" | "used") | null;
                     };
                 };
             };
@@ -74204,6 +74476,7 @@ export interface operations {
                                 /** @enum {string} */
                                 status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
                             };
+                            materialsMissing: number;
                             property: string | null;
                             /** @enum {string} */
                             stage: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
@@ -74629,6 +74902,7 @@ export interface operations {
                             } | null;
                             crew: string | null;
                             endsAt: string;
+                            materialsMissing: number;
                             /** @enum {string} */
                             stage: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
                             startsAt: string;
@@ -74719,6 +74993,72 @@ export interface operations {
             };
         };
     };
+    query_contractor_material_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId?: string;
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canChange: boolean;
+                        costing: {
+                            plannedCents: number;
+                            takenCents: number;
+                            uncosted: number;
+                        } | null;
+                        /** Format: uuid */
+                        jobId: string;
+                        materials: {
+                            appointmentId: string | null;
+                            delivered: number;
+                            expectedOn: string | null;
+                            fromEstimate: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            left: number;
+                            name: string;
+                            needed: number;
+                            note: string | null;
+                            ordered: number;
+                            position: number;
+                            productId: string | null;
+                            returned: number;
+                            short: number;
+                            /** @enum {string} */
+                            state: "to_order" | "ordered" | "here" | "used";
+                            supplier: string | null;
+                            unitCostCents: number | null;
+                            unitLabel: string;
+                            updatedAt: string;
+                            used: number;
+                            wasted: number;
+                        }[];
+                        missing: number;
+                    };
+                };
+            };
+        };
+    };
     query_contractor_overview: {
         parameters: {
             query?: never;
@@ -74786,6 +75126,8 @@ export interface operations {
                                 /** @default false */
                                 required: boolean;
                             }[];
+                            /** @default 24 */
+                            materialsAlertHours: number;
                             /** @default [] */
                             phases: string[];
                             /** @default [] */
@@ -74919,6 +75261,30 @@ export interface operations {
                             status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
                             trade: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
                         };
+                        materials: {
+                            appointmentId: string | null;
+                            delivered: number;
+                            expectedOn: string | null;
+                            fromEstimate: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            left: number;
+                            name: string;
+                            needed: number;
+                            note: string | null;
+                            ordered: number;
+                            position: number;
+                            productId: string | null;
+                            returned: number;
+                            short: number;
+                            /** @enum {string} */
+                            state: "to_order" | "ordered" | "here" | "used";
+                            supplier: string | null;
+                            unitLabel: string;
+                            updatedAt: string;
+                            used: number;
+                            wasted: number;
+                        }[];
                         people: {
                             name: string;
                             /** Format: uuid */

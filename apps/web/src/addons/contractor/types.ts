@@ -36,3 +36,10 @@ export type VisitSub = WorkOrder['subs'][number];
 export type Dispatch = Ok<'/v1/queries/contractor.dispatch'>;
 export type DispatchVisit = Dispatch['visits'][number];
 export type JobVisit = JobDetail['visits'][number];
+
+export type MaterialList = Ok<'/v1/queries/contractor.material.list'>;
+/** A material on a job, with what one costs when the person may see job costs. */
+export type Material = MaterialList['materials'][number];
+export type MaterialCosting = NonNullable<MaterialList['costing']>;
+/** A material as a visit's work order has it: never with a cost. */
+export type VisitMaterial = WorkOrder['materials'][number];

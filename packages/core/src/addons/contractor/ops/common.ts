@@ -11,6 +11,7 @@ import type { CommandContext, QueryContext } from '../../../kernel/types';
 import { addonTimelineLine } from '../../server';
 import type { StarterItem } from '../checklists';
 import { contractorAddon } from '../manifest';
+import { DEFAULT_MATERIALS_ALERT_HOURS } from '../materials';
 import { jobPercent, type JobKind, type JobStatus, type PhaseStatus } from '../progress';
 import { ChecklistStarter } from '../schemas';
 import { jobs, phases } from '../tables';
@@ -72,6 +73,8 @@ export async function settingsOf(ctx: Ctx): Promise<{
   trades: readonly string[];
   phases: readonly string[];
   checklist: readonly StarterItem[];
+  /** How long before a visit its missing materials are told; 0 is never. */
+  materialsAlertHours: number;
 }> {
   const [i] = await rows<{ settings: Record<string, unknown> | null }>(
     ctx.tx,
@@ -81,10 +84,15 @@ export async function settingsOf(ctx: Ctx): Promise<{
   const s = i?.settings ?? {};
   const list = (v: unknown) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []);
   const checklist = z.array(ChecklistStarter).safeParse(s.checklist ?? []);
+  const hours = s.materialsAlertHours;
   return {
     trades: list(s.trades),
     phases: list(s.phases),
     checklist: checklist.success ? checklist.data : [],
+    materialsAlertHours:
+      typeof hours === 'number' && Number.isInteger(hours) && hours >= 0
+        ? hours
+        : DEFAULT_MATERIALS_ALERT_HOURS,
   };
 }
 

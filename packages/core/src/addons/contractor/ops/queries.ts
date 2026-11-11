@@ -210,7 +210,7 @@ export const overview = defineAddonQuery(contractorAddon, {
       : [];
     return {
       name: contractorAddon.name,
-      settings: settings.success ? settings.data : { trades: [], phases: [], checklist: [] },
+      settings: settings.success ? settings.data : ContractorSettingsSchema.parse({}),
       may: {
         manage: scopeCan(ctx.scope, 'contractor.manage' as Permission),
         costs,
@@ -389,6 +389,7 @@ export const jobGet = defineAddonQuery(contractorAddon, {
         stage: stageOf(v),
         crew: v.crew,
         checklist: checklistOf(v),
+        materialsMissing: v.materials_missing,
       })),
       money:
         m === undefined

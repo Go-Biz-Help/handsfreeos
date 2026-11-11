@@ -26,7 +26,7 @@ export const dispatch = defineAddonQuery(contractorAddon, {
   ai: {
     tool: 'contractor_get_dispatch',
     description:
-      'Dispatch for a day (today when no day is given, in the business’s time zone): each visit on a job with its appointment id, time, where it stands (scheduled, on the way, started, waiting on parts, done), its job, customer, property and crew, the team members on it (userIds; empty means nobody is on it yet), how many subcontractors are on it and done, and its checklist’s progress; plus the open jobs with no visit booked from now on.',
+      'Dispatch for a day (today when no day is given, in the business’s time zone): each visit on a job with its appointment id, time, where it stands (scheduled, on the way, started, waiting on parts, done), its job, customer, property and crew, the team members on it (userIds; empty means nobody is on it yet), how many subcontractors are on it and done, its checklist’s progress, and how many of its materials aren’t all here yet; plus the open jobs with no visit booked from now on.',
     keywords: ['dispatch', 'schedule', 'today', 'unassigned'],
   },
   async handler(ctx, input) {
@@ -101,6 +101,7 @@ export const dispatch = defineAddonQuery(contractorAddon, {
             userIds: v.user_ids ?? [],
             subs: { total: v.subs, done: v.subs_done },
             checklist: checklistOf(v),
+            materialsMissing: v.materials_missing,
           },
         ];
       }),

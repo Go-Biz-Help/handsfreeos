@@ -28,9 +28,33 @@ import {
   type CostedLine,
 } from '../../src/addons/contractor/estimating';
 import { contractorAddon } from '../../src/addons/contractor/manifest';
+import {
+  amountWords,
+  costMaterials,
+  DEFAULT_MATERIALS_ALERT_HOURS,
+  isMissing,
+  leftOf,
+  materialCostCents,
+  MATERIALS_ALERT_HOURS,
+  materialsCheckAt,
+  materialState,
+  materialWords,
+  missingFor,
+  neededOn,
+  nextStep,
+  shortOf,
+  takenOf,
+  toOrderOf,
+  type MaterialCounts,
+} from '../../src/addons/contractor/materials';
+import { ContractorSettingsSchema } from '../../src/addons/contractor/schemas';
 import { contractorAddonServer } from '../../src/addons/contractor/server';
 import { TRADES } from '../../src/addons/contractor/trades';
 import {
+  alertHoursWords,
+  materialChangeWords,
+  materialsAlertWords,
+  materialsMissingWords,
   namesWords,
   okNeededWords,
   REFUSALS,
@@ -237,5 +261,186 @@ describe('estimating', () => {
     });
     expect(bare.startsWith('Bright Line Electric has you on a job: Panel swap, Fri')).toBe(true);
     expect(bare.length).toBeLessThan(700);
+  });
+});
+
+describe('materials (the owner’s decision 9)', () => {
+  const m = (c: Partial<MaterialCounts>): MaterialCounts => ({
+    needed: 0,
+    ordered: 0,
+    delivered: 0,
+    used: 0,
+    wasted: 0,
+    returned: 0,
+    ...c,
+  });
+
+  it('works out what’s short, what’s still to order and what’s left from the six counts', () => {
+    const wire = m({ needed: 100, ordered: 60, delivered: 40, used: 25, wasted: 5 });
+    expect(shortOf(wire)).toBe(60);
+    expect(toOrderOf(wire)).toBe(40);
+    expect(leftOf(wire)).toBe(10);
+    // What arrived counts as ordered, however it came: picked up at the counter with no order.
+    expect(toOrderOf(m({ needed: 4, delivered: 4 }))).toBe(0);
+    // More used than arrived is a count the office hasn't caught up with, never a negative.
+    expect(leftOf(m({ needed: 4, delivered: 2, used: 3 }))).toBe(0);
+    expect(shortOf(m({ needed: 2.5, delivered: 2.125 }))).toBe(0.375);
+  });
+
+  it('says where a material stands: to order, on order, here, used up', () => {
+    expect(materialState(m({ needed: 10 }))).toBe('to_order');
+    expect(materialState(m({ needed: 10, ordered: 6 }))).toBe('to_order');
+    expect(materialState(m({ needed: 10, ordered: 10 }))).toBe('ordered');
+    expect(materialState(m({ needed: 10, ordered: 10, delivered: 4 }))).toBe('ordered');
+    expect(materialState(m({ needed: 10, ordered: 10, delivered: 10 }))).toBe('here');
+    expect(materialState(m({ needed: 10, delivered: 10, used: 8, wasted: 1, returned: 1 }))).toBe(
+      'used',
+    );
+    // Nothing needed and nothing here isn't "used up".
+    expect(materialState(m({}))).toBe('here');
+  });
+
+  it('moves a material along one press at a time', () => {
+    expect(nextStep(m({ needed: 10, ordered: 4 }))).toEqual({
+      step: 'order',
+      change: { ordered: 10 },
+    });
+    expect(nextStep(m({ needed: 10, ordered: 10, delivered: 3 }))).toEqual({
+      step: 'deliver',
+      change: { delivered: 10 },
+    });
+    // Everything left is used: what was wasted or sent back isn't counted twice.
+    expect(nextStep(m({ needed: 10, delivered: 10, used: 2, wasted: 1 }))).toEqual({
+      step: 'use',
+      change: { used: 9 },
+    });
+    expect(nextStep(m({ needed: 10, delivered: 10, used: 10 }))).toBeNull();
+  });
+
+  it('counts a visit missing what’s for it and what’s for any visit, never another visit’s', () => {
+    const list = [
+      { id: 'any', appointmentId: null, ...m({ needed: 2, delivered: 1 }) },
+      { id: 'mine', appointmentId: 'v1', ...m({ needed: 1 }) },
+      { id: 'theirs', appointmentId: 'v2', ...m({ needed: 1 }) },
+      { id: 'here', appointmentId: 'v1', ...m({ needed: 1, delivered: 1 }) },
+    ];
+    expect(missingFor(list, 'v1').map((x) => x.id)).toEqual(['any', 'mine']);
+    expect(neededOn({ appointmentId: 'v2' }, 'v1')).toBe(false);
+    expect(isMissing(m({ needed: 1, delivered: 1 }))).toBe(false);
+  });
+
+  it('says amounts the way people write them', () => {
+    expect(amountWords(12, 'ft')).toBe('12 ft');
+    expect(amountWords(4, 'each')).toBe('4');
+    expect(amountWords(2.5, ' box ')).toBe('2.5 box');
+    expect(amountWords(1500, null)).toBe('1,500');
+    expect(materialWords(20, 'ft', '12/2 wire')).toBe('20 ft of 12/2 wire');
+    expect(materialWords(4, 'each', 'GFCI outlet')).toBe('4 × GFCI outlet');
+  });
+
+  it('costs what’s needed and what the job has taken, and says how many have no cost', () => {
+    const costing = costMaterials([
+      // Delivered and not sent back: 8 of them, at $2.50.
+      { ...m({ needed: 10, delivered: 10, returned: 2, used: 5 }), unitCostCents: 250 },
+      // The crew says it used more than the office says arrived: the job took what was used.
+      { ...m({ needed: 3, delivered: 1, used: 2, wasted: 1 }), unitCostCents: 1000 },
+      { ...m({ needed: 5, delivered: 5 }), unitCostCents: null },
+    ]);
+    expect(costing).toEqual({ plannedCents: 2500 + 3000, takenCents: 2000 + 3000, uncosted: 1 });
+    expect(takenOf(m({ delivered: 4, returned: 4 }))).toBe(0);
+    expect(materialCostCents(0.333, 999)).toBe(333);
+  });
+
+  it('looks at a visit’s materials that long before it, never in the past, and never when it’s off', () => {
+    const start = Date.UTC(2026, 10, 20, 15);
+    const hour = 3_600_000;
+    expect(materialsCheckAt(start, 24, start - 72 * hour)).toBe(start - 24 * hour);
+    // Booked inside the window: now.
+    expect(materialsCheckAt(start, 24, start - 2 * hour)).toBe(start - 2 * hour);
+    expect(materialsCheckAt(start, 0, start - 72 * hour)).toBeNull();
+    expect(MATERIALS_ALERT_HOURS).toContain(DEFAULT_MATERIALS_ALERT_HOURS);
+    expect(alertHoursWords(0)).toBe('Never');
+    expect(alertHoursWords(2)).toBe('2 hours before');
+    expect(alertHoursWords(24)).toBe('The day before');
+    expect(alertHoursWords(72)).toBe('3 days before');
+    expect(alertHoursWords(168)).toBe('A week before');
+  });
+
+  it('tells the people going what’s short and what to do, with no money in it', () => {
+    const one = materialsAlertWords({
+      job: 'Panel upgrade',
+      when: 'Fri, Nov 20 at 9:00 AM',
+      missing: [{ name: '200A panel', unitLabel: 'each', short: 1 }],
+    });
+    expect(one.title).toBe(
+      '“Panel upgrade” is still missing 1 material for Fri, Nov 20 at 9:00 AM',
+    );
+    expect(one.detail).toContain('Still short: 1 × 200A panel.');
+    expect(one.detail).toContain('mark it delivered under Materials on the job');
+    const many = materialsAlertWords({
+      job: 'Panel upgrade',
+      when: 'Fri, Nov 20 at 9:00 AM',
+      missing: Array.from({ length: 8 }, (_, i) => ({
+        name: `Part ${i + 1}`,
+        unitLabel: 'ft',
+        short: 2,
+      })),
+    });
+    expect(many.title).toContain('8 materials');
+    expect(many.detail).toContain('2 ft of Part 5 and 3 more');
+    expect(many.detail).not.toContain('$');
+    // An alert's title and detail have limits of their own (the worker's alerts).
+    const long = materialsAlertWords({
+      job: 'J'.repeat(200),
+      when: 'Fri, Nov 20 at 9:00 AM',
+      missing: Array.from({ length: 300 }, () => ({
+        name: 'N'.repeat(200),
+        unitLabel: 'each',
+        short: 1,
+      })),
+    });
+    expect(long.title.length).toBeLessThanOrEqual(200);
+    expect(long.detail.length).toBeLessThanOrEqual(1000);
+  });
+
+  it('writes what moved on a material for the job’s timeline, and nothing when no count did', () => {
+    const before = m({ needed: 20, ordered: 20 });
+    expect(
+      materialChangeWords('12/2 wire', 'ft', before, { ...before, delivered: 20, used: 12 }),
+    ).toBe('12/2 wire: 20 ft delivered, 12 ft used');
+    expect(materialChangeWords('12/2 wire', 'ft', before, before)).toBe('');
+    expect(materialsMissingWords(1)).toBe('1 material missing');
+    expect(materialsMissingWords(3)).toBe('3 materials missing');
+  });
+
+  it('keeps its tables, its job and its events in the manifest', () => {
+    expect(contractorAddon.tables).toEqual(expect.arrayContaining(['materials', 'material_costs']));
+    expect(contractorAddon.jobs).toEqual(['contractor.materials_check']);
+    expect(contractorAddon.events?.consumes).toEqual(
+      expect.arrayContaining([
+        'appointment.rescheduled',
+        'appointment.cancelled',
+        'contractor.material.added',
+        'contractor.material.updated',
+        'contractor.material.removed',
+        'contractor.materials.filled',
+      ]),
+    );
+    // The setting has a default, so businesses that saved their settings before it are still valid.
+    expect(ContractorSettingsSchema.parse({ trades: ['electrical'] }).materialsAlertHours).toBe(24);
+    expect(ContractorSettingsSchema.safeParse({ materialsAlertHours: 1000 }).success).toBe(false);
+  });
+
+  it('asks before the AI removes a material or sets a cost, and lets it keep the counts', () => {
+    const tool = (name: string) =>
+      (contractorAddonServer.commands ?? []).find((c) => c.name === name)?.ai as
+        { autonomy?: string } | undefined;
+    expect(tool('contractor.material.remove')?.autonomy).toBe('confirm');
+    expect(tool('contractor.material.set_cost')?.autonomy).toBe('confirm');
+    expect(tool('contractor.material.add')).toBeDefined();
+    expect(tool('contractor.material.add')?.autonomy).toBeUndefined();
+    expect(tool('contractor.material.update')?.autonomy).toBeUndefined();
+    // The worker's own command is no tool of the AI's.
+    expect(tool('contractor.material.stamp_cost')).toBeUndefined();
   });
 });

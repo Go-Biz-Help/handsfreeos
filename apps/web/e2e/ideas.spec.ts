@@ -1,6 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { createBusiness, signUpAndConfirm } from './helpers';
+
+/** The answer to the next run of one command, so a step can wait for its save and not only for the screen. */
+const saved = (page: Page, command: string) =>
+  page.waitForResponse(
+    (r) => r.request().method() === 'POST' && r.url().endsWith(`/v1/commands/${command}`),
+  );
 
 /**
  * Ideas, the roadmap and What's new (0102), as a business owner finds them: a place in the side menu, an idea
@@ -39,11 +45,16 @@ test('shares an idea, is offered it again instead of a copy, votes, comments and
   await expect(page.getByTestId('idea-status').first()).toHaveText('Under review');
   await expect(page.getByTestId('idea-vote-count')).toHaveText('1');
 
-  // Taking the vote back, and giving it again.
+  // Taking the vote back, and giving it again. Each save is waited for on purpose: the count changes on the
+  // press, and the button ignores a second press while the first is still on its way.
+  const unvoted = saved(page, 'idea.unvote');
   await page.getByTestId('idea-vote').click();
   await expect(page.getByTestId('idea-vote-count')).toHaveText('0');
+  expect((await unvoted).ok()).toBe(true);
+  const voted = saved(page, 'idea.vote');
   await page.getByTestId('idea-vote').click();
   await expect(page.getByTestId('idea-vote-count')).toHaveText('1');
+  expect((await voted).ok()).toBe(true);
 
   // A comment, and the emails turned off.
   await page.getByTestId('idea-comment-body').fill('We would use this every single morning.');
@@ -52,8 +63,11 @@ test('shares an idea, is offered it again instead of a copy, votes, comments and
     'We would use this every single morning.',
   );
   await expect(page.getByTestId('idea-follow')).toHaveAttribute('aria-checked', 'true');
+  // Waited for on purpose: the switch moves on the press, and a reload before the save lands would lose it.
+  const unfollowed = saved(page, 'idea.follow');
   await page.getByTestId('idea-follow').click();
   await expect(page.getByTestId('idea-follow')).toHaveAttribute('aria-checked', 'false');
+  expect((await unfollowed).ok()).toBe(true);
   await page.reload();
   await expect(page.getByTestId('idea-follow')).toHaveAttribute('aria-checked', 'false');
 

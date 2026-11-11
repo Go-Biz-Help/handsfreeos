@@ -5,6 +5,14 @@
 import { JOB_STATUS_WORDS as CORE_VISIT_STAGE_WORDS } from '../../schemas/job';
 import { requiredItemsWords, type ItemKind } from './checklists';
 import { marginWords, type CostKind, type OkReason } from './estimating';
+import {
+  amountWords,
+  MATERIAL_COUNTS,
+  materialWords,
+  type MaterialCount,
+  type MaterialCounts,
+  type MaterialState,
+} from './materials';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
 
 export const CONTRACTOR_NAME = 'Contractor Operations';
@@ -136,6 +144,97 @@ export function subTextWords(t: {
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+// ---------- materials (the owner's decision 9) ----------
+
+export const MATERIAL_STATE_WORDS: Readonly<Record<MaterialState, string>> = {
+  to_order: 'To order',
+  ordered: 'On order',
+  here: 'Here',
+  used: 'Used up',
+};
+
+export const MATERIAL_COUNT_WORDS: Readonly<Record<MaterialCount, string>> = {
+  needed: 'Needed',
+  ordered: 'Ordered',
+  delivered: 'Delivered',
+  used: 'Used',
+  wasted: 'Wasted',
+  returned: 'Returned',
+};
+
+export const MATERIAL_COUNT_HINTS: Readonly<Record<MaterialCount, string>> = {
+  needed: 'How much the job needs.',
+  ordered: 'How much has been ordered so far.',
+  delivered: 'How much has arrived or been picked up.',
+  used: 'How much went into the work.',
+  wasted: 'How much was damaged, cut wrong or thrown out.',
+  returned: 'How much went back to the supplier.',
+};
+
+/** "3 materials" · "1 material". */
+export const materialsCountWords = (n: number) => `${n} ${n === 1 ? 'material' : 'materials'}`;
+
+/** "1 material missing" · "3 materials missing": what a visit still doesn't have. */
+export const materialsMissingWords = (n: number) => `${materialsCountWords(n)} missing`;
+
+/**
+ * What changed on a material, for the job's timeline: "12/2 wire: 20 ft delivered, 12 ft used". Empty when none
+ * of its counts moved.
+ */
+export function materialChangeWords(
+  name: string,
+  unitLabel: string,
+  before: MaterialCounts,
+  after: MaterialCounts,
+): string {
+  const moved = MATERIAL_COUNTS.filter((k) => before[k] !== after[k]).map(
+    (k) => `${amountWords(after[k], unitLabel)} ${MATERIAL_COUNT_WORDS[k].toLowerCase()}`,
+  );
+  return moved.length ? `${name}: ${moved.join(', ')}` : '';
+}
+
+/** "Never" · "2 hours before" · "The day before" · "3 days before" · "A week before". */
+export function alertHoursWords(hours: number): string {
+  if (hours <= 0) return 'Never';
+  if (hours === 24) return 'The day before';
+  if (hours === 168) return 'A week before';
+  if (hours % 24 === 0) return `${hours / 24} days before`;
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'} before`;
+}
+
+/**
+ * The alert before a visit that's still missing materials (decision 9): which job and visit, what's short, and
+ * what to do about it. Never an amount of money.
+ */
+export function materialsAlertWords(a: {
+  readonly job: string;
+  /** "Fri, Sep 18 at 10:00 AM", in the business's time zone. */
+  readonly when: string;
+  readonly missing: readonly {
+    readonly name: string;
+    readonly unitLabel: string;
+    readonly short: number;
+  }[];
+}): { title: string; detail: string } {
+  const n = a.missing.length;
+  const clip = (text: string, max: number) =>
+    text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+  const short = namesWords(
+    a.missing.map((m) => materialWords(m.short, m.unitLabel, clip(m.name, 60))),
+    5,
+  );
+  return {
+    title: clip(
+      `“${clip(a.job, 80)}” is still missing ${materialsCountWords(n)} for ${a.when}`,
+      200,
+    ),
+    detail: clip(
+      `Still short: ${short}. Order ${n === 1 ? 'it' : 'them'} or pick ${n === 1 ? 'it' : 'them'} up before the crew leaves, then mark ${n === 1 ? 'it' : 'them'} delivered under Materials on the job.`,
+      1000,
+    ),
+  };
 }
 
 /** "3 days late" · "1 day late". */
@@ -296,6 +395,7 @@ export const CONTRACTOR_WORDS = {
         ? `1 subcontractor${done ? ', done' : ''}`
         : `${total} subcontractors, ${done} done`,
     noWorkOrder: 'No work order yet',
+    materialsMissing: materialsMissingWords,
     needsVisit: 'Needs a visit',
     needsVisitHint: 'Open jobs with nothing booked from today on.',
     needsVisitNone: 'Every open job has a visit booked.',
@@ -420,6 +520,75 @@ export const CONTRACTOR_WORDS = {
       ]
         .filter(Boolean)
         .join(', ') || 'Nobody in it yet',
+  },
+  materials: {
+    title: 'Materials',
+    hint: 'What this job needs, and how much of it is ordered, delivered and used.',
+    visitTitle: 'Materials for this visit',
+    visitHint:
+      'What this visit needs from the job’s materials. Mark what arrives and what you use.',
+    none: 'No materials listed yet.',
+    noneForVisit: 'Nothing is listed for this visit.',
+    add: 'Add a material',
+    addTitle: 'Add a material',
+    edit: 'Edit',
+    editTitle: (name: string) => `Edit ${name}`,
+    product: 'From your price list',
+    productNone: 'Not on the price list',
+    name: 'What it is',
+    namePlaceholder: '12/2 wire',
+    unit: 'Counted in',
+    unitPlaceholder: 'each, ft, box',
+    forVisit: 'Needed for',
+    anyVisit: 'Any visit on this job',
+    supplier: 'Supplier',
+    supplierPlaceholder: 'Where it’s coming from',
+    expectedOn: 'Expected on',
+    note: 'Note',
+    unitCost: 'Cost for one',
+    unitCostHint: 'Only people who may see job costs see this.',
+    noCost: 'No cost yet',
+    costSaved: 'The cost is saved.',
+    save: 'Save',
+    cancel: 'Cancel',
+    added: (name: string) => `${name} is on the job’s materials.`,
+    saved: 'Saved.',
+    remove: 'Remove',
+    removeAsk: (name: string) =>
+      `Take “${name}” off this job’s materials? What was counted for it goes too.`,
+    removed: (name: string) => `“${name}” is off the materials.`,
+    markOrdered: 'Mark ordered',
+    markDelivered: 'Mark delivered',
+    markUsed: 'Mark used',
+    markedOrdered: (name: string) => `${name} is marked ordered.`,
+    markedDelivered: (name: string) => `${name} is marked delivered.`,
+    markedUsed: (name: string) => `${name} is marked used.`,
+    of: (have: string, needed: string) => `${have} of ${needed} here`,
+    short: (amount: string) => `${amount} short`,
+    left: (amount: string) => `${amount} left`,
+    expected: (day: string) => `Expected ${day}`,
+    from: (supplier: string) => `From ${supplier}`,
+    fromEstimate: 'From the estimate',
+    thisVisit: 'This visit',
+    missing: (n: number) =>
+      n === 1 ? '1 material isn’t all here yet.' : `${n} materials aren’t all here yet.`,
+    allHere: 'Everything listed is here.',
+    closed: (status: string) =>
+      `The job is ${status.toLowerCase()}, so its materials can’t be changed.`,
+    planned: 'Everything needed',
+    taken: 'Taken so far',
+    uncosted: (n: number) =>
+      n === 1
+        ? '1 material has no cost yet, so these run low.'
+        : `${n} materials have no cost yet, so these run low.`,
+    menu: (name: string) => `More for ${name}`,
+    seeAll: 'See all the job’s materials',
+  },
+  materialsSettings: {
+    title: 'Missing materials',
+    hint: 'Before a visit, the job’s lead and the people going are told what still isn’t here.',
+    when: 'Tell them',
+    saveFirst: 'Press Save settings to keep it.',
   },
   checklistSettings: {
     title: 'Checklist for a new visit',
@@ -655,4 +824,16 @@ export const REFUSALS = {
     }`,
   skipNotAllowed:
     'Only an owner or admin marks a job done with required items left. Ask one of them, or finish the items on the visit’s work order.',
+  materialGone:
+    'That material isn’t on the job anymore. Someone may have removed it. Refresh and try again.',
+  materialNameNeeded:
+    'Say what the material is. Type its name, or pick an item from your price list.',
+  tooManyMaterials: (max: number) =>
+    `A job has ${max} materials at most. Remove ones it no longer needs first.`,
+  materialVisitElsewhere: (job: string) =>
+    `That visit isn’t on “${job}”. Pick one of this job’s visits, or leave it for any visit.`,
+  materialNoPriceList:
+    'You can’t see the price list in this business, so you can’t pick from it. Type the material’s name instead.',
+  materialCostNotAllowed:
+    'Only people who may see job costs set what a material costs. Leave the cost out, or ask an owner or admin for “See job costs and profit” in Settings → Team.',
 } as const;

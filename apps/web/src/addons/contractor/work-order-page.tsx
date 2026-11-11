@@ -1,8 +1,8 @@
 'use client';
 /**
  * A visit's work order (docs/contractor.md, "Crews and work orders"): when it is and where it stands, what to do and
- * what to bring, the crew and the people going, its subcontractors (texted the job's details, and marked done by the
- * office), and its checklist of boxes to tick and photos to add. The job can't be marked Done while a required item
+ * what to bring, the job's materials it needs, the crew and the people going, its subcontractors (texted the job's
+ * details, and marked done by the office), and its checklist of boxes to tick and photos to add. The job can't be marked Done while a required item
  * is left (the owner's decision 8).
  *
  * Who on the team is going is the visit's own people (core's): picking a crew changes them through core, with its
@@ -50,6 +50,7 @@ import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { ChecklistLine, jobHref, jobRecordHref, StageBadge, StatusBadge } from './bits';
 import { ConfirmDialog } from './job-dialogs';
+import { MaterialsCard, type MaterialProduct } from './materials-card';
 import type { ChecklistItem, Crew, VisitSub, WorkOrder } from './types';
 import { useAct } from './use-act';
 
@@ -60,12 +61,15 @@ export function WorkOrderPage({
   workspaceId,
   order,
   crews,
+  products,
   timeZone,
 }: {
   workspaceId: string;
   order: WorkOrder;
   /** The business's crews in use, to put one on the visit. */
   crews: readonly Crew[];
+  /** The price list to pick a material from; empty for someone who can't see it. */
+  products: readonly MaterialProduct[];
   timeZone: string;
 }) {
   useLiveRefresh(['custom_record', 'appointment']);
@@ -192,6 +196,22 @@ export function WorkOrderPage({
             </dl>
           </Card>
           <NotesCard workspaceId={workspaceId} order={order} readOnly={readOnly} />
+          <MaterialsCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            materials={order.materials}
+            visits={[
+              {
+                appointmentId: order.appointmentId,
+                label: formatDate(visit.startsAt, { time: true, timeZone }),
+              },
+            ]}
+            products={products}
+            // A work order never carries costs: they're on the job's page, for people who may see them.
+            mayCost={false}
+            readOnly={readOnly}
+            forVisit={order.appointmentId}
+          />
           <ChecklistCard workspaceId={workspaceId} order={order} readOnly={readOnly} />
         </div>
         <div className="space-y-4">

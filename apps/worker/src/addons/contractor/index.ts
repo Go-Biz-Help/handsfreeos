@@ -13,6 +13,8 @@
  *   approved estimate on the job afresh.
  * - **An estimate waiting for an OK is an alert** (the owner's decision 6) for the people who can give it, on Home
  *   and their phones, until it's OK'd, changed so it needs none, sent, or voided.
+ * - **A visit that's still missing materials is an alert** (the owner's decision 9) for the job's lead and the
+ *   people going, before the visit: ./materials.ts.
  */
 import { estimateFillJob } from '@hfos/core/addons/contractor/ops/estimates';
 import { jobFollowVisit } from '@hfos/core/addons/contractor/ops/jobs';
@@ -21,6 +23,14 @@ import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { clearAddonAlert, raiseAddonAlert } from '../alerts';
 import type { AddonEventContext, AddonWorkerModule } from '../types';
+import {
+  materialAdded,
+  MATERIALS_CHECK,
+  materialsChanged,
+  materialsCheckJob,
+  visitCancelled,
+  visitMoved,
+} from './materials';
 
 const follow = (what: 'booked' | 'started') => async (ctx: AddonEventContext) => {
   const appointmentId = ctx.event.entityId;
@@ -37,7 +47,10 @@ const follow = (what: 'booked' | 'started') => async (ctx: AddonEventContext) =>
 const visitStarted = follow('started');
 const visitBooked = follow('booked');
 
-/** A visit booked on a job: its work order starts, then the job moves along. Anything else booked is left alone. */
+/**
+ * A visit booked on a job: its work order starts, the job moves along, and its missing materials are looked at when
+ * its alert is due. Anything else booked is left alone.
+ */
 async function booked(ctx: AddonEventContext): Promise<void> {
   const appointmentId = ctx.event.entityId;
   if (!appointmentId) return;
@@ -49,6 +62,7 @@ async function booked(ctx: AddonEventContext): Promise<void> {
     ctx.meta,
   );
   await visitBooked(ctx);
+  await visitMoved(ctx);
 }
 
 const okAlertKey = (estimateId: string) => `estimate-ok:${estimateId}`;
@@ -102,6 +116,12 @@ export const contractorAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('contractor'),
   subscribers: {
     'appointment.booked': booked,
+    'appointment.rescheduled': visitMoved,
+    'appointment.cancelled': visitCancelled,
+    'contractor.material.added': materialAdded,
+    'contractor.material.updated': materialsChanged,
+    'contractor.material.removed': materialsChanged,
+    'contractor.materials.filled': materialsChanged,
     // A visit's crew pressing Started (core's job.status_changed, its entity the appointment).
     'job.status_changed': async (ctx) => {
       const payload = (ctx.event.payload ?? {}) as Record<string, unknown>;
@@ -128,4 +148,5 @@ export const contractorAddonWorker: AddonWorkerModule = {
       if (payloadOf(ctx)['waitingOk'] === false) await okDone('changed')(ctx);
     },
   },
+  jobs: { [MATERIALS_CHECK]: materialsCheckJob },
 };

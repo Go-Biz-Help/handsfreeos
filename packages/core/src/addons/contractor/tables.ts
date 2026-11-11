@@ -1,7 +1,7 @@
 /**
- * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200
- * and 024300): the Drizzle mirror its server code reads and writes through. Server-only. test/addons/contractor-ops.test.ts holds the
- * mirror to the live columns.
+ * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200,
+ * 024300 and 024400): the Drizzle mirror its server code reads and writes through. Server-only.
+ * test/addons/contractor-ops.test.ts holds the mirror to the live columns.
  */
 import {
   bigint,
@@ -251,6 +251,50 @@ export const workOrderSubs = addonContractor.table('work_order_subs', {
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
+/** How much of something, to three decimal places as core's estimate lines count. */
+const amount = (name: string) =>
+  numeric(name, { precision: 12, scale: 3, mode: 'number' }).notNull().default(0);
+
+/** A material on a job (the owner's decision 9): what's needed, ordered, delivered, used, wasted and returned. */
+export const materials = addonContractor.table('materials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  position: integer('position').notNull(),
+  name: text('name').notNull(),
+  unitLabel: text('unit_label').notNull().default('each'),
+  productId: uuid('product_id').references(() => products.id, { onDelete: 'set null' }),
+  /** The visit it's needed for; null: any visit on the job. */
+  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'set null' }),
+  needed: amount('needed'),
+  ordered: amount('ordered'),
+  delivered: amount('delivered'),
+  used: amount('used'),
+  wasted: amount('wasted'),
+  returned: amount('returned'),
+  supplier: text('supplier'),
+  expectedOn: day('expected_on'),
+  note: text('note'),
+  /** The approved estimate's line it came from. */
+  estimateId: uuid('estimate_id').references(() => coreEstimates.id, { onDelete: 'set null' }),
+  estimateLine: integer('estimate_line'),
+  createdBy: userRef('created_by'),
+  updatedBy: userRef('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** What one unit of a material costs the business: read only by people who may see job costs (decision 11). */
+export const materialCosts = addonContractor.table('material_costs', {
+  materialId: uuid('material_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  unitCostCents: bigint('unit_cost_cents', { mode: 'number' }).notNull(),
+  updatedBy: userRef('updated_by'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const CONTRACTOR_TABLES = {
   jobs,
   phases,
@@ -266,4 +310,6 @@ export const CONTRACTOR_TABLES = {
   workOrders,
   workOrderItems,
   workOrderSubs,
+  materials,
+  materialCosts,
 } as const;

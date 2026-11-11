@@ -13,6 +13,7 @@ import {
 import { JOB_STATUSES as VISIT_STAGES } from '../../schemas/job';
 import { ITEM_KINDS } from './checklists';
 import { COST_KINDS } from './estimating';
+import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIAL_STATES } from './materials';
 import { JOB_KINDS, JOB_STATUSES, PHASE_STATUSES } from './progress';
 import { TRADES } from './trades';
 
@@ -57,6 +58,16 @@ export const LIMITS = {
   subNote: 500,
   /** Visits one day's dispatch answers. */
   dispatch: 300,
+  /** Materials on one job. */
+  materials: 300,
+  materialName: 200,
+  unitLabel: 30,
+  supplier: 120,
+  materialNote: 500,
+  /** The most of one material: a million of it. */
+  quantity: 1_000_000,
+  /** The longest before a visit its missing materials are told: two weeks. */
+  alertHours: 336,
 } as const;
 
 export const Trade = z.enum(TRADES);
@@ -125,13 +136,19 @@ export const ChecklistStarter = z.object({
 });
 
 /**
- * The business's settings (the owner's decision 1): the trades it does, the phases a new project starts with, and
- * the checklist a new visit's work order starts with.
+ * The business's settings (the owner's decision 1): the trades it does, the phases a new project starts with, the
+ * checklist a new visit's work order starts with, and how long before a visit it's told what materials are still
+ * missing for it (0: never).
  */
 export const ContractorSettingsSchema = z.object({
   trades: z.array(Trade).max(TRADES.length).default([]),
   phases: z.array(phaseName).max(LIMITS.phases).default([]),
   checklist: z.array(ChecklistStarter).max(LIMITS.checklist).default([]),
+  materialsAlertHours: z
+    .int()
+    .min(0, 'Not below 0 hours.')
+    .max(LIMITS.alertHours, 'Two weeks before at most.')
+    .default(DEFAULT_MATERIALS_ALERT_HOURS),
 });
 export type ContractorSettings = z.infer<typeof ContractorSettingsSchema>;
 
@@ -352,6 +369,8 @@ export const JobDetail = JobRow.extend({
       crew: z.string().nullable(),
       /** Its work order's checklist; null while it has no work order yet. */
       checklist: ChecklistProgress.nullable(),
+      /** Materials needed on it that aren't all here yet. */
+      materialsMissing: z.int(),
     }),
   ),
   /** Only for people who may see job costs and profit (the owner's decision 11); null for everyone else. */
@@ -616,7 +635,171 @@ export const EstimateListOutput = z.object({
 
 /** The worker: an approved estimate fills its job's price and budget. */
 export const EstimateFillJobInput = z.object({ workspaceId: uuid, estimateId: uuid });
-export const EstimateFillJobOutput = z.object({ jobId: uuid, estimates: z.int() }).nullable();
+export const EstimateFillJobOutput = z
+  .object({
+    jobId: uuid,
+    estimates: z.int(),
+    /** How many of its material lines went onto the job's materials now. */
+    materials: z.int(),
+  })
+  .nullable();
+
+// ---------- materials (part 4, the owner's decision 9) ----------
+
+export const MaterialState = z.enum(MATERIAL_STATES);
+const materialName = z
+  .string()
+  .trim()
+  .min(1, 'Say what the material is.')
+  .max(LIMITS.materialName, `Keep its name under ${LIMITS.materialName} characters.`);
+const unitLabel = z
+  .string()
+  .trim()
+  .min(1, 'Say what it’s counted in, such as each, ft or box.')
+  .max(LIMITS.unitLabel, `Keep the unit under ${LIMITS.unitLabel} characters.`);
+const supplier = z
+  .string()
+  .trim()
+  .max(LIMITS.supplier, `Keep the supplier under ${LIMITS.supplier} characters.`);
+const materialNote = z
+  .string()
+  .trim()
+  .max(LIMITS.materialNote, `Keep the note under ${LIMITS.materialNote} characters.`);
+/** How much of a material: never below nothing, three decimal places at most. */
+const quantity = z
+  .number()
+  .min(0, 'Not below 0.')
+  .max(LIMITS.quantity, 'That’s more than a million.')
+  .refine((q) => Math.abs(Math.round(q * 1000) - q * 1000) < 1e-6, {
+    error: 'Three decimal places at most.',
+  });
+
+/** A material on a job, as everyone who uses the add-on reads it: never with what it costs. */
+export const MaterialRow = z.object({
+  id: uuid,
+  position: z.int(),
+  name: z.string(),
+  unitLabel: z.string(),
+  /** The price list item it is, when it was picked from the price list. */
+  productId: uuid.nullable(),
+  /** The visit it's for; null when it's for any visit on the job. */
+  appointmentId: uuid.nullable(),
+  needed: z.number(),
+  ordered: z.number(),
+  delivered: z.number(),
+  used: z.number(),
+  wasted: z.number(),
+  returned: z.number(),
+  /** Worked out (./materials.ts): how much still isn't here, how much is here and unused, and where it stands. */
+  short: z.number(),
+  left: z.number(),
+  state: MaterialState,
+  supplier: z.string().nullable(),
+  /** The day it's expected. */
+  expectedOn: Day.nullable(),
+  note: z.string().nullable(),
+  /** It came from an estimate the customer approved. */
+  fromEstimate: z.boolean(),
+  updatedAt: z.string(),
+});
+export type MaterialRow = z.infer<typeof MaterialRow>;
+
+export const Material = MaterialRow.extend({
+  /** What one costs the business. Only for people who may see job costs; null for everyone else, or with none. */
+  unitCostCents: z.number().nullable(),
+});
+export type Material = z.infer<typeof Material>;
+
+export const MaterialListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Only what's needed on this visit: the materials for it, and the ones for any visit. */
+  appointmentId: uuid.optional(),
+});
+export const MaterialListOutput = z.object({
+  jobId: uuid,
+  materials: z.array(Material),
+  /** How many of them aren't all here yet. */
+  missing: z.int(),
+  /** false while the job is done, cancelled or archived: its materials are read-only. */
+  canChange: z.boolean(),
+  /** Only for people who may see job costs (the owner's decision 11); null for everyone else. */
+  costing: z
+    .object({
+      /** What everything the job needs costs. */
+      plannedCents: z.number(),
+      /** What the job has taken so far costs. */
+      takenCents: z.number(),
+      /** Materials with no cost yet, so both run low. */
+      uncosted: z.int(),
+    })
+    .nullable(),
+});
+
+export const MaterialAddInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Left out with a price list item, it's the item's name. */
+  name: materialName.optional(),
+  /** What it's counted in. Left out, the price list item's unit, else "each". */
+  unitLabel: unitLabel.optional(),
+  /** The price list item it is. Its cost is filled in from Costs. */
+  productId: uuid.optional(),
+  /** The visit it's for. Left out: any visit on the job. */
+  appointmentId: uuid.optional(),
+  needed: quantity.default(1),
+  ordered: quantity.default(0),
+  delivered: quantity.default(0),
+  supplier: supplier.optional(),
+  expectedOn: Day.optional(),
+  note: materialNote.optional(),
+  /** What one costs, in cents. Only people who may see job costs can give it. */
+  unitCostCents: unitCost.optional(),
+});
+export const MaterialAddOutput = z.object({ materialId: uuid, jobId: uuid, name: z.string() });
+
+export const MaterialUpdateInput = z.object({
+  workspaceId: uuid,
+  materialId: uuid,
+  name: materialName.optional(),
+  unitLabel: unitLabel.optional(),
+  /** null: for any visit on the job. */
+  appointmentId: uuid.nullable().optional(),
+  needed: quantity.optional(),
+  ordered: quantity.optional(),
+  delivered: quantity.optional(),
+  used: quantity.optional(),
+  wasted: quantity.optional(),
+  returned: quantity.optional(),
+  supplier: supplier.nullable().optional(),
+  expectedOn: Day.nullable().optional(),
+  note: materialNote.nullable().optional(),
+});
+export const MaterialChangeOutput = z.object({
+  materialId: uuid,
+  jobId: uuid,
+  changed: z.boolean(),
+  /** Where it stands now; null once it's removed. */
+  state: MaterialState.nullable(),
+});
+
+export const MaterialRefInput = z.object({ workspaceId: uuid, materialId: uuid });
+
+export const MaterialSetCostInput = MaterialRefInput.extend({
+  /** What one costs the business, in cents; null takes the cost off. */
+  unitCostCents: unitCost.nullable(),
+});
+export const MaterialSetCostOutput = z.object({
+  materialId: uuid,
+  jobId: uuid,
+  changed: z.boolean(),
+});
+
+/** The worker: a material added by someone who can't see costs gets its price list item's cost. */
+export const MaterialStampCostInput = MaterialRefInput;
+export const MaterialStampCostOutput = z
+  .object({ materialId: uuid, stamped: z.boolean() })
+  .nullable();
 
 // ---------- crews (part 3, the owner's decision 7) ----------
 
@@ -830,6 +1013,8 @@ export const WorkOrder = z.object({
   bring: z.string().nullable(),
   items: z.array(ChecklistItem),
   progress: ChecklistProgress,
+  /** The job's materials needed on this visit: the ones for it, and the ones for any visit. Never with costs. */
+  materials: z.array(MaterialRow),
 });
 
 // ---------- dispatch (part 3) ----------
@@ -854,6 +1039,8 @@ export const DispatchVisit = z.object({
   subs: z.object({ total: z.int(), done: z.int() }),
   /** null while it has no work order yet. */
   checklist: ChecklistProgress.nullable(),
+  /** Materials needed on it that aren't all here yet. */
+  materialsMissing: z.int(),
 });
 export const DispatchOutput = z.object({
   day: Day,

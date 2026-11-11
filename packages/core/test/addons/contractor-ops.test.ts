@@ -7,7 +7,9 @@
  * admin's OK (decision 6), and an approved one fills its job's budget at the option picked (decision 5); crews are
  * set up by the people who set the add-on up, a visit's work order starts with its trade's checklist, a crew on a
  * visit books its people and brings its subcontractors (decision 7), and a job isn't Done while a required item is
- * left unless an owner or admin says why (decision 8); and none of it works while the add-on is off.
+ * left unless an owner or admin says why (decision 8); a job's materials are kept by everyone on it, what one costs
+ * stays with people who may see job costs, an approved estimate fills them once, and each visit says what it's
+ * still missing (decision 9); and none of it works while the add-on is off.
  */
 import { randomUUID } from 'node:crypto';
 import { getTableColumns, getTableName } from 'drizzle-orm';
@@ -658,6 +660,7 @@ describe('costs and estimates (the owner’s decisions 5, 6 and 11)', () => {
     expect(await worker('contractor.estimate.fill_job', { estimateId })).toEqual({
       jobId: job.jobId,
       estimates: 1,
+      materials: 1,
     });
     expect((await as(owner, 'contractor.job.get', { jobId: job.jobId })).money).toMatchObject({
       priceCents: 1_000_00,
@@ -672,6 +675,28 @@ describe('costs and estimates (the owner’s decisions 5, 6 and 11)', () => {
     expect(
       (await as(member, 'contractor.estimate.list', { jobId: job.jobId })).estimates,
     ).toMatchObject([{ id: estimateId, status: 'accepted', optionCount: 3, optionName: 'Better' }]);
+    // Better's material line is on the job's materials, with its cost for people who may see it (decision 9).
+    const filled = await as(owner, 'contractor.material.list', { jobId: job.jobId });
+    expect(filled.materials).toMatchObject([
+      {
+        name: '200A panel',
+        unitLabel: 'each',
+        needed: 1,
+        state: 'to_order',
+        fromEstimate: true,
+        unitCostCents: 200_00,
+      },
+    ]);
+    expect(filled.costing).toEqual({ plannedCents: 200_00, takenCents: 0, uncosted: 0 });
+    expect(
+      (await as(member, 'contractor.material.list', { jobId: job.jobId })).materials,
+    ).toMatchObject([{ name: '200A panel', unitCostCents: null }]);
+    // Once each: the worker hearing of the yes again adds nothing.
+    expect(await worker('contractor.estimate.fill_job', { estimateId })).toEqual({
+      jobId: job.jobId,
+      estimates: 1,
+      materials: 0,
+    });
   });
 
   it('holds one whose labor or materials have no cost, and asks who a loose one is for', async () => {
@@ -1111,6 +1136,295 @@ describe('crews, work orders and dispatch (the owner’s decisions 7 and 8)', ()
     const needs = shown.needsVisit.map((j: Any) => j.id);
     expect(needs).toContain(waiting);
     expect(needs).not.toContain(today);
+  });
+});
+
+describe('materials (the owner’s decision 9)', () => {
+  let calendarId: string;
+  /** A visit on a job: an ordinary appointment whose record is the job. */
+  async function visit(jobId: string, starts = '1 hour'): Promise<string> {
+    const [a] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.appointments (workspace_id, calendar_id, calendar_revision, title, starts_at, ends_at,
+            custom_record_id, owner_user_id)
+          values (${ws}, ${calendarId}, 1, 'Site visit', now() + ${starts}::interval,
+            now() + ${starts}::interval + interval '1 hour', ${jobId}, ${owner.id})
+          returning id`,
+    );
+    return a!.id;
+  }
+  const job = (name: string) =>
+    as(owner, 'contractor.job.open', {
+      name,
+      customerPersonId: customerId,
+      newPropertyAddress: `${name}, 4 Birch Rd`,
+      trade: 'electrical',
+    }).then((o) => o.jobId as string);
+  const list = (u: TestUser, jobId: string, more: Record<string, unknown> = {}) =>
+    as(u, 'contractor.material.list', { jobId, ...more });
+  /** How many of a job's material costs a person can read, whatever asks. */
+  const costsSeen = (u: TestUser, jobId: string) =>
+    asUser(api(), u.claims, (tx) =>
+      rows<{ n: number }>(
+        tx,
+        sql`select count(*)::int as n from addon_contractor.material_costs where record_id = ${jobId}`,
+      ),
+    ).then((r) => r[0]!.n);
+
+  beforeAll(async () => {
+    const [c] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.calendars (workspace_id, name, slug)
+          values (${ws}, 'Materials', ${`materials-${randomUUID().slice(0, 8)}`}) returning id`,
+    );
+    calendarId = c!.id;
+  });
+
+  it('keeps what a job needs, and how much is ordered, delivered, used, wasted and returned', async () => {
+    const jobId = await job('Kitchen circuits');
+    const added = await as(member, 'contractor.material.add', {
+      jobId,
+      name: '12/2 wire',
+      unitLabel: 'ft',
+      needed: 100,
+      supplier: 'Graybar',
+    });
+    expect(added).toMatchObject({ jobId, name: '12/2 wire' });
+    const { materialId } = added;
+    const set = (change: Record<string, unknown>) =>
+      as(member, 'contractor.material.update', { materialId, ...change });
+    expect(await list(member, jobId)).toMatchObject({
+      jobId,
+      missing: 1,
+      canChange: true,
+      costing: null,
+      materials: [
+        {
+          id: materialId,
+          name: '12/2 wire',
+          unitLabel: 'ft',
+          appointmentId: null,
+          needed: 100,
+          ordered: 0,
+          delivered: 0,
+          short: 100,
+          left: 0,
+          state: 'to_order',
+          supplier: 'Graybar',
+          fromEstimate: false,
+          unitCostCents: null,
+        },
+      ],
+    });
+    expect(await set({ ordered: 100 })).toEqual({
+      materialId,
+      jobId,
+      changed: true,
+      state: 'ordered',
+    });
+    // The same again changes nothing.
+    expect(await set({ ordered: 100 })).toMatchObject({ changed: false, state: 'ordered' });
+    // Each count is the total so far: part of it arrived, some was used and some cut wrong.
+    await set({ delivered: 60, used: 20, wasted: 5, expectedOn: '2026-12-01' });
+    expect((await list(member, jobId)).materials[0]).toMatchObject({
+      delivered: 60,
+      used: 20,
+      wasted: 5,
+      short: 40,
+      left: 35,
+      state: 'ordered',
+      expectedOn: '2026-12-01',
+    });
+    expect(await set({ delivered: 100, supplier: null })).toMatchObject({ state: 'here' });
+    expect(await list(member, jobId)).toMatchObject({
+      missing: 0,
+      materials: [{ short: 0, supplier: null }],
+    });
+    expect(await refused(set({ used: -1 }))).not.toBe('went through');
+    expect(await refused(set({ needed: 1.23456 }))).not.toBe('went through');
+    // What happened is in the job's history, in amounts of the material and never of money.
+    const events = await rows<{ type: string; payload: Any }>(
+      admin(),
+      sql`select event_type as type, payload from app.events
+          where workspace_id = ${ws} and entity_id = ${jobId} and event_type like 'contractor.material.%'
+          order by created_at, id`,
+    );
+    expect(events.map((e) => e.type)).toEqual([
+      'contractor.material.added',
+      'contractor.material.updated',
+      'contractor.material.updated',
+      'contractor.material.updated',
+    ]);
+    expect(JSON.stringify(events)).not.toMatch(/cents/i);
+
+    expect(await as(member, 'contractor.material.remove', { materialId })).toEqual({
+      materialId,
+      jobId,
+      changed: true,
+      state: null,
+    });
+    expect((await list(member, jobId)).materials).toEqual([]);
+    expect(await refused(as(member, 'contractor.material.remove', { materialId }))).toBe(
+      'not_found',
+    );
+    expect(await refused(as(member, 'contractor.material.add', { jobId }))).toBe(
+      'contractor_material_name_needed',
+    );
+  });
+
+  it('keeps what a material costs with people who may see job costs, in the database too', async () => {
+    const jobId = await job('Service upgrade');
+    const { productId } = await executeCommand(
+      api(),
+      productCreate,
+      {
+        workspaceId: ws,
+        name: '20A breaker',
+        kind: 'product',
+        unitPriceCents: 18_00,
+        unitLabel: 'each',
+      },
+      human(owner),
+      meta(),
+    ).then((r) => r.output as Any);
+    await as(owner, 'contractor.item_cost.set', { productId, costCents: 7_50, kind: 'material' });
+
+    // Someone who may see costs picks it from the price list: its name, unit and cost come with it.
+    const theirs = await as(estimator, 'contractor.material.add', { jobId, productId, needed: 4 });
+    expect(theirs.name).toBe('20A breaker');
+    // Someone who may not gets the same material and no cost: the worker fills it in a moment later.
+    const mine = await as(member, 'contractor.material.add', { jobId, productId, needed: 2 });
+    expect(
+      await refused(
+        as(member, 'contractor.material.add', { jobId, name: 'Wire nuts', unitCostCents: 5 }),
+      ),
+    ).toBe('contractor_material_cost_not_allowed');
+    expect(await costsSeen(estimator, jobId)).toBe(1);
+    expect(await worker('contractor.material.stamp_cost', { materialId: mine.materialId })).toEqual(
+      { materialId: mine.materialId, stamped: true },
+    );
+    // Safe to run again, and one typed by hand has no price list item to take a cost from.
+    expect(await worker('contractor.material.stamp_cost', { materialId: mine.materialId })).toEqual(
+      { materialId: mine.materialId, stamped: false },
+    );
+    const typed = await as(member, 'contractor.material.add', {
+      jobId,
+      name: 'Conduit',
+      needed: 3,
+    });
+    expect(
+      await worker('contractor.material.stamp_cost', { materialId: typed.materialId }),
+    ).toEqual({ materialId: typed.materialId, stamped: false });
+
+    const withCosts = await list(estimator, jobId);
+    expect(withCosts.materials.map((m: Any) => [m.name, m.needed, m.unitCostCents])).toEqual([
+      ['20A breaker', 4, 7_50],
+      ['20A breaker', 2, 7_50],
+      ['Conduit', 3, null],
+    ]);
+    expect(withCosts.costing).toEqual({ plannedCents: 45_00, takenCents: 0, uncosted: 1 });
+    // The job has taken what arrived and wasn't sent back.
+    await as(member, 'contractor.material.update', {
+      materialId: theirs.materialId,
+      delivered: 4,
+      returned: 1,
+    });
+    expect((await list(estimator, jobId)).costing).toMatchObject({ takenCents: 22_50 });
+
+    const without = await list(member, jobId);
+    expect(without.costing).toBeNull();
+    expect(without.materials.every((m: Any) => m.unitCostCents === null)).toBe(true);
+    expect(await costsSeen(estimator, jobId)).toBe(2);
+    expect(await costsSeen(member, jobId)).toBe(0);
+
+    const cost = (u: TestUser, unitCostCents: number | null) =>
+      as(u, 'contractor.material.set_cost', { materialId: typed.materialId, unitCostCents });
+    expect(await refused(cost(member, 2_00))).toBe('forbidden');
+    expect(await cost(estimator, 2_00)).toEqual({
+      materialId: typed.materialId,
+      jobId,
+      changed: true,
+    });
+    expect(await cost(estimator, 2_00)).toMatchObject({ changed: false });
+    expect((await list(estimator, jobId)).costing).toMatchObject({
+      plannedCents: 51_00,
+      uncosted: 0,
+    });
+    expect(await cost(estimator, null)).toMatchObject({ changed: true });
+    // Removing a material takes its cost with it, whoever removes it.
+    await as(member, 'contractor.material.remove', { materialId: theirs.materialId });
+    expect(await costsSeen(estimator, jobId)).toBe(1);
+  });
+
+  it('ties a material to a visit of its own job, and says what each visit is still missing', async () => {
+    const jobId = await job('Panel upgrade');
+    const other = await job('Another job');
+    const first = await visit(jobId, '1 hour');
+    const second = await visit(jobId, '2 days');
+    const elsewhere = await visit(other, '1 hour');
+    const add = (input: Record<string, unknown>) =>
+      as(member, 'contractor.material.add', { jobId, ...input }).then(
+        (o) => o.materialId as string,
+      );
+    const panel = await add({ name: '200A panel', appointmentId: first });
+    await add({ name: '2/0 wire', unitLabel: 'ft', needed: 50, delivered: 50 });
+    const breaker = await add({ name: '20A breaker', needed: 2, appointmentId: second });
+    expect(
+      await refused(
+        as(member, 'contractor.material.add', { jobId, name: 'Lugs', appointmentId: elsewhere }),
+      ),
+    ).toBe('contractor_material_visit_elsewhere');
+    expect(
+      await refused(
+        as(member, 'contractor.material.update', { materialId: panel, appointmentId: elsewhere }),
+      ),
+    ).toBe('contractor_material_visit_elsewhere');
+
+    const missing = async () => {
+      const got = await as(member, 'contractor.job.get', { jobId });
+      return new Map<string, number>(
+        got.visits.map((v: Any) => [v.appointmentId, v.materialsMissing]),
+      );
+    };
+    expect((await missing()).get(first)).toBe(1);
+    expect((await missing()).get(second)).toBe(1);
+    // A visit's work order has what it needs: its own, and what's for any visit. Never a cost.
+    const order = await as(owner, 'contractor.work_order.get', { appointmentId: first });
+    expect(order.materials.map((m: Any) => [m.name, m.short])).toEqual([
+      ['200A panel', 1],
+      ['2/0 wire', 0],
+    ]);
+    expect(order.materials[0]).not.toHaveProperty('unitCostCents');
+    expect(
+      (await list(member, jobId, { appointmentId: second })).materials.map((m: Any) => m.name),
+    ).toEqual(['2/0 wire', '20A breaker']);
+
+    await as(member, 'contractor.material.update', { materialId: panel, delivered: 1 });
+    expect((await missing()).get(first)).toBe(0);
+    // Moved to any visit, the breakers are missing on both.
+    await as(member, 'contractor.material.update', { materialId: breaker, appointmentId: null });
+    expect([...(await missing()).values()].sort()).toEqual([1, 1]);
+  });
+
+  it('leaves a closed job’s materials as they are', async () => {
+    const jobId = await job('All done');
+    const { materialId } = await as(member, 'contractor.material.add', { jobId, name: 'Outlet' });
+    await as(owner, 'contractor.job.set_status', { jobId, status: 'done' });
+    expect(await list(member, jobId)).toMatchObject({ canChange: false, missing: 1 });
+    expect(
+      await refused(as(member, 'contractor.material.add', { jobId, name: 'Cover plate' })),
+    ).toBe('contractor_job_closed');
+    expect(
+      await refused(as(member, 'contractor.material.update', { materialId, delivered: 1 })),
+    ).toBe('contractor_job_closed');
+    expect(await refused(as(member, 'contractor.material.remove', { materialId }))).toBe(
+      'contractor_job_closed',
+    );
+    expect(
+      await refused(
+        as(estimator, 'contractor.material.set_cost', { materialId, unitCostCents: 1 }),
+      ),
+    ).toBe('contractor_job_closed');
   });
 });
 

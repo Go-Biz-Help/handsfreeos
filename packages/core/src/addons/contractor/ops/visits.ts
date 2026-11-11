@@ -32,6 +32,8 @@ export type VisitSqlRow = {
   readonly items: number;
   readonly items_done: number;
   readonly items_left: number;
+  /** The job's materials needed on it (its own, and the ones for any visit) that aren't all here yet. */
+  readonly materials_missing: number;
 };
 
 /** Read with `app.appointments a` and VISIT_JOINS. */
@@ -41,7 +43,10 @@ export const VISIT_COLUMNS = sql`a.id, a.title, a.starts_at::text, a.ends_at::te
   (select count(*)::int from addon_contractor.work_order_items i
     where i.appointment_id = a.id and i.done_at is not null) as items_done,
   (select count(*)::int from addon_contractor.work_order_items i
-    where i.appointment_id = a.id and i.required and i.done_at is null and i.skipped_at is null) as items_left`;
+    where i.appointment_id = a.id and i.required and i.done_at is null and i.skipped_at is null) as items_left,
+  (select count(*)::int from addon_contractor.materials m
+    where m.record_id = a.custom_record_id and (m.appointment_id is null or m.appointment_id = a.id)
+      and m.delivered < m.needed) as materials_missing`;
 
 export const VISIT_JOINS = sql`left join app.jobs cj on cj.id = a.job_id
   left join addon_contractor.work_orders w on w.appointment_id = a.id
