@@ -12,7 +12,8 @@
  * ended. A read that couldn't go on stops that network for a while (signed out, a reader that can't read the page) or
  * for the day (a warning, the day's room used).
  *
- * Before any reading, each minute, it puts up the business's OK'd posts whose time has come (part 9, ./posting.ts).
+ * Before any reading, each minute, it puts up the business's OK'd posts whose time has come (part 9, ./posting.ts),
+ * then reads how its own posts did about 2 and 7 days after they went up (part 11, ./own.ts).
  *
  * It never does Social Outreach's work, and Social Outreach never does its: they share only the extension, the
  * network's pace and its day's warnings (decision 1).
@@ -30,6 +31,7 @@ import {
 } from './hfos';
 import { INSTAGRAM_READS_BY_KIND } from './instagram-read';
 import { PAGE_READS_BY_KIND } from './page-read';
+import { ownTurn } from './own';
 import { postTurn } from './posting';
 import { roomOn, searchRoomOn, type ReadCtx, type ReadEnd } from './read';
 import { ResearchTab } from './tab';
@@ -124,13 +126,19 @@ function tabFor(network: ResearchNetwork): ResearchTab {
 
 /**
  * Takes and does the next thing waiting in any business: whether there was one. A post due to go up (part 9,
- * ./posting.ts) comes before any reading, whatever room reading has left today.
+ * ./posting.ts) comes before any reading, whatever room reading has left today; then reading how its own posts did
+ * (part 11, ./own.ts), a few pages a day.
  */
 async function next(): Promise<boolean> {
   const version = chrome.runtime.getManifest().version;
   for (const business of await businessesNow()) {
     if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
     if (await postTurn(business.id, tabFor, version)) return true;
+  }
+  // Then how its own posts did, about 2 and 7 days after they went up (part 11, ./own.ts).
+  for (const business of await businessesNow()) {
+    if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
+    if (await ownTurn(business.id, tabFor)) return true;
   }
   const reads = await readsNow();
   if (!reads.length) return false;

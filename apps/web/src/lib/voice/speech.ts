@@ -16,12 +16,12 @@ import {
 } from '@hfos/core';
 import { ApiError } from '../api/errors';
 import { publicEnv } from '../env';
-import { supabaseBrowser } from '../supabase/client';
+import { browserAccessToken } from '../supabase/token';
 
 const UNREACHABLE = 'Talking out loud isn’t reachable right now. Try again in a minute.';
 
 async function token(): Promise<string> {
-  const t = (await supabaseBrowser().auth.getSession()).data.session?.access_token;
+  const t = await browserAccessToken();
   if (!t) throw new ApiError(401, 'unauthenticated', 'Sign in to continue.');
   return t;
 }

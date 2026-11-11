@@ -211,6 +211,13 @@ const ONLINE_COMMANDS = [
   'socialcontent.watch.try',
   'socialcontent.work.stop',
   'socialcontent.idea.decide',
+  // Its Calendar on the phone (part 12): a post saved, OK'd or its OK taken back, the week OK'd, a post skipped or
+  // brought back, and Post it now.
+  'socialcontent.content.save',
+  'socialcontent.content.approve',
+  'socialcontent.content.approve_week',
+  'socialcontent.content.skip',
+  'socialcontent.content.post_now',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -341,6 +348,8 @@ const QUERIES = [
   'socialcontent.post.list',
   'socialcontent.playbook.get',
   'socialcontent.idea.list',
+  'socialcontent.calendar.get',
+  'socialcontent.content.get',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

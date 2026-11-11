@@ -55,5 +55,6 @@ export const ADDON_SCREENS: ReadonlySet<string> = new Set<string>([
   'a/socialcontent/standouts',
   'a/socialcontent/playbook',
   'a/socialcontent/ideas',
+  'a/socialcontent/calendar',
   'a/socialcontent/settings',
 ]);

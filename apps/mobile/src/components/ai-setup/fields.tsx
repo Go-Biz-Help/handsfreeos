@@ -25,7 +25,7 @@ import * as React from 'react';
 import { Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
 
 import { AI_SETUP_PHONE_WORDS as P } from '@/ai-setup/words';
-import { Check, ChevronDown, Plus, Search, Trash } from '@/components/icons';
+import { Check, ChevronDown, Info, Plus, Search, Trash } from '@/components/icons';
 import { useKeyboardHeight } from '@/components/shell/keyboard';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
@@ -43,6 +43,20 @@ import { cn } from '@/lib/utils';
  */
 
 /** A field's label, the field, then what's wrong with it or a hint. */
+/** Under "When you’re open": the hours are only a guess, or came from the website (`aiSetupOpenHoursNote`). */
+export function OpenHoursNote({ note }: { note: string | null }) {
+  if (!note) return null;
+  return (
+    <View
+      className="mb-1 flex-row items-start gap-2 rounded-[9px] bg-card-2 px-3 py-2.5"
+      testID="setup-open-hours-note"
+    >
+      <Icon as={Info} className="mt-0.5 size-3.5 text-text-3" />
+      <Text className="min-w-0 flex-1 text-[13px] leading-[18px] text-text-2">{note}</Text>
+    </View>
+  );
+}
+
 export function Field({
   label,
   error,

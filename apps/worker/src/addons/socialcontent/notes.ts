@@ -29,6 +29,7 @@ import {
   NOTES_SYSTEM,
   NotesAnswer,
   notesPrompt,
+  OWN_FOR_PLAYBOOK,
   PLAYBOOK_SCHEMA,
   PLAYBOOK_SYSTEM,
   PlaybookAnswer,
@@ -39,6 +40,7 @@ import {
   WatchAnswer,
   watchPrompt,
   type NotedForPlaybook,
+  type OwnForPlaybook,
   type PostForAi,
   type StandoutForNotes,
 } from '@hfos/core/addons/socialcontent/notes-ai';
@@ -210,11 +212,14 @@ async function noteSome(
 
 // ------------------------------------------------------------------------------------------------ the Playbook
 
-async function playbookState(
-  ctx: AddonScopeContext,
-): Promise<{ noted: number; writtenFrom: number | null; newIdeas: number }> {
+async function playbookState(ctx: AddonScopeContext): Promise<{
+  noted: number;
+  writtenFrom: number | null;
+  newIdeas: number;
+  ownNew: number;
+}> {
   const [r] = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ noted: number; written_from: number | null; new_ideas: number }>(
+    rows<{ noted: number; written_from: number | null; new_ideas: number; own_new: number }>(
       tx,
       sql`select
             (select count(*)::int from addon_socialcontent.posts
@@ -222,14 +227,55 @@ async function playbookState(
             (select standouts from addon_socialcontent.playbook
              where workspace_id = ${ctx.scope.workspaceId} and written_at is not null) as written_from,
             (select count(*)::int from addon_socialcontent.ideas
-             where workspace_id = ${ctx.scope.workspaceId} and state = 'new') as new_ideas`,
+             where workspace_id = ${ctx.scope.workspaceId} and state = 'new') as new_ideas,
+            (select count(*)::int from addon_socialcontent.content c
+             where c.workspace_id = ${ctx.scope.workspaceId} and c.done_well is not null
+               and (c.done_well ->> 'at')::timestamptz > coalesce(
+                 (select written_at from addon_socialcontent.playbook
+                  where workspace_id = ${ctx.scope.workspaceId}), '-infinity'::timestamptz)) as own_new`,
     ),
   );
   return {
     noted: r?.noted ?? 0,
     writtenFrom: r?.written_from ?? null,
     newIdeas: r?.new_ideas ?? 0,
+    ownNew: r?.own_new ?? 0,
   };
+}
+
+/** The business's own posts that did best against its own others (part 11), the best first. */
+async function ownForPlaybook(ctx: AddonScopeContext): Promise<OwnForPlaybook[]> {
+  const found = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ record_id: string; network: string; format: string; words: string; done_well: unknown }>(
+      tx,
+      sql`select c.record_id, c.network, c.format, c.words, c.done_well
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.workspace_id = ${ctx.scope.workspaceId} and c.done_well is not null
+          order by (c.done_well ->> 'times')::numeric desc nulls last
+          limit ${OWN_FOR_PLAYBOOK}`,
+    ),
+  );
+  return found.flatMap((r) => {
+    const well = r.done_well as { times?: unknown; on?: unknown } | null;
+    const on = well?.on;
+    if (
+      !isContentNetwork(r.network) ||
+      typeof well?.times !== 'number' ||
+      (on !== 'views' && on !== 'engagement' && on !== 'both')
+    )
+      return [];
+    return [
+      {
+        id: r.record_id,
+        network: r.network,
+        format: r.format,
+        words: r.words,
+        times: well.times,
+        on,
+      },
+    ];
+  });
 }
 
 /** Writes the Playbook from the noted standouts, the biggest first. How many sections it has. */
@@ -268,10 +314,12 @@ export async function writePlaybook(ctx: AddonScopeContext, business?: string): 
       },
     ];
   });
-  if (!noted.length) return 0;
+  const own = await ownForPlaybook(ctx);
+  if (!noted.length && !own.length) return 0;
   const { prompt, refs } = playbookPrompt({
     business: business ?? (await businessText(ctx)),
     noted,
+    own,
   });
   const { value } = await askStructured(ctx, ctx.scope, {
     system: PLAYBOOK_SYSTEM,
@@ -390,6 +438,11 @@ export const onPostsSaved = async (ctx: AddonEventContext): Promise<void> => {
   await queueNotes(ctx, new Date(Date.now() + SOON_MS));
 };
 
+/** One of the business's own posts did well (part 11): the notes job, which writes the Playbook again with it. */
+export const onOwnDoneWell = async (ctx: AddonEventContext): Promise<void> => {
+  await queueNotes(ctx, new Date(Date.now() + SOON_MS));
+};
+
 /**
  * Queues the notes job. When it's already running, it runs once more after (`pullEarlier`): on 10 Nov 2026 a
  * creator's posts were saved while the run for another's was writing the Playbook, and that run had already picked
@@ -425,7 +478,11 @@ export const runNotes: AddonJobHandler = async (ctx) => {
         await noteSome(ctx, now.slice(i, i + NOTES_LIMITS.perAsk), business);
     }
     const state = await playbookState(ctx);
-    if (playbookDue(state.noted, state.writtenFrom)) {
+    // Due by the creators' noted standouts, or written again when one of the business's own posts did well (part 11).
+    if (
+      playbookDue(state.noted, state.writtenFrom) ||
+      (state.writtenFrom !== null && state.ownNew > 0)
+    ) {
       business ??= await businessText(ctx);
       const sections = await writePlaybook(ctx, business);
       if (sections && state.newIdeas < NOTES_LIMITS.ideasWaitingMost)

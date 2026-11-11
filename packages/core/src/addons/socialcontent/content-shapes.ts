@@ -14,6 +14,7 @@ import {
   POST_PLACES,
   POSTING_NETWORKS,
 } from './calendar';
+import { OWN_READS } from './own';
 import { POST_LIMITS } from './posts-ai';
 import { Network, PlanShape, uuid } from './shapes';
 
@@ -50,6 +51,30 @@ export const ContentPicture = z.object({
 });
 export type ContentPicture = z.infer<typeof ContentPicture>;
 
+/** One place's numbers at one read (part 11): what the network showed, or why they couldn't be read. */
+const Count = z.number().int().min(0).nullable();
+export const OwnNumbersRead = z.union([
+  z.object({
+    at: z.string(),
+    days: z.number().int(),
+    views: Count,
+    likes: Count,
+    comments: Count,
+    shares: Count,
+  }),
+  z.object({ at: z.string(), days: z.number().int(), failure: z.string() }),
+]);
+export const OwnRead = z.enum(OWN_READS);
+/** Its numbers so far, by place: the read at about 2 days (`d2`) and at about 7 (`d7`). */
+export const OwnNumbersShape = z.partialRecord(PostPlace, z.partialRecord(OwnRead, OwnNumbersRead));
+/** Whether it did well against the business's own other posts in that place, at its 7-day read. */
+export const DoneWellShape = z.object({
+  place: PostPlace,
+  on: z.enum(['views', 'engagement', 'both']),
+  times: z.number(),
+  at: z.string(),
+});
+
 /** One of the business's own posts: a Social post record, with what the add-on keeps about it. */
 export const Content = z.object({
   id: uuid,
@@ -76,6 +101,9 @@ export const Content = z.object({
   postLink: z.string().nullable(),
   /** Each place it went up so far (part 9): its link when the network showed one, and when. */
   postedTo: z.array(z.object({ place: PostPlace, link: z.string().nullable(), at: z.string() })),
+  /** Its numbers 2 and 7 days after it went up, in each place (part 11), and whether it did well. */
+  numbers: OwnNumbersShape,
+  doneWell: DoneWellShape.nullable(),
   failure: z.string().nullable(),
   madeBy: z.enum(['ai', 'person']),
   ideaId: uuid.nullable(),
@@ -113,6 +141,8 @@ export const CalendarGetOutput = z.object({
   /** Posts going in these days, soonest first, and drafts with no day yet. */
   posts: z.array(Content),
   undated: z.array(Content),
+  /** What went up in the 30 days before these days, newest first, with how each did (part 11). */
+  recent: z.array(Content),
   /** When it last filled the calendar, and when it fills again on its own (null until it first fills). */
   filledAt: z.string().nullable(),
   nextFillAt: z.string().nullable(),
@@ -248,6 +278,44 @@ export const PostWentInput = z.object({
   again: z.boolean().default(false),
   /** Why, when nothing was tried or it stopped before a place. */
   failure: z.string().max(300).nullable().default(null),
+});
+
+export const OwnNextInput = z.object({
+  workspaceId: uuid,
+  /** The networks the extension reads its own posts' numbers on, with no warning today. */
+  networks: z.array(PostingNetwork).max(POSTING_NETWORKS.length),
+});
+export const OwnCheck = z.object({
+  id: uuid,
+  network: PostingNetwork,
+  /** The read: at about 2 days, or at about 7. */
+  read: OwnRead,
+  /** The places to read, each by its link. */
+  places: z.array(z.object({ place: PostPlace, link: z.string() })),
+  /** Its words as they went up, to know it among the person's own posts. */
+  text: z.string(),
+});
+export type OwnCheck = z.infer<typeof OwnCheck>;
+export const OwnNextOutput = z.object({ check: OwnCheck.nullable() });
+
+const CountIn = z.number().int().min(0).max(2_000_000_000).nullable().default(null);
+export const OwnReadInput = z.object({
+  workspaceId: uuid,
+  postId: uuid,
+  read: OwnRead,
+  /** What each place showed; a failure when it couldn't be read. */
+  reads: z
+    .array(
+      z.object({
+        place: PostPlace,
+        views: CountIn,
+        likes: CountIn,
+        comments: CountIn,
+        shares: CountIn,
+        failure: z.string().max(300).nullable().default(null),
+      }),
+    )
+    .max(POST_PLACES.length),
 });
 
 // ------------------------------------------------------------------------------------------------ the worker

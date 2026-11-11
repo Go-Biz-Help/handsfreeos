@@ -44,7 +44,7 @@ export type FacebookWhere = (typeof FACEBOOK_WHERE)[number];
 
 /**
  * Where one post goes up on its network (part 9): Facebook's on the person's profile, the business's Page, or both
- * (decision 17); LinkedIn's (and Instagram's, part 10) on the person's own feed.
+ * (decision 17); LinkedIn's and Instagram's (part 10) on the person's own feed.
  */
 export const POST_PLACES = ['profile', 'page', 'feed'] as const;
 export type PostPlace = (typeof POST_PLACES)[number];
@@ -81,8 +81,8 @@ export function placesLeft(
  * an OK'd post to the business's reading computer once its time comes.
  */
 export const POSTING = {
-  /** The networks the extension posts on: Facebook and LinkedIn (part 9); Instagram comes with part 10. */
-  networks: ['facebook', 'linkedin'] as readonly PostingNetwork[],
+  /** The networks the extension posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
+  networks: ['facebook', 'linkedin', 'instagram'] as readonly PostingNetwork[],
   /**
    * A post the computer took to put up that hasn't said how it went after this is marked as didn't post, and never
    * tried again on its own: it may have gone up.
@@ -248,6 +248,8 @@ export interface ReadyCheck {
   readonly words: string;
   readonly slides: readonly unknown[];
   readonly fileIds: readonly string[];
+  /** How many of its files are videos: a video post goes up with the person's own video (part 10). */
+  readonly videos: number;
   readonly postAt: string | Date | number | null;
   readonly facebookWhere: readonly FacebookWhere[];
   /** The business's Facebook Page's link, when it has one (Settings → Posting). */
@@ -255,8 +257,8 @@ export interface ReadyCheck {
 }
 
 /**
- * What's still missing before a post can be OK'd, in words to show; null when nothing is. A video needs no file yet:
- * the person records it from the script, and adding it comes with posting it (part 10).
+ * What's still missing before a post can be OK'd, in words to show; null when nothing is. A video needs the person's
+ * own video, recorded from the script and added to the post (part 10).
  */
 export function stillNeeds(c: ReadyCheck): string | null {
   if (!c.words.trim() && c.format === 'text') return 'It has no words yet. Write them first.';
@@ -264,6 +266,8 @@ export function stillNeeds(c: ReadyCheck): string | null {
     return 'A carousel needs at least 2 slides. Add slides or pictures first.';
   if (hasPictures(c.format) && c.fileIds.length === 0)
     return 'It has no picture yet. Make one, or add your own photo.';
+  if (c.format === 'video' && c.videos === 0)
+    return 'It has no video yet. Record it from the script, then add it with Add your video.';
   if (c.postAt === null) return 'It has no day to go yet. Pick when it goes first.';
   if (c.network === 'facebook' && c.facebookWhere.length === 0)
     return 'Pick where on Facebook it goes: your profile, your Page, or both.';

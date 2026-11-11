@@ -193,6 +193,76 @@ export function mergeOnboardingSetupAnswers(
   return { ...(out as OnboardingSetupAnswers), ai: ai as OnboardingSetupAnswers['ai'] };
 }
 
+/**
+ * What still counts as changed on screen after a save that left the furthest screen finished at `reached`: the answers
+ * on screens after it. The server keeps only the answers of screens finished (`resumeOnboardingSetup`), so one changed
+ * further on (open hours set, then Back, and Next on an earlier screen) is still the person's until its own screen is
+ * saved, and what arrives never undoes it. Pass it to `mergeOnboardingSetupAnswers` with no `reached` to take
+ * everything else from the server.
+ */
+export function onboardingSetupTouchedAfterSave(
+  touched: ReadonlySet<string>,
+  reached: OnboardingSetupScreen | null,
+): Set<string> {
+  const done = screenAt(reached);
+  return new Set(
+    [...touched].filter((key) => {
+      const screen = SCREEN_OF.get(key);
+      return !!screen && screenAt(screen) > done;
+    }),
+  );
+}
+
+/** How long the device keeps answers changed on screen and not saved yet. */
+export const ONBOARDING_SETUP_UNSAVED_DAYS = 7;
+
+/**
+ * Answers changed on screen and not saved yet, as the device keeps them (the web's local storage), so a sign-out part
+ * way through, a reload or a closed tab doesn't lose them: a new customer's open hours went that way when her sign-in
+ * dropped (10 Nov 2026).
+ */
+export interface OnboardingSetupUnsaved {
+  readonly v: 1;
+  /** When it was kept (ms since 1970). */
+  readonly at: number;
+  /** The answers changed and not saved, by the same names as `touched`. */
+  readonly touched: readonly string[];
+  readonly answers: OnboardingSetupAnswers;
+}
+
+/** What the device keeps for answers changed on screen (`touched`), or null when nothing is waiting to be saved. */
+export function onboardingSetupUnsavedOf(
+  answers: OnboardingSetupAnswers,
+  touched: ReadonlySet<string>,
+  nowMs: number,
+): OnboardingSetupUnsaved | null {
+  const keys = [...touched].filter((key) => SCREEN_OF.has(key));
+  return keys.length ? { v: 1, at: nowMs, touched: keys, answers } : null;
+}
+
+/**
+ * What the device kept, put back over the server's answers: each answer changed and not saved as it was left (and
+ * counted as changed again, so the next save of its screen sends it), the rest as the server has them. Null when
+ * nothing kept is usable: none, too old, or from a setup that's changed shape since.
+ */
+export function onboardingSetupUnsavedRestored(
+  kept: unknown,
+  answers: OnboardingSetupAnswers,
+  nowMs: number,
+): { readonly answers: OnboardingSetupAnswers; readonly touched: Set<string> } | null {
+  if (!kept || typeof kept !== 'object') return null;
+  const k = kept as Partial<Record<keyof OnboardingSetupUnsaved, unknown>>;
+  if (k.v !== 1 || typeof k.at !== 'number' || !Array.isArray(k.touched)) return null;
+  if (nowMs - k.at > ONBOARDING_SETUP_UNSAVED_DAYS * 86_400_000) return null;
+  const parsed = OnboardingSetupAnswers.safeParse(k.answers);
+  if (!parsed.success) return null;
+  const touched = new Set(
+    k.touched.filter((key): key is string => typeof key === 'string' && SCREEN_OF.has(key)),
+  );
+  if (!touched.size) return null;
+  return { answers: mergeOnboardingSetupAnswers(parsed.data, answers, touched, null), touched };
+}
+
 /** The first screen's answers, saved to the business straight away. */
 export interface OnboardingSetupBusinessDraft {
   readonly name: string;
