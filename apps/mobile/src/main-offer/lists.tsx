@@ -1,5 +1,7 @@
 import {
   cleanListLines,
+  firstPicked,
+  leftAfterAdding,
   isOfferList,
   listsFilled,
   MAIN_OFFER_LISTS_WORDS as LW,
@@ -11,6 +13,8 @@ import {
   type MainOfferLists,
   type OfferList,
   type OfferListGap,
+  roomIn,
+  togglePicked,
 } from '@hfos/core';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
@@ -230,9 +234,8 @@ function Lists({
   );
 }
 
-/** What the AI gave for the open list: lines to tick (Write it for me), or examples to start from. */
-type Help =
-  { kind: 'write'; options: string[]; picked: string[] } | { kind: 'examples'; options: string[] };
+/** What the AI gave for the open list, to tick several of and add together: its own lines, or examples to model. */
+type Help = { kind: 'write' | 'examples'; options: string[]; picked: string[] };
 
 function ListRow({
   calls,
@@ -258,6 +261,7 @@ function ListRow({
   const [busy, setBusy] = React.useState<'write' | 'examples' | 'save' | null>(null);
   const [help, setHelp] = React.useState<Help | null>(null);
   const full = lines.length >= OFFER_LIST_LIMITS.lines;
+  const room = roomIn(lines);
 
   async function ask(kind: 'write' | 'examples') {
     setBusy(kind);
@@ -266,8 +270,7 @@ function ListRow({
       if (!options.length) {
         toast.show(LW.nothingNew);
         setHelp(null);
-      } else
-        setHelp(kind === 'write' ? { kind, options, picked: [...options] } : { kind, options });
+      } else setHelp({ kind, options, picked: firstPicked(kind, options, lines) });
     } catch (e) {
       toast.error(offerAiError(e));
     } finally {
@@ -281,9 +284,15 @@ function ListRow({
     setBusy(null);
   }
 
-  async function keep(picked: string[]) {
+  /** Adds the ticked lines together; the rest stay on show, to add too, while the list has room. */
+  async function addPicked(shown: Help) {
     setBusy('save');
-    if (await save([...lines, ...picked])) setHelp(null);
+    if (await save([...lines, ...shown.picked])) {
+      const left = leftAfterAdding(shown.options, shown.picked);
+      setHelp(
+        left.length && shown.picked.length < room ? { ...shown, options: left, picked: [] } : null,
+      );
+    }
     setBusy(null);
   }
 
@@ -328,27 +337,29 @@ function ListRow({
             />
           ))}
 
-          {help?.kind === 'write' ? (
+          {help ? (
             <View
               className="gap-1 rounded-menu bg-card-2 px-3 py-3"
-              testID={`main-offer-list-${list}-suggestions`}
+              testID={`main-offer-list-${list}-${help.kind === 'write' ? 'suggestions' : 'examples'}`}
             >
-              <Text className="pb-1 text-[13.5px] text-text-2">{LW.suggestions}</Text>
+              <Text className="pb-1 text-[13.5px] text-text-2">
+                {help.kind === 'write' ? LW.suggestions : LW.examplesHint}
+              </Text>
               {help.options.map((o, i) => {
                 const on = help.picked.includes(o);
+                const shut = !manages || (!on && help.picked.length >= room);
                 return (
                   <Pressable
                     key={o}
                     role="checkbox"
                     aria-checked={on}
+                    aria-disabled={shut}
+                    disabled={shut}
                     onPress={() =>
-                      setHelp({
-                        ...help,
-                        picked: on ? help.picked.filter((p) => p !== o) : [...help.picked, o],
-                      })
+                      setHelp({ ...help, picked: togglePicked(help.picked, o, lines) })
                     }
-                    className="min-h-11 flex-row items-start gap-2.5 py-1.5 active:opacity-70"
-                    testID={`main-offer-list-${list}-suggestion-${i}`}
+                    className={`min-h-11 flex-row items-start gap-2.5 py-1.5 active:opacity-70 ${shut ? 'opacity-50' : ''}`}
+                    testID={`main-offer-list-${list}-${help.kind === 'write' ? 'suggestion' : 'example'}-${i}`}
                   >
                     <Icon
                       as={on ? SquareCheck : Square}
@@ -358,47 +369,26 @@ function ListRow({
                   </Pressable>
                 );
               })}
+              {help.options.length > room ? (
+                <Text className="text-[12.5px] text-text-3">{LW.room(room)}</Text>
+              ) : null}
               <View className="flex-row gap-2 pt-1">
-                <Button
-                  size="md"
-                  className="flex-1"
-                  loading={busy === 'save'}
-                  disabled={!help.picked.length}
-                  onPress={() => void keep(help.picked)}
-                  testID={`main-offer-list-${list}-keep`}
-                >
-                  {LW.keepPicked(help.picked.length)}
-                </Button>
+                {manages ? (
+                  <Button
+                    size="md"
+                    className="flex-1"
+                    loading={busy === 'save'}
+                    disabled={!help.picked.length}
+                    onPress={() => void addPicked(help)}
+                    testID={`main-offer-list-${list}-keep`}
+                  >
+                    {LW.addPicked(help.picked.length)}
+                  </Button>
+                ) : null}
                 <Button size="md" variant="ghost" onPress={() => setHelp(null)}>
                   {LW.dismiss}
                 </Button>
               </View>
-            </View>
-          ) : null}
-
-          {help?.kind === 'examples' ? (
-            <View
-              className="gap-1 rounded-menu bg-card-2 px-3 py-3"
-              testID={`main-offer-list-${list}-examples`}
-            >
-              <Text className="pb-1 text-[13.5px] text-text-2">{LW.examplesHint}</Text>
-              {help.options.map((o, i) => (
-                <Pressable
-                  key={o}
-                  disabled={!manages || full}
-                  onPress={() => {
-                    setTyped(o);
-                    setHelp(null);
-                  }}
-                  className="min-h-11 justify-center py-1.5 active:opacity-70"
-                  testID={`main-offer-list-${list}-example-${i}`}
-                >
-                  <Text className="text-[14px] leading-[20px]">{o}</Text>
-                </Pressable>
-              ))}
-              <Button variant="ghost" size="sm" className="self-end" onPress={() => setHelp(null)}>
-                {LW.dismiss}
-              </Button>
             </View>
           ) : null}
 

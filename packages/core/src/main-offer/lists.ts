@@ -373,6 +373,40 @@ export function checkedOfferLists(
   return { options, gaps: [] };
 }
 
+// ------------------------------------------------------------------------------------------- picking the AI's lines
+
+/** How many more lines a list takes before it's full. */
+export function roomIn(lines: readonly string[]): number {
+  return Math.max(0, OFFER_LIST_LIMITS.lines - lines.length);
+}
+
+/**
+ * The AI's lines first ticked (the owner, 11 Nov: pick several at once): every one Write it for me gave, as far as the
+ * list has room, since they were written for it; no example, since they're for another business like it.
+ */
+export function firstPicked(
+  kind: 'write' | 'examples',
+  options: readonly string[],
+  lines: readonly string[],
+): string[] {
+  return kind === 'write' ? options.slice(0, roomIn(lines)) : [];
+}
+
+/** Ticks or unticks one of the AI's lines: one more only while the list has room for every line ticked. */
+export function togglePicked(
+  picked: readonly string[],
+  line: string,
+  lines: readonly string[],
+): string[] {
+  if (picked.includes(line)) return picked.filter((p) => p !== line);
+  return picked.length < roomIn(lines) ? [...picked, line] : [...picked];
+}
+
+/** What stays on show once the ticked lines are added: the rest, to add too or leave. */
+export function leftAfterAdding(options: readonly string[], picked: readonly string[]): string[] {
+  return options.filter((o) => !picked.includes(o));
+}
+
 // ------------------------------------------------------------------------------------------------ the page's words
 
 export const MAIN_OFFER_LISTS_WORDS = {
@@ -396,9 +430,12 @@ export const MAIN_OFFER_LISTS_WORDS = {
   improving: 'Improving…',
   examples: 'Examples',
   examplesHint:
-    'Examples for a business like yours, to model, never to copy. Tap one to start from it.',
+    'Examples for a business like yours, to model, never to copy. Tick the ones to add, then change them to fit you.',
   suggestions: 'Tick the ones to keep. You can change them after.',
-  keepPicked: (n: number) => (n ? `Keep ${n}` : 'Keep the ones ticked'),
+  addPicked: (n: number) =>
+    n === 1 ? 'Add 1 line' : n ? `Add ${n} lines` : 'Tick the ones to add',
+  room: (n: number) =>
+    n === 1 ? 'Room for 1 more line.' : n ? `Room for ${n} more lines.` : 'This list is full.',
   dismiss: 'Not now',
   pickRewrite: 'Pick one to use instead, or keep yours.',
   keepMine: 'Keep mine',

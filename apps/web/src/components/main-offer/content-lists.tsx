@@ -1,6 +1,8 @@
 'use client';
 import {
   cleanListLines,
+  firstPicked,
+  leftAfterAdding,
   listsFilled,
   listsOf,
   MAIN_OFFER_LISTS_WORDS as W,
@@ -10,6 +12,8 @@ import {
   type MainOfferLists,
   type OfferList,
   type OfferListGap,
+  roomIn,
+  togglePicked,
 } from '@hfos/core';
 import { ChevronDown, ListChecks, Pencil, Sparkles, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -23,9 +27,8 @@ import { errorMessage } from '@/lib/api/errors';
 import { assistOfferLists, offerAiError, saveOfferList } from '@/lib/main-offer/actions';
 import { cn } from '@/lib/utils';
 
-/** What the AI gave for the open list: lines to tick (Write it for me), or examples to start from. */
-type Help =
-  { kind: 'write'; options: string[]; picked: string[] } | { kind: 'examples'; options: string[] };
+/** What the AI gave for the open list, to tick several of and add together: its own lines, or examples to model. */
+type Help = { kind: 'write' | 'examples'; options: string[]; picked: string[] };
 
 /**
  * The lists for content on Settings → Main offer (docs/main-offer.md, "For your content"): what makes the business
@@ -177,6 +180,7 @@ function ListRow({
   const [busy, setBusy] = useState<'write' | 'examples' | 'save' | null>(null);
   const [help, setHelp] = useState<Help | null>(null);
   const full = lines.length >= OFFER_LIST_LIMITS.lines;
+  const room = roomIn(lines);
 
   async function ask(kind: 'write' | 'examples') {
     setBusy(kind);
@@ -185,8 +189,7 @@ function ListRow({
       if (!options.length) {
         toast.message(W.nothingNew);
         setHelp(null);
-      } else
-        setHelp(kind === 'write' ? { kind, options, picked: [...options] } : { kind, options });
+      } else setHelp({ kind, options, picked: firstPicked(kind, options, lines) });
     } catch (e) {
       toast.error(offerAiError(e));
     } finally {
@@ -200,9 +203,15 @@ function ListRow({
     setBusy(null);
   }
 
-  async function keepPicked(picked: string[]) {
+  /** Adds the ticked lines together; the rest stay on show, to add too, while the list has room. */
+  async function addPicked(open: Help) {
     setBusy('save');
-    if (await save([...lines, ...picked])) setHelp(null);
+    if (await save([...lines, ...open.picked])) {
+      const left = leftAfterAdding(open.options, open.picked);
+      setHelp(
+        left.length && open.picked.length < room ? { ...open, options: left, picked: [] } : null,
+      );
+    }
     setBusy(null);
   }
 
@@ -258,72 +267,50 @@ function ListRow({
             <p className="text-[13px] text-text-3">{W.empty}</p>
           )}
 
-          {help?.kind === 'write' ? (
+          {help ? (
             <div
               className="flex flex-col gap-2 rounded-control border border-border bg-card-2 p-3"
-              data-testid={`main-offer-list-${list}-suggestions`}
+              data-testid={`main-offer-list-${list}-${help.kind === 'write' ? 'suggestions' : 'examples'}`}
             >
-              <p className="text-[13px] text-text-2">{W.suggestions}</p>
-              {help.options.map((o) => (
-                <Checkbox
-                  key={o}
-                  label={o}
-                  checked={help.picked.includes(o)}
-                  onChange={(e) =>
-                    setHelp({
-                      ...help,
-                      picked: e.target.checked
-                        ? [...help.picked, o]
-                        : help.picked.filter((p) => p !== o),
-                    })
-                  }
-                  className="items-start text-[13px]"
-                />
-              ))}
+              <p className="text-[13px] text-text-2">
+                {help.kind === 'write' ? W.suggestions : W.examplesHint}
+              </p>
+              {help.options.map((o, i) => {
+                const on = help.picked.includes(o);
+                const shut = !canManage || (!on && help.picked.length >= room);
+                return (
+                  <Checkbox
+                    key={o}
+                    label={o}
+                    checked={on}
+                    disabled={shut}
+                    onChange={() =>
+                      setHelp({ ...help, picked: togglePicked(help.picked, o, lines) })
+                    }
+                    className={cn('items-start text-[13px]', shut && 'cursor-default opacity-50')}
+                    data-testid={`main-offer-list-${list}-${help.kind === 'write' ? 'suggestion' : 'example'}-${i}`}
+                  />
+                );
+              })}
+              {help.options.length > room ? (
+                <p className="text-xs text-text-3">{W.room(room)}</p>
+              ) : null}
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  loading={busy === 'save'}
-                  disabled={!help.picked.length}
-                  onClick={() => void keepPicked(help.picked)}
-                  data-testid={`main-offer-list-${list}-keep`}
-                >
-                  {W.keepPicked(help.picked.length)}
-                </Button>
+                {canManage ? (
+                  <Button
+                    size="sm"
+                    loading={busy === 'save'}
+                    disabled={!help.picked.length}
+                    onClick={() => void addPicked(help)}
+                    data-testid={`main-offer-list-${list}-keep`}
+                  >
+                    {W.addPicked(help.picked.length)}
+                  </Button>
+                ) : null}
                 <Button size="sm" variant="ghost" onClick={() => setHelp(null)}>
                   {W.dismiss}
                 </Button>
               </div>
-            </div>
-          ) : null}
-
-          {help?.kind === 'examples' ? (
-            <div
-              className="flex flex-col gap-1.5 rounded-control border border-border bg-card-2 p-3"
-              data-testid={`main-offer-list-${list}-examples`}
-            >
-              <p className="text-[13px] text-text-2">{W.examplesHint}</p>
-              {help.options.map((o) => (
-                <button
-                  key={o}
-                  type="button"
-                  disabled={!canManage || full}
-                  onClick={() => {
-                    setTyped(o);
-                    setHelp(null);
-                  }}
-                  className="rounded-control px-2 py-1.5 text-left text-[13px] hover:bg-card disabled:hover:bg-transparent"
-                >
-                  {o}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setHelp(null)}
-                className="self-end text-xs text-text-3 hover:text-text"
-              >
-                {W.dismiss}
-              </button>
             </div>
           ) : null}
 
