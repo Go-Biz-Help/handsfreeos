@@ -26,6 +26,13 @@ export const CONTENT_FORMATS = ['photo', 'carousel', 'video', 'text'] as const;
 export type ContentFormat = (typeof CONTENT_FORMATS)[number];
 
 /**
+ * The formats the AI writes: words with pictures, or words alone, never a video (the owner, 11 Nov). A video post is
+ * only ever the person's own, when they pick Video on a post and add their video.
+ */
+export const AI_FORMATS = ['photo', 'carousel', 'text'] as const satisfies readonly ContentFormat[];
+export type AiFormat = (typeof AI_FORMATS)[number];
+
+/**
  * How its picture is made (decision 14): **designed** by Claude (words on it, in the business's colour), a
  * **photo**-style picture from OpenAI, or the person's **own**.
  */

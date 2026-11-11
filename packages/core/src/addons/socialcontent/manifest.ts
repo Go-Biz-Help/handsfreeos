@@ -139,8 +139,9 @@ export const socialcontentAddon = defineAddon({
     ],
     // A niche someone added: the AI writes the words to search each network for it. Posts saved with new
     // standouts: the AI notes them, and the Playbook and ideas follow. One of the business's own posts that did
-    // well (part 11): the Playbook is written again with it.
+    // well (part 11): the Playbook is written again with it. Fill on its own turned back on: the calendar fills now.
     consumes: [
+      'socialcontent.settings.saved',
       'socialcontent.niche.added',
       'socialcontent.posts.saved',
       'socialcontent.content.done_well',

@@ -285,6 +285,8 @@ export const Settings = z.object({
   /** The business's Facebook Page, and where its Facebook posts go (decision 17). */
   facebookPage: z.string().nullable(),
   facebookWhere: z.array(z.enum(FACEBOOK_WHERE)),
+  /** Whether the AI fills the calendar on its own (on until someone turns it off; the owner, 11 Nov). */
+  autoFill: z.boolean(),
 });
 export type Settings = z.infer<typeof Settings>;
 
@@ -377,6 +379,11 @@ export const SettingsSaveInput = z.object({
     .optional(),
   /** Where its Facebook posts go: the person's profile, the Page, or both. */
   facebookWhere: z.array(z.enum(FACEBOOK_WHERE)).min(1).max(2).optional(),
+  /**
+   * Whether the AI fills the calendar on its own. Off stops it, a fill under way too; on fills the open days right
+   * away, then tops up once a week.
+   */
+  autoFill: z.boolean().optional(),
 });
 
 /** A standout a Playbook item or an idea came from, to open. */

@@ -15227,7 +15227,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, and where its Facebook posts go (the profile, the Page or both). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -24027,7 +24027,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; and how many ideas are saved to write from.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_calendar_get"];
@@ -61920,6 +61920,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    autoFill?: boolean;
                     facebookPage?: string | null;
                     facebookWhere?: ("profile" | "page")[];
                     networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
@@ -61944,6 +61945,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        autoFill: boolean;
                         facebookPage: string | null;
                         facebookWhere: ("profile" | "page")[];
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
@@ -94754,6 +94756,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        autoFill: boolean;
                         days: number;
                         facebookPage: string | null;
                         filledAt: string | null;
@@ -95442,6 +95445,7 @@ export interface operations {
                         mayManage: boolean;
                         readerIsMe: boolean;
                         settings: {
+                            autoFill: boolean;
                             facebookPage: string | null;
                             facebookWhere: ("profile" | "page")[];
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];

@@ -70,6 +70,7 @@ export function SettingsPage({
       plan?: Partial<Record<PostingNetwork, NetworkPlan>>;
       facebookPage?: string | null;
       facebookWhere?: FacebookWhere[];
+      autoFill?: boolean;
     },
     done: string = W.settings.saved,
   ) =>
@@ -233,7 +234,17 @@ export function SettingsPage({
         settings={settings}
         mayManage={mayManage}
         busy={busy}
-        onSave={(key, body) => void save(key, body)}
+        onSave={(key, body) =>
+          void save(
+            key,
+            body,
+            body.autoFill === undefined
+              ? W.settings.saved
+              : body.autoFill
+                ? W.calendar.fillStarted
+                : W.calendar.fillStopped,
+          )
+        }
       />
 
       <Card className="p-4 md:p-5" data-testid="socialcontent-work">
@@ -309,7 +320,10 @@ function WorkRow({
   );
 }
 
-/** Posting (decisions 17 and 18): the calendar's plan, the business's Facebook Page, and where Facebook posts go. */
+/**
+ * Posting (decisions 17 and 18): the calendar's plan, whether it fills on its own (the owner's switch, 11 Nov), the
+ * business's Facebook Page, and where Facebook posts go.
+ */
 function PostingCard({
   settings,
   mayManage,
@@ -325,6 +339,7 @@ function PostingCard({
       plan?: Partial<Record<PostingNetwork, NetworkPlan>>;
       facebookPage?: string | null;
       facebookWhere?: FacebookWhere[];
+      autoFill?: boolean;
     },
   ) => void;
 }) {
@@ -342,6 +357,20 @@ function PostingCard({
     <Card className="p-4 md:p-5" data-testid="socialcontent-posting">
       <h2 className="text-[15px] font-semibold">{W.settings.posting}</h2>
       <p className="mt-1 text-[13px] text-text-2">{W.settings.postingIntro}</p>
+      <div className="mt-3 flex items-start gap-3" data-testid="socialcontent-auto-fill-row">
+        <div className="min-w-0 flex-1">
+          <div className="text-[13.5px] font-medium">{W.calendar.autoFill}</div>
+          <p className="mt-0.5 text-[12.5px] text-text-3">{W.calendar.autoFillHint}</p>
+        </div>
+        <Switch
+          checked={settings.autoFill}
+          onChange={(on) => onSave('autoFill', { autoFill: on })}
+          label={W.calendar.autoFill}
+          disabled={!mayManage || (busy !== null && busy !== 'autoFill')}
+          busy={busy === 'autoFill'}
+          testId="socialcontent-auto-fill"
+        />
+      </div>
       <div className="mt-3 space-y-2.5">
         {POSTING_NETWORKS.map((n) => (
           <div

@@ -131,14 +131,15 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   are online commands in the phone's contract (`packages/core/test/contract/mobile-contract.json`); the worker's
   actions (Suggest niches, Write it again, Get ideas) go through `workerPost`, as on the web.
 - **The Calendar on the phone** (part 12). Its first screen lists the Calendar too, at the web's own address
-  (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, when it
-  filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
+  (`a/socialcontent/calendar`). It does what the web's does: Fill the calendar, OK the week, Write a post, the
+  Fill on its own switch, when it filled and fills again with the plan and who puts posts up, each day's posts and open days (Write one), No day yet,
   and Went up lately with each post's latest numbers. A post opens on its own screen at `calendar?post=<id>`, as the
   web's sheet does, so a link to one opens it there too. That screen changes everything the sheet does (title,
   network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
   words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
   person's own photos (made smaller first, to 2048 px) or video (up to 25 MB) from the phone, OKs it or takes the OK
-  back, Post it now, Skip it, and Write it again. On a network the extension doesn't post on yet, Share the words
+  back, Post it now, Skip it, and Write it again. Pressing a picture opens the post's pictures full screen, to
+  swipe between (and pinch to zoom on iPhone). On a network the extension doesn't post on yet, Share the words
   hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
   `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
   `.approve_week`, `.post_now`, `.skip`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
@@ -160,17 +161,31 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
 - **The plan** is in Settings → Posting (owners and admins): posts a week on Instagram, Facebook and LinkedIn (0 to
   7; 3, 3 and 2 at first) and a time for each, in the business's time zone. 1 a week lands on Wednesday, 2 on Tuesday
   and Thursday, 3 on Monday, Wednesday and Friday, and so on (`WEEKDAYS_FOR`). Settings also takes the Facebook Page's
-  link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with.
+  link and where Facebook posts go (the profile, the Page or both), which each Facebook post starts with, and the
+  **Fill on its own** switch (below).
 - **The Calendar** shows today and the next 14 days, day by day: each post with its picture, title, first line and
   state, and each open day in the plan (a network's day with no post, or only a skipped one) with **Write one**.
   **Fill the calendar** has the worker write a post for every open day from tomorrow on: 5 at a time, 30 seconds
   apart, from saved ideas first, then new ones, then the Playbook alone. After the first fill it tops up once a week
   on its own (`socialcontent.calendar`, re-armed when the add-on is turned back on). **Write a post** takes the next
   open day; **Write the post** on an idea does the same for the idea's network and marks it used.
+- **Fill on its own** (the owner, 11 Nov): a switch on the Calendar (web and phone) and in Settings → Posting, on
+  until an owner or admin turns it off (`settings.auto_fill`, from `20261027025800_socialcontent_auto_fill.sql`).
+  Off, a fill under way stops before its next post, the weekly top-up writes nothing and isn't queued again, and
+  Fill the calendar is hidden (`socialcontent_fill_off` if it's asked for anyway); the posts already written stay,
+  and Write a post still works. Turned on again, the worker hears `socialcontent.settings.saved` (`fillTurnedOn`)
+  and fills the open days right away.
 - **Writing** asks Claude for the post in the network's way (Instagram's hook and up to 10 hashtags, Facebook like a
   neighbour, LinkedIn a lesson and a question), as the business, never inventing results, prices or reviews. Its
   answer is checked (`checkedPost`): Instagram never gets words alone, a carousel needs 2 slides, hashtags are kept
   apart from the words, and the AI picks how the picture is made. **Write it again** takes what to change.
+- **The AI writes picture posts and words alone, never videos** (the owner, 11 Nov): its formats are `AI_FORMATS`
+  (picture, carousel, words only), an idea taken from a video standout becomes a picture or carousel post, and an
+  answer that still says video is kept as a picture post. A video post is only ever the person's own, when they pick
+  Video on a post. Video drafts the AI wrote before, with no video added, are written again as picture posts on the
+  same day by the next fill.
+- **Its information** comes from the business profile from setup (what it sells and who it serves), up to 30 short
+  answers from the Knowledge base (FAQs and facts, `businessText`), the Playbook and the idea it's written from.
 - **Pictures** (decision 14), made in the worker's `socialcontent.pictures` job, one post at a time:
   - **Designed by the AI** (the default for tips, steps, quotes, claims and every carousel slide): Claude picks a
     layout (bold, clean or split), the colours (from the business's colour, kept readable) and the words for each page;
@@ -187,7 +202,8 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     the place of one it had (part 10). Core's files take MP4, QuickTime and WebM videos for this (`ATTACHMENT_TYPES`,
     and the attachments bucket from `20261027025150_attachments_take_videos.sql`).
     The sheet's **Make it again**, **Switch to designed** and **Switch to photo-style** make it again, with what to
-    change.
+    change. Pressing a picture opens the post's pictures full screen (`PictureViewer`), with arrows or the arrow keys
+    between them.
 - **The OK** (decision 15). Every post waits for an OK: **OK it** on one, or **OK the week** for every post going in
   the next 7 days that has everything it needs (words, its pictures or 2 slides, a video's own video, a day at least a minute ahead, and on
   Facebook where it goes, with the Page's link when it goes to the Page). What one still needs is shown on the post

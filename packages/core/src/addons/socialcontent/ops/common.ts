@@ -62,6 +62,7 @@ export async function settingsOf(ctx: Ctx): Promise<{
   facebookPage: string | null;
   facebookWhere: FacebookWhere[];
   filledAt: string | null;
+  autoFill: boolean;
 }> {
   const [s] = await ctx.tx
     .select()
@@ -82,6 +83,7 @@ export async function settingsOf(ctx: Ctx): Promise<{
       (FACEBOOK_WHERE as readonly string[]).includes(w),
     ),
     filledAt: s?.filledAt ? s.filledAt.toISOString() : null,
+    autoFill: s?.autoFill ?? true,
   };
 }
 

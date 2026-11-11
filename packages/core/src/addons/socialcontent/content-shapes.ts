@@ -146,6 +146,8 @@ export const CalendarGetOutput = z.object({
   /** When it last filled the calendar, and when it fills again on its own (null until it first fills). */
   filledAt: z.string().nullable(),
   nextFillAt: z.string().nullable(),
+  /** Whether it fills on its own (the owner's switch, 11 Nov): off, it writes no posts on its own. */
+  autoFill: z.boolean(),
   /** Ideas saved to make, which a fill uses first. */
   ideasSaved: z.number().int(),
   /** Posts OK'd and waiting to go up at their times. */

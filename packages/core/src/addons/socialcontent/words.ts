@@ -85,12 +85,17 @@ export function daysUntil(at: string, now: number = Date.now()): string {
   return `in ${days} days`;
 }
 
-/** When the Calendar was filled and fills again, or how to fill it the first time. */
+/** When the Calendar was filled and fills again, how to fill it the first time, or that filling on its own is off. */
 export function filledLine(
-  c: { readonly filledAt: string | null; readonly nextFillAt: string | null },
+  c: {
+    readonly filledAt: string | null;
+    readonly nextFillAt: string | null;
+    readonly autoFill?: boolean;
+  },
   now: number = Date.now(),
 ): string {
   const C = SOCIALCONTENT_WORDS.calendar;
+  if (c.autoFill === false) return C.fillOffLine(c.filledAt ? daysAgo(c.filledAt, now) : null);
   return c.filledAt
     ? C.filled(daysAgo(c.filledAt, now), c.nextFillAt ? daysUntil(c.nextFillAt, now) : null)
     : C.neverFilled;
@@ -487,6 +492,19 @@ export const SOCIALCONTENT_WORDS = {
         .join(' · '),
     neverFilled:
       'Press Fill the calendar to have the AI write posts for the open days in your plan. After that it tops up once a week on its own.',
+    /** The switch that stops it filling itself (the owner, 11 Nov). */
+    autoFill: 'Fill on its own',
+    autoFillHint:
+      'The AI writes posts for the open days in the next two weeks, and tops up once a week. Turn it off to stop it.',
+    fillOffLine: (ago: string | null) =>
+      ago
+        ? `Filled ${ago} · filling on its own is off, so the AI writes no more posts unless you ask for one.`
+        : 'Filling on its own is off, so the AI writes no posts unless you ask for one.',
+    fillOffWho: 'An owner or admin can turn filling on its own back on.',
+    fillStopped:
+      'Stopped. The AI won’t write posts on its own until you turn Fill on its own back on. The posts already written stay.',
+    fillStarted:
+      'Filling on its own again. The AI writes posts for any open days now, each waiting for your OK.',
     approveWeek: 'OK the week',
     approvedWeek: (n: number, notReady: number) =>
       [
@@ -565,6 +583,13 @@ export const SOCIALCONTENT_WORDS = {
     lines: 'What to say',
     shots: 'What to film',
     picture: 'Picture',
+    /** A post's pictures full screen (the owner, 11 Nov). */
+    fullScreen: (name: string) => `See ${name} full screen`,
+    viewer: 'Pictures full screen',
+    viewerOf: (n: number, total: number) => `${n} of ${total}`,
+    viewerPrevious: 'Previous picture',
+    viewerNext: 'Next picture',
+    viewerClose: 'Close',
     pictureShows: 'What it shows',
     makePicture: 'Make the picture',
     makeAgain: 'Make it again',

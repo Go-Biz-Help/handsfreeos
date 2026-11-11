@@ -817,8 +817,29 @@ describe('the business’s own posts', () => {
     const cal = await as(member, 'socialcontent.calendar.get');
     expect(cal.filledAt).not.toBeNull();
     expect(Date.parse(cal.nextFillAt) - Date.parse(cal.filledAt)).toBe(7 * DAY);
+    expect(cal.autoFill).toBe(true);
     const { posts } = await as(member, 'socialcontent.content.list');
     expect(posts.map((p: Any) => p.id)).toEqual(expect.arrayContaining([linkedinId, facebookId]));
+  });
+
+  it('stops filling the calendar on its own, and starts again (the owner, 11 Nov)', async () => {
+    expect(await refused(as(member, 'socialcontent.settings.save', { autoFill: false }))).toBe(
+      'forbidden',
+    );
+    expect(await as(owner, 'socialcontent.settings.save', { autoFill: false })).toMatchObject({
+      autoFill: false,
+    });
+    const off = await as(member, 'socialcontent.calendar.get');
+    expect(off.autoFill).toBe(false);
+    expect(off.nextFillAt).toBeNull();
+    // Saving something else leaves it off.
+    expect((await as(owner, 'socialcontent.settings.save', { plan: {} })).autoFill).toBe(false);
+    expect(await as(owner, 'socialcontent.settings.save', { autoFill: true })).toMatchObject({
+      autoFill: true,
+    });
+    const on = await as(member, 'socialcontent.calendar.get');
+    expect(on.autoFill).toBe(true);
+    expect(on.nextFillAt).not.toBeNull();
   });
   it('puts an OK’d post up from the reading computer once its time comes, and only once', async () => {
     expect(

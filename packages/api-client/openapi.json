@@ -115517,7 +115517,7 @@
     "/v1/commands/socialcontent.settings.save": {
       "post": {
         "operationId": "command_socialcontent_settings_save",
-        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, and where its Facebook posts go (the profile, the Page or both). What isn’t given stays as it is.",
+        "summary": "Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.",
         "tags": [
           "commands"
         ],
@@ -115616,6 +115616,9 @@
                         "page"
                       ]
                     }
+                  },
+                  "autoFill": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -115762,6 +115765,9 @@
                           "page"
                         ]
                       }
+                    },
+                    "autoFill": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -115773,7 +115779,8 @@
                     "readerVersion",
                     "plan",
                     "facebookPage",
-                    "facebookWhere"
+                    "facebookWhere",
+                    "autoFill"
                   ],
                   "additionalProperties": false
                 }
@@ -244693,6 +244700,9 @@
                               "page"
                             ]
                           }
+                        },
+                        "autoFill": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -244704,7 +244714,8 @@
                         "readerVersion",
                         "plan",
                         "facebookPage",
-                        "facebookWhere"
+                        "facebookWhere",
+                        "autoFill"
                       ],
                       "additionalProperties": false
                     },
@@ -246089,7 +246100,7 @@
     "/v1/queries/socialcontent.calendar.get": {
       "post": {
         "operationId": "query_socialcontent_calendar_get",
-        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.",
+        "summary": "The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; and how many ideas are saved to write from.",
         "tags": [
           "queries"
         ],
@@ -247679,6 +247690,9 @@
                         "null"
                       ]
                     },
+                    "autoFill": {
+                      "type": "boolean"
+                    },
                     "ideasSaved": {
                       "type": "integer",
                       "minimum": -9007199254740991,
@@ -247762,6 +247776,7 @@
                     "recent",
                     "filledAt",
                     "nextFillAt",
+                    "autoFill",
                     "ideasSaved",
                     "ready",
                     "poster",

@@ -69,6 +69,8 @@ export const settings = addonSocialcontent.table('settings', {
     .$type<FacebookWhere[]>()
     .default(['profile']),
   filledAt: ts('filled_at'),
+  /** Whether the AI fills the calendar on its own (the owner's switch, 11 Nov): off stops it, and any fill under way. */
+  autoFill: boolean('auto_fill').notNull().default(true),
   updatedBy: userRef('updated_by'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),

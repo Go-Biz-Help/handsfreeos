@@ -291,7 +291,7 @@ const RECENT_DAYS = 30;
 export const calendarGet = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.calendar.get',
   description:
-    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled and fills again on its own; and how many ideas are saved to write from.',
+    'The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; and how many ideas are saved to write from.',
   input: CalendarGetInput,
   output: CalendarGetOutput,
   permission: 'socialcontent.use',
@@ -345,9 +345,11 @@ export const calendarGet = defineAddonQuery(socialcontentAddon, {
       undated: await contentOut(ctx, undated),
       recent: await contentOut(ctx, recent),
       filledAt: s.filledAt,
-      nextFillAt: s.filledAt
-        ? new Date(new Date(s.filledAt).getTime() + CALENDAR.everyDays * 86_400_000).toISOString()
-        : null,
+      autoFill: s.autoFill,
+      nextFillAt:
+        s.filledAt && s.autoFill
+          ? new Date(new Date(s.filledAt).getTime() + CALENDAR.everyDays * 86_400_000).toISOString()
+          : null,
       ideasSaved: counts?.saved ?? 0,
       ready: counts?.ready ?? 0,
       poster: s.readerUserId

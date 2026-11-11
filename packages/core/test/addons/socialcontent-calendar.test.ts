@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { ATTACHMENT_MAX_BYTES, FileBeginUploadInput } from '../../src/schemas/file';
 import {
+  AI_FORMATS,
   CALENDAR,
   DEFAULT_PLAN,
   emptySlots,
@@ -35,6 +36,8 @@ import {
   designOf,
   photoPromptFor,
   tidyHashtags,
+  WRITE_SCHEMA,
+  WRITE_SYSTEM,
   type DesignAnswer,
   type WriteAnswer,
 } from '../../src/addons/socialcontent/posts-ai';
@@ -188,7 +191,6 @@ const answer = (over: Partial<WriteAnswer> = {}): WriteAnswer => ({
   words: 'Here’s how to get it back.\n\nSave this for later. #crm #automation',
   hashtags: ['#CRM', 'crm', 'small business', 'automation'],
   slides: [],
-  script: null,
   picture: 'A phone full of unread texts on a desk.',
   pictureWay: 'photo',
   photoPrompt: 'A phone full of unread texts on a wooden desk, morning light.',
@@ -237,13 +239,16 @@ describe('checking what the AI writes', () => {
     expect(checkedPost(answer(), 'instagram')!.pictureWay).toBe('photo');
   });
 
-  it('leaves a video to the person, with its script', () => {
-    const video = checkedPost(
-      answer({ format: 'video', script: { lines: ['Hi', ''], shots: ['Me at my desk'] } }),
-      'instagram',
-    )!;
-    expect(video.pictureWay).toBe('own');
-    expect(video.script).toEqual({ lines: ['Hi'], shots: ['Me at my desk'] });
+  it('never keeps a video: one the AI still answers with is a picture post (the owner, 11 Nov)', () => {
+    expect(AI_FORMATS).not.toContain('video');
+    expect((WRITE_SCHEMA['properties'] as { format: { enum: string[] } }).format.enum).toEqual([
+      ...AI_FORMATS,
+    ]);
+    expect(WRITE_SYSTEM).toMatch(/Never a video/);
+    const video = checkedPost(answer({ format: 'video' }), 'facebook')!;
+    expect(video.format).toBe('photo');
+    expect(video.pictureWay).toBe('photo');
+    expect(video.script).toBeNull();
   });
 
   it('keeps nothing when the AI wrote nothing', () => {
@@ -408,6 +413,13 @@ describe('the Calendar’s days and times, as the web and the phone both show th
         now,
       ),
     ).toMatch(/in 6 days/);
+    // Filling on its own turned off (the owner, 11 Nov).
+    expect(
+      filledLine({ filledAt: '2026-11-10T13:00:00.000Z', nextFillAt: null, autoFill: false }, now),
+    ).toMatch(/^Filled .* filling on its own is off/);
+    expect(filledLine({ filledAt: null, nextFillAt: null, autoFill: false }, now)).toMatch(
+      /^Filling on its own is off/,
+    );
   });
 
   it('puts the plan in one line', () => {

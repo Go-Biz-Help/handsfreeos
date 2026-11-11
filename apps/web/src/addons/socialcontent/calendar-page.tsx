@@ -4,7 +4,7 @@
  * two weeks after, day by day, written by the AI from the Playbook and saved ideas. Each waits for an OK (decision
  * 15): open one to change it, OK it or skip it, or **OK the week** in one go. Open days in the plan show where a post
  * is still wanted; **Fill the calendar** has the AI write them all, and after the first time it tops up once a week
- * on its own (decision 18). OK'd posts go up at their times from the reading computer (part 9): Facebook and
+ * on its own (decision 18), until **Fill on its own** is turned off (the owner, 11 Nov). OK'd posts go up at their times from the reading computer (part 9): Facebook and
  * LinkedIn for now, and the card says whose computer that is and when it last checked in.
  */
 import { addDays, localDateOf } from '@hfos/core';
@@ -25,6 +25,7 @@ import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
@@ -93,6 +94,17 @@ export function CalendarPage({
       () => workerPost<{ open: number }>(FILL, { workspaceId, input: {} }),
       (out) => (out.open ? W.calendar.fillAsked : W.calendar.fillNothing),
     );
+  const autoFill = (on: boolean) =>
+    act(
+      'autoFill',
+      () =>
+        api
+          .POST('/v1/commands/socialcontent.settings.save', {
+            body: { workspaceId, autoFill: on },
+          })
+          .then(unwrap),
+      on ? W.calendar.fillStarted : W.calendar.fillStopped,
+    );
   const okWeek = () =>
     act(
       'week',
@@ -125,15 +137,17 @@ export function CalendarPage({
         description={W.calendar.intro}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button
-              loading={busy === 'fill'}
-              disabled={busy !== null && busy !== 'fill'}
-              onClick={() => void fill()}
-              data-testid="socialcontent-calendar-fill"
-            >
-              <CalendarPlus className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
-              {busy === 'fill' ? W.calendar.filling : W.calendar.fill}
-            </Button>
+            {c.autoFill ? (
+              <Button
+                loading={busy === 'fill'}
+                disabled={busy !== null && busy !== 'fill'}
+                onClick={() => void fill()}
+                data-testid="socialcontent-calendar-fill"
+              >
+                <CalendarPlus className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                {busy === 'fill' ? W.calendar.filling : W.calendar.fill}
+              </Button>
+            ) : null}
             {drafts ? (
               <Button
                 variant="secondary"
@@ -161,9 +175,26 @@ export function CalendarPage({
       />
 
       <Card className="p-4 md:p-5">
-        <p className="text-[13.5px] text-text-2" data-testid="socialcontent-calendar-filled">
-          {filled}
-        </p>
+        <div className="flex items-start gap-3">
+          <p
+            className="min-w-0 flex-1 text-[13.5px] text-text-2"
+            data-testid="socialcontent-calendar-filled"
+          >
+            {filled}
+            {!c.autoFill && !c.mayManage ? ` ${W.calendar.fillOffWho}` : null}
+          </p>
+          <span className="flex flex-none items-center gap-2 text-[13px] text-text-2">
+            {W.calendar.autoFill}
+            <Switch
+              checked={c.autoFill}
+              onChange={(on) => void autoFill(on)}
+              label={W.calendar.autoFill}
+              disabled={!c.mayManage || (busy !== null && busy !== 'autoFill')}
+              busy={busy === 'autoFill'}
+              testId="socialcontent-calendar-auto-fill"
+            />
+          </span>
+        </div>
         <p className="mt-2 text-[12.5px] text-text-3">
           {planShown(c.plan, POSTING_NETWORKS, (n) => networkName(n as PostingNetwork))}
         </p>

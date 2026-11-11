@@ -10,7 +10,12 @@ import { workQueue } from '@hfos/core/addons/socialcontent/ops/worker';
 import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { scheduleAddonJob } from '../queue';
-import type { AddonJobHandler, AddonScopeContext, AddonWorkerModule } from '../types';
+import type {
+  AddonJobHandler,
+  AddonScopeContext,
+  AddonSubscriber,
+  AddonWorkerModule,
+} from '../types';
 import {
   CALENDAR_JOB,
   FILL_ACTION,
@@ -67,19 +72,25 @@ async function armChecks(ctx: AddonScopeContext): Promise<void> {
 }
 
 /**
- * Turned on again: the weekly reading and searching, and the calendar's weekly top-up once it was ever filled
- * (turning it off cancelled its queued work).
+ * Turned on again: the weekly reading and searching, and the calendar's weekly top-up once it was ever filled and
+ * still fills on its own (turning it off cancelled its queued work).
  */
 async function onEnable(ctx: AddonScopeContext): Promise<void> {
   await armChecks(ctx);
   const [s] = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ filled_at: Date | null }>(
+    rows<{ filled_at: Date | null; auto_fill: boolean }>(
       tx,
-      sql`select filled_at from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
+      sql`select filled_at, auto_fill from addon_socialcontent.settings where workspace_id = ${ctx.scope.workspaceId}`,
     ),
   );
-  if (s?.filled_at) await queueFill(ctx, new Date(Date.now() + WEEK_MS), false);
+  if (s?.filled_at && s.auto_fill) await queueFill(ctx, new Date(Date.now() + WEEK_MS), false);
 }
+
+/** Fill on its own turned back on (Settings → Posting, or the Calendar's switch): it fills the open days now. */
+const onSettingsSaved: AddonSubscriber = async (ctx) => {
+  const p = (ctx.event.payload ?? {}) as Record<string, unknown>;
+  if (p['fillTurnedOn'] === true) await queueFill(ctx, new Date(), true);
+};
 
 /** Each studied creator's posts read again; then the next week's. */
 const readWeekly: AddonJobHandler = async (ctx) => {
@@ -108,6 +119,7 @@ const findMonthly: AddonJobHandler = async (ctx) => {
 export const socialcontentAddonWorker: AddonWorkerModule = {
   manifest: catalogAddon('socialcontent'),
   subscribers: {
+    'socialcontent.settings.saved': onSettingsSaved,
     'socialcontent.niche.added': onNicheAdded,
     'socialcontent.posts.saved': onPostsSaved,
     'socialcontent.content.done_well': onOwnDoneWell,
