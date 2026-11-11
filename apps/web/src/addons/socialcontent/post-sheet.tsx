@@ -19,8 +19,14 @@ import {
   type PostingNetwork,
 } from '@hfos/core/addons/socialcontent/calendar';
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
-import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
-import { Copy, ExternalLink, ImagePlus, Trash2 } from 'lucide-react';
+import {
+  SOCIALCONTENT_WORDS as W,
+  clockOf,
+  daysAgo,
+  numbersLines,
+  timeShown,
+} from '@hfos/core/addons/socialcontent/words';
+import { Copy, ExternalLink, ImagePlus, Trash2, Video } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { uploadFile } from '@/components/files/upload-zone';
@@ -50,23 +56,21 @@ export const STATE_BADGE: Record<Content['state'], BadgeVariant> = {
   skipped: 'gray',
 };
 
-/** "Wed, Nov 12, 9:00 AM" in the business's time zone. */
-export function timeIn(at: string, timeZone: string, withDay = false): string {
-  return new Intl.DateTimeFormat('en-US', {
-    ...(withDay ? { weekday: 'short', month: 'short', day: 'numeric' } : {}),
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone,
-  }).format(new Date(at));
-}
+/** "Wed, Nov 12, 9:00 AM" in the business's time zone (core's, shared with the phone). */
+export const timeIn = timeShown;
 
-/** One of a post's pictures, through a short-lived link from the person's own storage session. */
+/**
+ * One of a post's pictures, or the person's video, through a short-lived link from the person's own storage session.
+ * A video plays with its controls only where `controls` says (the post's sheet); elsewhere it shows its first frame.
+ */
 export function PostPicture({
   picture,
   className,
+  controls = false,
 }: {
   picture: ContentPicture;
   className?: string;
+  controls?: boolean;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -79,19 +83,20 @@ export function PostPicture({
       gone = true;
     };
   }, [picture.bucket, picture.objectPath]);
-  return url ? <img src={url} alt={picture.name} className={className} /> : null;
-}
-
-/** The time of day in the business's zone, 'HH:MM'. */
-function clockIn(at: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-    timeZone,
-  }).formatToParts(new Date(at));
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '00';
-  return `${get('hour')}:${get('minute')}`;
+  if (!url) return null;
+  return picture.mimeType?.startsWith('video/') ? (
+    <video
+      src={url}
+      aria-label={picture.name}
+      className={className}
+      controls={controls}
+      muted
+      playsInline
+      preload="metadata"
+    />
+  ) : (
+    <img src={url} alt={picture.name} className={className} />
+  );
 }
 
 type Draft = {
@@ -126,7 +131,7 @@ function draftOf(p: Content, timeZone: string): Draft {
     picture: p.picture ?? '',
     facebookWhere: [...p.facebookWhere],
     day: p.postAt ? localDateOf(Date.parse(p.postAt), timeZone) : '',
-    time: p.postAt ? clockIn(p.postAt, timeZone) : '09:00',
+    time: p.postAt ? clockOf(p.postAt, timeZone) : '09:00',
   };
 }
 
@@ -150,6 +155,7 @@ export function PostSheet({
   const [pictureAsk, setPictureAsk] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const videoInput = useRef<HTMLInputElement>(null);
   const changeable = p.state !== 'posted' && p.state !== 'posting';
   const was = draftOf(p, timeZone);
   const dirty = JSON.stringify(d) !== JSON.stringify(was);
@@ -267,24 +273,32 @@ export function PostSheet({
           .then(unwrap),
       done,
     );
-  const upload = async (files: FileList | null) => {
+  /** Adds the person's photos to its pictures, or puts their video in place of the one it had (part 10). */
+  const upload = async (files: FileList | null, video = false) => {
     if (!files?.length) return;
     setUploading(true);
     try {
       const added: string[] = [];
       for (const f of Array.from(files))
         added.push(await uploadFile(workspaceId, 'custom_record', p.id, f));
-      await setPictures([...p.pictures.map((x) => x.fileId), ...added], 'upload', W.post.saved);
+      const kept = p.pictures
+        .filter((x) => !video || !x.mimeType?.startsWith('video/'))
+        .map((x) => x.fileId);
+      await setPictures([...kept, ...added], 'upload', W.post.saved);
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = '';
+      if (videoInput.current) videoInput.current.value = '';
     }
   };
 
   const making = p.pictureState === 'waiting' || p.pictureState === 'making';
   const pictures = hasPictures(d.format);
+  const videos = p.pictures.filter((x) => x.mimeType?.startsWith('video/'));
+  // How it did, 2 and 7 days after it went up (part 11).
+  const numbers = numbersLines(p, (n) => networkName(n as PostingNetwork));
   const other = (busyKey: string) => busy !== null && busy !== busyKey;
   // The extension puts posts up on these networks (part 9); the rest are copied and posted by hand for now.
   const postsHere = (POSTING.networks as readonly string[]).includes(p.network);
@@ -343,6 +357,21 @@ export function PostSheet({
             >
               {p.postLink}
             </a>
+          ) : null}
+          {numbers.length ? (
+            <div className="space-y-1" data-testid="socialcontent-post-numbers">
+              <div className="text-[13px] font-medium">{W.post.numbers.title}</div>
+              {numbers.map((l) => (
+                <p
+                  key={l.text}
+                  className={
+                    l.well ? 'text-[13px] font-medium text-success-text' : 'text-[13px] text-text-2'
+                  }
+                >
+                  {l.text}
+                </p>
+              ))}
+            </div>
           ) : null}
           {p.failure ? (
             <div
@@ -556,7 +585,62 @@ export function PostSheet({
                   onChange={(e) => set('shots', e.target.value)}
                 />
               </Field>
-              <p className="text-[12.5px] text-text-3">{W.post.videoLater}</p>
+              <div className="space-y-2" data-testid="socialcontent-post-video">
+                <div className="text-[13px] font-medium">{W.post.video}</div>
+                {videos.map((v) => (
+                  <div key={v.fileId} className="relative w-[180px]">
+                    <PostPicture
+                      picture={v}
+                      controls
+                      className="aspect-[9/16] w-full rounded-md bg-black object-cover"
+                    />
+                    {changeable ? (
+                      <button
+                        type="button"
+                        aria-label={W.post.remove}
+                        className="absolute right-1 top-1 rounded-full bg-card/90 p-1 text-text-2 hover:text-danger-text"
+                        disabled={busy !== null}
+                        onClick={() =>
+                          void setPictures(
+                            p.pictures.filter((x) => x.fileId !== v.fileId).map((x) => x.fileId),
+                            `remove:${v.fileId}`,
+                            W.post.saved,
+                          )
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+                {changeable ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      loading={uploading}
+                      disabled={busy !== null}
+                      onClick={() => videoInput.current?.click()}
+                      data-testid="socialcontent-post-add-video"
+                    >
+                      <Video className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+                      {uploading
+                        ? W.post.uploading
+                        : videos.length
+                          ? W.post.otherVideo
+                          : W.post.addVideo}
+                    </Button>
+                    <input
+                      ref={videoInput}
+                      type="file"
+                      accept="video/mp4,video/quicktime,video/webm"
+                      className="hidden"
+                      onChange={(e) => void upload(e.target.files, true)}
+                    />
+                  </>
+                ) : null}
+                <p className="text-[12.5px] text-text-3">{W.post.videoHint}</p>
+              </div>
             </div>
           ) : null}
 

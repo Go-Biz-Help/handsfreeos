@@ -6,7 +6,7 @@
  */
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { pageIdHere, postHere, type PostAsk } from '../src/research/post-here';
+import { instagramMe, pageIdHere, postHere, type PostAsk } from '../src/research/post-here';
 import { failureFor } from '../src/research/posting';
 
 vi.useFakeTimers({ shouldAdvanceTime: true, advanceTimeDelta: 50 });
@@ -140,6 +140,146 @@ describe('putting one of the business’s posts up', () => {
     const done = await going;
     expect(done).toMatchObject({ result: 'not_sent', pressed: true });
     expect(failureFor('facebook', 'profile', done)).toMatch(/pressed Post on your profile/);
+  });
+});
+
+const VIDEO = { name: 'reel.mp4', type: 'video/mp4', base64: btoa('mp4 bytes') };
+
+/**
+ * A page shaped like Instagram's home: Create in its side menu opens a small menu (Post, AI), Post opens Create new
+ * post with its file field; the files lead to a note about reels (a video), cropping and editing, each with Next, then
+ * the caption box and Share. `menu`: whether Create asks which kind first.
+ */
+function instagram(opts: { menu?: boolean; written?: string; fails?: boolean } = {}) {
+  const { window } = new JSDOM(
+    `<body>
+      <div role="navigation">
+        <a href="#" role="link" id="create"><svg aria-label="New post"></svg><span>Create</span></a>
+        <a href="/sam.business/" role="link"><img alt="sam.business's profile picture"><span>Profile</span></a>
+      </div>
+      <div role="main"><article>A friend’s post <div role="button" id="comment-post">Post</div></article></div>
+    </body>`,
+    { url: 'https://www.instagram.com/' },
+  );
+  const doc = window.document;
+  (window as unknown as { DataTransfer: unknown }).DataTransfer = FakeTransfer;
+  const shared: { text: string; files: string[] }[] = [];
+  let commentPressed = false;
+  doc.getElementById('comment-post')!.addEventListener('click', () => {
+    commentPressed = true;
+  });
+  const dialog = () => {
+    const box = doc.createElement('div');
+    box.setAttribute('role', 'dialog');
+    box.innerHTML = `<h1>Create new post</h1><div role="presentation">Drag photos and videos here</div>
+      <button>Select from computer</button>
+      <form><input type="file" multiple accept="image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime"></form>`;
+    doc.body.append(box);
+    const input = box.querySelector('input')!;
+    // jsdom's file field takes only its own lists: this one keeps what it's given, as Chrome's does.
+    let given: File[] = [];
+    Object.defineProperty(input, 'files', {
+      get: () => given,
+      set: (list: File[]) => {
+        given = [...list];
+      },
+    });
+    input.addEventListener('change', () => {
+      const files = given;
+      const step = (header: string, then: () => void) => {
+        box.innerHTML = `<h1>${header}</h1><img src="blob:https://www.instagram.com/1"><div role="button" id="next">Next</div>`;
+        box.querySelector('#next')!.addEventListener('click', then);
+      };
+      const caption = () => {
+        box.innerHTML = `<h1>Create new post</h1>
+          <div role="textbox" contenteditable="true" aria-label="Write a caption..." id="caption">${opts.written ?? ''}</div>
+          <div role="button" id="share">Share</div>`;
+        const words = box.querySelector('#caption')!;
+        doc.execCommand = (_c: string, _u?: boolean, text?: string) => {
+          words.textContent = text ?? '';
+          return true;
+        };
+        box.querySelector('#share')!.addEventListener('click', () => {
+          shared.push({ text: words.textContent ?? '', files: files.map((f) => f.type) });
+          box.innerHTML = '<h1>Sharing</h1>';
+          setTimeout(() => {
+            box.innerHTML = opts.fails
+              ? '<h1>Post couldn’t be shared</h1><p>Your post could not be shared. Please try again.</p>'
+              : '<h1>Post shared</h1><p>Your post has been shared.</p><div role="button" aria-label="Close"></div>';
+          }, 1_000);
+        });
+      };
+      const crop = () => step('Crop', () => step('Edit', caption));
+      if (files.some((f) => f.type.startsWith('video/'))) {
+        const note = doc.createElement('div');
+        note.setAttribute('role', 'dialog');
+        note.innerHTML = `<p>Video posts are now shared as reels</p><button id="ok">OK</button>`;
+        doc.body.append(note);
+        note.querySelector('#ok')!.addEventListener('click', () => {
+          note.remove();
+          crop();
+        });
+      } else crop();
+    });
+  };
+  doc.getElementById('create')!.addEventListener('click', () => {
+    if (!opts.menu) return dialog();
+    const menu = doc.createElement('div');
+    menu.innerHTML = `<a href="#" role="link" id="kind"><svg aria-label="Post"></svg><span>Post</span></a><a href="#" role="link">AI</a>`;
+    doc.querySelector('[role="navigation"]')!.append(menu);
+    menu.querySelector('#kind')!.addEventListener('click', () => {
+      menu.remove();
+      dialog();
+    });
+  });
+  return { doc, shared, commentPressed: () => commentPressed };
+}
+
+describe('putting one of the business’s posts up on Instagram (part 10)', () => {
+  it('picks Post from Create’s menu, adds the picture, presses Next twice, writes the caption and shares', async () => {
+    const ig = instagram({ menu: true });
+    const done = await postHere(ig.doc, ask('instagram'));
+    expect(done).toMatchObject({ result: 'done', pressed: true });
+    expect(ig.shared).toEqual([{ text: 'Three ways to save time.\n\n#crm', files: ['image/png'] }]);
+    expect(ig.commentPressed()).toBe(false);
+    expect(done.steps).toEqual(
+      expect.arrayContaining(['start', 'kind', 'media:field', 'next', 'typed', 'post']),
+    );
+    expect(done.steps.filter((s) => s === 'next')).toHaveLength(2);
+  });
+
+  it('presses OK when Instagram says a video goes up as a reel', async () => {
+    const ig = instagram();
+    const done = await postHere(ig.doc, ask('instagram', [VIDEO]));
+    expect(done.result).toBe('done');
+    expect(done.steps).toContain('reel:ok');
+    expect(ig.shared[0]!.files).toEqual(['video/mp4']);
+  });
+
+  it('leaves a caption someone started alone, and says when Instagram didn’t take it', async () => {
+    const mine = instagram({ written: 'my words' });
+    expect(await postHere(mine.doc, ask('instagram'))).toMatchObject({
+      result: 'not_sent',
+      pressed: false,
+    });
+    expect(mine.shared).toEqual([]);
+    const failed = instagram({ fails: true });
+    expect(await postHere(failed.doc, ask('instagram'))).toMatchObject({
+      result: 'not_sent',
+      pressed: true,
+    });
+  });
+
+  it('knows whose Instagram it is from the Profile link', () => {
+    expect(instagramMe(instagram().doc)).toBe('sam.business');
+    expect(
+      failureFor(
+        'instagram',
+        'feed',
+        { result: 'no_media', pressed: false, url: null, steps: [] },
+        true,
+      ),
+    ).toMatch(/didn’t take its video on your Instagram/);
   });
 });
 

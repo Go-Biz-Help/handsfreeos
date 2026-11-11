@@ -4,16 +4,19 @@
   "checkedOn": "2026-11-10",
   "files": {
     "apps/mobile/src/addons/socialcontent/activity.tsx": "9744b485ef7b",
+    "apps/mobile/src/addons/socialcontent/calendar.tsx": "35519c3f8b11",
     "apps/mobile/src/addons/socialcontent/creators.tsx": "3979babd684b",
-    "apps/mobile/src/addons/socialcontent/home.tsx": "9938ea3f249a",
+    "apps/mobile/src/addons/socialcontent/home.tsx": "6973e687d399",
     "apps/mobile/src/addons/socialcontent/ideas.tsx": "6aef7d141079",
-    "apps/mobile/src/addons/socialcontent/kit.tsx": "9d85e82c9fb1",
+    "apps/mobile/src/addons/socialcontent/kit.tsx": "abf51ba44ab4",
     "apps/mobile/src/addons/socialcontent/more.tsx": "41a0e2e099f1",
+    "apps/mobile/src/addons/socialcontent/own-post.tsx": "1c97f92690e3",
     "apps/mobile/src/addons/socialcontent/playbook.tsx": "f6bbed355f8c",
     "apps/mobile/src/addons/socialcontent/post-card.tsx": "047b4bb8df26",
     "apps/mobile/src/addons/socialcontent/settings.tsx": "c992671f6d25",
     "apps/mobile/src/addons/socialcontent/standouts.tsx": "dd105b04655a",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/_layout.tsx": "70a8fb6d279c",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/calendar.tsx": "60bcfb60aa6c",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/creators.tsx": "494c8946a255",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/ideas.tsx": "1c9f559d86dc",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/index.tsx": "d80856de40db",
@@ -22,12 +25,12 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/standouts.tsx": "adbc9f8ec4fe",
     "apps/web/src/addons/registry.ts": "5ce8310d4da9",
     "apps/web/src/addons/socialcontent/activity-card.tsx": "ac129c506362",
-    "apps/web/src/addons/socialcontent/calendar-page.tsx": "542a0c0911b2",
+    "apps/web/src/addons/socialcontent/calendar-page.tsx": "0a7ce25ad974",
     "apps/web/src/addons/socialcontent/creators-page.tsx": "534489749606",
     "apps/web/src/addons/socialcontent/ideas-page.tsx": "920958354456",
     "apps/web/src/addons/socialcontent/playbook-page.tsx": "add4a230d665",
     "apps/web/src/addons/socialcontent/post-card.tsx": "67aaf4c54254",
-    "apps/web/src/addons/socialcontent/post-sheet.tsx": "bccf2f8c47cf",
+    "apps/web/src/addons/socialcontent/post-sheet.tsx": "67bc6868e339",
     "apps/web/src/addons/socialcontent/settings-page.tsx": "00dbae5e4677",
     "apps/web/src/addons/socialcontent/standout-links.tsx": "1d5a6acf8414",
     "apps/web/src/addons/socialcontent/standouts-page.tsx": "432ad6ca185d",
@@ -461,23 +464,23 @@
       "by": "add-on directory line in the prompt; SOCIALCONTENT_PLACES link each page"
     },
     {
-      "path": "Phone → first screen: Creators (studied, to tick), Standouts (count), Playbook, Ideas, Settings, each opening its screen",
+      "path": "Phone → first screen: Creators (studied, to tick), Standouts (count), Playbook, Ideas, Calendar, Settings, each opening its screen",
       "kind": "do",
-      "file": "apps/mobile/src/addons/socialcontent/home.tsx:95",
+      "file": "apps/mobile/src/addons/socialcontent/home.tsx:105",
       "covered": "yes",
       "by": "socialcontent_overview (counts); SOCIALCONTENT_PLACES"
     },
     {
       "path": "Phone → first screen: no reading computer notice; how many things wait",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/home.tsx:82",
+      "file": "apps/mobile/src/addons/socialcontent/home.tsx:92",
       "covered": "yes",
       "by": "socialcontent_overview (settings.readerUserId, counts.waiting)"
     },
     {
       "path": "Phone → any screen with no signal: needs signal, Try again",
       "kind": "see",
-      "file": "apps/mobile/src/addons/socialcontent/kit.tsx:172",
+      "file": "apps/mobile/src/addons/socialcontent/kit.tsx:174",
       "covered": "yes",
       "by": "the Assistant asks with signal itself; nothing to do"
     },
@@ -699,79 +702,324 @@
       "by": "socialcontent_overview (work); socialcontent_stop_work"
     },
     {
+      "path": "Phone → Calendar → Fill the calendar",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:170",
+      "covered": "yes",
+      "by": "socialcontent_fill_calendar (worker action), on its own"
+    },
+    {
+      "path": "Phone → Calendar → OK the week (when posts wait for an OK)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:183",
+      "covered": "yes",
+      "by": "socialcontent_approve_week, on a Confirm card"
+    },
+    {
+      "path": "Phone → Calendar → Write a post (opens it once written)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:195",
+      "covered": "yes",
+      "by": "socialcontent_write_own_post (worker action)"
+    },
+    {
+      "path": "Phone → Calendar → when it was filled and fills again, the plan per network, how many are OK’d, whose computer puts them up and the networks posted by hand",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:205",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (filledAt, nextFillAt, plan, ready, poster, postsOn)"
+    },
+    {
+      "path": "Phone → Calendar → no posts yet",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:227",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (posts, undated and open all empty)"
+    },
+    {
+      "path": "Phone → Calendar → a day: its posts, each with picture, network, time, format, state, title, first line, what it still needs or its latest numbers",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:235",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (posts with stillNeeds, numbers, doneWell)"
+    },
+    {
+      "path": "Phone → Calendar → a day → Open day: network and time, Write one",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:258",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
+    },
+    {
+      "path": "Phone → Calendar → No day yet, and Went up lately with how each did",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:270",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (undated, recent with numbers and doneWell)"
+    },
+    {
+      "path": "Phone → Calendar → open a post (its own screen, also from a link with ?post=)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:309",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post; the place links the Calendar"
+    },
+    {
+      "path": "Phone → Calendar or a post with no signal: needs signal, Try again",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/calendar.tsx:141",
+      "covered": "yes",
+      "by": "the Assistant needs signal too; nothing to do"
+    },
+    {
+      "path": "Phone → Calendar route: the Calendar, or the post a link names",
+      "kind": "see",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/socialcontent/calendar.tsx:12",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar; socialcontent_get_own_post"
+    },
+    {
+      "path": "Phone → Post → header: title, network, state, who OK’d it and when",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:473",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (state, approvedBy, approvedAt)"
+    },
+    {
+      "path": "Phone → Post → where it went up, each place opening on its network",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:482",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (postedAt, postedTo, postLink)"
+    },
+    {
+      "path": "Phone → Post → How it did: numbers about 2 and 7 days on, and whether it did well",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:515",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (numbers, doneWell)"
+    },
+    {
+      "path": "Phone → Post → why it didn’t post, and what to do next",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:534",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (state, failure); the place’s words"
+    },
+    {
+      "path": "Phone → Post → Title, Network, Format",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:548",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (title, network, format)"
+    },
+    {
+      "path": "Phone → Post → When it goes: a day in the next two weeks (or none) and a time, in the business’s time zone",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:594",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (postAt)"
+    },
+    {
+      "path": "Phone → Post → Where on Facebook: your profile, your Page; the note to add the Page’s link first",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:641",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (facebookWhere); stillNeeds says what’s missing"
+    },
+    {
+      "path": "Phone → Post → Hook, Words, Hashtags",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:656",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (hook, words, hashtags)"
+    },
+    {
+      "path": "Phone → Post → Slides on a carousel: each heading and words, Add a slide, Remove",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:683",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (slides)"
+    },
+    {
+      "path": "Phone → Post → Script on a video: what to say, what to film",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:746",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (script)"
+    },
+    {
+      "path": "Phone → Post → Your video: the video (opens to play), Remove",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:774",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (its files); socialcontent_save_own_post (fileIds without it)"
+    },
+    {
+      "path": "Phone → Post → Your video → Add your video / Use another video, from the phone’s videos, up to 25 MB",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:785",
+      "covered": "person",
+      "by": "an upload from the person’s own phone; the Assistant can say where and how big"
+    },
+    {
+      "path": "Phone → Post → Picture: the pictures, how it was made, making or didn’t work and why, what it shows",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:795",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (pictures, pictureWay, pictureState, pictureFailure, picture)"
+    },
+    {
+      "path": "Phone → Post → Picture → Remove a picture",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:810",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (fileIds)"
+    },
+    {
+      "path": "Phone → Post → Picture → Make it again / Switch to designed / Switch to photo-style, with what to change",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:848",
+      "covered": "yes",
+      "by": "socialcontent_make_post_picture (way, ask), on its own"
+    },
+    {
+      "path": "Phone → Post → Picture → Add your photo, from the phone’s photos",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:878",
+      "covered": "person",
+      "by": "an upload from the person’s own phone; the Assistant can say where"
+    },
+    {
+      "path": "Phone → Post → what it still needs before it can be OK’d",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:892",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (stillNeeds)"
+    },
+    {
+      "path": "Phone → Post → Save",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:905",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post"
+    },
+    {
+      "path": "Phone → Post → OK it / Take the OK back",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:914",
+      "covered": "yes",
+      "by": "socialcontent_approve_own_post (ok), on a Confirm card"
+    },
+    {
+      "path": "Phone → Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn or Instagram)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:925",
+      "covered": "yes",
+      "by": "socialcontent_post_own_post_now, on a Confirm card"
+    },
+    {
+      "path": "Phone → Post → Share the words (networks the extension doesn’t post on yet)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:946",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (words, hashtags): the Assistant shows the words to copy"
+    },
+    {
+      "path": "Phone → Post → Skip it / Bring it back",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:967",
+      "covered": "yes",
+      "by": "socialcontent_skip_own_post (skip)"
+    },
+    {
+      "path": "Phone → Post → Write it again, with what to change",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/socialcontent/own-post.tsx:989",
+      "covered": "yes",
+      "by": "socialcontent_rewrite_own_post (worker action)"
+    },
+    {
       "path": "Calendar → header: title and that nothing goes up without an OK",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:131",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:123",
       "covered": "yes",
       "by": "socialcontent_get_calendar; the place’s words"
     },
     {
       "path": "Calendar → Fill the calendar",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:140",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:132",
       "covered": "yes",
       "by": "socialcontent_fill_calendar (worker action), on its own"
     },
     {
       "path": "Calendar → OK the week (when posts wait for an OK)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:151",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:143",
       "covered": "yes",
       "by": "socialcontent_approve_week, on a Confirm card"
     },
     {
       "path": "Calendar → Write a post",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:162",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:154",
       "covered": "yes",
       "by": "socialcontent_write_own_post (worker action)"
     },
     {
       "path": "Calendar → when it was filled and fills again, the plan per network",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:172",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:164",
       "covered": "yes",
       "by": "socialcontent_get_calendar (filledAt, nextFillAt, plan, ready)"
     },
     {
       "path": "Calendar → how many are OK’d and going up, whose computer puts them up and when it last checked in (a warning when none is picked or it’s quiet), and the networks posted by hand for now",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:182",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:170",
       "covered": "yes",
       "by": "socialcontent_get_calendar (ready, poster, postsOn, posts)"
     },
     {
       "path": "Calendar → no posts yet",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:196",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:184",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts, undated and open all empty)"
     },
     {
       "path": "Calendar → a day: its posts, each with network, time, format, state, picture, title, first line and what it still needs",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:281",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:265",
       "covered": "yes",
       "by": "socialcontent_get_calendar (posts with stillNeeds); socialcontent_list_own_posts"
     },
     {
       "path": "Calendar → a day → Open day: network and time, Write one",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:217",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:205",
       "covered": "yes",
       "by": "socialcontent_get_calendar (open); socialcontent_write_own_post (network, postAt)"
     },
     {
       "path": "Calendar → No day yet: posts without a day",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:242",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:230",
       "covered": "yes",
       "by": "socialcontent_get_calendar (undated)"
     },
     {
+      "path": "Calendar → Went up lately: what went up in the 30 days before, each with its latest numbers or that it did well",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:241",
+      "covered": "yes",
+      "by": "socialcontent_get_calendar (recent, each with numbers and doneWell)"
+    },
+    {
       "path": "Calendar → open a post (also from a link with ?post=)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:81",
+      "file": "apps/web/src/addons/socialcontent/calendar-page.tsx:75",
       "covered": "yes",
       "by": "socialcontent_get_own_post; the place links the Calendar"
     },
@@ -785,140 +1033,175 @@
     {
       "path": "Post → header: title, network, state, who OK’d it and when",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:293",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:307",
       "covered": "yes",
       "by": "socialcontent_get_own_post (state, approvedBy, approvedAt)"
     },
     {
       "path": "Post → where it went up: Posted when, and See it on your profile / your Page / LinkedIn for each place, with its link",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:307",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:321",
       "covered": "yes",
       "by": "socialcontent_get_own_post (postedAt, postedTo, postLink)"
     },
     {
       "path": "Post → why it didn’t post, and what to do next",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:347",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:376",
       "covered": "yes",
       "by": "socialcontent_get_own_post (state, failure); the place’s words"
     },
     {
+      "path": "Post → How it did: its numbers about 2 and 7 days after it went up, in each place, and whether it did well against the business’s own other posts",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:362",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (numbers, doneWell)"
+    },
+    {
       "path": "Post → Title, Network, Format",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:359",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:388",
       "covered": "yes",
       "by": "socialcontent_save_own_post (title, network, format)"
     },
     {
       "path": "Post → When it goes: day and time, in the business’s time zone",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:403",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:432",
       "covered": "yes",
       "by": "socialcontent_save_own_post (postAt)"
     },
     {
       "path": "Post → Where on Facebook: your profile, your Page; the note to add the Page’s link first",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:425",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:454",
       "covered": "yes",
       "by": "socialcontent_save_own_post (facebookWhere); stillNeeds says what’s missing"
     },
     {
       "path": "Post → Hook, Words, Hashtags",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:450",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:479",
       "covered": "yes",
       "by": "socialcontent_save_own_post (hook, words, hashtags)"
     },
     {
       "path": "Post → Slides on a carousel: each heading and words, Add a slide, Remove",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:480",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:509",
       "covered": "yes",
       "by": "socialcontent_save_own_post (slides)"
     },
     {
-      "path": "Post → Script on a video: what to say, what to film; the note that adding the video comes later",
+      "path": "Post → Script on a video: what to say, what to film",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:540",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:569",
       "covered": "yes",
       "by": "socialcontent_save_own_post (script); the place’s words"
     },
     {
+      "path": "Post → Your video on a video post: the person’s video, playing with its controls",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:588",
+      "covered": "yes",
+      "by": "socialcontent_get_own_post (its files, video ones by type); the place’s words"
+    },
+    {
+      "path": "Post → Your video → Remove",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:600",
+      "covered": "yes",
+      "by": "socialcontent_save_own_post (fileIds without it)"
+    },
+    {
+      "path": "Post → Your video → Add your video / Use another video",
+      "kind": "do",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:624",
+      "covered": "person",
+      "by": "an upload from the person’s own device; the Assistant can say where and how big"
+    },
+    {
+      "path": "Post → Your video → the note to record it from the script, up to 25 MB",
+      "kind": "see",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:642",
+      "covered": "yes",
+      "by": "the place’s words (howTo)"
+    },
+    {
       "path": "Post → Picture: the pictures, how it was made, making or didn’t work and why",
       "kind": "see",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:564",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:648",
       "covered": "yes",
       "by": "socialcontent_get_own_post (pictures, pictureWay, pictureState, pictureFailure)"
     },
     {
       "path": "Post → Picture → Remove a picture",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:580",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:664",
       "covered": "yes",
       "by": "socialcontent_save_own_post (fileIds)"
     },
     {
       "path": "Post → Picture → What it shows",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:607",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:691",
       "covered": "yes",
       "by": "socialcontent_save_own_post (picture)"
     },
     {
       "path": "Post → Picture → Make it again / Switch to designed / Switch to photo-style, with what to change",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:636",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:720",
       "covered": "yes",
       "by": "socialcontent_make_post_picture (way, ask), on its own"
     },
     {
       "path": "Post → Picture → Add your photo",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:659",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:743",
       "covered": "person",
       "by": "an upload from the person’s own device; the Assistant can say where"
     },
     {
       "path": "Post → Save",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:693",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:777",
       "covered": "yes",
       "by": "socialcontent_save_own_post"
     },
     {
       "path": "Post → OK it / Take the OK back",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:700",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:784",
       "covered": "yes",
       "by": "socialcontent_approve_own_post (ok), on a Confirm card"
     },
     {
-      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook or LinkedIn)",
+      "path": "Post → Post it now (an OK’d post, or one that didn’t post, on Facebook, LinkedIn or Instagram)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:706",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:790",
       "covered": "yes",
       "by": "socialcontent_post_own_post_now, on a Confirm card"
     },
     {
       "path": "Post → Copy the words (networks the extension doesn’t post on yet)",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:727",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:811",
       "covered": "yes",
       "by": "socialcontent_get_own_post (words, hashtags): the Assistant shows the words to copy"
     },
     {
       "path": "Post → Skip it / Bring it back",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:739",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:823",
       "covered": "yes",
       "by": "socialcontent_skip_own_post (skip)"
     },
     {
       "path": "Post → Write it again, with what to change",
       "kind": "do",
-      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:767",
+      "file": "apps/web/src/addons/socialcontent/post-sheet.tsx:851",
       "covered": "yes",
       "by": "socialcontent_rewrite_own_post (worker action)"
     },

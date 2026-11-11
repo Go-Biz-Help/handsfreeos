@@ -922,7 +922,7 @@ than a store extension, and for more features, and answered the questions the sa
     0.114.1, someone kept by username whose chat window links to them by number (as Facebook's do) has that number
     checked first: the extension opens its profile, and only when Facebook shows it at their username does the
     message go, into the window that links to that number (the owner's report of 30 Oct 2026, when two OK'd messages
-    came back "Couldn't find a chat open with them"). From 0.132.1 (the owner's pick, 11 Nov 2026), once a message's last
+    came back "Couldn't find a chat open with them"). From 0.134.1 (the owner's pick, 11 Nov 2026), once a message's last
     text has gone on Facebook, the small chat window it went in is closed by its own Close chat, so the windows its
     messages open don't pile up from page to page (11 were left open when a message couldn't tell which chat was the
     person's); other windows, and Messenger's own chat page, are left as they are.

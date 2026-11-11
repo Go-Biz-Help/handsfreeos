@@ -3,7 +3,14 @@ import { SOCIALCONTENT_WORDS as W } from '@hfos/core/addons/socialcontent/words'
 import type { LucideIcon } from 'lucide-react-native';
 import * as React from 'react';
 
-import { BookOpen, Lightbulb, Settings2, TrendingUp, Users } from '@/components/icons';
+import {
+  BookOpen,
+  CalendarDays,
+  Lightbulb,
+  Settings2,
+  TrendingUp,
+  Users,
+} from '@/components/icons';
 import { List, ListRow } from '@/components/shell/list';
 import { Screen } from '@/components/shell/screen';
 import { Card } from '@/components/ui/card';
@@ -20,7 +27,7 @@ import {
 } from './kit';
 
 /**
- * AI Social Media Content Creator's first screen on the phone (docs/socialcontent.md, part 5): its pages, the ones the
+ * AI Social Media Content Creator's first screen on the phone (docs/socialcontent.md, parts 5 and 12): its pages, the ones the
  * web's side menu pops out of its one row, each with what it holds. With signal, Creators and Standouts carry their
  * counts, and it says when no computer reads the networks yet. With none, the pages still list, and each says it
  * needs signal when opened.
@@ -33,6 +40,7 @@ const PAGES: readonly { page: Page; icon: LucideIcon }[] = [
   { page: 'standouts', icon: TrendingUp },
   { page: 'playbook', icon: BookOpen },
   { page: 'ideas', icon: Lightbulb },
+  { page: 'calendar', icon: CalendarDays },
   { page: 'settings', icon: Settings2 },
 ];
 
@@ -62,6 +70,8 @@ export function pageDetail(page: Page, overview: Overview | null): string {
       return W.phone.pages.playbook;
     case 'ideas':
       return W.phone.pages.ideas;
+    case 'calendar':
+      return W.phone.pages.calendar;
     case 'settings':
       return W.phone.pages.gear;
   }

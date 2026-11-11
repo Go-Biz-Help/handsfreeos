@@ -11,6 +11,8 @@
  *   so the person's own profile is never switched to the Page (Social Outreach works as them meanwhile); then its link,
  *   from the top of the Page by its first words.
  * - **LinkedIn:** their feed's Start a post; its link from LinkedIn's View post, else from their own posts.
+ * - **Instagram (part 10):** Create on their home page, with the pictures or the person's video; then its link, from
+ *   their own newest posts as Instagram's page loads them, by its first words.
  *
  * Then it says how each place went (`socialcontent.post.went`). Once Post is pressed it's never pressed again for that
  * place: a post that may have gone up is the person's to look at. A network's warning stops it there for the day (for
@@ -28,11 +30,12 @@ import { token } from '../hfos/session';
 import { keepWarning, warnedNow } from '../hfos/warned';
 import { foundPost } from '../jobs/helpful';
 import { postNext, postWent, reportProblem, ResearchRefused } from './hfos';
+import { postsByNamePath, postsFrom } from './instagram';
 import type { PostDone, PostFileIn, PostWhere } from './post-here';
 import { pause, paced, RESEARCH_PACE } from './read';
 import type { ResearchTab } from './tab';
 
-/** The networks this build posts on: Facebook and LinkedIn now; Instagram with part 10. */
+/** The networks this build posts on: Facebook and LinkedIn (part 9), and Instagram (part 10). */
 export const POSTS_ON = POSTING.networks;
 
 const FACEBOOK_HOME = 'https://www.facebook.com/';
@@ -40,10 +43,14 @@ const FACEBOOK_ME = 'https://www.facebook.com/me';
 const BUSINESS_COMPOSER = 'https://business.facebook.com/latest/composer/';
 const LINKEDIN_FEED = 'https://www.linkedin.com/feed/';
 const LINKEDIN_OWN_POSTS = 'https://www.linkedin.com/in/me/recent-activity/all/';
+const INSTAGRAM_HOME = 'https://www.instagram.com/';
 /** While the network puts the post at the top before its link is looked for. */
 const SETTLE_MS = 5_000;
-/** The most a post's files may weigh together, as they're handed to the tab. */
-const FILES_MOST_BYTES = 60 * 1024 * 1024;
+/**
+ * The most a post's files may weigh together, as they're handed to the tab: within what Chrome passes to a page in one
+ * go once written out (a video can be up to 25 MB, core's most for a file).
+ */
+const FILES_MOST_BYTES = 40 * 1024 * 1024;
 
 /** How one place went, for `socialcontent.post.went`. */
 interface Went {
@@ -106,10 +113,18 @@ export function failureFor(
   network: PostingNetwork,
   place: PostPlace,
   done: PostDone | null,
+  video = false,
 ): string {
   const name = networkName(network);
   const where =
-    place === 'page' ? 'your Page' : place === 'profile' ? 'your profile' : `your ${name} feed`;
+    place === 'page'
+      ? 'your Page'
+      : place === 'profile'
+        ? 'your profile'
+        : network === 'instagram'
+          ? 'your Instagram'
+          : `your ${name} feed`;
+  const press = network === 'instagram' ? 'Share' : 'Post';
   if (!done)
     return `The extension couldn’t reach its window on ${name}. It tries again with Post it now.`;
   if (done.result === 'none')
@@ -117,9 +132,9 @@ export function failureFor(
       ? `Meta Business Suite didn’t show Create post for your Page. Check you’re an admin of the Page in Settings → Posting’s link, then press Post it now.`
       : `${name} didn’t show the box to write a post on ${where}. Check you’re signed in to ${name} in Chrome on the computer that posts, then press Post it now.`;
   if (done.result === 'no_media')
-    return `${name} didn’t take its pictures on ${where}, so nothing went up. Press Post it now to try again, or copy the words and post it yourself.`;
+    return `${name} didn’t take its ${video ? 'video' : 'pictures'} on ${where}, so nothing went up. Press Post it now to try again, or copy the words and post it yourself.`;
   return done.pressed
-    ? `It pressed Post on ${where}, but ${name} didn’t show the post going up. Look on ${where}: if it isn’t there, press Post it now.`
+    ? `It pressed ${press} on ${where}, but ${name} didn’t show the post going up. Look on ${where}: if it isn’t there, press Post it now.`
     : `${name} didn’t take the post on ${where}. Press Post it now to try again, or copy the words and post it yourself.`;
 }
 
@@ -139,6 +154,23 @@ async function linkFrom(tab: ResearchTab, url: string, text: string): Promise<st
       posts?: { text: string; url: string | null }[];
     } | null;
     return read ? foundPost(read, text) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * An Instagram post's link, from the person's own newest posts as Instagram's page loads them (their name from the
+ * Profile link in its side menu), by its first words. Null when it isn't among them yet.
+ */
+async function instagramLink(tab: ResearchTab, text: string): Promise<string | null> {
+  await pause(SETTLE_MS);
+  try {
+    const me = await tab.hands('me');
+    if (!me) return null;
+    const got = await tab.hands('get', postsByNamePath(me));
+    const posts = got?.ok ? (postsFrom(got.json)?.posts ?? []) : [];
+    return foundPost({ posts: posts.map((p) => ({ text: p.caption ?? '', url: p.link })) }, text);
   } catch {
     return null;
   }
@@ -194,8 +226,12 @@ async function putUpAt(
   const name = networkName(network);
   let where: PostWhere;
   let url: string;
-  let listed: string;
-  if (network === 'linkedin') {
+  let listed: string | null;
+  if (network === 'instagram') {
+    where = 'instagram';
+    url = INSTAGRAM_HOME;
+    listed = null;
+  } else if (network === 'linkedin') {
     where = 'linkedin';
     url = LINKEDIN_FEED;
     listed = LINKEDIN_OWN_POSTS;
@@ -225,12 +261,19 @@ async function putUpAt(
   await tab.holdPicker();
   const done = await tab.hands('post', { where, text: post.text, files: [...files] });
   if (done?.result !== 'done') {
-    const failure = failureFor(network, place, done);
+    const failure = failureFor(
+      network,
+      place,
+      done,
+      files.some((f) => f.type.startsWith('video/')),
+    );
     await report(businessId, tab, post, place, failure, done);
     // Nothing pressed and no box at all: most often signed out, so it's said, not tried again on its own.
     return { place, posted: false, pressed: done?.pressed ?? false, link: null, failure };
   }
-  const link = done.url ?? (await linkFrom(tab, listed, post.text));
+  const link =
+    done.url ??
+    (listed ? await linkFrom(tab, listed, post.text) : await instagramLink(tab, post.text));
   return { place, posted: true, pressed: true, link, failure: null };
 
   async function warnedEnd(

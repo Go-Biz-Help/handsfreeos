@@ -30,6 +30,7 @@ import { READ_LOOK_ACTION, readLook } from './helper';
 import { onNicheAdded, suggestNichesNow } from './niches';
 import {
   NOTES_JOB,
+  onOwnDoneWell,
   onPostsSaved,
   runNotes,
   suggestIdeasNow,
@@ -109,6 +110,7 @@ export const socialcontentAddonWorker: AddonWorkerModule = {
   subscribers: {
     'socialcontent.niche.added': onNicheAdded,
     'socialcontent.posts.saved': onPostsSaved,
+    'socialcontent.content.done_well': onOwnDoneWell,
   },
   jobs: {
     [WEEKLY_JOB]: readWeekly,

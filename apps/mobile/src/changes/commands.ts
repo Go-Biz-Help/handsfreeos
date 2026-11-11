@@ -448,6 +448,15 @@ import {
   Work as SocialcontentWork,
   WorkStopInput as SocialcontentWorkStopInput,
 } from '@hfos/core/addons/socialcontent/shapes';
+import {
+  Content as SocialcontentContent,
+  ContentApproveInput as SocialcontentContentApproveInput,
+  ContentApproveWeekInput as SocialcontentContentApproveWeekInput,
+  ContentApproveWeekOutput as SocialcontentContentApproveWeekOutput,
+  ContentPostNowInput as SocialcontentContentPostNowInput,
+  ContentSaveInput as SocialcontentContentSaveInput,
+  ContentSkipInput as SocialcontentContentSkipInput,
+} from '@hfos/core/addons/socialcontent/content-shapes';
 
 /**
  * The commands the phone may send: exactly the phone's contract (`packages/core/test/contract/mobile-contract.json`),
@@ -877,7 +886,33 @@ export const PHONE_COMMANDS = {
   'safety_contact.remove': command(ONLINE, SafetyContactRemoveInput, SafetyContactRemoveOutput),
   'safety_contact.save': command(ONLINE, SafetyContactSaveInput, SafetyContactOutput),
   // AI Social Media Content Creator's screens (part 5), with signal: niches and creators picked, added and found,
-  // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped.
+  // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped. Its
+  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, and Post it now.
+  'socialcontent.content.approve': command(
+    ONLINE,
+    SocialcontentContentApproveInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.content.approve_week': command(
+    ONLINE,
+    SocialcontentContentApproveWeekInput,
+    SocialcontentContentApproveWeekOutput,
+  ),
+  'socialcontent.content.post_now': command(
+    ONLINE,
+    SocialcontentContentPostNowInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.content.save': command(
+    ONLINE,
+    SocialcontentContentSaveInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.content.skip': command(
+    ONLINE,
+    SocialcontentContentSkipInput,
+    SocialcontentContent,
+  ),
   'socialcontent.creator.add': command(ONLINE, SocialcontentCreatorAddInput, SocialcontentCreator),
   'socialcontent.creator.decide': command(
     ONLINE,
