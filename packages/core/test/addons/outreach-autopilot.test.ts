@@ -20,6 +20,8 @@ import {
 import {
   AUTOPILOT_WORDS,
   autopilotDayDue,
+  autopilotLine,
+  autopilotPlace,
   autopilotSpares,
   autopilotTimes,
   nextAutopilotList,
@@ -150,7 +152,36 @@ describe('the day’s list, and when it comes', () => {
     expect(autopilotDayDue(HOURS, CHICAGO, at('2026-11-04', '17:00'))).toBeNull();
   });
 
-  it('says when it comes, how many wait, and what it waits on, in plain words', () => {
+  it('is first on Needs you while anyone waits, and otherwise a line at the bottom (decision 160)', () => {
+    const list = (made: boolean, ...states: ('waiting' | 'ok' | 'not_today')[]) => ({
+      on: true,
+      made,
+      listAt: null as string | null,
+      people: states.map((state) => ({ state })),
+    });
+    expect(autopilotPlace(list(true, 'waiting', 'ok', 'not_today'))).toBe('top');
+    // Once everyone's answered, OK'd or taken off for the day, it shrinks to the line at the bottom.
+    expect(autopilotPlace(list(true, 'ok', 'ok'))).toBe('bottom');
+    expect(autopilotPlace(list(true, 'ok', 'not_today'))).toBe('bottom');
+    // Before it's made and with nobody on it, the line says so at the bottom too; nothing while Autopilot is off.
+    expect(autopilotPlace(list(false))).toBe('bottom');
+    expect(autopilotPlace(list(true))).toBe('bottom');
+    expect(autopilotPlace({ ...list(true, 'waiting'), on: false })).toBeNull();
+    expect(autopilotPlace(null)).toBeNull();
+    const at = () => 'Thu 7:00 AM';
+    expect(autopilotLine(list(true, 'ok', 'ok', 'not_today'), at)).toBe(
+      'Today’s list: 2 OK’d, 1 not today',
+    );
+    expect(autopilotLine(list(true, 'ok'), at)).toBe('Today’s list: 1 OK’d');
+    expect(autopilotLine(list(true, 'not_today'), at)).toBe('Today’s list: 1 not today');
+    expect(autopilotLine(list(true), at)).toBe(AUTOPILOT_WORDS.none);
+    expect(autopilotLine(list(false), at)).toBe(AUTOPILOT_WORDS.making);
+    expect(autopilotLine({ ...list(false), listAt: '2026-11-12T13:00:00.000Z' }, at)).toBe(
+      'Today’s list comes at Thu 7:00 AM, an hour before your working hours.',
+    );
+  });
+
+  it('says how many wait and what it waits on, in plain words', () => {
     expect(AUTOPILOT_WORDS.okAll(3)).toBe('OK all 3');
     expect(AUTOPILOT_WORDS.okRest(1)).toBe('OK the one left');
     expect(AUTOPILOT_WORDS.push(1).title).toBe('1 person to OK for today');

@@ -116,7 +116,7 @@ export function NeedsYou({
 }: {
   workspaceId: string;
   waiting: Waiting;
-  /** Autopilot's day's list (decision 151), first: null while it's off or couldn't be had. */
+  /** Autopilot's day's list (decision 151): first while anyone waits, else a line at the bottom (decision 160); null while it's off or couldn't be had. */
   autopilot?: Autopilot | null;
 }) {
   useLiveRefresh(
@@ -137,7 +137,7 @@ export function NeedsYou({
       className="space-y-3"
       data-testid="outreach-waiting"
     >
-      <AutopilotList workspaceId={workspaceId} autopilot={autopilot} />
+      <AutopilotList workspaceId={workspaceId} autopilot={autopilot} place="top" />
       {waiting.count ? (
         <>
           <p className="text-[13px] text-text-2" data-testid="waiting-count">
@@ -157,6 +157,8 @@ export function NeedsYou({
       )}
       {/* Whoever the country setting can't place waits on the person too (decision 128): it loads itself. */}
       <UnsureCountryCard workspaceId={workspaceId} />
+      {/* Once nothing on Autopilot's list waits, it's one line here, at the bottom (decision 160). */}
+      <AutopilotList workspaceId={workspaceId} autopilot={autopilot} place="bottom" />
     </section>
   );
 }

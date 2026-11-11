@@ -19,7 +19,9 @@
  * - **Spares** (5a): a few past the day's limits (`autopilotSpares`), at the bottom, which go instead of anyone taken off.
  * - **Training wheels** (6a) stay: someone new still OKs each message until they've earned it.
  * - **Where** (7a): one switch, Settings → You, for every network; one list, on Needs you, grouped by network. The
- *   business allows it or not, like the other choices (`BusinessRules.autopilotAllowed`).
+ *   business allows it or not, like the other choices (`BusinessRules.autopilotAllowed`). The list is first there only
+ *   while someone on it waits for the OK; otherwise it's one line at the bottom, opened with Show (`autopilotPlace`,
+ *   `autopilotLine`, decision 160).
  *
  * Browser-safe: the web, the phone, the worker and the API read it.
  */
@@ -146,8 +148,12 @@ export const AUTOPILOT_WORDS = {
   okdLine: 'OK’d',
   spares: 'If you take anyone off, these go instead',
   okdCount: (n: number) => `${n} OK’d today`,
+  /** The bottom line once everyone's answered (decision 160): "Today’s list: 12 OK’d, 2 not today". */
+  answered: (ok: number, off: number) =>
+    `Today’s list: ${[ok ? `${ok} OK’d` : null, off ? `${off} not today` : null].filter(Boolean).join(', ')}`,
+  show: 'Show',
+  hide: 'Hide',
   none: 'Nobody new to OK today. Anyone it finds later today waits for tomorrow’s list.',
-  allOkd: 'You’ve OK’d everyone on today’s list. Anyone it finds later waits for tomorrow’s.',
   making: 'Making today’s list. It’s ready in a minute.',
   /** Before today's list is made: when it comes. */
   comes: (at: string) => `Today’s list comes at ${at}, an hour before your working hours.`,
@@ -204,6 +210,35 @@ export const AutopilotOutput = z.object({
   waiting: z.number().int(),
 });
 export type AutopilotOutput = z.output<typeof AutopilotOutput>;
+
+/** Where the day's list sits on Needs you (decision 160). */
+export type AutopilotPlace = 'top' | 'bottom';
+
+/**
+ * Where the day's list sits on Needs you, on the web and the phone (decision 160; Chris, 11 Nov 2026: "after ok’ing the
+ * people to contact in the social outreach it should go away instead of staying at the top", then "Shrink to a line at
+ * the bottom"): first, whole, while someone on it waits for the OK; otherwise one line at the bottom (`autopilotLine`),
+ * whose Show opens the list there, to put back someone left Not today. Nowhere while Autopilot is off.
+ */
+export const autopilotPlace = (
+  list: { on: boolean; made: boolean; people: readonly { state: AutopilotState }[] } | null,
+): AutopilotPlace | null =>
+  !list?.on ? null : list.made && list.people.some((p) => p.state === 'waiting') ? 'top' : 'bottom';
+
+/**
+ * The bottom line's words (decision 160): when today's list comes, that it's being made, that nobody's new today, or
+ * how it was answered. `at` shows a moment on the business's clock.
+ */
+export function autopilotLine(
+  list: { made: boolean; listAt: string | null; people: readonly { state: AutopilotState }[] },
+  at: (iso: string) => string,
+): string {
+  const A = AUTOPILOT_WORDS;
+  if (!list.made) return list.listAt ? A.comes(at(list.listAt)) : A.making;
+  if (!list.people.length) return A.none;
+  const count = (state: AutopilotState) => list.people.filter((p) => p.state === state).length;
+  return A.answered(count('ok'), count('not_today'));
+}
 
 export const AutopilotAnswerInput = z.object({
   workspaceId: z.uuid(),

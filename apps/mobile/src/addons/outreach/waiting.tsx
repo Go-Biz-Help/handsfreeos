@@ -418,7 +418,7 @@ export function WaitingBody({
   askActions?: AskActions;
   /** How many the country setting isn't sure of, and opening them: null when none wait. */
   unsure?: { readonly count: number; readonly onOpen: () => void } | null;
-  /** Autopilot's day's list (decision 151): null while it's off, or with no word from HandsFreeOS. */
+  /** Autopilot's day's list (decision 151), first while anyone waits, else a line at the bottom (decision 160): null while it's off, or with no word from HandsFreeOS. */
   autopilot?: AutopilotOutput | null;
   onAutopilot?: AutopilotAnswerOf;
 }) {
@@ -459,7 +459,7 @@ export function WaitingBody({
       ) : null}
 
       {autopilot && onAutopilot ? (
-        <AutopilotList list={autopilot} online={online} onAnswer={onAutopilot} />
+        <AutopilotList list={autopilot} online={online} onAnswer={onAutopilot} place="top" />
       ) : null}
 
       {server?.asks.length && askActions ? (
@@ -614,6 +614,11 @@ export function WaitingBody({
           </Text>
           <Note>{W.emptyBody}</Note>
         </Card>
+      ) : null}
+
+      {/* Once nothing on Autopilot's list waits, it's one line here, at the bottom (decision 160). */}
+      {autopilot && onAutopilot ? (
+        <AutopilotList list={autopilot} online={online} onAnswer={onAutopilot} place="bottom" />
       ) : null}
 
       {server ? (

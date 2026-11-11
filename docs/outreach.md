@@ -486,7 +486,8 @@ became.
   phone's `autopilot-list.tsx`): one switch at the top of General turns everything on its own on every network the
   person works, and an hour before each working day it lists the people it plans to reach for the first time, first on
   Needs you with a push, for them to OK, take off for the day, or mark Don't pitch or Never contact. Nobody on it is
-  reached till they're OK'd, and once OK'd the steps after go without asking. Their own picks come back when it's off.
+  reached till they're OK'd, and once OK'd the steps after go without asking. Once nobody on it waits, it's one line at
+  the bottom of Needs you, with Show (decision 160). Their own picks come back when it's off.
 - **Live status and control** (decision 41, `/a/outreach?view=live`, `live.ts`, `ops/live.ts`, `ops/day.ts`, the
   web's `live-view.tsx`, the extension's `src/hfos/live.ts`): the **Live** tab shows what the person's extension is
   doing right now, on which computer, the next step, today's counts against the limits, how many things wait for
@@ -3991,6 +3992,18 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
         LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
         in its fortnight, and who commented and reacted become warm leads.
+159.  **Autopilot's day's list shrinks to a line at the bottom once it's answered** (Chris, 11 Nov 2026: "after ok’ing
+      the people to contact in the social outreach it should go away instead of staying at the top"; asked where it
+      goes, he picked "Shrink to a line at the bottom"). After **OK all** the list stayed first on Needs you, every row
+      marked OK'd, under "You’ve OK’d everyone on today’s list".
+      - **First only while someone waits** (`autopilotPlace` in core's `autopilot.ts`): the whole list stays first on
+        Needs you while anyone on it waits for the OK, as decision 151 has it.
+      - **Otherwise one line at the bottom** of Needs you, on the web and the phone (`autopilotLine`): "Today’s list:
+        12 OK’d, 2 not today" once it's answered, with **Show** to open the list right there and **Put back** anyone
+        left Not today (who then waits again, so the list goes back to the top). The notes that sat at the top while
+        nothing waited are this line too: when the day's list comes, that it's being made, and that nobody's new today.
+      - The OK's toast still says how many it OK'd. Nothing changes on the server: the same `outreach.autopilot`,
+        read the same way. No migration, no extension release.
 
 ## Rules worth knowing before changing anything
 
