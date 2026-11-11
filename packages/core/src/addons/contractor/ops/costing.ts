@@ -26,6 +26,7 @@ import {
   type JobCosting,
   type ProfitJob,
 } from '../job-costing';
+import { watchBudget } from '../budget-watch';
 import { contractorAddon } from '../manifest';
 import { isOpen, OPEN_STATUSES, todayIn, type JobStatus } from '../progress';
 import {
@@ -38,7 +39,7 @@ import {
   ProfitInput,
   ProfitOutput,
 } from '../schemas';
-import { otherCosts } from '../tables';
+import { budgetWatch, otherCosts } from '../tables';
 import { hoursOf } from '../time';
 import { isTrade, TRADE_NAMES } from '../trades';
 import { CONTRACTOR_WORDS as W, REFUSALS } from '../words';
@@ -179,6 +180,12 @@ const costingOf = (r: CostRow): JobCosting =>
     },
   );
 
+/** One job's costing as it stands now, for the budget watch (./budget.ts); null when the job isn't here. */
+export async function jobCostingOf(ctx: Ctx, jobId: string): Promise<JobCosting | null> {
+  const [row] = await costRows(ctx, sql`select ${jobId}::uuid as record_id, 0 as position`);
+  return row ? costingOf(row) : null;
+}
+
 // ------------------------------------------------------------------------------------------------ one job
 
 export const jobCosting = defineAddonQuery(contractorAddon, {
@@ -192,7 +199,7 @@ export const jobCosting = defineAddonQuery(contractorAddon, {
   ai: {
     tool: 'contractor_get_job_costing',
     description:
-      'A job’s costs against its plan (by job id), in cents: for labor, materials, other costs and the total, what was planned (budgetCents; null when not set), what it has cost so far (actualCents: time tracked at what each hour cost, materials taken at what each costs, and its other costs) and what it’s heading for (headingCents: labor paced by the job’s % done, the rest the larger of plan and spent; a finished job heads for what it cost). Also its labor hours (planned, so far, heading for), its price, the profit planned, so far and heading for with margins in hundredths of a percent, how far over plan it’s heading (overCents), whether it’s heading under the business’s lowest margin (underMargin), time and materials with no cost yet (uncostedHours, uncostedMaterials), labor by person, and each other cost with its cost id.',
+      'A job’s costs against its plan (by job id), in cents: for labor, materials, other costs and the total, what was planned (budgetCents; null when not set), what it has cost so far (actualCents: time tracked at what each hour cost, materials taken at what each costs, and its other costs) and what it’s heading for (headingCents: labor paced by the job’s % done, the rest the larger of plan and spent; a finished job heads for what it cost). Also its labor hours (planned, so far, heading for), its price, the profit planned, so far and heading for with margins in hundredths of a percent, how far over plan it’s heading (overCents), whether it’s heading under the business’s lowest margin (underMargin), time and materials with no cost yet (uncostedHours, uncostedMaterials), labor by person, each other cost with its cost id, and where its budget stands (watch.level: ok, over, under_margin or loss; watch.overPercent; and, once the AI has looked, watch.why and watch.suggestions: what’s driving it and what the business could do, which are suggestions for a person to decide).',
     keywords: [
       'job costing',
       'job cost',
@@ -207,7 +214,7 @@ export const jobCosting = defineAddonQuery(contractorAddon, {
     const job = await loadJob(ctx, input.jobId);
     if (job.archived) throw HfosError.notFound(REFUSALS.jobGone);
     const ws = ctx.scope.workspaceId!;
-    const [[row], people, others, estimating] = await Promise.all([
+    const [[row], people, others, estimating, [watched]] = await Promise.all([
       costRows(ctx, sql`select ${job.recordId}::uuid as record_id, 0 as position`),
       rows<{ user_id: string | null; name: string | null; seconds: number; cents: number }>(
         ctx.tx,
@@ -233,9 +240,16 @@ export const jobCosting = defineAddonQuery(contractorAddon, {
         .orderBy(desc(otherCosts.spentOn), desc(otherCosts.createdAt))
         .limit(LIMITS.otherCosts),
       estimatingOf(ctx),
+      ctx.tx
+        .select()
+        .from(budgetWatch)
+        .where(and(eq(budgetWatch.recordId, job.recordId), eq(budgetWatch.workspaceId, ws))),
     ]);
     if (!row) throw HfosError.notFound(REFUSALS.jobGone);
     const c = costingOf(row);
+    // Where the budget stands is worked out afresh; what the AI said about it is kept while it's still off plan.
+    const watch = watchBudget(c, estimating.minMarginBp);
+    const off = watch.level !== 'ok';
     return {
       jobId: job.recordId,
       name: job.name,
@@ -258,6 +272,13 @@ export const jobCosting = defineAddonQuery(contractorAddon, {
         note: o.note,
       })),
       canChange: true,
+      watch: {
+        level: watch.level,
+        overPercent: watch.overPercent,
+        why: off ? (watched?.why ?? null) : null,
+        suggestions: off ? (watched?.suggestions ?? []) : [],
+        warnedAt: off ? (watched?.warnedAt?.toISOString() ?? null) : null,
+      },
     };
   },
 });

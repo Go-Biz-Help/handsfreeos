@@ -7,12 +7,15 @@
  *
  * Every number comes worked out from the server (`contractor.job.costing`), the same math the profit page and the
  * AI read, so this never adds anything up itself.
+ *
+ * When the job is heading off its plan (part 7), the card also says what the AI found is driving it and what could
+ * be done. Those are suggestions: nothing changes until a person changes it.
  */
 import { marginWords } from '@hfos/core/addons/contractor/estimating';
 import { LIMITS } from '@hfos/core/addons/contractor/schemas';
 import { CONTRACTOR_WORDS, hoursWords } from '@hfos/core/addons/contractor/words';
-import { formatDateOnly, money, parseMoney } from '@hfos/core';
-import { AlertTriangle, CheckCircle2, X } from 'lucide-react';
+import { formatDate, formatDateOnly, money, parseMoney } from '@hfos/core';
+import { AlertTriangle, CheckCircle2, Sparkles, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -28,6 +31,7 @@ import type { JobCosting, OtherCost } from './types';
 import { useAct } from './use-act';
 
 const C = CONTRACTOR_WORDS.costing;
+const BW = CONTRACTOR_WORDS.budgetWatch;
 
 const cents = (n: number | null): ReactNode =>
   n === null ? <span className="text-text-3">{C.notSet}</span> : money(n);
@@ -36,16 +40,22 @@ export function JobCostsCard({
   workspaceId,
   costing: c,
   today,
+  timeZone,
 }: {
   workspaceId: string;
   costing: JobCosting;
   /** The business's today, the day a new cost starts on. */
   today: string;
+  timeZone: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<OtherCost | null>(null);
   const over = !c.finished && c.overCents !== null && c.overCents > 0;
   const under = c.underMargin && c.profit.headingMarginBp !== null;
+  // What the budget watch found, once the AI has said what's driving it. A finished job has nothing left to head off.
+  const level = c.finished || c.watch.level === 'ok' ? null : c.watch.level;
+  const watch = level ? c.watch : null;
+  const advised = watch !== null && (watch.why !== null || watch.suggestions.length > 0);
   const line = (
     label: string,
     l: JobCosting['total'],
@@ -193,6 +203,16 @@ export function JobCostsCard({
               </p>
             ) : null}
           </div>
+        ) : level === 'loss' ? (
+          // Heading for a loss with no budget to be over and no lowest margin to be under: still said.
+          <p
+            className="flex items-start gap-2 rounded-menu bg-danger-soft px-3 py-2.5 leading-[1.45] text-danger-text"
+            role="status"
+            data-testid="costs-warning"
+          >
+            <AlertTriangle className="mt-px h-3.5 w-3.5 flex-none" strokeWidth={2} />
+            <span>{BW.loss}</span>
+          </p>
         ) : c.total.budgetCents !== null ? (
           <p className="flex items-start gap-2 text-text-2" data-testid="costs-on-track">
             <CheckCircle2
@@ -201,6 +221,41 @@ export function JobCostsCard({
             />
             <span>{C.onTrack}</span>
           </p>
+        ) : null}
+        {watch && level && advised ? (
+          <div
+            className="space-y-2 rounded-menu border border-border px-3 py-2.5 text-[13px] leading-[1.45]"
+            data-testid="costs-watch"
+          >
+            <p className="flex items-center gap-1.5 font-semibold">
+              <Sparkles className="h-3.5 w-3.5 flex-none text-accent-text" strokeWidth={1.75} />
+              {BW[level]}
+            </p>
+            {watch.why ? (
+              <div data-testid="costs-watch-why">
+                <h3 className="text-[12px] font-medium uppercase tracking-wide text-text-3">
+                  {BW.why}
+                </h3>
+                <p className="mt-0.5">{watch.why}</p>
+              </div>
+            ) : null}
+            {watch.suggestions.length ? (
+              <div data-testid="costs-watch-todo">
+                <h3 className="text-[12px] font-medium uppercase tracking-wide text-text-3">
+                  {BW.todo}
+                </h3>
+                <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+                  {watch.suggestions.map((s) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <p className="text-[12.5px] text-text-3">
+              {BW.fromAi}
+              {watch.warnedAt ? ` ${BW.told(formatDate(watch.warnedAt, { timeZone }))}` : ''}
+            </p>
+          </div>
         ) : null}
         {c.priceCents === null ? <p className="text-text-2">{C.noPrice}</p> : null}
         {c.uncostedHours > 0 ? (

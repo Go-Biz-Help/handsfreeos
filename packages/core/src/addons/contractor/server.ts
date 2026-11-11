@@ -9,9 +9,16 @@
  */
 import type { AddonServerModule } from '../server';
 import { contractorAddon } from './manifest';
+import { budgetAdvise, budgetCheck } from './ops/budget';
 import { jobCosting, otherCostAdd, otherCostRemove, profit } from './ops/costing';
 import { crewArchive, crewList, crewSave } from './ops/crews';
 import { dispatch } from './ops/dispatch';
+import {
+  estimateDraftDismiss,
+  estimateDraftKeep,
+  estimateDraftList,
+  estimateDraftSource,
+} from './ops/drafts';
 import {
   estimateAskOk,
   estimateBuilder,
@@ -48,6 +55,7 @@ import {
 import { noteAdd, noteList, noteRemove, noteTranscribed } from './ops/notes';
 import { phaseAdd, phaseRemove, phaseReorder, phaseUpdate } from './ops/phases';
 import { jobGet, jobList, overview, propertyList } from './ops/queries';
+import { reportKeep, reportList, reportSend, reportSource, reportUpdate } from './ops/reports';
 import {
   laborRateList,
   laborRateSet,
@@ -131,6 +139,13 @@ export const contractorAddonServer: AddonServerModule = {
     noteAdd,
     noteRemove,
     noteTranscribed,
+    estimateDraftKeep,
+    estimateDraftDismiss,
+    budgetCheck,
+    budgetAdvise,
+    reportKeep,
+    reportUpdate,
+    reportSend,
   ],
   queries: [
     overview,
@@ -149,6 +164,10 @@ export const contractorAddonServer: AddonServerModule = {
     jobCosting,
     profit,
     noteList,
+    estimateDraftSource,
+    estimateDraftList,
+    reportSource,
+    reportList,
   ],
   notForTheAssistant: {},
 };

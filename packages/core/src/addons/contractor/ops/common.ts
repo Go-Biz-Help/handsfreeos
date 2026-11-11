@@ -75,6 +75,10 @@ export async function settingsOf(ctx: Ctx): Promise<{
   checklist: readonly StarterItem[];
   /** How long before a visit its missing materials are told; 0 is never. */
   materialsAlertHours: number;
+  /** People who may see job costs are told when a job heads over its budget (part 7). On unless turned off. */
+  budgetWarnings: boolean;
+  /** Each job's daily report is written on its own (part 7). On unless turned off. */
+  dailyReports: boolean;
 }> {
   const [i] = await rows<{ settings: Record<string, unknown> | null }>(
     ctx.tx,
@@ -93,6 +97,8 @@ export async function settingsOf(ctx: Ctx): Promise<{
       typeof hours === 'number' && Number.isInteger(hours) && hours >= 0
         ? hours
         : DEFAULT_MATERIALS_ALERT_HOURS,
+    budgetWarnings: s.budgetWarnings !== false,
+    dailyReports: s.dailyReports !== false,
   };
 }
 

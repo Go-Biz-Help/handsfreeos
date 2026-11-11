@@ -4,6 +4,9 @@
  * pages pop out of its one row in the side menu. Said only in businesses it runs in. Browser-safe and pure.
  */
 import type { AppPlace } from '../../assistant/places-map';
+import { WATCH } from './budget-watch';
+import { REPORT_LIMITS } from './daily-report';
+import { DRAFT_LIMITS } from './estimate-draft';
 import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIALS_ALERT_HOURS } from './materials';
 import { CONTRACTOR_PHONE_WORDS as PH } from './phone-words';
 import { PHONE_DAYS } from './progress';
@@ -39,6 +42,10 @@ const Q = W.costing;
 const L = W.laborCosts;
 const F = W.profit;
 const V = W.notes;
+const AD = W.aiDraft;
+const BW = W.budgetWatch;
+const RP = W.reports;
+const AI = W.aiSettings;
 
 const statuses = Object.values(S).join(', ');
 const materialCounts = Object.values(MATERIAL_COUNT_WORDS).join(', ');
@@ -72,7 +79,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   },
   {
     label: 'A job',
-    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials, time, notes from the field, costs so far and budget',
+    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials, time, notes from the field, daily reports, costs so far and budget, and the estimates the AI drafted for it',
     where: [NAME, P.jobs],
     then: 'press the job',
     onScreen: [
@@ -84,9 +91,10 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${M.title}: what the job needs, each with where it stands (${materialStates}), how much of what’s needed is here, what’s short, its supplier, the day it’s expected and the visit it’s for; one button moves it along (${M.markOrdered}, ${M.markDelivered}, ${M.markUsed}); ${M.add}, and ${M.edit} or ${M.remove} under each one’s menu. People who may see job costs also see what one costs, ${M.planned.toLowerCase()} and ${M.taken.toLowerCase()}`,
       `${H.title}: the hours tracked on the job (${H.work}, ${H.travel} and ${H.breaks}, and how many people are on the clock now), then each stretch with whose it is, what it was, from when to when and how long; one that was ${H.autoStopped.toLowerCase().replace(/\.$/, '')} says so, and a fixed one says who fixed it and why. ${H.takeBreak} or ${H.backToWork} while you’re on the clock; for people who may fix time, ${H.add}, and ${H.fix} or ${H.remove} under each one’s menu`,
       `${V.title}: what the crew typed, said or photographed on the job, the newest first, each with who left it, when and the visit it was taken on; a voice note shows its words once they’ve come, with ${V.recording}, and each photo opens among the job’s files; ${V.add}, and ${V.remove} under a note’s menu (your own, or anyone’s for owners and admins)`,
-      `${Q.title} (only for people who may see job costs and profit): ${Q.labor}, ${Q.materials}, ${Q.other}, ${Q.total}, ${Q.hours}, ${Q.price}, ${Q.profit} and ${Q.margin}, each ${Q.planned}, ${Q.soFar} and ${Q.heading}; a warning when it’s heading over its plan or under the lowest margin, or when time or materials have no cost yet; ${Q.byPerson}; and ${Q.otherTitle} with ${Q.otherAdd} and ${Q.otherRemove}`,
+      `${RP.title}: one report for each day the crew left notes or photos, the newest first, ${RP.byAi.toLowerCase()} (or marked changed by whoever edited it). Each has a summary, ${RP.done}, ${RP.issues}, ${RP.materials}, ${RP.next}, who was ${RP.crew.toLowerCase()} and for how long, and the day’s photos; ${RP.write}, and ${RP.edit} or ${RP.writeAgain} under a report’s menu. ${RP.forCustomer}: a short update with a Send button, which goes nowhere until someone presses it. No price or cost is in a report`,
+      `${Q.title} (only for people who may see job costs and profit): ${Q.labor}, ${Q.materials}, ${Q.other}, ${Q.total}, ${Q.hours}, ${Q.price}, ${Q.profit} and ${Q.margin}, each ${Q.planned}, ${Q.soFar} and ${Q.heading}; a warning when it’s heading over its plan or under the lowest margin, or when time or materials have no cost yet; once it’s heading ${WATCH.overPercent}% or more over, under the lowest margin or for a loss, “${BW.over}”, “${BW.under_margin}” or “${BW.loss}” with ${BW.why.toLowerCase()} and ${BW.todo.toLowerCase()} (the AI’s suggestions: a person decides), and the day people were told; ${Q.byPerson}; and ${Q.otherTitle} with ${Q.otherAdd} and ${Q.otherRemove}`,
       `${D.money.title} (only for people who may see job costs and profit): ${D.money.price}, ${D.money.labor}, ${D.money.materials}, ${D.money.other}, ${D.money.hours}, ${D.money.total}, ${D.money.profit} and ${D.money.margin}`,
-      `${E.title}: the estimates written for it, each with its status, total and whether it’s ${E.waitingOk.toLowerCase()}, and ${E.add} (for people who may see job costs)`,
+      `${E.title}: the estimates written for it, each with its status, total and whether it’s ${E.waitingOk.toLowerCase()}, and ${E.add} (for people who may see job costs). With them, ${AD.button}, and ${AD.waiting}: each draft with who asked and when, how many notes and photos it was drawn from, its lines and how many carry a guessed cost, ${AD.open} and ${AD.dismiss}`,
       `${D.openRecord}: the job’s own record page, with its timeline, notes, files and tasks`,
       `On the phone (More → ${PH.more.jobs} → the job): its status with ${PH.job.changeStatus}, ${PH.job.about.toLowerCase()} with ${PH.job.callShort} for its customer, ${PH.job.progress} (press a phase to move it along, or set a service call’s % done), its visits, ${M.title}, ${H.title} and ${V.title}. No price, budget or cost is on the phone`,
     ],
@@ -98,6 +106,8 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Set the budget: its page, ${D.money.title} → ${D.money.edit} (owners and admins, and anyone given “See job costs and profit”)`,
       `Book a visit on it: its page, ${D.visits} → ${D.bookVisit}. Its work order opens next, to put a crew on it`,
       `Write an estimate for it: its page, ${E.title} → ${E.add}. When the customer approves it, the job’s price and budget are filled in from it on their own, and its material lines go onto ${M.title}`,
+      `Have the AI draft an estimate: its page, ${E.title} → ${AD.button}. Type what the work is and any measurements (or leave it empty), pick ${AD.one} or ${AD.three}, then ${AD.go}. It reads the job, the crew’s newest notes and photos and your price list, and the draft opens in the estimate builder. It isn’t an estimate until someone checks each line and presses Save; a job keeps its newest ${DRAFT_LIMITS.waiting} drafts`,
+      `Drop a draft the AI wrote: its page, ${E.title} → ${AD.waiting} → ${AD.dismiss}. No estimate is touched`,
       `Add a material: its page, ${M.title} → ${M.add}. Pick it from your price list or type what it is, how much is needed, and (if it’s for one visit) ${M.forVisit}`,
       `Say a material was ordered, arrived or was used: its page, ${M.title}, then ${M.markOrdered}, ${M.markDelivered} or ${M.markUsed}; for part of it, or what was wasted or returned, the material’s menu → ${M.edit} (${materialCounts})`,
       `See what a visit is still missing: the job’s ${M.title} shows what’s short in red, and each visit under ${D.visits} says how many it’s missing. The job’s lead and the people going are also told before the visit (set when in ${NAME} → ${P.gear} → ${A.title})`,
@@ -106,13 +116,17 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Fix someone’s time: the job’s page, ${H.title}, the stretch’s menu → ${H.fix}. Set when it started and ended and say why (owners and admins, and anyone given “Fix time on jobs”). Time left running ${MAX_RUNNING_HOURS} hours is stopped on its own and waits for this`,
       `Add time nobody tracked: the job’s page, ${H.title} → ${H.add}. Pick who, what it was, from when to when, and say why`,
       `See whether a job is making money: its page, ${Q.title}. ${Q.soFar} is what it has really cost; ${Q.heading} is where it ends up if it goes on as it has (labor is paced by the job’s % done)`,
+      `See why a job is heading over budget: its page, ${Q.title}. Under the warning, ${BW.why} and ${BW.todo} are the AI’s read of the job’s time, materials and other costs. People who may see job costs are also told on Home and their phones, once, and again only if it gets worse (a worse kind, or another ${WATCH.step} points over). Turn it off in ${NAME} → ${P.gear} → ${AI.title}`,
       `Add a permit, a fee or a subcontractor’s bill to a job’s costs: its page, ${Q.title} → ${Q.otherTitle} → ${Q.otherAdd}`,
       `Read what a tech said about a job: its page, ${V.title}. A voice note’s words come a moment after the recording reaches HandsFreeOS; until then it says “${V.wordsWaiting}”`,
+      `Read what happened on a job today: its page, ${RP.title}. A day’s report is written on its own after ${REPORT_LIMITS.writeHour - 12} PM when the crew left notes or photos; ${RP.write} writes it now. A note that comes in later has it written again, unless a person changed the report: then it’s kept, and ${RP.writeAgain} asks first`,
+      `Fix a report: its page, ${RP.title} → the report’s menu → ${RP.edit}, then ${RP.save}`,
+      `Send the customer the day’s update: its page, ${RP.title} → the report → ${RP.forCustomer} → the Send button, pick ${RP.email} or ${RP.sms}, then ${RP.sendGo}. Only that update goes, once, and it shows on the customer’s conversation in the Inbox. It needs “use the inbox”`,
       `Leave a note on a job: on the web, its page → ${V.title} → ${V.add}. On the phone, the job or the visit’s work order → ${V.title} → ${PH.notes.type}, ${PH.notes.photo} or ${PH.notes.voice}; with no signal it’s kept on the phone and sends on its own`,
       `Say how much of a material was used from the phone: the job or the visit’s work order → ${M.title} → press the material, type what was used, wasted or sent back just now, then ${PH.materials.add}. It adds to what’s counted already`,
     ],
     canChange: [
-      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, take a break or come back from one, fix, add and remove time (with “Fix time on jobs”), leave a typed note and take one off, add to how much of a material was used, wasted or sent back, and set its price and budget and what a material costs and add and remove its other costs (with job-cost access)',
+      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, take a break or come back from one, fix, add and remove time (with “Fix time on jobs”), leave a typed note and take one off, add to how much of a material was used, wasted or sent back, write a day’s report, change one and send its update to the customer (which asks first), have the AI draft an estimate and set a draft aside (with job-cost access), and set its price and budget and what a material costs and add and remove its other costs (with job-cost access)',
     ],
     notHere: [
       'ordering from a supplier, and stock in a warehouse or a van: the materials list records what a job needs and what’s happened; it places no order (supplier orders and stock come later)',
@@ -121,6 +135,10 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       'deleting a job: archive its record instead, and everything on it is kept',
       'recording a voice note or taking a photo: that’s done on the phone. The Assistant leaves typed notes, and puts a photo or a recording on a note only when it’s already in the job’s files',
       'changing what a note says: take it off and leave a new one',
+      'turning the AI’s draft into an estimate on its own: a person opens the draft in the estimate builder, checks each line and saves it. The AI never saves, prices or sends an estimate',
+      'acting on a budget warning: the AI says what’s driving it and what could be done, and a person decides. Nothing about the job, its price or its crew changes on its own',
+      'daily reports on the phone: they’re read, changed and sent on the web for now. The crew’s notes and photos they’re written from are left on the phone',
+      'a report for a day with no notes or photos: hours alone aren’t enough to write one from',
     ],
     path: 'jobs/[jobId]',
   },
@@ -206,11 +224,12 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   },
   {
     label: 'An estimate',
-    what: 'the estimate builder: an estimate’s lines with what each costs, each option’s profit and margin, and its OK',
+    what: 'the estimate builder: an estimate’s lines with what each costs, each option’s profit and margin, and its OK; also where a draft from the AI is checked and saved',
     where: [NAME, P.estimates],
     then: 'press the estimate, or New estimate',
     onScreen: [
       `${B.customer}, ${B.forJob} and ${B.titleField}`,
+      `When it was opened from the AI’s draft: “${AD.bannerTitle}” at the top, with how many notes and photos it read, ${AD.assumed.toLowerCase()} and the questions to answer before it’s sent; and ${AD.guess} beside the cost of each line that isn’t on the price list, until someone changes that cost`,
       `${B.lines}: each with what it is, ${B.kind} (Labor, Material or Other), ${B.quantity} (hours for labor), ${B.cost}, ${B.markup}, ${B.price}, sales tax, its amount and its profit; ${B.addLabor}, ${B.addLine}, Add from your price list, and a discount`,
       'Offer options (good, better, best): up to three, each with its own lines, and the customer picks one',
       `${B.costing.title}: ${B.costing.price}, ${B.costing.labor}, ${B.costing.materials}, ${B.costing.other}, ${B.costing.cost}, ${B.costing.profit} and ${B.costing.margin}, red when it’s under the lowest margin; with ${B.ok.ask} or, for owners and admins, ${B.ok.give}`,
@@ -222,6 +241,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Price a line from its cost: type ${B.cost}, then ${B.markup} (or ${B.price}); a new line’s price starts at its cost plus your starting markup`,
       `Send one that’s under your lowest margin: an owner or admin opens it and presses ${B.ok.give}; anyone else presses ${B.ok.ask}, which tells them. The OK is for the estimate as it is: change it and it needs a fresh one`,
       `Offer good, better, best: in ${B.lines}, Offer options, then fill in each option’s lines`,
+      `Start from the AI’s draft: the job’s page → ${E.title} → ${AD.button}, or ${AD.open} on a waiting draft. Lines from your price list keep your prices and costs and labor is at your hourly price; a line marked ${AD.guess} carries a cost the AI guessed, so check it. Nothing is saved until ${B.save}, and then it’s an estimate like any other: under the lowest margin it still waits for an owner’s or admin’s OK`,
     ],
     canChange: [
       'write and change a draft estimate’s lines, costs, options, discount, deposit, notes and good-until date, ask for an OK, OK it (owners and admins) and send it',
@@ -229,6 +249,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
     notHere: [
       'once it’s sent it can’t be changed: void it in Money → Estimates and write a new one',
       'recording the customer’s yes, the invoice and payments: on its page in Money → Estimates',
+      'asking the AI for a draft from here: that starts on the job’s page, since it reads that job’s notes and photos',
     ],
     path: 'estimates/[estimateId]',
   },
@@ -273,13 +294,14 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   },
   {
     label: P.gear,
-    what: 'the business’s trades, its crews, the phases a new project and the checklist a new visit start with, when missing materials are told, how it estimates, and what an hour of each person costs',
+    what: 'the business’s trades, its crews, the phases a new project and the checklist a new visit start with, when missing materials are told, what the AI does on its own, how it estimates, and what an hour of each person costs',
     where: [NAME, P.gear],
     onScreen: [
       `${G.trades} (Electrical, Plumbing, HVAC, Roofing, Remodeling and General contracting)`,
       `${G.phases}, with ${G.addPhase} and Start from a trade’s starter phases`,
       `${K.title}: each item a box or a photo, required or not, with ${K.add} and Start from a trade’s starter checklist`,
       `${A.title}: ${A.when} (${MATERIALS_ALERT_HOURS.map(alertHoursWords).join(', ')})`,
+      `${AI.title}: ${AI.budget} and ${AI.reports}, each a switch, both on to start`,
       `${R.title}: each crew with who’s in it, ${R.add}, ${R.edit}, ${R.archive} and ${R.showArchived}`,
       `${T.title}: ${T.minMargin}, ${T.markup}, ${T.laborRate} and ${T.laborCost}`,
       `${L.title} (only for people who may see job costs and profit): each person on the team with their ${L.cost.toLowerCase()} and ${L.save}`,
@@ -289,12 +311,14 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Change the phases a new project starts with: ${NAME} → ${P.gear} → ${G.phases}`,
       `Change the checklist a new visit starts with: ${NAME} → ${P.gear} → ${K.title}, then ${G.save}. Visits already booked keep the checklist they have`,
       `Change when people are told a visit is missing materials, or turn it off: ${NAME} → ${P.gear} → ${A.title} → ${A.when}, then ${G.save}. It starts at ${alertHoursWords(DEFAULT_MATERIALS_ALERT_HOURS).toLowerCase()}; ${alertHoursWords(0)} turns it off`,
+      `Stop or start the warnings when a job heads over budget: ${NAME} → ${P.gear} → ${AI.title} → ${AI.budget}, then ${G.save}. The job’s ${Q.title} still shows where it’s heading either way`,
+      `Stop or start the evening’s daily reports: ${NAME} → ${P.gear} → ${AI.title} → ${AI.reports}, then ${G.save}. Off, a report is written only when someone presses ${RP.write} on a job. Each report uses a little of the business’s AI budget`,
       `Make a crew: ${NAME} → ${P.gear} → ${R.title} → ${R.add}. Name it, tick its ${R.people.toLowerCase()}, and add its ${R.subs.toLowerCase()} from Contacts (for a company, the person you deal with there)`,
       `Change the lowest margin an estimate may go out at: ${NAME} → ${P.gear} → ${T.title} → ${T.minMargin} (owners and admins). It starts at 20%`,
       `Set what an hour of someone costs you: ${NAME} → ${P.gear} → ${L.title}, type their ${L.cost.toLowerCase()} and press ${L.save} (owners and admins). It counts for time tracked from then on; time already tracked keeps what it cost. Someone with none counts at the ${T.laborCost.toLowerCase()} under ${T.title}`,
     ],
     canChange: [
-      'pick the business’s trades, the phases a new project starts with and the checklist a new visit starts with, set how long before a visit its missing materials are told, make, change, archive and bring back crews, set the lowest margin, the starting markup and labor’s hourly price and cost, and set what an hour of each person costs',
+      'pick the business’s trades, the phases a new project starts with and the checklist a new visit starts with, set how long before a visit its missing materials are told, turn the over-budget warnings and the evening’s daily reports on or off, make, change, archive and bring back crews, set the lowest margin, the starting markup and labor’s hourly price and cost, and set what an hour of each person costs',
     ],
     path: 'settings',
   },
@@ -316,5 +340,9 @@ export const CONTRACTOR_LOOK_ALIKES: readonly string[] = [
   'What an hour costs you (Contractor Operations → Settings) is each person’s cost to the business, and turns tracked time into labor cost. Labor’s price and cost per hour under Estimating are what a new labor line on an estimate starts at; that cost also counts for anyone with no cost of their own.',
   'Profit (Contractor Operations → Profit) sets each job’s price against what the job cost. What was invoiced and paid is in Money.',
   'Notes from the field (on a job’s page and a visit’s work order) are what the crew typed, said or photographed, mostly from their phones. The Notes on the job’s record page under Contacts are the business’s ordinary notes; a note from the field also shows as a line on the job’s timeline there.',
+  'A draft from the AI (on a job’s page, under Estimates → Drafts from the AI) isn’t an estimate: it has no number, isn’t in Money and can’t be sent. It becomes one only when a person opens it in the estimate builder, checks it and saves it. A draft estimate in Money or under Contractor Operations → Estimates is a real estimate that hasn’t been sent yet.',
+  'Draft with AI (on a job’s page) has the AI write a whole draft from the job’s notes and photos, kept beside the job. Asking the Assistant to write an estimate has it write one as you, on a Confirm card. Either way a person approves it before it exists.',
+  'A daily report (on a job’s page) is the office’s own record of a day on the job, with no prices or costs in it. Only its For the customer part ever goes to the customer, and only when someone presses Send. Notes from the field are what the crew left; the report is written from them.',
+  'Heading over budget (the alert on Home, and the warning under Costs so far) is about where a job’s cost is heading against its plan. Waiting for an OK is about an estimate under the lowest margin. Both go only to people who may see job costs.',
   'On the phone, Contractor Operations is the Jobs row in More: Jobs, a job and a visit’s work order, all kept on the phone so they work with no signal. A visit on a job also has a Work order row on its page in Calendar.',
 ];

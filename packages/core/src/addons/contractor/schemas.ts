@@ -11,7 +11,10 @@ import {
   MoneyTerms,
 } from '../../schemas/money';
 import { JOB_STATUSES as VISIT_STAGES } from '../../schemas/job';
+import { WATCH, WATCH_LEVELS } from './budget-watch';
 import { ITEM_KINDS } from './checklists';
+import { REPORT_LIMITS } from './daily-report';
+import { DRAFT_LIMITS } from './estimate-draft';
 import { COST_KINDS } from './estimating';
 import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIAL_STATES } from './materials';
 import { NOTE_LIMITS, TRANSCRIPT_STATES } from './notes';
@@ -160,6 +163,10 @@ export const ContractorSettingsSchema = z.object({
     .min(0, 'Not below 0 hours.')
     .max(LIMITS.alertHours, 'Two weeks before at most.')
     .default(DEFAULT_MATERIALS_ALERT_HOURS),
+  /** Tell the people who may see job costs when a job heads over its budget (part 7). */
+  budgetWarnings: z.boolean().default(true),
+  /** Write each job's daily report on its own, the evening of a day its crew left notes or photos (part 7). */
+  dailyReports: z.boolean().default(true),
 });
 export type ContractorSettings = z.infer<typeof ContractorSettingsSchema>;
 
@@ -515,6 +522,8 @@ export const EstimateSaveInput = z.object({
   baseRevision: z.int().min(1).optional(),
   /** The job it's for. Its customer is who the estimate is for, unless one is named. */
   jobId: uuid.nullable().optional(),
+  /** The AI's draft a new estimate was started from (part 7): it's marked used once this is saved. */
+  draftId: uuid.optional(),
   personId: uuid.optional(),
   title: z.string().trim().max(200).nullable().optional(),
   notes: z.string().trim().max(5_000).nullable().optional(),
@@ -578,11 +587,70 @@ export const EstimateSaveOutput = z.object({
   check: MarginCheckOut,
 });
 
+/** A line of an estimate the AI drafted: a builder's line, and whether its cost is the AI's guess. */
+export const DraftedLine = z.object({
+  productId: uuid.nullable(),
+  name: z.string().trim().min(1).max(DRAFT_LIMITS.name),
+  description: z.string().max(DRAFT_LIMITS.description).nullable(),
+  quantity: z.number().positive().max(100_000),
+  unitLabel: z.string().trim().min(1).max(DRAFT_LIMITS.unit),
+  unitPriceCents: z.number().int().min(0).max(LIMITS.unitCostCents),
+  taxable: z.boolean(),
+  kind: CostKind,
+  unitCostCents: z.number().int().min(0).max(LIMITS.unitCostCents).nullable(),
+  /** On no price list: its cost is the AI's guess, and its price that cost at the business's starting markup. */
+  guessed: z.boolean(),
+});
+/** What the AI drafted: a title, one option or two or three, what it assumed and what it couldn't tell. */
+export const EstimateDraftBody = z.object({
+  title: z.string().max(DRAFT_LIMITS.title).nullable(),
+  options: z
+    .array(
+      z.object({
+        name: z.string().max(60),
+        lines: z.array(DraftedLine).min(1).max(DRAFT_LIMITS.lines),
+      }),
+    )
+    .min(1)
+    .max(DRAFT_LIMITS.options),
+  assumptions: z.array(z.string().max(DRAFT_LIMITS.point)).max(DRAFT_LIMITS.assumptions),
+  questions: z.array(z.string().max(DRAFT_LIMITS.point)).max(DRAFT_LIMITS.questions),
+});
+export type EstimateDraftBody = z.infer<typeof EstimateDraftBody>;
+
+export const DraftState = z.enum(['ready', 'used', 'dismissed']);
+/** An estimate the AI drafted for a job (part 7), as a list shows it. */
+export const EstimateDraftSummary = z.object({
+  id: uuid,
+  jobId: uuid,
+  state: DraftState,
+  title: z.string().nullable(),
+  /** What the person asking typed. */
+  brief: z.string().nullable(),
+  /** Who asked for it; null for someone who has left HandsFreeOS. */
+  askedBy: z.string().nullable(),
+  createdAt: z.string(),
+  notesRead: z.int(),
+  photosRead: z.int(),
+  /** 1 for one price; 2 or 3 for good, better, best. */
+  optionCount: z.int(),
+  lines: z.int(),
+  /** Lines whose cost is the AI's guess. */
+  guessed: z.int(),
+  questions: z.int(),
+  /** The estimate a person saved from it. */
+  estimateId: uuid.nullable(),
+});
+export const EstimateDraft = EstimateDraftSummary.extend({ draft: EstimateDraftBody });
+export type EstimateDraft = z.infer<typeof EstimateDraft>;
+
 export const EstimateBuilderInput = z.object({
   workspaceId: uuid,
   /** Left out, the builder opens empty for `jobId`. */
   estimateId: uuid.optional(),
   jobId: uuid.optional(),
+  /** The AI's draft to start a new estimate from (part 7). */
+  draftId: uuid.optional(),
 });
 const PersonLite = z.object({
   id: uuid,
@@ -605,6 +673,11 @@ export const EstimateBuilderOutput = z.object({
   job: z.object({ id: uuid, name: z.string() }).nullable(),
   /** Who a new estimate is for: the job's customer. */
   person: PersonLite.nullable(),
+  /**
+   * The AI's draft (part 7): for a new estimate, the one to start from, with every line; for a saved one, the draft
+   * it was started from. Null when the AI had no part.
+   */
+  draft: EstimateDraft.nullable(),
   check: MarginCheckOut.nullable(),
   estimating: Estimating,
   may: z.object({ approve: z.boolean(), bill: z.boolean() }),
@@ -1302,6 +1375,7 @@ const CostLine = z.object({
   actualCents: z.number(),
   headingCents: z.number(),
 });
+export const WatchLevel = z.enum(WATCH_LEVELS);
 export const JobCostingInput = z.object({ workspaceId: uuid, jobId: uuid });
 export const JobCostingOutput = z.object({
   jobId: uuid,
@@ -1341,6 +1415,18 @@ export const JobCostingOutput = z.object({
   otherCosts: z.array(OtherCost),
   /** A done job's costs can still be put right; an archived job's can't. */
   canChange: z.boolean(),
+  /**
+   * Where its budget stands now (part 7): within plan, heading over, heading under the lowest margin, or heading for
+   * a loss; and what the AI said is driving it, once it has.
+   */
+  watch: z.object({
+    level: WatchLevel,
+    overPercent: z.number().nullable(),
+    why: z.string().nullable(),
+    suggestions: z.array(z.string()),
+    /** When the people who may see job costs were last told. */
+    warnedAt: z.string().nullable(),
+  }),
 });
 
 export const ProfitGroup = z.enum(PROFIT_GROUPS);
@@ -1461,4 +1547,268 @@ export const NoteListOutput = z.object({
     removeAny: z.boolean(),
   }),
   truncated: z.boolean(),
+});
+
+// ---------- the AI helpers (part 7) ----------
+
+/** What a person types when asking for a draft: the work wanted, and measurements. */
+const brief = z
+  .string()
+  .trim()
+  .max(DRAFT_LIMITS.brief, 'Keep it under 4,000 characters.')
+  .nullable()
+  .optional();
+
+/** The worker: everything the AI reads to draft an estimate for a job. */
+export const EstimateDraftSourceInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  brief,
+  /** One price, or good, better and best. */
+  options: z.union([z.literal(1), z.literal(3)]).default(1),
+});
+export const EstimateDraftSourceOutput = z.object({
+  job: z.object({
+    name: z.string(),
+    kind: z.string(),
+    trade: z.string().nullable(),
+    details: z.string().nullable(),
+    property: z.string().nullable(),
+  }),
+  brief: z.string().nullable(),
+  notes: z.array(
+    z.object({ by: z.string().nullable(), when: z.string(), text: z.string(), photos: z.int() }),
+  ),
+  /** The newest photos on the job's notes, for the AI to look at. */
+  photoFileIds: z.array(uuid),
+  items: z.array(
+    z.object({
+      productId: uuid,
+      name: z.string(),
+      description: z.string().nullable(),
+      unitLabel: z.string(),
+      unitPriceCents: z.number(),
+      taxable: z.boolean(),
+      kind: CostKind,
+      costCents: z.number().nullable(),
+    }),
+  ),
+  estimating: z.object({
+    markupBp: z.int(),
+    laborRateCents: z.number(),
+    laborCostCents: z.number(),
+  }),
+  options: z.union([z.literal(1), z.literal(3)]),
+});
+
+/** The worker: the AI's draft, checked, kept beside the job for a person to open. */
+export const EstimateDraftKeepInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  brief,
+  draft: EstimateDraftBody,
+  notesRead: z.int().min(0).max(1000).default(0),
+  photosRead: z.int().min(0).max(100).default(0),
+});
+export const EstimateDraftKeepOutput = z.object({
+  draftId: uuid,
+  jobId: uuid,
+  optionCount: z.int(),
+  lines: z.int(),
+  guessed: z.int(),
+  questions: z.int(),
+});
+
+export const EstimateDraftListInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const EstimateDraftListOutput = z.object({
+  jobId: uuid,
+  /** The ones still waiting for someone, the newest first. */
+  drafts: z.array(EstimateDraftSummary),
+});
+export const EstimateDraftDismissInput = z.object({ workspaceId: uuid, draftId: uuid });
+export const EstimateDraftDismissOutput = z.object({
+  draftId: uuid,
+  jobId: uuid,
+  changed: z.boolean(),
+});
+
+/** The worker: looks at where a job's budget stands, and answers whether people should be told. */
+export const BudgetCheckInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const BudgetCheckOutput = z
+  .object({
+    jobId: uuid,
+    level: WatchLevel,
+    /** It got worse: the people who may see job costs are told, with these words. */
+    alert: z.object({ title: z.string(), detail: z.string() }).nullable(),
+    /** Back within its plan, finished, or warnings are off: any alert is cleared. */
+    clear: z.boolean(),
+    /** What to ask the AI about it, when it's news. */
+    ask: z.string().nullable(),
+  })
+  .nullable();
+
+/** The worker: what the AI said is driving a job over its budget, and what the business could do. */
+export const BudgetAdviseInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  why: z.string().trim().min(1).max(WATCH.why),
+  suggestions: z.array(z.string().trim().min(1).max(WATCH.suggestion)).max(WATCH.suggestions),
+});
+export const BudgetAdviseOutput = z.object({ jobId: uuid, kept: z.boolean() });
+
+const reportPoints = z
+  .array(z.string().trim().max(REPORT_LIMITS.point))
+  .max(REPORT_LIMITS.points, 'Eight lines at most in each part.');
+/** A report's words. */
+export const ReportBody = z.object({
+  summary: z
+    .string()
+    .trim()
+    .min(1, 'Write a summary of the day.')
+    .max(REPORT_LIMITS.summary, 'Keep the summary under 900 characters.'),
+  done: reportPoints.default([]),
+  issues: reportPoints.default([]),
+  materials: reportPoints.default([]),
+  next: reportPoints.default([]),
+  /** The update for the customer; null when there's none. */
+  forCustomer: z
+    .string()
+    .trim()
+    .max(REPORT_LIMITS.forCustomer, 'Keep the customer’s update under 1,200 characters.')
+    .nullable()
+    .default(null),
+});
+
+/** A job's daily report (part 7). */
+export const DailyReport = z.object({
+  id: uuid,
+  /** The business's own day, `YYYY-MM-DD`. */
+  day: Day,
+  summary: z.string(),
+  done: z.array(z.string()),
+  issues: z.array(z.string()),
+  materials: z.array(z.string()),
+  next: z.array(z.string()),
+  forCustomer: z.string().nullable(),
+  /** Who was on the clock that day, and for how many hours. */
+  crew: z.array(z.object({ name: z.string(), hours: z.number() })),
+  /** The day's photos' files. */
+  photoFileIds: z.array(uuid),
+  notesRead: z.int(),
+  photosRead: z.int(),
+  writtenAt: z.string(),
+  /** Who pressed Write; null when it was written on its own. */
+  askedBy: z.string().nullable(),
+  /** A person changed its words. */
+  edited: z.object({ by: z.string().nullable(), at: z.string() }).nullable(),
+  /** The customer's update, once someone sent it. */
+  sent: z
+    .object({ by: z.string().nullable(), at: z.string(), channel: z.enum(['email', 'sms']) })
+    .nullable(),
+});
+export type DailyReport = z.infer<typeof DailyReport>;
+
+export const ReportListInput = z.object({ workspaceId: uuid, jobId: uuid });
+export const ReportListOutput = z.object({
+  jobId: uuid,
+  /** The newest day first. */
+  reports: z.array(DailyReport),
+  /** The names of the photos' files, for a link to each. */
+  files: z.array(z.object({ id: uuid, name: z.string() })),
+  /** The business's today. */
+  today: Day,
+  /** Reports are written on their own each evening (the business's setting). */
+  onItsOwn: z.boolean(),
+  /** Who a customer's update goes to, and how they can be reached; null when the job has no customer. */
+  customer: z.object({ name: z.string(), email: z.boolean(), sms: z.boolean() }).nullable(),
+  /** The job isn't archived: a report can be written, changed and sent. */
+  canChange: z.boolean(),
+  truncated: z.boolean(),
+});
+
+/** The worker: everything the AI reads to write one day's report. */
+export const ReportSourceInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** The business's today when left out. */
+  day: Day.optional(),
+});
+export const ReportSourceOutput = z.object({
+  jobId: uuid,
+  day: Day,
+  job: z.object({
+    name: z.string(),
+    kind: z.string(),
+    trade: z.string().nullable(),
+    percentDone: z.int(),
+    customerFirstName: z.string().nullable(),
+  }),
+  business: z.string(),
+  dayWords: z.string(),
+  notes: z.array(
+    z.object({
+      by: z.string().nullable(),
+      at: z.string(),
+      visit: z.string().nullable(),
+      text: z.string(),
+      photos: z.int(),
+    }),
+  ),
+  ticked: z.array(z.string()),
+  crew: z.array(z.object({ name: z.string(), hours: z.number() })),
+  visits: z.array(z.object({ title: z.string(), status: z.string() })),
+  /** The day's photos, the oldest first: the report keeps them all, and the AI looks at the first few. */
+  photoFileIds: z.array(uuid),
+  /** Notes whose words are still on their way. */
+  waitingWords: z.int(),
+  /** The report already kept for the day, when there is one. */
+  existing: z.object({ id: uuid, edited: z.boolean() }).nullable(),
+  /** The business has reports written on their own. */
+  onItsOwn: z.boolean(),
+});
+
+/** The worker: a day's report, written. */
+export const ReportKeepInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  day: Day,
+  body: ReportBody,
+  crew: z
+    .array(z.object({ name: z.string().max(200), hours: z.number().min(0).max(1000) }))
+    .max(50)
+    .default([]),
+  photoFileIds: z.array(uuid).max(60).default([]),
+  notesRead: z.int().min(0).max(1000).default(0),
+  photosRead: z.int().min(0).max(100).default(0),
+  /** Write over one a person changed (they asked for it). */
+  replace: z.boolean().default(false),
+});
+export const ReportKeepOutput = z.object({
+  reportId: uuid.nullable(),
+  jobId: uuid,
+  day: Day,
+  /** False when a person had changed the day's report, so it was left as theirs. */
+  kept: z.boolean(),
+});
+
+export const ReportUpdateInput = ReportBody.extend({ workspaceId: uuid, reportId: uuid });
+export const ReportChangeOutput = z.object({ reportId: uuid, jobId: uuid, day: Day });
+
+export const ReportSendInput = z.object({
+  workspaceId: uuid,
+  reportId: uuid,
+  channel: z.enum(['email', 'sms']),
+  /** What to send, when it isn't the report's own update for the customer as it stands. */
+  body: z
+    .string()
+    .trim()
+    .min(1, 'Write the update first.')
+    .max(REPORT_LIMITS.forCustomer, 'Keep the customer’s update under 1,200 characters.')
+    .optional(),
+  /** The person said to text during quiet hours. */
+  acknowledgeQuietHours: z.boolean().default(false),
+});
+export const ReportSendOutput = ReportChangeOutput.extend({
+  channel: z.enum(['email', 'sms']),
+  customer: z.string(),
 });

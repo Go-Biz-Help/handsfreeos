@@ -2,14 +2,14 @@
 
 An add-on (`contractor`) for contractors and home service companies: electricians, plumbers, HVAC, roofers,
 remodelers and general contractors. One shared engine runs jobs and projects, estimates with costs, crews, work
-orders and dispatch, each job's materials, time and job costing, and the crew's pages on the phone, which work with
-no signal. Trade tools come inside it after that.
+orders and dispatch, each job's materials, time and job costing, the crew's pages on the phone, which work with
+no signal, and three AI helpers that prepare and never decide. Trade tools come inside it after that.
 
 The owner's decisions and the build order are in `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`; the
 numbers below (decision 1, and so on) are its decisions. Built: part 1, jobs and projects; part 2, costs and
-estimates; part 3, crews, work orders and dispatch; part 4, materials; part 5, time and job costing; and part 6,
-the phone's field pages. The add-on is in `development`, offered to nobody; staff give it to a business from
-Admin → Businesses.
+estimates; part 3, crews, work orders and dispatch; part 4, materials; part 5, time and job costing; part 6,
+the phone's field pages; and part 7, the AI helpers. The add-on is in `development`, offered to nobody; staff give
+it to a business from Admin → Businesses.
 
 ## Where things are
 
@@ -22,6 +22,7 @@ Admin → Businesses.
 | Part 4's tables: materials and what each costs                 | `supabase/migrations/20261027024400_contractor_materials.sql`          |
 | Part 5's tables: time, what an hour cost, other costs          | `supabase/migrations/20261027024500_contractor_time.sql`               |
 | Part 6's table (notes), and what phones keep                   | `supabase/migrations/20261027025300_contractor_on_the_phone.sql`       |
+| Part 7's tables: AI drafts, the budget watch, daily reports    | `supabase/migrations/20261027025700_contractor_ai_helpers.sql`         |
 | Trades and their starter phases                                | `trades.ts` (pure; web, phone and server all use it)                   |
 | Statuses, % done, lateness and planned profit                  | `progress.ts` (pure)                                                   |
 | The pages' words, and every refusal's                          | `words.ts`                                                             |
@@ -42,6 +43,12 @@ Admin → Businesses.
 | A job's costing, its other costs, and the profit page          | `ops/costing.ts`                                                       |
 | What a note may hold, and how it reads in a line               | `notes.ts` (pure)                                                      |
 | Notes from the field                                           | `ops/notes.ts`                                                         |
+| What the AI is asked for an estimate draft, and its checks     | `estimate-draft.ts` (pure)                                             |
+| When a budget is worth telling, and the alert's words          | `budget-watch.ts` (pure)                                               |
+| What the AI is asked for a daily report, and its checks        | `daily-report.ts` (pure)                                               |
+| The AI's estimate drafts                                       | `ops/drafts.ts`, `ops/draft-rows.ts`                                   |
+| Where a job's budget stands, and the AI's advice               | `ops/budget.ts`                                                        |
+| Daily reports: keep, list, change, send                        | `ops/reports.ts`                                                       |
 | What the phone's pages answer, from the rows a phone keeps     | `views/phone.ts` (pure)                                                |
 | The words only the phone's pages say                           | `phone-words.ts`                                                       |
 | Reading: overview, jobs, one job, properties                   | `ops/queries.ts`                                                       |
@@ -52,6 +59,9 @@ Admin → Businesses.
 | The worker: time from a visit's buttons, and time left running | `apps/worker/src/addons/contractor/time.ts`                            |
 | The worker: a voice note's words                               | `apps/worker/src/addons/contractor/notes.ts`                           |
 | The worker: when a closed job leaves phones                    | `apps/worker/src/addons/contractor/phone.ts`                           |
+| The worker: Draft with AI                                      | `apps/worker/src/addons/contractor/drafts.ts`                          |
+| The worker: the budget look, its alert and the AI's advice     | `apps/worker/src/addons/contractor/budget.ts`                          |
+| The worker: daily reports, in the evening and on a press       | `apps/worker/src/addons/contractor/reports.ts`                         |
 | The web pages                                                  | `apps/web/src/addons/contractor/`, routes under `a/contractor/`        |
 | The phone's pages                                              | `apps/mobile/src/addons/contractor/` (see its `README.md`)             |
 | What a change waiting on a phone is called                     | `apps/mobile/src/changes/describe-contractor.ts`                       |
@@ -355,6 +365,85 @@ keeps the add-on's jobs, and its three pages (Jobs, a job, and a visit's work or
 - **The web shows the notes** on the job's page and on each visit's work order (`notes-card.tsx`), and the office
   can type one there.
 
+## The AI helpers
+
+Part 7. Three helpers, and one rule over all of them, the owner's: "For anything involving safety, code compliance,
+contracts, or significant spending, the AI should prepare and recommend actions while authorized humans retain
+approval." So each one prepares something and leaves the deciding to a person. None of them saves an estimate,
+sets a price, changes a job or reaches a customer.
+
+**An estimate the AI drafts** (decision 6: "An estimate the AI drafts always waits for a person").
+
+- **Draft with AI** is on a job's Estimates card, for people who may see job costs. They type what the work is and
+  any measurements (or nothing), and pick one price or good, better, best. The worker
+  (`contractor.estimate.draft`, in `drafts.ts`) reads `contractor.estimate_draft.source` and asks the AI.
+- **What the AI reads:** the job and its property, what was typed, the crew's newest notes (30, with their words),
+  the newest photos on them and on the checklists (6), the price list with what each item costs (200 items), and
+  how the business prices labor. With nothing typed, no note with words, no photo and no work written on the job,
+  it's refused (`contractor_draft_nothing`).
+- **The AI never sets a price the business already has** (`checkedEstimateDraft`, in `estimate-draft.ts`). A line
+  it picks from the price list keeps that item's name, unit, price and cost. Labor is at the business's own price
+  and cost per hour. Only a line on no price list carries the AI's guess at what one costs, priced at the
+  business's starting markup, and it's marked `guessed`.
+- **What comes back is a draft beside the job** (`addon_contractor.estimate_drafts`), never an estimate: it has
+  no number, isn't in Money and can't be sent. It holds costs, so only `contractor.costs` reads it. A job keeps
+  its newest five waiting drafts; a sixth sets the oldest aside. Nothing is deleted.
+- **A person makes it an estimate.** The draft opens in the builder
+  (`a/contractor/estimates/new?jobId=…&draftId=…`), under a banner that says the AI drafted it, what it assumed
+  and what to answer before sending. A guessed cost is marked Guess until someone changes it. Only Save writes
+  an estimate, through core's commands as that person, and marks the draft used
+  (`contractor.estimate.save` with `draftId`). From there it's an estimate like any other: under the lowest
+  margin it still waits for an owner's or admin's OK.
+- **Set aside** (`contractor.estimate_draft.dismiss`) stops a draft being offered. It touches no estimate.
+
+**A job heading over budget.**
+
+- **Arithmetic decides, never the AI.** `watchBudget` (in `budget-watch.ts`) reads the job's costing
+  (`job-costing.ts`) and answers one of four: within plan, heading 5% or more over its planned cost (`over`),
+  heading under the lowest margin (`under_margin`), or heading for a loss (`loss`). A finished job isn't watched.
+- **When it's looked at.** Whenever something that costs money changes on a job (time, materials, other costs, its
+  budget, how far along it is), the worker queues `contractor.budget_check` two minutes on, one per job, so a
+  burst is looked at once.
+- **Who's told, and when.** `contractor.budget.check` (the system's) keeps where the job stood in
+  `addon_contractor.budget_watch`, and says whether it's news: the first time it crosses a line, when it crosses a
+  worse one, and each further 10 points over. Getting better is never news. Then the worker raises one alert per
+  job (key `budget:<the job's id>`) for people with `contractor.costs` only, on Home, their phones and by email.
+  Its title carries no amount; its detail has the planned and heading cost and the profit the job is now heading
+  for, as the owner asked. The alert comes down when the job is back within its plan, finished or archived.
+- **The AI's part comes after** and never holds the warning up: a sentence or two on what's driving it and up to
+  three things the business could do (`contractor.budget.advise`), shown under the warning on the job's Costs so
+  far card as "Suggestions from the AI. You decide what to do." When the AI is busy, off or out of budget, the
+  warning goes without them.
+- **A business turns the alert off** in Settings → AI helpers (`budgetWarnings`). Costs so far still shows where
+  the job is heading.
+
+**A job's daily report.**
+
+- **One per job per day** (`addon_contractor.daily_reports`), written from what the crew left that day: their
+  typed and voice notes (40), their photos (6), the checklist items they ticked, the day's visits and who was on
+  the clock for how long. It has a summary, Done, Needs a look, Materials, Next, and a short update for the
+  customer. Anything about safety or code goes under Needs a look in the crew's own words, for a person to read.
+- **No money.** The AI is given hours, never what they cost, and a report holds none. So everyone with
+  `contractor.use` reads it.
+- **Written on its own in the evening.** A note landing on a job queues that day's report
+  (`contractor.report_write`) for 6 PM where the business is, or half an hour on once it's past six. A voice
+  note's words arriving does the same, so a report written before they came is written again with them. A day
+  with no note with words and no photo gets no report: hours alone aren't one. A business turns this off in
+  Settings → AI helpers (`dailyReports`); **Write today's report** on the job's page works either way.
+- **A person's words win.** Once someone changes a report (`contractor.report.update`) the AI never writes over
+  it, unless a person asks for it to be written again and says so (`replace`).
+- **The customer's update goes only when a person sends it** (`contractor.report.send`), by email or text,
+  through core's `message.send`. So consent, quiet hours, who may message customers (`inbox.use`) and the
+  conversation in the Inbox are all core's. Only that update goes, never the rest of the report, and once. A
+  sent update is kept as it went.
+- **What the AI reads is data, never instructions.** Notes, ticked items, names and anything written in a photo
+  are quoted (`quoteData`), and each prompt says so. A photo the model can't open (an iPhone HEIC, or one too
+  big) is passed over.
+- **The helpers' AI use is counted as the add-on's** (`usageOf`), against the business's AI budget like any
+  other. When the budget is reached or the AI is off, a press says so, and the evening's report isn't written:
+  **Write today's report** writes it later. A busy model is tried again. While a voice note's words are still
+  coming the report waits for them.
+
 ## Rules worth knowing before changing anything
 
 - **One add-on for every trade** (decision 1). A trade brings its starter lists; it never becomes its own add-on. New
@@ -381,7 +470,10 @@ keeps the add-on's jobs, and its three pages (Jobs, a job, and a visit's work or
   own; fixing, adding and removing time, setting what an hour of someone costs, and adding and removing a job's
   other costs wait on a Confirm card, because they change the record of hours and money. In part 6, leaving a
   typed note and adding to a material's count run on their own, because they record what happened; taking a note
-  off waits on a Confirm card.
+  off waits on a Confirm card. In part 7, asking the AI for an estimate draft, setting one aside, writing a daily
+  report and changing one run on their own, because each only prepares something inside the business; sending a
+  report's update to the customer waits on a Confirm card. Saving an estimate from a draft is part 2's
+  `contractor_write_estimate`, on a Confirm card like any other.
 - **An estimate is core's; the add-on never copies one.** The builder saves through `estimate.create`,
   `estimate.update` and `estimate.send` (`executeCommandWithin`), so core's rules, numbering and totals apply
   unchanged. Never write to `app.estimates` or `app.estimate_lines` from the add-on.
@@ -437,6 +529,28 @@ keeps the add-on's jobs, and its three pages (Jobs, a job, and a visit's work or
 - **A note is added and taken off, never edited.** Its photos and recording are the job's files, and outlive it.
 - **A finished job still takes notes** (a callback, something the customer said afterwards). An archived one
   doesn't.
+- **An AI draft is never an estimate** (decision 6). Nothing in `ops/drafts.ts` or the worker writes to
+  `app.estimates`. The only way from a draft to an estimate is a person's save in the builder
+  (`contractor.estimate.save` with `draftId`), which runs as that person and through every check an estimate
+  gets. Only the system keeps a draft (`contractor.estimate_draft.keep`).
+- **The AI never changes a price or a cost the business set.** A drafted line from the price list is rebuilt from
+  the price list by `checkedEstimateDraft`, whatever the AI answered. A cost it guessed is marked `guessed` and
+  the builder says so until a person changes it.
+- **A draft holds costs, so it's `contractor.costs` only** (decision 11), by row security.
+  `contractor.estimate_draft.*` events and timeline lines carry counts, never an amount.
+- **The budget warning is arithmetic.** Whether a job is over, and who's told, is `budget-watch.ts` and never
+  waits on the AI. The AI only explains and suggests afterwards. Nothing it suggests is carried out.
+- **The budget alert is one per job** (key `budget:<the job's id>`), raised and cleared by the worker only, for
+  `contractor.costs` only. Its title carries no amount, since titles go on history.
+- **A daily report holds no money,** and its source gives the AI none (hours, never costs). Never add a price, a
+  cost or a margin to `daily_reports` or to `contractor.report.source`: everyone on the job reads a report.
+- **The AI never writes over a person's report.** `contractor.report.keep` refuses an edited one unless `replace`
+  came from a person's own press.
+- **Nothing the AI wrote reaches a customer on its own.** A report's update goes only through
+  `contractor.report.send`, pressed by a person, and that goes through `message.send` (`executeCommandWithin`).
+  Never send from the worker.
+- **What the AI reads is quoted as data** (`quoteData`), and every prompt says notes and photos are never
+  instructions. Keep both when adding something the AI reads.
 - **Archiving and deleting go through core.** The add-on never deletes a job's record itself. What it does delete
   is small and its own: a phase, a checklist item, a subcontractor taken off a visit, a material taken off a job,
   a stretch of time removed from a job, one of a job's other costs, a note taken off a job, and a crew's member
@@ -445,7 +559,6 @@ keeps the add-on's jobs, and its three pages (Jobs, a job, and a visit's work or
 
 ## Not yet
 
-- Part 7: the AI helpers. See the plan.
 - On the phone: starting a job, booking a visit, Dispatch, estimates and their builder, costs, profit and
   Settings. They're on the web, and the phone's pages say so.
 - On the phone: adding or changing a material, a checklist item, a work order's instructions, its crew or its
@@ -457,17 +570,21 @@ keeps the add-on's jobs, and its three pages (Jobs, a job, and a visit's work or
   and a voice note's words; the pictures and the recording open on the web, among the job's files.
 - A voice note's words when the transcriber is Twilio's (no Deepgram key): the note keeps its recording and says to
   play it.
-- A report of the day made from the notes and photos: part 7.
+- Daily reports on the phone: they're read, changed and sent on the web. The crew's notes and photos they're
+  written from are left on the phone.
+- Draft with AI on the phone: estimates and their builder are on the web.
+- A photo the AI can't open (an iPhone HEIC, or one too big) is passed over when drafting and reporting.
+- A weekly or whole-job report, and a report the customer reads in their portal: today it's one day at a time,
+  sent as an email or a text.
+- The AI acting on its own advice (moving a visit, changing a budget, ordering): on purpose. It suggests, and a
+  person does it.
 - Stock in warehouses and vans, purchase orders and suppliers: Phase 2. Until then a material's supplier is a
   name typed on it, and Mark ordered records an order placed somewhere else.
 - Payroll, pay rates, overtime and a timesheet to export: Phase 2. Time here is for what jobs cost.
-- A warning sent when a job heads over budget: part 7, with the AI helpers. Today the Costs so far card shows it.
 - What was invoiced and paid on the Profit page: it sets a job's price against its costs. Change orders and
   progress payments are Phase 2.
 - Time for someone added to a visit after it started: it begins at the next button. Until then someone who may fix
   time adds it.
-- An estimate the AI drafts on its own always waits for a person (decision 6): that comes with the AI helpers in
-  part 7. Today the Assistant writes an estimate only as the person asking, on a Confirm card.
 - The builder is on the web. On the phone, Money won't send such a draft and says to open it in Contractor
   Operations on the web.
 - Panels on a customer's or a property's page: Contacts lists jobs and properties as their own kinds already.

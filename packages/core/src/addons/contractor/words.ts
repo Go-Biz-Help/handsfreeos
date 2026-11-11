@@ -811,6 +811,127 @@ export const CONTRACTOR_WORDS = {
     showFewer: 'Show fewer',
     menu: 'More for this note',
   },
+  aiDraft: {
+    button: 'Draft with AI',
+    title: 'Draft an estimate with AI',
+    lede: 'The AI reads this job’s details, the crew’s notes and the newest photos, then drafts the lines from your price list. Nothing becomes an estimate until you check it and save it.',
+    brief: 'What’s the work? Add measurements if you have them.',
+    briefPlaceholder:
+      'Replace 40 ft of fence on the north side with 6 ft cedar, and add two gates.',
+    briefHint: 'You can leave this empty. The more you give it, the less it has to guess.',
+    options: 'How many prices',
+    one: 'One price',
+    three: 'Good, better, best',
+    go: 'Draft it',
+    going: 'Drafting. This can take a minute.',
+    cancel: 'Cancel',
+    ready: 'The draft is ready. Check each line before you save it.',
+    waiting: 'Drafts from the AI',
+    waitingHint: 'A draft isn’t an estimate yet. Open it, check each line, then save it.',
+    open: 'Open and check',
+    dismiss: 'Set aside',
+    dismissed: 'The draft is set aside.',
+    untitled: 'Estimate draft',
+    from: (notes: number, photos: number) =>
+      `From ${notes} ${notes === 1 ? 'note' : 'notes'} and ${photos} ${photos === 1 ? 'photo' : 'photos'}`,
+    size: (lines: number, guessed: number) =>
+      `${lines} ${lines === 1 ? 'line' : 'lines'}${guessed ? `, ${guessed} with a guessed cost` : ''}`,
+    askedBy: (name: string | null, when: string) =>
+      name ? `Asked for by ${name} on ${when}` : `Asked for on ${when}`,
+    bannerTitle: 'The AI drafted this. Check every line before you save.',
+    bannerBody: (notes: number, photos: number) =>
+      `It read ${notes} ${notes === 1 ? 'note' : 'notes'} and ${photos} ${photos === 1 ? 'photo' : 'photos'} from the job. Items from your price list keep your prices and costs, and labor is at your hourly price. Nothing is saved until you press Save.`,
+    bannerGuessed: (n: number) =>
+      n === 1
+        ? '1 line isn’t on your price list, so its cost is the AI’s guess. It’s marked Guess: check it.'
+        : `${n} lines aren’t on your price list, so their costs are the AI’s guess. They’re marked Guess: check them.`,
+    assumed: 'What it assumed',
+    questions: 'Answer these before you send it',
+    guess: 'Guess',
+    guessHint: 'This cost is the AI’s guess. Check it, then change it or keep it.',
+    startedFrom: (name: string | null, when: string) =>
+      name
+        ? `Started from the AI’s draft that ${name} asked for on ${when}.`
+        : `Started from the AI’s draft of ${when}.`,
+  },
+  budgetWatch: {
+    over: 'Heading over budget',
+    under_margin: 'Heading under your lowest margin',
+    loss: 'Heading for a loss',
+    overBy: (percent: number) => `${percent}% over its planned cost`,
+    why: 'What’s driving it',
+    todo: 'What you could do',
+    fromAi: 'Suggestions from the AI. You decide what to do.',
+    told: (when: string) => `People who see job costs were told on ${when}.`,
+  },
+  reports: {
+    title: 'Daily reports',
+    hintOn: 'Written each evening from the day’s notes and photos. You can write today’s now.',
+    hintOff:
+      'Written from the day’s notes and photos when you ask. To have them written each evening, turn it on in Settings.',
+    none: 'No reports yet. One is written after a day the crew leaves notes or photos.',
+    write: 'Write today’s report',
+    writing: 'Writing. This can take a minute.',
+    written: 'The report is written.',
+    writeAgain: 'Write it again',
+    againTitle: 'Write this report again?',
+    againAsk: (name: string | null) =>
+      `${name ?? 'Someone'} changed this report. Writing it again replaces their words with the AI’s.`,
+    againGo: 'Write it again',
+    byAi: 'Written by the AI',
+    from: (notes: number, photos: number) =>
+      `from ${notes} ${notes === 1 ? 'note' : 'notes'} and ${photos} ${photos === 1 ? 'photo' : 'photos'}`,
+    changedBy: (name: string | null) => (name ? `Changed by ${name}` : 'Changed by hand'),
+    done: 'Done',
+    issues: 'Needs a look',
+    materials: 'Materials',
+    next: 'Next',
+    crew: 'On the clock',
+    photos: 'Photos',
+    photo: (n: number) => `Photo ${n}`,
+    forCustomer: 'For the customer',
+    forCustomerHint: 'This goes nowhere until you send it.',
+    noCustomerText: 'No update for the customer. Edit the report to write one.',
+    send: (name: string) => `Send to ${name}`,
+    sendTitle: (name: string) => `Send ${name} the update`,
+    sendHint: 'Only this goes to the customer. The rest of the report stays with you.',
+    sendBy: 'Send by',
+    email: 'Email',
+    sms: 'Text',
+    noEmail: 'No email address',
+    noPhone: 'No phone number',
+    sendGo: 'Send it',
+    sent: 'The update is sent.',
+    quietAgain: 'Press Send it again to send it anyway.',
+    today: 'Today',
+    sentShort: 'Sent to the customer',
+    whatToSend: 'What goes to the customer',
+    sentBy: (channel: 'email' | 'sms', name: string | null, when: string) =>
+      `Sent by ${channel === 'email' ? 'email' : 'text'}${name ? ` by ${name}` : ''} on ${when}`,
+    noCustomer: 'This job has no customer to send it to.',
+    edit: 'Edit',
+    editTitle: 'Edit the report',
+    summary: 'Summary',
+    onePerLine: 'One per line.',
+    save: 'Save the report',
+    saved: 'The report is saved.',
+    cancel: 'Cancel',
+    menu: 'More for this report',
+    showAll: (n: number) => `Show all ${n}`,
+    showFewer: 'Show fewer',
+    truncated: (n: number) => `Showing the newest ${n} reports.`,
+  },
+  aiSettings: {
+    title: 'AI helpers',
+    hint: 'What the AI does on its own. It only prepares and suggests: a person approves anything that reaches a customer or changes a price.',
+    budget: 'Warn when a job heads over budget',
+    budgetHint:
+      'People who may see job costs get an alert with the profit the job is now heading for.',
+    reports: 'Write a daily report each evening',
+    reportsHint:
+      'After 6 PM, for each job whose crew left notes or photos that day. Each report uses a little of your AI budget.',
+    saveFirst: 'Press Save settings to keep it.',
+  },
   materialsSettings: {
     title: 'Missing materials',
     hint: 'Before a visit, the job’s lead and the people going are told what still isn’t here.',
@@ -1091,6 +1212,30 @@ export const REFUSALS = {
   noteNotARecording: 'That file isn’t a recording. Record the note again, or type it instead.',
   noteSomeoneElse:
     'Only an owner or admin removes someone else’s note. Ask one of them, or ask for “Set up Contractor Operations” in Settings → Team.',
+  draftGone:
+    'That draft isn’t waiting anymore. Someone may have saved it as an estimate or set it aside. Open the job to see its estimates, or press Draft with AI for a new one.',
+  draftNothing:
+    'There’s nothing to draft from yet. Type what the work is, or have the crew leave a note or a photo on the job first.',
+  draftNoLines:
+    'The AI couldn’t work out any lines from that. Type what the work is and any measurements, then try again.',
+  reportGone: 'That report isn’t there anymore. Refresh and try again.',
+  reportEmpty: 'A report needs a summary. Write a sentence or two about the day.',
+  reportNothing: (day: string) =>
+    `There’s nothing to write from for ${day}. A report needs a note with words or a photo from that day.`,
+  reportWordsWaiting:
+    'A voice note from that day is still being put into words. Try again in a minute.',
+  reportEdited: (name: string | null) =>
+    `${name ?? 'Someone'} changed that day’s report, so it wasn’t written over. To replace their words, press Write it again on the report.`,
+  reportSent:
+    'That update was already sent. To say more, message the customer from their conversation.',
+  reportNoCustomer:
+    'This job has no customer to send it to. Open the job, press Edit and pick its customer first.',
+  reportNoUpdate:
+    'There’s no update for the customer on that report. Press Edit on the report and write one first.',
+  reportCantReach: (name: string, channel: 'email' | 'sms') =>
+    channel === 'email'
+      ? `${name} has no email address. Add one on their contact, or send it as a text.`
+      : `${name} has no phone number. Add one on their contact, or send it by email.`,
   otherCostGone:
     'That cost isn’t on the job anymore. Someone may have removed it. Refresh and try again.',
   tooManyOtherCosts: (max: number) =>
