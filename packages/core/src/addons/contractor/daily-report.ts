@@ -12,6 +12,8 @@
  * report holds none, so everyone on the job can read it.
  */
 import { z } from 'zod';
+import { localInstant } from '../../calendar/engine/zoned';
+import { fmtDateLong } from '../../calendar/when';
 import { quoteData } from '../../knowledge/prompt';
 import { noDashes, PLAIN_WRITING } from '../../writing';
 
@@ -212,30 +214,14 @@ export function checkedReport(answer: {
   };
 }
 
-/** The moment a day's report is due: 6 PM that day where the business is, as a UTC instant. */
+/**
+ * The moment a day's report is due: 6 PM that day where the business is, as a UTC instant. Core's own clock for a
+ * zone works it out, so daylight saving is right, and so is a zone this device's time-zone data doesn't have.
+ */
 export function reportDueAt(day: string, timeZone: string): Date {
-  const [y = 1970, m = 1, d = 1] = day.split('-').map(Number);
-  // The zone's offset that evening, read back from how the instant prints there (so daylight saving is right).
-  const guess = Date.UTC(y, m - 1, d, REPORT_LIMITS.writeHour);
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-  }).formatToParts(new Date(guess));
-  const n = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
-  const shown = Date.UTC(n('year'), n('month') - 1, n('day'), n('hour'), n('minute'));
-  return new Date(guess - (shown - guess));
+  const clock = `${String(REPORT_LIMITS.writeHour).padStart(2, '0')}:00`;
+  return new Date(localInstant(day, clock, timeZone));
 }
 
 /** "Tuesday, November 11" for a `YYYY-MM-DD` day. */
-export const reportDayWords = (day: string): string =>
-  new Intl.DateTimeFormat('en-US', {
-    timeZone: 'UTC',
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(`${day}T12:00:00Z`));
+export const reportDayWords = (day: string): string => fmtDateLong(day);

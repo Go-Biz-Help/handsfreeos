@@ -2352,13 +2352,21 @@ describe('the AI helpers (part 7; the owner’s rule, and decisions 6 and 11)', 
           sql`select count(*)::int as n from addon_contractor.estimates where record_id = ${jobId}`,
         ),
       ).toEqual({ n: 0 });
-      // The job's history says a draft waits, with no amounts.
+      // The job's history says a draft waits and who it was kept for, with no amounts. The kernel's own marks
+      // (the add-on that wrote it) sit beside them.
       const event = await one<{ payload: Any }>(
         sql`select payload from app.events
             where workspace_id = ${ws} and entity_id = ${jobId}
               and event_type = 'contractor.estimate_draft.ready'`,
       );
-      expect(event.payload).toEqual({ draftId: kept.draftId, jobId, options: 1, lines: 2 });
+      expect(event.payload).toMatchObject({
+        draftId: kept.draftId,
+        jobId,
+        options: 1,
+        lines: 2,
+        onBehalfOf: estimator.id,
+      });
+      expect(JSON.stringify(event.payload)).not.toMatch(/cents|cost|price/i);
       // Only the worker keeps one: a person writes an estimate in the builder.
       expect(
         await refused(
