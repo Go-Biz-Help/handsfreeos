@@ -69899,6 +69899,7 @@ export interface operations {
                             job: {
                                 customerNote: string | null;
                                 etaAt: string | null;
+                                fits: boolean;
                                 /** Format: uuid */
                                 id: string;
                                 otherVisits: {
@@ -69911,6 +69912,7 @@ export interface operations {
                                 /** @enum {string} */
                                 status: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
                                 statusChangedAt: string | null;
+                                steps: ("on_the_way" | "in_progress" | "waiting_on_parts" | "done")[];
                                 title: string;
                                 visits: {
                                     /** Format: uuid */

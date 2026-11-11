@@ -1,7 +1,8 @@
 /**
  * M18 step 4 on the local database: every booked visit starts a job; a job moves along (on the way with a rough
  * origin, started, waiting on parts, done) with a note the customer may see; visits gather into a project; and a
- * job whose visits are all cancelled is cancelled.
+ * job whose visits are all cancelled is cancelled. Only visits the team goes to offer the steps, and Waiting on parts
+ * only where work uses parts (2026-11-11, calendar/job-steps.ts).
  */
 import { and, eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
@@ -187,5 +188,102 @@ describe('jobs', () => {
         ),
       'visit_cancelled',
     );
+  });
+});
+
+describe('which visits offer the job’s steps', () => {
+  it('shows them on a trade’s visit, Waiting on parts and all', async () => {
+    const gil = await customer(t, 'Gil');
+    const visit = await book(gil, '12:00');
+    const got = await ask(
+      appointmentGet,
+      { workspaceId: t.wsId, appointmentId: visit.appointmentId },
+      t.member,
+    );
+    expect(got.appointment.job).toMatchObject({
+      fits: true,
+      steps: ['on_the_way', 'in_progress', 'waiting_on_parts', 'done'],
+    });
+  });
+
+  it('refuses On my way on a visit by phone, and says why', async () => {
+    const calls = await makeCalendar(t, 'Phone consults', {
+      team: { members: [{ userId: t.priya.id }], assignment: 'round_robin' },
+      locations: { options: [{ kind: 'phone' }] },
+    });
+    const eve = await customer(t, 'Eve');
+    const visit = await run(
+      appointmentCreate,
+      {
+        workspaceId: t.wsId,
+        calendarId: calls.id,
+        startsAt: isoAt(day, '13:00'),
+        personId: eve,
+        title: 'Phone consult',
+      },
+      t.owner,
+    );
+    const got = await ask(
+      appointmentGet,
+      { workspaceId: t.wsId, appointmentId: visit.appointmentId },
+      t.member,
+    );
+    expect(got.appointment.job).toMatchObject({ fits: false });
+    await expectHfos(
+      () =>
+        run(
+          jobSetStatus,
+          { workspaceId: t.wsId, appointmentId: visit.appointmentId, status: 'on_the_way' },
+          t.priya,
+        ),
+      'job_not_on_site',
+    );
+    expect((await jobRow(visit.appointmentId))!.status).toBe('scheduled');
+  });
+
+  it('offers Waiting on parts only where work uses parts', async () => {
+    await rows(
+      admin(),
+      sql`update app.workspaces set industry = 'house_cleaning' where id = ${t.wsId}`,
+    );
+    try {
+      const fay = await customer(t, 'Fay');
+      const visit = await book(fay, '08:00', 'Deep clean');
+      const got = await ask(
+        appointmentGet,
+        { workspaceId: t.wsId, appointmentId: visit.appointmentId },
+        t.member,
+      );
+      // No place set: a cleaning business goes to the customer, so the job shows, without Waiting on parts.
+      expect(got.appointment.job).toMatchObject({
+        fits: true,
+        steps: ['on_the_way', 'in_progress', 'done'],
+      });
+      await expectHfos(
+        () =>
+          run(
+            jobSetStatus,
+            { workspaceId: t.wsId, appointmentId: visit.appointmentId, status: 'waiting_on_parts' },
+            t.priya,
+          ),
+        'job_no_parts',
+      );
+      const started = await run(
+        jobSetStatus,
+        {
+          workspaceId: t.wsId,
+          appointmentId: visit.appointmentId,
+          status: 'in_progress',
+          notify: false,
+        },
+        t.priya,
+      );
+      expect(started).toMatchObject({ status: 'in_progress', changed: true });
+    } finally {
+      await rows(
+        admin(),
+        sql`update app.workspaces set industry = 'home_services' where id = ${t.wsId}`,
+      );
+    }
   });
 });

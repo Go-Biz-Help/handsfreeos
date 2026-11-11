@@ -351,7 +351,7 @@ export default function Appointment() {
       ) : null}
 
       {a.status === 'scheduled' && a.kind === 'booking' ? (
-        <VisitJob appointmentId={appointmentId} timeZone={timeZone} />
+        <VisitJob appointmentId={appointmentId} location={a.location ?? null} timeZone={timeZone} />
       ) : null}
 
       {a.status === 'scheduled' ? (

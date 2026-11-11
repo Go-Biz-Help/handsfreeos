@@ -3,6 +3,7 @@
  * they may see.
  */
 import { z } from 'zod';
+import { JOB_STEPS } from '../calendar/job-steps';
 import { isoDateTime, uuid } from './common';
 
 export const JOB_STATUSES = [
@@ -70,6 +71,13 @@ export const JobOut = z.object({
   id: uuid,
   title: z.string(),
   status: JobStatus,
+  /**
+   * Whether the visit shows its job (calendar/job-steps.ts): at the customer's address, or no place set in a business
+   * whose team goes out, or already moved past Scheduled.
+   */
+  fits: z.boolean(),
+  /** The steps it offers, in order: Waiting on parts only where work uses parts. */
+  steps: z.array(z.enum(JOB_STEPS)),
   customerNote: z.string().nullable(),
   statusChangedAt: isoDateTime.nullable(),
   etaAt: isoDateTime.nullable(),

@@ -163,6 +163,9 @@ export const VISIT_JOB_SQL = `
   JOIN appointments a ON a.job_id = j.id
   WHERE a.workspace_id = ? AND a.id = ?`;
 
+/** The kind of business, for which visits show their job and whether Waiting on parts fits (core's job-steps). */
+export const WORKSPACE_INDUSTRY_SQL = 'SELECT industry FROM workspaces WHERE id = ?';
+
 /** Job changes waiting on this phone, newest last. */
 export const JOB_OUTBOX_SQL = `
   SELECT * FROM outbox

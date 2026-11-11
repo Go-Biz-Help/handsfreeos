@@ -157576,6 +157576,21 @@
                                     "cancelled"
                                   ]
                                 },
+                                "fits": {
+                                  "type": "boolean"
+                                },
+                                "steps": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "enum": [
+                                      "on_the_way",
+                                      "in_progress",
+                                      "waiting_on_parts",
+                                      "done"
+                                    ]
+                                  }
+                                },
                                 "customerNote": {
                                   "type": [
                                     "string",
@@ -157669,6 +157684,8 @@
                                 "id",
                                 "title",
                                 "status",
+                                "fits",
+                                "steps",
                                 "customerNote",
                                 "statusChangedAt",
                                 "etaAt",
