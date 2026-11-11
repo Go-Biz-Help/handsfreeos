@@ -1,26 +1,35 @@
 {
   "area": "contractor",
-  "title": "The Contractor Operations add-on: Jobs (board and list), New job, a job’s page and Settings, on the web",
+  "title": "The Contractor Operations add-on: Jobs, a job’s page, Estimates and the estimate builder, Item costs and Settings, on the web",
   "checkedOn": "2026-11-10",
   "files": {
     "apps/web/src/addons/contractor/bits.tsx": "88d65e8f4655",
+    "apps/web/src/addons/contractor/costing.tsx": "d8e03499ff05",
+    "apps/web/src/addons/contractor/estimate-builder.tsx": "82996efc1564",
+    "apps/web/src/addons/contractor/estimate-panel.tsx": "19107bc4e01e",
+    "apps/web/src/addons/contractor/estimates-home.tsx": "3b1e16eab3ab",
+    "apps/web/src/addons/contractor/item-costs-page.tsx": "8858901db5a2",
     "apps/web/src/addons/contractor/job-dialogs.tsx": "6af231b59e1a",
-    "apps/web/src/addons/contractor/job-page.tsx": "6891ab30052e",
-    "apps/web/src/addons/contractor/jobs-home.tsx": "b0933950703d",
+    "apps/web/src/addons/contractor/job-page.tsx": "4b59116eb38e",
+    "apps/web/src/addons/contractor/jobs-home.tsx": "b37962991c58",
     "apps/web/src/addons/contractor/new-job-dialog.tsx": "21677be650ca",
     "apps/web/src/addons/contractor/phases-card.tsx": "aecb968a30f3",
     "apps/web/src/addons/contractor/property-picker.tsx": "0f3215dde1de",
     "apps/web/src/addons/contractor/settings-link.tsx": "114eae047876",
-    "apps/web/src/addons/contractor/settings-page.tsx": "8185a1014546",
-    "apps/web/src/app/app/w/[workspaceId]/a/contractor/jobs/[jobId]/page.tsx": "fe9655ec5251",
+    "apps/web/src/addons/contractor/settings-page.tsx": "2cd249f62cf3",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/costs/page.tsx": "3a302981aff9",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/estimates/[estimateId]/page.tsx": "e3b833a91593",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/estimates/new/page.tsx": "099a1ca5606c",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/estimates/page.tsx": "eb5126d26c57",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/jobs/[jobId]/page.tsx": "e4b4cd5d5709",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/page.tsx": "d4bceddd201d",
-    "apps/web/src/app/app/w/[workspaceId]/a/contractor/settings/page.tsx": "e3ee1a1ab2b8"
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/settings/page.tsx": "6f11fa789835"
   },
   "items": [
     {
-      "path": "Side menu → Contractor Operations (opens Jobs; Settings pops out for owners and admins)",
+      "path": "Side menu → Contractor Operations (opens Jobs; Estimates and Item costs pop out for people who may see job costs, Settings for owners and admins)",
       "kind": "do",
-      "file": "apps/web/src/addons/registry.ts:280",
+      "file": "apps/web/src/addons/registry.ts:291",
       "covered": "yes",
       "by": "add-on directory line in the prompt; CONTRACTOR_PLACES link each page"
     },
@@ -55,77 +64,77 @@
     {
       "path": "Jobs → counts: Open, Late, On hold, Done this month (Open and Late filter the list)",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:100",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:114",
       "covered": "yes",
       "by": "contractor_overview (counts)"
     },
     {
       "path": "Jobs → filters: All jobs, My jobs, Late",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:112",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:126",
       "covered": "yes",
       "by": "contractor_list_jobs (filter)"
     },
     {
       "path": "Jobs → Search jobs",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:147",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:161",
       "covered": "yes",
       "by": "contractor_list_jobs (search)"
     },
     {
       "path": "Jobs → Show done and cancelled",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:151",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:165",
       "covered": "yes",
       "by": "contractor_list_jobs (includeClosed)"
     },
     {
       "path": "Jobs → Board or List",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:160",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:174",
       "covered": "yes",
       "by": "contractor_list_jobs answers both: the board is the list grouped by status"
     },
     {
       "path": "Jobs → no jobs yet, or none match",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:169",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:183",
       "covered": "yes",
       "by": "contractor_list_jobs (empty)"
     },
     {
       "path": "Jobs → Board → a column per status, with how many",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:264",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:278",
       "covered": "yes",
       "by": "contractor_list_jobs (status)"
     },
     {
       "path": "Jobs → Board → a job’s card: name, kind, customer, property, % done, deadline or days late, lead, why it’s on hold",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:289",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:303",
       "covered": "yes",
       "by": "contractor_list_jobs (each job’s row)"
     },
     {
       "path": "Jobs → Board → a job’s card opens its page",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:305",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:319",
       "covered": "yes",
       "by": "contractor_get_job; the A job place links it"
     },
     {
       "path": "Jobs → List → each job: name, kind, trade and lead; status; customer and property; % done and phases done; deadline; next visit",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:354",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:368",
       "covered": "yes",
       "by": "contractor_list_jobs (each job’s row, nextVisitAt, phases)"
     },
     {
       "path": "Jobs → showing the first jobs only, search to find others",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/jobs-home.tsx:188",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:202",
       "covered": "yes",
       "by": "contractor_list_jobs (truncated)"
     },
@@ -202,21 +211,21 @@
     {
       "path": "A job → back to Jobs",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:80",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:84",
       "covered": "yes",
       "by": "the Jobs place"
     },
     {
       "path": "A job → header: name, status, kind, days late, trade, why it’s on hold or cancelled",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:88",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:92",
       "covered": "yes",
       "by": "contractor_get_job"
     },
     {
       "path": "A job → Status (New, Scheduled, In progress, On hold, Done, Cancelled)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:109",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:113",
       "covered": "yes",
       "by": "contractor_set_job_status"
     },
@@ -230,35 +239,35 @@
     {
       "path": "A job → Book a visit (for the job, its customer filled in)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:121",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:125",
       "covered": "yes",
       "by": "book_appointment (customRecordId: the job)"
     },
     {
       "path": "A job → Notes, files and tasks (the job’s record page)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:128",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:132",
       "covered": "yes",
       "by": "core's record tools (find_records, notes, tasks, files) on the job's record"
     },
     {
       "path": "A job → Details: customer, property, starts, deadline (and days left or late), work to do",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:135",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:139",
       "covered": "yes",
       "by": "contractor_get_job"
     },
     {
       "path": "A job → Details → customer and property open their pages",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:151",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:155",
       "covered": "yes",
       "by": "get_person; find_records"
     },
     {
       "path": "A job → Details → Edit",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:142",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:146",
       "covered": "yes",
       "by": "contractor_update_job"
     },
@@ -335,49 +344,49 @@
     {
       "path": "A job → Visits: each visit’s time, title and status",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:207",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:211",
       "covered": "yes",
       "by": "contractor_get_job (visits)"
     },
     {
       "path": "A job → % done, with how it’s worked out (from its phases, or set by hand)",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:328",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:372",
       "covered": "yes",
       "by": "contractor_get_job (percentDone, phases)"
     },
     {
       "path": "A job → % done → set it by hand (a service call)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:343",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:387",
       "covered": "yes",
       "by": "contractor_set_job_percent"
     },
     {
       "path": "A job → Team: the job lead, and everyone else on it",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:383",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:427",
       "covered": "yes",
       "by": "contractor_get_job (lead, team)"
     },
     {
       "path": "A job → Team → take someone off",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:417",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:461",
       "covered": "yes",
       "by": "contractor_remove_from_job_team"
     },
     {
       "path": "A job → Team → Add to the team",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:460",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:504",
       "covered": "yes",
       "by": "contractor_add_to_job_team"
     },
     {
       "path": "A job → Budget and price (people who may see job costs): price, labor, materials, other, budget, labor hours, planned profit, margin (red below 20%)",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:493",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:537",
       "covered": "yes",
       "by": "contractor_get_job (money, only for contractor.costs)"
     },
@@ -391,44 +400,443 @@
     {
       "path": "Settings → Your trades",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/settings-page.tsx:88",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:99",
       "covered": "yes",
       "by": "do_addon_save_settings settings.trades"
     },
     {
       "path": "Settings → Start from a trade’s starter phases",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/settings-page.tsx:108",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:119",
       "covered": "yes",
       "by": "do_addon_save_settings settings.phases (the trade’s starters, from the Settings place)"
     },
     {
       "path": "Settings → Phases for a new project: each in order, move up or down, remove",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/settings-page.tsx:124",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:135",
       "covered": "yes",
       "by": "do_addon_save_settings settings.phases"
     },
     {
       "path": "Settings → what new projects start with when no list is set",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/settings-page.tsx:153",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:164",
       "covered": "yes",
       "by": "contractor_overview (settings); the Settings place"
     },
     {
       "path": "Settings → add a phase",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/settings-page.tsx:172",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:183",
       "covered": "yes",
       "by": "do_addon_save_settings settings.phases"
     },
     {
       "path": "Settings → Save settings",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/settings-page.tsx:185",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:196",
       "covered": "yes",
       "by": "do_addon_save_settings"
+    },
+    {
+      "path": "Jobs → N estimates are waiting for your OK, with Review (people who may OK them)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/jobs-home.tsx:102",
+      "covered": "yes",
+      "by": "contractor_overview (estimatesWaitingOk, may.approve); contractor_list_estimates (waitingOk)"
+    },
+    {
+      "path": "A job → Estimates: each one’s number or Draft, customer, status, whether it waits for an OK or has one, title, options or the one picked, day and total (opens it)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:253",
+      "covered": "yes",
+      "by": "contractor_list_estimates (jobId)"
+    },
+    {
+      "path": "A job → Estimates → New estimate (people who may see job costs)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:261",
+      "covered": "yes",
+      "by": "contractor_write_estimate (jobId; its customer is who it goes to)"
+    },
+    {
+      "path": "Estimates → header and New estimate",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimates-home.tsx:112",
+      "covered": "yes",
+      "by": "contractor_write_estimate; the Estimates place"
+    },
+    {
+      "path": "Estimates → filters: All, Waiting for an OK",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimates-home.tsx:134",
+      "covered": "yes",
+      "by": "contractor_list_estimates (waitingOk)"
+    },
+    {
+      "path": "Estimates → each estimate: number or Draft, customer, status, Waiting for an OK or OK given, title, job, options or the one picked, day, total (opens its builder)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimates-home.tsx:56",
+      "covered": "yes",
+      "by": "contractor_list_estimates (each row); contractor_get_estimate"
+    },
+    {
+      "path": "Estimates → none yet, or none waiting",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimates-home.tsx:144",
+      "covered": "yes",
+      "by": "contractor_list_estimates (empty)"
+    },
+    {
+      "path": "An estimate → back to its job, or to Estimates",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:727",
+      "covered": "yes",
+      "by": "the A job and Estimates places"
+    },
+    {
+      "path": "An estimate → header: New estimate or Estimate for <customer>, Draft, saved or not saved yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:405",
+      "covered": "yes",
+      "by": "contractor_get_estimate (estimate.state, person); contractor_write_estimate saves it whole"
+    },
+    {
+      "path": "An estimate → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:416",
+      "covered": "yes",
+      "by": "contractor_write_estimate"
+    },
+    {
+      "path": "An estimate → Send (held while it waits for an OK)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:423",
+      "covered": "yes",
+      "by": "contractor_send_estimate, refused with why while it needs an OK"
+    },
+    {
+      "path": "An estimate → notice: you can’t bill here, so you can read it but not save or send",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:433",
+      "covered": "yes",
+      "by": "contractor_get_estimate (may.bill); the write and send tools are refused the same way"
+    },
+    {
+      "path": "An estimate → someone saved it while you were editing → Load their version",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:449",
+      "covered": "yes",
+      "by": "contractor_write_estimate saves over the newest (baseRevision left out); contractor_get_estimate reads it"
+    },
+    {
+      "path": "An estimate → Customer: name, email and phone; pick one, or Change before it’s first saved",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:459",
+      "covered": "yes",
+      "by": "contractor_get_estimate (person); contractor_write_estimate (personId, or the job’s customer); find_people"
+    },
+    {
+      "path": "An estimate → For job: the job it’s for (opens it)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:486",
+      "covered": "yes",
+      "by": "contractor_get_estimate (job); contractor_write_estimate (jobId)"
+    },
+    {
+      "path": "An estimate → What it’s for (its title)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:507",
+      "covered": "yes",
+      "by": "contractor_write_estimate (title)"
+    },
+    {
+      "path": "An estimate → Lines → One price or options (good, better, best): Offer options, a tab each, Add an option, Called, Take this option off",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:517",
+      "covered": "yes",
+      "by": "contractor_write_estimate (options: one, or two or three named); contractor_get_estimate (estimate.options)"
+    },
+    {
+      "path": "An estimate → each line: What it is, Description",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:836",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines[].name, description)"
+    },
+    {
+      "path": "An estimate → each line: Labor, Material or Other",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:877",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines[].kind)"
+    },
+    {
+      "path": "An estimate → each line: How many (hours for labor)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:892",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines[].quantity, unitLabel)"
+    },
+    {
+      "path": "An estimate → each line: Cost (what one costs the business)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:909",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines[].unitCostCents); contractor_get_estimate (costs)"
+    },
+    {
+      "path": "An estimate → each line: Markup % (sets the price from the cost)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:926",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines[].unitPriceCents, worked out from the cost and the markup); contractor_get_estimate (estimating.markupBp)"
+    },
+    {
+      "path": "An estimate → each line: Price",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:937",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines[].unitPriceCents)"
+    },
+    {
+      "path": "An estimate → each line: its amount, and its profit",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:850",
+      "covered": "yes",
+      "by": "contractor_get_estimate (estimate lines, costs)"
+    },
+    {
+      "path": "An estimate → each line: Remove",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:862",
+      "covered": "yes",
+      "by": "contractor_write_estimate (the option’s lines without it)"
+    },
+    {
+      "path": "An estimate → Add labor (hours at the business’s hourly price and cost)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:567",
+      "covered": "yes",
+      "by": "contractor_write_estimate (a labor line); contractor_get_estimate (estimating.laborRateCents, laborCostCents)"
+    },
+    {
+      "path": "An estimate → Add a line",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:578",
+      "covered": "yes",
+      "by": "contractor_write_estimate (lines)"
+    },
+    {
+      "path": "An estimate → From your price list (the item’s price, and its cost from Item costs)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:588",
+      "covered": "yes",
+      "by": "contractor_list_item_costs (productId, price, cost, kind); contractor_write_estimate (lines[].productId)"
+    },
+    {
+      "path": "An estimate → Take off: nothing, a % or an amount",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:601",
+      "covered": "yes",
+      "by": "contractor_write_estimate (discount)"
+    },
+    {
+      "path": "An estimate → Notes for the customer",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:621",
+      "covered": "yes",
+      "by": "contractor_write_estimate (notes)"
+    },
+    {
+      "path": "An estimate → Costs and profit: price before tax, labor (and hours), materials, other, cost, profit, margin (red under the lowest margin)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:627",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check.options: price, labor, materials, other, cost, profit, margin, hours)"
+    },
+    {
+      "path": "An estimate → Costs and profit → each option’s margin, side by side",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/costing.tsx:92",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check.options[].marginBp)"
+    },
+    {
+      "path": "An estimate → Costs and profit → it clears the lowest margin, or why it waits for an OK (an option under it, or lines with no cost)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/costing.tsx:143",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check.needsOk, lowest, uncosted, minMarginBp); contractor_write_estimate answers the same"
+    },
+    {
+      "path": "An estimate → Ask for an OK (owners and admins are told on Home and their phones)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:1014",
+      "covered": "yes",
+      "by": "contractor_ask_estimate_ok"
+    },
+    {
+      "path": "An estimate → an OK was asked for by <name>",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:993",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check.asked)"
+    },
+    {
+      "path": "An estimate → OK it (owners and admins), with an optional note",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:1065",
+      "covered": "yes",
+      "by": "contractor_ok_estimate (note), on a Confirm card"
+    },
+    {
+      "path": "An estimate → OK given by <name>, good until it changes",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:984",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check.ok, canSend)"
+    },
+    {
+      "path": "An estimate → Totals: subtotal, discount, tax, total (the open option’s)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:643",
+      "covered": "yes",
+      "by": "contractor_write_estimate answers the total; contractor_get_estimate (estimate.totals, options[].totals)"
+    },
+    {
+      "path": "An estimate → Deposit: ask for one, as a percent or an amount",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:668",
+      "covered": "yes",
+      "by": "contractor_write_estimate (deposit)"
+    },
+    {
+      "path": "An estimate → Good until",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:686",
+      "covered": "yes",
+      "by": "contractor_write_estimate (expiresOn)"
+    },
+    {
+      "path": "An estimate → Send dialog: by email, by text, a line to go with it; Send or Not yet",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:698",
+      "covered": "yes",
+      "by": "contractor_send_estimate (channels, message), on a Confirm card"
+    },
+    {
+      "path": "An estimate that has gone out → its number, customer and status; it can’t be changed here",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:1090",
+      "covered": "yes",
+      "by": "contractor_get_estimate (estimate.number, state)"
+    },
+    {
+      "path": "An estimate that has gone out → Open it in Money",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:1103",
+      "covered": "yes",
+      "by": "get_money_document; the Money place"
+    },
+    {
+      "path": "An estimate that has gone out → each option’s costs, profit and margin, and the one they picked",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-builder.tsx:1109",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check.options, estimate.optionName)"
+    },
+    {
+      "path": "Money → an estimate built here → Costs and profit panel (people who may see job costs): each option’s cost, profit and margin",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/estimate-panel.tsx:47",
+      "covered": "yes",
+      "by": "contractor_get_estimate (check)"
+    },
+    {
+      "path": "Money → an estimate built here → Open the estimate builder",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/estimate-panel.tsx:58",
+      "covered": "yes",
+      "by": "the An estimate place; contractor_get_estimate"
+    },
+    {
+      "path": "Item costs → header, and where items are added (Settings → Products)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/item-costs-page.tsx:44",
+      "covered": "yes",
+      "by": "the Item costs place; manage_product adds items"
+    },
+    {
+      "path": "Item costs → Search",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/item-costs-page.tsx:66",
+      "covered": "yes",
+      "by": "contractor_list_item_costs answers every item to look through"
+    },
+    {
+      "path": "Item costs → each item: name, price, cost, kind, margin (red under the lowest margin)",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/item-costs-page.tsx:123",
+      "covered": "yes",
+      "by": "contractor_list_item_costs (name, unitPriceCents, costCents, kind, marginBp)"
+    },
+    {
+      "path": "Item costs → an item’s kind: Labor, Material or Other",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/item-costs-page.tsx:138",
+      "covered": "yes",
+      "by": "contractor_set_item_cost (kind)"
+    },
+    {
+      "path": "Item costs → an item’s cost (empty takes it off), Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/item-costs-page.tsx:173",
+      "covered": "yes",
+      "by": "contractor_set_item_cost (costCents, null takes it off)"
+    },
+    {
+      "path": "Settings → Estimating: what it is, and that only owners and admins change it",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:237",
+      "covered": "yes",
+      "by": "contractor_overview (estimating, may.approve); the Settings place"
+    },
+    {
+      "path": "Settings → Estimating → Lowest margin",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:252",
+      "covered": "yes",
+      "by": "contractor_set_estimating (minMarginBp)"
+    },
+    {
+      "path": "Settings → Estimating → Starting markup",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:270",
+      "covered": "yes",
+      "by": "contractor_set_estimating (markupBp)"
+    },
+    {
+      "path": "Settings → Estimating → Labor, what you charge an hour",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:284",
+      "covered": "yes",
+      "by": "contractor_set_estimating (laborRateCents)"
+    },
+    {
+      "path": "Settings → Estimating → Labor, what an hour costs you",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:297",
+      "covered": "yes",
+      "by": "contractor_set_estimating (laborCostCents)"
+    },
+    {
+      "path": "Settings → Estimating → Save",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/settings-page.tsx:313",
+      "covered": "yes",
+      "by": "contractor_set_estimating, on a Confirm card"
     }
   ],
   "gaps": []

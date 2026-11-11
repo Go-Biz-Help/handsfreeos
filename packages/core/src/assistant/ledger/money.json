@@ -1,7 +1,7 @@
 {
   "area": "money",
   "title": "Money: estimates, invoices, payments and plans",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-10",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/money.tsx": "f903866463b2",
     "apps/mobile/src/app/app/w/[workspaceId]/money/estimates/[estimateId].tsx": "f4b2d1f6ca49",
@@ -14,7 +14,7 @@
     "apps/mobile/src/money/outbox.ts": "dd8b9341ca64",
     "apps/mobile/src/money/queries.ts": "f6eaf98eb9c8",
     "apps/mobile/src/money/use-money.ts": "7d76c20eb80a",
-    "apps/web/src/app/app/w/[workspaceId]/money/estimates/[estimateId]/page.tsx": "1906f7713b32",
+    "apps/web/src/app/app/w/[workspaceId]/money/estimates/[estimateId]/page.tsx": "d5a27326764c",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/new/page.tsx": "c32170efaf1a",
     "apps/web/src/app/app/w/[workspaceId]/money/estimates/page.tsx": "3b13f014ac9e",
     "apps/web/src/app/app/w/[workspaceId]/money/invoices/[invoiceId]/page.tsx": "be0c4a7f1965",
@@ -27,11 +27,12 @@
     "apps/web/src/app/app/w/[workspaceId]/money/plans/page.tsx": "9b1158f8192b",
     "apps/web/src/app/app/w/[workspaceId]/money/seed.ts": "fd64a6e29f19",
     "apps/web/src/components/money/copy-link.tsx": "c2ae31b0b2a4",
-    "apps/web/src/components/money/document-actions.tsx": "36009bf40f1a",
-    "apps/web/src/components/money/document-editor.tsx": "9b1e092e2ffd",
-    "apps/web/src/components/money/document-page.tsx": "3a9f79c18181",
-    "apps/web/src/components/money/document-view.tsx": "ba91d03682a3",
-    "apps/web/src/components/money/draft.ts": "c6ae885a6a21",
+    "apps/web/src/components/money/document-actions.tsx": "707b6e3014fd",
+    "apps/web/src/components/money/document-editor.tsx": "5d1ad4e49a46",
+    "apps/web/src/components/money/document-page.tsx": "a6b682ba3133",
+    "apps/web/src/components/money/document-view.tsx": "eee6ce7ac1b0",
+    "apps/web/src/components/money/draft.ts": "1d2b986ed62a",
+    "apps/web/src/components/money/estimate-options.tsx": "74a3448e188d",
     "apps/web/src/components/money/estimates-list.tsx": "4afdda3a637b",
     "apps/web/src/components/money/filters.tsx": "6225123dd9b3",
     "apps/web/src/components/money/headline-strip.tsx": "226908723348",
@@ -49,7 +50,7 @@
     "apps/web/src/components/money/plans-list.tsx": "69bbce72216d",
     "apps/web/src/components/money/product-picker.tsx": "b9dd9fb90b95",
     "apps/web/src/components/money/products-page.tsx": "f7abebae4173",
-    "apps/web/src/components/money/public-estimate.tsx": "64dcaab82276",
+    "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-format.ts": "6f17d4ae1a87",
     "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
     "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
@@ -839,84 +840,119 @@
     {
       "path": "Money → an estimate → header: number, status badge",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:114",
+      "file": "apps/web/src/components/money/document-page.tsx:116",
       "covered": "yes",
       "by": "get_money_document → number, state"
     },
     {
       "path": "Money → an estimate → header: customer link",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:121",
+      "file": "apps/web/src/components/money/document-page.tsx:123",
       "covered": "yes",
       "by": "get_customer (customer.personId)"
     },
     {
       "path": "Money → an estimate → header: title · Sent <day> · good until / expired",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:231",
+      "file": "apps/web/src/components/money/document-page.tsx:241",
       "covered": "yes",
       "by": "get_money_document → for, sentAt, goodUntil"
     },
     {
+      "path": "Money → an estimate (a draft built in an add-on) → notice: it’s being written in <add-on>, which checks it; change or send it there",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:296",
+      "covered": "yes",
+      "by": "get_money_document → builtIn; write_estimate and send_estimate refuse with the same words"
+    },
+    {
+      "path": "Money → an estimate → Options: a tab each with its name and total, to read each one’s lines and totals",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-page.tsx:309",
+      "covered": "yes",
+      "by": "get_money_document → options (name, total, lines)"
+    },
+    {
+      "path": "Money → an estimate → Options → which one they picked, or that <customer> picks one when they approve",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:321",
+      "covered": "yes",
+      "by": "get_money_document → options[].picked, linesAre, state"
+    },
+    {
       "path": "Money → an estimate → Turn into an invoice",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:241",
+      "file": "apps/web/src/components/money/document-page.tsx:251",
       "covered": "yes",
       "by": "manage_estimate make_invoice"
     },
     {
+      "path": "Money → an estimate with options → Turn into an invoice and They said yes wait for their pick",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:164",
+      "covered": "yes",
+      "by": "manage_estimate make_invoice refuses until an option is picked, and says how"
+    },
+    {
       "path": "Money → an estimate → convert dialog → What to bill: whole job (deposit first) / only the deposit",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:169",
+      "file": "apps/web/src/components/money/document-actions.tsx:179",
       "covered": "yes",
       "by": "manage_estimate bill whole_job / deposit_only"
     },
     {
       "path": "Money → an estimate → convert dialog → Paid into",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:183",
+      "file": "apps/web/src/components/money/document-actions.tsx:193",
       "covered": "yes",
       "by": "manage_estimate make_invoice connectionId, shown as Paid into on the card"
     },
     {
       "path": "Money → an estimate → convert dialog → Make the invoice / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:204",
+      "file": "apps/web/src/components/money/document-actions.tsx:214",
       "covered": "yes",
       "by": "manage_estimate make_invoice (Confirm card)"
     },
     {
       "path": "Money → an estimate → They said yes",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:252",
+      "file": "apps/web/src/components/money/document-page.tsx:262",
       "covered": "yes",
       "by": "manage_estimate record_yes"
     },
     {
+      "path": "Money → an estimate → They said yes dialog → Which option they chose",
+      "kind": "do",
+      "file": "apps/web/src/components/money/document-actions.tsx:274",
+      "covered": "yes",
+      "by": "manage_estimate record_yes option"
+    },
+    {
       "path": "Money → an estimate → They said yes dialog → Who said yes",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:257",
+      "file": "apps/web/src/components/money/document-actions.tsx:288",
       "covered": "yes",
       "by": "manage_estimate name"
     },
     {
       "path": "Money → an estimate → They said yes dialog → Anything worth noting",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:265",
+      "file": "apps/web/src/components/money/document-actions.tsx:296",
       "covered": "yes",
       "by": "manage_estimate note"
     },
     {
       "path": "Money → an estimate → They said yes dialog → Mark approved / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:283",
+      "file": "apps/web/src/components/money/document-actions.tsx:314",
       "covered": "yes",
       "by": "Confirm card"
     },
     {
       "path": "Money → an estimate → Copy link",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:261",
+      "file": "apps/web/src/components/money/document-page.tsx:271",
       "covered": "yes",
       "by": "get_customer_link kind estimate"
     },
@@ -930,35 +966,35 @@
     {
       "path": "Money → an estimate → Void",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:274",
+      "file": "apps/web/src/components/money/document-page.tsx:284",
       "covered": "yes",
       "by": "manage_estimate void"
     },
     {
       "path": "Money → void dialog → Why",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:525",
+      "file": "apps/web/src/components/money/document-actions.tsx:557",
       "covered": "yes",
       "by": "manage_estimate / manage_invoice reason"
     },
     {
       "path": "Money → void dialog → keeps its number, never reused; Void it / Keep it",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:536",
+      "file": "apps/web/src/components/money/document-actions.tsx:568",
       "covered": "yes",
       "by": "Confirm card says it keeps its number and can’t be undone"
     },
     {
       "path": "Money → an estimate → each line: name, qty and unit, price, amount, money off, no tax",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-view.tsx:57",
+      "file": "apps/web/src/components/money/document-view.tsx:58",
       "covered": "yes",
       "by": "get_money_document → lines"
     },
     {
       "path": "Money → an estimate/invoice → each line: description",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-view.tsx:64",
+      "file": "apps/web/src/components/money/document-view.tsx:65",
       "covered": "yes",
       "by": "get_money_document lines → description"
     },
@@ -972,280 +1008,287 @@
     {
       "path": "Money → an estimate → Deposit asked for up front; Balance when the work is done",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:292",
+      "file": "apps/web/src/components/money/document-page.tsx:340",
       "covered": "yes",
       "by": "get_money_document → deposit, total"
     },
     {
       "path": "Money → an estimate/invoice → Notes",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-view.tsx:106",
+      "file": "apps/web/src/components/money/document-view.tsx:107",
       "covered": "yes",
       "by": "get_money_document → note"
     },
     {
       "path": "Money → an estimate → What has happened: Written <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:166",
+      "file": "apps/web/src/components/money/document-page.tsx:176",
       "covered": "yes",
       "by": "get_money_document → writtenAt"
     },
     {
       "path": "Money → an estimate → What has happened: Sent to <customer> <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:173",
+      "file": "apps/web/src/components/money/document-page.tsx:183",
       "covered": "yes",
       "by": "get_money_document → sentAt"
     },
     {
       "path": "Money → an estimate → What has happened: They opened it <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:182",
+      "file": "apps/web/src/components/money/document-page.tsx:192",
       "covered": "yes",
       "by": "get_money_document → openedAt"
     },
     {
       "path": "Money → an estimate → What has happened: Approved by <name> · taken by phone / on their own page",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:188",
+      "file": "apps/web/src/components/money/document-page.tsx:198",
       "covered": "yes",
-      "by": "get_money_document → approved at, how, name"
+      "by": "get_money_document → approved at, how, name, and the option they picked (linesAre)"
     },
     {
       "path": "Money → an estimate → What has happened: Declined — reason",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:200",
+      "file": "apps/web/src/components/money/document-page.tsx:210",
       "covered": "yes",
       "by": "get_money_document → declined at, why"
     },
     {
       "path": "Money → an estimate/invoice → What has happened: Voided — reason <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:215",
+      "file": "apps/web/src/components/money/document-page.tsx:225",
       "covered": "yes",
       "by": "get_money_document → voidedAt, voidReason"
     },
     {
       "path": "Money → an estimate → Invoices from this: each number, status, total (opens it)",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:307",
+      "file": "apps/web/src/components/money/document-page.tsx:364",
       "covered": "yes",
       "by": "get_money_document → invoices (id, number, state, total, owed)"
     },
     {
+      "path": "Money → an estimate → the panel of the add-on that built it (Contractor Operations: Costs and profit)",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-page.tsx:356",
+      "covered": "yes",
+      "by": "the add-on’s own tools (contractor_get_estimate); the contractor area lists its items"
+    },
+    {
       "path": "Money → an invoice → header: number, status, customer link, title, standing (due / paid / refunded)",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:474",
+      "file": "apps/web/src/components/money/document-page.tsx:536",
       "covered": "yes",
       "by": "get_money_document → number, state, customer, for, dueOn, paid, refunded"
     },
     {
       "path": "Money → an invoice → Record a payment",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:488",
+      "file": "apps/web/src/components/money/document-page.tsx:550",
       "covered": "yes",
       "by": "record_payment (money.bill, as the button), refused before the card on a draft, a voided or a paid invoice"
     },
     {
       "path": "Money → record a payment → ‘$X is owed’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-actions.tsx:335",
+      "file": "apps/web/src/components/money/document-actions.tsx:367",
       "covered": "yes",
       "by": "get_money_document → owed"
     },
     {
       "path": "Money → record a payment → How much (more than owed refused)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:340",
+      "file": "apps/web/src/components/money/document-actions.tsx:372",
       "covered": "yes",
       "by": "record_payment amount (left out = whole balance)"
     },
     {
       "path": "Money → record a payment → How it was paid: Cash, Check, Other",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:352",
+      "file": "apps/web/src/components/money/document-actions.tsx:384",
       "covered": "yes",
       "by": "record_payment method cash/check/other"
     },
     {
       "path": "Money → record a payment → Reference",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:364",
+      "file": "apps/web/src/components/money/document-actions.tsx:396",
       "covered": "yes",
       "by": "record_payment reference"
     },
     {
       "path": "Money → record a payment → Record it / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:380",
+      "file": "apps/web/src/components/money/document-actions.tsx:412",
       "covered": "yes",
       "by": "Confirm card"
     },
     {
       "path": "Money → an invoice → Copy link",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:497",
+      "file": "apps/web/src/components/money/document-page.tsx:559",
       "covered": "yes",
       "by": "get_customer_link kind invoice"
     },
     {
       "path": "Money → an invoice → Void (only when nothing paid is left on it)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:510",
+      "file": "apps/web/src/components/money/document-page.tsx:572",
       "covered": "yes",
       "by": "manage_invoice void (refund_payment first)"
     },
     {
       "path": "Money → an invoice → totals: subtotal, discount, tax, total, paid, refunded, amount due",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-view.tsx:96",
+      "file": "apps/web/src/components/money/document-view.tsx:97",
       "covered": "yes",
       "by": "get_money_document → subtotal, discount, tax, total, paid, refunded, owed"
     },
     {
       "path": "Money → an invoice → What has happened: Raised <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:411",
+      "file": "apps/web/src/components/money/document-page.tsx:473",
       "covered": "yes",
       "by": "get_money_document → writtenAt"
     },
     {
       "path": "Money → an invoice → What has happened: Sent to <customer> <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:418",
+      "file": "apps/web/src/components/money/document-page.tsx:480",
       "covered": "yes",
       "by": "get_money_document → sentAt"
     },
     {
       "path": "Money → an invoice → What has happened: They opened it <when>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:427",
+      "file": "apps/web/src/components/money/document-page.tsx:489",
       "covered": "yes",
       "by": "get_money_document → openedAt"
     },
     {
       "path": "Money → an invoice → What has happened: each payment (paid by …, on its way, failed)",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:432",
+      "file": "apps/web/src/components/money/document-page.tsx:494",
       "covered": "yes",
       "by": "get_money_document → payments amount, by, status, when"
     },
     {
       "path": "Money → an invoice → What has happened: each refund (refunded, on its way back, failed)",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:453",
+      "file": "apps/web/src/components/money/document-page.tsx:515",
       "covered": "yes",
       "by": "get_money_document → refunds amount, status, when, reason"
     },
     {
       "path": "Money → an invoice → Payments: each amount, method, status, $ refunded",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-page.tsx:532",
+      "file": "apps/web/src/components/money/document-page.tsx:594",
       "covered": "yes",
       "by": "get_money_document → payments"
     },
     {
       "path": "Money → an invoice → Payments → Refund",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-page.tsx:554",
+      "file": "apps/web/src/components/money/document-page.tsx:616",
       "covered": "yes",
       "by": "refund_payment paymentId"
     },
     {
       "path": "Money → refund dialog → ‘$X of the $Y can still be given back’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-actions.tsx:431",
+      "file": "apps/web/src/components/money/document-actions.tsx:463",
       "covered": "yes",
       "by": "get_money_document → payments refundable"
     },
     {
       "path": "Money → refund dialog → How much",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:439",
+      "file": "apps/web/src/components/money/document-actions.tsx:471",
       "covered": "yes",
       "by": "refund_payment amount (left out = all)"
     },
     {
       "path": "Money → refund dialog → Why",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:451",
+      "file": "apps/web/src/components/money/document-actions.tsx:483",
       "covered": "yes",
       "by": "refund_payment reason"
     },
     {
       "path": "Money → refund dialog → Refund / Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:469",
+      "file": "apps/web/src/components/money/document-actions.tsx:501",
       "covered": "yes",
       "by": "Confirm card"
     },
     {
       "path": "Money → draft editor → title ‘Estimate/Invoice for <customer>’, Draft badge",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:302",
+      "file": "apps/web/src/components/money/document-editor.tsx:323",
       "covered": "yes",
       "by": "get_money_document → customer, state Draft, canChange"
     },
     {
       "path": "Money → draft editor → Started by <name> · <day>",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:309",
+      "file": "apps/web/src/components/money/document-editor.tsx:330",
       "covered": "yes",
       "by": "get_money_document → startedBy, writtenAt; a new one from a lead is with the lead’s owner"
     },
     {
       "path": "Money → draft editor → ‘not saved yet’ / ‘all changes saved’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:311",
+      "file": "apps/web/src/components/money/document-editor.tsx:332",
       "covered": "yes",
       "by": "write_* saves whole on Confirm; outcome ‘Saved the draft’"
     },
     {
       "path": "Money → draft editor → Save draft",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:320",
+      "file": "apps/web/src/components/money/document-editor.tsx:341",
       "covered": "yes",
       "by": "write_estimate / write_invoice"
     },
     {
       "path": "Money → draft editor → Send (an estimate)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:328",
+      "file": "apps/web/src/components/money/document-editor.tsx:349",
       "covered": "yes",
       "by": "send_estimate (money.bill, as the button), Send off for someone it can’t reach"
     },
     {
       "path": "Money → draft editor → Send (an invoice)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:328",
+      "file": "apps/web/src/components/money/document-editor.tsx:349",
       "covered": "yes",
       "by": "manage_invoice send"
     },
     {
       "path": "Money → draft editor → Void",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:333",
+      "file": "apps/web/src/components/money/document-editor.tsx:354",
       "covered": "yes",
       "by": "manage_estimate / manage_invoice void"
     },
     {
       "path": "Money → draft editor → ‘Someone saved this while you were editing’ → Load their version",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:344",
+      "file": "apps/web/src/components/money/document-editor.tsx:365",
       "covered": "yes",
       "by": "write_* re-reads the draft at commit; get_money_document reads the saved one"
     },
     {
       "path": "Money → draft editor → Customer: name, email · phone",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:364",
+      "file": "apps/web/src/components/money/document-editor.tsx:385",
       "covered": "yes",
       "by": "get_money_document customer; get_customer email, phone"
     },
     {
       "path": "Money → draft editor → Customer → Change",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:377",
+      "file": "apps/web/src/components/money/document-editor.tsx:398",
       "covered": "partly",
       "by": "personId on a new one only; a saved draft stays with its customer"
     },
@@ -1259,105 +1302,147 @@
     {
       "path": "Money → draft editor → What it is for",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:397",
+      "file": "apps/web/src/components/money/document-editor.tsx:418",
       "covered": "yes",
       "by": "write_* title"
     },
     {
       "path": "Money → draft editor → Open the lead",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:404",
+      "file": "apps/web/src/components/money/document-editor.tsx:425",
       "covered": "yes",
       "by": "get_lead (leadId)"
     },
     {
       "path": "Money → draft editor → Paid into (invoice): each account, default, not yours, not connected",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:415",
+      "file": "apps/web/src/components/money/document-editor.tsx:436",
       "covered": "yes",
       "by": "write_invoice connectionId; get_settings payments accounts"
     },
     {
       "path": "Money → draft editor → Paid into (estimate): ‘Chosen when you turn this into an invoice’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:430",
+      "file": "apps/web/src/components/money/document-editor.tsx:451",
       "covered": "yes",
       "by": "manage_estimate make_invoice connectionId"
     },
     {
       "path": "Money → draft editor → no account yours → See who uses them",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:439",
+      "file": "apps/web/src/components/money/document-editor.tsx:460",
       "covered": "yes",
       "by": "get_settings payments accounts (usableByMe); do_payment_connection_set_access"
     },
     {
       "path": "Money → draft editor → no account connected → Connect one",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:449",
+      "file": "apps/web/src/components/money/document-editor.tsx:470",
       "covered": "never",
       "by": "payment_connection.connect: signing in to Stripe or Square"
     },
     {
       "path": "Money → draft editor → Lines note: prices come from Products, changing one changes only this",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:462",
+      "file": "apps/web/src/components/money/document-editor.tsx:483",
       "covered": "yes",
       "by": "write_* Line: catalogue fills in unless given"
     },
     {
+      "path": "Money → draft editor (an estimate) → One price, with Offer options",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimate-options.tsx:45",
+      "covered": "yes",
+      "by": "write_estimate options (two or three, each with all its lines)"
+    },
+    {
+      "path": "Money → draft editor (an estimate) → Options: a tab each with its name and total; the open one’s lines are below",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimate-options.tsx:56",
+      "covered": "yes",
+      "by": "get_money_document → options (name, total, lines); write_estimate options"
+    },
+    {
+      "path": "Money → draft editor (an estimate) → Options → Add an option (three at most)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimate-options.tsx:67",
+      "covered": "yes",
+      "by": "write_estimate options (two or three; more is refused)"
+    },
+    {
+      "path": "Money → draft editor (an estimate) → Options → Called: the open option’s name",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimate-options.tsx:83",
+      "covered": "yes",
+      "by": "write_estimate options[].name"
+    },
+    {
+      "path": "Money → draft editor (an estimate) → Options → Take this option off (one left goes back to one price)",
+      "kind": "do",
+      "file": "apps/web/src/components/money/estimate-options.tsx:89",
+      "covered": "yes",
+      "by": "write_estimate options without it, or null for one price"
+    },
+    {
+      "path": "Money → draft editor (an estimate) → Options → note: the discount and the deposit apply to whichever they pick",
+      "kind": "see",
+      "file": "apps/web/src/components/money/estimate-options.tsx:95",
+      "covered": "yes",
+      "by": "write_estimate options says the same"
+    },
+    {
       "path": "Money → draft editor → each line: What it is",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:493",
+      "file": "apps/web/src/components/money/document-editor.tsx:542",
       "covered": "yes",
       "by": "write_* lines[].name"
     },
     {
       "path": "Money → draft editor → each line: Description",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:502",
+      "file": "apps/web/src/components/money/document-editor.tsx:551",
       "covered": "yes",
       "by": "write_* lines[].description"
     },
     {
       "path": "Money → draft editor → each line: How many",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:522",
+      "file": "apps/web/src/components/money/document-editor.tsx:571",
       "covered": "yes",
       "by": "write_* lines[].quantity"
     },
     {
       "path": "Money → draft editor → each line: Price",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:528",
+      "file": "apps/web/src/components/money/document-editor.tsx:577",
       "covered": "yes",
       "by": "write_* lines[].unitPrice"
     },
     {
       "path": "Money → draft editor → each line: Sales tax switch / Taxable · No tax",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:534",
+      "file": "apps/web/src/components/money/document-editor.tsx:583",
       "covered": "yes",
       "by": "write_* lines[].taxable"
     },
     {
       "path": "Money → draft editor → each line: Amount",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:540",
+      "file": "apps/web/src/components/money/document-editor.tsx:589",
       "covered": "yes",
       "by": "write_* card works totals out with core"
     },
     {
       "path": "Money → draft editor → each line: −$X off this line → undo",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:515",
+      "file": "apps/web/src/components/money/document-editor.tsx:564",
       "covered": "yes",
       "by": "write_* lines[].discountDollars (0 takes it off)"
     },
     {
       "path": "Money → draft editor → each line: Remove",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:546",
+      "file": "apps/web/src/components/money/document-editor.tsx:595",
       "covered": "yes",
       "by": "write_* removeLines"
     },
@@ -1378,21 +1463,28 @@
     {
       "path": "Money → draft editor → empty lines: ‘Nothing on it yet…’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:622",
+      "file": "apps/web/src/components/money/document-editor.tsx:673",
       "covered": "yes",
       "by": "write_* refuses a document with no lines"
     },
     {
+      "path": "Money → draft editor (an estimate) → an option with no lines yet: ‘Nothing in “<option>” yet…’",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:672",
+      "covered": "yes",
+      "by": "write_estimate refuses an option with no lines"
+    },
+    {
       "path": "Money → draft editor → Add a line",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:632",
+      "file": "apps/web/src/components/money/document-editor.tsx:683",
       "covered": "yes",
       "by": "write_* addLines (name, unitPrice)"
     },
     {
       "path": "Money → draft editor → Add from the catalogue",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:643",
+      "file": "apps/web/src/components/money/document-editor.tsx:694",
       "covered": "yes",
       "by": "write_* addLines productId"
     },
@@ -1427,161 +1519,182 @@
     {
       "path": "Money → draft editor → Take off: Nothing / A % / An amount",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:866",
+      "file": "apps/web/src/components/money/document-editor.tsx:928",
       "covered": "yes",
       "by": "write_* discountPercent / discountDollars (0 takes it off)"
     },
     {
       "path": "Money → draft editor → ‘= −$X, spread over the lines before tax’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:894",
+      "file": "apps/web/src/components/money/document-editor.tsx:956",
       "covered": "yes",
       "by": "write_* card shows the discount"
     },
     {
       "path": "Money → draft editor → Notes for <customer>",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:677",
+      "file": "apps/web/src/components/money/document-editor.tsx:728",
       "covered": "yes",
       "by": "write_* note; null takes it off"
     },
     {
       "path": "Money → draft editor → note: from Settings → Payments, edit for this one only",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:682",
+      "file": "apps/web/src/components/money/document-editor.tsx:733",
       "covered": "yes",
       "by": "get_settings payments → invoiceNote, estimateNote"
     },
     {
       "path": "Money → draft editor → Totals: Subtotal, discount, tax (name · rate on base), Total",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:268",
+      "file": "apps/web/src/components/money/document-editor.tsx:289",
       "covered": "yes",
       "by": "write_* card totals (computeTotals)"
     },
     {
+      "path": "Money → draft editor (an estimate) → Totals for “<option>”: the open option’s",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:742",
+      "covered": "yes",
+      "by": "write_estimate card: each option’s total, worked out with core; get_money_document → options[].total"
+    },
+    {
       "path": "Money → draft editor → note: tax is worked out once over discounted taxable lines",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:694",
+      "file": "apps/web/src/components/money/document-editor.tsx:747",
       "covered": "yes",
       "by": "write_* uses core’s computeTotals"
     },
     {
       "path": "Money → draft editor → phone totals bar: subtotal · discount · tax toggle, Total, Save draft, Send",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:751",
+      "file": "apps/web/src/components/money/document-editor.tsx:811",
       "covered": "yes",
       "by": "write_* card totals; send tools"
     },
     {
       "path": "Money → draft editor → Deposit → Ask for a deposit switch",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:921",
+      "file": "apps/web/src/components/money/document-editor.tsx:983",
       "covered": "yes",
       "by": "write_estimate depositPercent / depositDollars (0 asks for none)"
     },
     {
       "path": "Money → draft editor → Deposit → percent or amount; ‘Ask for an amount / a % instead’",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:936",
+      "file": "apps/web/src/components/money/document-editor.tsx:998",
       "covered": "yes",
       "by": "write_estimate depositPercent / depositDollars"
     },
     {
       "path": "Money → draft editor → Deposit → deposit $, Balance when the work is done",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:954",
+      "file": "apps/web/src/components/money/document-editor.tsx:1016",
       "covered": "yes",
       "by": "write_estimate card; get_money_document deposit"
     },
     {
       "path": "Money → draft editor → Deposit → problem (bigger than the total, set to nothing)",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:973",
+      "file": "apps/web/src/components/money/document-editor.tsx:1035",
       "covered": "yes",
       "by": "write_estimate refuses with the same depositProblem"
     },
     {
       "path": "Money → draft editor → Deposit → ‘pays the deposit on their own page’ / ‘Nothing is asked for up front’",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:978",
+      "file": "apps/web/src/components/money/document-editor.tsx:1040",
       "covered": "yes",
       "by": "write_estimate description"
     },
     {
       "path": "Money → draft editor → When it is due: business’s terms, Due on receipt, Net 7, 14, 30, A date I pick",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:1009",
+      "file": "apps/web/src/components/money/document-editor.tsx:1071",
       "covered": "yes",
       "by": "write_invoice dueOn (a date) or terms (due_on_receipt, net_7, net_14, net_30; null for the business’s)"
     },
     {
       "path": "Money → draft editor → Due date",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-editor.tsx:1037",
+      "file": "apps/web/src/components/money/document-editor.tsx:1099",
       "covered": "yes",
       "by": "write_invoice dueOn"
     },
     {
       "path": "Money → draft editor → due line (‘Due N days after you send it’ …)",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:1045",
+      "file": "apps/web/src/components/money/document-editor.tsx:1107",
       "covered": "yes",
       "by": "manage_invoice send card: Due <day> · terms"
     },
     {
       "path": "Money → draft editor → When you send: Goes by Text and email",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:715",
+      "file": "apps/web/src/components/money/document-editor.tsx:768",
       "covered": "yes",
       "by": "send tools channels email, sms"
     },
     {
       "path": "Money → draft editor → When you send: Good until <day> · N days",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:718",
+      "file": "apps/web/src/components/money/document-editor.tsx:778",
       "covered": "yes",
       "by": "write_estimate goodUntil; get_settings estimateGoodForDays"
     },
     {
+      "path": "Money → draft editor (an estimate) → When you send: Options: N, and they pick one",
+      "kind": "see",
+      "file": "apps/web/src/components/money/document-editor.tsx:773",
+      "covered": "yes",
+      "by": "get_money_document → options; send_estimate card"
+    },
+    {
       "path": "Money → draft editor → When you send: Number (next number), taken on Send",
       "kind": "see",
-      "file": "apps/web/src/components/money/document-editor.tsx:723",
+      "file": "apps/web/src/components/money/document-editor.tsx:783",
       "covered": "yes",
       "by": "get_settings payments → next numbers; send card shows Number"
     },
     {
       "path": "Money → draft editor → problems: pick who it’s for, add a line, every line needs a name and a quantity",
       "kind": "see",
-      "file": "apps/web/src/components/money/draft.ts:310",
+      "file": "apps/web/src/components/money/draft.ts:407",
       "covered": "yes",
       "by": "write_* validation says the same"
     },
     {
+      "path": "Money → draft editor (an estimate) → problems: every option needs a name, and its own name; add a line to each",
+      "kind": "see",
+      "file": "apps/web/src/components/money/draft.ts:411",
+      "covered": "yes",
+      "by": "write_estimate validation says the same (Give each option its own name)"
+    },
+    {
       "path": "Money → send dialog → Email · <address> (or no address on file)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:78",
+      "file": "apps/web/src/components/money/document-actions.tsx:87",
       "covered": "yes",
       "by": "channels email; card blocked when none on file"
     },
     {
       "path": "Money → send dialog → Text · <mobile> (or no mobile on file)",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:84",
+      "file": "apps/web/src/components/money/document-actions.tsx:93",
       "covered": "yes",
       "by": "channels sms; card blocked when none on file"
     },
     {
       "path": "Money → send dialog → A line to go with it",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:89",
+      "file": "apps/web/src/components/money/document-actions.tsx:98",
       "covered": "yes",
       "by": "send_estimate / manage_invoice message"
     },
     {
       "path": "Money → send dialog → gets a link, number taken on send; Send / Not yet",
       "kind": "do",
-      "file": "apps/web/src/components/money/document-actions.tsx:107",
+      "file": "apps/web/src/components/money/document-actions.tsx:116",
       "covered": "yes",
       "by": "Confirm card warns it takes its number and freezes"
     },
@@ -1700,35 +1813,35 @@
     {
       "path": "Customer’s estimate page → amount, title, good until, lines, totals, deposit to start, balance, notes",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:315",
+      "file": "apps/web/src/components/money/public-estimate.tsx:335",
       "covered": "yes",
       "by": "get_money_document reads the same estimate"
     },
     {
       "path": "Customer’s estimate page → Approve this estimate (their name, the words they agree to)",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-estimate.tsx:262",
+      "file": "apps/web/src/components/money/public-estimate.tsx:280",
       "covered": "person",
       "by": "the customer’s own approval; record_yes records one taken by phone"
     },
     {
       "path": "Customer’s estimate page → Decline (reason, optional)",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-estimate.tsx:275",
+      "file": "apps/web/src/components/money/public-estimate.tsx:293",
       "covered": "person",
       "by": "the customer’s own answer"
     },
     {
       "path": "Customer’s estimate page → Approved / Declined / can’t be answered boxes",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:297",
+      "file": "apps/web/src/components/money/public-estimate.tsx:317",
       "covered": "yes",
       "by": "get_money_document → approved, declined, state"
     },
     {
       "path": "Customer’s money pages → withdrawn, out-of-date link, link doesn’t work",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:170",
+      "file": "apps/web/src/components/money/public-estimate.tsx:180",
       "covered": "partly",
       "by": "Voided state yes; link states not"
     },

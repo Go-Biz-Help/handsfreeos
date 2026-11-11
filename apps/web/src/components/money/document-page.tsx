@@ -13,12 +13,14 @@ import {
   whenLabel,
   type PaymentMethod,
 } from '@hfos/core';
-import { Ban, Check, Eye, FileText, HandCoins, RotateCcw, Send, Undo2 } from 'lucide-react';
+import { Ban, Check, Eye, FileText, HandCoins, Info, RotateCcw, Send, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactNode } from 'react';
+import { AddonSlot } from '@/components/addons/slot';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Segmented } from '@/components/ui/segmented';
 import type {
   EstimateDetail,
   EstimateGetOut,
@@ -158,7 +160,15 @@ export function EstimateDocument({
   const [accepting, setAccepting] = useState(false);
   const [voiding, setVoiding] = useState(false);
   const open = est.status === 'sent';
-  const answerable = canBill && (est.status === 'sent' || est.status === 'accepted');
+  // With options, the invoice is for the one they picked, so it waits for their yes.
+  const picking = est.options.length > 0 && est.status !== 'accepted';
+  const answerable = canBill && !picking && (est.status === 'sent' || est.status === 'accepted');
+  // The option on screen: the one the estimate's own figures are, until someone looks at another.
+  const [looking, setLooking] = useState<number | null>(null);
+  const shown =
+    est.options.find((o) => o.position === looking) ?? est.options.find((o) => o.picked) ?? null;
+  const view = shown ?? { lines: est.lines, totals: est.totals, depositCents: est.depositCents };
+  const builtElsewhere = est.status === 'draft' && est.builtBy?.running ? est.builtBy : null;
 
   const events: Event[] = [
     {
@@ -189,8 +199,8 @@ export function EstimateDocument({
           {
             icon: <Check className="h-3.5 w-3.5" strokeWidth={1.75} />,
             text: `${acceptedWording(est.acceptedName ?? est.person.fullName, est.acceptedAt, timeZone)}${
-              est.acceptedVia === 'staff' ? ' · taken by phone' : ' · on their own page'
-            }`,
+              est.optionName ? ` · the “${est.optionName}” option` : ''
+            }${est.acceptedVia === 'staff' ? ' · taken by phone' : ' · on their own page'}`,
             at: null,
             tone: 'good' as const,
           },
@@ -280,28 +290,75 @@ export function EstimateDocument({
         }
       />
 
+      {builtElsewhere ? (
+        <div
+          className="mb-4 flex items-start gap-2.5 rounded-menu bg-card-2 px-3.5 py-2.5 text-[13px] text-text-2"
+          data-testid="estimate-built-elsewhere"
+        >
+          <Info className="mt-0.5 h-4 w-4 flex-none" strokeWidth={1.75} />
+          <span>
+            This estimate is being written in {builtElsewhere.name}, which checks it before it goes
+            out. Change or send it there.
+          </span>
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 items-start gap-5 min-[1360px]:grid-cols-[minmax(0,1fr)_340px]">
-        <DocumentView
-          lines={est.lines}
-          totals={est.totals}
-          notes={est.notes}
-          aside={
-            est.depositCents > 0 ? (
-              <>
-                <TotalRow
-                  label="Deposit asked for up front"
-                  value={money(est.depositCents)}
-                  testId="estimate-deposit"
-                />
-                <TotalRow
-                  label="Balance when the work is done"
-                  value={money(Math.max(0, est.totals.totalCents - est.depositCents))}
-                />
-              </>
-            ) : null
-          }
-        />
+        <div className="flex min-w-0 flex-col gap-3">
+          {est.options.length ? (
+            <div className="flex flex-wrap items-center gap-2.5" data-testid="estimate-options">
+              <Segmented
+                ariaLabel="Options"
+                className="max-w-full overflow-x-auto"
+                value={String(shown?.position ?? 1)}
+                onChange={(position) => setLooking(Number(position))}
+                options={est.options.map((o) => ({
+                  value: String(o.position),
+                  label: `${o.name} · ${money(o.totals.totalCents)}`,
+                  testId: `estimate-option-${o.position}`,
+                }))}
+              />
+              <span className="text-[13px] text-text-2" data-testid="estimate-option-state">
+                {est.status === 'accepted'
+                  ? shown?.picked
+                    ? 'The one they picked.'
+                    : `They picked “${est.optionName ?? ''}”, not this one.`
+                  : est.status === 'sent'
+                    ? `${est.person.fullName.split(/\s+/)[0]} picks one when they approve.`
+                    : `${est.options.length} options to pick from.`}
+              </span>
+            </div>
+          ) : null}
+          <DocumentView
+            lines={view.lines}
+            totals={view.totals}
+            notes={est.notes}
+            aside={
+              view.depositCents > 0 ? (
+                <>
+                  <TotalRow
+                    label="Deposit asked for up front"
+                    value={money(view.depositCents)}
+                    testId="estimate-deposit"
+                  />
+                  <TotalRow
+                    label="Balance when the work is done"
+                    value={money(Math.max(0, view.totals.totalCents - view.depositCents))}
+                  />
+                </>
+              ) : null
+            }
+          />
+        </div>
         <div className="flex flex-col gap-4">
+          {/* What the add-on that built it knows about it (Contractor Operations: its builder and its margin). */}
+          <AddonSlot
+            name="estimate.panels"
+            workspaceId={workspaceId}
+            estimateId={est.id}
+            status={est.status}
+            builtBy={est.builtBy?.addonId ?? null}
+          />
           <Activity events={events} timeZone={timeZone} />
           {data.invoices.length ? (
             <Card className="px-5 pb-4 pt-4" data-testid="estimate-invoices">
@@ -348,6 +405,11 @@ export function EstimateDocument({
         workspaceId={workspaceId}
         estimateId={est.id}
         personName={est.person.fullName}
+        options={est.options.map((o) => ({
+          position: o.position,
+          name: o.name,
+          totalCents: o.totals.totalCents,
+        }))}
       />
       <VoidDialog
         open={voiding}

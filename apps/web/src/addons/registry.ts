@@ -49,7 +49,12 @@ import {
   TrendingUp as socialcontentStandoutsIcon,
   Users as socialcontentCreatorsIcon,
 } from 'lucide-react';
-import { HardHat as contractorAddonIcon, Settings2 as contractorSettingsIcon } from 'lucide-react';
+import {
+  Calculator as contractorCostsIcon,
+  FileText as contractorEstimatesIcon,
+  HardHat as contractorAddonIcon,
+  Settings2 as contractorSettingsIcon,
+} from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
 export type AddonIcon = ComponentType<{ className?: string; strokeWidth?: number }>;
@@ -82,6 +87,12 @@ export type SlotEntities = EverySlot<{
     readonly onUse: (text: string) => void;
   };
   'main_offer.panels': object;
+  /** An estimate's page in Money. `builtBy` is the add-on whose builder wrote it, if one did. */
+  'estimate.panels': {
+    readonly estimateId: string;
+    readonly status: string;
+    readonly builtBy: string | null;
+  };
 }>;
 
 /** What a panel in slot `S` is drawn with. */
@@ -281,7 +292,12 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
   },
   contractor: {
     icon: contractorAddonIcon,
-    navIcons: { gear: contractorSettingsIcon },
+    navIcons: {
+      estimates: contractorEstimatesIcon,
+      costs: contractorCostsIcon,
+      gear: contractorSettingsIcon,
+    },
+    slots: { 'estimate.panels': () => import('./contractor/estimate-panel') },
     settings: () => import('./contractor/settings-link'),
   },
 };

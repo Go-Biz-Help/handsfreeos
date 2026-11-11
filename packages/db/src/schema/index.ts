@@ -4279,6 +4279,15 @@ export const estimates = app.table('estimates', {
    * never chased from here (`imported: 'quiet'`). Invoices have carried the same since M9.
    */
   reminderState: jsonb('reminder_state').$type<Json>().notNull().default({}),
+  /**
+   * Good, better, best (20261027024100): two or three options, each `{ name, lines, totals }` as core worked them
+   * out, or null for an estimate with one price. The estimate's own lines and totals are always the option at
+   * `option_position`: the first until one is picked.
+   */
+  options: jsonb('options').$type<readonly unknown[]>(),
+  optionPosition: integer('option_position'),
+  /** The add-on whose builder wrote it, which changes and sends it while it runs in the business. */
+  addonId: text('addon_id'),
   createdBy: userRef('created_by'),
   ...timestamps(),
   // Milestone 10

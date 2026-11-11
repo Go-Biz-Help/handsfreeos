@@ -40,12 +40,13 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
 
 ## Phase 1, in parts (each ships on its own)
 
-1. **Jobs and projects.** _Built (this PR)._ The add-on, one side-menu row (Jobs, with Settings popping out). A job
+1. **Jobs and projects.** _Built._ The add-on, one side-menu row (Jobs, with Settings popping out). A job
    is a record of the add-on's kind, at a property (another of its kinds) tied to its customer. A service call, or a
    project with phases, deadlines, % done and a planned budget. Jobs page (board by status and a list; All, My jobs,
    Late; search; done and cancelled on a tick), a page for each job, and Settings (trades, a new project's phases).
    Visits booked or started on a job move it along. The Assistant can do all of it.
-2. **Costs and estimates.** A cost on each price list item; an estimate builder with labor (hours × rate), materials
+2. **Costs and estimates.** _Built, but for the materials list, which comes with part 4._ A cost on each price list
+   item; an estimate builder with labor (hours × rate), materials
    at cost, markup, profit and margin, making a normal HandsFreeOS estimate; good, better, best options in core's
    estimates (decision 5); the lowest margin and its OK (decision 6). An accepted estimate fills the job's budget and
    its materials list.
@@ -86,3 +87,31 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
 - **Assistant's checklist.** `packages/core/src/assistant/ledger/contractor.json`.
 - **Not in part 1:** record panels on a customer's or property's page (Contacts lists jobs and properties as their
   own kinds already), the phone's pages (part 6), deleting a job's data (it's archived through core).
+
+## Part 2 as built
+
+- **Core: good, better, best** (decision 5). `supabase/migrations/20261027024100_estimate_options.sql` adds
+  `options`, `option_position` and `addon_id` to `app.estimates`. One estimate offers up to three options; the
+  customer picks one on their page when they approve, or the team says which when it records a yes. Money's editor,
+  the estimate page, the customer's page and the Assistant's `write_estimate` and `manage_estimate` all know them.
+  "Good, better, best" in `docs/operations.md`.
+- **Core: an estimate an add-on builds.** `app.estimates.addon_id` names the add-on whose builder wrote it. While
+  that add-on runs, core changes and sends the estimate only from it (`estimate_built_elsewhere`), and Money's
+  estimate page has a place for its panel (`estimate.panels`).
+- **Data.** `supabase/migrations/20261027024200_contractor_estimates.sql`: the permission `contractor.approve`
+  (owners and admins), and `estimating` (lowest margin, starting markup, labor's price and cost per hour),
+  `item_costs`, `estimates` (the job an estimate is for, and who asked for an OK), `estimate_costs` (each line's
+  kind and cost) and `estimate_oks` (who OK'd which revision). Costs are read only with `contractor.costs`.
+- **Operations.** Seven commands and three queries in `ops/estimates.ts`: save, ask for an OK, OK, send, set how
+  the business estimates, set an item's cost, and the worker's fill-the-job; the builder's read, the list and the
+  item costs. The math is pure, in `estimating.ts`.
+- **Worker.** `estimate.accepted` fills the job's price and budget; an ask raises a Home alert for people who may
+  OK it, cleared when it's OK'd, sent, voided or saved with nothing left to OK.
+- **Web.** Estimates (all, or waiting for an OK), the builder, Item costs, an Estimating card in Settings, an
+  Estimates card on the job, a waiting notice on Jobs, and the Costs and profit panel on Money's estimate page.
+- **Left for later parts.** The job's materials list from an approved estimate (part 4). Estimate against actual
+  (part 5). The phone's builder (part 6). An estimate the AI drafts on its own, which always waits for a person
+  (part 7).
+- **Choices made while building.** An OK stands when the lowest margin is raised afterwards. Whoever may OK an
+  estimate still has to OK it before sending, so nothing goes out unchecked by a slip. A line with no cost counts
+  as unchecked only for labor and materials; a permit or a fee with no cost is fine.

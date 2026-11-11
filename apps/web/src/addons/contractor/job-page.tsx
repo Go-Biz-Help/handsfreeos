@@ -34,9 +34,10 @@ import { apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
 import { contractorHref, DueLine, jobRecordHref, PercentBar, StatusBadge } from './bits';
+import { EstimateLine } from './estimates-home';
 import { EditJobDialog, MoneyDialog, ReasonDialog } from './job-dialogs';
 import { PercentInput, PhasesCard } from './phases-card';
-import type { JobDetail, Overview } from './types';
+import type { EstimateList, JobDetail, Overview } from './types';
 import { useAct } from './use-act';
 
 const J = CONTRACTOR_WORDS.job;
@@ -45,6 +46,7 @@ export function JobPage({
   workspaceId,
   job,
   overview,
+  estimates,
   myUserId,
   timeZone,
   staff,
@@ -52,12 +54,14 @@ export function JobPage({
   workspaceId: string;
   job: JobDetail;
   overview: Overview;
+  /** The estimates the builder wrote for this job, as far as this person may see them. */
+  estimates: EstimateList['estimates'];
   myUserId: string;
   timeZone: string;
   /** The team, as the visit booking dialog picks who goes. */
   staff: readonly { userId: string; fullName: string }[];
 }) {
-  useLiveRefresh(['custom_record', 'appointment']);
+  useLiveRefresh(['custom_record', 'appointment', 'estimate']);
   const router = useRouter();
   const { busy, act } = useAct();
   const [editing, setEditing] = useState(false);
@@ -244,6 +248,46 @@ export function JobPage({
               </ul>
             )}
           </Card>
+
+          {overview.may.costs || estimates.length ? (
+            <Card className="p-0" data-testid="job-estimates">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+                <h2 className="text-[15px] font-semibold">{CONTRACTOR_WORDS.estimates.title}</h2>
+                {overview.may.costs && !closed ? (
+                  <ButtonLink
+                    href={contractorHref(workspaceId, `estimates/new?jobId=${job.id}`)}
+                    size="sm"
+                    variant="ghost"
+                    data-testid="job-new-estimate"
+                  >
+                    {CONTRACTOR_WORDS.estimates.add}
+                  </ButtonLink>
+                ) : null}
+              </div>
+              {estimates.length === 0 ? (
+                <p className="px-5 py-4 text-[13.5px] text-text-2">
+                  {CONTRACTOR_WORDS.estimates.none}
+                </p>
+              ) : (
+                <ul>
+                  {estimates.map((e) => (
+                    <EstimateLine
+                      key={e.id}
+                      workspaceId={workspaceId}
+                      estimate={e}
+                      timeZone={timeZone}
+                      // Its builder is for people who may see job costs; everyone else reads it in Money.
+                      href={
+                        overview.may.costs
+                          ? undefined
+                          : `/app/w/${workspaceId}/money/estimates/${e.id}`
+                      }
+                    />
+                  ))}
+                </ul>
+              )}
+            </Card>
+          ) : null}
         </div>
 
         <div className="space-y-4">

@@ -41195,7 +41195,7 @@
     "/v1/commands/estimate.create": {
       "post": {
         "operationId": "command_estimate_create",
-        "summary": "Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It stays a draft until it is sent.",
+        "summary": "Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It can offer two or three options (good, better, best), each with its own lines, for the customer to pick from. It stays a draft until it is sent.",
         "tags": [
           "commands"
         ],
@@ -41394,6 +41394,102 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "options": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "lines": {
+                              "default": [],
+                              "maxItems": 200,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "productId": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "description": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1000000
+                                  },
+                                  "unitLabel": {
+                                    "default": "each",
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "unitPriceCents": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  },
+                                  "taxable": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "discountCents": {
+                                    "default": 0,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "quantity",
+                                  "unitPriceCents"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
                   }
                 },
                 "required": [
@@ -41465,7 +41561,7 @@
     "/v1/commands/estimate.update": {
       "post": {
         "operationId": "command_estimate_update",
-        "summary": "Save a draft estimate: its header and all of its lines at once, against the revision you loaded. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.",
+        "summary": "Save a draft estimate: its header and all of its lines at once, against the revision you loaded, with its options (good, better, best) when it offers more than one. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.",
         "tags": [
           "commands"
         ],
@@ -41670,6 +41766,102 @@
                       }
                     ]
                   },
+                  "options": {
+                    "anyOf": [
+                      {
+                        "minItems": 2,
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 60
+                            },
+                            "lines": {
+                              "default": [],
+                              "maxItems": 200,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "productId": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "description": {
+                                    "default": null,
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                    "maximum": 1000000
+                                  },
+                                  "unitLabel": {
+                                    "default": "each",
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "unitPriceCents": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  },
+                                  "taxable": {
+                                    "default": true,
+                                    "type": "boolean"
+                                  },
+                                  "discountCents": {
+                                    "default": 0,
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "quantity",
+                                  "unitPriceCents"
+                                ]
+                              }
+                            }
+                          },
+                          "required": [
+                            "name"
+                          ]
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
                   "baseRevision": {
                     "type": "integer",
                     "minimum": 1,
@@ -41865,7 +42057,7 @@
     "/v1/commands/estimate.mark_accepted": {
       "post": {
         "operationId": "command_estimate_mark_accepted",
-        "summary": "Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval.",
+        "summary": "Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval. For an estimate that offers options, say which one they chose.",
         "tags": [
           "commands"
         ],
@@ -41897,6 +42089,18 @@
                       {
                         "type": "string",
                         "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "option": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 3
                       },
                       {
                         "type": "null"
@@ -41957,6 +42161,31 @@
                     },
                     "wording": {
                       "type": "string"
+                    },
+                    "option": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "position": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "position",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -41966,7 +42195,8 @@
                     "acceptedName",
                     "acceptedVia",
                     "acceptedHash",
-                    "wording"
+                    "wording",
+                    "option"
                   ],
                   "additionalProperties": false
                 }
@@ -122928,6 +123158,926 @@
         }
       }
     },
+    "/v1/commands/contractor.estimate.save": {
+      "post": {
+        "operationId": "command_contractor_estimate_save",
+        "summary": "Write or save an estimate with what it costs to do: one option for one price, or two or three (good, better, best), each with every one of its lines, and each line’s kind (labor, material, other) and what one unit costs. It makes an ordinary HandsFreeOS estimate, for the job named and that job’s customer. It stays a draft, and is saved whole: what’s left out is cleared. For people who may see job costs and who may bill.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires contractor.costs. Emits contractor.estimate.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "estimateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "baseRevision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "jobId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "personId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "title": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "notes": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 5000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "discount": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "percent",
+                          "amount"
+                        ]
+                      },
+                      "percentBp": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      "amountCents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000000
+                      }
+                    }
+                  },
+                  "deposit": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "default": "none",
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "percent",
+                          "amount"
+                        ]
+                      },
+                      "percentBp": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10000
+                      },
+                      "amountCents": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000000
+                      }
+                    }
+                  },
+                  "expiresOn": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "options": {
+                    "minItems": 1,
+                    "maxItems": 3,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 60
+                        },
+                        "lines": {
+                          "minItems": 1,
+                          "maxItems": 200,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "productId": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "name": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 200
+                              },
+                              "description": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 2000
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "quantity": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "maximum": 1000000
+                              },
+                              "unitLabel": {
+                                "default": "each",
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 40
+                              },
+                              "unitPriceCents": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100000000000
+                              },
+                              "taxable": {
+                                "default": true,
+                                "type": "boolean"
+                              },
+                              "discountCents": {
+                                "default": 0,
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 100000000000
+                              },
+                              "kind": {
+                                "default": "material",
+                                "type": "string",
+                                "enum": [
+                                  "labor",
+                                  "material",
+                                  "other"
+                                ]
+                              },
+                              "unitCostCents": {
+                                "default": null,
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100000000000
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "name",
+                              "quantity",
+                              "unitPriceCents"
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "lines"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "options"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estimateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "totalCents": {
+                      "type": "number"
+                    },
+                    "created": {
+                      "type": "boolean"
+                    },
+                    "check": {
+                      "type": "object",
+                      "properties": {
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "priceCents": {
+                                "type": "number"
+                              },
+                              "laborCents": {
+                                "type": "number"
+                              },
+                              "materialsCents": {
+                                "type": "number"
+                              },
+                              "otherCents": {
+                                "type": "number"
+                              },
+                              "costCents": {
+                                "type": "number"
+                              },
+                              "laborHours": {
+                                "type": "number"
+                              },
+                              "profitCents": {
+                                "type": "number"
+                              },
+                              "marginBp": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "uncosted": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "position",
+                              "name",
+                              "priceCents",
+                              "laborCents",
+                              "materialsCents",
+                              "otherCents",
+                              "costCents",
+                              "laborHours",
+                              "profitCents",
+                              "marginBp",
+                              "uncosted"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "lowest": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "marginBp": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "marginBp"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "minMarginBp": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "uncosted": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "needsOk": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "margin",
+                                "uncosted"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "ok": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "by": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string"
+                                },
+                                "note": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "by",
+                                "at",
+                                "note"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "asked": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "by": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "at": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "by",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "canSend": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "options",
+                        "lowest",
+                        "minMarginBp",
+                        "uncosted",
+                        "needsOk",
+                        "ok",
+                        "asked",
+                        "canSend"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "estimateId",
+                    "revision",
+                    "totalCents",
+                    "created",
+                    "check"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/contractor.estimate.ask_ok": {
+      "post": {
+        "operationId": "command_contractor_estimate_ask_ok",
+        "summary": "Ask an owner or admin to OK an estimate that’s under the business’s lowest margin, or has lines with no cost, so it can be sent. They’re told on Home and their phones.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires contractor.costs. Emits contractor.estimate.ok_asked.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "estimateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "estimateId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estimateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "estimateId",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/contractor.estimate.ok": {
+      "post": {
+        "operationId": "command_contractor_estimate_ok",
+        "summary": "OK an estimate that’s under the business’s lowest margin, or has lines with no cost, so it can be sent as it is now. Any later change to the estimate needs a fresh OK. For owners and admins.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires contractor.approve. Emits contractor.estimate.okayed.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "estimateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "estimateId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estimateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "estimateId",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/contractor.estimate.send": {
+      "post": {
+        "operationId": "command_contractor_estimate_send",
+        "summary": "Send an estimate the builder wrote to its customer, by text or email. Refused while it waits for an owner’s or admin’s OK: an option under the lowest margin, or a labor or material line with no cost. From there it’s an ordinary HandsFreeOS estimate: its number, its link and the customer’s page.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires contractor.costs. Emits contractor.estimate.sent.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "estimateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "channels": {
+                    "default": [
+                      "email"
+                    ],
+                    "maxItems": 2,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "sms",
+                        "email"
+                      ]
+                    }
+                  },
+                  "message": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "estimateId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estimateId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "sent",
+                        "accepted",
+                        "declined",
+                        "expired",
+                        "void"
+                      ]
+                    },
+                    "number": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "revision": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "totalCents": {
+                      "type": "number"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "estimateId",
+                    "status",
+                    "number",
+                    "revision",
+                    "totalCents",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/contractor.estimating.save": {
+      "post": {
+        "operationId": "command_contractor_estimating_save",
+        "summary": "Set how the business estimates: its lowest margin (an estimate under it waits for an owner’s or admin’s OK), the markup a new line starts with, and what an hour of labor sells for and costs. Only what’s given changes. For owners and admins.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires contractor.approve. Emits contractor.estimating.saved.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "minMarginBp": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9000
+                  },
+                  "markupBp": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000
+                  },
+                  "laborRateCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "laborCostCents": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "minMarginBp": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9000
+                    },
+                    "markupBp": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000
+                    },
+                    "laborRateCents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000000
+                    },
+                    "laborCostCents": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 100000000
+                    }
+                  },
+                  "required": [
+                    "minMarginBp",
+                    "markupBp",
+                    "laborRateCents",
+                    "laborCostCents"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/contractor.item_cost.set": {
+      "post": {
+        "operationId": "command_contractor_item_cost_set",
+        "summary": "Set what one of a price list item costs the business, and how it’s costed (labor by the hour, a material, or other); null takes the cost off. The builder fills a line’s cost from it. For people who may see job costs.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 1. Requires contractor.costs. Emits contractor.item_cost.set.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "productId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "costCents": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "labor",
+                      "material",
+                      "other"
+                    ]
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "productId",
+                  "costCents"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "productId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "productId",
+                    "changed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/migration.list": {
       "post": {
         "operationId": "query_migration_list",
@@ -180966,6 +182116,17 @@
                           "depositCents": {
                             "type": "number"
                           },
+                          "optionCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "optionName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "expiresOn": {
                             "anyOf": [
                               {
@@ -181057,6 +182218,8 @@
                           "totals",
                           "deposit",
                           "depositCents",
+                          "optionCount",
+                          "optionName",
                           "expiresOn",
                           "sentAt",
                           "firstViewedAt",
@@ -181317,6 +182480,17 @@
                         "depositCents": {
                           "type": "number"
                         },
+                        "optionCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "optionName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "expiresOn": {
                           "anyOf": [
                             {
@@ -181551,6 +182725,187 @@
                             ],
                             "additionalProperties": false
                           }
+                        },
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "position": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "lines": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "position": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "productId": {
+                                      "anyOf": [
+                                        {
+                                          "type": "string",
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "description": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "quantity": {
+                                      "type": "number"
+                                    },
+                                    "unitLabel": {
+                                      "type": "string"
+                                    },
+                                    "unitPriceCents": {
+                                      "type": "number"
+                                    },
+                                    "taxable": {
+                                      "type": "boolean"
+                                    },
+                                    "discountCents": {
+                                      "type": "number"
+                                    },
+                                    "allocatedCents": {
+                                      "type": "number"
+                                    },
+                                    "amountCents": {
+                                      "type": "number"
+                                    },
+                                    "netCents": {
+                                      "type": "number"
+                                    }
+                                  },
+                                  "required": [
+                                    "position",
+                                    "productId",
+                                    "name",
+                                    "description",
+                                    "quantity",
+                                    "unitLabel",
+                                    "unitPriceCents",
+                                    "taxable",
+                                    "discountCents",
+                                    "allocatedCents",
+                                    "amountCents",
+                                    "netCents"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "totals": {
+                                "type": "object",
+                                "properties": {
+                                  "subtotalCents": {
+                                    "type": "number"
+                                  },
+                                  "discountCents": {
+                                    "type": "number"
+                                  },
+                                  "discountPercentBp": {
+                                    "type": [
+                                      "number",
+                                      "null"
+                                    ]
+                                  },
+                                  "taxableBaseCents": {
+                                    "type": "number"
+                                  },
+                                  "taxCents": {
+                                    "type": "number"
+                                  },
+                                  "taxRateBp": {
+                                    "type": "number"
+                                  },
+                                  "taxLabel": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "totalCents": {
+                                    "type": "number"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "subtotalCents",
+                                  "discountCents",
+                                  "discountPercentBp",
+                                  "taxableBaseCents",
+                                  "taxCents",
+                                  "taxRateBp",
+                                  "taxLabel",
+                                  "totalCents",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "depositCents": {
+                                "type": "number"
+                              },
+                              "picked": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "position",
+                              "name",
+                              "lines",
+                              "totals",
+                              "depositCents",
+                              "picked"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "builtBy": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "addonId": {
+                                  "type": "string"
+                                },
+                                "name": {
+                                  "type": "string"
+                                },
+                                "running": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "addonId",
+                                "name",
+                                "running"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -181566,6 +182921,8 @@
                         "totals",
                         "deposit",
                         "depositCents",
+                        "optionCount",
+                        "optionName",
                         "expiresOn",
                         "sentAt",
                         "firstViewedAt",
@@ -181582,7 +182939,9 @@
                         "acceptedWording",
                         "declinedReason",
                         "voidReason",
-                        "lines"
+                        "lines",
+                        "options",
+                        "builtBy"
                       ],
                       "additionalProperties": false
                     },
@@ -184497,6 +185856,17 @@
                           "depositCents": {
                             "type": "number"
                           },
+                          "optionCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "optionName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "expiresOn": {
                             "anyOf": [
                               {
@@ -184588,6 +185958,8 @@
                           "totals",
                           "deposit",
                           "depositCents",
+                          "optionCount",
+                          "optionName",
                           "expiresOn",
                           "sentAt",
                           "firstViewedAt",
@@ -248845,7 +250217,7 @@
     "/v1/queries/contractor.overview": {
       "post": {
         "operationId": "query_contractor_overview",
-        "summary": "Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, and who can be on a job.",
+        "summary": "Contractor Operations here: its settings (trades, phases for a new project), how many jobs are open, late, on hold and done this month, who can be on a job, how the business estimates (for people who may see job costs), and how many estimates wait for this person’s OK.",
         "tags": [
           "queries"
         ],
@@ -248928,14 +250300,62 @@
                         },
                         "assign": {
                           "type": "boolean"
+                        },
+                        "approve": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
                         "manage",
                         "costs",
-                        "assign"
+                        "assign",
+                        "approve"
                       ],
                       "additionalProperties": false
+                    },
+                    "estimating": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "minMarginBp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9000
+                            },
+                            "markupBp": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000
+                            },
+                            "laborRateCents": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000000
+                            },
+                            "laborCostCents": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100000000
+                            }
+                          },
+                          "required": [
+                            "minMarginBp",
+                            "markupBp",
+                            "laborRateCents",
+                            "laborCostCents"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "estimatesWaitingOk": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     },
                     "counts": {
                       "type": "object",
@@ -249020,6 +250440,8 @@
                     "name",
                     "settings",
                     "may",
+                    "estimating",
+                    "estimatesWaitingOk",
                     "counts",
                     "today",
                     "kinds",
@@ -250005,6 +251427,1396 @@
                   },
                   "required": [
                     "properties"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/contractor.estimate.get": {
+      "post": {
+        "operationId": "query_contractor_estimate_get",
+        "summary": "One estimate as its builder needs it: the estimate itself, what each line costs, each option’s profit and margin, whether it’s waiting for an owner’s or admin’s OK, the job it’s for, and how the business estimates. With no estimate named, what a new one for a job starts from. For people who may see job costs.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires contractor.costs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "estimateId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "jobId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estimate": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "publicRef": {
+                              "type": "string"
+                            },
+                            "number": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "sent",
+                                "accepted",
+                                "declined",
+                                "expired",
+                                "void"
+                              ]
+                            },
+                            "state": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "person": {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "fullName": {
+                                  "type": "string"
+                                },
+                                "email": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "phone": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "fullName",
+                                "email",
+                                "phone"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "leadId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "assignee": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "fullName": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "fullName"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "totals": {
+                              "type": "object",
+                              "properties": {
+                                "subtotalCents": {
+                                  "type": "number"
+                                },
+                                "discountCents": {
+                                  "type": "number"
+                                },
+                                "discountPercentBp": {
+                                  "type": [
+                                    "number",
+                                    "null"
+                                  ]
+                                },
+                                "taxableBaseCents": {
+                                  "type": "number"
+                                },
+                                "taxCents": {
+                                  "type": "number"
+                                },
+                                "taxRateBp": {
+                                  "type": "number"
+                                },
+                                "taxLabel": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "totalCents": {
+                                  "type": "number"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "subtotalCents",
+                                "discountCents",
+                                "discountPercentBp",
+                                "taxableBaseCents",
+                                "taxCents",
+                                "taxRateBp",
+                                "taxLabel",
+                                "totalCents",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "deposit": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "none",
+                                    "percent",
+                                    "amount"
+                                  ]
+                                },
+                                "percentBp": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 10000
+                                },
+                                "amountCents": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100000000000
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "percentBp",
+                                "amountCents"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "depositCents": {
+                              "type": "number"
+                            },
+                            "optionCount": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "optionName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "expiresOn": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "sentAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "firstViewedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "acceptedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "declinedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "voidedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            },
+                            "notes": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "linkVersion": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "acceptedName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "acceptedVia": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "link",
+                                    "staff"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "acceptedBy": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "fullName": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "fullName"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "acceptedWording": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "declinedReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "voidReason": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "lines": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "productId": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "description": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "quantity": {
+                                    "type": "number"
+                                  },
+                                  "unitLabel": {
+                                    "type": "string"
+                                  },
+                                  "unitPriceCents": {
+                                    "type": "number"
+                                  },
+                                  "taxable": {
+                                    "type": "boolean"
+                                  },
+                                  "discountCents": {
+                                    "type": "number"
+                                  },
+                                  "allocatedCents": {
+                                    "type": "number"
+                                  },
+                                  "amountCents": {
+                                    "type": "number"
+                                  },
+                                  "netCents": {
+                                    "type": "number"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "position",
+                                  "productId",
+                                  "name",
+                                  "description",
+                                  "quantity",
+                                  "unitLabel",
+                                  "unitPriceCents",
+                                  "taxable",
+                                  "discountCents",
+                                  "allocatedCents",
+                                  "amountCents",
+                                  "netCents"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "options": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "lines": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "position": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "productId": {
+                                          "anyOf": [
+                                            {
+                                              "type": "string",
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                            },
+                                            {
+                                              "type": "null"
+                                            }
+                                          ]
+                                        },
+                                        "name": {
+                                          "type": "string"
+                                        },
+                                        "description": {
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "quantity": {
+                                          "type": "number"
+                                        },
+                                        "unitLabel": {
+                                          "type": "string"
+                                        },
+                                        "unitPriceCents": {
+                                          "type": "number"
+                                        },
+                                        "taxable": {
+                                          "type": "boolean"
+                                        },
+                                        "discountCents": {
+                                          "type": "number"
+                                        },
+                                        "allocatedCents": {
+                                          "type": "number"
+                                        },
+                                        "amountCents": {
+                                          "type": "number"
+                                        },
+                                        "netCents": {
+                                          "type": "number"
+                                        }
+                                      },
+                                      "required": [
+                                        "position",
+                                        "productId",
+                                        "name",
+                                        "description",
+                                        "quantity",
+                                        "unitLabel",
+                                        "unitPriceCents",
+                                        "taxable",
+                                        "discountCents",
+                                        "allocatedCents",
+                                        "amountCents",
+                                        "netCents"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "totals": {
+                                    "type": "object",
+                                    "properties": {
+                                      "subtotalCents": {
+                                        "type": "number"
+                                      },
+                                      "discountCents": {
+                                        "type": "number"
+                                      },
+                                      "discountPercentBp": {
+                                        "type": [
+                                          "number",
+                                          "null"
+                                        ]
+                                      },
+                                      "taxableBaseCents": {
+                                        "type": "number"
+                                      },
+                                      "taxCents": {
+                                        "type": "number"
+                                      },
+                                      "taxRateBp": {
+                                        "type": "number"
+                                      },
+                                      "taxLabel": {
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "totalCents": {
+                                        "type": "number"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "subtotalCents",
+                                      "discountCents",
+                                      "discountPercentBp",
+                                      "taxableBaseCents",
+                                      "taxCents",
+                                      "taxRateBp",
+                                      "taxLabel",
+                                      "totalCents",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "depositCents": {
+                                    "type": "number"
+                                  },
+                                  "picked": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "position",
+                                  "name",
+                                  "lines",
+                                  "totals",
+                                  "depositCents",
+                                  "picked"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "builtBy": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "addonId": {
+                                      "type": "string"
+                                    },
+                                    "name": {
+                                      "type": "string"
+                                    },
+                                    "running": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "addonId",
+                                    "name",
+                                    "running"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "publicRef",
+                            "number",
+                            "status",
+                            "state",
+                            "title",
+                            "person",
+                            "leadId",
+                            "assignee",
+                            "totals",
+                            "deposit",
+                            "depositCents",
+                            "optionCount",
+                            "optionName",
+                            "expiresOn",
+                            "sentAt",
+                            "firstViewedAt",
+                            "acceptedAt",
+                            "declinedAt",
+                            "voidedAt",
+                            "createdAt",
+                            "notes",
+                            "revision",
+                            "linkVersion",
+                            "acceptedName",
+                            "acceptedVia",
+                            "acceptedBy",
+                            "acceptedWording",
+                            "declinedReason",
+                            "voidReason",
+                            "lines",
+                            "options",
+                            "builtBy"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "costs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "option": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "line": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "labor",
+                              "material",
+                              "other"
+                            ]
+                          },
+                          "unitCostCents": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "option",
+                          "line",
+                          "kind",
+                          "unitCostCents"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "job": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "name": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "name"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "person": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "format": "uuid",
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                            },
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "email": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "phone": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fullName",
+                            "email",
+                            "phone"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "check": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "options": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "name": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "priceCents": {
+                                    "type": "number"
+                                  },
+                                  "laborCents": {
+                                    "type": "number"
+                                  },
+                                  "materialsCents": {
+                                    "type": "number"
+                                  },
+                                  "otherCents": {
+                                    "type": "number"
+                                  },
+                                  "costCents": {
+                                    "type": "number"
+                                  },
+                                  "laborHours": {
+                                    "type": "number"
+                                  },
+                                  "profitCents": {
+                                    "type": "number"
+                                  },
+                                  "marginBp": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "uncosted": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "position",
+                                  "name",
+                                  "priceCents",
+                                  "laborCents",
+                                  "materialsCents",
+                                  "otherCents",
+                                  "costCents",
+                                  "laborHours",
+                                  "profitCents",
+                                  "marginBp",
+                                  "uncosted"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "lowest": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "name": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "marginBp": {
+                                      "anyOf": [
+                                        {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "name",
+                                    "marginBp"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "minMarginBp": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "uncosted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "needsOk": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "margin",
+                                    "uncosted"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "ok": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "by": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "at": {
+                                      "type": "string"
+                                    },
+                                    "note": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "by",
+                                    "at",
+                                    "note"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "asked": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "by": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "by",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "canSend": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "options",
+                            "lowest",
+                            "minMarginBp",
+                            "uncosted",
+                            "needsOk",
+                            "ok",
+                            "asked",
+                            "canSend"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "estimating": {
+                      "type": "object",
+                      "properties": {
+                        "minMarginBp": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9000
+                        },
+                        "markupBp": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000
+                        },
+                        "laborRateCents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "laborCostCents": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        }
+                      },
+                      "required": [
+                        "minMarginBp",
+                        "markupBp",
+                        "laborRateCents",
+                        "laborCostCents"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "may": {
+                      "type": "object",
+                      "properties": {
+                        "approve": {
+                          "type": "boolean"
+                        },
+                        "bill": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "approve",
+                        "bill"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "estimate",
+                    "costs",
+                    "job",
+                    "person",
+                    "check",
+                    "estimating",
+                    "may"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/contractor.estimate.list": {
+      "post": {
+        "operationId": "query_contractor_estimate_list",
+        "summary": "The estimates built in Contractor Operations, newest first: all of them, one job’s, or only the drafts waiting for an owner’s or admin’s OK. Each with its status, customer, total, options, job and whether an OK was asked for or given. No costs.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires contractor.use.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "jobId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "waitingOk": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estimates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "number": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "customer": {
+                            "type": "string"
+                          },
+                          "totalCents": {
+                            "type": "number"
+                          },
+                          "optionCount": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "optionName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "job": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "name": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "name"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "asked": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "by": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "by",
+                                  "at"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "okStands": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "number",
+                          "status",
+                          "title",
+                          "customer",
+                          "totalCents",
+                          "optionCount",
+                          "optionName",
+                          "job",
+                          "asked",
+                          "okStands",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "estimates"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/queries/contractor.item_cost.list": {
+      "post": {
+        "operationId": "query_contractor_item_cost_list",
+        "summary": "The business’s price list with what each item costs it: its price, its cost, how it’s costed (labor, material, other) and the margin between them. For people who may see job costs.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires contractor.costs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "productKind": {
+                            "type": "string",
+                            "enum": [
+                              "product",
+                              "service",
+                              "fee"
+                            ]
+                          },
+                          "unitLabel": {
+                            "type": "string"
+                          },
+                          "unitPriceCents": {
+                            "type": "number"
+                          },
+                          "taxable": {
+                            "type": "boolean"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "labor",
+                              "material",
+                              "other"
+                            ]
+                          },
+                          "costCents": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "marginBp": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "productId",
+                          "name",
+                          "description",
+                          "productKind",
+                          "unitLabel",
+                          "unitPriceCents",
+                          "taxable",
+                          "kind",
+                          "costCents",
+                          "marginBp"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
                   ],
                   "additionalProperties": false
                 }

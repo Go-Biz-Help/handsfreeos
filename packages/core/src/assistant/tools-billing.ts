@@ -116,7 +116,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'get_money_document',
     description:
-      'One estimate or invoice in full, as its page shows it: its lines (numbered, with their descriptions), discount, tax, total, deposit, due or good-until date and where it stands; what has happened to it (written, sent, opened, approved, declined, paid, voided, with when) and who started it; for an invoice, whether it is a deposit, the account it is paid into, the estimate or plan it came from, the payments against it (with ids, for refund_payment) and any refunds; for an estimate, the invoices made from it. Pass one id, from customer_money, money_owed, estimates_waiting, read_invoice_list or read_estimate_list. Call it before changing a draft or refunding.',
+      'One estimate or invoice in full, as its page shows it: its lines (numbered, with their descriptions), discount, tax, total, deposit, due or good-until date and where it stands; for an estimate that offers good, better and best, each option with its own lines and total, and which one they picked; what has happened to it (written, sent, opened, approved, declined, paid, voided, with when) and who started it; for an invoice, whether it is a deposit, the account it is paid into, the estimate or plan it came from, the payments against it (with ids, for refund_payment) and any refunds; for an estimate, the invoices made from it. Pass one id, from customer_money, money_owed, estimates_waiting, read_invoice_list or read_estimate_list. Call it before changing a draft or refunding.',
     input: z.object({
       estimateId: uuid.optional(),
       invoiceId: uuid.optional(),
@@ -167,11 +167,25 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'write_estimate',
     description:
-      'Write a new estimate for a customer (personId from search_customers), or change one that is still a draft (estimateId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price, and on a change can be taken off, added, or changed where they are; add a discount, the deposit to ask for when they say yes, a note and the lead it is for (a new one opened from a lead is with that lead’s owner, as the screen starts it). On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with send_estimate. Nothing is saved until the person says yes on the card.',
+      'Write a new estimate for a customer (personId from search_customers), or change one that is still a draft (estimateId; read it with get_money_document first). Lines come from the catalogue or are typed as one-offs with a quantity and a price, and on a change can be taken off, added, or changed where they are; add a discount, the deposit to ask for when they say yes, a note and the lead it is for (a new one opened from a lead is with that lead’s owner, as the screen starts it). It can offer good, better and best: two or three options, each with a name and its own lines, and the customer picks one when they approve. On a change pass only what changes. It stays a draft: nothing goes to the customer until it is sent with send_estimate. An estimate an add-on built (get_money_document says builtIn) is changed with that add-on’s tools instead. Nothing is saved until the person says yes on the card.',
     input: z.object({
       estimateId: uuid.optional().describe('Leave out to write a new one'),
       personId: uuid.optional().describe('Who it is for. Needed for a new one'),
       ...documentFields,
+      options: z
+        .array(
+          z.object({
+            name: text(60).describe('What the customer reads: Good, Better, Best, or your own'),
+            lines: z.array(Line).min(1).max(50).describe('Every line of this option, in order'),
+          }),
+        )
+        .min(2)
+        .max(3)
+        .nullable()
+        .optional()
+        .describe(
+          'Good, better, best: two or three options the customer picks one of, in the order they read. Pass them whole, and leave lines out. On a change this replaces every option; null goes back to one price (its first option’s lines, unless lines is given). Left out on a change, the options stay and lines, addLines, removeLines and changeLines change the first one. The discount and the deposit apply to whichever they pick',
+        ),
       depositPercent: z
         .number()
         .min(0)
@@ -194,7 +208,7 @@ export const billingTools: readonly AssistantTool[] = [
   define({
     name: 'manage_estimate',
     description:
-      'Act on an estimate (id from customer_money, estimates_waiting or get_money_document). void: withdraw it — it keeps its number, the customer’s link says it was withdrawn, and it can’t be undone. record_yes: the customer said yes on the phone or in person; it is recorded in the person’s name, never as the customer’s own approval. make_invoice: turn a sent or approved estimate into a draft invoice, for the whole job or only its deposit, paid into the account named or the person’s usual one (send it afterwards with manage_invoice). Sending an estimate is send_estimate. Nothing happens until the person says yes on the card.',
+      'Act on an estimate (id from customer_money, estimates_waiting or get_money_document). void: withdraw it — it keeps its number, the customer’s link says it was withdrawn, and it can’t be undone. record_yes: the customer said yes on the phone or in person; it is recorded in the person’s name, never as the customer’s own approval; when the estimate offers options, say which one they chose. make_invoice: turn a sent or approved estimate into a draft invoice, for the whole job or only its deposit, paid into the account named or the person’s usual one (send it afterwards with manage_invoice); one with options is invoiced once an option is picked. Sending an estimate is send_estimate. Nothing happens until the person says yes on the card.',
     input: z.object({
       estimateId: uuid,
       action: z.enum(['void', 'record_yes', 'make_invoice']),
@@ -203,6 +217,14 @@ export const billingTools: readonly AssistantTool[] = [
         .optional()
         .describe('record_yes: who said yes, as they gave it. Left out, the customer’s name'),
       note: text(500).optional().describe('record_yes: anything worth noting'),
+      option: z
+        .int()
+        .min(1)
+        .max(3)
+        .optional()
+        .describe(
+          'record_yes: which option they chose, by its number in get_money_document, when the estimate offers options',
+        ),
       bill: z
         .enum(['whole_job', 'deposit_only'])
         .default('whole_job')

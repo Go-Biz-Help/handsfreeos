@@ -190,6 +190,8 @@ export const ADDON_SLOTS = [
   'composer.suggestions',
   // Settings → Main offer, under the live version: how it's doing in an add-on that uses it (Social Outreach).
   'main_offer.panels',
+  // An estimate's page in Money: what the add-on that built it knows (Contractor Operations: its builder and margin).
+  'estimate.panels',
 ] as const;
 export type AddonSlotName = (typeof ADDON_SLOTS)[number];
 

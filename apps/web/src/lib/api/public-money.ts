@@ -98,6 +98,22 @@ export interface PublicMoneyLine {
   readonly netCents: number;
 }
 
+/**
+ * One of an estimate's options (good, better, best): its own lines, totals and deposit, and the sentence that
+ * sits above Approve when it's the one picked.
+ */
+export interface PublicEstimateOption {
+  /** Counted from 1, in the order the business offers them. */
+  readonly position: number;
+  readonly name: string;
+  readonly lines: readonly Omit<PublicMoneyLine, 'id'>[];
+  readonly totals: MoneyTotals;
+  readonly depositCents: number;
+  /** The one the estimate's own lines and totals are: the first, until one is approved. */
+  readonly picked: boolean;
+  readonly wording: string;
+}
+
 /** `draft` never reaches a customer: the worker answers a draft's link as "this link doesn't work". */
 export type PublicEstimateState = 'sent' | 'viewed' | 'accepted' | 'declined' | 'expired' | 'void';
 
@@ -136,6 +152,8 @@ export interface PublicEstimateView {
     readonly totals: MoneyTotals;
     /** What is asked for up front if they approve; 0 when nothing is. */
     readonly depositCents: number;
+    /** The options to pick from, in order; empty for an estimate with one price. */
+    readonly options: readonly PublicEstimateOption[];
     /** The business-local day it stops being good ('YYYY-MM-DD'), and that day's closing instant. */
     readonly expiresOn: string | null;
     readonly expiresAt: string | null;
@@ -276,7 +294,10 @@ export const getEstimate = (token: string) =>
 export const markEstimateViewed = (token: string) =>
   post<{ firstViewedAt: string | null; changed: boolean }>(`${estimatePath(token)}/viewed`, {});
 
-export const acceptEstimate = (token: string, body: { name: string; website?: string }) =>
+export const acceptEstimate = (
+  token: string,
+  body: { name: string; option?: number | null; website?: string },
+) =>
   post<PublicEstimateView & { accepted: { at: string; name: string } }>(
     `${estimatePath(token)}/accept`,
     body,

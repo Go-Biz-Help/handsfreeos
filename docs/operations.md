@@ -9928,6 +9928,21 @@ Two more things worth saying to a client in the same breath:
 - **The money is theirs from the first payment.** Payouts go from Stripe or Square to their bank on the provider's own schedule. HandsFreeOS is never in the path, so there is nothing for them to chase us about and nothing of theirs for us to lose.
 - **They can revoke us.** From their own Stripe or Square dashboard, without telling us. HandsFreeOS hears about it through the webhook, marks the account disconnected, and says so on the Payments page.
 
+### Estimates with options: good, better, best
+
+Any business can offer two or three options on one estimate (the owner's decision 5 in `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`). The customer picks one when they approve.
+
+- **Writing one.** On a draft estimate, **Offer options** turns the lines so far into "Good" and adds "Better" as a copy; **Add an option** adds a third. Each option has its own name and lines. The discount and the deposit are the estimate's: they apply to whichever option the customer picks, and a deposit of a set amount has to fit inside the smallest option. **Take this option off** removes one; down to one, the estimate has one price again.
+- **The customer's page** lists the options with their totals. They pick one, see its lines, and approve it. The sentence they agree to names the option ("the “Better” option of this estimate for $4,800.00").
+- **A yes by phone.** **They said yes** asks **Which option they chose**.
+- **Once it's approved,** the estimate's own lines and totals are the picked option's, and the invoice is made from those. **Turn into an invoice** waits for the pick. The other options stay on the estimate's page to read.
+- **How it's kept.** The options live on the estimate (`app.estimates.options`, each with its name, lines and totals, worked out by core when the draft is saved, and frozen when it's sent). The estimate's own lines and totals are always one of them (`option_position`): the first until one is picked. So the phone, the lists and the sync streams read a whole estimate as before. `private.estimate_pick_option` is the only way a sent estimate's figures move, and only to an option frozen with it.
+- **The phone** shows and edits the first option's lines for now. A save from it keeps the other options.
+- **The Assistant** writes options with `write_estimate` (`options`), reads them with `get_money_document`, and records a yes for one with `manage_estimate` (`option`).
+- **Refusals** (`rule`): `estimate_options` (two options share a name), `estimate_pick_option` (an approval or an invoice needs the option named), `money_document_empty` (an option has no lines at send).
+
+**An estimate an add-on built.** An add-on's builder can write estimates through core's commands (Contractor Operations does, to check the margin). Core stamps `app.estimates.addon_id`, and while that add-on runs in the business, core's own editor, `estimate.update` and `estimate.send` refuse it (`estimate_built_elsewhere`) and the estimate's page says where to change it. With the add-on off, it's an estimate like any other. The add-on puts its panel on the estimate's page through the `estimate.panels` slot.
+
 ### Before a client takes a real payment
 
 1. They connect their own account in **Settings** → **Payments**, signed in as an owner or admin. If they have more than one, mark the one money should land in as **Default**.

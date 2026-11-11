@@ -3,6 +3,14 @@
  * kept. Browser-safe: the web, the phone and the worker read them.
  */
 import { z } from 'zod';
+import {
+  EstimateGetOutput as CoreEstimateGetOutput,
+  EstimateSendInput as CoreEstimateSendInput,
+  EstimateStateOutput as CoreEstimateStateOutput,
+  MoneyLineInput,
+  MoneyTerms,
+} from '../../schemas/money';
+import { COST_KINDS } from './estimating';
 import { JOB_KINDS, JOB_STATUSES, PHASE_STATUSES } from './progress';
 import { TRADES } from './trades';
 
@@ -23,6 +31,15 @@ export const LIMITS = {
   /** The most a price or a budget line may be: $100 million. */
   cents: 10_000_000_000,
   hours: 100_000,
+  /** The highest a lowest margin can be set: 90%. */
+  minMarginBp: 9_000,
+  /** The highest a starting markup can be set: 1,000%. */
+  markupBp: 100_000,
+  /** The most an hour of labor sells for or costs: $1 million. */
+  hourCents: 100_000_000,
+  /** The most one unit of anything costs: $1 billion, as a line's price. */
+  unitCostCents: 100_000_000_000,
+  okNote: 500,
 } as const;
 
 export const Trade = z.enum(TRADES);
@@ -278,11 +295,41 @@ export const JobDetail = JobRow.extend({
   recordTypeId: uuid,
 });
 
+export const CostKind = z.enum(COST_KINDS);
+const unitCost = z
+  .int()
+  .min(0, 'Not below $0.')
+  .max(LIMITS.unitCostCents, 'That’s more than $1 billion.');
+const hourCents = z
+  .int()
+  .min(0, 'Not below $0.')
+  .max(LIMITS.hourCents, 'That’s more than $1 million an hour.');
+
+/** How the business estimates: its lowest margin, starting markup, and labor's price and cost per hour. */
+export const Estimating = z.object({
+  /** Basis points: 2,000 is 20%. An estimate under it waits for an OK (the owner's decision 6). */
+  minMarginBp: z.int().min(0, 'From 0% to 90%.').max(LIMITS.minMarginBp, 'From 0% to 90%.'),
+  /** What a new line's price starts at over its cost: 5,000 is 50%. */
+  markupBp: z.int().min(0, 'From 0% up.').max(LIMITS.markupBp, 'Up to 1,000%.'),
+  laborRateCents: hourCents,
+  laborCostCents: hourCents,
+});
+export type Estimating = z.infer<typeof Estimating>;
 export const OverviewOutput = z.object({
   name: z.string(),
   settings: ContractorSettingsSchema,
   /** What the person asking may do. */
-  may: z.object({ manage: z.boolean(), costs: z.boolean(), assign: z.boolean() }),
+  may: z.object({
+    manage: z.boolean(),
+    costs: z.boolean(),
+    assign: z.boolean(),
+    /** OK an estimate under the lowest margin, and set that margin. */
+    approve: z.boolean(),
+  }),
+  /** How the business estimates; null for anyone who may not see job costs. */
+  estimating: Estimating.nullable(),
+  /** Estimates someone asked an OK for that hasn't been given; 0 for anyone who can't give one. */
+  estimatesWaitingOk: z.int(),
   counts: z.object({
     open: z.int(),
     late: z.int(),
@@ -322,3 +369,184 @@ export const PropertyAddInput = z.object({
   ownerPersonId: uuid.nullable().optional(),
 });
 export const PropertyAddOutput = z.object({ propertyId: uuid, name: z.string() });
+
+// ---------- part 2: costs and estimates ----------
+
+export const EstimatingSaveInput = Estimating.partial().extend({ workspaceId: uuid });
+export const EstimatingSaveOutput = Estimating;
+
+/** A price list item with what it costs the business. */
+export const ItemCostRow = z.object({
+  productId: uuid,
+  name: z.string(),
+  description: z.string().nullable(),
+  /** Core's kind: a product, a service or a fee. */
+  productKind: z.enum(['product', 'service', 'fee']),
+  unitLabel: z.string(),
+  unitPriceCents: z.number(),
+  taxable: z.boolean(),
+  /** How it's costed, and what one costs; null when nobody has said. */
+  kind: CostKind,
+  costCents: z.number().nullable(),
+  marginBp: z.int().nullable(),
+});
+export const ItemCostListOutput = z.object({ items: z.array(ItemCostRow) });
+export const ItemCostSetInput = z.object({
+  workspaceId: uuid,
+  productId: uuid,
+  /** What one costs the business, in cents; null takes the cost off. */
+  costCents: unitCost.nullable(),
+  /** Labor (by the hour), a material, or anything else. Left out, a service is labor and the rest material. */
+  kind: CostKind.optional(),
+});
+export const ItemCostSetOutput = z.object({ productId: uuid, changed: z.boolean() });
+
+/** A line in the builder: core's line, with what kind of cost it is and what one unit costs. */
+export const EstimateLineInput = MoneyLineInput.extend({
+  kind: CostKind.default('material'),
+  unitCostCents: unitCost.nullable().default(null),
+});
+export type EstimateLineInput = z.infer<typeof EstimateLineInput>;
+
+export const EstimateSaveInput = z.object({
+  workspaceId: uuid,
+  /** Left out, a new estimate is written. */
+  estimateId: uuid.optional(),
+  /** The revision the builder loaded: someone else's save in between is kept and this one refused. */
+  baseRevision: z.int().min(1).optional(),
+  /** The job it's for. Its customer is who the estimate is for, unless one is named. */
+  jobId: uuid.nullable().optional(),
+  personId: uuid.optional(),
+  title: z.string().trim().max(200).nullable().optional(),
+  notes: z.string().trim().max(5_000).nullable().optional(),
+  discount: MoneyTerms.optional(),
+  deposit: MoneyTerms.optional(),
+  expiresOn: Day.nullable().optional(),
+  /**
+   * One option for one price, or two or three for good, better, best (the owner's decision 5). Each has every one of
+   * its lines; an option's name is what the customer reads, and isn't needed for one price.
+   */
+  options: z
+    .array(
+      z.object({
+        name: z.string().trim().max(60, 'Keep an option’s name under 60 characters.').default(''),
+        lines: z.array(EstimateLineInput).min(1, 'Add at least one line.').max(200),
+      }),
+    )
+    .min(1, 'Add at least one line.')
+    .max(3, 'Three options at most.'),
+});
+
+/** One option, costed. `name` is null for an estimate with one price. */
+export const OptionCostingOut = z.object({
+  position: z.int(),
+  name: z.string().nullable(),
+  priceCents: z.number(),
+  laborCents: z.number(),
+  materialsCents: z.number(),
+  otherCents: z.number(),
+  costCents: z.number(),
+  laborHours: z.number(),
+  profitCents: z.number(),
+  marginBp: z.int().nullable(),
+  uncosted: z.int(),
+});
+
+/** Whether an estimate can go out, and what it's waiting on. */
+export const MarginCheckOut = z.object({
+  options: z.array(OptionCostingOut),
+  lowest: z.object({ name: z.string().nullable(), marginBp: z.int().nullable() }).nullable(),
+  minMarginBp: z.int(),
+  uncosted: z.int(),
+  /** Why it waits for an owner's or admin's OK; null when it doesn't. */
+  needsOk: z.enum(['margin', 'uncosted']).nullable(),
+  /** An OK that still stands: given for the estimate exactly as it is now. */
+  ok: z
+    .object({ by: z.string().nullable(), at: z.string(), note: z.string().nullable() })
+    .nullable(),
+  /** Someone asked for the OK. */
+  asked: z.object({ by: z.string().nullable(), at: z.string() }).nullable(),
+  /** It can be sent now: nothing to OK, or the OK stands. */
+  canSend: z.boolean(),
+});
+export type MarginCheckOut = z.infer<typeof MarginCheckOut>;
+
+export const EstimateSaveOutput = z.object({
+  estimateId: uuid,
+  revision: z.int(),
+  totalCents: z.number(),
+  created: z.boolean(),
+  check: MarginCheckOut,
+});
+
+export const EstimateBuilderInput = z.object({
+  workspaceId: uuid,
+  /** Left out, the builder opens empty for `jobId`. */
+  estimateId: uuid.optional(),
+  jobId: uuid.optional(),
+});
+const PersonLite = z.object({
+  id: uuid,
+  fullName: z.string(),
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+});
+export const EstimateBuilderOutput = z.object({
+  /** Core's estimate, whole, as its own page reads it; null for a new one. */
+  estimate: CoreEstimateGetOutput.shape.estimate.nullable(),
+  /** What each line costs, by option (1 for one price) and the line's place in it. */
+  costs: z.array(
+    z.object({
+      option: z.int(),
+      line: z.int(),
+      kind: CostKind,
+      unitCostCents: z.number().nullable(),
+    }),
+  ),
+  job: z.object({ id: uuid, name: z.string() }).nullable(),
+  /** Who a new estimate is for: the job's customer. */
+  person: PersonLite.nullable(),
+  check: MarginCheckOut.nullable(),
+  estimating: Estimating,
+  may: z.object({ approve: z.boolean(), bill: z.boolean() }),
+});
+
+export const EstimateRefInput = z.object({ workspaceId: uuid, estimateId: uuid });
+export const EstimateOkInput = EstimateRefInput.extend({
+  note: z.string().trim().max(LIMITS.okNote).optional(),
+});
+export const EstimateOkOutput = z.object({ estimateId: uuid, changed: z.boolean() });
+export const EstimateSendInput = CoreEstimateSendInput;
+export const EstimateSendOutput = CoreEstimateStateOutput;
+
+export const EstimateListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid.optional(),
+  /** Only drafts someone asked an OK for that hasn't been given. */
+  waitingOk: z.boolean().default(false),
+});
+export const EstimateListOutput = z.object({
+  estimates: z.array(
+    z.object({
+      id: uuid,
+      number: z.string().nullable(),
+      status: z.string(),
+      title: z.string().nullable(),
+      customer: z.string(),
+      totalCents: z.number(),
+      /** 0 for one price; 2 or 3 for good, better, best. */
+      optionCount: z.int(),
+      /** The option they picked, once approved. */
+      optionName: z.string().nullable(),
+      job: z.object({ id: uuid, name: z.string() }).nullable(),
+      asked: z.object({ by: z.string().nullable(), at: z.string() }).nullable(),
+      /** An OK given for it exactly as it is now. */
+      okStands: z.boolean(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+
+/** The worker: an approved estimate fills its job's price and budget. */
+export const EstimateFillJobInput = z.object({ workspaceId: uuid, estimateId: uuid });
+export const EstimateFillJobOutput = z.object({ jobId: uuid, estimates: z.int() }).nullable();

@@ -11,6 +11,9 @@
  *   would stop matching what was on screen.
  * - **Any typed name is taken.** People type "Maria L."; what is kept is what they typed, the words they saw
  *   and the moment.
+ *
+ * An estimate may offer two or three options (good, better, best). The customer picks one; the page then shows
+ * that option's lines, total and deposit, and the sentence above Approve is the worker's for that option.
  */
 import { CircleAlert, CircleCheck, CircleSlash, Link2Off } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -81,6 +84,8 @@ export function PublicEstimate({ token }: { token: string }) {
   const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The option being looked at, on an estimate that offers more than one: the first until they pick another. */
+  const [pick, setPick] = useState<number | null>(null);
   const opened = useRef(false);
 
   useEffect(() => {
@@ -135,7 +140,12 @@ export function PublicEstimate({ token }: { token: string }) {
     setBusy(true);
     setNameError(null);
     try {
-      answered(await acceptEstimate(token, { name: typed, website }));
+      // The option on screen: the one they picked, or the first when they left it as it opened.
+      const offered = view?.estimate.options ?? [];
+      const chosen = offered.find((o) => o.position === pick) ?? offered[0] ?? null;
+      answered(
+        await acceptEstimate(token, { name: typed, option: chosen?.position ?? null, website }),
+      );
     } catch (e) {
       await failedAnswer(e);
     } finally {
@@ -199,10 +209,14 @@ export function PublicEstimate({ token }: { token: string }) {
     );
 
   const { business, estimate, answer } = view;
-  const total = estimate.totals.totalCents;
-  const deposit = estimate.depositCents;
   const open = answer.canAccept || answer.canDecline;
   const isAnswered = !!(answer.acceptedAt || answer.declinedAt);
+  // Until it's approved, every option can be read; after, the estimate is the one they approved.
+  const options = answer.acceptedAt ? [] : estimate.options;
+  const option = options.find((o) => o.position === pick) ?? options[0] ?? null;
+  const approved = answer.acceptedAt ? (estimate.options.find((o) => o.picked) ?? null) : null;
+  const total = option ? option.totals.totalCents : estimate.totals.totalCents;
+  const deposit = option ? option.depositCents : estimate.depositCents;
 
   // Withdrawn: there is nothing left to read, and a price the business has pulled shouldn't stay on screen.
   if (view.state === 'void')
@@ -233,8 +247,12 @@ export function PublicEstimate({ token }: { token: string }) {
       number={estimate.number}
       title={estimate.title}
       when={estimate.sentAt ? momentShort(estimate.sentAt) : null}
-      lines={estimate.lines}
-      totals={estimate.totals}
+      lines={
+        option
+          ? option.lines.map((l) => ({ ...l, id: `option-${option.position}-${l.position}` }))
+          : estimate.lines
+      }
+      totals={option ? option.totals : estimate.totals}
       extra={depositRows}
     />
   );
@@ -262,7 +280,7 @@ export function PublicEstimate({ token }: { token: string }) {
               data-testid="approve-open"
             >
               <CircleCheck size={17} aria-hidden />
-              Approve this estimate
+              {option ? `Approve “${option.name}”` : 'Approve this estimate'}
             </Button>
             <Button
               variant="ghost"
@@ -283,8 +301,10 @@ export function PublicEstimate({ token }: { token: string }) {
       <MoneyBody testId="estimate-body">
         {answer.acceptedAt ? (
           <OkBox icon={<CircleCheck size={19} />} testId="estimate-approved">
-            <b className="font-semibold">Approved.</b> {momentLong(answer.acceptedAt)}, by{' '}
-            {answer.acceptedName ?? view.customer.name}.
+            <b className="font-semibold">
+              {approved ? `“${approved.name}” approved.` : 'Approved.'}
+            </b>{' '}
+            {momentLong(answer.acceptedAt)}, by {answer.acceptedName ?? view.customer.name}.
             {view.customer.email ? (
               <>
                 <br />A copy is on its way to {view.customer.email}.
@@ -349,6 +369,46 @@ export function PublicEstimate({ token }: { token: string }) {
           </p>
         ) : null}
 
+        {options.length ? (
+          <div
+            className="rounded-card border border-border bg-card px-4 py-3.5 shadow-1"
+            data-testid="estimate-options"
+            data-print="card"
+          >
+            <SectionLabel>{open ? 'Pick an option' : 'The options'}</SectionLabel>
+            <div className="mt-1 flex flex-col gap-2" role="radiogroup" aria-label="Options">
+              {options.map((o) => {
+                const on = o.position === option?.position;
+                return (
+                  <button
+                    key={o.position}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setPick(o.position)}
+                    className={
+                      on
+                        ? 'flex min-h-11 items-center justify-between gap-3 rounded-control border-2 border-accent bg-accent-soft px-3 py-2 text-left'
+                        : 'flex min-h-11 items-center justify-between gap-3 rounded-control border border-border-strong bg-card px-3 py-2 text-left hover:bg-card-2'
+                    }
+                    data-testid={`estimate-option-${o.position}`}
+                  >
+                    <span className="min-w-0 truncate text-[14.5px] font-semibold">{o.name}</span>
+                    <span className="flex-none text-[14.5px] font-semibold tabular-nums">
+                      {money(o.totals.totalCents)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[12.5px] leading-[1.5] text-text-3">
+              {open
+                ? 'What’s in the one you pick is below. You approve one of them.'
+                : 'What’s in each one is below.'}
+            </p>
+          </div>
+        ) : null}
+
         {document}
         {estimate.notes?.trim() ? <NotesCard notes={estimate.notes} business={business} /> : null}
         <PageActions business={business} />
@@ -357,7 +417,7 @@ export function PublicEstimate({ token }: { token: string }) {
       <BottomSheet
         open={asking === 'approve'}
         onOpenChange={(next) => setAsking(next ? 'approve' : null)}
-        title="Approve this estimate"
+        title={option ? `Approve “${option.name}”` : 'Approve this estimate'}
         testId="approve-sheet"
       >
         <TotalRow label="Total" value={money(total)} big />
@@ -386,7 +446,7 @@ export function PublicEstimate({ token }: { token: string }) {
         </div>
         {/* The worker's own sentence, word for word: it is what the acceptance is recorded with. */}
         <p className="text-[13px] leading-[1.5] text-text-2" data-testid="approve-wording">
-          {answer.wording}
+          {option ? option.wording : answer.wording}
         </p>
         <Button
           size="lg"
