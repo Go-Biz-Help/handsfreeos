@@ -20,7 +20,7 @@ import {
   type AddressAnswer,
   type AnswerValue,
 } from './questions';
-import type { RecordedAnswer } from './render';
+import { isEmailAddress, type RecordedAnswer } from './render';
 import { isBookingAnswer } from './booking';
 import { watchedWords } from './video';
 
@@ -39,6 +39,53 @@ const text = (value: AnswerValue): string | null => {
   if (typeof value === 'number') return String(value);
   return null;
 };
+
+/**
+ * The longest each of a customer's details can be (`schemas/person.ts`, `schemas/crm.ts`). A form's boxes allow
+ * more (a short answer takes 120 characters, a town 120), and an answer that saves to the customer is cut to
+ * fit rather than failing the whole submission over a few letters nobody will miss.
+ */
+export const PERSON_LIMITS = {
+  name: 80,
+  notes: 10_000,
+  source: 80,
+  line1: 200,
+  line2: 200,
+  city: 100,
+  state: 50,
+  postalCode: 20,
+} as const;
+
+/** Cut to fit, without leaving a space hanging off the end. */
+export const fit = (value: string, max: number): string => value.slice(0, max).trim();
+
+/** An address answer cut to fit the customer's address. */
+function fitAddress(value: AddressAnswer): AddressAnswer {
+  const part = (v: unknown, max: number) => (typeof v === 'string' ? fit(v, max) : '');
+  return {
+    line1: part(value.line1, PERSON_LIMITS.line1),
+    line2: part(value.line2, PERSON_LIMITS.line2),
+    city: part(value.city, PERSON_LIMITS.city),
+    state: part(value.state, PERSON_LIMITS.state),
+    postalCode: part(value.postalCode, PERSON_LIMITS.postalCode),
+  };
+}
+
+const isAddress = (value: AnswerValue): value is AddressAnswer =>
+  !!value && typeof value === 'object' && !Array.isArray(value);
+
+/** What an answer says in words: a picked choice is its label (or what they typed under Other), not its id. */
+function answerText(question: Question, value: AnswerValue): string | null {
+  if (question.type === 'choice' && typeof value === 'string') {
+    const choices = (question.config as { choices?: { id: string; label: string }[] }).choices;
+    return choices?.find((c) => c.id === value)?.label ?? text(value);
+  }
+  return text(value);
+}
+
+/** The town an answer gives: a short answer's words, or the town out of an address. */
+const cityOf = (value: AnswerValue): string | null =>
+  isAddress(value) ? text((value as { city?: string }).city ?? null) : text(value);
 
 /** The first answer to a question the business pointed at that field. */
 function mapped(definition: FormDefinition, answers: AnswerSheet, target: string): AnswerValue {
@@ -110,21 +157,30 @@ export function contactFromAnswers(definition: FormDefinition, answers: AnswerSh
   const typed = text(
     mapped(definition, answers, 'person.phone') ?? firstOfType(definition, answers, 'phone'),
   );
-  // Matching is by E.164, so the number a customer typed in their own way finds the customer we have.
-  const phone = typed ? (normalizePhone(typed) ?? typed) : null;
+  // Matching is by E.164, so the number a customer typed in their own way finds the customer we have. Words
+  // that aren't a number are no number at all: the page asks again before it gets here, and a customer's
+  // record would refuse them.
+  const phone = typed ? normalizePhone(typed) : null;
   const addressValue =
     mapped(definition, answers, 'person.address') ?? firstOfType(definition, answers, 'address');
+  const answered = isAddress(addressValue) ? fitAddress(addressValue) : null;
+  // A "City" box is their town, on its own or where the address left it out.
+  const city = cityOf(mapped(definition, answers, 'person.city'));
   const address =
-    addressValue && typeof addressValue === 'object' && !Array.isArray(addressValue)
-      ? (addressValue as AddressAnswer)
-      : null;
+    city && !answered?.city
+      ? fitAddress({ ...(answered ?? { line1: '', line2: '', state: '', postalCode: '' }), city })
+      : answered;
   // "Dale Rivera" in one box is a first and a last name; one word is a first name.
   const whole = first && !last ? first.split(/\s+/) : null;
   return {
-    firstName: whole ? (whole[0] ?? '') : (first ?? ''),
-    lastName: whole && whole.length > 1 ? whole.slice(1).join(' ') : (last ?? ''),
+    firstName: fit(whole ? (whole[0] ?? '') : (first ?? ''), PERSON_LIMITS.name),
+    lastName: fit(
+      whole && whole.length > 1 ? whole.slice(1).join(' ') : (last ?? ''),
+      PERSON_LIMITS.name,
+    ),
     phone,
-    email,
+    // The page checks an email the same way the customer's record does, so this only drops one that slipped by.
+    email: email && isEmailAddress(email) ? email : null,
     address,
   };
 }
@@ -143,23 +199,29 @@ export interface PersonPatch {
   readonly custom: Record<string, unknown>;
 }
 
-const PERSON_COLUMNS: Readonly<Record<string, string>> = {
-  'person.first_name': 'firstName',
-  'person.last_name': 'lastName',
-  'person.email': 'email',
-  'person.phone': 'phone',
-  'person.phone_alt': 'phoneAlt',
-  'person.city': 'city',
-  'person.notes': 'notes',
+/** The customer's own fields a short answer writes, and how long each can be. */
+const PERSON_COLUMNS: Readonly<Record<string, { column: string; max: number }>> = {
+  'person.first_name': { column: 'firstName', max: PERSON_LIMITS.name },
+  'person.last_name': { column: 'lastName', max: PERSON_LIMITS.name },
+  'person.email': { column: 'email', max: 254 },
+  'person.phone': { column: 'phone', max: 40 },
+  'person.phone_alt': { column: 'phoneAlt', max: 40 },
+  'person.notes': { column: 'notes', max: PERSON_LIMITS.notes },
+  'person.source': { column: 'source', max: PERSON_LIMITS.source },
 };
 
-/** What the answers have to say about the customer and the lead, ready to be written. */
+/**
+ * What the answers have to say about the customer and the lead, ready to be written. Every value fits the
+ * record it's going on: words are cut to length, an email that isn't one is left out, a picked choice is its
+ * label, and a town lands in their address, since that's where a customer's town is kept.
+ */
 export function patchesFromAnswers(
   definition: FormDefinition,
   answers: AnswerSheet,
 ): { person: PersonPatch; lead: PersonPatch } {
   const person: PersonPatch = { fields: {}, custom: {} };
   const lead: PersonPatch = { fields: {}, custom: {} };
+  let city: string | null = null;
   for (const question of allQuestions(definition)) {
     const target = question.mapTo;
     if (!target) continue;
@@ -171,16 +233,38 @@ export function patchesFromAnswers(
       lead.custom[customTargetFieldId(target)] = value;
       continue;
     }
-    if (target === 'person.address' && typeof value === 'object') {
-      person.fields.address = value;
+    if (target === 'person.address') {
+      if (isAddress(value as AnswerValue) && person.fields.address === undefined)
+        person.fields.address = fitAddress(value as AddressAnswer);
       continue;
     }
-    if (target === 'lead.title') lead.fields.title = text(value as AnswerValue);
-    else if (target === 'lead.value') lead.fields.value = Number(value);
-    else {
-      const column = PERSON_COLUMNS[target];
-      if (column) person.fields[column] = text(value as AnswerValue) ?? value;
+    if (target === 'person.city') {
+      city ??= cityOf(value as AnswerValue);
+      continue;
     }
+    if (target === 'lead.title') {
+      const title = answerText(question, value as AnswerValue);
+      if (title) lead.fields.title = title;
+    } else if (target === 'lead.value') {
+      const amount = Number(value);
+      if (Number.isFinite(amount)) lead.fields.value = amount;
+    } else {
+      const known = PERSON_COLUMNS[target];
+      const words = answerText(question, value as AnswerValue);
+      if (!known || !words) continue;
+      if (known.column === 'email' && !isEmailAddress(words)) continue;
+      person.fields[known.column] = fit(words, known.max);
+    }
+  }
+  if (city) {
+    const address = (person.fields.address as AddressAnswer | undefined) ?? {
+      line1: '',
+      line2: '',
+      city: '',
+      state: '',
+      postalCode: '',
+    };
+    if (!address.city) person.fields.address = fitAddress({ ...address, city });
   }
   return { person, lead };
 }

@@ -57,6 +57,19 @@ a short answer whose words ask for nothing but a name ("First Name", "Your last 
 email (`intakeName`, as a text is) until somebody adds one. Shop Your Solar's contact form had name boxes that saved
 to nowhere, and a new customer's form failed with "Something went wrong on our side".
 
+**Every answer a form saves fits the record it goes on** (2026-11-11). A form's boxes allow more than a customer's
+fields hold, so what an answer writes is made to fit rather than failing the whole form (`PERSON_LIMITS` in
+`forms/submit.ts`; the test is "every answer a form saves fits the customer it goes on"):
+
+- What the customer can fix is asked on the page: an email is checked the way the customer's record checks it (an
+  accented letter or a comma is asked again), and a short answer saved as their Email or Phone has to be one.
+- What they shouldn't have to care about is cut to fit: names to 80 characters, the town to 100 and the state to 50,
+  the source (the form's name when nothing else says) to 80, notes to 10,000. A lead worth less than nothing is worth
+  nothing.
+- Every field is kept: City goes in their address's town, a picked choice saves its label rather than its id, and a
+  new customer keeps the Notes, Other phone and Where they came from answers a returning one would have filled in.
+  On a returning customer an address fills only its blank parts, never the street on file.
+
 **Answers keep the version they were given on**, and each answer carries the question's wording as it read
 at the time. Rewording a question never rewrites what somebody already said.
 

@@ -242,6 +242,9 @@ export async function findOrCreateCustomer(
     lastName: string;
     phone?: string | null;
     email?: string | null;
+    /** A second number and notes, from a form that asked for them: kept on a customer this makes, never on one it finds. */
+    phoneAlt?: string | null;
+    notes?: string | null;
     address?: {
       line1?: string | null;
       line2?: string | null;
@@ -274,6 +277,8 @@ export async function findOrCreateCustomer(
       lastName,
       email: customer.email ?? null,
       phone: customer.phone ?? null,
+      ...(customer.phoneAlt ? { phoneAlt: customer.phoneAlt } : {}),
+      ...(customer.notes ? { notes: customer.notes } : {}),
       source,
       ignoreDuplicates: true,
       ...(customer.address
