@@ -1657,7 +1657,9 @@ The defaults are right in production. Setting some of these changes real behavio
 | `OPENAI_ASSISTANT_MODEL`                   | `gpt-6-sol`                                                                | OpenAI's stand-in for `ASSISTANT_MODEL` while Claude is down. See "Change the backup models" in "The backup AI: OpenAI".                                                                                                                                       |
 | `OPENAI_MODEL`                             | `gpt-6-sol`                                                                | OpenAI's stand-in for `AI_MODEL` while Claude is down. See "Change the backup models".                                                                                                                                                                         |
 | `OPENAI_VOICE_MODEL`                       | `gpt-6-luna`                                                               | OpenAI's model on calls while Claude is down, whatever model they use on Claude. A fast one keeps the pauses short. See "Change the backup models".                                                                                                            |
-| `OPENAI_IMAGE_MODEL`                       | `gpt-image-2`                                                              | OpenAI’s image model for AI Social Media Content Creator’s photo-style pictures (portrait, medium quality, charged as `ai.image`, 9¢ each). Needs `OPENAI_API_KEY`.                                                                                            |
+| `OPENAI_IMAGE_MODEL`                       | `gpt-image-2.6-sunburst`                                                   | OpenAI’s image model for AI Social Media Content Creator’s photo-style pictures (portrait, medium quality, charged as `ai.image`, 9¢ each). Needs `OPENAI_API_KEY`. See "Photo-style pictures: the image models".                                              |
+| `OPENAI_IMAGE_BACKUP_MODEL`                | `gpt-image-2.6-flare`                                                      | Tried once when `OPENAI_IMAGE_MODEL` is busy, down or gone. `none` for no backup.                                                                                                                                                                              |
+| `OPENAI_IMAGE_COMPLEXITY`                  | `medium`                                                                   | How much the 2.6 image models plan a picture before making it: `low`, `medium` or `high`. More takes longer and costs the same. Anything else stops the worker starting.                                                                                       |
 | `ASSISTANT_TOOL_SEARCH`                    | `on`                                                                       | `on`: Ask HandsFreeOS keeps about 20 tools loaded and finds the rest by searching (Anthropic's tool search). `off` sends every tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.                                   |
 | `ASSISTANT_EFFORT`                         | `low`                                                                      | How long Ask HandsFreeOS thinks before it answers: `low`, `medium` or `high`. Less is faster; `low` keeps a look-up's answer to a couple of seconds. See "How fast it answers" in "The Assistant: Anthropic".                                                  |
 | `PUSH_PROVIDER`                            | `expo` when `EXPO_ACCESS_TOKEN` is set, otherwise `none`                   | Production refuses `fake`, the stand-in for local development and tests. `none` turns push off even with a token.                                                                                                                                              |
@@ -7410,6 +7412,35 @@ fly secrets unset --app handsfreeos-worker OPENAI_MODEL OPENAI_ASSISTANT_MODEL O
 ```
 
 Businesses pay the rate card's AI prices whichever model answers, so a dearer backup model costs HandsFreeOS more for the hours it answers, not them.
+
+### Photo-style pictures: the image models
+
+AI Social Media Content Creator's photo-style pictures come from OpenAI's image models (`apps/worker/src/pictures.ts`), on `OPENAI_API_KEY`. These are the owner's picks of 11 Nov 2026:
+
+| Setting                     | What it does                                                                                        | Unless set               |
+| --------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------ |
+| `OPENAI_IMAGE_MODEL`        | Makes every picture. Sunburst is made for detail.                                                   | `gpt-image-2.6-sunburst` |
+| `OPENAI_IMAGE_BACKUP_MODEL` | Tried once when the first is busy, down or gone, before the picture fails. Flare is made for speed. | `gpt-image-2.6-flare`    |
+| `OPENAI_IMAGE_COMPLEXITY`   | How much the model plans first: `low`, `medium` or `high`. More is slower and costs the same.       | `medium`                 |
+
+`gpt-image-2` is removed from OpenAI's API on 10 Feb 2027. Until then, `OPENAI_IMAGE_MODEL=gpt-image-2` switches back to it (it's never sent a complexity, which it would refuse). Change these the same way as the backup models above, with `fly secrets import --app handsfreeos-worker`. To go back to the shipped ones:
+
+```bash
+fly secrets unset --app handsfreeos-worker OPENAI_IMAGE_MODEL OPENAI_IMAGE_BACKUP_MODEL OPENAI_IMAGE_COMPLEXITY
+```
+
+Each picture's charge keeps what OpenAI really counted for it, and what that costs at OpenAI's listed prices, in the ledger row's `meta.openAi`. The model that made it is `meta.model`, so a picture the backup made shows there. To check the 9¢ against the real cost, run this in the Supabase SQL editor:
+
+```sql
+select meta->>'model' as model, count(*) as pictures,
+       round(avg((meta->'openAi'->>'costMicros')::numeric) / 10000, 2) as avg_cost_cents,
+       round(max((meta->'openAi'->>'costMicros')::numeric) / 10000, 2) as max_cost_cents
+from app.usage_ledger
+where rate_key = 'ai.image' and meta ? 'openAi'
+group by 1;
+```
+
+The worker logs `the image model was busy; the backup made the picture` each time Flare stands in.
 
 ### Rotate the OpenAI key
 
