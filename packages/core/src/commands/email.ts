@@ -319,8 +319,7 @@ export async function applyDomainPlan(
 ): Promise<string[]> {
   const d = await loadDomain(ctx, emailDomainId);
   const plan = emailDomainPlanOf(d.plan);
-  if (d.status !== 'verified' || (!plan.team && !plan.own && plan.receive === undefined))
-    return [];
+  if (d.status !== 'verified' || (!plan.team && !plan.own && plan.receive === undefined)) return [];
   const ws = ctx.scope.workspaceId!;
   const changes: string[] = [];
   const existing = async (address: string) =>
@@ -392,7 +391,8 @@ export async function applyDomainPlan(
       if (made) changes.push(`Makes ${address}, which only its person reads`);
     }
   }
-  const receive = plan.receive ?? (!!plan.team && (d.mailHost === 'none' || d.mailHost === 'handsfreeos'));
+  const receive =
+    plan.receive ?? (!!plan.team && (d.mailHost === 'none' || d.mailHost === 'handsfreeos'));
   if (receive && d.receiving === 'off' && !(await heldElsewhere(ctx, d.domain, d.id)).receiving) {
     await ctx.tx
       .update(emailDomains)

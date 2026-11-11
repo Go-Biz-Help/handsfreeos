@@ -387,7 +387,11 @@ export const onEmailDomainChecked: EventHandler = async (ctx) => {
 };
 
 /** The default address, when it's on this domain: booking emails switched to it as the domain verified. */
-async function defaultOn(tx: Tx, workspaceId: string, emailDomainId: string): Promise<string | null> {
+async function defaultOn(
+  tx: Tx,
+  workspaceId: string,
+  emailDomainId: string,
+): Promise<string | null> {
   const [a] = await tx
     .select({ address: emailAddresses.address })
     .from(emailAddresses)

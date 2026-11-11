@@ -2370,12 +2370,15 @@ export function emailDomainStepsEmail(input: {
     input.host ? `\n\nOpen ${input.host.label}: ${input.host.url}` : ''
   }`;
   const cell = 'padding: 6px 8px; border-top: 1px solid #e4e8ee; vertical-align: top;';
-  const mono = "font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;";
+  const mono =
+    "font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;";
   const rows = input.records
     .map(
       (r) =>
         `<tr><td style="${cell} white-space: nowrap;">${escapeHtml(r.type)}${
-          r.priority != null ? `<br /><span style="color: #5b616a; font-size: 12px;">priority ${r.priority}</span>` : ''
+          r.priority != null
+            ? `<br /><span style="color: #5b616a; font-size: 12px;">priority ${r.priority}</span>`
+            : ''
         }</td><td style="${cell} ${mono}">${escapeHtml(r.host)}</td><td style="${cell} ${mono}">${escapeHtml(r.value)}</td></tr>`,
     )
     .join('');

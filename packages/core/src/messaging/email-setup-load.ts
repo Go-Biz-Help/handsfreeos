@@ -9,12 +9,7 @@ import { emailAddresses, emailDomains, mailboxConnections } from '@hfos/db/schem
 import { ownershipHost } from '../schemas/branded-domain';
 import { HANDSFREEOS_DOMAIN, INBOUND_MX_HOST, normalizeEmailDomain } from '../schemas/email';
 import { emailDomainRecords } from './email-records';
-import {
-  emailDomainPlanOf,
-  MAIL_HOSTS,
-  type EmailSetupState,
-  type MailHost,
-} from './email-setup';
+import { emailDomainPlanOf, MAIL_HOSTS, type EmailSetupState, type MailHost } from './email-setup';
 
 const SHARED = 'mail.handsfreeos.com';
 const iso = (v: Date | string | null | undefined) => (v ? new Date(v).toISOString() : null);

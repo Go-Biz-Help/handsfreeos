@@ -782,6 +782,8 @@ export const EMAIL_SETUP_WORDS = {
     `${found} of ${of} found${host ? ` at ${host}` : ''}. Emails go out from ${from} until the rest are in, then switch to ${to} on their own.`,
   homeRecords: 'Open the steps',
   done: 'Done',
+  notAllowed:
+    'Only people who manage this business’s email can set it up. Ask an owner of this business.',
 } as const;
 const W = EMAIL_SETUP_WORDS;
 

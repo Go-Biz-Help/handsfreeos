@@ -157,12 +157,12 @@ export const onboardingSetupOwnerPart = (
     s === 'email_own'
       ? [HW.partEmail]
       : s === 'booking'
-      ? [HW.partBooking]
-      : s === 'paid'
-        ? [HW.partPaid(PAY_WITH_LABELS[answers.payWith])]
-        : s === 'loop'
-          ? [HW.partLoop]
-          : [],
+        ? [HW.partBooking]
+        : s === 'paid'
+          ? [HW.partPaid(PAY_WITH_LABELS[answers.payWith])]
+          : s === 'loop'
+            ? [HW.partLoop]
+            : [],
   );
 
 /** The screen each answer is on: the setup's own by name, the AI part's as `ai.<name>`. */

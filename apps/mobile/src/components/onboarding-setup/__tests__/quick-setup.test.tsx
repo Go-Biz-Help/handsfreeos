@@ -4,6 +4,7 @@ import {
   emptyKnowledgeProfile,
   LINK_WORDS,
   LOOK_WORDS,
+  NO_EMAIL_SETUP,
   NO_LOOK,
   ONBOARDING_SETUP_HAND_OVER_WORDS as HW,
   ONBOARDING_SETUP_WORDS as W,
@@ -159,6 +160,7 @@ const STATE: OnboardingSetupStateOut = {
   myHours: null,
   phones: 1,
   look: NO_LOOK,
+  email: NO_EMAIL_SETUP,
   forClient: false,
 };
 

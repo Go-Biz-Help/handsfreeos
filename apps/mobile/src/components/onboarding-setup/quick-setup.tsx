@@ -49,6 +49,11 @@ import { AppState, View, type ScrollView } from 'react-native';
 
 import { AiSetupScreen } from '@/components/ai-setup/screens';
 import { TryAva } from '@/components/ai-setup/try-ava';
+import {
+  EmailOwnScreen,
+  EmailRecordsScreen,
+  EmailSenderScreen,
+} from '@/components/email-setup/screens';
 import { ArrowLeft, Check, RotateCcw } from '@/components/icons';
 import { businessHref } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
@@ -424,8 +429,9 @@ export function OnboardingQuickSetup({
           setInvites(['']);
           void refresh();
         }
-        // The page is live (or down) now, and the AI teammate's chat goes on it: the screens ahead follow.
-        if (screen === 'page') await refresh();
+        // The page is live (or down) now, and the AI teammate's chat goes on it: the screens ahead follow. The
+        // business email's domain is added (or its plan kept), and its records follow.
+        if (screen === 'page' || screen === 'email' || screen === 'email_records') await refresh();
         const after = walk
           ? onboardingSetupOwnerNext(walk, screen)
           : onboardingSetupNextScreen(screen, clean, facts);
@@ -601,6 +607,24 @@ export function OnboardingQuickSetup({
         return <BookingScreen {...own} booking={booking} onRetry={() => void makeBooking()} />;
       case 'number':
         return <NumberScreen {...own} />;
+      case 'email':
+      case 'email_records':
+      case 'email_own': {
+        const email = {
+          state: state.email,
+          answers: answers.email,
+          set: (v: Answers['email']) => set('email', v),
+          problems,
+          calls: calls.email,
+        };
+        return screen === 'email' ? (
+          <EmailSenderScreen {...email} />
+        ) : screen === 'email_records' ? (
+          <EmailRecordsScreen {...email} onChanged={refresh} />
+        ) : (
+          <EmailOwnScreen {...email} onChanged={refresh} forClient={forClient} />
+        );
+      }
       case 'paid':
         return <PaidScreen {...own} />;
       case 'try':

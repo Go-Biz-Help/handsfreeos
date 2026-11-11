@@ -495,7 +495,11 @@ export const onboardingSetupSave = defineCommand({
         const saved = await executeCommandWithin(ctx, emailSetupSave, {
           workspaceId: ws,
           part:
-            input.screen === 'email' ? 'sender' : input.screen === 'email_records' ? 'records' : 'own',
+            input.screen === 'email'
+              ? 'sender'
+              : input.screen === 'email_records'
+                ? 'records'
+                : 'own',
           email: answers.email,
         });
         out.changes.push(...saved.output.changes);

@@ -1,11 +1,11 @@
 {
   "area": "home",
   "title": "Home, Search everything, Needs you, the bell's notifications, Audit log, Changes and the Assistant panel itself",
-  "checkedOn": "2026-11-07",
+  "checkedOn": "2026-11-11",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/get-help.tsx": "a1fa8bee58ff",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/view-as.tsx": "242f970f8798",
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4bb840d5dff6",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/index.tsx": "4994d7e95370",
     "apps/mobile/src/app/app/w/[workspaceId]/ask.tsx": "6c212d4c2517",
     "apps/mobile/src/app/app/w/[workspaceId]/changes.tsx": "b0639b60a073",
     "apps/mobile/src/app/app/w/[workspaceId]/search.tsx": "1a959c92bf8a",
@@ -26,6 +26,7 @@
     "apps/mobile/src/components/home/attention-card.tsx": "239bce447d99",
     "apps/mobile/src/components/home/attention-group.tsx": "88d3150e9000",
     "apps/mobile/src/components/home/bits.tsx": "4052994a191e",
+    "apps/mobile/src/components/home/email-setup-card.tsx": "f1a96e378453",
     "apps/mobile/src/components/home/handled.tsx": "79284e3cff99",
     "apps/mobile/src/components/home/home-header.tsx": "919ae0a3a30b",
     "apps/mobile/src/components/home/item-sheets.tsx": "1e0fc20a6146",
@@ -36,7 +37,7 @@
     "apps/mobile/src/search/recent.ts": "6d3884953cf1",
     "apps/mobile/src/search/rows.tsx": "4c8fee7ac09c",
     "apps/web/src/app/app/w/[workspaceId]/audit/page.tsx": "260b09810a61",
-    "apps/web/src/app/app/w/[workspaceId]/page.tsx": "c74d1676ff20",
+    "apps/web/src/app/app/w/[workspaceId]/page.tsx": "beb84593c83a",
     "apps/web/src/app/app/w/[workspaceId]/search/page.tsx": "f23d0369d4f7",
     "apps/web/src/components/assistant/ask-button.tsx": "1189fdcab4d4",
     "apps/web/src/components/assistant/assistant-panel.tsx": "1f1bf3886050",
@@ -65,6 +66,7 @@
     "apps/web/src/components/home/attention-header.tsx": "9f8029ee68da",
     "apps/web/src/components/home/coming-up.tsx": "7b55e17c731a",
     "apps/web/src/components/home/dismiss-dialog.tsx": "18a3559ad253",
+    "apps/web/src/components/home/email-setup-card.tsx": "84c9ddf526fe",
     "apps/web/src/components/home/getting-started.tsx": "1dc783e5cb67",
     "apps/web/src/components/home/handled-today.tsx": "30e0ef08c643",
     "apps/web/src/components/home/let-handle-sheet.tsx": "fce319584f82",
@@ -2547,6 +2549,41 @@
       "file": "apps/mobile/src/search/rows.tsx:81",
       "covered": "partly",
       "by": "hit href is a web path"
+    },
+    {
+      "path": "Home → Set up your business email card (still on the address it was made with)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/email-setup-card.tsx:54",
+      "covered": "yes",
+      "by": "read_email_setup_get: state.sender and state.free (the card shows while the free address still has the random letters)"
+    },
+    {
+      "path": "Home → Finish your email records card (N of M found at <host>)",
+      "kind": "see",
+      "file": "apps/web/src/components/home/email-setup-card.tsx:66",
+      "covered": "yes",
+      "by": "read_email_setup_get: the domain with a plan, its records found or waiting"
+    },
+    {
+      "path": "Home → email card → Set it up / Open the steps",
+      "kind": "do",
+      "file": "apps/web/src/components/home/email-setup-card.tsx:76",
+      "covered": "yes",
+      "by": "do_email_setup_save and do_email_domain_send_steps do what its page does"
+    },
+    {
+      "path": "Home → email card → Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/home/email-setup-card.tsx:84",
+      "covered": "never",
+      "by": "sets the card aside on this browser only, kept in the browser"
+    },
+    {
+      "path": "Phone → Home → Set up your business email / Finish your email records card, Set it up, Not now",
+      "kind": "do",
+      "file": "apps/mobile/src/components/home/email-setup-card.tsx:78",
+      "covered": "yes",
+      "by": "read_email_setup_get; do_email_setup_save; Not now is kept on the phone"
     }
   ],
   "gaps": [

@@ -158,10 +158,14 @@ async function saveSender(
   }
   out.emailDomainId = id;
   await dropOtherPlans(ctx, state, id);
-  await setPlan(ctx, { id, domain, plan: d?.plan ?? {} }, {
-    ...(d?.plan ?? {}),
-    team: { localPart: local, displayName: name },
-  });
+  await setPlan(
+    ctx,
+    { id, domain, plan: d?.plan ?? {} },
+    {
+      ...(d?.plan ?? {}),
+      team: { localPart: local, displayName: name },
+    },
+  );
   if (d?.status === 'verified') {
     out.changes.push(...(await applyDomainPlan(ctx, id)));
     return;
@@ -205,7 +209,8 @@ async function saveRecords(
   const { receive: _, ...rest } = d.plan;
   await setPlan(ctx, d, { ...rest, receive: answers.receive });
   if (d.status === 'verified') out.changes.push(...(await applyDomainPlan(ctx, d.id)));
-  else if (answers.receive) out.changes.push(`Mail to ${d.domain} comes here once its records are in`);
+  else if (answers.receive)
+    out.changes.push(`Mail to ${d.domain} comes here once its records are in`);
 }
 
 async function saveOwn(

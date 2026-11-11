@@ -259,6 +259,16 @@ export const SCREEN_ACTIONS: Readonly<Record<string, ScreenAction>> = {
   'rcs_sender.connect': {},
   // ---- Settings → Email ----
   'mailbox.disconnect': {},
+  // "Set up your business email" (Home's card and the guided setup's stop), a part at a time, from read_email_setup_get.
+  'email_setup.save': {
+    about:
+      'part is sender (which address customers see: with is domain or free, then domain and local for the domain, or freeLocal for the free address, and name, the name customers see), records (receive: whether the domain’s email comes here too) or own (mine and mineLocal: an address only the person reads, on the domain). Pass email whole: read_email_setup_get’s answers with what changes.',
+    warning:
+      'Your business email adds the domain and moves booking emails to the address picked once its records are found; the free address is renamed straight away.',
+  },
+  'email_domain.send_steps': {
+    about: 'to is the email address the domain’s records and where to add them go to.',
+  },
   'email_domain.receive': {},
   'email_domain.stop_receiving': {
     warning:
