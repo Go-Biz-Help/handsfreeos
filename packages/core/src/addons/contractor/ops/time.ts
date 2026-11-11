@@ -16,12 +16,13 @@
  * - **Fixing** takes `contractor.fix_time` and a reason, kept on the stretch and on the job's timeline. It's
  *   allowed on a finished job too: that's when the numbers get checked.
  */
-import { and, eq, isNull, lt, ne, sql as dsql } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, lt, lte, ne, sql as dsql } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { fmtAt } from '../../../calendar/when';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { scopeCan } from '../../../kernel/execute';
+import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import type { Permission } from '../../../permissions';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
@@ -440,6 +441,8 @@ export const timeSetBreak = defineAddonCommand(contractorAddon, {
   output: TimeSetBreakOutput,
   permission: 'contractor.use',
   scope: inWorkspace,
+  // Pressed on the job with no signal: it's kept on the phone and sent when there is some, with its own moment.
+  offline: 'anytime',
   ai: {
     tool: 'contractor_set_break',
     description:
@@ -488,8 +491,29 @@ export const timeSetBreak = defineAddonCommand(contractorAddon, {
     });
     const from: TimeKind = input.onBreak ? 'work' : 'break';
     const to: TimeKind = input.onBreak ? 'break' : 'work';
-    if (running?.kind === to) return out(false);
-    if (running?.kind !== from)
+    // Pressed with no signal, and the visit's clock was stopped before the phone got through: the stretch that was
+    // running at that moment is the one the break splits.
+    const pressed = ctx.meta.occurredAt ?? null;
+    const [held] =
+      !running && pressed
+        ? await ctx.tx
+            .select()
+            .from(timeEntries)
+            .where(
+              and(
+                eq(timeEntries.workspaceId, ctx.scope.workspaceId!),
+                eq(timeEntries.appointmentId, input.appointmentId),
+                eq(timeEntries.userId, userId),
+                lte(timeEntries.startedAt, pressed),
+                gt(timeEntries.endedAt, pressed),
+              ),
+            )
+            .orderBy(desc(timeEntries.startedAt))
+            .limit(1)
+        : [];
+    const current = running ?? held;
+    if (current?.kind === to) return out(false);
+    if (current?.kind !== from)
       throw input.onBreak
         ? HfosError.rule(
             'contractor_time_not_working',
@@ -501,9 +525,15 @@ export const timeSetBreak = defineAddonCommand(contractorAddon, {
             409,
             REFUSALS.timeNotOnBreak(other ? name : null),
           );
-    // Never before the stretch it ends, whatever the clocks say.
-    const now = new Date(Math.max(Date.now(), running.startedAt.getTime()));
-    await stopAt(ctx, [running], now);
+    // When it was pressed, and never before the stretch it ends, whatever the clocks say.
+    const now = new Date(Math.max(changeMoment(ctx.meta).getTime(), current.startedAt.getTime()));
+    if (current.endedAt) {
+      // The stretch has ended since: it ends at the press instead, and the rest of it is the break (or the work).
+      await ctx.tx
+        .update(timeEntries)
+        .set({ endedAt: now, autoStopped: false, updatedAt: new Date() })
+        .where(eq(timeEntries.id, current.id));
+    } else await stopAt(ctx, [current], now);
     await ctx.tx.insert(timeEntries).values({
       workspaceId: ctx.scope.workspaceId!,
       recordId: job.recordId,
@@ -511,6 +541,8 @@ export const timeSetBreak = defineAddonCommand(contractorAddon, {
       userId,
       kind: to,
       startedAt: now,
+      endedAt: current.endedAt,
+      autoStopped: current.endedAt ? current.autoStopped : false,
       source: 'break',
       createdBy: me,
     });

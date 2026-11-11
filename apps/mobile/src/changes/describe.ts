@@ -1,6 +1,12 @@
 import { channelWord, isSocialChannel, SOCIAL_CHANNEL_NAMES } from '@hfos/core';
 
 import {
+  describeContractor,
+  loadContractorNames,
+  NO_CONTRACTOR_NAMES,
+  type ContractorNames,
+} from './describe-contractor';
+import {
   describeOutreach,
   loadOutreachNames,
   NO_OUTREACH_NAMES,
@@ -63,6 +69,8 @@ export interface NameBook {
   readonly realestate?: RealestateNames;
   /** Who Social Outreach's messages are to (decision 44). */
   readonly outreach?: OutreachNames;
+  /** Contractor Operations' jobs and the rows its changes point at. */
+  readonly contractor?: ContractorNames;
 }
 
 type Input = Record<string, unknown>;
@@ -168,7 +176,9 @@ export function describe(
     const what = voice ? 'voice note' : 'photo';
     const whose =
       input.recordType === 'custom_record'
-        ? (names.realestate?.deal(str(input.recordId)) ?? 'a record')
+        ? (names.realestate?.deal(str(input.recordId)) ??
+          names.contractor?.job(str(input.recordId)) ??
+          'a record')
         : 'a customer';
     return words(
       `${capital(what)} for ${person?.name ?? company ?? whose}`,
@@ -202,6 +212,17 @@ export function describe(
       icon: outreach.icon,
       about: null,
       heldUntil: outreach.heldUntil,
+    };
+  // Contractor Operations' changes from the field: about their job, so Changes groups them under it.
+  const co = describeContractor(row.name, input, names.contractor ?? NO_CONTRACTOR_NAMES);
+  if (co)
+    return {
+      title: co.title,
+      part: co.part,
+      quote: co.quote,
+      icon: co.icon,
+      about: co.job ? { key: `job:${co.job.id}`, name: co.job.name } : null,
+      heldUntil: co.heldUntil,
     };
   switch (row.name) {
     case 'activity.log': {
@@ -594,6 +615,12 @@ export async function loadNames(runner: SqlRunner, rows: readonly OutboxRow[]): 
     runner,
     rows.map((r) => parse(r.input)),
   );
+  const contractor = await loadContractorNames(
+    runner,
+    rows
+      .filter((r) => r.name.startsWith('contractor.') || r.track === 'photo')
+      .map((r) => parse(r.input)),
+  );
   return bookOf({
     people,
     leads,
@@ -604,6 +631,7 @@ export async function loadNames(runner: SqlRunner, rows: readonly OutboxRow[]): 
     tasks,
     realestate,
     outreach,
+    contractor,
   });
 }
 
@@ -617,6 +645,7 @@ export function bookOf(found: {
   tasks?: readonly { id: string; title: string | null; person_id: string | null }[];
   realestate?: RealestateNames;
   outreach?: OutreachNames;
+  contractor?: ContractorNames;
 }): NameBook {
   const byId = <T extends { id: string }>(list: readonly T[] | undefined) =>
     new Map((list ?? []).map((r) => [r.id, r]));
@@ -629,6 +658,7 @@ export function bookOf(found: {
   return {
     ...(found.realestate ? { realestate: found.realestate } : {}),
     ...(found.outreach ? { outreach: found.outreach } : {}),
+    ...(found.contractor ? { contractor: found.contractor } : {}),
     person: (id) => (id ? (found.people?.get(id) ?? null) : null),
     company: (id) => (id ? (companies.get(id)?.name ?? null) : null),
     lead: (id) => {

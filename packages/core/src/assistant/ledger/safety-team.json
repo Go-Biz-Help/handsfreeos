@@ -5,7 +5,7 @@
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/index.tsx": "de243d485f3e",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/safety.tsx": "89edd1308007",
-    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "7a7a367c0039",
+    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
     "apps/mobile/src/components/safety/check-in-banner.tsx": "c88184b11b8c",
     "apps/mobile/src/components/safety/check-in-sheet.tsx": "e0da61398345",
     "apps/mobile/src/components/safety/help-sheet.tsx": "414a9416ca2d",
@@ -909,7 +909,7 @@
     {
       "path": "Phone appointment (and Real Estate showings, tours, open houses) → Check in",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:360",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:365",
       "covered": "yes",
       "by": "my_check_in action start, appointmentId (todays_schedule)"
     },

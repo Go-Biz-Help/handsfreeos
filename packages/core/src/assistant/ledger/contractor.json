@@ -1,8 +1,22 @@
 {
   "area": "contractor",
-  "title": "The Contractor Operations add-on: Jobs, a job’s page with its materials, time and costs so far, a visit’s work order, Dispatch, Estimates and the estimate builder, Item costs, Profit and Settings, on the web",
+  "title": "The Contractor Operations add-on: Jobs, a job’s page with its materials, time and costs so far, a visit’s work order, Dispatch, Estimates and the estimate builder, Item costs, Profit and Settings, on the web; and Jobs, a job and a visit’s work order on the phone",
   "checkedOn": "2026-11-11",
   "files": {
+    "apps/mobile/src/addons/contractor/bits.tsx": "0ccf18e28851",
+    "apps/mobile/src/addons/contractor/job.tsx": "621e7a62523a",
+    "apps/mobile/src/addons/contractor/jobs.tsx": "ff0b71f7d6e7",
+    "apps/mobile/src/addons/contractor/kit.tsx": "af54058443ba",
+    "apps/mobile/src/addons/contractor/materials.tsx": "aca9fea3e381",
+    "apps/mobile/src/addons/contractor/more.tsx": "7410930aff04",
+    "apps/mobile/src/addons/contractor/notes.tsx": "d4b95240d613",
+    "apps/mobile/src/addons/contractor/time.tsx": "294dd9299e61",
+    "apps/mobile/src/addons/contractor/visit-panel.tsx": "e211018c5164",
+    "apps/mobile/src/addons/contractor/work-order.tsx": "484e6f931da7",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/contractor/_layout.tsx": "70d29d264dbf",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/contractor/index.tsx": "71361f566c09",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/contractor/jobs/[jobId].tsx": "839883bbccb1",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/contractor/visits/[appointmentId].tsx": "d869e82d5130",
     "apps/web/src/addons/contractor/bits.tsx": "bce58e846574",
     "apps/web/src/addons/contractor/costing.tsx": "d8e03499ff05",
     "apps/web/src/addons/contractor/crews-card.tsx": "958693379afd",
@@ -13,28 +27,29 @@
     "apps/web/src/addons/contractor/item-costs-page.tsx": "8858901db5a2",
     "apps/web/src/addons/contractor/job-costs-card.tsx": "25dc75611868",
     "apps/web/src/addons/contractor/job-dialogs.tsx": "6af231b59e1a",
-    "apps/web/src/addons/contractor/job-page.tsx": "ce2c21da6141",
+    "apps/web/src/addons/contractor/job-page.tsx": "079ce5313124",
     "apps/web/src/addons/contractor/jobs-home.tsx": "b37962991c58",
     "apps/web/src/addons/contractor/labor-costs-card.tsx": "83c6d6b5daba",
     "apps/web/src/addons/contractor/materials-card.tsx": "f13396bf5f13",
     "apps/web/src/addons/contractor/new-job-dialog.tsx": "21677be650ca",
+    "apps/web/src/addons/contractor/notes-card.tsx": "5170805dc8e0",
     "apps/web/src/addons/contractor/phases-card.tsx": "aecb968a30f3",
     "apps/web/src/addons/contractor/profit-page.tsx": "b5335f12dfd5",
     "apps/web/src/addons/contractor/property-picker.tsx": "0f3215dde1de",
     "apps/web/src/addons/contractor/settings-link.tsx": "114eae047876",
     "apps/web/src/addons/contractor/settings-page.tsx": "7ebf632ea9f2",
     "apps/web/src/addons/contractor/time-card.tsx": "ec51092f9a46",
-    "apps/web/src/addons/contractor/work-order-page.tsx": "7ceef6941010",
+    "apps/web/src/addons/contractor/work-order-page.tsx": "292c2a513799",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/costs/page.tsx": "3a302981aff9",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/dispatch/page.tsx": "0ea46af08cfa",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/estimates/[estimateId]/page.tsx": "e3b833a91593",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/estimates/new/page.tsx": "099a1ca5606c",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/estimates/page.tsx": "eb5126d26c57",
-    "apps/web/src/app/app/w/[workspaceId]/a/contractor/jobs/[jobId]/page.tsx": "107c4252c0c4",
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/jobs/[jobId]/page.tsx": "6d4eb5ce70ca",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/page.tsx": "d4bceddd201d",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/profit/page.tsx": "4d3359ab516c",
     "apps/web/src/app/app/w/[workspaceId]/a/contractor/settings/page.tsx": "32f42c3d4ad6",
-    "apps/web/src/app/app/w/[workspaceId]/a/contractor/visits/[appointmentId]/page.tsx": "16bd99f7a11b"
+    "apps/web/src/app/app/w/[workspaceId]/a/contractor/visits/[appointmentId]/page.tsx": "deb5aa5b6235"
   },
   "items": [
     {
@@ -222,21 +237,21 @@
     {
       "path": "A job → back to Jobs",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:171",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:176",
       "covered": "yes",
       "by": "the Jobs place"
     },
     {
       "path": "A job → header: name, status, kind, days late, trade, why it’s on hold or cancelled",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:179",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:184",
       "covered": "yes",
       "by": "contractor_get_job"
     },
     {
       "path": "A job → Status (New, Scheduled, In progress, On hold, Done, Cancelled)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:201",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:206",
       "covered": "yes",
       "by": "contractor_set_job_status"
     },
@@ -250,56 +265,56 @@
     {
       "path": "A job → Done while required items are left → what’s left, by visit, each visit opening its work order",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:517",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:534",
       "covered": "yes",
       "by": "contractor_set_job_status refuses and names what’s left; contractor_get_job (visits[].checklist); contractor_get_work_order (items)"
     },
     {
       "path": "A job → Done while required items are left → finish them first, or ask an owner or admin",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:534",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:551",
       "covered": "yes",
       "by": "the refusal says the same; contractor_overview (may.skipChecks)"
     },
     {
       "path": "A job → Done while required items are left → Why, and Mark it done anyway (owners and admins)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:569",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:586",
       "covered": "yes",
       "by": "contractor_set_job_status (skipReason), on a Confirm card"
     },
     {
       "path": "A job → Book a visit (for the job, its customer filled in; its work order then opens)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:213",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:218",
       "covered": "yes",
       "by": "book_appointment (customRecordId: the job); contractor_start_work_order; the A work order place"
     },
     {
       "path": "A job → Notes, files and tasks (the job’s record page)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:220",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:225",
       "covered": "yes",
       "by": "core's record tools (find_records, notes, tasks, files) on the job's record"
     },
     {
       "path": "A job → Details: customer, property, starts, deadline (and days left or late), work to do",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:227",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:232",
       "covered": "yes",
       "by": "contractor_get_job"
     },
     {
       "path": "A job → Details → customer and property open their pages",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:243",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:248",
       "covered": "yes",
       "by": "get_person; find_records"
     },
     {
       "path": "A job → Details → Edit",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:234",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:239",
       "covered": "yes",
       "by": "contractor_update_job"
     },
@@ -376,56 +391,56 @@
     {
       "path": "A job → Visits: each visit’s time and title, where it stands (scheduled, on the way, started, done), its crew and its checklist’s progress",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:299",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:304",
       "covered": "yes",
       "by": "contractor_get_job (visits: stage, crew, checklist)"
     },
     {
       "path": "A job → Visits → a visit opens its work order",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:318",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:323",
       "covered": "yes",
       "by": "contractor_get_work_order (the visit’s appointmentId, from contractor_get_job); the A work order place"
     },
     {
       "path": "A job → % done, with how it’s worked out (from its phases, or set by hand)",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:607",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:624",
       "covered": "yes",
       "by": "contractor_get_job (percentDone, phases)"
     },
     {
       "path": "A job → % done → set it by hand (a service call)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:622",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:639",
       "covered": "yes",
       "by": "contractor_set_job_percent"
     },
     {
       "path": "A job → Team: the job lead, and everyone else on it",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:662",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:679",
       "covered": "yes",
       "by": "contractor_get_job (lead, team)"
     },
     {
       "path": "A job → Team → take someone off",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:696",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:713",
       "covered": "yes",
       "by": "contractor_remove_from_job_team"
     },
     {
       "path": "A job → Team → Add to the team",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:739",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:756",
       "covered": "yes",
       "by": "contractor_add_to_job_team"
     },
     {
       "path": "A job → Budget and price (people who may see job costs): price, labor, materials, other, budget, labor hours, planned profit, margin (red below 20%)",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:772",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:789",
       "covered": "yes",
       "by": "contractor_get_job (money, only for contractor.costs)"
     },
@@ -488,14 +503,14 @@
     {
       "path": "A job → Estimates: each one’s number or Draft, customer, status, whether it waits for an OK or has one, title, options or the one picked, day and total (opens it)",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:383",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:400",
       "covered": "yes",
       "by": "contractor_list_estimates (jobId)"
     },
     {
       "path": "A job → Estimates → New estimate (people who may see job costs)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:391",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:408",
       "covered": "yes",
       "by": "contractor_write_estimate (jobId; its customer is who it goes to)"
     },
@@ -880,217 +895,217 @@
     {
       "path": "A work order → back to its job",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:95",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:109",
       "covered": "yes",
       "by": "the A job place"
     },
     {
       "path": "A work order → header: when the visit is, where it stands, its title and its checklist’s progress",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:104",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:118",
       "covered": "yes",
       "by": "contractor_get_work_order (visit, progress)"
     },
     {
       "path": "A work order → Open in Calendar (the visit itself: its time and status, move or cancel it)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:113",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:127",
       "covered": "yes",
       "by": "get_appointment, reschedule_appointment, cancel_appointment, update_job_status; the Calendar place"
     },
     {
       "path": "A work order → notice: the visit was cancelled, or its job is done or cancelled, so it can only be read",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:120",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:134",
       "covered": "yes",
       "by": "contractor_get_work_order (visit.status, job.status); a change is refused with why"
     },
     {
       "path": "A work order → No work order yet, with Start its work order",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:148",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:162",
       "covered": "yes",
       "by": "contractor_get_work_order (started); contractor_start_work_order"
     },
     {
       "path": "A work order → Job: the job (opens it) with its status, customer, property and work to do",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:157",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:171",
       "covered": "yes",
       "by": "contractor_get_work_order (job)"
     },
     {
       "path": "A work order → Job → customer and property open their pages",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:173",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:187",
       "covered": "yes",
       "by": "get_person; find_records"
     },
     {
       "path": "A work order → Instructions and What to bring",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:271",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:294",
       "covered": "yes",
       "by": "contractor_get_work_order (instructions, bring)"
     },
     {
       "path": "A work order → Instructions and What to bring → Edit, then Save",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:328",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:351",
       "covered": "yes",
       "by": "contractor_update_work_order (instructions, bring)"
     },
     {
       "path": "A work order → Checklist: how many required items are left, or that it’s ready",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:385",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:408",
       "covered": "yes",
       "by": "contractor_get_work_order (progress)"
     },
     {
       "path": "A work order → Checklist → each item: what it is, Required, a tick or a photo, who did it, or that it was passed over and why",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:510",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:533",
       "covered": "yes",
       "by": "contractor_get_work_order (items)"
     },
     {
       "path": "A work order → Checklist → nothing on it yet",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:392",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:415",
       "covered": "yes",
       "by": "contractor_get_work_order (items empty)"
     },
     {
       "path": "A work order → Checklist → tick or untick an item",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:521",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:544",
       "covered": "yes",
       "by": "contractor_set_checklist_item (done), on a Confirm card"
     },
     {
       "path": "A work order → Checklist → a photo item → Add a photo, or replace it (taken or chosen on this device)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:590",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:613",
       "covered": "person",
       "by": "the photo comes from the person’s own device; contractor_set_checklist_item (fileId) marks it with a photo already in the job’s files"
     },
     {
       "path": "A work order → Checklist → a photo item → See the photo (opens it in the job’s files)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:556",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:579",
       "covered": "partly",
       "by": "contractor_get_work_order (items[].file) names it; the picture itself isn’t read"
     },
     {
       "path": "A work order → Checklist → an item’s menu: Make it required or optional",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:607",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:630",
       "covered": "yes",
       "by": "contractor_update_checklist_item (required), on a Confirm card"
     },
     {
       "path": "A work order → Checklist → an item’s menu: untick a photo item",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:618",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:641",
       "covered": "yes",
       "by": "contractor_set_checklist_item (done: false), on a Confirm card"
     },
     {
       "path": "A work order → Checklist → an item’s menu: Remove, asked first",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:466",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:489",
       "covered": "yes",
       "by": "contractor_remove_checklist_item, on a Confirm card"
     },
     {
       "path": "A work order → Checklist → add an item: what it is, a tick or a photo, Required",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:452",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:475",
       "covered": "yes",
       "by": "contractor_add_checklist_item (label, kind, required)"
     },
     {
       "path": "A work order → Checklist → note: the job can’t be marked Done while a required item is left",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:457",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:480",
       "covered": "yes",
       "by": "the A work order place; contractor_set_job_status refuses the same way"
     },
     {
       "path": "A work order → Who’s going → Crew: one of the business’s crews, or none",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:695",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:718",
       "covered": "yes",
       "by": "contractor_list_crews; contractor_set_visit_crew (crewId, or null), on a Confirm card"
     },
     {
       "path": "A work order → Who’s going → the people on the visit",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:713",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:736",
       "covered": "yes",
       "by": "contractor_get_work_order (crew, people)"
     },
     {
       "path": "A work order → Who’s going → someone in the crew is busy or off then: why, with Put them on anyway",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:750",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:773",
       "covered": "yes",
       "by": "contractor_set_visit_crew answers the warnings; acknowledgeWarnings puts them on anyway"
     },
     {
       "path": "A work order → Subcontractors: each one’s name (opens the contact) and company, when they were texted or that they can’t be, and whether their work is done",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:793",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:816",
       "covered": "yes",
       "by": "contractor_get_work_order (subs: company, canText, toldAt, done)"
     },
     {
       "path": "A work order → Subcontractors → Their work is done (the office marks it)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:858",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:881",
       "covered": "yes",
       "by": "contractor_mark_visit_sub (done), on a Confirm card"
     },
     {
       "path": "A work order → Subcontractors → take one off the visit",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:833",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:856",
       "covered": "yes",
       "by": "contractor_remove_visit_sub, on a Confirm card"
     },
     {
       "path": "A work order → Subcontractors → Add a subcontractor (search, from Contacts)",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:877",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:900",
       "covered": "yes",
       "by": "find_people; contractor_add_visit_sub (personId)"
     },
     {
       "path": "A work order → Subcontractors → Text the details, to all of them or to one",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:782",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:805",
       "covered": "yes",
       "by": "contractor_text_visit_subs (personIds for one), on a Confirm card"
     },
     {
       "path": "A work order → Text the details → a line of your own, then Send",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:1007",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:1030",
       "covered": "yes",
       "by": "contractor_text_visit_subs (note), on a Confirm card"
     },
     {
       "path": "A work order → Text the details → in quiet hours: why it waits, and Send again to send anyway",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:956",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:979",
       "covered": "yes",
       "by": "contractor_text_visit_subs is refused with why; acknowledgeQuietHours once the person says to send anyway"
     },
     {
       "path": "A work order → Text the details → who wasn’t texted, and why",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:970",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:993",
       "covered": "yes",
       "by": "contractor_text_visit_subs answers notTold (name, why)"
     },
@@ -1279,7 +1294,7 @@
     {
       "path": "A job → Visits → a visit that’s still missing materials says how many, in red",
       "kind": "see",
-      "file": "apps/web/src/addons/contractor/job-page.tsx:332",
+      "file": "apps/web/src/addons/contractor/job-page.tsx:337",
       "covered": "yes",
       "by": "contractor_get_job (visits[].materialsMissing); contractor_list_materials (appointmentId) names them"
     },
@@ -1398,7 +1413,7 @@
     {
       "path": "A work order → Materials for this visit: the job’s materials it needs (its own, and the ones for any visit), with the same marks, menu, Add and dialog as on the job, never with a cost",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:207",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:221",
       "covered": "yes",
       "by": "contractor_get_work_order (materials); contractor_list_materials (appointmentId); contractor_add_material (appointmentId), contractor_update_material, contractor_remove_material"
     },
@@ -1538,7 +1553,7 @@
     {
       "path": "A work order → Time on this visit: the visit’s hours and stretches, with Take a break or Back to work, and the same Fix, Remove and Add time as on the job",
       "kind": "do",
-      "file": "apps/web/src/addons/contractor/work-order-page.tsx:223",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:237",
       "covered": "yes",
       "by": "contractor_list_time (appointmentId); contractor_set_break; contractor_fix_time, contractor_remove_time and contractor_add_time (appointmentId)"
     },
@@ -1709,6 +1724,356 @@
       "file": "apps/web/src/addons/contractor/labor-costs-card.tsx:109",
       "covered": "yes",
       "by": "contractor_set_labor_cost, on a Confirm card"
+    },
+    {
+      "path": "A job → Notes from the field: what the crew typed, said or photographed, the newest first, or none yet",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:86",
+      "covered": "yes",
+      "by": "contractor_list_notes"
+    },
+    {
+      "path": "A job → Notes → each note: who left it, when, the visit it was taken on, and whether it’s a voice note",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:104",
+      "covered": "yes",
+      "by": "contractor_list_notes (by, notedAt, appointmentId, audio)"
+    },
+    {
+      "path": "A job → Notes → what was typed",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:114",
+      "covered": "yes",
+      "by": "contractor_list_notes (body)"
+    },
+    {
+      "path": "A job → Notes → a voice note’s words, or that they’re on their way or couldn’t be made",
+      "kind": "see",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:124",
+      "covered": "yes",
+      "by": "contractor_list_notes (audio.transcript, audio.state)"
+    },
+    {
+      "path": "A job → Notes → Play the recording (opens it in the job’s files), or that it was deleted",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:132",
+      "covered": "partly",
+      "by": "contractor_list_notes names the recording’s file and gives its words; the sound itself isn’t played"
+    },
+    {
+      "path": "A job → Notes → a note’s photos (each opens in the job’s files)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:152",
+      "covered": "partly",
+      "by": "contractor_list_notes (photoFileIds, files) names them; the picture itself isn’t read"
+    },
+    {
+      "path": "A job → Notes → Add a note: what it says, and Save the note",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:285",
+      "covered": "yes",
+      "by": "contractor_add_note (body)"
+    },
+    {
+      "path": "A job → Notes → a note’s menu: Remove, asked first (your own, or anyone’s for owners and admins)",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:168",
+      "covered": "yes",
+      "by": "contractor_remove_note, on a Confirm card; contractor_list_notes (may.removeAny)"
+    },
+    {
+      "path": "A job → Notes → Show all, or Show fewer, and showing the newest only",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/notes-card.tsx:192",
+      "covered": "yes",
+      "by": "contractor_list_notes answers with every note (the newest 300, and truncated)"
+    },
+    {
+      "path": "A work order → Notes on this visit: the notes left on the visit, with the same Add a note and Remove as on the job",
+      "kind": "do",
+      "file": "apps/web/src/addons/contractor/work-order-page.tsx:252",
+      "covered": "yes",
+      "by": "contractor_list_notes (appointmentId); contractor_add_note (appointmentId); contractor_remove_note, on a Confirm card"
+    },
+    {
+      "path": "Phone → More → Contractor Operations → Jobs: how many are open and how many visits are yours today (opens Jobs)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/more.tsx:53",
+      "covered": "yes",
+      "by": "add-on directory line in the prompt; contractor_overview (counts); contractor_get_dispatch (today, the person’s visits); CONTRACTOR_PLACES"
+    },
+    {
+      "path": "Phone → a visit’s page in Calendar → Work order, for a visit on a job (opens its work order)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/visit-panel.tsx:56",
+      "covered": "yes",
+      "by": "contractor_get_work_order (the visit’s appointmentId); the A work order place"
+    },
+    {
+      "path": "Phone → any Contractor Operations page with no signal: that it’s what’s kept on this phone, and how many changes wait to send",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/kit.tsx:133",
+      "covered": "yes",
+      "by": "the Assistant asks with signal itself; what waits on a phone sends on its own"
+    },
+    {
+      "path": "Phone → Jobs → My visits today: each with its time, job, customer, property and where it stands, or none (each opens its work order)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:130",
+      "covered": "yes",
+      "by": "contractor_get_dispatch (day: today, the person’s visits); contractor_get_work_order"
+    },
+    {
+      "path": "Phone → Jobs → Which jobs: My jobs, All, Late",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:165",
+      "covered": "yes",
+      "by": "contractor_list_jobs (filter)"
+    },
+    {
+      "path": "Phone → Jobs → search",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:181",
+      "covered": "yes",
+      "by": "contractor_list_jobs (search)"
+    },
+    {
+      "path": "Phone → Jobs → Done and cancelled too",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:189",
+      "covered": "yes",
+      "by": "contractor_list_jobs (includeClosed)"
+    },
+    {
+      "path": "Phone → Jobs → no jobs, or none match",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:197",
+      "covered": "yes",
+      "by": "contractor_list_jobs (empty)"
+    },
+    {
+      "path": "Phone → Jobs → each job: name, status, customer and property, % done or phases done, deadline or days late, next visit (opens the job)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:248",
+      "covered": "yes",
+      "by": "contractor_list_jobs (each job’s row); contractor_get_job"
+    },
+    {
+      "path": "Phone → Jobs → showing the first jobs only",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:219",
+      "covered": "yes",
+      "by": "contractor_list_jobs (truncated)"
+    },
+    {
+      "path": "Phone → Jobs → dispatch, estimates, costs and settings are on the web",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/jobs.tsx:223",
+      "covered": "yes",
+      "by": "the Jobs place says the same; the Dispatch, Estimates, Item costs, Profit and Settings places and their tools"
+    },
+    {
+      "path": "Phone → a job that isn’t on this phone (archived, or closed over a month ago), with Back to Jobs",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:241",
+      "covered": "yes",
+      "by": "contractor_get_job answers from the server, whatever the phone keeps"
+    },
+    {
+      "path": "Phone → a job → its status, and why it’s on hold or cancelled",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:258",
+      "covered": "yes",
+      "by": "contractor_get_job (status, statusReason)"
+    },
+    {
+      "path": "Phone → a job → Change status (needs signal): New, Scheduled, In progress, On hold, Done or Cancelled, with why for On hold and Cancelled",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:277",
+      "covered": "yes",
+      "by": "contractor_set_job_status (status, reason)"
+    },
+    {
+      "path": "Phone → a job → Change status → why it was refused (required checklist items are left)",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:563",
+      "covered": "yes",
+      "by": "contractor_set_job_status refuses the same way and names what’s left"
+    },
+    {
+      "path": "Phone → a job → About the job: customer (opens the contact), property, trade, starts, deadline, lead and team, and the work to do",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:290",
+      "covered": "yes",
+      "by": "contractor_get_job"
+    },
+    {
+      "path": "Phone → a job → Call the customer",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:313",
+      "covered": "person",
+      "by": "the call is on their own phone; get_person gives the number"
+    },
+    {
+      "path": "Phone → a job → Progress: each phase with its status and dates; press one to say Not started, Started or Done",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:350",
+      "covered": "yes",
+      "by": "contractor_get_job (phaseList); contractor_update_phase (status)"
+    },
+    {
+      "path": "Phone → a job → Progress: a service call’s % done, with Set % done",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:407",
+      "covered": "yes",
+      "by": "contractor_set_job_percent"
+    },
+    {
+      "path": "Phone → a job → Visits: each with its time, where it stands and its checklist’s progress (opens its work order)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:415",
+      "covered": "yes",
+      "by": "contractor_get_job (visits); contractor_get_work_order"
+    },
+    {
+      "path": "Phone → a job → its estimate, costs and budget are on the web",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/job.tsx:474",
+      "covered": "yes",
+      "by": "contractor_get_job (money), contractor_get_job_costing and contractor_list_estimates, for people who may see job costs"
+    },
+    {
+      "path": "Phone → a job or a work order → Materials: each with how much is here of what’s needed, what’s used and left, and what’s short; how many are still missing",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/materials.tsx:62",
+      "covered": "yes",
+      "by": "contractor_list_materials (jobId, or appointmentId for a visit’s; missing)"
+    },
+    {
+      "path": "Phone → Materials → press a material: add what was used, wasted or sent back just now, then Add to the count",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/materials.tsx:211",
+      "covered": "yes",
+      "by": "contractor_count_material (used, wasted, returned: how much more)"
+    },
+    {
+      "path": "Phone → a job or a work order → Time: work, travel and breaks so far, and what you’re on the clock for",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/time.tsx:50",
+      "covered": "yes",
+      "by": "contractor_list_time (totals, mine)"
+    },
+    {
+      "path": "Phone → Time → Take a break, or Back to work",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/time.tsx:76",
+      "covered": "yes",
+      "by": "contractor_set_break"
+    },
+    {
+      "path": "Phone → Time → when your time starts, and that an owner or admin fixes time on the web",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/time.tsx:85",
+      "covered": "yes",
+      "by": "the A job place says what starts and stops time; contractor_fix_time, for people who may"
+    },
+    {
+      "path": "Phone → a job or a work order → Notes from the field: each with who left it and when, what it says, a voice note’s words (or that they’re on their way), and how many photos",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/notes.tsx:72",
+      "covered": "yes",
+      "by": "contractor_list_notes (jobId, or appointmentId for a visit’s)"
+    },
+    {
+      "path": "Phone → Notes → Type a note, then Save the note",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/notes.tsx:244",
+      "covered": "yes",
+      "by": "contractor_add_note (body; appointmentId on a visit)"
+    },
+    {
+      "path": "Phone → Notes → Photo: take one, kept with a note",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/notes.tsx:96",
+      "covered": "person",
+      "by": "a photo from their own phone’s camera; contractor_add_note (photoFileIds) takes one already in the job’s files"
+    },
+    {
+      "path": "Phone → Notes → Voice note: record, Stop, Keep it, Record again",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/notes.tsx:340",
+      "covered": "person",
+      "by": "a recording from their own phone; its words come on their own, and contractor_list_notes reads them"
+    },
+    {
+      "path": "Phone → Notes → Remove a note (needs signal; your own, or anyone’s for people who set the add-on up)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/notes.tsx:167",
+      "covered": "yes",
+      "by": "contractor_remove_note, on a Confirm card"
+    },
+    {
+      "path": "Phone → a work order that isn’t on this phone yet, with Back to Jobs",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:256",
+      "covered": "yes",
+      "by": "contractor_get_work_order answers from the server; contractor_start_work_order starts one"
+    },
+    {
+      "path": "Phone → a work order → when it is, where it stands, and where, with Directions (the phone’s own maps)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:306",
+      "covered": "partly",
+      "by": "contractor_get_work_order gives when, the stage and the address; no map link"
+    },
+    {
+      "path": "Phone → a work order → its job (opens the job), and that a closed job’s or a cancelled visit’s work order can’t be changed",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:318",
+      "covered": "yes",
+      "by": "contractor_get_job; contractor_get_work_order (job.status, visit.status)"
+    },
+    {
+      "path": "Phone → a work order → On my way, Started, Waiting on parts, Job done (the visit’s own buttons)",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:339",
+      "covered": "yes",
+      "by": "update_job_status status"
+    },
+    {
+      "path": "Phone → a work order → Instructions, What to bring and Who’s going",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:343",
+      "covered": "yes",
+      "by": "contractor_get_work_order (instructions, bring, crew, people)"
+    },
+    {
+      "path": "Phone → a work order → Checklist: how many are done, and how many required ones are left",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:363",
+      "covered": "yes",
+      "by": "contractor_get_work_order (items, checklist)"
+    },
+    {
+      "path": "Phone → a work order → Checklist → tick or untick a box",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:481",
+      "covered": "yes",
+      "by": "contractor_set_checklist_item (done)"
+    },
+    {
+      "path": "Phone → a work order → Checklist → a photo item: Take the photo, or Take it again",
+      "kind": "do",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:545",
+      "covered": "person",
+      "by": "the photo comes from the person’s own phone; contractor_set_checklist_item (fileId) marks it with a photo already in the job’s files"
+    },
+    {
+      "path": "Phone → a work order → Checklist → an item waiting to send, or its photo waiting to upload",
+      "kind": "see",
+      "file": "apps/mobile/src/addons/contractor/work-order.tsx:508",
+      "covered": "yes",
+      "by": "the Assistant asks with signal itself; what waits on a phone sends on its own"
     }
   ],
   "gaps": []

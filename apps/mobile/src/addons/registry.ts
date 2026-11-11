@@ -3,6 +3,8 @@ import type * as React from 'react';
 
 import type { CopyDb, PhoneAddonSearch } from '@/search/copy-sql';
 
+import { ContractorMore } from './contractor/more';
+import { ContractorVisitPanel } from './contractor/visit-panel';
 import { OutreachMore } from './outreach/more';
 import { OutreachSocialCard } from './outreach/social-card';
 import { RealestateMore } from './realestate/more';
@@ -43,6 +45,11 @@ export interface PhoneAddon {
    * holding `permission`; nothing for a customer it has nothing on.
    */
   readonly PersonPanel?: React.ComponentType<{ workspaceId: string; personId: string }>;
+  /**
+   * Its row on a visit's page in Calendar: Contractor Operations' work order, for a visit on one of its jobs. Drawn
+   * only for someone holding `permission`; nothing for a visit it has nothing on.
+   */
+  readonly VisitPanel?: React.ComponentType<{ workspaceId: string; appointmentId: string }>;
 }
 
 export const PHONE_ADDONS: readonly PhoneAddon[] = [
@@ -69,5 +76,11 @@ export const PHONE_ADDONS: readonly PhoneAddon[] = [
     addonId: 'socialcontent',
     permission: 'socialcontent.use',
     More: SocialcontentMore,
+  },
+  {
+    addonId: 'contractor',
+    permission: 'contractor.use',
+    More: ContractorMore,
+    VisitPanel: ContractorVisitPanel,
   },
 ];

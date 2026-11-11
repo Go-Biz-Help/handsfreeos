@@ -17,6 +17,8 @@
  *   people going, before the visit: ./materials.ts.
  * - **Time follows the visit's buttons** (the owner's decision 10): On the way and Started start the clocks of the
  *   people on it, anything else stops them, and time left running half a day is stopped and flagged: ./time.ts.
+ * - **A voice note gets its words** from its recording, a moment after the note arrives: ./notes.ts.
+ * - **Phones keep a job** while it's open and for a month after it's done or cancelled: ./phone.ts.
  */
 import { estimateFillJob } from '@hfos/core/addons/contractor/ops/estimates';
 import { jobFollowVisit } from '@hfos/core/addons/contractor/ops/jobs';
@@ -33,6 +35,8 @@ import {
   visitCancelled,
   visitMoved,
 } from './materials';
+import { noteAdded } from './notes';
+import { jobStatusMoved, PHONE_CHECK, phoneCheckJob } from './phone';
 import {
   estimatingSaved,
   jobTimeChanged,
@@ -153,6 +157,8 @@ export const contractorAddonWorker: AddonWorkerModule = {
     'contractor.time.removed': visitTimeChanged,
     'contractor.labor_rate.set': laborRateSet,
     'contractor.estimating.saved': estimatingSaved,
+    'contractor.note.added': noteAdded,
+    'contractor.job.status_changed': jobStatusMoved,
     'estimate.accepted': async (ctx) => {
       const estimateId = estimateIdOf(ctx);
       if (!estimateId) return;
@@ -173,5 +179,9 @@ export const contractorAddonWorker: AddonWorkerModule = {
       if (payloadOf(ctx)['waitingOk'] === false) await okDone('changed')(ctx);
     },
   },
-  jobs: { [MATERIALS_CHECK]: materialsCheckJob, [TIME_CHECK]: timeCheckJob },
+  jobs: {
+    [MATERIALS_CHECK]: materialsCheckJob,
+    [TIME_CHECK]: timeCheckJob,
+    [PHONE_CHECK]: phoneCheckJob,
+  },
 };

@@ -29,6 +29,21 @@ export const STATUSES_WITH_REASON: readonly JobStatus[] = ['on_hold', 'cancelled
 export const OPEN_STATUSES: readonly JobStatus[] = ['new', 'scheduled', 'in_progress', 'on_hold'];
 export const isOpen = (s: JobStatus) => OPEN_STATUSES.includes(s);
 
+/**
+ * How long phones keep a job after it's done or cancelled (part 6): long enough to look back at last week's work,
+ * short enough that nobody carries years of old jobs around.
+ */
+export const PHONE_DAYS = 30;
+
+/** When a job leaves phones: so long after it closed. Null for an open one, which stays. */
+export function leavesPhonesAt(job: {
+  readonly status: JobStatus;
+  /** When it took that status, in milliseconds. */
+  readonly statusAt: number;
+}): number | null {
+  return isOpen(job.status) ? null : job.statusAt + PHONE_DAYS * 86_400_000;
+}
+
 export const PHASE_STATUSES = ['not_started', 'in_progress', 'done'] as const;
 export type PhaseStatus = (typeof PHASE_STATUSES)[number];
 
