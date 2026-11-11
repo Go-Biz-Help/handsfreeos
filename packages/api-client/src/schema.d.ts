@@ -2948,7 +2948,7 @@ export interface paths {
         put?: never;
         /**
          * Add an item to a visit’s checklist: a box to tick or a photo to add, required or not.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_added.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_added, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_item_add"];
         delete?: never;
@@ -2968,7 +2968,7 @@ export interface paths {
         put?: never;
         /**
          * Remove an item from a visit’s checklist. The rest of the work order stays.
-         * @description Risk level 2. Requires contractor.use. Emits contractor.work_order.item_removed.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.work_order.item_removed, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_item_remove"];
         delete?: never;
@@ -2988,7 +2988,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a checklist item done, or not done after all. A photo item is done by its photo: one of the job’s files.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_item_set"];
         delete?: never;
@@ -3008,7 +3008,7 @@ export interface paths {
         put?: never;
         /**
          * Change a checklist item: what it says, whether it’s a box to tick or a photo, and whether it’s required.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_updated.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_updated, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_item_update"];
         delete?: never;
@@ -3028,7 +3028,7 @@ export interface paths {
         put?: never;
         /**
          * Put a crew on a visit: everyone on the team in it is booked on the visit, and its subcontractors go on the work order. Or take the crew’s name off.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.crew_set.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.crew_set, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_set_crew"];
         delete?: never;
@@ -3068,7 +3068,7 @@ export interface paths {
         put?: never;
         /**
          * Put a subcontractor on a visit: a contact who doesn’t sign in, is texted the job’s details, and whose work the office marks.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_added.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_added, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_sub_add"];
         delete?: never;
@@ -3088,7 +3088,7 @@ export interface paths {
         put?: never;
         /**
          * Take a subcontractor off a visit. They aren’t told.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_removed.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_removed, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_sub_remove"];
         delete?: never;
@@ -3108,7 +3108,7 @@ export interface paths {
         put?: never;
         /**
          * Mark a subcontractor’s work on a visit done, or not done after all, with an optional note. The office marks it: they don’t sign in.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_set.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_set, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_sub_set"];
         delete?: never;
@@ -3128,7 +3128,7 @@ export interface paths {
         put?: never;
         /**
          * Text a visit’s subcontractors the job’s details: the job, where, when, what to do and what to bring. It says who was texted and who couldn’t be, and why.
-         * @description Risk level 2. Requires contractor.use. Emits contractor.work_order.subs_told.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.work_order.subs_told, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_tell_subs"];
         delete?: never;
@@ -3148,7 +3148,7 @@ export interface paths {
         put?: never;
         /**
          * Change a visit’s work order: its instructions, and what to bring.
-         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.updated.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.updated, contractor.work_order.started.
          */
         post: operations["command_contractor_work_order_update"];
         delete?: never;

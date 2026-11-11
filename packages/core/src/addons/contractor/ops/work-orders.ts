@@ -154,7 +154,7 @@ export const workOrderUpdate = defineAddonCommand(contractorAddon, {
       'Change a visit’s work order (by the visit’s appointment id): its instructions for the crew, and what to bring. Each left out stays as it is; null clears it.',
     outcome: (_o, input) => ({ words: W.workOrder.saved, path: pathOf(input) }),
   },
-  emits: ['contractor.work_order.updated'],
+  emits: ['contractor.work_order.updated', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const [now] = await ctx.tx
@@ -242,7 +242,7 @@ export const workOrderSetCrew = defineAddonCommand(contractorAddon, {
       path: pathOf(input),
     }),
   },
-  emits: ['contractor.work_order.crew_set'],
+  emits: ['contractor.work_order.crew_set', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const { appointmentId } = order.visit;
@@ -329,7 +329,7 @@ export const workOrderSubAdd = defineAddonCommand(contractorAddon, {
       'Put a subcontractor (a contact, by person id) on a visit’s work order (by the visit’s appointment id). It doesn’t text them: use contractor_text_visit_subs for that.',
     outcome: (_o, input) => ({ words: 'They’re on the visit.', path: pathOf(input) }),
   },
-  emits: ['contractor.work_order.sub_added'],
+  emits: ['contractor.work_order.sub_added', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const sub = (await subsOf(ctx, [input.personId])).get(input.personId);
@@ -373,7 +373,7 @@ export const workOrderSubRemove = defineAddonCommand(contractorAddon, {
     what: () => 'Take the subcontractor off the visit',
     outcome: (_o, input) => ({ words: 'They’re off the visit.', path: pathOf(input) }),
   },
-  emits: ['contractor.work_order.sub_removed'],
+  emits: ['contractor.work_order.sub_removed', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const gone = await ctx.tx
@@ -427,7 +427,7 @@ export const workOrderSubSet = defineAddonCommand(contractorAddon, {
       path: pathOf(input),
     }),
   },
-  emits: ['contractor.work_order.sub_set'],
+  emits: ['contractor.work_order.sub_set', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const [row] = await ctx.tx
@@ -511,7 +511,7 @@ export const workOrderTellSubs = defineAddonCommand(contractorAddon, {
       };
     },
   },
-  emits: ['contractor.work_order.subs_told'],
+  emits: ['contractor.work_order.subs_told', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const { appointmentId } = order.visit;
@@ -636,7 +636,7 @@ export const workOrderItemAdd = defineAddonCommand(contractorAddon, {
       'Add an item to a visit’s checklist (by the visit’s appointment id): its label, kind (check, a box to tick, or photo, a photo to add) and whether it’s required. A job can’t be marked done while a required item is left.',
     outcome: (_o, input) => ({ words: 'It’s on the checklist.', path: pathOf(input) }),
   },
-  emits: ['contractor.work_order.item_added'],
+  emits: ['contractor.work_order.item_added', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const order = await workOrderForChange(ctx, input.appointmentId);
     const [at] = await rows<{ n: number; next: number }>(
@@ -697,7 +697,7 @@ export const workOrderItemUpdate = defineAddonCommand(contractorAddon, {
     what: () => 'Change the checklist item',
     outcome: (output) => ({ words: W.workOrder.saved, path: pathOf(output) }),
   },
-  emits: ['contractor.work_order.item_updated'],
+  emits: ['contractor.work_order.item_updated', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const { item, job, visit } = await workOrderOfItem(ctx, input.itemId);
     const next = {
@@ -758,7 +758,7 @@ export const workOrderItemRemove = defineAddonCommand(contractorAddon, {
     what: () => 'Remove the checklist item',
     outcome: (output) => ({ words: 'It’s off the checklist.', path: pathOf(output) }),
   },
-  emits: ['contractor.work_order.item_removed'],
+  emits: ['contractor.work_order.item_removed', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const { item, job, visit } = await workOrderOfItem(ctx, input.itemId);
     await ctx.tx.delete(workOrderItems).where(eq(workOrderItems.id, item.id));
@@ -812,7 +812,7 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
       };
     },
   },
-  emits: ['contractor.work_order.item_set'],
+  emits: ['contractor.work_order.item_set', 'contractor.work_order.started'],
   async handler(ctx, input) {
     const { item, job, visit } = await workOrderOfItem(ctx, input.itemId);
     const out = async (done: boolean) => ({

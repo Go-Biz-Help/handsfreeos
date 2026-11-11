@@ -124327,7 +124327,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.updated.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.updated, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124412,7 +124412,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.crew_set.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.crew_set, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124516,7 +124516,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_added.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_added, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124585,7 +124585,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_removed.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_removed, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124654,7 +124654,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_set.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_set, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124738,7 +124738,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires contractor.use. Emits contractor.work_order.subs_told.",
+        "description": "Risk level 2. Requires contractor.use. Emits contractor.work_order.subs_told, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124863,7 +124863,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.item_added.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.item_added, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -124946,7 +124946,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.item_updated.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.item_updated, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -125042,7 +125042,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 2. Requires contractor.use. Emits contractor.work_order.item_removed.",
+        "description": "Risk level 2. Requires contractor.use. Emits contractor.work_order.item_removed, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {
@@ -125123,7 +125123,7 @@
         "tags": [
           "commands"
         ],
-        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set.",
+        "description": "Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set, contractor.work_order.started.",
         "requestBody": {
           "required": true,
           "content": {

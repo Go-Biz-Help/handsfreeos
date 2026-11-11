@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "media": "tsx src/media.ts",
     "lint": "eslint . --config ../../eslint.config.js",
-    "typecheck": "NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=5120 tsc --noEmit",
     "test": "vitest run",
     "seed": "tsx scripts/seed.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
