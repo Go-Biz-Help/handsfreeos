@@ -11910,6 +11910,216 @@
         }
       }
     },
+    "/v1/commands/email_setup.save": {
+      "post": {
+        "operationId": "command_email_setup_save",
+        "summary": "Set up the address the business’s emails (booking confirmations, reminders, invoices, the AI teammate’s) go out from, one screen at a time. sender: a free address on mail.handsfreeos.com, made the default now, or a team address on the business’s own domain, which is added and becomes the default on its own once its DNS records check out (mail goes from the free address until then). records: whether the domain’s mail comes to the Inbox too. own: an address on the domain just for you, which only you read and booking emails never use.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits email_domain.planned, email_address.created, email_address.updated, email_domain.receiving_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "part": {
+                    "type": "string",
+                    "enum": [
+                      "sender",
+                      "records",
+                      "own"
+                    ]
+                  },
+                  "email": {
+                    "type": "object",
+                    "properties": {
+                      "with": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "enum": [
+                              "domain",
+                              "free"
+                            ]
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "domain": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "local": {
+                        "default": "hello",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "freeLocal": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "name": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      },
+                      "receive": {
+                        "default": null,
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      },
+                      "mine": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "mineLocal": {
+                        "default": "",
+                        "type": "string",
+                        "maxLength": 300
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "part",
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "workspaceId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "changes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "sender": {
+                      "type": "string"
+                    },
+                    "emailDomainId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "workspaceId",
+                    "changes",
+                    "sender",
+                    "emailDomainId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/commands/email_domain.send_steps": {
+      "post": {
+        "operationId": "command_email_domain_send_steps",
+        "summary": "Email the DNS records for one of the business’s domains, with the steps for where it’s managed, to you or to whoever looks after the domain. Up to 10 a day.",
+        "tags": [
+          "commands"
+        ],
+        "description": "Risk level 2. Requires channels.manage. Emits email_domain.steps_requested.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "emailDomainId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "workspaceId",
+                  "emailDomainId",
+                  "to"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "emailDomainId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "to": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "emailDomainId",
+                    "to"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/commands/mailbox.connect": {
       "post": {
         "operationId": "command_mailbox_connect",
@@ -67169,7 +67379,7 @@
     "/v1/commands/onboarding_setup.save": {
       "post": {
         "operationId": "command_onboarding_setup_save",
-        "summary": "Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.",
+        "summary": "Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); “Your business email” sets the address booking emails go out from, the domain’s mail and your own address (as email_setup.save does); and the review link is saved for thank-you texts.",
         "tags": [
           "commands"
         ],
@@ -67198,6 +67408,9 @@
                       "customers",
                       "booking",
                       "number",
+                      "email",
+                      "email_records",
+                      "email_own",
                       "paid",
                       "jobs",
                       "facts",
@@ -67272,6 +67485,72 @@
                         "default": "",
                         "type": "string",
                         "maxLength": 500
+                      },
+                      "email": {
+                        "default": {
+                          "with": null,
+                          "domain": "",
+                          "local": "hello",
+                          "freeLocal": "",
+                          "name": "",
+                          "receive": null,
+                          "mine": false,
+                          "mineLocal": ""
+                        },
+                        "type": "object",
+                        "properties": {
+                          "with": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "domain",
+                                  "free"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "domain": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "local": {
+                            "default": "hello",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "freeLocal": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "name": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "receive": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "mine": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "mineLocal": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          }
+                        }
                       },
                       "ai": {
                         "default": {
@@ -68044,6 +68323,9 @@
                         "customers",
                         "booking",
                         "number",
+                        "email",
+                        "email_records",
+                        "email_own",
                         "paid",
                         "jobs",
                         "facts",
@@ -68218,6 +68500,72 @@
                         "default": "",
                         "type": "string",
                         "maxLength": 500
+                      },
+                      "email": {
+                        "default": {
+                          "with": null,
+                          "domain": "",
+                          "local": "hello",
+                          "freeLocal": "",
+                          "name": "",
+                          "receive": null,
+                          "mine": false,
+                          "mineLocal": ""
+                        },
+                        "type": "object",
+                        "properties": {
+                          "with": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "domain",
+                                  "free"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "domain": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "local": {
+                            "default": "hello",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "freeLocal": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "name": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          },
+                          "receive": {
+                            "default": null,
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "mine": {
+                            "default": false,
+                            "type": "boolean"
+                          },
+                          "mineLocal": {
+                            "default": "",
+                            "type": "string",
+                            "maxLength": 300
+                          }
+                        }
                       },
                       "ai": {
                         "default": {
@@ -150147,6 +150495,490 @@
         }
       }
     },
+    "/v1/queries/email_setup.get": {
+      "post": {
+        "operationId": "query_email_setup_get",
+        "summary": "The business email step: the address booking emails go out from now, the business’s free address and own domains (with their DNS records, where each is managed and what happens once they check out), your own address, connected mailboxes, and the answers to start from.",
+        "tags": [
+          "queries"
+        ],
+        "description": "Requires channels.manage.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "workspaceId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "workspaceId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "state": {
+                      "type": "object",
+                      "properties": {
+                        "sharedDomain": {
+                          "type": "string"
+                        },
+                        "inboundMxHost": {
+                          "type": "string"
+                        },
+                        "businessName": {
+                          "type": "string"
+                        },
+                        "websiteDomain": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "myEmail": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "myFirstName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sender": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "address": {
+                                  "type": "string"
+                                },
+                                "localPart": {
+                                  "type": "string"
+                                },
+                                "domain": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "address",
+                                "localPart",
+                                "domain",
+                                "displayName"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "free": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                "localPart": {
+                                  "type": "string"
+                                },
+                                "address": {
+                                  "type": "string"
+                                },
+                                "displayName": {
+                                  "type": "string"
+                                },
+                                "isDefault": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "id",
+                                "localPart",
+                                "address",
+                                "displayName",
+                                "isDefault"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "domains": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "domain": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "verified",
+                                  "failed"
+                                ]
+                              },
+                              "receiving": {
+                                "type": "string",
+                                "enum": [
+                                  "off",
+                                  "pending",
+                                  "on",
+                                  "lapsed"
+                                ]
+                              },
+                              "mailHost": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "enum": [
+                                      "none",
+                                      "handsfreeos",
+                                      "google",
+                                      "microsoft",
+                                      "godaddy",
+                                      "zoho",
+                                      "other"
+                                    ]
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "dnsHost": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "plan": {
+                                "type": "object",
+                                "properties": {
+                                  "team": {
+                                    "type": "object",
+                                    "properties": {
+                                      "localPart": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      },
+                                      "displayName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 120
+                                      }
+                                    },
+                                    "required": [
+                                      "localPart",
+                                      "displayName"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "own": {
+                                    "type": "object",
+                                    "properties": {
+                                      "localPart": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 64
+                                      },
+                                      "userId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                      }
+                                    },
+                                    "required": [
+                                      "localPart",
+                                      "userId"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "receive": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              "records": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "type": {
+                                      "type": "string",
+                                      "enum": [
+                                        "TXT",
+                                        "CNAME",
+                                        "MX"
+                                      ]
+                                    },
+                                    "purpose": {
+                                      "type": "string"
+                                    },
+                                    "host": {
+                                      "type": "string"
+                                    },
+                                    "fullHost": {
+                                      "type": "string"
+                                    },
+                                    "value": {
+                                      "type": "string"
+                                    },
+                                    "priority": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "found": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "type",
+                                    "purpose",
+                                    "host",
+                                    "fullHost",
+                                    "value",
+                                    "found"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "lastCheckedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "lastError": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "domain",
+                              "status",
+                              "receiving",
+                              "mailHost",
+                              "dnsHost",
+                              "plan",
+                              "records",
+                              "lastCheckedAt",
+                              "lastError"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "mine": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "address": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "address"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "mailboxes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "provider": {
+                                "type": "string",
+                                "enum": [
+                                  "microsoft",
+                                  "google"
+                                ]
+                              },
+                              "accountEmail": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "pending",
+                                  "active",
+                                  "reauth_required",
+                                  "error",
+                                  "disconnected"
+                                ]
+                              },
+                              "mine": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "provider",
+                              "accountEmail",
+                              "status",
+                              "mine"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "canManage": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "sharedDomain",
+                        "inboundMxHost",
+                        "businessName",
+                        "websiteDomain",
+                        "slug",
+                        "myEmail",
+                        "myFirstName",
+                        "sender",
+                        "free",
+                        "domains",
+                        "mine",
+                        "mailboxes",
+                        "canManage"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "answers": {
+                      "type": "object",
+                      "properties": {
+                        "with": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "domain",
+                                "free"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "domain": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "local": {
+                          "default": "hello",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "freeLocal": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "name": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        "receive": {
+                          "default": null,
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "mine": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "mineLocal": {
+                          "default": "",
+                          "type": "string",
+                          "maxLength": 300
+                        }
+                      },
+                      "required": [
+                        "with",
+                        "domain",
+                        "local",
+                        "freeLocal",
+                        "name",
+                        "receive",
+                        "mine",
+                        "mineLocal"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "state",
+                    "answers"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/queries/email_suppression.list": {
       "post": {
         "operationId": "query_email_suppression_list",
@@ -198498,6 +199330,374 @@
                             "asked"
                           ],
                           "additionalProperties": false
+                        },
+                        "email": {
+                          "type": "object",
+                          "properties": {
+                            "sharedDomain": {
+                              "type": "string"
+                            },
+                            "inboundMxHost": {
+                              "type": "string"
+                            },
+                            "businessName": {
+                              "type": "string"
+                            },
+                            "websiteDomain": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "slug": {
+                              "type": "string"
+                            },
+                            "myEmail": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "myFirstName": {
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "sender": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "address": {
+                                      "type": "string"
+                                    },
+                                    "localPart": {
+                                      "type": "string"
+                                    },
+                                    "domain": {
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "displayName": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "address",
+                                    "localPart",
+                                    "domain",
+                                    "displayName"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "free": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "id": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "localPart": {
+                                      "type": "string"
+                                    },
+                                    "address": {
+                                      "type": "string"
+                                    },
+                                    "displayName": {
+                                      "type": "string"
+                                    },
+                                    "isDefault": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "id",
+                                    "localPart",
+                                    "address",
+                                    "displayName",
+                                    "isDefault"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "domains": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  "domain": {
+                                    "type": "string"
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pending",
+                                      "verified",
+                                      "failed"
+                                    ]
+                                  },
+                                  "receiving": {
+                                    "type": "string",
+                                    "enum": [
+                                      "off",
+                                      "pending",
+                                      "on",
+                                      "lapsed"
+                                    ]
+                                  },
+                                  "mailHost": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "enum": [
+                                          "none",
+                                          "handsfreeos",
+                                          "google",
+                                          "microsoft",
+                                          "godaddy",
+                                          "zoho",
+                                          "other"
+                                        ]
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "dnsHost": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "plan": {
+                                    "type": "object",
+                                    "properties": {
+                                      "team": {
+                                        "type": "object",
+                                        "properties": {
+                                          "localPart": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 64
+                                          },
+                                          "displayName": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 120
+                                          }
+                                        },
+                                        "required": [
+                                          "localPart",
+                                          "displayName"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "own": {
+                                        "type": "object",
+                                        "properties": {
+                                          "localPart": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                            "maxLength": 64
+                                          },
+                                          "userId": {
+                                            "type": "string",
+                                            "format": "uuid",
+                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                          }
+                                        },
+                                        "required": [
+                                          "localPart",
+                                          "userId"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "receive": {
+                                        "type": "boolean"
+                                      }
+                                    },
+                                    "additionalProperties": false
+                                  },
+                                  "records": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": {
+                                          "type": "string",
+                                          "enum": [
+                                            "TXT",
+                                            "CNAME",
+                                            "MX"
+                                          ]
+                                        },
+                                        "purpose": {
+                                          "type": "string"
+                                        },
+                                        "host": {
+                                          "type": "string"
+                                        },
+                                        "fullHost": {
+                                          "type": "string"
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        },
+                                        "priority": {
+                                          "type": "integer",
+                                          "minimum": -9007199254740991,
+                                          "maximum": 9007199254740991
+                                        },
+                                        "found": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "type",
+                                        "purpose",
+                                        "host",
+                                        "fullHost",
+                                        "value",
+                                        "found"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "lastCheckedAt": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "lastError": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "domain",
+                                  "status",
+                                  "receiving",
+                                  "mailHost",
+                                  "dnsHost",
+                                  "plan",
+                                  "records",
+                                  "lastCheckedAt",
+                                  "lastError"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "mine": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "address": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "address"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "mailboxes": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "provider": {
+                                    "type": "string",
+                                    "enum": [
+                                      "microsoft",
+                                      "google"
+                                    ]
+                                  },
+                                  "accountEmail": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "pending",
+                                      "active",
+                                      "reauth_required",
+                                      "error",
+                                      "disconnected"
+                                    ]
+                                  },
+                                  "mine": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "provider",
+                                  "accountEmail",
+                                  "status",
+                                  "mine"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "canManage": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "sharedDomain",
+                            "inboundMxHost",
+                            "businessName",
+                            "websiteDomain",
+                            "slug",
+                            "myEmail",
+                            "myFirstName",
+                            "sender",
+                            "free",
+                            "domains",
+                            "mine",
+                            "mailboxes",
+                            "canManage"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
@@ -198535,7 +199735,8 @@
                         "myHours",
                         "forClient",
                         "phones",
-                        "look"
+                        "look",
+                        "email"
                       ],
                       "additionalProperties": false
                     },
@@ -198600,6 +199801,83 @@
                           "default": "",
                           "type": "string",
                           "maxLength": 500
+                        },
+                        "email": {
+                          "default": {
+                            "with": null,
+                            "domain": "",
+                            "local": "hello",
+                            "freeLocal": "",
+                            "name": "",
+                            "receive": null,
+                            "mine": false,
+                            "mineLocal": ""
+                          },
+                          "type": "object",
+                          "properties": {
+                            "with": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "domain",
+                                    "free"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "domain": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "local": {
+                              "default": "hello",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "freeLocal": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "name": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "receive": {
+                              "default": null,
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "mine": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "mineLocal": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "with",
+                            "domain",
+                            "local",
+                            "freeLocal",
+                            "name",
+                            "receive",
+                            "mine",
+                            "mineLocal"
+                          ],
+                          "additionalProperties": false
                         },
                         "ai": {
                           "default": {
@@ -199178,6 +200456,7 @@
                         "hasEin",
                         "payWith",
                         "reviewLink",
+                        "email",
                         "ai"
                       ],
                       "additionalProperties": false
@@ -199244,6 +200523,83 @@
                           "type": "string",
                           "maxLength": 500
                         },
+                        "email": {
+                          "default": {
+                            "with": null,
+                            "domain": "",
+                            "local": "hello",
+                            "freeLocal": "",
+                            "name": "",
+                            "receive": null,
+                            "mine": false,
+                            "mineLocal": ""
+                          },
+                          "type": "object",
+                          "properties": {
+                            "with": {
+                              "default": null,
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "enum": [
+                                    "domain",
+                                    "free"
+                                  ]
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "domain": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "local": {
+                              "default": "hello",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "freeLocal": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "name": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            },
+                            "receive": {
+                              "default": null,
+                              "type": [
+                                "boolean",
+                                "null"
+                              ]
+                            },
+                            "mine": {
+                              "default": false,
+                              "type": "boolean"
+                            },
+                            "mineLocal": {
+                              "default": "",
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          },
+                          "required": [
+                            "with",
+                            "domain",
+                            "local",
+                            "freeLocal",
+                            "name",
+                            "receive",
+                            "mine",
+                            "mineLocal"
+                          ],
+                          "additionalProperties": false
+                        },
                         "ai": {
                           "default": {
                             "jobs": [],
@@ -199821,6 +201177,7 @@
                         "hasEin",
                         "payWith",
                         "reviewLink",
+                        "email",
                         "ai"
                       ],
                       "additionalProperties": false
@@ -199839,6 +201196,9 @@
                             "customers",
                             "booking",
                             "number",
+                            "email",
+                            "email_records",
+                            "email_own",
                             "paid",
                             "jobs",
                             "facts",

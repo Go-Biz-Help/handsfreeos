@@ -3,6 +3,7 @@
  */
 import { INBOUND_MX_HOST, ownershipHost } from '@hfos/core';
 import { cnameInDns, dkimInDns, mxInDns, systemDns, tokenInDns, type DnsLookup } from './dns';
+import { lookUp, systemNameServers } from './hosts';
 import {
   EmailError,
   mailbox,
@@ -103,6 +104,8 @@ export function createPostmark(opts: {
   broadcastStream?: string | null;
   /** DNS lookups for the domain checks (the system resolver unless a test passes its own). */
   dns?: DnsLookup;
+  /** A domain's name servers, for where its DNS is managed (the system resolver unless a test passes its own). */
+  nameServers?: (domain: string) => Promise<string[]>;
   /**
    * Where each receiving domain's server posts its mail (M19): our inbound webhook, with the basic auth Postmark
    * sends. Null leaves receiving at a business's own domain unavailable.
@@ -202,6 +205,13 @@ export function createPostmark(opts: {
       },
       receives: (domain) => mxInDns(dns, domain, INBOUND_MX_HOST),
       owns: (domain, token) => tokenInDns(dns, ownershipHost(domain), token),
+      async hosts(domain) {
+        const [mx, ns] = await Promise.all([
+          lookUp(async () => (await dns.mx(domain)).map((r) => r.exchange)),
+          lookUp(() => (opts.nameServers ?? systemNameServers)(domain)),
+        ]);
+        return { mx, ns };
+      },
       async openInbound(domain) {
         if (!opts.inboundHookUrl)
           throw new EmailError('WORKER_PUBLIC_URL is not set', 'no_inbound_hook', false);

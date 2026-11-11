@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { aiSetupStateOf, AiSetupStateOut, type AiSetupState } from '../ai-setup/state';
 import { WeeklyHours } from '../calendar/config';
 import { BusinessLookSchema } from '../look/look';
+import { EmailSetupStateOut } from '../messaging/email-setup';
 import { OnboardingAnswersSchema } from '../onboarding/settings';
 import { phoneNextStep } from '../schemas/telephony';
 import { BusinessAddress } from './address';
@@ -85,6 +86,8 @@ export const OnboardingSetupStateOut = AiSetupStateOut.extend({
   phones: z.int(),
   /** The business's logo and colour, and where the logo's being looked for or made ready (look/look.ts). */
   look: BusinessLookSchema,
+  /** "Your business email": the business's addresses and domains as they are (messaging/email-setup.ts). */
+  email: EmailSetupStateOut,
 });
 export type OnboardingSetupStateOut = z.infer<typeof OnboardingSetupStateOut>;
 

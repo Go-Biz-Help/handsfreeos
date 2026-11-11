@@ -5,6 +5,7 @@
  */
 import { aiSetupStepHint, aiSetupStepTitle, withAiName } from '../ai-setup/words';
 import { LOOK_WORDS } from '../look/words';
+import { EMAIL_SETUP_WORDS } from '../messaging/email-setup';
 import { QUESTION_WORDS } from '../onboarding/words';
 import {
   AI_SCREEN_OF,
@@ -26,6 +27,7 @@ export const ONBOARDING_SETUP_STOP_NAMES: Readonly<Record<OnboardingSetupStop, s
   customers: 'Your customers',
   booking: 'Your booking page',
   number: 'Your business number',
+  email: EMAIL_SETUP_WORDS.stop,
   paid: 'Payments and reviews',
   ai: 'Your AI teammate',
   loop: 'Stay in the loop',
@@ -70,6 +72,12 @@ const OWN_SCREENS: Readonly<
     title: 'Your business number',
     hint: 'Calls work right away. Texting starts once the phone carriers approve it.',
   },
+  email: { title: EMAIL_SETUP_WORDS.senderTitle, hint: EMAIL_SETUP_WORDS.senderHint },
+  email_records: {
+    title: EMAIL_SETUP_WORDS.recordsScreenTitle,
+    hint: EMAIL_SETUP_WORDS.recordsScreenHint,
+  },
+  email_own: { title: EMAIL_SETUP_WORDS.ownTitle, hint: EMAIL_SETUP_WORDS.ownHint },
   paid: {
     title: 'Get paid, and get reviews',
     hint: 'Both are optional, and both can wait for Settings.',
@@ -87,6 +95,10 @@ const OWN_SCREENS: Readonly<
 const FOR_CLIENT_SCREENS: Readonly<
   Partial<Record<OnboardingSetupScreen, { readonly title: string; readonly hint: string }>>
 > = {
+  email_own: {
+    title: 'The owner’s own email',
+    hint: 'An address just for them, and bringing in the Gmail or Outlook they use now, are theirs to do when they finish their part.',
+  },
   booking: {
     title: 'The booking page is the owner’s',
     hint: 'It books their time, on their own hours, so they make it when they finish. Your services and open hours are saved for it.',
@@ -294,6 +306,7 @@ export const ONBOARDING_SETUP_HAND_OVER_WORDS = {
   yourPart: 'Your part',
   partBooking: 'Make your booking page, on your own hours',
   partPaid: (provider: string) => `Sign in to ${provider}, so payments go to your account`,
+  partEmail: 'Add an email address just for you, and bring in the email you use now',
   partLoop: 'Get alerts on your phone when a customer needs you',
   change: 'Change something',
   finishPart: 'Finish my part',

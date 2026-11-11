@@ -10,9 +10,13 @@ import {
 } from '@hfos/core';
 
 import { aiSetupCalls } from '@/ai-setup/calls';
+import { emailSetupCalls } from '@/email-setup/calls';
 import { api, unwrap } from '@/lib/api';
 import { config } from '@/lib/config';
+import { NotInThisBuild } from '@/lib/not-in-this-build';
 import { workerPost } from '@/lib/worker';
+
+export { NotInThisBuild };
 
 /**
  * The onboarding setup's calls from the phone (HANDSFREEOS_ONBOARDING_QUICK_SETUP_IMPLEMENTATION_PLAN.md §8), as the
@@ -130,6 +134,8 @@ export function onboardingSetupCalls(workspaceId: string) {
       ),
     /** The AI quick setup's own calls: what the website scan found, and the test chat's. */
     ai,
+    /** "Your business email": checking the domain's records, sending the steps, Outlook's sign-in. */
+    email: emailSetupCalls(workspaceId),
     /** Where customers' pages open: the business's own domain once it's serving, else HandsFreeOS's address. */
     publicOrigin: (): Promise<string> => ai.chatOrigin(),
     /**
@@ -172,10 +178,3 @@ export function onboardingSetupCalls(workspaceId: string) {
 }
 
 export type OnboardingSetupCalls = ReturnType<typeof onboardingSetupCalls>;
-
-/** This build doesn't know where the worker is (`EXPO_PUBLIC_WORKER_URL`): the web does that part. */
-export class NotInThisBuild extends Error {
-  constructor() {
-    super('This part of setup isn’t in this build of the app.');
-  }
-}

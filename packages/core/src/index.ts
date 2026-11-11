@@ -63,6 +63,7 @@ export * from './messaging/rcs';
 export * from './messaging/social';
 // The DNS records for a business's own email domain, as Settings → Email lists them.
 export * from './messaging/email-records';
+export * from './messaging/email-setup';
 // Facebook and Instagram lead ads' answers, consent boxes and access (funnels).
 export * from './messaging/lead-ads';
 export * from './messaging/video-link';

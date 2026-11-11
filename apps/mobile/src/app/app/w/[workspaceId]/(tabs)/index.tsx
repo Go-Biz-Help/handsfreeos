@@ -18,6 +18,7 @@ import { SectionHead } from '@/components/home/bits';
 import { CaughtUp, HandledByHandsFree } from '@/components/home/handled';
 import { HomeEnvProvider, type HomeEnv } from '@/components/home/home-context';
 import { HomeHeader } from '@/components/home/home-header';
+import { EmailSetupCard } from '@/components/home/email-setup-card';
 import { DismissSheet, ItemSheet, PickTimeSheet } from '@/components/home/item-sheets';
 import { LetHandleSheet } from '@/components/home/let-handle-sheet';
 import { WaitingChanges } from '@/components/home/waiting-changes';
@@ -267,6 +268,8 @@ export default function Home() {
               />
               {/* Getting started, until it's finished or hidden: above the list, as on the web. */}
               <GettingStartedCard className="mx-3" />
+              {/* "Set up your business email", outside the guided setup, for whoever can change it. */}
+              <EmailSetupCard className="mx-3" />
               {home.waiting.length || refusedElsewhere.length ? (
                 <View className="px-3">
                   <WaitingChanges

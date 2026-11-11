@@ -1657,7 +1657,9 @@ The defaults are right in production. Setting some of these changes real behavio
 | `OPENAI_ASSISTANT_MODEL`                   | `gpt-6-sol`                                                                | OpenAI's stand-in for `ASSISTANT_MODEL` while Claude is down. See "Change the backup models" in "The backup AI: OpenAI".                                                                                                                                       |
 | `OPENAI_MODEL`                             | `gpt-6-sol`                                                                | OpenAI's stand-in for `AI_MODEL` while Claude is down. See "Change the backup models".                                                                                                                                                                         |
 | `OPENAI_VOICE_MODEL`                       | `gpt-6-luna`                                                               | OpenAI's model on calls while Claude is down, whatever model they use on Claude. A fast one keeps the pauses short. See "Change the backup models".                                                                                                            |
-| `OPENAI_IMAGE_MODEL`                       | `gpt-image-2`                                                              | OpenAI’s image model for AI Social Media Content Creator’s photo-style pictures (portrait, medium quality, charged as `ai.image`, 9¢ each). Needs `OPENAI_API_KEY`.                                                                                            |
+| `OPENAI_IMAGE_MODEL`                       | `gpt-image-2.6-sunburst`                                                   | OpenAI’s image model for AI Social Media Content Creator’s photo-style pictures (portrait, medium quality, charged as `ai.image`, 9¢ each). Needs `OPENAI_API_KEY`. See "Photo-style pictures: the image models".                                              |
+| `OPENAI_IMAGE_BACKUP_MODEL`                | `gpt-image-2.6-flare`                                                      | Tried once when `OPENAI_IMAGE_MODEL` is busy, down or gone. `none` for no backup.                                                                                                                                                                              |
+| `OPENAI_IMAGE_COMPLEXITY`                  | `medium`                                                                   | How much the 2.6 image models plan a picture before making it: `low`, `medium` or `high`. More takes longer and costs the same. Anything else stops the worker starting.                                                                                       |
 | `ASSISTANT_TOOL_SEARCH`                    | `on`                                                                       | `on`: Ask HandsFreeOS keeps about 20 tools loaded and finds the rest by searching (Anthropic's tool search). `off` sends every tool every time. Models without tool search, such as Claude Sonnet 5, always send every tool.                                   |
 | `ASSISTANT_EFFORT`                         | `low`                                                                      | How long Ask HandsFreeOS thinks before it answers: `low`, `medium` or `high`. Less is faster; `low` keeps a look-up's answer to a couple of seconds. See "How fast it answers" in "The Assistant: Anthropic".                                                  |
 | `PUSH_PROVIDER`                            | `expo` when `EXPO_ACCESS_TOKEN` is set, otherwise `none`                   | Production refuses `fake`, the stand-in for local development and tests. `none` turns push off even with a token.                                                                                                                                              |
@@ -7411,6 +7413,35 @@ fly secrets unset --app handsfreeos-worker OPENAI_MODEL OPENAI_ASSISTANT_MODEL O
 
 Businesses pay the rate card's AI prices whichever model answers, so a dearer backup model costs HandsFreeOS more for the hours it answers, not them.
 
+### Photo-style pictures: the image models
+
+AI Social Media Content Creator's photo-style pictures come from OpenAI's image models (`apps/worker/src/pictures.ts`), on `OPENAI_API_KEY`. These are the owner's picks of 11 Nov 2026:
+
+| Setting                     | What it does                                                                                        | Unless set               |
+| --------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------ |
+| `OPENAI_IMAGE_MODEL`        | Makes every picture. Sunburst is made for detail.                                                   | `gpt-image-2.6-sunburst` |
+| `OPENAI_IMAGE_BACKUP_MODEL` | Tried once when the first is busy, down or gone, before the picture fails. Flare is made for speed. | `gpt-image-2.6-flare`    |
+| `OPENAI_IMAGE_COMPLEXITY`   | How much the model plans first: `low`, `medium` or `high`. More is slower and costs the same.       | `medium`                 |
+
+`gpt-image-2` is removed from OpenAI's API on 10 Feb 2027. Until then, `OPENAI_IMAGE_MODEL=gpt-image-2` switches back to it (it's never sent a complexity, which it would refuse). Change these the same way as the backup models above, with `fly secrets import --app handsfreeos-worker`. To go back to the shipped ones:
+
+```bash
+fly secrets unset --app handsfreeos-worker OPENAI_IMAGE_MODEL OPENAI_IMAGE_BACKUP_MODEL OPENAI_IMAGE_COMPLEXITY
+```
+
+Each picture's charge keeps what OpenAI really counted for it, and what that costs at OpenAI's listed prices, in the ledger row's `meta.openAi`. The model that made it is `meta.model`, so a picture the backup made shows there. To check the 9¢ against the real cost, run this in the Supabase SQL editor:
+
+```sql
+select meta->>'model' as model, count(*) as pictures,
+       round(avg((meta->'openAi'->>'costMicros')::numeric) / 10000, 2) as avg_cost_cents,
+       round(max((meta->'openAi'->>'costMicros')::numeric) / 10000, 2) as max_cost_cents
+from app.usage_ledger
+where rate_key = 'ai.image' and meta ? 'openAi'
+group by 1;
+```
+
+The worker logs `the image model was busy; the backup made the picture` each time Flare stands in.
+
 ### Rotate the OpenAI key
 
 Replace the key on a schedule you choose, when someone who saw it leaves, and at once if it may have leaked. OpenAI can't pause a key, only revoke it, so give the worker the new key before you revoke the old one.
@@ -7912,6 +7943,7 @@ Text or email:
 - A message goes by text when the customer can get texts (see "Consent and STOP" below), the workspace's business number is set up for texting, and the calendar's **Text** switch for it is on (under **Confirmation**, or **Send reminders by** for reminders).
 - Otherwise it goes by email, when the customer has an email address and the matching **Email** switch is on. When a reminder goes by email because the customer can't get texts or it is too early to text, the email says so, for example "Sent by email because Sarah didn’t ask for texts."
 - With neither, nothing is sent, and the appointment's details say why.
+- The email goes to the address typed on the booking page, not the one on the customer's record, since the page never changes a customer. So in production the page checks that the address's domain can take mail (DNS has a mail server for it, or at least an address) and sends a typo back to be fixed before booking or joining the waitlist: "We couldn’t find gmial.con, so emails sent there wouldn’t arrive. Check the spelling of your email address." (rule `email_domain_not_found`). DNS that doesn't answer within 3 seconds lets the booking through. Other environments skip the check, as their made-up example.com addresses take no mail. Before this, on 2026-11-10, a customer's confirmation and both reminders went to `fullspecteumlighttherqpy.com`, and nothing said so: a bounce shows only once Postmark's delivery events are set up (Postmark Part H).
 
 Quiet hours are the workspace's own (**Settings** → **Texting & calls** → **Quiet hours**, 8 PM to 8 AM unless changed):
 

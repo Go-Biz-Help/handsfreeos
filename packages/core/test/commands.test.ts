@@ -244,6 +244,9 @@ describe('registry', () => {
       'email_address.create',
       'email_address.reassign',
       'email_address.update',
+      // The business email step: onboarding's "Your business email", and Home's card.
+      'email_setup.save',
+      'email_domain.send_steps',
       'mailbox.connect',
       'mailbox.disconnect',
       'mailbox.resync',
@@ -1034,6 +1037,7 @@ describe('registry', () => {
       'meta_account.list',
       'attribution.list',
       'email.setup_status',
+      'email_setup.get',
       'email_suppression.list',
       'email.unmatched_list',
       'email_sender_rule.list',

@@ -707,7 +707,7 @@ async function photoPicture(
   const described = prompt ?? p.picture ?? p.hook ?? p.words.slice(0, 400);
   const made = await maker.make(photoPromptFor(described, ask));
   // The 4:5 portrait every network shows whole, cut from the middle.
-  const jpeg = await sharp(made)
+  const jpeg = await sharp(made.bytes)
     .resize(PICTURE_WIDTH, PICTURE_HEIGHT, { fit: 'cover', position: 'attention' })
     .jpeg({ quality: 88 })
     .toBuffer();
@@ -716,8 +716,14 @@ async function photoPicture(
     parts: [{ key: 'ai.image', quantity: 1 }],
     idempotencyKey: aiImageUsageKey(fileId),
     subject: `Photo-style picture for “${p.title.slice(0, 80)}”`,
-    meta: { postId, fileId, model: maker.model },
+    // What OpenAI really counted, kept beside the 9¢ so the price can be checked against it (owner's pick, 11 Nov).
+    meta: { postId, fileId, model: made.model, ...(made.usage ? { openAi: made.usage } : {}) },
   });
+  if (made.model !== maker.model)
+    ctx.log.warn(
+      { postId, model: maker.model, backup: made.model },
+      'the image model was busy; the backup made the picture',
+    );
   return fileId;
 }
 

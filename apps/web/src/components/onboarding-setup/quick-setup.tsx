@@ -67,6 +67,11 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AiSetupScreen } from '@/components/ai-setup/screens';
+import {
+  EmailOwnScreen,
+  EmailRecordsScreen,
+  EmailSenderScreen,
+} from '@/components/email-setup/screens';
 import { TryAva } from '@/components/ai-setup/try-ava';
 import { LookEditor } from '@/components/look/look-editor';
 import { StepLive } from '@/components/onboarding/step-live';
@@ -119,6 +124,10 @@ const LIVE = [
   'import',
   'migration',
   'workspace',
+  // "Your business email": the domain's records being made and found, its addresses, a mailbox connected.
+  'email_domain',
+  'email_address',
+  'mailbox_connection',
 ];
 /** While Ava reads or the scan runs, the screens also ask again this often, in case live updates are down. */
 const POLL_MS = 4_000;
@@ -450,8 +459,9 @@ export function OnboardingQuickSetup({
           setInvites(['']);
           void refresh();
         }
-        // The page on or off decides whether Ava's chat can go on it, a few screens on.
-        if (screen === 'page') await refresh();
+        // The page on or off decides whether Ava's chat can go on it, a few screens on; the email step's next
+        // screen shows the domain it just added, and its records.
+        if (screen === 'page' || screen === 'email' || screen === 'email_records') await refresh();
         const after = walk
           ? onboardingSetupOwnerNext(walk, screen)
           : onboardingSetupNextScreen(screen, clean, facts);
@@ -626,6 +636,38 @@ export function OnboardingQuickSetup({
         return <BookingScreen {...own} booking={booking} onRetry={() => void makeBooking()} />;
       case 'number':
         return <NumberScreen {...own} />;
+      case 'email':
+        return (
+          <EmailSenderScreen
+            workspaceId={ws}
+            state={state.email}
+            answers={answers.email}
+            set={(v) => set('email', v)}
+            problems={problems}
+          />
+        );
+      case 'email_records':
+        return (
+          <EmailRecordsScreen
+            workspaceId={ws}
+            state={state.email}
+            answers={answers.email}
+            set={(v) => set('email', v)}
+            problems={problems}
+            onChanged={refresh}
+          />
+        );
+      case 'email_own':
+        return (
+          <EmailOwnScreen
+            workspaceId={ws}
+            state={state.email}
+            answers={answers.email}
+            set={(v) => set('email', v)}
+            problems={problems}
+            forClient={forClient}
+          />
+        );
       case 'paid':
         return <PaidScreen {...own} result={payments} ownerPart={!!walk} />;
       case 'try':

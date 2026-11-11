@@ -53,6 +53,7 @@ import {
   OnboardingSetupAnswers,
   pickerKeyOf,
   NO_LOOK,
+  NO_EMAIL_SETUP,
   planAiSetup,
   planOnboardingBooking,
   planOnboardingPage,
@@ -128,6 +129,7 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
     forClient: false,
     phones: 0,
     look: NO_LOOK,
+    email: NO_EMAIL_SETUP,
     ...patch,
   };
 }
@@ -204,11 +206,13 @@ describe('the screens', () => {
     expect(none).not.toContain('booking');
     expect(none).not.toContain('qualify');
     expect(none).not.toContain('chat');
+    // The business email's records only for its own domain.
+    expect(none).not.toContain('email_records');
     // With no website, the simple page; once it's on, the chat can go there.
-    const all = onboardingSetupScreens(answers({ booksTime: true, ai: { jobs: ['qualify'] } }), {
-      ...facts,
-      page: true,
-    });
+    const all = onboardingSetupScreens(
+      answers({ booksTime: true, ai: { jobs: ['qualify'] }, email: { with: 'domain' } }),
+      { ...facts, page: true },
+    );
     expect(all).toEqual([...ONBOARDING_SETUP_SCREENS]);
     expect(onboardingSetupScreens(answers(), { ...site, chat: true })).not.toContain('chat');
   });
@@ -238,23 +242,29 @@ describe('the screens', () => {
     expect(onboardingSetupProgress('business', answers(), facts)).toEqual({
       stop: 'business',
       at: 2,
-      of: 14,
+      of: 15,
     });
     expect(onboardingSetupProgress('page', answers(), facts)).toEqual({
       stop: 'page',
       at: 7,
-      of: 14,
+      of: 15,
+    });
+    // Your business email is one stop, its records and the person's own address included.
+    expect(onboardingSetupProgress('email_own', answers(), facts)).toEqual({
+      stop: 'email',
+      at: 10,
+      of: 15,
     });
     expect(onboardingSetupProgress('meet', answers({ booksTime: true }), facts)).toEqual({
       stop: 'ai',
-      at: 12,
-      of: 15,
+      at: 13,
+      of: 16,
     });
     // A website skips the simple page.
     expect(onboardingSetupProgress('customers', answers(), site)).toEqual({
       stop: 'customers',
       at: 7,
-      of: 13,
+      of: 14,
     });
   });
 
@@ -898,11 +908,12 @@ describe('the screens’ behaviour', () => {
       reached,
       finished: null,
     });
-    expect(onboardingSetupOpenAt(got('number'), 'paid')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('email_own'), 'paid')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('number'), 'paid')).toBe('email');
     expect(onboardingSetupOpenAt(got('number'), 'number')).toBe('number');
     expect(onboardingSetupOpenAt(got('goal'), 'paid')).toBe('about');
     // Booking shows only when customers book a time.
-    expect(onboardingSetupOpenAt(got('number'), 'booking')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('number'), 'booking')).toBe('email');
     expect(onboardingSetupOpenAt(got(null), 'nowhere')).toBe('business');
     expect(onboardingSetupOpenAt(got(null), null)).toBe('business');
   });

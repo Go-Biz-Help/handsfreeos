@@ -197,6 +197,7 @@ import {
   mailboxResync,
 } from './email';
 import { emailReceive, emailSuppressionRecord } from './email-inbound';
+import { emailDomainSendSteps, emailSetupSave } from './email-setup';
 import {
   callAttachRecording,
   callAttachTranscript,
@@ -610,6 +611,8 @@ export {
   emailDomainRemove,
   emailDomainStopReceiving,
   emailDomainVerify,
+  emailDomainSendSteps,
+  emailSetupSave,
   emailSuppressionAdd,
   emailSuppressionRelease,
   mailboxActivate,
@@ -878,6 +881,9 @@ export const commands: readonly CommandDef[] = [
   emailAddressCreate,
   emailAddressReassign,
   emailAddressUpdate,
+  // The business email step: onboarding's "Your business email", and Home's card.
+  emailSetupSave,
+  emailDomainSendSteps,
   mailboxConnect,
   mailboxDisconnect,
   mailboxResync,

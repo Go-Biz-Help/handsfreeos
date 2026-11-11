@@ -9,6 +9,7 @@ import { scriptedAssistant } from './assistant/scripted';
 import { createToolExecutor } from './assistant/tools-write';
 import { createBotCheck } from './booking/bot-check';
 import { processDeliveries } from './deliveries';
+import { mailDns } from './email/dns';
 import { loadEnv, readEnv, supabaseKeyLooksRight } from './env';
 import { handlers } from './handlers/index';
 import { createMigrationAdapters } from './migrations/adapters/registry';
@@ -88,6 +89,8 @@ const app = await buildHttpServer({
   booking: {
     botCheck,
     limitFactor: env.bookingRateLimitFactor,
+    // Real mail, real DNS: a typed email at a domain that can't take mail is sent back to be fixed.
+    ...(env.emailTransport === 'postmark' ? { mailDns } : {}),
   },
   chat: {
     ipKey: env.chatIpKey,
