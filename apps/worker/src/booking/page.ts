@@ -9,6 +9,8 @@ import {
   emptyKnowledgeProfile,
   KnowledgeProfile,
   loadRegistrations,
+  openHoursOf,
+  profileWithBusinessHours,
   readiness,
   WeeklyHours,
   type BusinessPageParts,
@@ -46,7 +48,11 @@ export async function businessPageOf(
     .from(knowledgeProfiles)
     .where(eq(knowledgeProfiles.workspaceId, workspaceId));
   const stored = row ? KnowledgeProfile.safeParse(row.profile) : null;
-  const profile = stored?.success ? stored.data : emptyKnowledgeProfile();
+  // Its hours are always the business hours (Settings → Workspace), never an older copy kept with the profile.
+  const profile = profileWithBusinessHours(
+    stored?.success ? stored.data : emptyKnowledgeProfile(),
+    openHoursOf(settings),
+  );
   const allowPrices = row?.allowPrices ?? false;
   const openHours = WeeklyHours.safeParse(settings['openHours']);
   const address = businessAddressOf(settings);

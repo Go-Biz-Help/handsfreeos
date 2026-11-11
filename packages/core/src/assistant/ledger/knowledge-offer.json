@@ -36,7 +36,7 @@
     "apps/web/src/components/knowledge/item-list.tsx": "f6296d9d5e0c",
     "apps/web/src/components/knowledge/offers.tsx": "063478f702d7",
     "apps/web/src/components/knowledge/overview.tsx": "be7feb346aae",
-    "apps/web/src/components/knowledge/profile-form.tsx": "cb2a674df094",
+    "apps/web/src/components/knowledge/profile-form.tsx": "67fb92de750c",
     "apps/web/src/components/knowledge/subnav.tsx": "e5b543a759cd",
     "apps/web/src/components/knowledge/suggestion-card.tsx": "398ccf1d122e",
     "apps/web/src/components/knowledge/suggestions-board.tsx": "bebd8d78b1c3",
@@ -106,7 +106,7 @@
       "kind": "do",
       "file": "apps/web/src/components/knowledge/overview.tsx:170",
       "covered": "yes",
-      "by": "update_knowledge_profile sets every section: what you do, services and prices, area, hours, policies, tone, words to use and avoid, signature"
+      "by": "update_knowledge_profile sets every section: what you do, services and prices, area, policies, tone, words to use and avoid, signature; the hours are the business hours (update_business openHours)"
     },
     {
       "path": "Knowledge → Overview → Business profile → rows: What you do, Services, Service area, Hours (or Nothing yet)",
@@ -326,11 +326,11 @@
       "by": "update_knowledge_profile input serviceArea"
     },
     {
-      "path": "Knowledge → Business profile → Where and when → Hours",
-      "kind": "do",
+      "path": "Knowledge → Business profile → Where and when → Hours (the business hours, shown, with a link to Settings → Workspace → Business hours)",
+      "kind": "see",
       "file": "apps/web/src/components/knowledge/profile-form.tsx:216",
       "covered": "yes",
-      "by": "update_knowledge_profile input hours"
+      "by": "get_settings knowledge → profile.hours (knowledge.profile reads them from the business hours); update_business openHours changes them"
     },
     {
       "path": "Knowledge → Business profile → Policies customers ask about",

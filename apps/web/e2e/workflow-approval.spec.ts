@@ -110,7 +110,8 @@ test('workflow approval: an AI text approved with an edit, one rejected, one exp
   await expect(page.getByTestId('knowledge-prices')).toHaveText(
     'Prices stay out, because quoting prices is off.',
   );
-  await expect(page.getByTestId('knowledge-thin')).toContainText('1 of 7 parts filled in');
+  // What it does, and the hours (the business hours).
+  await expect(page.getByTestId('knowledge-thin')).toContainText('2 of 7 parts filled in');
   await expect(line.getByRole('link', { name: 'Open Knowledge' })).toHaveAttribute(
     'href',
     `/app/w/${workspaceId}/knowledge`,

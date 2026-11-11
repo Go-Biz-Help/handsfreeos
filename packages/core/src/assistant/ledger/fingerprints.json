@@ -1258,7 +1258,7 @@
   "apps/web/src/components/knowledge/item-list.tsx": "f6296d9d5e0c",
   "apps/web/src/components/knowledge/offers.tsx": "063478f702d7",
   "apps/web/src/components/knowledge/overview.tsx": "be7feb346aae",
-  "apps/web/src/components/knowledge/profile-form.tsx": "cb2a674df094",
+  "apps/web/src/components/knowledge/profile-form.tsx": "67fb92de750c",
   "apps/web/src/components/knowledge/subnav.tsx": "e5b543a759cd",
   "apps/web/src/components/knowledge/suggestion-card.tsx": "398ccf1d122e",
   "apps/web/src/components/knowledge/suggestions-board.tsx": "bebd8d78b1c3",
@@ -1543,10 +1543,10 @@
   "packages/core/src/addons/realestate/manifest.ts": "ac6b56db1cf6",
   "packages/core/src/assistant/coverage.ts": "cce13202dad4",
   "packages/core/src/assistant/screen-reads.ts": "2ad91914d218",
-  "packages/core/src/assistant/settings-map.ts": "54ae1e6da864",
+  "packages/core/src/assistant/settings-map.ts": "1e8bbcb88575",
   "packages/core/src/assistant/tools-content.ts": "59c81ea10785",
   "packages/core/src/assistant/tools-extra.ts": "a6a36461844a",
-  "packages/core/src/assistant/tools.ts": "ece71acb593e",
+  "packages/core/src/assistant/tools.ts": "49b82a08dfde",
   "packages/core/src/automations/catalog.ts": "e61bb9bc9c68",
   "packages/core/src/bin-words.ts": "d60313191585"
 }

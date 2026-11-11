@@ -40,7 +40,8 @@ test('knowledge: profile, an FAQ, a CSV import, a website scan, suggestions and 
   await expect(nav.getByRole('link')).toContainText(['Workflows', 'Knowledge', 'Tasks']);
   await nav.getByRole('link', { name: 'Knowledge' }).click();
   await expect(page).toHaveURL(new RegExp(`/app/w/${workspaceId}/knowledge$`));
-  await expect(page.getByTestId('profile-completeness')).toHaveText('0 of 7');
+  // The hours are there from the start: they're the business hours.
+  await expect(page.getByTestId('profile-completeness')).toHaveText('1 of 7');
 
   // 2. The profile and tone of voice.
   await page.getByTestId('profile-edit').click();
@@ -52,7 +53,12 @@ test('knowledge: profile, an FAQ, a CSV import, a website scan, suggestions and 
   await form.getByLabel('Service', { exact: true }).fill('AC tune-up');
   await form.getByLabel('Price', { exact: true }).fill('$89');
   await form.getByLabel('Service area').fill('Houston inside the Beltway, Katy and Bellaire');
-  await form.getByLabel('Hours').fill('Mon–Fri 7 AM–6 PM, Sat 8 AM–1 PM');
+  // Hours are the business hours, shown with the way to change them.
+  await expect(form.getByLabel('Hours')).toHaveText(/^Mon–Fri \d/);
+  await expect(form.getByTestId('kp-hours-link')).toHaveAttribute(
+    'href',
+    new RegExp(`/app/w/${workspaceId}/settings/workspace`),
+  );
   await form.getByLabel('How messages should sound').fill('Friendly, plain and neighborly');
   await form.getByLabel('Words to use').fill('neighbor');
   await form.getByLabel('Words to use').press('Enter');

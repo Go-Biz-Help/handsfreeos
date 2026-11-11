@@ -17,7 +17,12 @@ import {
 import { parseConfig as parseCalendarConfig } from '../calendar/config';
 import { uuidArray } from '../calendar/load';
 import { HfosError } from '../errors';
-import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
+import {
+  emptyKnowledgeProfile,
+  KnowledgeProfile,
+  profileCompleteness,
+  profileWithBusinessHours,
+} from '../knowledge/profile';
 import { workspaceAddresses } from '../messaging/email';
 import {
   defaultNumber,
@@ -300,7 +305,12 @@ export async function loadTeammateCatalogs(
       lengths: lengthsOf(c.config),
     })),
     knowledge: { published: knowledge?.published ?? 0 },
-    profile: profileCompleteness(profile?.success ? profile.data : emptyKnowledgeProfile()),
+    profile: profileCompleteness(
+      profileWithBusinessHours(
+        profile?.success ? profile.data : emptyKnowledgeProfile(),
+        openHoursOf(ws.settings as Record<string, unknown> | null),
+      ),
+    ),
     // The column is what grounding reads (commands/knowledge.ts keeps the document in step).
     pricesAllowed: profileRow?.allowPrices ?? false,
     aiUsage,

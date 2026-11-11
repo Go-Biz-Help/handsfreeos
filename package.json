@@ -12,7 +12,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck --concurrency=3",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
     "format": "prettier --write .",

@@ -8445,7 +8445,9 @@ Each business has one knowledge base. AI steps, the Assistant and **Try it** wri
 
 #### The business profile
 
-**Knowledge** → **Overview** shows the business profile, with how much of it is filled in, and its tone of voice. Click **Edit** to fill it in: what the business does, its services, where and when it works, its policies, how messages should sound, words to use and avoid, and how messages are signed.
+**Knowledge** → **Overview** shows the business profile, with how much of it is filled in, and its tone of voice. Click **Edit** to fill it in: what the business does, its services, where it works, its policies, how messages should sound, words to use and avoid, and how messages are signed.
+
+The profile's **Hours** always come from **Settings** → **Workspace** → **Business hours**. The owner decided this on 11 Nov 2026, after a customer's AI kept telling people the old hours from the profile. Knowledge shows the hours with a link to that setting, and every reader of the profile (the AI teammate, AI steps, the Assistant, **Try it**, setup) takes them from the business hours. Saving the profile, or a lesson from a correction, never changes them. Each person's own hours (**Members** → **Edit hours**) are separate and can differ.
 
 The profile's **Prices** section has the switch **AI may quote prices**. It is off for every business until someone turns it on. While it is off, the AI never quotes prices, estimates or discounts, even when the knowledge base has them, and says the team will follow up with pricing. When it is on, the AI quotes a price only exactly as it is written in the profile or an item.
 

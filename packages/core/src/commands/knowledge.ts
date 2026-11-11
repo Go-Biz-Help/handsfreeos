@@ -16,6 +16,7 @@ import {
   knowledgeSources,
   knowledgeSuggestions,
   users,
+  workspaces,
 } from '@hfos/db/schema';
 import { safeFileName } from '../crm/records';
 import { HfosError } from '../errors';
@@ -24,7 +25,13 @@ import { defineCommand } from '../kernel/define';
 import { isUniqueViolation } from '../kernel/pg-errors';
 import type { CommandContext } from '../kernel/types';
 import { gapKey, KnowledgeItemContent, similarGaps } from '../knowledge/items';
-import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
+import {
+  emptyKnowledgeProfile,
+  KnowledgeProfile,
+  profileCompleteness,
+  profileWithBusinessHours,
+} from '../knowledge/profile';
+import { openHoursOf } from '../schemas/workspace';
 import {
   KnowledgeDocumentAddInput,
   KnowledgeDocumentAddOutput,
@@ -131,7 +138,7 @@ async function loadItem(ctx: CommandContext, itemId: string) {
 export const knowledgeProfileUpdate = defineCommand({
   name: 'knowledge.profile_update',
   description:
-    'Save the business profile the AI writes from: what you do, services, area, hours, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices.',
+    'Save the business profile the AI writes from: what you do, services, area, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices. Its hours always come from the business hours (workspace.update’s settings.openHours, Settings → Workspace → Business hours), whatever hours are sent here.',
   risk: 1,
   input: KnowledgeProfileUpdateInput,
   output: KnowledgeProfileUpdateOutput,
@@ -147,11 +154,20 @@ export const knowledgeProfileUpdate = defineCommand({
       .where(eq(knowledgeProfiles.workspaceId, ws))
       .for('update');
     const stored = current ? KnowledgeProfile.safeParse(current.profile) : null;
-    const before: KnowledgeProfile = {
-      ...(stored?.success ? stored.data : emptyKnowledgeProfile()),
-      allowPrices: current?.allowPrices ?? false,
-    };
-    const next = input.profile;
+    const [w] = await ctx.tx
+      .select({ settings: workspaces.settings })
+      .from(workspaces)
+      .where(eq(workspaces.id, ws));
+    // Hours always come from Settings → Workspace → Business hours: the copy kept here says the same.
+    const open = openHoursOf(w?.settings as Record<string, unknown> | null);
+    const before = profileWithBusinessHours(
+      {
+        ...(stored?.success ? stored.data : emptyKnowledgeProfile()),
+        allowPrices: current?.allowPrices ?? false,
+      },
+      open,
+    );
+    const next = profileWithBusinessHours(input.profile, open);
     const updated = (Object.keys(next) as (keyof KnowledgeProfile)[]).filter(
       (k) => !jsonEqual(before[k], next[k]),
     );

@@ -4,6 +4,8 @@
  * and `groundingRules` says how AI steps and the Assistant may use it. Browser-safe.
  */
 import { z } from 'zod';
+import type { WeeklyHours } from '../calendar/config';
+import { formatHours } from '../calendar/format';
 
 const text = (max: number) => z.string().trim().max(max, `Keep it under ${max} characters.`);
 const words = z
@@ -42,6 +44,19 @@ export type KnowledgeProfileInput = z.input<typeof KnowledgeProfile>;
 
 export function emptyKnowledgeProfile(): KnowledgeProfile {
   return KnowledgeProfile.parse({});
+}
+
+/**
+ * The profile with its Hours read from the business's open hours (Settings → Workspace → Business hours, read with
+ * `openHoursOf`): the owner's rule (2026-11-11) is that Knowledge's hours always come from there, so the AI never
+ * reads two different hours. Every reader of the profile goes through this; the copy kept in the profile is only
+ * what was there when it was last saved.
+ */
+export function profileWithBusinessHours(
+  profile: KnowledgeProfile,
+  openHours: WeeklyHours,
+): KnowledgeProfile {
+  return { ...profile, hours: formatHours(openHours) };
 }
 
 /** The parts of the profile that are filled in, out of those that matter, for "profile completeness". */
