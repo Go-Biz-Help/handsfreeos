@@ -1,6 +1,6 @@
 /**
  * Warming people up while they decide on the person's request (decision 161, ../../src/addons/outreach/keep-warm.ts):
- * a visit every other day that likes 2 or 3 of their newest posts, one comment a visit on the first it liked, and once
+ * a visit every few days at random that likes 1 or 2 of their newest posts, one comment a visit on the first it liked, and once
  * the business's wait ends with no answer, the request withdrawn (the follow undone) on its own, after which the tool
  * leaves them alone, "Didn't follow back" in People, till they follow back or the person puts them back in play.
  */
@@ -11,7 +11,9 @@ import {
   KEEP_WARM_SINCE,
   keepWarmOn,
   noAnswerWhy,
+  VISIT_GAP_DAYS,
   VISIT_LIKES,
+  visitLikes,
   visitLine,
   visitPicks,
   visitWhy,
@@ -27,7 +29,7 @@ import {
   WARM_COMMENT_TASK,
   type TodayItem,
 } from '../../src/addons/outreach/today';
-import { computerOn, outreachBusiness, runAs } from './outreach-fixture';
+import { computerOn, outreachBusiness, runAs, yesterdayNoon } from './outreach-fixture';
 
 const admin = () => testDbs().admin.db;
 const IG = 'https://www.instagram.com';
@@ -50,7 +52,17 @@ describe('a visit, in words and picks', () => {
     expect(
       visitPicks([{ text: 'Grandpa passed away' }, { text: 'Hi', liked: true }], 3, sad),
     ).toEqual([]);
-    expect(VISIT_LIKES).toEqual({ least: 2, most: 3 });
+  });
+
+  it('likes 1 or 2 a visit and comes 1 to 3 days apart, at random, never on a set rhythm', () => {
+    expect(VISIT_LIKES).toEqual({ least: 1, most: 2 });
+    expect(VISIT_GAP_DAYS).toEqual({ least: 1, most: 3 });
+    const ids = Array.from({ length: 200 }, (_, n) => `profile-${n}`);
+    const likes = ids.map((id) => visitLikes(id, '2026-11-12'));
+    expect(new Set(likes)).toEqual(new Set([1, 2]));
+    // The same all day, however often the list is read; another day, another pick.
+    expect(ids.map((id) => visitLikes(id, '2026-11-12'))).toEqual(likes);
+    expect(ids.map((id) => visitLikes(id, '2026-11-14'))).not.toEqual(likes);
   });
 
   it('waits two weeks from the request, or from when warm-ups began for one already waiting', () => {
@@ -76,20 +88,20 @@ describe('a visit, in words and picks', () => {
     expect(noAnswerWhy('facebook')).toBe('Didn’t accept your friend request');
     expect(visitWhy('instagram', '2026-11-26T06:00:00.000Z')).toEqual([
       'Waiting for them to follow you back',
-      'Like 2 or 3 of their newest posts, every other day till Nov 26',
+      'Like 1 or 2 of their newest posts every few days, till Nov 26',
     ]);
     expect(visitWhy('facebook', '2026-11-26T06:00:00.000Z')[0]).toBe(
       'Waiting for them to accept your friend request',
     );
     expect(warmPostWhy('instagram')).toBe('Their post, while they decide on following you back');
-    expect(visitLine('Sam Lee', 'instagram', 3)).toBe(
-      'Liked 3 posts of Sam Lee’s while they decide on following you back',
+    expect(visitLine('Sam Lee', 'instagram', 2)).toBe(
+      'Liked 2 posts of Sam Lee’s while they decide on following you back',
     );
     expect(visitLine('Sam Lee', 'facebook', 1)).toBe(
       'Liked a post of Sam Lee’s while they decide on your friend request',
     );
     expect(visitLine('Sam Lee', 'instagram', 0)).toBe(
-      'No new post of Sam Lee’s to like on this visit: the next is in 2 days',
+      'No new post of Sam Lee’s to like on this visit: the next comes in a few days',
     );
   });
 
@@ -221,29 +233,32 @@ describe('warm-ups on Instagram while they decide on following back', () => {
           order by url`,
     );
 
-  it('lists a visit every other day for someone waiting on a follow, once the computer does visits', async () => {
-    await follow('wait.one', 'Wait One', ago(3));
+  it('lists a visit for someone waiting on a follow, once the computer does visits', async () => {
+    // Followed 4 days ago: past any gap.
+    await follow('wait.one', 'Wait One', ago(4));
     // No computer that does visits yet: none listed, as an older build would like one post and follow after it.
     expect(await visits()).toEqual([]);
     await computerOn(owner, ws, '0.134.2');
     expect(await visits()).toEqual([]);
     await computerOn(owner, ws, KEEP_WARM_SINCE);
     const until = warmUpEnds(await sinceOf('wait.one'), null, CANCEL_AFTER_WEEKS);
-    expect(await visits()).toEqual([
+    const listed = await visits();
+    expect(listed).toEqual([
       {
         name: 'Wait One',
         why: visitWhy('instagram', until),
-        keepWarm: { likes: VISIT_LIKES.most, until: until.toISOString() },
+        keepWarm: { likes: expect.any(Number), until: until.toISOString() },
       },
     ]);
-    // Liked today: the next visit is the day after tomorrow.
+    expect([1, 2]).toContain(listed[0]!.keepWarm!.likes);
+    // Liked today: the next visit comes another day.
     await like('wait.one', 'Wait One', 'today1');
     expect(await visits()).toEqual([]);
   });
 
-  it('visits again two days after the last, and never someone whose wait is over', async () => {
+  it('visits again once the gap after the last is over, and never someone whose wait is over', async () => {
     await follow('wait.two', 'Wait Two', ago(6));
-    await like('wait.two', 'Wait Two', 'old1', ago(2));
+    await like('wait.two', 'Wait Two', 'old1', ago(4));
     await follow('long.gone', 'Long Gone', ago(20));
     expect((await visits()).map((v) => v.name)).toEqual(['Wait Two']);
   });
@@ -259,7 +274,7 @@ describe('warm-ups on Instagram while they decide on following back', () => {
     // The visit's second like keeps no other.
     await like('wait.one', 'Wait One', 'today2');
     expect((await warmPosts('wait.one')).map((p) => p.url)).toEqual([`${IG}/p/today1/`]);
-    // Two days before, the last visit's: kept too.
+    // Days before, the last visit's: kept too.
     expect((await warmPosts('wait.two')).map((p) => p.url)).toEqual([`${IG}/p/old1/`]);
     // Past their wait: none kept.
     await like('long.gone', 'Long Gone', 'late1');
@@ -270,7 +285,7 @@ describe('warm-ups on Instagram while they decide on following back', () => {
     await follow('was.waiting', 'Was Waiting', ago(20));
     await rows(
       admin(),
-      sql`update addon_outreach.friends set warm_up_from = now() - interval '1 day'
+      sql`update addon_outreach.friends set warm_up_from = now() - interval '4 days'
           where workspace_id = ${ws} and profile_id = ${await profileOf('was.waiting')}`,
     );
     const tidy = await runAs(owner, ws, 'outreach.friends.tidy', { platform: 'instagram' });
@@ -308,6 +323,17 @@ describe('warm-ups on Instagram while they decide on following back', () => {
       await runAs(owner, ws, 'outreach.stage.mark', { profileId: gone, mark: 'open' }),
     ).not.toMatchObject({ stage: 'lost' });
     expect(await row()).toBeUndefined();
+  });
+
+  it('spreads the next visits over the days at random: a day after for some, later for others', async () => {
+    // Followed yesterday: due today only for those whose gap is 1 day.
+    const names = Array.from({ length: 24 }, (_, n) => `Spread ${n + 1}`);
+    for (const [n, name] of names.entries()) await follow(`spread.${n + 1}`, name, yesterdayNoon());
+    const due = (await visits()).map((v) => v.name).filter((n) => n.startsWith('Spread '));
+    expect(due.length).toBeGreaterThan(0);
+    expect(due.length).toBeLessThan(names.length);
+    // The same all day, however often the list is read.
+    expect((await visits()).map((v) => v.name).filter((n) => n.startsWith('Spread '))).toEqual(due);
   });
 
   it('marks no warm-up ended for a request Cancel all withdrew sooner', async () => {

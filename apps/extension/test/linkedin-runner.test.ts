@@ -679,7 +679,7 @@ describe('what it does on LinkedIn’s list', () => {
         do: 'step',
         item: item({
           kind: 'warm_up',
-          keepWarm: { likes: 3, until: '2026-11-26T06:00:00.000Z' },
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
         }),
       },
       ME.businessId,
@@ -687,7 +687,7 @@ describe('what it does on LinkedIn’s list', () => {
     );
     expect(outcome).toEqual({
       done: true,
-      line: 'No new post of Dana Reyes’s to like on this visit: the next is in 2 days',
+      line: 'No new post of Dana Reyes’s to like on this visit: the next comes in a few days',
     });
     expect(notedAs()).toEqual([]);
     expect(world.posted.map((p) => p.path)).toContain('/v1/commands/outreach.warm_up.missed');

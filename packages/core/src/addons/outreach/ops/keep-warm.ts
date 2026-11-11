@@ -6,11 +6,9 @@
 import { sql } from 'drizzle-orm';
 import { rows } from '@hfos/db/client';
 import type { CommandContext, QueryContext } from '../../../kernel/types';
-import { VISIT_EVERY_DAYS, WARM_POST_DAYS, warmPostWhy, warmUpEnds } from '../keep-warm';
+import { VISIT_GAP_DAYS, WARM_POST_GAP_HOURS, warmPostWhy, warmUpEnds } from '../keep-warm';
 import type { Platform } from '../playbooks';
 import { outreachSettingsOf } from './common';
-
-const DAY = 86_400_000;
 
 /** What a like note says, for a post a visit liked (`keepWarmPost`). */
 export interface LikedPost {
@@ -29,7 +27,7 @@ const STORY_TEXT = 'Their story';
 /**
  * A like the extension made on its own on a post of someone deciding on the person's request, in their warm-up: the
  * first a visit liked is kept for one comment under it (`posts.warm_up`), on Today as any good post is, at most one a
- * visit (none kept for them in the last `WARM_POST_DAYS` less a few hours). A story, a like with no post's link or
+ * visit (none kept for them in the last `WARM_POST_GAP_HOURS`). A story, a like with no post's link or
  * words, or one past their warm-up keeps none.
  */
 export async function keepWarmPost(
@@ -42,8 +40,8 @@ export async function keepWarmPost(
   if (!like.auto || !like.postUrl || !like.postText || like.postText === STORY_TEXT) return;
   const weeks = (await outreachSettingsOf(ctx)).cancelRequestsAfterWeeks;
   const ws = ctx.scope.workspaceId!;
-  // A visit every other day, so a post kept up to a few hours short of that before is the last visit's.
-  const since = new Date(at.getTime() - (WARM_POST_DAYS * DAY - 6 * 3_600_000)).toISOString();
+  // Visits are a day or more apart, so a post kept in the last few hours was this visit's.
+  const since = new Date(at.getTime() - WARM_POST_GAP_HOURS * 3_600_000).toISOString();
   await ctx.tx.execute(sql`
     insert into addon_outreach.posts
       (workspace_id, user_id, profile_id, url, body, found, check_state, check_why, checked_at, warm_up, seen_at)
@@ -93,8 +91,10 @@ export type VisitDue = {
 
 /**
  * Who's due a visit today on a network (decision 161): their request (a follow, on Instagram) the person `me` sent is
- * still waiting, in its warm-up, and their last visit (a like on their page, or a visit with nothing to like) was two
- * business days ago or more (`VISIT_EVERY_DAYS`). Those whose wait ends soonest first. `allowed` is the
+ * still waiting, in its warm-up, and it's been a random 1 to 3 business days (`VISIT_GAP_DAYS`) since the last of their
+ * request, a fresh start (`warm_up_from`) and their last visit (a like on their page, or a visit with nothing to
+ * like). The gap is picked from who they are and the day it counts from, so it's the same all day and differs from
+ * one visit to the next. Those whose wait ends soonest first. `allowed` is the
  * picks' filter on `p` (in play, reached, and who the country setting lets).
  */
 export async function visitsDue(
@@ -111,9 +111,9 @@ export async function visitsDue(
 ): Promise<VisitDue[]> {
   if (o.most <= 0) return [];
   const ws = ctx.scope.workspaceId!;
-  // Visited the business day before yesterday or earlier: every other day.
-  const lastBefore = new Date(o.todayFrom.getTime() - (VISIT_EVERY_DAYS - 1) * DAY).toISOString();
   const now = new Date(o.now).toISOString();
+  // The last visit was before today, less the random gap's days past its first: a gap of 1 is any day before today.
+  const span = VISIT_GAP_DAYS.most - VISIT_GAP_DAYS.least + 1;
   return rows<VisitDue>(
     ctx.tx,
     sql`select p.id, p.name, p.url, f.since, f.warm_up_from, pb.name as playbook_name
@@ -121,16 +121,19 @@ export async function visitsDue(
         join addon_outreach.profiles p on p.id = f.profile_id
         left join addon_outreach.checks ch on ch.profile_id = p.id and ch.user_id = ${me}
         left join addon_outreach.playbooks pb on pb.id = ch.playbook_id
+        cross join lateral (select greatest(f.since, f.warm_up_from, p.warm_up_missed_at,
+            (select max(t.at) from addon_outreach.touches t
+              where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like')) as visited) lv
         where f.workspace_id = ${ws} and f.user_id = ${me} and p.platform = ${o.platform}
           and f.state = 'request_sent'
           and greatest(f.since, f.warm_up_from) + make_interval(weeks => ${o.weeks})
             > ${now}::timestamptz
           and exists (select 1 from addon_outreach.touches t
             where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')
-          and (p.warm_up_missed_at is null or p.warm_up_missed_at < ${lastBefore}::timestamptz)
-          and not exists (select 1 from addon_outreach.touches t
-            where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'like'
-              and t.at >= ${lastBefore}::timestamptz)
+          and lv.visited < ${o.todayFrom.toISOString()}::timestamptz - make_interval(days =>
+            ${VISIT_GAP_DAYS.least - 1}::int
+              + mod(abs(hashtext(p.id::text || ':' || (lv.visited at time zone 'UTC')::date::text)::bigint),
+                ${span}::bigint)::int)
           and ${o.allowed}
         order by greatest(f.since, f.warm_up_from), p.id
         limit ${o.most}`,

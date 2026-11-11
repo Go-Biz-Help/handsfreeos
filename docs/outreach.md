@@ -4027,18 +4027,20 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 161.  **Warm them up while they decide, then unfollow or withdraw** (Chris, 11 Nov 2026: "like and comment on 2-3 of
       their posts every other day for 2 weeks and if they still haven't followed us then unfollow them and remove them
       from the list", on every network, with comments that "congratulate them, praise them or show interest" and don't
-      read as AI). He picked 1b, 2b, 3a, 4a, 5a and 6b ("your picks"). Extension 0.135.0, **migration
+      read as AI). He picked 1b, 2b, 3a, 4a, 5a and 6b ("your picks"), then made the visits random: "every other day
+      feels robotic just make it random and it can like 1-2 posts and comment on one". Extension 0.135.0, **migration
       `20261027026100_outreach_keep_warm`**. Shared words and numbers in core's `addons/outreach/keep-warm.ts`, the
       server's in `ops/keep-warm.ts`.
-      - **A visit every other day** (1b): from the day the request goes (a follow on Instagram) till they accept it or
-        the wait ends, Today lists a `warm_up` with `keepWarm` (`visitsDue`): the extension looks at their page and
-        likes 2 or 3 of their newest posts that nothing rules out (`neverLike`) and that aren't liked already
-        (`visitPicks`), 3 while the day's likes have room for every visit's third. A like noted in the last two business
-        days, or a visit with nothing to like (`warm_up.missed`), puts the next off (`VISIT_EVERY_DAYS`). No request
-        after a visit. Listed only while the person's working computer runs 0.135.0 or later (`KEEP_WARM_SINCE`), and
+      - **A visit every few days, at random**: from the day the request goes (a follow on Instagram) till they accept
+        it or the wait ends, Today lists a `warm_up` with `keepWarm` (`visitsDue`) a random 1 to 3 business days after
+        the last of the request, a fresh start and their last visit (a like on their page, or a visit with nothing to
+        like, `warm_up.missed`): `VISIT_GAP_DAYS`, picked from who they are and the day it counts from, so it holds
+        all day and changes from visit to visit. The extension looks at their page and likes 1 or 2 of their newest
+        posts (`visitLikes`, at random, one only when the day's likes are short) that nothing rules out (`neverLike`)
+        and that aren't liked already (`visitPicks`). No request after a visit. Listed only while the person's working computer runs 0.135.0 or later (`KEEP_WARM_SINCE`), and
         their warm-ups are on. The day's likes go to visits first; the likes before new requests get what's left.
       - **One comment a visit** (1b, 3a): the first post a visit liked is kept as a good post (`posts.warm_up`,
-        `keepWarmPost`, at most one a visit) and goes on Today as any comment does, counted against the day's comments.
+        `keepWarmPost`, at most one a visit, `WARM_POST_GAP_HOURS`) and goes on Today as any comment does, counted against the day's comments.
         It follows that network's comments: Facebook's go on their own, and Instagram's, LinkedIn's and Alignable's wait
         for the person's OK till 25 are OK'd and a week has gone by (decision 102); Autopilot's on its own. The AI
         writes it from the post alone as a person would (`WARM_COMMENT_TASK`, `todayDraftSystem`'s `warm`): 3 to 12
@@ -4056,7 +4058,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **One setting** (5a): "Warm up for, then unfollow or withdraw" on General (`cancelRequestsAfterWeeks`, same key),
         for every network, 2 weeks to start (`CANCEL_AFTER_WEEKS`); a business that kept the old 3 went to 2.
       - **Everyone already waiting started a fresh wait** (6b): the migration set `friends.warm_up_from` on every
-        request waiting then, and a wait runs from the later of it and `since`, so each got all 7 visits.
+        request waiting then, and a wait runs from the later of it and `since`, so each got a whole one. Their first
+        visits are spread over the next 3 days, as the gap counts from it.
 
 ## Rules worth knowing before changing anything
 
@@ -4325,7 +4328,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   as accepting is on every other network. Today lists none and `outreach.send.queue` refuses one
   (`outreach_not_following`), whatever drafted it; a comment under their post can still go.
 - **Warm them up while they decide, then let them go** (decision 161): someone waiting on a request gets a visit
-  every other day (2 or 3 likes, one comment under the first), and nothing else, till they accept or the business's
+  every few days at random (1 to 3 days apart, 1 or 2 likes, one comment under the first), and nothing else, till they accept or the business's
   wait ends; then the request is withdrawn on its own and `friend_ends.after_warm_up` keeps every pick off them
   (`warmUpEnded` in `openToMe`) till they follow back, accept or write first, or the person puts them back in play. A
   wait runs from the later of `since` and `warm_up_from`.

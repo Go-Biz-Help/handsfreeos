@@ -1,12 +1,14 @@
 /**
  * Warming people up while they decide on the person's request (docs/outreach.md, decision 161; the owner, 11 Nov
  * 2026: "like and comment on 2-3 of their posts every other day for 2 weeks and if they still haven't followed us then
- * unfollow them and remove them from the list", on every network). From the day the request goes (a follow, on
- * Instagram) until they accept it (follow back), or the business's wait ends:
+ * unfollow them and remove them from the list", on every network; then "every other day feels robotic just make it
+ * random and it can like 1-2 posts and comment on one"). From the day the request goes (a follow, on Instagram) until
+ * they accept it (follow back), or the business's wait ends:
  *
- * - **A visit every other day** (`VISIT_EVERY_DAYS`): Today lists a warm-up (`warm_up`, with `keepWarm`) for the
- *   extension to look at their page and like 2 or 3 of their newest posts (`keepWarm.likes`: 3 while the day's likes
- *   have room for every visit's third, else 2). One with nothing to like counts as the visit (`warm_up.missed`).
+ * - **A visit every few days, at random** (`VISIT_GAP_DAYS`): 1 to 3 days after the last (or after the request), Today
+ *   lists a warm-up (`warm_up`, with `keepWarm`) for the extension to look at their page and like 1 or 2 of their
+ *   newest posts (`keepWarm.likes`, `visitLikes`), picked at random each visit. One with nothing to like counts as the
+ *   visit (`warm_up.missed`).
  * - **One comment a visit**: the first post a visit liked is kept (`posts.warm_up`) for one comment under it, on Today
  *   as any comment is, counted against the day's comments and waiting for the person's OK as that network's comments
  *   do (the owner's 3a), drafted to congratulate them, praise something real or show interest, as a person would
@@ -22,20 +24,24 @@
 import { appVersionAtLeast } from '../../mobile';
 import { NETWORKS, type Platform } from './networks';
 
-/** A visit every other day: the next once the last was two business days ago or more. */
-export const VISIT_EVERY_DAYS = 2;
-
-/** How many of their newest posts a visit likes: 2, or 3 while the day's likes have room (the owner's 1b). */
-export const VISIT_LIKES = { least: 2, most: 3 } as const;
-
 /**
- * How long a post a visit liked waits for its comment: till the next visit, which keeps another. One the day's
- * comments had no room for, or the AI found nothing to say on, goes with it.
+ * How many days after the last visit the next comes: at random, 1 to 3 (the owner: "every other day feels robotic"),
+ * so about every other day on average, never on a set rhythm. The server picks it from who they are and the day of
+ * their last visit, so a day's list stays the same however often it's read.
  */
-export const WARM_POST_DAYS = VISIT_EVERY_DAYS;
+export const VISIT_GAP_DAYS = { least: 1, most: 3 } as const;
+
+/** How many of their newest posts a visit likes: 1 or 2, at random (the owner, 11 Nov 2026). */
+export const VISIT_LIKES = { least: 1, most: 2 } as const;
 
 /**
- * The first build whose runners do a visit (`keepWarm`): 2 or 3 likes, and no friend request after them. Today lists
+ * A post kept for a visit's comment within this many hours of another was liked on the same visit: one comment a
+ * visit. Visits are a day or more apart, and a visit's likes come minutes apart.
+ */
+export const WARM_POST_GAP_HOURS = 8;
+
+/**
+ * The first build whose runners do a visit (`keepWarm`): its likes, and no friend request after them. Today lists
  * visits only while the person's working computer runs it or later (`keepWarmOn`): an older one would like one post and
  * say a request comes next.
  */
@@ -63,6 +69,17 @@ export function warmUpEnds(
   return new Date(from + weeks * 7 * DAY);
 }
 
+/**
+ * How many posts a visit likes, 1 or 2, at random for each person and day (`VISIT_LIKES`): the same however often the
+ * day's list is read. `day` is the day's date, as 2026-11-12.
+ */
+export function visitLikes(profileId: string, day: string): number {
+  let h = 2166136261;
+  for (const c of `${profileId}:${day}`) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+  // The high bits: FNV's lowest one is only the characters' parity.
+  return VISIT_LIKES.least + ((h >>> 16) % (VISIT_LIKES.most - VISIT_LIKES.least + 1));
+}
+
 /** Why someone whose warm-up ended is Not a fit in People: "Didn't follow back", in each network's words. */
 export function noAnswerWhy(platform: Platform): string {
   const kit = NETWORKS[platform];
@@ -81,7 +98,7 @@ export function visitWhy(platform: Platform, until: Date | string): string[] {
     kit.follows
       ? 'Waiting for them to follow you back'
       : `Waiting for them to accept your ${kit.words.friendRequest}`,
-    `Like 2 or 3 of their newest posts, every other day till ${day}`,
+    `Like 1 or 2 of their newest posts every few days, till ${day}`,
   ];
 }
 
@@ -130,5 +147,5 @@ export function visitLine(name: string, platform: Platform, liked: number): stri
     : `while they decide on your ${kit.words.friendRequest}`;
   return liked > 0
     ? `Liked ${liked === 1 ? 'a post' : `${liked} posts`} of ${name}’s ${deciding}`
-    : `No new post of ${name}’s to like on this visit: the next is in ${VISIT_EVERY_DAYS} days`;
+    : `No new post of ${name}’s to like on this visit: the next comes in a few days`;
 }

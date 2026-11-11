@@ -485,7 +485,7 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     );
     return look ? { done: false, line, look } : { done: false, line };
   };
-  // A visit while they decide on the request (decision 161): 2 or 3 new likes, and nothing after them.
+  // A visit while they decide on the request (decision 161): its new likes, and nothing after them.
   if (item.keepWarm) {
     const picks = visitPicks(theirs.posts, item.keepWarm.likes, neverLike);
     if (!picks.length) {

@@ -592,7 +592,7 @@ describe('a warm-up on Alignable', () => {
         do: 'step',
         item: item({
           kind: 'warm_up',
-          keepWarm: { likes: 3, until: '2026-11-26T06:00:00.000Z' },
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
         }),
       },
       ME.businessId,
@@ -626,7 +626,7 @@ describe('a warm-up on Alignable', () => {
     );
     expect(outcome).toEqual({
       done: true,
-      line: 'No new post of Dana Reyes’s to like on this visit: the next is in 2 days',
+      line: 'No new post of Dana Reyes’s to like on this visit: the next comes in a few days',
     });
     expect(world.noted).toEqual([]);
     expect(missedPosted().map((p) => p.body)).toEqual([

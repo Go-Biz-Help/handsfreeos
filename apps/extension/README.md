@@ -1224,11 +1224,11 @@ was reported. From 0.126.2:
 
 The owner's rule of 11 Nov 2026 (decision 161 in `docs/outreach.md`): nobody gets a message before they follow the
 business back (Instagram) or accept the request (Facebook, LinkedIn, Alignable). While they decide, the extension
-keeps them warm instead. From 0.135.0 a warm-up on Today that carries `keepWarm` is a visit, every other day till their
-wait ends:
+keeps them warm instead. From 0.135.0 a warm-up on Today that carries `keepWarm` is a visit, every few days at random
+(1 to 3 days apart, on no set rhythm) till their wait ends:
 
-- It opens their page (their recent activity on LinkedIn, their business page on Alignable) and likes 2 or 3 of their
-  newest posts (`keepWarm.likes`), the ones nothing rules out (never grief, illness or trouble, `neverLike`) and that
+- It opens their page (their recent activity on LinkedIn, their business page on Alignable) and likes 1 or 2 of their
+  newest posts (`keepWarm.likes`, which HandsFreeOS picks at random), the ones nothing rules out (never grief, illness or trouble, `neverLike`) and that
   aren't liked already, so each visit adds new likes (`visitPicks` in core's `addons/outreach/keep-warm.ts`). On
   Alignable only posts from the last four weeks count.
 - Each like is noted as the extension's own, with the post's link and words. The first a visit liked comes back on

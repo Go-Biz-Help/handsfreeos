@@ -122,7 +122,7 @@ import { goalFacts } from './goal';
 import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
 import { visitsDue } from './keep-warm';
-import { keepWarmOn, VISIT_LIKES, visitWhy, warmUpEnds } from '../keep-warm';
+import { keepWarmOn, VISIT_LIKES, visitLikes, visitWhy, warmUpEnds } from '../keep-warm';
 import { playbooksInUse } from './friends';
 import { retrySince } from './needs';
 import { readinessFor } from './readiness';
@@ -604,9 +604,9 @@ export async function todayFor(
   );
   const likeRoom = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
   // Warm-ups while they decide (decision 161, ../keep-warm.ts): whoever's waiting on the person's request here, in its
-  // warm-up, gets a visit every other day that likes 2 or 3 of their newest posts, while the person's warm-ups are on
-  // and their computer's build does visits (`keepWarmOn`). The day's likes go to them first, 2 a visit, and a third
-  // each while there's room for every visit's; the likes before new requests get what's left.
+  // warm-up, gets a visit every few days at random that likes 1 or 2 of their newest posts (`visitLikes`), while the
+  // person's warm-ups are on and their computer's build does visits (`keepWarmOn`). The day's likes go to them first,
+  // a second one each only while there's room; the likes before new requests get what's left.
   const visitWeeks = (await outreachSettingsOf(ctx)).cancelRequestsAfterWeeks;
   const visits =
     settings.warmUp && likeRoom >= VISIT_LIKES.least && keepWarmOn(await workingBuild(ctx, me))
@@ -619,9 +619,16 @@ export async function todayFor(
           most: Math.floor(likeRoom / VISIT_LIKES.least),
         })
       : [];
-  const visitLikes =
-    likeRoom >= visits.length * VISIT_LIKES.most ? VISIT_LIKES.most : VISIT_LIKES.least;
-  for (const v of visits) {
+  const day = todayStart.toISOString().slice(0, 10);
+  const likesFor = visits.map((v) => visitLikes(v.id, day));
+  // Past the day's room, the visits with two drop to one, the last first.
+  let over = likesFor.reduce((sum, n) => sum + n, 0) - likeRoom;
+  for (let i = likesFor.length - 1; i >= 0 && over > 0; i--) {
+    const cut = Math.min(over, likesFor[i]! - VISIT_LIKES.least);
+    likesFor[i] = likesFor[i]! - cut;
+    over -= cut;
+  }
+  visits.forEach((v, i) => {
     const until = warmUpEnds(v.since, v.warm_up_from, visitWeeks);
     items.push(
       item({
@@ -631,11 +638,11 @@ export async function todayFor(
         profileUrl: v.url,
         why: visitWhy(input.platform, until),
         playbookName: v.playbook_name,
-        keepWarm: { likes: visitLikes, until: until.toISOString() },
+        keepWarm: { likes: likesFor[i]!, until: until.toISOString() },
       }),
     );
-  }
-  const warmUpLeft = Math.max(0, likeRoom - visits.length * visitLikes);
+  });
+  const warmUpLeft = Math.max(0, likeRoom - likesFor.reduce((sum, n) => sum + n, 0));
   let warmRequests = 0;
   let warmLikes = 0;
   if (!requestsOff)

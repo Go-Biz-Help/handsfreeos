@@ -61,8 +61,8 @@ export const DAILY_LIMITS = {
   friend_request: 20,
   first_message: 15,
   follow_up: 20,
-  // Raised from 15 and 40 for the warm-ups while people decide (decision 161, the owner's 2b): 2 or 3 likes and a
-  // comment every other day for each request waiting, beside today's pace of new ones.
+  // Raised from 15 and 40 for the warm-ups while people decide (decision 161, the owner's 2b): 1 or 2 likes and a
+  // comment every few days for each request waiting, beside today's pace of new ones.
   comment: 30,
   like: 70,
 } as const;
