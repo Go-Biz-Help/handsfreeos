@@ -101,6 +101,7 @@ import {
   notNever,
   notOthers,
   openToMe,
+  outreachSettingsOf,
   pitchable,
   recentOf,
   requestable,
@@ -120,6 +121,8 @@ import {
 import { goalFacts } from './goal';
 import { fewAhead, goalTries, goalWhy } from '../goal';
 import { foundByTopicSince, workingBuild } from './live';
+import { visitsDue } from './keep-warm';
+import { keepWarmOn, VISIT_LIKES, visitWhy, warmUpEnds } from '../keep-warm';
 import { playbooksInUse } from './friends';
 import { retrySince } from './needs';
 import { readinessFor } from './readiness';
@@ -599,7 +602,40 @@ export async function todayFor(
           where p.workspace_id = ${ws} and p.platform = ${input.platform}
             and p.warm_up_missed_at >= ${todayFrom}::timestamptz`,
   );
-  const warmUpLeft = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
+  const likeRoom = Math.max(0, leftToday(limits, 'warm_up') - (missed?.n ?? 0));
+  // Warm-ups while they decide (decision 161, ../keep-warm.ts): whoever's waiting on the person's request here, in its
+  // warm-up, gets a visit every other day that likes 2 or 3 of their newest posts, while the person's warm-ups are on
+  // and their computer's build does visits (`keepWarmOn`). The day's likes go to them first, 2 a visit, and a third
+  // each while there's room for every visit's; the likes before new requests get what's left.
+  const visitWeeks = (await outreachSettingsOf(ctx)).cancelRequestsAfterWeeks;
+  const visits =
+    settings.warmUp && likeRoom >= VISIT_LIKES.least && keepWarmOn(await workingBuild(ctx, me))
+      ? await visitsDue(ctx, me, {
+          platform: input.platform,
+          weeks: visitWeeks,
+          now,
+          todayFrom: todayStart,
+          allowed: sql`(${pitchable('p')} and ${contactable('p')} and ${inPlay(me, 'p')} and ${reach})`,
+          most: Math.floor(likeRoom / VISIT_LIKES.least),
+        })
+      : [];
+  const visitLikes =
+    likeRoom >= visits.length * VISIT_LIKES.most ? VISIT_LIKES.most : VISIT_LIKES.least;
+  for (const v of visits) {
+    const until = warmUpEnds(v.since, v.warm_up_from, visitWeeks);
+    items.push(
+      item({
+        kind: 'warm_up',
+        name: v.name,
+        profileId: v.id,
+        profileUrl: v.url,
+        why: visitWhy(input.platform, until),
+        playbookName: v.playbook_name,
+        keepWarm: { likes: visitLikes, until: until.toISOString() },
+      }),
+    );
+  }
+  const warmUpLeft = Math.max(0, likeRoom - visits.length * visitLikes);
   let warmRequests = 0;
   let warmLikes = 0;
   if (!requestsOff)

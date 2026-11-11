@@ -624,6 +624,55 @@ describe('a warm-up on Instagram', () => {
     expect(missedPosted()).toEqual([]);
   });
 
+  it('visits while they decide on following back: likes up to the visit’s posts, no story and no follow (decision 161)', async () => {
+    pagesFor(undefined, true);
+    const outcome = await doWork(
+      {
+        do: 'step',
+        item: item({
+          kind: 'warm_up',
+          keepWarm: { likes: 3, until: '2026-11-26T06:00:00.000Z' },
+        }),
+      },
+      ME.businessId,
+      true,
+      0,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'Liked 2 posts of Dana Reyes’s while they decide on following you back',
+    });
+    // Never the one about grief, and no story watched.
+    expect(world.opened).toEqual([DANA, `${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(likes).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(notedAs().map((n) => n.postUrl)).toEqual([`${IG}/p/C2bbbbbbb/`, `${IG}/p/C3ccccccc/`]);
+    expect(missedPosted()).toEqual([]);
+  });
+
+  it('counts a visit with no post of theirs to like, and tells HandsFreeOS (decision 161)', async () => {
+    pagesFor([]);
+    const outcome = await doWork(
+      {
+        do: 'step',
+        item: item({
+          kind: 'warm_up',
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
+        }),
+      },
+      ME.businessId,
+      true,
+      0,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'No new post of Dana Reyes’s to like on this visit: the next is in 2 days',
+    });
+    expect(world.noted).toEqual([]);
+    expect(missedPosted().map((p) => p.body)).toEqual([
+      { workspaceId: ME.businessId, profileId: PROFILE_ID },
+    ]);
+  });
+
   it('likes one alone when the day’s likes have no room past the warm-ups left', async () => {
     pagesFor();
     await doWork({ do: 'step', item: item({ kind: 'warm_up' }) }, ME.businessId, true, 0);

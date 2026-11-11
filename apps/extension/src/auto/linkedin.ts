@@ -35,6 +35,7 @@
  *
  * Each step is noted as the extension's own (`auto`), as LinkedIn's (`platform: 'linkedin'`).
  */
+import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { businessDay } from '@hfos/core/addons/outreach/automation';
 import type { MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
@@ -509,6 +510,7 @@ async function likeFoundComment(
  * the same way.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.keepWarm) return visit(item, businessId, item.keepWarm.likes);
   // A partner's warm-up comes before the ask about partnering (decision 81), not an invitation.
   const after: After =
     item.kind === 'partner_warm_up'
@@ -589,6 +591,71 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
         ? `${item.name}’s post was liked already: ${after.next}`
         : `Looked at ${item.name}’s profile and liked a post of theirs: ${after.next}`,
   };
+}
+
+/**
+ * A visit while they decide on the invitation (decision 161): their recent activity, and up to `likes` of their posts
+ * liked that nothing rules out and that aren't liked already, newest first. Nothing new to like: HandsFreeOS hears it,
+ * and the visit counts. No invitation after it.
+ */
+async function visit(item: TodayListItem, businessId: string, likes: number): Promise<Outcome> {
+  const opened = await openProfile(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  await pause(SETTLE_MS);
+  await tab.open(`${opened.noted.url}recent-activity/all/`);
+  const activity = await read();
+  const stopped = await warnedOn(activity, businessId);
+  if (stopped) return { stop: stopped };
+  const theirs = await tab.ask({
+    type: 'hfos-their-posts',
+    profile: opened.noted,
+    most: LIKE_POSTS_READ,
+  });
+  if (!theirs.ok) throw new Error(theirs.error);
+  const picks = visitPicks(theirs.posts, likes, neverLike);
+  if (!picks.length) {
+    const line = visitLine(item.name, PLATFORM, 0);
+    await missed(item, businessId, line);
+    return { done: true, line };
+  }
+  let liked = 0;
+  for (const pick of picks) {
+    if (liked) await pause(SETTLE_MS);
+    const post = theirs.posts[pick]!;
+    const went = await tab.ask({
+      type: 'hfos-like-post',
+      profile: opened.noted,
+      index: pick,
+      url: post.url,
+    });
+    if (!went.ok) throw new Error(went.error);
+    if (went.result === 'none' || went.result === 'not_sent') {
+      if (liked) break;
+      return missed(item, businessId, `Couldn’t like ${item.name}’s post on this visit`, true);
+    }
+    await pause(SETTLE_MS);
+    const stop = await warnedOn(await read(), businessId);
+    if (stop) return { stop };
+    await takeNote(
+      {
+        type: 'hfos-noted',
+        step: {
+          kind: 'like',
+          to: { name: opened.name, profile: opened.noted },
+          group: null,
+          postUrl: went.postUrl ?? post.url,
+          thread: null,
+          replying: null,
+          auto: true,
+          postText: likedText({ text: post.text, pictures: [] }),
+        },
+        at: now(),
+      },
+      PLATFORM,
+    );
+    liked++;
+  }
+  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
 }
 
 /** Where you stand with them, in words: for a step passed over. */

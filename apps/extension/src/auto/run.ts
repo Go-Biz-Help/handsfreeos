@@ -49,8 +49,10 @@ import {
   LIKE_POSTS_READ,
   likedText,
   LikePickInput,
+  neverLike,
   type LikePickOutput,
 } from '@hfos/core/addons/outreach/like-pick';
+import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { LOOKUP_LINES } from '@hfos/core/addons/outreach/today';
 import { buttonFor } from '@hfos/core/addons/outreach/helper';
 import type { ProblemHelper } from '@hfos/core/problem-report';
@@ -483,6 +485,51 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     );
     return look ? { done: false, line, look } : { done: false, line };
   };
+  // A visit while they decide on the request (decision 161): 2 or 3 new likes, and nothing after them.
+  if (item.keepWarm) {
+    const picks = visitPicks(theirs.posts, item.keepWarm.likes, neverLike);
+    if (!picks.length) {
+      // Nothing new to like: HandsFreeOS hears it, and it counts as the visit.
+      const line = visitLine(item.name, facebook.platform, 0);
+      await missed(line);
+      return { done: true, line };
+    }
+    let liked = 0;
+    for (const i of picks) {
+      if (liked) await pause(SETTLE_MS);
+      const post = theirs.posts[i]!;
+      const went = await tab.ask({
+        type: 'hfos-like-post',
+        profile: opened.profile,
+        index: i,
+        url: post.url,
+      });
+      if (!went.ok) throw new Error(went.error);
+      if (went.result === 'none' || went.result === 'not_sent') {
+        if (liked) break;
+        return missed(`Couldn’t like ${item.name}’s post on this visit`, true);
+      }
+      await pause(SETTLE_MS);
+      const stop = await warnedOn(await read(), businessId);
+      if (stop) return { stop };
+      await takeNote({
+        type: 'hfos-noted',
+        step: {
+          kind: 'like',
+          to: { name: opened.page.profile!.name ?? item.name, profile: opened.noted },
+          group: null,
+          postUrl: went.postUrl ?? post.url ?? null,
+          thread: null,
+          replying: null,
+          auto: true,
+          postText: likedText(post),
+        },
+        at: now(),
+      });
+      liked++;
+    }
+    return { done: true, line: visitLine(item.name, facebook.platform, liked) };
+  }
   if (!theirs.posts.length) {
     const line = `No post of ${item.name}’s to like: ${after.without}`;
     if (!theirs.none) return missed(line);

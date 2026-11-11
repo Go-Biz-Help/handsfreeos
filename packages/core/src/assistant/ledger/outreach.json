@@ -3436,7 +3436,7 @@
       "by": "do_addon_save_settings contactsFromChats"
     },
     {
-      "path": "Settings → Team → Cancel requests after N weeks",
+      "path": "Settings → Team → Warm up for, then unfollow or withdraw (N weeks)",
       "kind": "do",
       "file": "apps/web/src/addons/outreach/business-settings.tsx:82",
       "covered": "yes",

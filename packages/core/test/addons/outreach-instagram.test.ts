@@ -388,7 +388,7 @@ describe('Today on Instagram', () => {
     expect((await ivys()).map((i) => i.kind)).toEqual(['follow_up']);
   });
 
-  it('lists for unfollowing those who didn’t follow back in 3 weeks, never a customer or someone who wrote back', async () => {
+  it('lists for unfollowing those who didn’t follow back in their 2-week warm-up, never a customer or someone who wrote back', async () => {
     await follow('old.one', 'Old One', ago(25));
     await follow('old.customer', 'Old Customer', ago(25));
     await follow('old.talker', 'Old Talker', ago(25));
@@ -412,7 +412,7 @@ describe('Today on Instagram', () => {
     const tidy = await runAs(owner, ws, 'outreach.friends.tidy', { platform: 'instagram' });
     expect(tidy.cancel.map((c: { name: string }) => c.name)).toEqual(['Old One']);
     expect(tidy).toMatchObject({
-      cancelAfterWeeks: 3,
+      cancelAfterWeeks: 2,
       limits: { cancel_request: { done: 0, most: 20 } },
     });
     // Unfollowed by the extension once ticked: off the list, and counted.

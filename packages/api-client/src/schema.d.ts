@@ -88539,6 +88539,11 @@ export interface operations {
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;
+                            keepWarm?: {
+                                likes: number;
+                                /** Format: date-time */
+                                until: string;
+                            };
                             /** @enum {string} */
                             kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             likeComment?: boolean;
@@ -88615,6 +88620,11 @@ export interface operations {
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;
+                            keepWarm?: {
+                                likes: number;
+                                /** Format: date-time */
+                                until: string;
+                            };
                             /** @enum {string} */
                             kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             likeComment?: boolean;

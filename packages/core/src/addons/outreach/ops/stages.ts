@@ -28,7 +28,9 @@ import type { ClientCause } from '../person-menu';
 import { profiles, stages } from '../tables';
 import { OUTREACH_WORDS } from '../words';
 import { knownCheck } from './checks';
-import { clientCauseOf, inWorkspace, isClient, pitchable, type Ctx } from './common';
+import { clientCauseOf, inWorkspace, isClient, pitchable, warmUpEnded, type Ctx } from './common';
+import { clearWarmUpEnd } from './keep-warm';
+import { noAnswerWhy } from '../keep-warm';
 import { noteSent, offerVersionFor, restartConversation } from './conversation';
 import { wantLead } from './leads';
 import type { CheckVerdict } from '../checks';
@@ -139,6 +141,7 @@ export function staged(ctx: Ctx, me: string, which: SQL) {
           where d.profile_id = p.id and d.user_id = ${me} and d.undone_at is null) as booked,
         exists (select 1 from addon_outreach.demos d where d.profile_id = p.id and d.user_id = ${me}
           and d.how = 'marked' and d.undone_at is null) as marked_booked,
+        ${warmUpEnded(me, 'p')} as no_answer,
         ${isClient('p')} as client
       from reached x
       join addon_outreach.profiles p on p.id = x.id
@@ -158,7 +161,7 @@ export function staged(ctx: Ctx, me: string, which: SQL) {
       case
         when client then 'client'
         when booked then 'booked'
-        when mark = 'lost' then 'lost'
+        when mark = 'lost' or no_answer then 'lost'
         when pitched_at is not null then 'pitched'
         when mark = 'ready' or pitch = 'ready' then 'ready'
         when read_state in ('waiting', 'read', 'failed') or replied_at is not null then 'talking'
@@ -195,6 +198,8 @@ export type StagedRow = {
   readonly replied_at: Date | string | null;
   readonly warm_kind: 'like' | 'comment' | 'friend_request' | null;
   readonly marked_booked: boolean;
+  /** Their warm-up ended with no answer (decision 161, `warmUpEnded`): Not a fit, "Didn't follow back". */
+  readonly no_answer?: boolean;
   readonly stage: Stage;
   readonly last_at: Date | string | null;
   /** Why a client is one (decision 91), read for the page listed only: null for a twin of one. */
@@ -221,6 +226,8 @@ export function stageWhy(r: StagedRow, now: number): string[] {
     case 'booked':
       return ['Booked a demo'];
     case 'lost':
+      // Their warm-up ended with no answer (decision 161), unless the person or the AI marked them first.
+      if (r.no_answer && r.mark !== 'lost') return [noAnswerWhy(r.platform)];
       return [
         r.mark_why ?? 'Marked not a fit',
         ...(r.marked_by === 'ai' ? [`${STAGE_WORDS.aiSaid} from your chat`] : []),
@@ -341,6 +348,8 @@ export const stageMark = defineAddonCommand(outreachAddon, {
           pitchedAt: null,
         });
         await restartConversation(ctx, me, profile.id, at);
+        // Someone whose warm-up ended with no answer (decision 161) is in play again too.
+        await clearWarmUpEnd(ctx, me, profile.id);
         break;
     }
     await ctx.emit({

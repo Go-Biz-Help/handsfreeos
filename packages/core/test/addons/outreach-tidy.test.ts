@@ -75,7 +75,7 @@ describe('tidying friends', () => {
 
   it('lists sent requests older than the business’s wait, the oldest first', async () => {
     const out = await tidy();
-    expect(out.cancelAfterWeeks).toBe(3);
+    expect(out.cancelAfterWeeks).toBe(2);
     expect(names(out.cancel)).toEqual(['Dana Reyes']);
     expect(out.cancel[0]).toEqual(
       expect.objectContaining({ username: 'dana.reyes.12', platformId: null, lastContact: null }),

@@ -255,7 +255,9 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     threadKey: /^[0-9]{1,64}$/,
     // How many accounts it lets someone follow.
     friendsCap: 7_500,
-    dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 10, like: 30 },
+    // Likes and comments raised from 30 and 10 for the warm-ups while people decide whether to follow back (decision
+    // 161, the owner's 2b): still halved for a new account and for a week after a warning.
+    dailyLimits: { friend_request: 20, first_message: 10, follow_up: 15, comment: 35, like: 80 },
     weeklyRequests: null,
     checksPerDay: 20,
     checksMost: 60,

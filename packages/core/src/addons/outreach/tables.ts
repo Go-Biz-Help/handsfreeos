@@ -333,6 +333,11 @@ export const friends = addonOutreach.table(
      */
     answer: text('answer').$type<FriendAnswer>(),
     answerAt: ts('answer_at'),
+    /**
+     * When warm-ups began, for a request already waiting then (decision 161, the owner's 6b): its wait runs from the
+     * later of this and `since`, so each got a fresh one.
+     */
+    warmUpFrom: ts('warm_up_from'),
     createdAt: ts('created_at').notNull().defaultNow(),
     updatedAt: ts('updated_at').notNull().defaultNow(),
   },
@@ -541,6 +546,11 @@ export const friendEnds = addonOutreach.table(
       .references(() => users.id, { onDelete: 'cascade' }),
     profileId: uuid('profile_id').notNull(),
     kind: text('kind').notNull().$type<TidyKind>(),
+    /**
+     * Withdrawn because the warm-up ended with no answer (decision 161, ../keep-warm.ts): nothing reaches them again
+     * unless they follow back, accept or write first, or the person puts them back in play.
+     */
+    afterWarmUp: boolean('after_warm_up').notNull().default(false),
     at: ts('at').notNull(),
     createdAt: ts('created_at').notNull().defaultNow(),
   },
@@ -607,6 +617,8 @@ export const posts = addonOutreach.table(
     peopleReadAt: ts('people_read_at'),
     /** When it was kept for the day's reply in one of the person's groups (decision 114); null for any other. */
     replyAt: ts('reply_at'),
+    /** A post a warm-up visit liked, kept for its one comment while they decide on the request (decision 161). */
+    warmUp: boolean('warm_up').notNull().default(false),
     checkedAt: ts('checked_at'),
     skippedAt: ts('skipped_at'),
     seenAt: ts('seen_at').notNull(),

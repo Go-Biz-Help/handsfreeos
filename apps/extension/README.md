@@ -1220,6 +1220,28 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Warm-ups while they decide (0.135.0)
+
+The owner's rule of 11 Nov 2026 (decision 161 in `docs/outreach.md`): nobody gets a message before they follow the
+business back (Instagram) or accept the request (Facebook, LinkedIn, Alignable). While they decide, the extension
+keeps them warm instead. From 0.135.0 a warm-up on Today that carries `keepWarm` is a visit, every other day till their
+wait ends:
+
+- It opens their page (their recent activity on LinkedIn, their business page on Alignable) and likes 2 or 3 of their
+  newest posts (`keepWarm.likes`), the ones nothing rules out (never grief, illness or trouble, `neverLike`) and that
+  aren't liked already, so each visit adds new likes (`visitPicks` in core's `addons/outreach/keep-warm.ts`). On
+  Alignable only posts from the last four weeks count.
+- Each like is noted as the extension's own, with the post's link and words. The first a visit liked comes back on
+  Today for one short comment, as any comment does: Facebook's go on their own, and the others wait for your OK while
+  that network's comments do.
+- Nothing new to like: HandsFreeOS hears it (`outreach.warm_up.missed`) and the visit counts. A like that won't go
+  stops the visit, and the AI helper looks at why.
+- No friend request, invitation or follow comes after a visit: theirs went already.
+
+HandsFreeOS lists visits only while your working computer runs 0.135.0 or later (`KEEP_WARM_SINCE`): an older build
+would like one post and say a request comes next. When the wait ends with no answer, the tidying unfollows them or
+withdraws the request on its own, 20 a day, and they're left alone unless they follow back or write first.
+
 ### Posts keep their paragraphs (0.134.2)
 
 The AI writes a helpful post in short paragraphs with a blank line between them, but Chrome's insertText with the whole
