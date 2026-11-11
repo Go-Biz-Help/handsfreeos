@@ -12,6 +12,7 @@ import {
   checkOptInSurface,
   checkOtherWay,
   confirmationsFor,
+  framedAddresses,
   notGreen,
   SIGN_UP_MARK,
   takesSignUps,
@@ -365,6 +366,69 @@ describe('the page where customers agree', () => {
       expect(check.severity).toBe('blocker');
       expect(check.ok).toBe(false);
     }
+  });
+
+  it('says so when the box was found in a form framed on the page, keeping the page’s address', () => {
+    const form = 'https://app.handsfreeos.test/f/lone-star/contact';
+    const check = checkOptInSurface(page({ html: consentHtml(), framedUrl: form }), 'own_site', [
+      'Lone Star HVAC',
+    ]);
+    expect(check.ok).toBe(true);
+    expect(check.url).toBe('https://lonestarhvac.test');
+    expect(check.detail).toContain(form);
+  });
+});
+
+describe('forms framed on a page (a reviewer’s browser shows them; the page’s HTML only has the frame)', () => {
+  const FORM = 'https://app.handsfreeos.com/f/shop-your-solar/contact-form?embed=1';
+
+  it('reads our own snippet’s frame', () => {
+    const html = `<main><iframe src="${FORM}" title="Contact" width="100%"></iframe><script src="https://app.handsfreeos.com/embed/v1/form.js" async></script></main>`;
+    expect(framedAddresses(html, 'https://shopyoursolar.com/')).toEqual([FORM]);
+  });
+
+  it('reads a frame a website builder wrapped ours in, written into srcdoc (shopyoursolar.com, 11 Nov)', () => {
+    const inner =
+      "<script>window.onmessage = function(event) {};</script><body style='margin: 0'>" +
+      `<iframe src="${FORM}" title="Contact Form" loading="lazy"></iframe></body>`;
+    const escaped = inner
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+    const html =
+      '<div><iframe id="iframe-73854" frameBorder="0" sandbox="allow-scripts allow-same-origin allow-forms" ' +
+      'src="javascript: window.frameElement.getAttribute(&quot;srcdoc&quot;);" ' +
+      `srcDoc="${escaped}" style="width:100%"></iframe></div>`;
+    expect(framedAddresses(html, 'https://shopyoursolar.com/')).toEqual([FORM]);
+  });
+
+  it('makes a relative address whole, reads late-loading frames, and keeps each address once', () => {
+    const html =
+      '<iframe src="/contact-form"></iframe><iframe data-src="https://forms.test/a#top"></iframe>' +
+      '<iframe src="https://forms.test/a"></iframe><iframe src="about:blank"></iframe>';
+    expect(framedAddresses(html, 'https://site.test/contact')).toEqual([
+      'https://site.test/contact-form',
+      'https://forms.test/a',
+    ]);
+  });
+
+  it('opens a few at most, and never the page itself or a frame inside a script', () => {
+    const many = Array.from(
+      { length: 6 },
+      (_, i) => `<iframe src="https://f.test/${i}"></iframe>`,
+    ).join('');
+    expect(framedAddresses(many, 'https://site.test/')).toHaveLength(3);
+    expect(
+      framedAddresses('<iframe src="https://site.test/"></iframe>', 'https://site.test/'),
+    ).toEqual([]);
+    expect(
+      framedAddresses(
+        '<script>document.write(\'<iframe src="https://f.test/x"></iframe>\')</script>',
+        'https://site.test/',
+      ),
+    ).toEqual([]);
   });
 });
 
