@@ -2517,6 +2517,646 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.crew.archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive a crew that’s no longer used, or bring one back. Visits it worked keep its name.
+         * @description Risk level 1. Requires contractor.manage. Emits contractor.crew.archived.
+         */
+        post: operations["command_contractor_crew_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.crew.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a crew, or change one: its name, the people on the business’s team in it, and its subcontractors (contacts who don’t sign in).
+         * @description Risk level 1. Requires contractor.manage. Emits contractor.crew.saved.
+         */
+        post: operations["command_contractor_crew_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.ask_ok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask an owner or admin to OK an estimate that’s under the business’s lowest margin, or has lines with no cost, so it can be sent. They’re told on Home and their phones.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.estimate.ok_asked.
+         */
+        post: operations["command_contractor_estimate_ask_ok"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.ok": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OK an estimate that’s under the business’s lowest margin, or has lines with no cost, so it can be sent as it is now. Any later change to the estimate needs a fresh OK. For owners and admins.
+         * @description Risk level 2. Requires contractor.approve. Emits contractor.estimate.okayed.
+         */
+        post: operations["command_contractor_estimate_ok"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write or save an estimate with what it costs to do: one option for one price, or two or three (good, better, best), each with every one of its lines, and each line’s kind (labor, material, other) and what one unit costs. It makes an ordinary HandsFreeOS estimate, for the job named and that job’s customer. It stays a draft, and is saved whole: what’s left out is cleared. For people who may see job costs and who may bill.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.estimate.saved.
+         */
+        post: operations["command_contractor_estimate_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimate.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an estimate the builder wrote to its customer, by text or email. Refused while it waits for an owner’s or admin’s OK: an option under the lowest margin, or a labor or material line with no cost. From there it’s an ordinary HandsFreeOS estimate: its number, its link and the customer’s page.
+         * @description Risk level 2. Requires contractor.costs. Emits contractor.estimate.sent.
+         */
+        post: operations["command_contractor_estimate_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.estimating.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set how the business estimates: its lowest margin (an estimate under it waits for an owner’s or admin’s OK), the markup a new line starts with, and what an hour of labor sells for and costs. Only what’s given changes. For owners and admins.
+         * @description Risk level 2. Requires contractor.approve. Emits contractor.estimating.saved.
+         */
+        post: operations["command_contractor_estimating_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.item_cost.set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set what one of a price list item costs the business, and how it’s costed (labor by the hour, a material, or other); null takes the cost off. The builder fills a line’s cost from it. For people who may see job costs.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.item_cost.set.
+         */
+        post: operations["command_contractor_item_cost_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.make_project": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a service call a project: it gets its phases (the business’s starter phases unless they’re given), and its % done comes from them from now on.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.made_project.
+         */
+        post: operations["command_contractor_job_make_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a job: a service call, or a project that starts with its phases, for a customer at one of their properties (or a new address), with its trade, job lead, start day and deadline.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.opened, contractor.property.added.
+         */
+        post: operations["command_contractor_job_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.set_money": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a job’s price to the customer and its budget: labor, materials and other costs (in cents), and labor hours. Only what’s given changes; null clears it. For people who may see job costs and profit.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.job.money_set.
+         */
+        post: operations["command_contractor_job_set_money"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.set_percent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set how far along a service call is (0 to 100%). A project’s % done comes from its phases instead.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.percent_set.
+         */
+        post: operations["command_contractor_job_set_percent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.set_status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a job along: new, scheduled, in progress, on hold, done or cancelled. On hold and cancelled need a reason. Done waits on the required checklist items and photos on its work orders, unless an owner or admin gives a reason to pass them over.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.status_changed, contractor.job.checks_skipped.
+         */
+        post: operations["command_contractor_job_set_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.team_add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put someone on the business’s team on a job’s team, beside its job lead.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.team_changed.
+         */
+        post: operations["command_contractor_job_team_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.team_remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take someone off a job’s team. The job and their work on it stay.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.team_changed.
+         */
+        post: operations["command_contractor_job_team_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.job.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a job’s name, trade, work to do, start day, deadline, job lead, customer or property (an existing one, or a new address). Only what’s given changes; null clears it.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.job.updated, contractor.property.added.
+         */
+        post: operations["command_contractor_job_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a phase at the end of a job’s phases, with its start day and deadline. A service call with its first phase becomes a project.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phase.added, contractor.job.made_project.
+         */
+        post: operations["command_contractor_phase_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove a phase from a project, with its dates and % done. The job and everything else on it stay.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.phase.removed.
+         */
+        post: operations["command_contractor_phase_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a job’s phases in a new order: every one of its phases, once each, first to last.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phases.reordered.
+         */
+        post: operations["command_contractor_phase_reorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.phase.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a phase: its name, start day, deadline, status (not started, started, done) or % done. Done is 100%; 100% is done.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.phase.updated.
+         */
+        post: operations["command_contractor_phase_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.property.add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a property by its address, owned by a customer when one is given.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.property.added.
+         */
+        post: operations["command_contractor_property_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.item_add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an item to a visit’s checklist: a box to tick or a photo to add, required or not.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_added, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_item_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.item_remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove an item from a visit’s checklist. The rest of the work order stays.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.work_order.item_removed, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_item_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.item_set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a checklist item done, or not done after all. A photo item is done by its photo: one of the job’s files.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_set, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_item_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.item_update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a checklist item: what it says, whether it’s a box to tick or a photo, and whether it’s required.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.item_updated, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_item_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.set_crew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a crew on a visit: everyone on the team in it is booked on the visit, and its subcontractors go on the work order. Or take the crew’s name off.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.crew_set, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_set_crew"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a visit’s work order, with the checklist a new visit starts with. A visit booked on a job gets one on its own; this is for one that has none yet.
+         * @description Risk level 0. Requires contractor.use. Emits contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.sub_add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put a subcontractor on a visit: a contact who doesn’t sign in, is texted the job’s details, and whose work the office marks.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_added, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_sub_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.sub_remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take a subcontractor off a visit. They aren’t told.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_removed, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_sub_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.sub_set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a subcontractor’s work on a visit done, or not done after all, with an optional note. The office marks it: they don’t sign in.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.sub_set, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_sub_set"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.tell_subs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Text a visit’s subcontractors the job’s details: the job, where, when, what to do and what to bring. It says who was texted and who couldn’t be, and why.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.work_order.subs_told, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_tell_subs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.work_order.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a visit’s work order: its instructions, and what to bring.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.work_order.updated, contractor.work_order.started.
+         */
+        post: operations["command_contractor_work_order_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/conversation.archive": {
         parameters: {
             query?: never;
@@ -3477,6 +4117,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/email_domain.send_steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the DNS records for one of the business’s domains, with the steps for where it’s managed, to you or to whoever looks after the domain. Up to 10 a day.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.steps_requested.
+         */
+        post: operations["command_email_domain_send_steps"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/email_domain.stop_receiving": {
         parameters: {
             query?: never;
@@ -3531,6 +4191,26 @@ export interface paths {
          * @description Risk level 1. Requires inbox.use. Emits email_sender_rule.removed.
          */
         post: operations["command_email_sender_rule_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/email_setup.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set up the address the business’s emails (booking confirmations, reminders, invoices, the AI teammate’s) go out from, one screen at a time. sender: a free address on mail.handsfreeos.com, made the default now, or a team address on the business’s own domain, which is added and becomes the default on its own once its DNS records check out (mail goes from the free address until then). records: whether the domain’s mail comes to the Inbox too. own: an address on the domain just for you, which only you read and booking emails never use.
+         * @description Risk level 2. Requires channels.manage. Emits email_domain.planned, email_address.created, email_address.updated, email_domain.receiving_requested.
+         */
+        post: operations["command_email_setup_save"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3647,7 +4327,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It stays a draft until it is sent.
+         * Start an estimate for a customer: its lines from the catalogue or typed by hand, a discount, and what to ask for up front if they say yes. It can offer two or three options (good, better, best), each with its own lines, for the customer to pick from. It stays a draft until it is sent.
          * @description Risk level 1. Requires money.bill. Emits estimate.created.
          */
         post: operations["command_estimate_create"];
@@ -3667,7 +4347,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval.
+         * Record that the customer said yes — on the phone, or in person. It is marked as recorded by staff, in your name, and never as the customer’s own approval. For an estimate that offers options, say which one they chose.
          * @description Risk level 2. Requires money.bill. Emits estimate.accepted.
          */
         post: operations["command_estimate_mark_accepted"];
@@ -3707,7 +4387,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save a draft estimate: its header and all of its lines at once, against the revision you loaded. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.
+         * Save a draft estimate: its header and all of its lines at once, against the revision you loaded, with its options (good, better, best) when it offers more than one. Someone else’s save in between is kept and yours is refused. A sent estimate can’t be edited — void it and reissue.
          * @description Risk level 1. Requires money.bill. Emits estimate.updated.
          */
         post: operations["command_estimate_update"];
@@ -5467,7 +6147,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Save the business profile the AI writes from: what you do, services, area, hours, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices.
+         * Save the business profile the AI writes from: what you do, services, area, policies, tone of voice, words to use and avoid, signature, and whether AI may quote prices. Its hours always come from the business hours (workspace.update’s settings.openHours, Settings → Workspace → Business hours), whatever hours are sent here.
          * @description Risk level 1. Requires knowledge.manage. Emits knowledge.profile_updated.
          */
         post: operations["command_knowledge_profile_update"];
@@ -5951,6 +6631,26 @@ export interface paths {
          * @description Risk level 1. Requires main_offer.manage. Emits main_offer.draft_saved.
          */
         post: operations["command_main_offer_save_draft"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/main_offer.save_list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save one of the main offer’s lists for content, like what makes the business different or its features and benefits, as its lines. The AI Social Media Content Creator writes posts and ideas from them. Saving an empty list clears it.
+         * @description Risk level 1. Requires main_offer.manage. Emits main_offer.list_saved.
+         */
+        post: operations["command_main_offer_save_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6927,7 +7627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); and the review link is saved for thank-you texts.
+         * Keep the onboarding setup’s answers while someone is part way through, so they can carry on later or from the phone, and save what can’t wait: the first screen saves the business’s name, kind, address, time zone and website (and the AI teammate starts reading the website), and picks where the answers start from (answers the business’s agency saved, or our picks); “How many people work with you?” sends invitations; the goal and where customers are put Home’s list in order; the simple page (for a business with no website) goes live with its open hours and business profile, or is turned off; the booking stop makes the booking page and turns it on (left to the owner when someone from their agency sets it up); “Your business email” sets the address booking emails go out from, the domain’s mail and your own address (as email_setup.save does); and the review link is saved for thank-you texts.
          * @description Risk level 2. Requires workspace.update. Emits onboarding_setup.started, ai_setup.read_requested, look.find_requested.
          */
         post: operations["command_onboarding_setup_save"];
@@ -14537,6 +15237,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.content.approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OK one of the business’s own posts so it goes up at its time (decision 15: nothing goes up without an OK), or take the OK back (ok: false). It needs everything a post needs first: words, its pictures or slides, a day ahead, and for Facebook where it goes.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved, socialcontent.content.saved.
+         */
+        post: operations["command_socialcontent_content_approve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.approve_week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * OK the week in one go (decision 15): every draft of the business’s own posts going in the next 7 days that has everything it needs. Says how many it OK’d, and which still need something, and what.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
+         */
+        post: operations["command_socialcontent_content_approve_week"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.post_now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put one of the business’s own posts up now, from the computer that posts (in Chrome with the HandsFreeOS Social extension), instead of at its time: an OK’d one, or one that didn’t post. It counts as the OK (decision 15), so it needs everything a post needs. Places it already went up in are left out. It goes up in a minute or two while that computer has Chrome open.
+         * @description Risk level 2. Requires socialcontent.use. Emits socialcontent.content.approved.
+         */
+        post: operations["command_socialcontent_content_post_now"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.save": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change one of the business’s own posts: its title, network, format, words, hook, hashtags, slides, script, what its picture shows and how it’s made, its pictures (files on the post, in order), where on Facebook it goes, or when it goes (null for no day yet). What isn’t given stays as it is. Changing an OK’d post takes the OK back, so it waits for an OK again. A posted post can’t be changed.
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.content.saved.
+         */
+        post: operations["command_socialcontent_content_save"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.content.skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Skip one of the business’s own posts, so it doesn’t go up and its day is open again for another (an OK’d one loses its OK), or bring a skipped one back as a draft waiting for an OK (skip: false).
+         * @description Risk level 1. Requires socialcontent.use. Emits socialcontent.content.skipped.
+         */
+        post: operations["command_socialcontent_content_skip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.creator.add": {
         parameters: {
             query?: never;
@@ -14697,6 +15497,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.own.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts whose numbers are due to be read (about 2 and 7 days after it went up), on the networks given: the places to read, each by its link, and its words. It’s put off half an hour as it’s handed out. Null when none is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_own_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.own.read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: what one of the business’s own posts showed in each place it went up, at its read about 2 or 7 days on (views where the network shows them, likes, comments, shares), or why a place couldn’t be read. Kept on the post; at the 7-day read it’s weighed against the business’s own other posts there, and one that did well goes into the Playbook.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.done_well.
+         */
+        post: operations["command_socialcontent_own_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.next": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: the next of the business’s own posts to put up now, on the networks the extension posts on: OK’d, its time come, within a day of it, soonest first. It’s taken, so it goes up once. What a computer took and never said how it went is marked as didn’t post (it may have gone up), and what waited more than a day past its time too. Null when nothing is due.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posting, socialcontent.content.failed.
+         */
+        post: operations["command_socialcontent_post_next"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/socialcontent.post.went": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extension: how putting one of the business’s own posts up went, place by place (Facebook profile, Page, a feed): each place it went up is kept with its link, so trying again never puts it up twice there. Up everywhere is posted; any place that didn’t take it is didn’t post, with why. Nothing pressed (again) puts it back to waiting.
+         * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.content.posted, socialcontent.content.failed.
+         */
+        post: operations["command_socialcontent_post_went"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.posts.save": {
         parameters: {
             query?: never;
@@ -14747,7 +15627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), and whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off). What isn’t given stays as it is.
+         * Change content research’s settings: the networks creators are looked for and read on (TikTok and YouTube come in later updates), whose computer does the reading (a person on the team with the HandsFreeOS Social extension in Chrome; null for none), whether new standout videos are watched (frames and sound; it uses a lot more AI, so it starts off), the calendar’s plan for the business’s own posts (posts a week on Instagram, Facebook and LinkedIn, and the time they go), the business’s Facebook Page, where its Facebook posts go (the profile, the Page or both), and whether the AI fills the calendar on its own (off stops it, a fill under way too; on fills the open days right away). What isn’t given stays as it is.
          * @description Risk level 1. Requires socialcontent.manage. Emits socialcontent.settings.saved.
          */
         post: operations["command_socialcontent_settings_save"];
@@ -14807,7 +15687,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, oldest first, taken so no other computer does it. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.
+         * Extension: the next thing the business’s reading computer is asked to do, on the networks this build reads, taken so no other computer does it: reading a creator someone ticked or added first, then searches for new creators (where the computer still has room for them today), then the weekly and monthly reads, each oldest first. What it already has under way comes back first (Chrome restarted); what a computer took and never finished goes back to waiting after 2 hours. Null when nothing waits.
          * @description Risk level 0. Requires socialcontent.use. Emits socialcontent.work.taken.
          */
         post: operations["command_socialcontent_work_next"];
@@ -18377,6 +19257,206 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.crew.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s crews, each with the people on its team and the subcontractors in it.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_crew_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One day’s visits on jobs: who’s on each, the ones nobody is on, where each stands (scheduled, on the way, started, done), its crew, subcontractors and checklist; and the open jobs with nothing booked.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_dispatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.estimate.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One estimate as its builder needs it: the estimate itself, what each line costs, each option’s profit and margin, whether it’s waiting for an owner’s or admin’s OK, the job it’s for, and how the business estimates. With no estimate named, what a new one for a job starts from. For people who may see job costs.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_estimate_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.estimate.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The estimates built in Contractor Operations, newest first: all of them, one job’s, or only the drafts waiting for an owner’s or admin’s OK. Each with its status, customer, total, options, job and whether an OK was asked for or given. No costs.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_estimate_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.item_cost.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s price list with what each item costs it: its price, its cost, how it’s costed (labor, material, other) and the margin between them. For people who may see job costs.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_item_cost_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.job.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One job whole: its status, customer, property, trade, dates, work to do, lead and team, phases, visits, and (for people who may see job costs) its price and budget.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_job_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.job.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s jobs, open ones first by deadline: all, mine (I lead it or am on its team) or late, by status, by customer or property, or by words in its name, customer or property.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_job_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Contractor Operations here: its settings (trades, phases for a new project, the checklist a new visit starts with), how many jobs are open, late, on hold and done this month, who can be on a job, how the business estimates (for people who may see job costs), and how many estimates wait for this person’s OK.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_overview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.property.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s properties, each with its owners and how many jobs it has had: a customer’s first (or only theirs), or found by words in the address.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_property_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.work_order.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, and its checklist.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_work_order_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/conversation.get": {
         parameters: {
             query?: never;
@@ -18671,6 +19751,26 @@ export interface paths {
          * @description Requires inbox.use.
          */
         post: operations["query_email_sender_rule_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/email_setup.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business email step: the address booking emails go out from now, the business’s free address and own domains (with their DNS records, where each is managed and what happens once they check out), your own address, connected mailboxes, and the answers to start from.
+         * @description Requires channels.manage.
+         */
+        post: operations["query_email_setup_get"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19407,7 +20507,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search.
+         * Conversations newest first: mine, unassigned or everyone’s, those waiting for a person (oldest first) or the AI teammate’s, or email in Other mail or Spam; open, snoozed or closed; texts or email; with search. The person’s own mail shows beside the team’s (in Mine, All, Other mail, Spam and Archived), or alone with mailbox mine.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_list"];
@@ -19427,7 +20527,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Unread and open counts for the badges, and how many customers are waiting too long.
+         * Unread and open counts for the badges (the person’s own mail among them, as the list shows it), and how many customers are waiting too long.
          * @description Requires inbox.use.
          */
         post: operations["query_inbox_summary"];
@@ -19627,7 +20727,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The business profile the AI writes from, how complete it is, and who changed it last.
+         * The business profile the AI writes from, how complete it is, and who changed it last. Its hours are always the business hours (Settings → Workspace → Business hours).
          * @description Requires workspace.read.
          */
         post: operations["query_knowledge_profile"];
@@ -23437,6 +24537,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/socialcontent.calendar.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s content calendar: its own posts going in the next two weeks (or the days asked for), soonest first, each with its network, format, words, hashtags, slides or script, pictures, when it goes and whether it’s waiting for an OK, OK’d, posted or skipped (and what it still needs before it can be OK’d); drafts with no day yet; what went up in the 30 days before, each with its numbers 2 and 7 days after it went up and whether it did well against the business’s own other posts; the open days in the plan with no post yet; the plan itself (posts a week on Instagram, Facebook and LinkedIn, and the time); when it last filled, whether it fills on its own (autoFill) and when it fills again; whether the main offer is live (offerLive: until it is, the AI writes no posts); and how many ideas are saved to write from.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_calendar_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.content.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * One of the business’s own posts: its network, format, title, words, hook, hashtags, a carousel’s slides or a video’s script, what its picture shows and how it’s made (designed by the AI, a photo-style picture from the AI, or the person’s own), its pictures, where on Facebook it goes, when it goes, whether it’s waiting for an OK, OK’d, posted or skipped, what it still needs before it can be OK’d, and once it went up: where, its links, its numbers about 2 and 7 days after (views, likes, comments, shares) and whether it did well against the business’s own other posts.
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_content_get"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/socialcontent.content.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The business’s own posts, newest first: drafts waiting for an OK, OK’d ones, posted ones or skipped ones (pass state to keep to one, network to keep to one network).
+         * @description Requires socialcontent.use.
+         */
+        post: operations["query_socialcontent_content_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/socialcontent.creator.list": {
         parameters: {
             query?: never;
@@ -23467,7 +24627,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.
+         * The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped; and whether the main offer is live (offerLive: until it is, the AI writes no ideas). Pass state to keep to one.
          * @description Requires socialcontent.use.
          */
         post: operations["query_socialcontent_idea_list"];
@@ -30666,6 +31826,1292 @@ export interface operations {
             };
         };
     };
+    command_contractor_crew_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    archived?: boolean;
+                    /** Format: uuid */
+                    crewId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        /** Format: uuid */
+                        crewId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_crew_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    crewId?: string;
+                    name?: string;
+                    subPersonIds?: string[];
+                    userIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: boolean;
+                        /** Format: uuid */
+                        crewId: string;
+                        name: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_ask_ok: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_ok: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId: string;
+                    note?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    baseRevision?: number;
+                    deposit?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    discount?: {
+                        amountCents?: number;
+                        /**
+                         * @default none
+                         * @enum {string}
+                         */
+                        kind?: "none" | "percent" | "amount";
+                        percentBp?: number;
+                    };
+                    /** Format: uuid */
+                    estimateId?: string;
+                    expiresOn?: string | null;
+                    jobId?: string | null;
+                    notes?: string | null;
+                    options: {
+                        lines: {
+                            /** @default null */
+                            description?: string | null;
+                            /** @default 0 */
+                            discountCents?: number;
+                            /**
+                             * @default material
+                             * @enum {string}
+                             */
+                            kind?: "labor" | "material" | "other";
+                            name: string;
+                            /** @default null */
+                            productId?: string | null;
+                            quantity: number;
+                            /** @default true */
+                            taxable?: boolean;
+                            /** @default null */
+                            unitCostCents?: number | null;
+                            /** @default each */
+                            unitLabel?: string;
+                            unitPriceCents: number;
+                        }[];
+                        /** @default  */
+                        name?: string;
+                    }[];
+                    /** Format: uuid */
+                    personId?: string;
+                    title?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            asked: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            canSend: boolean;
+                            lowest: {
+                                marginBp: number | null;
+                                name: string | null;
+                            } | null;
+                            minMarginBp: number;
+                            needsOk: ("margin" | "uncosted") | null;
+                            ok: {
+                                at: string;
+                                by: string | null;
+                                note: string | null;
+                            } | null;
+                            options: {
+                                costCents: number;
+                                laborCents: number;
+                                laborHours: number;
+                                marginBp: number | null;
+                                materialsCents: number;
+                                name: string | null;
+                                otherCents: number;
+                                position: number;
+                                priceCents: number;
+                                profitCents: number;
+                                uncosted: number;
+                            }[];
+                            uncosted: number;
+                        };
+                        created: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        revision: number;
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimate_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @default [
+                     *       "email"
+                     *     ]
+                     */
+                    channels?: ("sms" | "email")[];
+                    /** Format: uuid */
+                    estimateId: string;
+                    /** @default null */
+                    message?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        estimateId: string;
+                        number: string | null;
+                        revision: number;
+                        /** @enum {string} */
+                        status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                        totalCents: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_estimating_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    laborCostCents?: number;
+                    laborRateCents?: number;
+                    markupBp?: number;
+                    minMarginBp?: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        laborCostCents: number;
+                        laborRateCents: number;
+                        markupBp: number;
+                        minMarginBp: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_item_cost_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    costCents: number | null;
+                    /** @enum {string} */
+                    kind?: "labor" | "material" | "other";
+                    /** Format: uuid */
+                    productId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        productId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_make_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    phases?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        phases: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_open: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    customerPersonId?: string | null;
+                    details?: string;
+                    dueOn?: string | null;
+                    /**
+                     * @default service
+                     * @enum {string}
+                     */
+                    kind?: "service" | "project";
+                    leadUserId?: string | null;
+                    name: string;
+                    newPropertyAddress?: string;
+                    phases?: string[];
+                    propertyId?: string | null;
+                    startsOn?: string | null;
+                    trade?: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        name: string;
+                        phases: number;
+                        propertyId: string | null;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_set_money: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    laborCents?: number | null;
+                    laborHours?: number | null;
+                    materialsCents?: number | null;
+                    otherCents?: number | null;
+                    priceCents?: number | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_set_percent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    percentDone: number;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        percentDone: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_set_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    reason?: string;
+                    skipReason?: string;
+                    /** @enum {string} */
+                    status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** @enum {string} */
+                        status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_team_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_team_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    userId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_job_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    customerPersonId?: string | null;
+                    details?: string | null;
+                    dueOn?: string | null;
+                    /** Format: uuid */
+                    jobId: string;
+                    leadUserId?: string | null;
+                    name?: string;
+                    newPropertyAddress?: string;
+                    propertyId?: string | null;
+                    startsOn?: string | null;
+                    trade?: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueOn?: string | null;
+                    /** Format: uuid */
+                    jobId: string;
+                    name: string;
+                    startsOn?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        madeProject: boolean;
+                        /** Format: uuid */
+                        phaseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    phaseId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        jobPercentDone: number;
+                        /** Format: uuid */
+                        phaseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_reorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    phaseIds: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_phase_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    dueOn?: string | null;
+                    name?: string;
+                    percentDone?: number;
+                    /** Format: uuid */
+                    phaseId: string;
+                    startsOn?: string | null;
+                    /** @enum {string} */
+                    status?: "not_started" | "in_progress" | "done";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        jobId: string;
+                        jobPercentDone: number;
+                        /** Format: uuid */
+                        phaseId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_property_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    address: string;
+                    ownerPersonId?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        name: string;
+                        /** Format: uuid */
+                        propertyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_item_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /**
+                     * @default check
+                     * @enum {string}
+                     */
+                    kind?: "check" | "photo";
+                    label: string;
+                    /** @default false */
+                    required?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        /** Format: uuid */
+                        itemId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_item_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        done: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        requiredLeft: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_item_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    done: boolean;
+                    fileId?: string | null;
+                    /** Format: uuid */
+                    itemId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        done: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        requiredLeft: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_item_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    itemId: string;
+                    /** @enum {string} */
+                    kind?: "check" | "photo";
+                    label?: string;
+                    required?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        done: boolean;
+                        /** Format: uuid */
+                        itemId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        requiredLeft: number;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_set_crew: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeWarnings?: boolean;
+                    /** Format: uuid */
+                    appointmentId: string;
+                    crewId: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        crewId: string | null;
+                        subsAdded: number;
+                        userIds: string[];
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        items: number;
+                        /** Format: uuid */
+                        jobId: string;
+                        started: boolean;
+                    } | null;
+                };
+            };
+        };
+    };
+    command_contractor_work_order_sub_add: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_sub_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_sub_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    done: boolean;
+                    note?: string | null;
+                    /** Format: uuid */
+                    personId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_tell_subs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeQuietHours?: boolean;
+                    /** Format: uuid */
+                    appointmentId: string;
+                    note?: string;
+                    personIds?: string[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        notTold: {
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                            why: string;
+                        }[];
+                        told: {
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_work_order_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    bring?: string | null;
+                    instructions?: string | null;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        changed: boolean;
+                    };
+                };
+            };
+        };
+    };
     command_conversation_archive: {
         parameters: {
             query?: never;
@@ -32644,6 +35090,40 @@ export interface operations {
             };
         };
     };
+    command_email_domain_send_steps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    emailDomainId: string;
+                    to: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        emailDomainId: string;
+                        to: string;
+                    };
+                };
+            };
+        };
+    };
     command_email_domain_stop_receiving: {
         parameters: {
             query?: never;
@@ -32737,6 +35217,59 @@ export interface operations {
                     "application/json": {
                         address: string;
                         removed: boolean;
+                    };
+                };
+            };
+        };
+    };
+    command_email_setup_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    email: {
+                        /** @default  */
+                        domain?: string;
+                        /** @default  */
+                        freeLocal?: string;
+                        /** @default hello */
+                        local?: string;
+                        /** @default false */
+                        mine?: boolean;
+                        /** @default  */
+                        mineLocal?: string;
+                        /** @default  */
+                        name?: string;
+                        /** @default null */
+                        receive?: boolean | null;
+                        /** @default null */
+                        with?: ("domain" | "free") | null;
+                    };
+                    /** @enum {string} */
+                    part: "sender" | "records" | "own";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changes: string[];
+                        emailDomainId: string | null;
+                        sender: string;
+                        /** Format: uuid */
+                        workspaceId: string;
                     };
                 };
             };
@@ -32966,6 +35499,25 @@ export interface operations {
                         unitPriceCents: number;
                     }[];
                     notes?: string | null;
+                    options?: {
+                        /** @default [] */
+                        lines?: {
+                            /** @default null */
+                            description?: string | null;
+                            /** @default 0 */
+                            discountCents?: number;
+                            name: string;
+                            /** @default null */
+                            productId?: string | null;
+                            quantity: number;
+                            /** @default true */
+                            taxable?: boolean;
+                            /** @default each */
+                            unitLabel?: string;
+                            unitPriceCents: number;
+                        }[];
+                        name: string;
+                    }[] | null;
                     /** Format: uuid */
                     personId: string;
                     title?: string | null;
@@ -33009,6 +35561,7 @@ export interface operations {
                     estimateId: string;
                     name: string;
                     note?: string | null;
+                    option?: number | null;
                     /** Format: uuid */
                     workspaceId: string;
                 };
@@ -33030,6 +35583,10 @@ export interface operations {
                         acceptedVia: "link" | "staff";
                         /** Format: uuid */
                         estimateId: string;
+                        option: {
+                            name: string;
+                            position: number;
+                        } | null;
                         /** @enum {string} */
                         status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
                         wording: string;
@@ -33135,6 +35692,25 @@ export interface operations {
                         unitPriceCents: number;
                     }[];
                     notes?: string | null;
+                    options?: {
+                        /** @default [] */
+                        lines?: {
+                            /** @default null */
+                            description?: string | null;
+                            /** @default 0 */
+                            discountCents?: number;
+                            name: string;
+                            /** @default null */
+                            productId?: string | null;
+                            quantity: number;
+                            /** @default true */
+                            taxable?: boolean;
+                            /** @default each */
+                            unitLabel?: string;
+                            unitPriceCents: number;
+                        }[];
+                        name: string;
+                    }[] | null;
                     /** Format: uuid */
                     personId: string;
                     title?: string | null;
@@ -33247,7 +35823,7 @@ export interface operations {
                     /** Format: uuid */
                     id?: string;
                     /** @enum {string} */
-                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm";
+                    mimeType: "image/jpeg" | "image/png" | "image/webp" | "image/heic" | "image/heif" | "image/gif" | "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document" | "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" | "text/plain" | "text/csv" | "audio/mp4" | "audio/aac" | "audio/mpeg" | "audio/webm" | "video/mp4" | "video/quicktime" | "video/webm";
                     name: string;
                     /** Format: uuid */
                     recordId: string;
@@ -38056,6 +40632,40 @@ export interface operations {
             };
         };
     };
+    command_main_offer_save_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    lines: string[];
+                    /** @enum {string} */
+                    list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        lines: string[];
+                        /** @enum {string} */
+                        list: "different" | "benefits" | "problems" | "questions" | "beforeAfter" | "story" | "topics" | "myths" | "voice" | "asks" | "never";
+                    };
+                };
+            };
+        };
+    };
     command_main_offer_save_names: {
         parameters: {
             query?: never;
@@ -40275,6 +42885,36 @@ export interface operations {
                          */
                         customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
                         /**
+                         * @default {
+                         *       "with": null,
+                         *       "domain": "",
+                         *       "local": "hello",
+                         *       "freeLocal": "",
+                         *       "name": "",
+                         *       "receive": null,
+                         *       "mine": false,
+                         *       "mineLocal": ""
+                         *     }
+                         */
+                        email?: {
+                            /** @default  */
+                            domain?: string;
+                            /** @default  */
+                            freeLocal?: string;
+                            /** @default hello */
+                            local?: string;
+                            /** @default false */
+                            mine?: boolean;
+                            /** @default  */
+                            mineLocal?: string;
+                            /** @default  */
+                            name?: string;
+                            /** @default null */
+                            receive?: boolean | null;
+                            /** @default null */
+                            with?: ("domain" | "free") | null;
+                        };
+                        /**
                          * @default leads
                          * @enum {string}
                          */
@@ -40591,6 +43231,36 @@ export interface operations {
                          */
                         customersIn?: "sheet" | "ghl" | "crm" | "phone" | "none";
                         /**
+                         * @default {
+                         *       "with": null,
+                         *       "domain": "",
+                         *       "local": "hello",
+                         *       "freeLocal": "",
+                         *       "name": "",
+                         *       "receive": null,
+                         *       "mine": false,
+                         *       "mineLocal": ""
+                         *     }
+                         */
+                        email?: {
+                            /** @default  */
+                            domain?: string;
+                            /** @default  */
+                            freeLocal?: string;
+                            /** @default hello */
+                            local?: string;
+                            /** @default false */
+                            mine?: boolean;
+                            /** @default  */
+                            mineLocal?: string;
+                            /** @default  */
+                            name?: string;
+                            /** @default null */
+                            receive?: boolean | null;
+                            /** @default null */
+                            with?: ("domain" | "free") | null;
+                        };
+                        /**
                          * @default leads
                          * @enum {string}
                          */
@@ -40635,7 +43305,7 @@ export interface operations {
                     /** @default [] */
                     invite?: string[];
                     /** @enum {string} */
-                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                    screen: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                     templateId?: string | null;
                     /** Format: uuid */
                     workspaceId: string;
@@ -40658,7 +43328,7 @@ export interface operations {
                         kindChanged: boolean;
                         notes: string[];
                         /** @enum {string} */
-                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
+                        reached: "business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done";
                         scanStarted: boolean;
                         /** Format: uuid */
                         workspaceId: string;
@@ -59369,6 +62039,496 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_content_approve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default true */
+                    ok?: boolean;
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_approve_week: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    from?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approved: number;
+                        notReady: {
+                            needs: string;
+                            /** Format: uuid */
+                            postId: string;
+                            title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_post_now: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    facebookWhere?: ("profile" | "page")[];
+                    fileIds?: string[];
+                    /** @enum {string} */
+                    format?: "photo" | "carousel" | "video" | "text";
+                    hashtags?: string[];
+                    hook?: string | null;
+                    /** @enum {string} */
+                    network?: "instagram" | "facebook" | "linkedin";
+                    picture?: string | null;
+                    /** @enum {string} */
+                    pictureWay?: "design" | "photo" | "own";
+                    postAt?: string | null;
+                    /** Format: uuid */
+                    postId: string;
+                    script?: {
+                        lines: string[];
+                        shots: string[];
+                    } | null;
+                    slides?: {
+                        body: string;
+                        heading: string;
+                    }[];
+                    title?: string;
+                    words?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_content_skip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** @default true */
+                    skip?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_creator_add: {
         parameters: {
             query?: never;
@@ -59724,6 +62884,341 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_own_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                            places: {
+                                link: string;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            /** @enum {string} */
+                            read: "d2" | "d7";
+                            text: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_own_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** @enum {string} */
+                    read: "d2" | "d7";
+                    reads: {
+                        /** @default null */
+                        comments?: number | null;
+                        /** @default null */
+                        failure?: string | null;
+                        /** @default null */
+                        likes?: number | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                        /** @default null */
+                        shares?: number | null;
+                        /** @default null */
+                        views?: number | null;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_next: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    networks: ("instagram" | "facebook" | "linkedin")[];
+                    version?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        post: {
+                            facebookPage: string | null;
+                            files: {
+                                bucket: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                            places: ("profile" | "page" | "feed")[];
+                            postAt: string | null;
+                            text: string;
+                            title: string;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    command_socialcontent_post_went: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    again?: boolean;
+                    /** @default null */
+                    failure?: string | null;
+                    /** Format: uuid */
+                    postId: string;
+                    went: {
+                        /** @default null */
+                        failure?: string | null;
+                        /** @default null */
+                        link?: string | null;
+                        /** @enum {string} */
+                        place: "profile" | "page" | "feed";
+                        posted: boolean;
+                    }[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_posts_save: {
         parameters: {
             query?: never;
@@ -59823,7 +63318,16 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    autoFill?: boolean;
+                    facebookPage?: string | null;
+                    facebookWhere?: ("profile" | "page")[];
                     networks?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    plan?: {
+                        [key: string]: {
+                            perWeek: number;
+                            time: string;
+                        };
+                    };
                     readerUserId?: string | null;
                     watchVideos?: boolean;
                     /** Format: uuid */
@@ -59839,7 +63343,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        autoFill: boolean;
+                        facebookPage: string | null;
+                        facebookWhere: ("profile" | "page")[];
                         networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                        plan: {
+                            facebook: {
+                                perWeek: number;
+                                time: string;
+                            };
+                            instagram: {
+                                perWeek: number;
+                                time: string;
+                            };
+                            linkedin: {
+                                perWeek: number;
+                                time: string;
+                            };
+                        };
                         readerName: string | null;
                         readerSeenAt: string | null;
                         readerUserId: string | null;
@@ -59923,6 +63444,7 @@ export interface operations {
             content: {
                 "application/json": {
                     reads: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                    searchOn?: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
                     version?: string;
                     /** Format: uuid */
                     workspaceId: string;
@@ -67251,6 +70773,7 @@ export interface operations {
                             job: {
                                 customerNote: string | null;
                                 etaAt: string | null;
+                                fits: boolean;
                                 /** Format: uuid */
                                 id: string;
                                 otherVisits: {
@@ -67263,6 +70786,7 @@ export interface operations {
                                 /** @enum {string} */
                                 status: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
                                 statusChangedAt: string | null;
+                                steps: ("on_the_way" | "in_progress" | "waiting_on_parts" | "done")[];
                                 title: string;
                                 visits: {
                                     /** Format: uuid */
@@ -70563,6 +74087,874 @@ export interface operations {
             };
         };
     };
+    query_contractor_crew_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    includeArchived?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        crews: {
+                            archived: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            people: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            }[];
+                            subs: {
+                                canText: boolean;
+                                company: string | null;
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_dispatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    day?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date */
+                        day: string;
+                        needsVisit: {
+                            customer: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                            daysLate: number | null;
+                            dueOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            property: string | null;
+                            /** @enum {string} */
+                            status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                        }[];
+                        people: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        timeZone: string;
+                        /** Format: date */
+                        today: string;
+                        truncated: boolean;
+                        visits: {
+                            /** Format: uuid */
+                            appointmentId: string;
+                            checklist: {
+                                done: number;
+                                requiredLeft: number;
+                                total: number;
+                            } | null;
+                            crew: string | null;
+                            customer: string | null;
+                            endsAt: string;
+                            job: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                /** @enum {string} */
+                                status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                            };
+                            property: string | null;
+                            /** @enum {string} */
+                            stage: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
+                            startsAt: string;
+                            subs: {
+                                done: number;
+                                total: number;
+                            };
+                            title: string;
+                            userIds: string[];
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_estimate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    estimateId?: string;
+                    /** Format: uuid */
+                    jobId?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        check: {
+                            asked: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            canSend: boolean;
+                            lowest: {
+                                marginBp: number | null;
+                                name: string | null;
+                            } | null;
+                            minMarginBp: number;
+                            needsOk: ("margin" | "uncosted") | null;
+                            ok: {
+                                at: string;
+                                by: string | null;
+                                note: string | null;
+                            } | null;
+                            options: {
+                                costCents: number;
+                                laborCents: number;
+                                laborHours: number;
+                                marginBp: number | null;
+                                materialsCents: number;
+                                name: string | null;
+                                otherCents: number;
+                                position: number;
+                                priceCents: number;
+                                profitCents: number;
+                                uncosted: number;
+                            }[];
+                            uncosted: number;
+                        } | null;
+                        costs: {
+                            /** @enum {string} */
+                            kind: "labor" | "material" | "other";
+                            line: number;
+                            option: number;
+                            unitCostCents: number | null;
+                        }[];
+                        estimate: {
+                            acceptedAt: string | null;
+                            acceptedBy: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            acceptedName: string | null;
+                            acceptedVia: ("link" | "staff") | null;
+                            acceptedWording: string | null;
+                            assignee: {
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                            } | null;
+                            builtBy: {
+                                addonId: string;
+                                name: string;
+                                running: boolean;
+                            } | null;
+                            /** Format: date-time */
+                            createdAt: string;
+                            declinedAt: string | null;
+                            declinedReason: string | null;
+                            deposit: {
+                                amountCents: number;
+                                /** @enum {string} */
+                                kind: "none" | "percent" | "amount";
+                                percentBp: number;
+                            };
+                            depositCents: number;
+                            expiresOn: string | null;
+                            firstViewedAt: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            leadId: string | null;
+                            lines: {
+                                allocatedCents: number;
+                                amountCents: number;
+                                description: string | null;
+                                discountCents: number;
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                                netCents: number;
+                                position: number;
+                                productId: string | null;
+                                quantity: number;
+                                taxable: boolean;
+                                unitLabel: string;
+                                unitPriceCents: number;
+                            }[];
+                            linkVersion: number;
+                            notes: string | null;
+                            number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
+                            options: {
+                                depositCents: number;
+                                lines: {
+                                    allocatedCents: number;
+                                    amountCents: number;
+                                    description: string | null;
+                                    discountCents: number;
+                                    name: string;
+                                    netCents: number;
+                                    position: number;
+                                    productId: string | null;
+                                    quantity: number;
+                                    taxable: boolean;
+                                    unitLabel: string;
+                                    unitPriceCents: number;
+                                }[];
+                                name: string;
+                                picked: boolean;
+                                position: number;
+                                totals: {
+                                    currency: string;
+                                    discountCents: number;
+                                    discountPercentBp: number | null;
+                                    subtotalCents: number;
+                                    taxableBaseCents: number;
+                                    taxCents: number;
+                                    taxLabel: string | null;
+                                    taxRateBp: number;
+                                    totalCents: number;
+                                };
+                            }[];
+                            person: {
+                                email: string | null;
+                                fullName: string;
+                                /** Format: uuid */
+                                id: string;
+                                phone: string | null;
+                            };
+                            publicRef: string;
+                            revision: number;
+                            sentAt: string | null;
+                            state: string;
+                            /** @enum {string} */
+                            status: "draft" | "sent" | "accepted" | "declined" | "expired" | "void";
+                            title: string | null;
+                            totals: {
+                                currency: string;
+                                discountCents: number;
+                                discountPercentBp: number | null;
+                                subtotalCents: number;
+                                taxableBaseCents: number;
+                                taxCents: number;
+                                taxLabel: string | null;
+                                taxRateBp: number;
+                                totalCents: number;
+                            };
+                            voidedAt: string | null;
+                            voidReason: string | null;
+                        } | null;
+                        estimating: {
+                            laborCostCents: number;
+                            laborRateCents: number;
+                            markupBp: number;
+                            minMarginBp: number;
+                        };
+                        job: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        may: {
+                            approve: boolean;
+                            bill: boolean;
+                        };
+                        person: {
+                            email: string | null;
+                            fullName: string;
+                            /** Format: uuid */
+                            id: string;
+                            phone: string | null;
+                        } | null;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_estimate_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId?: string;
+                    /** @default false */
+                    waitingOk?: boolean;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        estimates: {
+                            asked: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            createdAt: string;
+                            customer: string;
+                            /** Format: uuid */
+                            id: string;
+                            job: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            number: string | null;
+                            okStands: boolean;
+                            optionCount: number;
+                            optionName: string | null;
+                            status: string;
+                            title: string | null;
+                            totalCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_item_cost_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            costCents: number | null;
+                            description: string | null;
+                            /** @enum {string} */
+                            kind: "labor" | "material" | "other";
+                            marginBp: number | null;
+                            name: string;
+                            /** Format: uuid */
+                            productId: string;
+                            /** @enum {string} */
+                            productKind: "product" | "service" | "fee";
+                            taxable: boolean;
+                            unitLabel: string;
+                            unitPriceCents: number;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_job_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                        customer: {
+                            name: string;
+                            /** Format: uuid */
+                            personId: string;
+                        } | null;
+                        daysLate: number | null;
+                        details: string | null;
+                        doneAt: string | null;
+                        dueOn: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        /** @enum {string} */
+                        kind: "service" | "project";
+                        lead: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        } | null;
+                        money: {
+                            laborCents: number | null;
+                            laborHours: number | null;
+                            marginBp: number | null;
+                            materialsCents: number | null;
+                            otherCents: number | null;
+                            priceCents: number | null;
+                            profitCents: number | null;
+                            totalCents: number | null;
+                        } | null;
+                        name: string;
+                        nextVisitAt: string | null;
+                        percentDone: number;
+                        phaseList: {
+                            daysLate: number | null;
+                            doneAt: string | null;
+                            dueOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                            percentDone: number;
+                            position: number;
+                            startsOn: string | null;
+                            /** @enum {string} */
+                            status: "not_started" | "in_progress" | "done";
+                        }[];
+                        phases: {
+                            count: number;
+                            done: number;
+                        };
+                        property: {
+                            name: string;
+                            /** Format: uuid */
+                            recordId: string;
+                        } | null;
+                        /** Format: uuid */
+                        recordTypeId: string;
+                        startsOn: string | null;
+                        /** @enum {string} */
+                        status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                        statusAt: string;
+                        statusReason: string | null;
+                        team: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        trade: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                        updatedAt: string;
+                        visits: {
+                            /** Format: uuid */
+                            appointmentId: string;
+                            checklist: {
+                                done: number;
+                                requiredLeft: number;
+                                total: number;
+                            } | null;
+                            crew: string | null;
+                            endsAt: string;
+                            /** @enum {string} */
+                            stage: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
+                            startsAt: string;
+                            status: string;
+                            title: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_job_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customerPersonId?: string;
+                    /**
+                     * @default all
+                     * @enum {string}
+                     */
+                    filter?: "all" | "mine" | "late";
+                    /** @default false */
+                    includeClosed?: boolean;
+                    /** Format: uuid */
+                    propertyId?: string;
+                    search?: string;
+                    status?: ("new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled")[];
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        jobs: {
+                            customer: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                            daysLate: number | null;
+                            dueOn: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "service" | "project";
+                            lead: {
+                                name: string;
+                                /** Format: uuid */
+                                userId: string;
+                            } | null;
+                            name: string;
+                            nextVisitAt: string | null;
+                            percentDone: number;
+                            phases: {
+                                count: number;
+                                done: number;
+                            };
+                            property: {
+                                name: string;
+                                /** Format: uuid */
+                                recordId: string;
+                            } | null;
+                            startsOn: string | null;
+                            /** @enum {string} */
+                            status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                            statusAt: string;
+                            statusReason: string | null;
+                            trade: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                            updatedAt: string;
+                        }[];
+                        truncated: boolean;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_overview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        counts: {
+                            doneThisMonth: number;
+                            late: number;
+                            onHold: number;
+                            open: number;
+                        };
+                        estimatesWaitingOk: number;
+                        estimating: {
+                            laborCostCents: number;
+                            laborRateCents: number;
+                            markupBp: number;
+                            minMarginBp: number;
+                        } | null;
+                        kinds: {
+                            /** Format: uuid */
+                            job: string;
+                            /** Format: uuid */
+                            property: string;
+                        };
+                        may: {
+                            approve: boolean;
+                            assign: boolean;
+                            costs: boolean;
+                            manage: boolean;
+                            skipChecks: boolean;
+                        };
+                        name: string;
+                        people: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        settings: {
+                            /** @default [] */
+                            checklist: {
+                                /**
+                                 * @default check
+                                 * @enum {string}
+                                 */
+                                kind: "check" | "photo";
+                                label: string;
+                                /** @default false */
+                                required: boolean;
+                            }[];
+                            /** @default [] */
+                            phases: string[];
+                            /** @default [] */
+                            trades: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general")[];
+                        };
+                        /** Format: date */
+                        today: string;
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_property_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    customerPersonId?: string;
+                    /** @default false */
+                    onlyTheirs?: boolean;
+                    search?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        properties: {
+                            jobs: number;
+                            name: string;
+                            owners: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            }[];
+                            /** Format: uuid */
+                            recordId: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_work_order_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    appointmentId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        appointmentId: string;
+                        bring: string | null;
+                        crew: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        } | null;
+                        instructions: string | null;
+                        items: {
+                            done: boolean;
+                            doneAt: string | null;
+                            doneBy: string | null;
+                            file: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "check" | "photo";
+                            label: string;
+                            position: number;
+                            required: boolean;
+                            skipped: {
+                                at: string;
+                                by: string | null;
+                                reason: string;
+                            } | null;
+                        }[];
+                        job: {
+                            customer: {
+                                name: string;
+                                /** Format: uuid */
+                                personId: string;
+                            } | null;
+                            details: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @enum {string} */
+                            kind: "service" | "project";
+                            name: string;
+                            property: {
+                                name: string;
+                                /** Format: uuid */
+                                recordId: string;
+                            } | null;
+                            /** @enum {string} */
+                            status: "new" | "scheduled" | "in_progress" | "on_hold" | "done" | "cancelled";
+                            trade: ("electrical" | "plumbing" | "hvac" | "roofing" | "remodeling" | "general") | null;
+                        };
+                        people: {
+                            name: string;
+                            /** Format: uuid */
+                            userId: string;
+                        }[];
+                        progress: {
+                            done: number;
+                            requiredLeft: number;
+                            total: number;
+                        };
+                        started: boolean;
+                        subs: {
+                            canText: boolean;
+                            company: string | null;
+                            done: boolean;
+                            doneAt: string | null;
+                            doneBy: string | null;
+                            name: string;
+                            note: string | null;
+                            /** Format: uuid */
+                            personId: string;
+                            toldAt: string | null;
+                        }[];
+                        visit: {
+                            endsAt: string;
+                            /** @enum {string} */
+                            stage: "scheduled" | "on_the_way" | "in_progress" | "waiting_on_parts" | "done" | "cancelled";
+                            startsAt: string;
+                            status: string;
+                            title: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_conversation_get: {
         parameters: {
             query?: never;
@@ -71753,6 +76145,122 @@ export interface operations {
             };
         };
     };
+    query_email_setup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        answers: {
+                            /** @default  */
+                            domain: string;
+                            /** @default  */
+                            freeLocal: string;
+                            /** @default hello */
+                            local: string;
+                            /** @default false */
+                            mine: boolean;
+                            /** @default  */
+                            mineLocal: string;
+                            /** @default  */
+                            name: string;
+                            /** @default null */
+                            receive: boolean | null;
+                            /** @default null */
+                            with: ("domain" | "free") | null;
+                        };
+                        state: {
+                            businessName: string;
+                            canManage: boolean;
+                            domains: {
+                                dnsHost: string | null;
+                                domain: string;
+                                /** Format: uuid */
+                                id: string;
+                                lastCheckedAt: string | null;
+                                lastError: string | null;
+                                mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                plan: {
+                                    own?: {
+                                        localPart: string;
+                                        /** Format: uuid */
+                                        userId: string;
+                                    };
+                                    receive?: boolean;
+                                    team?: {
+                                        displayName: string;
+                                        localPart: string;
+                                    };
+                                };
+                                /** @enum {string} */
+                                receiving: "off" | "pending" | "on" | "lapsed";
+                                records: {
+                                    found: boolean;
+                                    fullHost: string;
+                                    host: string;
+                                    priority?: number;
+                                    purpose: string;
+                                    /** @enum {string} */
+                                    type: "TXT" | "CNAME" | "MX";
+                                    value: string;
+                                }[];
+                                /** @enum {string} */
+                                status: "pending" | "verified" | "failed";
+                            }[];
+                            free: {
+                                address: string;
+                                displayName: string;
+                                /** Format: uuid */
+                                id: string;
+                                isDefault: boolean;
+                                localPart: string;
+                            } | null;
+                            inboundMxHost: string;
+                            mailboxes: {
+                                accountEmail: string | null;
+                                mine: boolean;
+                                /** @enum {string} */
+                                provider: "microsoft" | "google";
+                                /** @enum {string} */
+                                status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                            }[];
+                            mine: {
+                                address: string;
+                            } | null;
+                            myEmail: string | null;
+                            myFirstName: string | null;
+                            sender: {
+                                address: string;
+                                displayName: string;
+                                domain: string | null;
+                                localPart: string;
+                            } | null;
+                            sharedDomain: string;
+                            slug: string;
+                            websiteDomain: string | null;
+                        };
+                    };
+                };
+            };
+        };
+    };
     query_email_suppression_list: {
         parameters: {
             query?: never;
@@ -72044,6 +76552,11 @@ export interface operations {
                                 /** Format: uuid */
                                 id: string;
                             } | null;
+                            builtBy: {
+                                addonId: string;
+                                name: string;
+                                running: boolean;
+                            } | null;
                             /** Format: date-time */
                             createdAt: string;
                             declinedAt: string | null;
@@ -72079,6 +76592,39 @@ export interface operations {
                             linkVersion: number;
                             notes: string | null;
                             number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
+                            options: {
+                                depositCents: number;
+                                lines: {
+                                    allocatedCents: number;
+                                    amountCents: number;
+                                    description: string | null;
+                                    discountCents: number;
+                                    name: string;
+                                    netCents: number;
+                                    position: number;
+                                    productId: string | null;
+                                    quantity: number;
+                                    taxable: boolean;
+                                    unitLabel: string;
+                                    unitPriceCents: number;
+                                }[];
+                                name: string;
+                                picked: boolean;
+                                position: number;
+                                totals: {
+                                    currency: string;
+                                    discountCents: number;
+                                    discountPercentBp: number | null;
+                                    subtotalCents: number;
+                                    taxableBaseCents: number;
+                                    taxCents: number;
+                                    taxLabel: string | null;
+                                    taxRateBp: number;
+                                    totalCents: number;
+                                };
+                            }[];
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -72181,6 +76727,8 @@ export interface operations {
                             id: string;
                             leadId: string | null;
                             number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -75627,6 +80175,10 @@ export interface operations {
                             } | null;
                         } | null;
                         inUse: boolean;
+                        /** @default {} */
+                        lists: {
+                            [key: string]: string[];
+                        };
                         live: {
                             anyway: string | null;
                             line: string;
@@ -76809,6 +81361,8 @@ export interface operations {
                             id: string;
                             leadId: string | null;
                             number: string | null;
+                            optionCount: number;
+                            optionName: string | null;
                             person: {
                                 email: string | null;
                                 fullName: string;
@@ -77554,6 +82108,36 @@ export interface operations {
                              */
                             customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
                             /**
+                             * @default {
+                             *       "with": null,
+                             *       "domain": "",
+                             *       "local": "hello",
+                             *       "freeLocal": "",
+                             *       "name": "",
+                             *       "receive": null,
+                             *       "mine": false,
+                             *       "mineLocal": ""
+                             *     }
+                             */
+                            email: {
+                                /** @default  */
+                                domain: string;
+                                /** @default  */
+                                freeLocal: string;
+                                /** @default hello */
+                                local: string;
+                                /** @default false */
+                                mine: boolean;
+                                /** @default  */
+                                mineLocal: string;
+                                /** @default  */
+                                name: string;
+                                /** @default null */
+                                receive: boolean | null;
+                                /** @default null */
+                                with: ("domain" | "free") | null;
+                            };
+                            /**
                              * @default leads
                              * @enum {string}
                              */
@@ -77594,7 +82178,7 @@ export interface operations {
                         } | null;
                         /** @default null */
                         handOverAs: ("owner" | "admin") | null;
-                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
+                        reached: ("business" | "goal" | "about" | "hours" | "look" | "page" | "customers" | "booking" | "number" | "email" | "email_records" | "email_own" | "paid" | "jobs" | "facts" | "meet" | "voice" | "learned" | "qualify" | "chat" | "loop" | "try" | "done") | null;
                         /** @default null */
                         saveTo: {
                             name: string;
@@ -77846,6 +82430,36 @@ export interface operations {
                              */
                             customersIn: "sheet" | "ghl" | "crm" | "phone" | "none";
                             /**
+                             * @default {
+                             *       "with": null,
+                             *       "domain": "",
+                             *       "local": "hello",
+                             *       "freeLocal": "",
+                             *       "name": "",
+                             *       "receive": null,
+                             *       "mine": false,
+                             *       "mineLocal": ""
+                             *     }
+                             */
+                            email: {
+                                /** @default  */
+                                domain: string;
+                                /** @default  */
+                                freeLocal: string;
+                                /** @default hello */
+                                local: string;
+                                /** @default false */
+                                mine: boolean;
+                                /** @default  */
+                                mineLocal: string;
+                                /** @default  */
+                                name: string;
+                                /** @default null */
+                                receive: boolean | null;
+                                /** @default null */
+                                with: ("domain" | "free") | null;
+                            };
+                            /**
                              * @default leads
                              * @enum {string}
                              */
@@ -77912,6 +82526,76 @@ export interface operations {
                                 count: number;
                                 migrationNeedsYou: boolean;
                                 running: ("import" | "migration") | null;
+                            };
+                            email: {
+                                businessName: string;
+                                canManage: boolean;
+                                domains: {
+                                    dnsHost: string | null;
+                                    domain: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    lastCheckedAt: string | null;
+                                    lastError: string | null;
+                                    mailHost: ("none" | "handsfreeos" | "google" | "microsoft" | "godaddy" | "zoho" | "other") | null;
+                                    plan: {
+                                        own?: {
+                                            localPart: string;
+                                            /** Format: uuid */
+                                            userId: string;
+                                        };
+                                        receive?: boolean;
+                                        team?: {
+                                            displayName: string;
+                                            localPart: string;
+                                        };
+                                    };
+                                    /** @enum {string} */
+                                    receiving: "off" | "pending" | "on" | "lapsed";
+                                    records: {
+                                        found: boolean;
+                                        fullHost: string;
+                                        host: string;
+                                        priority?: number;
+                                        purpose: string;
+                                        /** @enum {string} */
+                                        type: "TXT" | "CNAME" | "MX";
+                                        value: string;
+                                    }[];
+                                    /** @enum {string} */
+                                    status: "pending" | "verified" | "failed";
+                                }[];
+                                free: {
+                                    address: string;
+                                    displayName: string;
+                                    /** Format: uuid */
+                                    id: string;
+                                    isDefault: boolean;
+                                    localPart: string;
+                                } | null;
+                                inboundMxHost: string;
+                                mailboxes: {
+                                    accountEmail: string | null;
+                                    mine: boolean;
+                                    /** @enum {string} */
+                                    provider: "microsoft" | "google";
+                                    /** @enum {string} */
+                                    status: "pending" | "active" | "reauth_required" | "error" | "disconnected";
+                                }[];
+                                mine: {
+                                    address: string;
+                                } | null;
+                                myEmail: string | null;
+                                myFirstName: string | null;
+                                sender: {
+                                    address: string;
+                                    displayName: string;
+                                    domain: string | null;
+                                    localPart: string;
+                                } | null;
+                                sharedDomain: string;
+                                slug: string;
+                                websiteDomain: string | null;
                             };
                             emailAddress: {
                                 address: string;
@@ -92072,6 +96756,534 @@ export interface operations {
             };
         };
     };
+    query_socialcontent_calendar_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 15 */
+                    days?: number;
+                    from?: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        autoFill: boolean;
+                        days: number;
+                        facebookPage: string | null;
+                        filledAt: string | null;
+                        from: string;
+                        ideasSaved: number;
+                        mayManage: boolean;
+                        nextFillAt: string | null;
+                        /** @default true */
+                        offerLive: boolean;
+                        open: {
+                            at: string;
+                            date: string;
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin";
+                        }[];
+                        plan: {
+                            facebook: {
+                                perWeek: number;
+                                time: string;
+                            };
+                            instagram: {
+                                perWeek: number;
+                                time: string;
+                            };
+                            linkedin: {
+                                perWeek: number;
+                                time: string;
+                            };
+                        };
+                        poster: {
+                            mine: boolean;
+                            name: string | null;
+                            seenAt: string | null;
+                            version: string | null;
+                        } | null;
+                        posts: {
+                            approvedAt: string | null;
+                            approvedBy: string | null;
+                            createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
+                            facebookWhere: ("profile" | "page")[];
+                            failure: string | null;
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            hashtags: string[];
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ideaId: string | null;
+                            /** @enum {string} */
+                            madeBy: "ai" | "person";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
+                            picture: string | null;
+                            pictureFailure: string | null;
+                            pictures: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                            /** @enum {string} */
+                            pictureWay: "design" | "photo" | "own";
+                            postAt: string | null;
+                            postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            postLink: string | null;
+                            script: {
+                                lines: string[];
+                                shots: string[];
+                            } | null;
+                            slides: {
+                                body: string;
+                                heading: string;
+                            }[];
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            stillNeeds: string | null;
+                            title: string;
+                            updatedAt: string;
+                            words: string;
+                        }[];
+                        postsOn: ("instagram" | "facebook" | "linkedin")[];
+                        ready: number;
+                        recent: {
+                            approvedAt: string | null;
+                            approvedBy: string | null;
+                            createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
+                            facebookWhere: ("profile" | "page")[];
+                            failure: string | null;
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            hashtags: string[];
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ideaId: string | null;
+                            /** @enum {string} */
+                            madeBy: "ai" | "person";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
+                            picture: string | null;
+                            pictureFailure: string | null;
+                            pictures: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                            /** @enum {string} */
+                            pictureWay: "design" | "photo" | "own";
+                            postAt: string | null;
+                            postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            postLink: string | null;
+                            script: {
+                                lines: string[];
+                                shots: string[];
+                            } | null;
+                            slides: {
+                                body: string;
+                                heading: string;
+                            }[];
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            stillNeeds: string | null;
+                            title: string;
+                            updatedAt: string;
+                            words: string;
+                        }[];
+                        timeZone: string;
+                        today: string;
+                        undated: {
+                            approvedAt: string | null;
+                            approvedBy: string | null;
+                            createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
+                            facebookWhere: ("profile" | "page")[];
+                            failure: string | null;
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            hashtags: string[];
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ideaId: string | null;
+                            /** @enum {string} */
+                            madeBy: "ai" | "person";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
+                            picture: string | null;
+                            pictureFailure: string | null;
+                            pictures: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                            /** @enum {string} */
+                            pictureWay: "design" | "photo" | "own";
+                            postAt: string | null;
+                            postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            postLink: string | null;
+                            script: {
+                                lines: string[];
+                                shots: string[];
+                            } | null;
+                            slides: {
+                                body: string;
+                                heading: string;
+                            }[];
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            stillNeeds: string | null;
+                            title: string;
+                            updatedAt: string;
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_content_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approvedAt: string | null;
+                        approvedBy: string | null;
+                        createdAt: string;
+                        doneWell: {
+                            at: string;
+                            /** @enum {string} */
+                            on: "views" | "engagement" | "both";
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                            times: number;
+                        } | null;
+                        facebookWhere: ("profile" | "page")[];
+                        failure: string | null;
+                        /** @enum {string} */
+                        format: "photo" | "carousel" | "video" | "text";
+                        hashtags: string[];
+                        hook: string | null;
+                        /** Format: uuid */
+                        id: string;
+                        ideaId: string | null;
+                        /** @enum {string} */
+                        madeBy: "ai" | "person";
+                        /** @enum {string} */
+                        network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                        numbers: {
+                            [key: string]: {
+                                [key: string]: {
+                                    at: string;
+                                    comments: number | null;
+                                    days: number;
+                                    likes: number | null;
+                                    shares: number | null;
+                                    views: number | null;
+                                } | {
+                                    at: string;
+                                    days: number;
+                                    failure: string;
+                                };
+                            };
+                        };
+                        picture: string | null;
+                        pictureFailure: string | null;
+                        pictures: {
+                            bucket: string;
+                            /** Format: uuid */
+                            fileId: string;
+                            mimeType: string | null;
+                            name: string;
+                            objectPath: string;
+                        }[];
+                        /** @enum {string} */
+                        pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                        /** @enum {string} */
+                        pictureWay: "design" | "photo" | "own";
+                        postAt: string | null;
+                        postedAt: string | null;
+                        postedTo: {
+                            at: string;
+                            link: string | null;
+                            /** @enum {string} */
+                            place: "profile" | "page" | "feed";
+                        }[];
+                        postLink: string | null;
+                        script: {
+                            lines: string[];
+                            shots: string[];
+                        } | null;
+                        slides: {
+                            body: string;
+                            heading: string;
+                        }[];
+                        /** @enum {string} */
+                        state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                        stillNeeds: string | null;
+                        title: string;
+                        updatedAt: string;
+                        words: string;
+                    };
+                };
+            };
+        };
+    };
+    query_socialcontent_content_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default 50 */
+                    limit?: number;
+                    /** @enum {string} */
+                    network?: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                    /** @enum {string} */
+                    state?: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        posts: {
+                            approvedAt: string | null;
+                            approvedBy: string | null;
+                            createdAt: string;
+                            doneWell: {
+                                at: string;
+                                /** @enum {string} */
+                                on: "views" | "engagement" | "both";
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                                times: number;
+                            } | null;
+                            facebookWhere: ("profile" | "page")[];
+                            failure: string | null;
+                            /** @enum {string} */
+                            format: "photo" | "carousel" | "video" | "text";
+                            hashtags: string[];
+                            hook: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            ideaId: string | null;
+                            /** @enum {string} */
+                            madeBy: "ai" | "person";
+                            /** @enum {string} */
+                            network: "instagram" | "facebook" | "linkedin" | "tiktok" | "youtube";
+                            numbers: {
+                                [key: string]: {
+                                    [key: string]: {
+                                        at: string;
+                                        comments: number | null;
+                                        days: number;
+                                        likes: number | null;
+                                        shares: number | null;
+                                        views: number | null;
+                                    } | {
+                                        at: string;
+                                        days: number;
+                                        failure: string;
+                                    };
+                                };
+                            };
+                            picture: string | null;
+                            pictureFailure: string | null;
+                            pictures: {
+                                bucket: string;
+                                /** Format: uuid */
+                                fileId: string;
+                                mimeType: string | null;
+                                name: string;
+                                objectPath: string;
+                            }[];
+                            /** @enum {string} */
+                            pictureState: "none" | "waiting" | "making" | "made" | "failed";
+                            /** @enum {string} */
+                            pictureWay: "design" | "photo" | "own";
+                            postAt: string | null;
+                            postedAt: string | null;
+                            postedTo: {
+                                at: string;
+                                link: string | null;
+                                /** @enum {string} */
+                                place: "profile" | "page" | "feed";
+                            }[];
+                            postLink: string | null;
+                            script: {
+                                lines: string[];
+                                shots: string[];
+                            } | null;
+                            slides: {
+                                body: string;
+                                heading: string;
+                            }[];
+                            /** @enum {string} */
+                            state: "draft" | "ready" | "posting" | "posted" | "failed" | "skipped";
+                            stillNeeds: string | null;
+                            title: string;
+                            updatedAt: string;
+                            words: string;
+                        }[];
+                    };
+                };
+            };
+        };
+    };
     query_socialcontent_creator_list: {
         parameters: {
             query?: never;
@@ -92179,6 +97391,8 @@ export interface operations {
                             title: string;
                             why: string | null;
                         }[];
+                        /** @default true */
+                        offerLive: boolean;
                     };
                 };
             };
@@ -92261,7 +97475,24 @@ export interface operations {
                         mayManage: boolean;
                         readerIsMe: boolean;
                         settings: {
+                            autoFill: boolean;
+                            facebookPage: string | null;
+                            facebookWhere: ("profile" | "page")[];
                             networks: ("instagram" | "facebook" | "linkedin" | "tiktok" | "youtube")[];
+                            plan: {
+                                facebook: {
+                                    perWeek: number;
+                                    time: string;
+                                };
+                                instagram: {
+                                    perWeek: number;
+                                    time: string;
+                                };
+                                linkedin: {
+                                    perWeek: number;
+                                    time: string;
+                                };
+                            };
                             readerName: string | null;
                             readerSeenAt: string | null;
                             readerUserId: string | null;

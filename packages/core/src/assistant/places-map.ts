@@ -115,9 +115,9 @@ export const APP_PLACES: readonly AppPlace[] = [
     onScreen: [
       'New message, at the top (it starts a text to someone already in Contacts)',
       'Mine, Unassigned, and All (Everyone when each person sees only their own); Needs a person and the AI teammate’s own box when it is on',
-      'My mail, the person’s own connected Gmail or Outlook (only they see it), with its own Inbox, and the team’s Other mail and Spam for email from people not in Contacts',
+      'The person’s own connected Gmail or Outlook mail in the same list, each thread marked Only you (only they see it)',
       'Unread, to show only conversations with something unread',
-      'Search conversations (names, numbers and words in messages; Search everything at the top of the side menu finds them too), and Open, Snoozed, Closed or Archived',
+      'Search conversations (names, numbers and words in messages; Search everything at the top of the side menu finds them too), and the menu beside it: Open, Snoozed, Closed, Archived, Other mail (email from people not in Contacts) or Spam, the person’s own beside the team’s; a dot on it means something unread in Other mail. On the phone it is one chip, without Archived',
       'Select, for whoever may delete for good (owners, unless one gives it out): tick conversations, then Delete for good…',
     ],
     howTo: [
@@ -401,7 +401,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Where: Directions',
       'People and equipment: Change',
       'Reminders (what went out, and when), and anything else on this visit',
-      'Job: Scheduled, On the way, Started, Waiting on parts, Done (each texts the customer); Note the customer may see',
+      'Job, only on visits the team goes to (at the customer’s address): Scheduled, On the way, Started, Waiting on parts (trades, auto and repair only), Done (each texts the customer); Note the customer may see',
       'At the bottom: Reschedule, Complete, No-show, Invoice this visit, Cancel, and under them Delete for good… (owners)',
     ],
     howTo: [
@@ -409,7 +409,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'Give it to someone else: open it, press Change under People and equipment',
       'Cancel it: open it, press Cancel, choose whether to tell the customer and give a reason, then Cancel appointment',
       'Mark it done or a no-show: open it, press Complete or No-show (the other one is offered afterwards to undo it)',
-      'Tell the customer you are on the way: open it, press On the way under Job',
+      'Tell the customer you are on the way: open it, press On the way under Job (only on visits at the customer’s address)',
       'Bill the visit: open it, press Invoice this visit',
       'Mark who came to a class: open it, press Attended or No-show beside each person under Seats',
       'Take someone off the waitlist: open the session, press Remove beside them under Waitlist',
@@ -422,7 +422,7 @@ export const APP_PLACES: readonly AppPlace[] = [
       'mark it done or a no-show, or switch it',
       'mark the customer confirmed, or take a team mark back',
       'change its title, notes, where it is, or the deal it’s for',
-      'move the job along (On the way, Started, Waiting on parts, Done) and the note the customer sees — each texts them',
+      'move the job along (On the way, Started, Waiting on parts, Done) and the note the customer sees, on visits the team goes to — each texts them',
       'add a customer to a group session, or take one off',
       'book repeat visits, and cancel one visit of a series, it and the ones after, or every upcoming one',
       'see who is waiting on a calendar’s waitlist, put a customer on it for a full session or a window of time, or take them off',

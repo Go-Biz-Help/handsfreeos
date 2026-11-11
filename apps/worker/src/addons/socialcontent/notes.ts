@@ -1,8 +1,8 @@
 /**
  * AI Social Media Content Creator's notes (docs/socialcontent.md, parts 3 and 4): what the AI makes of the standouts.
  *
- * - **Posts saved with new standouts** (`socialcontent.posts.saved`) queue `socialcontent.notes` a minute later, once
- *   per business, so a creator read page by page is noted in one go.
+ * - **Posts saved** (`socialcontent.posts.saved`) queue `socialcontent.notes` a minute later, once per business, so a
+ *   creator read page by page is noted in one go; a save while it runs has it run once more after.
  * - **The notes job** notes up to 15 standouts that have none (5 to an ask, each beside the posts around it that did
  *   about normal), then writes the Playbook once 3 are noted and again each time 5 more are, then suggests ideas
  *   when the Playbook is new and fewer than 5 new ideas wait. More standouts left: it runs again in two minutes.
@@ -29,6 +29,7 @@ import {
   NOTES_SYSTEM,
   NotesAnswer,
   notesPrompt,
+  OWN_FOR_PLAYBOOK,
   PLAYBOOK_SCHEMA,
   PLAYBOOK_SYSTEM,
   PlaybookAnswer,
@@ -39,6 +40,7 @@ import {
   WatchAnswer,
   watchPrompt,
   type NotedForPlaybook,
+  type OwnForPlaybook,
   type PostForAi,
   type StandoutForNotes,
 } from '@hfos/core/addons/socialcontent/notes-ai';
@@ -75,7 +77,7 @@ import {
 } from '../../ai/ask';
 import { noteSpeech, speechMinutes } from '../../money/speech-usage';
 import { scheduleAddonJob } from '../queue';
-import { businessText } from './business';
+import { businessText, offerIsLive, requireLiveOffer } from './business';
 import type {
   AddonEventContext,
   AddonJobHandler,
@@ -130,7 +132,7 @@ const POST_COLUMNS = sql.raw(
 );
 
 /** The AI's own trouble in words a person can read, for the actions a person presses. */
-function aiRefusal(e: AiAskError): HfosError {
+export function aiRefusal(e: AiAskError): HfosError {
   switch (e.code) {
     case 'ai_unavailable':
       return HfosError.rule('ai_not_configured', 503, AI_UNAVAILABLE_MESSAGE);
@@ -210,11 +212,14 @@ async function noteSome(
 
 // ------------------------------------------------------------------------------------------------ the Playbook
 
-async function playbookState(
-  ctx: AddonScopeContext,
-): Promise<{ noted: number; writtenFrom: number | null; newIdeas: number }> {
+async function playbookState(ctx: AddonScopeContext): Promise<{
+  noted: number;
+  writtenFrom: number | null;
+  newIdeas: number;
+  ownNew: number;
+}> {
   const [r] = await asWorker(ctx.db, ctx.scope, (tx) =>
-    rows<{ noted: number; written_from: number | null; new_ideas: number }>(
+    rows<{ noted: number; written_from: number | null; new_ideas: number; own_new: number }>(
       tx,
       sql`select
             (select count(*)::int from addon_socialcontent.posts
@@ -222,14 +227,55 @@ async function playbookState(
             (select standouts from addon_socialcontent.playbook
              where workspace_id = ${ctx.scope.workspaceId} and written_at is not null) as written_from,
             (select count(*)::int from addon_socialcontent.ideas
-             where workspace_id = ${ctx.scope.workspaceId} and state = 'new') as new_ideas`,
+             where workspace_id = ${ctx.scope.workspaceId} and state = 'new') as new_ideas,
+            (select count(*)::int from addon_socialcontent.content c
+             where c.workspace_id = ${ctx.scope.workspaceId} and c.done_well is not null
+               and (c.done_well ->> 'at')::timestamptz > coalesce(
+                 (select written_at from addon_socialcontent.playbook
+                  where workspace_id = ${ctx.scope.workspaceId}), '-infinity'::timestamptz)) as own_new`,
     ),
   );
   return {
     noted: r?.noted ?? 0,
     writtenFrom: r?.written_from ?? null,
     newIdeas: r?.new_ideas ?? 0,
+    ownNew: r?.own_new ?? 0,
   };
+}
+
+/** The business's own posts that did best against its own others (part 11), the best first. */
+async function ownForPlaybook(ctx: AddonScopeContext): Promise<OwnForPlaybook[]> {
+  const found = await asWorker(ctx.db, ctx.scope, (tx) =>
+    rows<{ record_id: string; network: string; format: string; words: string; done_well: unknown }>(
+      tx,
+      sql`select c.record_id, c.network, c.format, c.words, c.done_well
+          from addon_socialcontent.content c
+          join app.custom_records r on r.id = c.record_id and r.archived_at is null
+          where c.workspace_id = ${ctx.scope.workspaceId} and c.done_well is not null
+          order by (c.done_well ->> 'times')::numeric desc nulls last
+          limit ${OWN_FOR_PLAYBOOK}`,
+    ),
+  );
+  return found.flatMap((r) => {
+    const well = r.done_well as { times?: unknown; on?: unknown } | null;
+    const on = well?.on;
+    if (
+      !isContentNetwork(r.network) ||
+      typeof well?.times !== 'number' ||
+      (on !== 'views' && on !== 'engagement' && on !== 'both')
+    )
+      return [];
+    return [
+      {
+        id: r.record_id,
+        network: r.network,
+        format: r.format,
+        words: r.words,
+        times: well.times,
+        on,
+      },
+    ];
+  });
 }
 
 /** Writes the Playbook from the noted standouts, the biggest first. How many sections it has. */
@@ -268,10 +314,12 @@ export async function writePlaybook(ctx: AddonScopeContext, business?: string): 
       },
     ];
   });
-  if (!noted.length) return 0;
+  const own = await ownForPlaybook(ctx);
+  if (!noted.length && !own.length) return 0;
   const { prompt, refs } = playbookPrompt({
     business: business ?? (await businessText(ctx)),
     noted,
+    own,
   });
   const { value } = await askStructured(ctx, ctx.scope, {
     system: PLAYBOOK_SYSTEM,
@@ -382,13 +430,24 @@ export async function suggestIdeas(
 
 // ------------------------------------------------------------------------------------------------ the job
 
-/** Posts saved with new standouts: the notes job, a minute from now, once per business. */
+/**
+ * Posts saved: the notes job, a minute from now, once per business. With new standouts, and also without, so a
+ * standout an earlier run left without notes is noted on the next save (the job asks the AI only about unnoted ones).
+ */
 export const onPostsSaved = async (ctx: AddonEventContext): Promise<void> => {
-  const payload = ctx.event.payload as { newStandouts?: unknown } | null;
-  if (!Array.isArray(payload?.newStandouts) || !payload.newStandouts.length) return;
   await queueNotes(ctx, new Date(Date.now() + SOON_MS));
 };
 
+/** One of the business's own posts did well (part 11): the notes job, which writes the Playbook again with it. */
+export const onOwnDoneWell = async (ctx: AddonEventContext): Promise<void> => {
+  await queueNotes(ctx, new Date(Date.now() + SOON_MS));
+};
+
+/**
+ * Queues the notes job. When it's already running, it runs once more after (`pullEarlier`): on 10 Nov 2026 a
+ * creator's posts were saved while the run for another's was writing the Playbook, and that run had already picked
+ * its standouts, so two were never noted.
+ */
 export async function queueNotes(ctx: AddonScopeContext, runAt: Date): Promise<void> {
   await asWorker(ctx.db, ctx.scope, (tx) =>
     scheduleAddonJob(
@@ -402,6 +461,7 @@ export async function queueNotes(ctx: AddonScopeContext, runAt: Date): Promise<v
         workspaceId: ctx.scope.workspaceId,
         organizationId: ctx.scope.organizationId,
       },
+      { pullEarlier: true },
     ),
   );
 }
@@ -418,10 +478,15 @@ export const runNotes: AddonJobHandler = async (ctx) => {
         await noteSome(ctx, now.slice(i, i + NOTES_LIMITS.perAsk), business);
     }
     const state = await playbookState(ctx);
-    if (playbookDue(state.noted, state.writtenFrom)) {
+    // Due by the creators' noted standouts, or written again when one of the business's own posts did well (part 11).
+    if (
+      playbookDue(state.noted, state.writtenFrom) ||
+      (state.writtenFrom !== null && state.ownNew > 0)
+    ) {
       business ??= await businessText(ctx);
       const sections = await writePlaybook(ctx, business);
-      if (sections && state.newIdeas < NOTES_LIMITS.ideasWaitingMost)
+      // No ideas until the main offer is live (pick 7b): the Playbook is research, and goes on.
+      if (sections && state.newIdeas < NOTES_LIMITS.ideasWaitingMost && (await offerIsLive(ctx)))
         await suggestIdeas(ctx, business);
     }
     if (standouts.length > NOTES_LIMITS.perRun)
@@ -467,12 +532,13 @@ export const suggestIdeasNow: AddonWorkerAction<Record<string, never>> = {
   ai: {
     tool: 'socialcontent_suggest_ideas',
     description:
-      'Have the AI suggest up to 5 new content ideas for the business’s own posts, from AI Social Media Content Creator’s Playbook and the business’s profile, each with a hook, format, network, outline, why it should work and the standouts it’s based on. They wait under Ideas as new.',
+      'Have the AI suggest up to 5 new content ideas for the business’s own posts, from AI Social Media Content Creator’s Playbook and the business’s profile, each with a hook, format, network, outline, why it should work and the standouts it’s based on. They wait under Ideas as new. Refused until the business’s main offer is live.',
     autonomy: 'auto',
     keywords: ['content ideas', 'post ideas', 'what to post'],
   },
   input: z.object({}).strict() as unknown as z.ZodType<Record<string, never>>,
   async run(ctx) {
+    await requireLiveOffer(ctx);
     let added: number | null;
     try {
       added = await suggestIdeas(ctx);

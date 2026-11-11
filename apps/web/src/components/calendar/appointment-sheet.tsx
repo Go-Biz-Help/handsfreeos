@@ -1116,7 +1116,7 @@ export function AppointmentSheet({
                 </Section>
               ) : null}
 
-              {appt.job ? (
+              {appt.job?.fits ? (
                 <Section label="Job">
                   <JobBlock
                     key={`${appt.job.id}:${appt.job.customerNote ?? ''}`}

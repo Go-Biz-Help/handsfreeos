@@ -28,6 +28,7 @@ import {
   publicFormPath,
   questionKindLabel,
   ruleText,
+  textingBoxesTwice,
   type AnswerSheet,
   type AnswerTargetKey,
   type AnswerValue,
@@ -116,6 +117,13 @@ const siteSlugOf = async (db: Db, ctx: ToolContext): Promise<string | null> =>
 /** Why a live poll has no link: its public page is never served, so a link to it would only say it isn't there. */
 const POLL_HAS_NO_LINK =
   'A live poll has no link: its questions pop up during a HandsFreeOS video call or webinar.';
+
+/**
+ * Why a question asking for permission to text is pointed out (core's `textingBoxesTwice`, the editor's warning):
+ * the model suggests deleting it, and deletes only on the person's OK, like any edit.
+ */
+const TEXTING_BOX_TWICE =
+  'HandsFreeOS already adds a “Text me” box to this form, worded the way the carriers approved and quoted in the texting registration. Only that box saves the customer’s yes to texts, so these questions make customers see two boxes. Suggest deleting them; one that must be checked is also turned down by carriers.';
 
 /**
  * A form's link as Share copies it, for what the model reads: its path, which the executor writes out whole on the
@@ -329,6 +337,7 @@ async function getForm(db: Db, ctx: ToolContext, args: Args, webUrl: string): Pr
   const names = namesFrom(catalogs);
   const link = linkPath(site, f);
   const poll = d.mode === 'poll';
+  const twice = textingBoxesTwice(d);
   return {
     result: {
       form: {
@@ -405,6 +414,19 @@ async function getForm(db: Db, ctx: ToolContext, args: Args, webUrl: string): Pr
           }
         : {}),
       toFix: out.issues.map((i) => i.message),
+      // Asks for texts a second time (the editor's warning): suggest deleting them, never delete without the OK.
+      ...(twice.length
+        ? {
+            asksForTextsTwice: {
+              why: TEXTING_BOX_TWICE,
+              questions: twice.map((q) => ({
+                questionId: q.questionId,
+                asks: q.title,
+                ...(q.required ? { mustBeChecked: true } : {}),
+              })),
+            },
+          }
+        : {}),
     },
   };
 }

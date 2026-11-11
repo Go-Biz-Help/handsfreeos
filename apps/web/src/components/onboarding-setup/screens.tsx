@@ -12,6 +12,7 @@
  */
 import {
   AI_SETUP_FIELD_WORDS as AW,
+  aiSetupOpenHoursNote,
   aiSetupProblemAt,
   CUSTOMER_SOURCES,
   ONBOARDING_GOALS,
@@ -47,7 +48,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Callout, Note } from '@/components/ai-team/parts';
-import { Option, Pills, ServicesField } from '@/components/ai-setup/fields';
+import { OpenHoursNote, Option, Pills, ServicesField } from '@/components/ai-setup/fields';
 import { WeeklyHoursEditor } from '@/components/calendars/weekly-hours';
 import { PhoneAppDialog } from '@/components/home/phone-app-dialog';
 import { ImportWizard } from '@/components/import/import-wizard';
@@ -337,6 +338,7 @@ export function HoursScreen({ state, answers, setAi, problems, name }: OwnScreen
       <Reading state={state} name={name} />
       <div>
         <Label>{AW.openHours}</Label>
+        <OpenHoursNote note={aiSetupOpenHoursNote(state, answers.ai.openHours, name)} />
         <WeeklyHoursEditor
           value={answers.ai.openHours}
           onChange={(next) => setAi('openHours', next)}

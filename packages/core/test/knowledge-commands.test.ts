@@ -31,6 +31,7 @@ import {
   knowledgeSuggestionReject,
   organizationCreate,
   personCreate,
+  workspaceUpdate,
 } from '../src/server';
 import { admin, ask, expectHfos, run, runSystem, type Scope } from './calendar-helpers';
 
@@ -110,10 +111,52 @@ describe('the profile', () => {
     const read = await ask(knowledgeProfileGet, { workspaceId: wsId }, member);
     expect(read.profile).toMatchObject({ allowPrices: false, tone: 'Friendly and plain-spoken' });
     expect(read.updatedBy?.id).toBe(owner.id);
-    expect(read.completeness.filled).toBe(3);
+    // Description, services, tone, and the hours (the business hours, always there).
+    expect(read.completeness.filled).toBe(4);
     await expectHfos(
       () => run(knowledgeProfileUpdate, { workspaceId: wsId, profile: {} }, member),
       'forbidden',
+    );
+  });
+});
+
+describe('the profile’s hours', () => {
+  it('are always the business hours: read from them, and kept as them whatever a save sends', async () => {
+    const hours = (start: string, end: string) =>
+      [1, 2, 3, 4, 5].map((day) => ({ day, start, end }));
+    await run(
+      workspaceUpdate,
+      { workspaceId: wsId, settings: { openHours: hours('09:00', '17:00') } },
+      owner,
+    );
+    const current = await ask(knowledgeProfileGet, { workspaceId: wsId }, member);
+    expect(current.profile.hours).toBe('Mon–Fri 9:00 AM–5:00 PM');
+
+    // A save that sends other hours (an old screen, or the Assistant) keeps the business hours.
+    const saved = await run(
+      knowledgeProfileUpdate,
+      {
+        workspaceId: wsId,
+        profile: { ...current.profile, hours: 'Mon–Fri 8:00 AM–5:00 PM', policies: 'No refunds.' },
+      },
+      owner,
+    );
+    expect(saved.updated).toEqual(['policies']);
+    expect(saved.profile.hours).toBe('Mon–Fri 9:00 AM–5:00 PM');
+    const [row] = await admin()
+      .select()
+      .from(knowledgeProfiles)
+      .where(eq(knowledgeProfiles.workspaceId, wsId));
+    expect((row!.profile as { hours: string }).hours).toBe('Mon–Fri 9:00 AM–5:00 PM');
+
+    // New business hours are Knowledge's hours at once, with nothing else saved.
+    await run(
+      workspaceUpdate,
+      { workspaceId: wsId, settings: { openHours: hours('10:00', '16:00') } },
+      owner,
+    );
+    expect((await ask(knowledgeProfileGet, { workspaceId: wsId }, member)).profile.hours).toBe(
+      'Mon–Fri 10:00 AM–4:00 PM',
     );
   });
 });

@@ -16,6 +16,10 @@ import {
   industriesForPicker,
   INDUSTRIES,
   mergeOnboardingSetupAnswers,
+  onboardingSetupTouchedAfterSave,
+  onboardingSetupUnsavedOf,
+  onboardingSetupUnsavedRestored,
+  ONBOARDING_SETUP_UNSAVED_DAYS,
   myHoursFrom,
   NEW_ONBOARDING_SETUP_BUSINESS,
   ONBOARDING_KIND_INFO,
@@ -49,6 +53,7 @@ import {
   OnboardingSetupAnswers,
   pickerKeyOf,
   NO_LOOK,
+  NO_EMAIL_SETUP,
   planAiSetup,
   planOnboardingBooking,
   planOnboardingPage,
@@ -124,6 +129,7 @@ function business(patch: Partial<OnboardingSetupState> = {}): OnboardingSetupSta
     forClient: false,
     phones: 0,
     look: NO_LOOK,
+    email: NO_EMAIL_SETUP,
     ...patch,
   };
 }
@@ -200,11 +206,13 @@ describe('the screens', () => {
     expect(none).not.toContain('booking');
     expect(none).not.toContain('qualify');
     expect(none).not.toContain('chat');
+    // The business email's records only for its own domain.
+    expect(none).not.toContain('email_records');
     // With no website, the simple page; once it's on, the chat can go there.
-    const all = onboardingSetupScreens(answers({ booksTime: true, ai: { jobs: ['qualify'] } }), {
-      ...facts,
-      page: true,
-    });
+    const all = onboardingSetupScreens(
+      answers({ booksTime: true, ai: { jobs: ['qualify'] }, email: { with: 'domain' } }),
+      { ...facts, page: true },
+    );
     expect(all).toEqual([...ONBOARDING_SETUP_SCREENS]);
     expect(onboardingSetupScreens(answers(), { ...site, chat: true })).not.toContain('chat');
   });
@@ -234,23 +242,29 @@ describe('the screens', () => {
     expect(onboardingSetupProgress('business', answers(), facts)).toEqual({
       stop: 'business',
       at: 2,
-      of: 14,
+      of: 15,
     });
     expect(onboardingSetupProgress('page', answers(), facts)).toEqual({
       stop: 'page',
       at: 7,
-      of: 14,
+      of: 15,
+    });
+    // Your business email is one stop, its records and the person's own address included.
+    expect(onboardingSetupProgress('email_own', answers(), facts)).toEqual({
+      stop: 'email',
+      at: 10,
+      of: 15,
     });
     expect(onboardingSetupProgress('meet', answers({ booksTime: true }), facts)).toEqual({
       stop: 'ai',
-      at: 12,
-      of: 15,
+      at: 13,
+      of: 16,
     });
     // A website skips the simple page.
     expect(onboardingSetupProgress('customers', answers(), site)).toEqual({
       stop: 'customers',
       at: 7,
-      of: 13,
+      of: 14,
     });
   });
 
@@ -894,11 +908,12 @@ describe('the screens’ behaviour', () => {
       reached,
       finished: null,
     });
-    expect(onboardingSetupOpenAt(got('number'), 'paid')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('email_own'), 'paid')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('number'), 'paid')).toBe('email');
     expect(onboardingSetupOpenAt(got('number'), 'number')).toBe('number');
     expect(onboardingSetupOpenAt(got('goal'), 'paid')).toBe('about');
     // Booking shows only when customers book a time.
-    expect(onboardingSetupOpenAt(got('number'), 'booking')).toBe('paid');
+    expect(onboardingSetupOpenAt(got('number'), 'booking')).toBe('email');
     expect(onboardingSetupOpenAt(got(null), 'nowhere')).toBe('business');
     expect(onboardingSetupOpenAt(got(null), null)).toBe('business');
   });
@@ -931,6 +946,83 @@ describe('the screens’ behaviour', () => {
     expect(later.ai.description).toBe('We fix AC.');
     expect(later.ai.jobs).toEqual(local.ai.jobs);
     expect(later.ai.tone).toBe('professional');
+  });
+
+  it('keep hours set on screen when someone goes Back and saves an earlier screen', () => {
+    // Full Spectrum, 10 Nov: their own hours set on "When are you open?", then Back, and Next on "About your
+    // business". The server keeps only the screens finished, so it reads the hours back as the starting picks.
+    const state = business();
+    const theirs = [1, 2, 3, 4, 5].map((day) => ({ day, start: '10:00', end: '18:00' }));
+    const start = startingOnboardingSetupAnswers(state);
+    const local = { ...start, ai: { ...start.ai, openHours: theirs } };
+    // Next on "About your business" saves every answer, and the furthest screen finished is still that one.
+    const reached = 'about' as const;
+    const server = resumeOnboardingSetup(state, { draft: local, reached, kind: state.kind });
+    expect(server.ai.openHours).toEqual(start.ai.openHours);
+    // Before: everything counted as saved, and the server's read undid the hours on the next screen.
+    expect(mergeOnboardingSetupAnswers(local, server, new Set(), reached).ai.openHours).toEqual(
+      start.ai.openHours,
+    );
+    // Now: the hours' screen isn't finished, so they still count as changed on screen, and stay.
+    const touched = onboardingSetupTouchedAfterSave(new Set(['ai.openHours', 'goal']), reached);
+    expect([...touched]).toEqual(['ai.openHours']);
+    expect(mergeOnboardingSetupAnswers(local, server, touched, reached).ai.openHours).toEqual(
+      theirs,
+    );
+    // The first screen saved again takes in everything else, and still not the hours.
+    const all = mergeOnboardingSetupAnswers(local, { ...server, goal: 'paid' }, touched, null);
+    expect(all.goal).toBe('paid');
+    expect(all.ai.openHours).toEqual(theirs);
+    // Once "When are you open?" is saved, the server keeps them and they stop counting as changed.
+    expect([...onboardingSetupTouchedAfterSave(touched, 'hours')]).toEqual([]);
+    expect(
+      resumeOnboardingSetup(state, { draft: local, reached: 'hours', kind: state.kind }).ai
+        .openHours,
+    ).toEqual(theirs);
+    // An answer no screen asks always follows the server.
+    expect([...onboardingSetupTouchedAfterSave(new Set(['ai.answerWhen']), null)]).toEqual([]);
+  });
+
+  it('keep answers not saved yet on the device, and put them back after signing in again', () => {
+    // Full Spectrum, 10 Nov: the hours set, then the sign-in dropped before Next saved them; signing in again reloaded
+    // the setup from the server, which had the starting picks.
+    const state = business();
+    const theirs = [1, 2, 3, 4, 5].map((day) => ({ day, start: '10:00', end: '18:00' }));
+    const start = startingOnboardingSetupAnswers(state);
+    const local = { ...start, ai: { ...start.ai, openHours: theirs } };
+    const now = Date.UTC(2026, 10, 10, 21, 26);
+    expect(onboardingSetupUnsavedOf(local, new Set(), now)).toBeNull();
+    // An answer no screen asks isn't kept: it always follows the server.
+    expect(onboardingSetupUnsavedOf(local, new Set(['ai.answerWhen']), now)).toBeNull();
+    const kept = JSON.parse(
+      JSON.stringify(onboardingSetupUnsavedOf(local, new Set(['ai.openHours']), now)),
+    ) as unknown;
+    // Back from signing in: the server's answers, with something new from it on another screen.
+    const server = { ...start, goal: 'paid' as const };
+    const back = onboardingSetupUnsavedRestored(kept, server, now + 120_000);
+    expect(back?.answers.ai.openHours).toEqual(theirs);
+    expect(back?.answers.goal).toBe('paid');
+    // Still counted as changed, so Next on "When are you open?" sends them.
+    expect([...(back?.touched ?? [])]).toEqual(['ai.openHours']);
+    // Nothing usable: none, too old, or not something this setup kept.
+    expect(onboardingSetupUnsavedRestored(null, server, now)).toBeNull();
+    expect(
+      onboardingSetupUnsavedRestored(
+        kept,
+        server,
+        now + (ONBOARDING_SETUP_UNSAVED_DAYS + 1) * 86_400_000,
+      ),
+    ).toBeNull();
+    expect(
+      onboardingSetupUnsavedRestored(
+        { v: 1, at: now, touched: ['ai.openHours'], answers: 'x' },
+        server,
+        now,
+      ),
+    ).toBeNull();
+    expect(
+      onboardingSetupUnsavedRestored({ ...(kept as object), touched: ['nope'] }, server, now),
+    ).toBeNull();
   });
 
   it('say the business in one line before it’s made', () => {

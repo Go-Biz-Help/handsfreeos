@@ -159,6 +159,43 @@ describe('the Playbook', () => {
     });
   });
 
+  it('learns from the business’s own posts that did well too, as examples of their own (part 11)', () => {
+    const OWN = '00000000-0000-4000-8000-0000000000c1';
+    const { prompt, refs } = playbookPrompt({
+      business: 'Plumbing',
+      noted,
+      own: [
+        {
+          id: OWN,
+          network: 'linkedin',
+          format: 'text',
+          words: 'A drip or a leak? Here’s how to tell.',
+          times: 5.5,
+          on: 'engagement',
+        },
+      ],
+    });
+    expect(prompt).toContain('<own_post id="O1">');
+    expect(prompt).toContain(
+      'LinkedIn text, 5.5 times the business’s own normal on likes plus comments',
+    );
+    expect(prompt.indexOf('<own_posts>')).toBeLessThan(prompt.indexOf(PLAYBOOK_ASK));
+    const book = checkedPlaybook(
+      {
+        summary: 'Ask.',
+        sections: [
+          { title: 'Ask', items: [{ do: 'Ask first.', why: '', examples: ['S1', 'O1'] }] },
+        ],
+      },
+      refs,
+    );
+    expect(book.sections[0]!.items[0]!.examples).toEqual([A, OWN]);
+    // None of its own: the prompt is as before.
+    expect(playbookPrompt({ business: 'Plumbing', noted, own: [] }).prompt).not.toContain(
+      'own_posts',
+    );
+  });
+
   it('is due once 3 standouts are noted, and again each time 5 more are', () => {
     expect(playbookDue(2, null)).toBe(false);
     expect(playbookDue(NOTES_LIMITS.playbookFirst, null)).toBe(true);

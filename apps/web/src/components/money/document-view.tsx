@@ -27,7 +27,8 @@ export function DocumentView({
   className,
   testId = 'document-view',
 }: {
-  lines: readonly MoneyLineRow[];
+  /** An option's lines have no row of their own until it's picked, so no id. */
+  lines: readonly (Omit<MoneyLineRow, 'id'> & { readonly id?: string })[];
   totals: TotalsShape;
   notes?: string | null;
   paidCents?: number;
@@ -54,9 +55,9 @@ export function DocumentView({
           <span className="text-right">Amount</span>
         </div>
         <ul>
-          {lines.map((line) => (
+          {lines.map((line, i) => (
             <li
-              key={line.id}
+              key={line.id ?? `line-${i}`}
               data-testid="document-line"
               className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 border-t border-border py-2.5 text-[13.5px] sm:grid-cols-[minmax(0,1fr)_104px_116px_112px]"
             >

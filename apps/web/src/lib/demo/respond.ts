@@ -712,6 +712,8 @@ function estimate(w: DemoWorld, e: DemoEstimate): EstimateGet {
       totals,
       deposit: NO_TERMS,
       depositCents: 0,
+      optionCount: 0,
+      optionName: null,
       expiresOn: e.expiresOn,
       sentAt: iso(e.sentAt),
       firstViewedAt: iso(e.viewedAt),
@@ -731,6 +733,8 @@ function estimate(w: DemoWorld, e: DemoEstimate): EstimateGet {
       declinedReason: null,
       voidReason: null,
       lines: moneyLines(e.lines, 0xd000),
+      options: [],
+      builtBy: null,
     },
     invoices: w.invoices
       .filter((i) => i.estimateId === e.id)

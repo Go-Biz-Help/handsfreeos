@@ -12,6 +12,8 @@ import type {
   WorkProgressSaid,
 } from '@hfos/core/addons/socialcontent/shapes';
 import type { ReadKind } from '@hfos/core/addons/socialcontent/helper';
+import type { PostingNetwork, PostPlace } from '@hfos/core/addons/socialcontent/calendar';
+import type { OwnRead } from '@hfos/core/addons/socialcontent/own';
 import { api, token } from '../hfos/session';
 import { config } from '../hfos/config';
 
@@ -56,10 +58,19 @@ export async function researchBusinesses(): Promise<{ id: string; name: string }
     .map((w) => ({ id: w.id, name: w.name }));
 }
 
-export const workNext = (workspaceId: string, reads: ContentNetwork[]) =>
+export const workNext = (
+  workspaceId: string,
+  reads: ContentNetwork[],
+  searchOn: ContentNetwork[] = reads,
+) =>
   got(
     api().POST('/v1/commands/socialcontent.work.next', {
-      body: { workspaceId, reads, version: chrome.runtime.getManifest().version.slice(0, 20) },
+      body: {
+        workspaceId,
+        reads,
+        searchOn,
+        version: chrome.runtime.getManifest().version.slice(0, 20),
+      },
     }),
   );
 
@@ -100,6 +111,69 @@ export const postsSave = (workspaceId: string, creatorId: string, posts: PostIn[
   got(
     api().POST('/v1/commands/socialcontent.posts.save', {
       body: { workspaceId, creatorId, posts },
+    }),
+  );
+
+/** The next of the business's own OK'd posts due to go up (part 9), taken so it goes up once. */
+export const postNext = (workspaceId: string, networks: PostingNetwork[], version: string) =>
+  got(
+    api().POST('/v1/commands/socialcontent.post.next', {
+      body: { workspaceId, networks, version: version.slice(0, 20) },
+    }),
+  );
+
+/** How putting a post up went, place by place; `again` when nothing was pressed. */
+export const postWent = (
+  workspaceId: string,
+  postId: string,
+  said: {
+    went: { place: PostPlace; posted: boolean; link: string | null; failure: string | null }[];
+    again: boolean;
+    failure: string | null;
+  },
+) =>
+  got(
+    api().POST('/v1/commands/socialcontent.post.went', {
+      body: {
+        workspaceId,
+        postId,
+        went: said.went.map((w) => ({
+          ...w,
+          link: w.link && /^https:\/\//.test(w.link) ? w.link.slice(0, 500) : null,
+          failure: w.failure?.slice(0, 300) ?? null,
+        })),
+        again: said.again,
+        failure: said.failure?.slice(0, 300) ?? null,
+      },
+    }),
+  );
+
+/** The next of the business's own posts whose numbers are due to be read (part 11), put off half an hour as it's handed out. */
+export const ownNext = (workspaceId: string, networks: PostingNetwork[]) =>
+  got(api().POST('/v1/commands/socialcontent.own.next', { body: { workspaceId, networks } }));
+
+/** What one of the business's own posts showed in each place, at its read about 2 or 7 days on. */
+export const ownRead = (
+  workspaceId: string,
+  postId: string,
+  read: OwnRead,
+  reads: {
+    place: PostPlace;
+    views: number | null;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    failure: string | null;
+  }[],
+) =>
+  got(
+    api().POST('/v1/commands/socialcontent.own.read', {
+      body: {
+        workspaceId,
+        postId,
+        read,
+        reads: reads.map((r) => ({ ...r, failure: r.failure?.slice(0, 300) ?? null })),
+      },
     }),
   );
 

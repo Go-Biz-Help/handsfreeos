@@ -135,6 +135,8 @@ import {
   MainOfferSaveDirectionOutput,
   MainOfferSaveDraftInput,
   MainOfferSaveDraftOutput,
+  MainOfferSaveListInput,
+  MainOfferSaveListOutput,
   MessageCancelScheduledInput,
   MessageCancelScheduledOutput,
   MessageRetryInput,
@@ -428,6 +430,35 @@ import {
   RequestSetAsideInput,
   RequestSetAsideOutput,
 } from '@hfos/core/addons/outreach/waiting';
+import {
+  Creator as SocialcontentCreator,
+  CreatorAddInput as SocialcontentCreatorAddInput,
+  CreatorDecideInput as SocialcontentCreatorDecideInput,
+  FindNowInput as SocialcontentFindNowInput,
+  FindNowOutput as SocialcontentFindNowOutput,
+  Idea as SocialcontentIdea,
+  IdeaDecideInput as SocialcontentIdeaDecideInput,
+  Niche as SocialcontentNiche,
+  NicheAddInput as SocialcontentNicheAddInput,
+  NicheDecideInput as SocialcontentNicheDecideInput,
+  ReadNowInput as SocialcontentReadNowInput,
+  ReadNowOutput as SocialcontentReadNowOutput,
+  Settings as SocialcontentSettings,
+  SettingsSaveInput as SocialcontentSettingsSaveInput,
+  WatchTryInput as SocialcontentWatchTryInput,
+  WatchTryOutput as SocialcontentWatchTryOutput,
+  Work as SocialcontentWork,
+  WorkStopInput as SocialcontentWorkStopInput,
+} from '@hfos/core/addons/socialcontent/shapes';
+import {
+  Content as SocialcontentContent,
+  ContentApproveInput as SocialcontentContentApproveInput,
+  ContentApproveWeekInput as SocialcontentContentApproveWeekInput,
+  ContentApproveWeekOutput as SocialcontentContentApproveWeekOutput,
+  ContentPostNowInput as SocialcontentContentPostNowInput,
+  ContentSaveInput as SocialcontentContentSaveInput,
+  ContentSkipInput as SocialcontentContentSkipInput,
+} from '@hfos/core/addons/socialcontent/content-shapes';
 
 /**
  * The commands the phone may send: exactly the phone's contract (`packages/core/test/contract/mobile-contract.json`),
@@ -599,7 +630,7 @@ export const PHONE_COMMANDS = {
   'look.find': command(ONLINE, LookFindInput, LookFindOutput),
   'look.set': command(ONLINE, LookSetInput, LookSetOutput),
   'look.use_upload': command(ONLINE, LookUseUploadInput, LookUseUploadOutput),
-  // Settings → Main offer: a part edited, the direction, and going live. Online, since each is for the draft as the
+  // Settings → Main offer: a part edited, the direction, a list for content, and going live. Online, since each is for the draft as the
   // server has it now (its revision) and the score the worker gave it.
   'main_offer.publish': command(ONLINE, MainOfferPublishInput, MainOfferPublishOutput),
   'main_offer.save_direction': command(
@@ -608,6 +639,8 @@ export const PHONE_COMMANDS = {
     MainOfferSaveDirectionOutput,
   ),
   'main_offer.save_draft': command(ONLINE, MainOfferSaveDraftInput, MainOfferSaveDraftOutput),
+  // For your content (the owner's pick 6b): one list saved whole, online as the rest of the offer is.
+  'main_offer.save_list': command(ONLINE, MainOfferSaveListInput, MainOfferSaveListOutput),
   // A partner's page and a customer's Partner card (the partners plan, stage 2d): online, since each is for the
   // partner as HandsFreeOS has them now, and promises the business's money.
   'partner.add': command(ONLINE, PartnerAddInput, PartnerAddOutput),
@@ -856,6 +889,56 @@ export const PHONE_COMMANDS = {
   'safety.help': command(ONLINE, SafetyHelpInput, SafetyCheckInOutput),
   'safety_contact.remove': command(ONLINE, SafetyContactRemoveInput, SafetyContactRemoveOutput),
   'safety_contact.save': command(ONLINE, SafetyContactSaveInput, SafetyContactOutput),
+  // AI Social Media Content Creator's screens (part 5), with signal: niches and creators picked, added and found,
+  // reading someone again, its settings, trying watching, stopping work, and an idea saved, used or skipped. Its
+  // Calendar (part 12): a post saved, OK'd or its OK taken back, the week OK'd, skipped or brought back, and Post it now.
+  'socialcontent.content.approve': command(
+    ONLINE,
+    SocialcontentContentApproveInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.content.approve_week': command(
+    ONLINE,
+    SocialcontentContentApproveWeekInput,
+    SocialcontentContentApproveWeekOutput,
+  ),
+  'socialcontent.content.post_now': command(
+    ONLINE,
+    SocialcontentContentPostNowInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.content.save': command(
+    ONLINE,
+    SocialcontentContentSaveInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.content.skip': command(
+    ONLINE,
+    SocialcontentContentSkipInput,
+    SocialcontentContent,
+  ),
+  'socialcontent.creator.add': command(ONLINE, SocialcontentCreatorAddInput, SocialcontentCreator),
+  'socialcontent.creator.decide': command(
+    ONLINE,
+    SocialcontentCreatorDecideInput,
+    SocialcontentCreator,
+  ),
+  'socialcontent.find.now': command(ONLINE, SocialcontentFindNowInput, SocialcontentFindNowOutput),
+  'socialcontent.idea.decide': command(ONLINE, SocialcontentIdeaDecideInput, SocialcontentIdea),
+  'socialcontent.niche.add': command(ONLINE, SocialcontentNicheAddInput, SocialcontentNiche),
+  'socialcontent.niche.decide': command(ONLINE, SocialcontentNicheDecideInput, SocialcontentNiche),
+  'socialcontent.read.now': command(ONLINE, SocialcontentReadNowInput, SocialcontentReadNowOutput),
+  'socialcontent.settings.save': command(
+    ONLINE,
+    SocialcontentSettingsSaveInput,
+    SocialcontentSettings,
+  ),
+  'socialcontent.watch.try': command(
+    ONLINE,
+    SocialcontentWatchTryInput,
+    SocialcontentWatchTryOutput,
+  ),
+  'socialcontent.work.stop': command(ONLINE, SocialcontentWorkStopInput, SocialcontentWork),
   'subscription.request_card': command(FRESH, SubscriptionRequestCardInput, SubscriptionCardOutput),
   'task.complete': command(ANYTIME, TaskCompleteInput, TaskCompleteOutput),
   'task.create': command(ANYTIME, TaskCreateInput, TaskCreateOutput),

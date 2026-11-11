@@ -1,7 +1,7 @@
 {
   "area": "ai-team",
   "title": "The AI teammate: setup, instructions, approvals, review, activity, funnels, AI setup and test chat",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-10",
   "files": {
     "apps/mobile/src/ai-setup/calls.ts": "881c51c1a351",
     "apps/mobile/src/ai-setup/use-ai-setup.ts": "4bec8c37baf1",
@@ -13,8 +13,8 @@
     "apps/mobile/src/ai-team/use-voice-pick.ts": "80fd1f633d83",
     "apps/mobile/src/app/app/w/[workspaceId]/ai-setup.tsx": "4c73d7ec6456",
     "apps/mobile/src/app/app/w/[workspaceId]/ai-test.tsx": "ededeedab152",
-    "apps/mobile/src/components/ai-setup/quick-setup.tsx": "103c594bd22f",
-    "apps/mobile/src/components/ai-setup/screens.tsx": "612a5fe08cdc",
+    "apps/mobile/src/components/ai-setup/quick-setup.tsx": "372aa7598b4b",
+    "apps/mobile/src/components/ai-setup/screens.tsx": "cda7ad04ca31",
     "apps/mobile/src/components/ai-setup/try-ava.tsx": "98bce89daa16",
     "apps/mobile/src/components/ai-team/test-console.tsx": "a64f2a178854",
     "apps/mobile/src/components/ai-team/voice-picker.tsx": "bfeb32de022e",
@@ -30,9 +30,9 @@
     "apps/web/src/app/app/w/[workspaceId]/ai-team/page.tsx": "3d5d300207ef",
     "apps/web/src/app/app/w/[workspaceId]/ai-team/review/page.tsx": "eab33b9bfd44",
     "apps/web/src/app/app/w/[workspaceId]/ai-team/setup/page.tsx": "7efffb94b250",
-    "apps/web/src/components/ai-setup/fields.tsx": "5f6c5ac8a1ea",
-    "apps/web/src/components/ai-setup/quick-setup.tsx": "402a7cb0604b",
-    "apps/web/src/components/ai-setup/screens.tsx": "0aa6364fdcde",
+    "apps/web/src/components/ai-setup/fields.tsx": "e984ff863980",
+    "apps/web/src/components/ai-setup/quick-setup.tsx": "ac505a7a1feb",
+    "apps/web/src/components/ai-setup/screens.tsx": "be84fd802fdb",
     "apps/web/src/components/ai-setup/try-ava.tsx": "3fe517fdd2f6",
     "apps/web/src/components/ai-team/activity.tsx": "4a4b99ffd06a",
     "apps/web/src/components/ai-team/approvals-tab.tsx": "f4e12aa525a5",
@@ -2246,6 +2246,20 @@
       "file": "apps/web/src/components/ai-setup/screens.tsx:294",
       "covered": "yes",
       "by": "do_ai_setup_save answers"
+    },
+    {
+      "path": "Quick setup → Hours → “only a guess” / “from your website” note",
+      "kind": "see",
+      "file": "apps/web/src/components/ai-setup/screens.tsx:303",
+      "covered": "partly",
+      "by": "the setup's answers say the hours; whether they're only a guess is said on the screen only"
+    },
+    {
+      "path": "Phone quick setup → Hours → “only a guess” / “from your website” note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/ai-setup/screens.tsx:339",
+      "covered": "partly",
+      "by": "the setup's answers say the hours; whether they're only a guess is said on the screen only"
     },
     {
       "path": "Quick setup → Facts → yes / no per fact, from-website note",

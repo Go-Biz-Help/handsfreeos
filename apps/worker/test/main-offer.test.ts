@@ -9,7 +9,9 @@ import {
   mainOfferPublish,
   mainOfferSaveDirection,
   mainOfferSaveDraft,
+  mainOfferSaveList,
   OFFER_ASSIST_SYSTEM,
+  OFFER_LISTS_SYSTEM,
   OFFER_SCORE_SYSTEM,
   OFFER_TRY_SYSTEM,
   catalogAddon,
@@ -349,5 +351,65 @@ describe('a try of the whole offer', () => {
     const assist = model.requests.at(-1)!;
     expect(assist.system).toBe(OFFER_ASSIST_SYSTEM);
     expect(assist.messages[0]!.content).toContain(`<direction>\n${direction}\n</direction>`);
+  });
+});
+
+describe('the lists for content (docs/main-offer.md, "For your content")', () => {
+  it('is for people who build the offer', async () => {
+    const asked = model.requests.length;
+    const res = await post('/v1/main-offer/lists', memberToken, { mode: 'gaps' });
+    expect(res.statusCode).toBe(403);
+    expect(model.requests.length).toBe(asked);
+    const bad = await post('/v1/main-offer/lists', ownerToken, { mode: 'write' });
+    expect(bad.statusCode).toBe(400);
+    expect(model.requests.length).toBe(asked);
+  });
+
+  it('writes lines, never ones the list already has, from the offer and the lists', async () => {
+    await executeCommand(
+      api(),
+      mainOfferSaveList,
+      { workspaceId: ws, list: 'different', lines: ['A line we wrote for you 1'] },
+      actor(owner),
+      meta(),
+    );
+    const res = await post('/v1/main-offer/lists', ownerToken, {
+      mode: 'write',
+      list: 'different',
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      options: ['A line we wrote for you 2', 'A line we wrote for you 3'],
+      gaps: [],
+    });
+    const asked = model.requests.at(-1)!;
+    expect(asked.system).toBe(OFFER_LISTS_SYSTEM);
+    const prompt = asked.messages[0]!.content as string;
+    expect(prompt).toContain('What makes you different:\n- A line we wrote for you 1');
+    expect(prompt).toContain('10 to 20 booked inspections a month');
+    expect(prompt).not.toContain('$2,000');
+  });
+
+  it('improves a line three ways, gives examples, and says what’s missing', async () => {
+    const improve = await post('/v1/main-offer/lists', ownerToken, {
+      mode: 'improve',
+      list: 'different',
+      line: 'Same-day photos',
+    });
+    expect(improve.json().options).toEqual([1, 2, 3].map((n) => `Same-day photos (better ${n})`));
+    const examples = await post('/v1/main-offer/lists', ownerToken, {
+      mode: 'examples',
+      list: 'myths',
+    });
+    expect(examples.json().options).toHaveLength(5);
+    const gaps = await post('/v1/main-offer/lists', ownerToken, { mode: 'gaps' });
+    expect(gaps.json().options).toEqual([]);
+    expect(gaps.json().gaps.map((g: { list: string }) => g.list)).toEqual([
+      'benefits',
+      'problems',
+      'questions',
+      'beforeAfter',
+      'story',
+    ]);
   });
 });

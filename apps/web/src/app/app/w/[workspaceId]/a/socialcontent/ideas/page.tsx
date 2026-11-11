@@ -25,6 +25,7 @@ export default async function Page({ params }: { params: Promise<{ workspaceId: 
         ideas={found.ideas}
         examples={found.examples}
         hasPlaybook={book.playbook.writtenAt !== null}
+        offerLive={found.offerLive}
       />
     );
   });

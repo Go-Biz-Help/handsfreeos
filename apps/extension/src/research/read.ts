@@ -5,6 +5,8 @@
  *
  * - **A person's pace.** A wait between pages and between answers, never the same twice, and at most
  *   `RESEARCH_STEPS_A_DAY` pages and answers on a network a day; past that, reading there waits till tomorrow.
+ *   Searches for new creators may use only `RESEARCH_SEARCH_STEPS_A_DAY` of them: the rest is kept for reading the
+ *   creators someone ticks or adds, so one ticked late in the day is still read that day.
  * - **Warnings stop the network for the day,** for both social add-ons: they're kept where Social Outreach keeps its
  *   own (src/hfos/warned.ts), since it's the same browser and the same account (decision 1). It never tries to get
  *   around a warning or a check.
@@ -44,6 +46,12 @@ import type { ResearchTab } from './tab';
 
 /** Pages opened and answers asked for on one network in a day, at most. */
 export const RESEARCH_STEPS_A_DAY = 400;
+/**
+ * Of those, what searches for new creators may use. The rest is kept for reading the creators someone ticks or adds
+ * (a profile, their posts, a video): a day's searches had used it all, so creators ticked that afternoon waited till
+ * the next day (9 Nov 2026).
+ */
+export const RESEARCH_SEARCH_STEPS_A_DAY = 300;
 /** The helper's looks a day for reading, every network together. */
 export const RESEARCH_LOOKS_A_DAY = 30;
 /**
@@ -142,31 +150,46 @@ async function daySteps(): Promise<Partial<Record<ContentNetwork, number>>> {
   }
 }
 
+/** The day's steps on a network that work of this kind may use: searches leave the rest for ticked creators. */
+const stepsFor = (kind: ResearchWork['kind']) =>
+  kind === 'find' ? RESEARCH_SEARCH_STEPS_A_DAY : RESEARCH_STEPS_A_DAY;
+
 /** Whether there's room left on a network today, and no warning on it. */
 export async function roomOn(network: ContentNetwork): Promise<boolean> {
   if (await warnedNow(platformOf(network))) return false;
   return ((await daySteps())[network] ?? 0) < RESEARCH_STEPS_A_DAY;
 }
 
-/** Takes one of the day's steps on a network: false once they're used. */
-async function takeStep(network: ContentNetwork): Promise<boolean> {
+/** Whether searches for new creators still have room on a network today (the rest is kept for ticked creators). */
+export async function searchRoomOn(network: ContentNetwork): Promise<boolean> {
+  return ((await daySteps())[network] ?? 0) < RESEARCH_SEARCH_STEPS_A_DAY;
+}
+
+/** Takes one of the day's steps on a network for work of this kind: false once its share is used. */
+async function takeStep(network: ContentNetwork, kind: ResearchWork['kind']): Promise<boolean> {
   const steps = await daySteps();
   const n = steps[network] ?? 0;
-  if (n >= RESEARCH_STEPS_A_DAY) return false;
+  if (n >= stepsFor(kind)) return false;
   await chrome.storage.local
     .set({ [DAY_KEY]: { day: today(), steps: { ...steps, [network]: n + 1 } } })
     .catch(() => undefined);
   return true;
 }
 
-const dayUsed = (network: ContentNetwork): ReadEnd => ({
-  failure: `Reading on ${networkName(network)} stopped for today, as it reads only so much a day to stay at a person’s pace. It goes on tomorrow.`,
-  halt: 'day',
-});
+const dayUsed = (network: ContentNetwork, kind: ResearchWork['kind']): ReadEnd =>
+  kind === 'find'
+    ? {
+        failure: `Searching ${networkName(network)} for new creators stopped for today, so the rest of the day’s reading is kept for the creators you tick. It goes on tomorrow.`,
+      }
+    : {
+        failure: `Reading on ${networkName(network)} stopped for today, as it reads only so much a day to stay at a person’s pace. It goes on tomorrow.`,
+        halt: 'day',
+      };
 
 /** Opens a page at a person's pace, then looks for the network's warnings on it. */
 export async function openPage(ctx: ReadCtx, url: string): Promise<Got<null>> {
-  if (!(await takeStep(ctx.work.network))) return { ok: false, end: dayUsed(ctx.work.network) };
+  if (!(await takeStep(ctx.work.network, ctx.work.kind)))
+    return { ok: false, end: dayUsed(ctx.work.network, ctx.work.kind) };
   await pause(paced(RESEARCH_PACE.openMs));
   await ctx.tab.open(url);
   const words = (await ctx.tab.hands('warnings')) ?? [];
@@ -176,7 +199,8 @@ export async function openPage(ctx: ReadCtx, url: string): Promise<Got<null>> {
 
 /** Waits a person's pace before the next answer, and takes a step of the day's: false once they're used. */
 export async function answerStep(ctx: ReadCtx, first: boolean): Promise<Got<null>> {
-  if (!(await takeStep(ctx.work.network))) return { ok: false, end: dayUsed(ctx.work.network) };
+  if (!(await takeStep(ctx.work.network, ctx.work.kind)))
+    return { ok: false, end: dayUsed(ctx.work.network, ctx.work.kind) };
   if (!first) await pause(paced(RESEARCH_PACE.answerMs));
   return { ok: true, value: null };
 }

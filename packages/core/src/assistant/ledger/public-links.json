@@ -1,7 +1,7 @@
 {
   "area": "public-links",
   "title": "Every link a business gives out, and the public pages behind them",
-  "checkedOn": "2026-11-06",
+  "checkedOn": "2026-11-10",
   "files": {
     "apps/web/src/addons/realestate/portal/bits.tsx": "d7b704452b09",
     "apps/web/src/addons/realestate/portal/home-panel.tsx": "94db9d871e1e",
@@ -64,7 +64,7 @@
     "apps/web/src/components/forms/public-form.tsx": "74581f9d1c48",
     "apps/web/src/components/forms/question-field.tsx": "bbe8e1dd9aab",
     "apps/web/src/components/members/accept-invite.tsx": "26df3014e711",
-    "apps/web/src/components/money/public-estimate.tsx": "64dcaab82276",
+    "apps/web/src/components/money/public-estimate.tsx": "82083d4d8a40",
     "apps/web/src/components/money/public-invoice.tsx": "a3891c54f7e0",
     "apps/web/src/components/money/public-plan.tsx": "1364906433dc",
     "apps/web/src/components/money/public-shell.tsx": "1b339f253ab5",
@@ -1539,14 +1539,14 @@
     {
       "path": "Estimate → link stale / missing",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:167",
+      "file": "apps/web/src/components/money/public-estimate.tsx:177",
       "covered": "no",
       "by": "no tool reads the link"
     },
     {
       "path": "Estimate → withdrawn",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:208",
+      "file": "apps/web/src/components/money/public-estimate.tsx:222",
       "covered": "yes",
       "by": "get_money_document state, voidReason"
     },
@@ -1560,21 +1560,35 @@
     {
       "path": "Estimate → good until",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:323",
+      "file": "apps/web/src/components/money/public-estimate.tsx:343",
       "covered": "yes",
       "by": "get_money_document goodUntil"
     },
     {
       "path": "Estimate → deposit rows",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:223",
+      "file": "apps/web/src/components/money/public-estimate.tsx:237",
       "covered": "yes",
       "by": "get_money_document deposit"
     },
     {
+      "path": "Estimate → Pick an option: each option’s name and total; the lines, total and deposit below are the picked one’s",
+      "kind": "do",
+      "file": "apps/web/src/components/money/public-estimate.tsx:375",
+      "covered": "partly",
+      "by": "get_money_document → options (name, total, lines); the customer’s own pick is theirs: manage_estimate record_yes option records one in the person’s name"
+    },
+    {
+      "path": "Estimate → Approve “<option>”: the words above Approve are for the option picked",
+      "kind": "see",
+      "file": "apps/web/src/components/money/public-estimate.tsx:449",
+      "covered": "partly",
+      "by": "get_money_document → options[].total; the page’s words aren’t read"
+    },
+    {
       "path": "Estimate → 'What happens next'",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:331",
+      "file": "apps/web/src/components/money/public-estimate.tsx:351",
       "covered": "partly",
       "by": "get_money_document; the page's words aren't read"
     },
@@ -1588,23 +1602,23 @@
     {
       "path": "Estimate → Approve sheet: type name, accept",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-estimate.tsx:357",
+      "file": "apps/web/src/components/money/public-estimate.tsx:417",
       "covered": "partly",
-      "by": "manage_estimate record_yes, in the person's name"
+      "by": "manage_estimate record_yes (with the option they chose), in the person’s name"
     },
     {
       "path": "Estimate → Decline sheet: reason, Decline, Keep it open",
       "kind": "do",
-      "file": "apps/web/src/components/money/public-estimate.tsx:413",
+      "file": "apps/web/src/components/money/public-estimate.tsx:473",
       "covered": "no",
       "by": "manage_estimate has no decline"
     },
     {
       "path": "Estimate → approved, declined, blocked",
       "kind": "see",
-      "file": "apps/web/src/components/money/public-estimate.tsx:284",
+      "file": "apps/web/src/components/money/public-estimate.tsx:302",
       "covered": "yes",
-      "by": "get_money_document approved, declined"
+      "by": "get_money_document approved (and the option picked), declined"
     },
     {
       "path": "Estimate → Print or save a PDF",

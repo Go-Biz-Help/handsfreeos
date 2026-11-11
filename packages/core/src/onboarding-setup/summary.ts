@@ -8,6 +8,7 @@ import { serviceNameKey } from '../ai-setup/plan';
 import { formatHours } from '../calendar/format';
 import { industryLabel } from '../industries';
 import { LOOK_WORDS } from '../look/words';
+import { emailSetupLine, emailSetupProblems } from '../messaging/email-setup';
 import { cityAndState, usTimeZoneLabel, type BusinessAddress } from './address';
 import { AI_SCREEN_OF, type OnboardingSetupAnswers, type OnboardingSetupScreen } from './answers';
 import type { OnboardingSetupState } from './state';
@@ -150,6 +151,7 @@ export function onboardingSetupSummary(
   lines.push(customersLine(state, answers));
   const number = onboardingSetupNumberLine(state, answers);
   if (number) lines.push(number);
+  if (answers.email.with) lines.push(`${emailSetupLine(answers.email, state.email)}.`);
   lines.push(paymentsLine(state, answers));
   if (answers.reviewLink.trim()) lines.push('Thank-you texts ask for a Google review.');
 
@@ -178,6 +180,14 @@ export function onboardingSetupScreenProblems(
       path: 'ai.services',
       message: 'Add what customers book, so your booking page has something to book.',
     });
+  // "Your business email": the address on its first screen, the person's own on its last.
+  if (screen === 'email' || screen === 'email_own')
+    for (const p of emailSetupProblems(
+      screen === 'email' ? 'sender' : 'own',
+      answers.email,
+      state.email,
+    ))
+      out.push(p);
   // The AI part's own checks, at its own paths under `ai`.
   const ai = AI_SCREEN_OF[screen];
   if (ai)

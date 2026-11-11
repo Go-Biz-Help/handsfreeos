@@ -1156,9 +1156,12 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   been away for 2 minutes (decision 120). When not one search showed anyone, it's reported (`read.find`, with the
   answers the page loaded, by their names only) and the search ends saying so, never as done with nobody (0.128.0).
   Also a creator's profile; and a studied creator's posts back 12 months (60 days past the last read on a weekly
-  re-read), 12 at a time, saved as it goes. When Instagram's answer for a profile or its posts says it isn't there
-  (404), the profile page itself is read instead (the tab's `profileHeld` hand: the data the page came with, then its
-  description for followers, name and bio), and those posts are saved. When they last posted comes from the codes of
+  re-read), 12 at a time, saved as it goes. When Instagram's answer for a profile says it isn't there (404), the
+  profile page itself is read instead (the tab's `profileHeld` hand: the data the page came with, then its description
+  for followers, name and bio, and their account's number from the page's own name for itself). Their posts are asked
+  for by that number, then by their name (`/api/v1/feed/user/<name>/username/`); when neither list comes, the posts
+  the page holds are saved, else each post its grid links to is asked for one at a time (0.130.0), scrolled in front
+  while you're away for up to 50 (0.131.0). When they last posted comes from the codes of
   the posts the page's grid links to (a post's number begins with when it was made, `postedAtOf`); the grid may draw
   late or only on screen, so it looks again a moment later, then in front only while you've been away (decision 120).
   A search where no profile read said when they last posted is reported (0.128.2). Profiles that wouldn't open at all are counted
@@ -1197,7 +1200,10 @@ reading lives in `src/research/`, apart from everything of Social Outreach's (de
   a follow or a like), and the read is tried once more when it cleared something. Then a problem report goes to Admin
   → Problem reports (addon `socialcontent`, job `read.find`, `read.profile` or `read.posts`): Instagram's answer's
   status and the names of its parts, the page's outline and what the helper did, never a name. Signed out, or a page it
-  can't read, rests that network's reading for 30 minutes; the day's room used or a warning, till tomorrow.
+  can't read, rests that network's reading for 30 minutes; the day's room used or a warning, till tomorrow. Searches
+  for new creators use at most 300 of a network's 400 a day (`RESEARCH_SEARCH_STEPS_A_DAY`, 0.129.0): past that, the
+  search stops for the day and the rest is kept for reading creators someone ticked or added, and it tells HandsFreeOS
+  where searches still have room (`searchOn`), so it isn't given a search it can't do.
 
 ### A reply with nothing to answer (0.126.2)
 
@@ -1213,6 +1219,164 @@ was reported. From 0.126.2:
   Before, it was read and never kept, as Instagram shows no times on its messages.
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
+
+### Posts keep their paragraphs (0.134.2)
+
+The AI writes a helpful post in short paragraphs with a blank line between them, but Chrome's insertText with the whole
+post lost every line break in Facebook's box: the owner's post in a roofing group on 10 Nov 2026 went up as "…and just
+wait.Turns out most folks…", one block with no space after each full stop. Instagram's box is the same kind (Lexical).
+From 0.134.2 a post with line breaks is pasted into the box, as a person pasting it would, and the box keeps each
+paragraph and the blank lines (`putPostIn` in `src/networks/post-text.ts`). A plain box (a textarea), or one that takes
+no paste, is typed in as before. It's every post the extension puts up: a helpful post in a Facebook group, on
+LinkedIn and on Alignable, and the business's own posts (`src/research/post-here.ts`). Comments and messages are typed
+as before: they're one paragraph, and Enter would send them.
+
+The run-together post also couldn't be found again: its words didn't start like the ones kept, so neither its link nor
+who engaged with it was read. Posts are compared now with no spaces or line breaks at all (`foundPost` in
+`src/jobs/helpful.ts`, LinkedIn's `startsLike` and Alignable's `linkToIt`), so the run-together ones up in the last
+fortnight are found by the next daily read, and their comments and reactions become warm leads.
+
+### Chat windows closed after a message (0.134.1)
+
+Facebook keeps every small chat window open from page to page, and the extension never closed the ones its messages
+opened, so they piled up over each profile it worked on. The problem check of 11 Nov 2026 found 6 open and 5 more in
+the corner when a message couldn't tell which chat was the person's, and nothing was sent; the AI helper on a warm-up
+the same evening found the windows in its way. Now, once a message's last text has gone, its window is closed by its
+own Close chat (`closeWindow` in `src/networks/facebook/auto.ts`, asked for with `close` on the last part's
+`hfos-message`). Windows it didn't send in, and Messenger's own chat page, are left as they are.
+
+### Profiles with no posts, and drafts the AI answered with nothing (0.130.1)
+
+The problem check of 10 Nov 2026 (early) found two things on 0.129.0:
+
+- **Warm-ups on profiles with no posts.** Two warm-ups said there was no post to like on profiles where Facebook's
+  own line under Posts says there are none to show (hidden from you, or never posted). Nothing went wrong there, so
+  it's no longer a problem report: Facebook's post reader says so (`saysNoPosts` in `src/networks/facebook/auto.ts`,
+  its words in `NO_POSTS_WORDS`, which page outlines now keep), and the warm-up ends as found done (decision 145's
+  `skip`) while their friend request still goes without a like.
+- **A draft the AI answered with nothing.** About 1 of every 25 of the AI's answers for outreach came back with no
+  words at all, and a Facebook draft then said the AI couldn't write it. The worker now asks once more before it says
+  so (`askedTwice` in `apps/worker/src/addons/outreach/today.ts`).
+
+### Reading how the business's own posts did (0.134.0)
+
+AI Social Media Content Creator's part 11 (`docs/socialcontent.md`, "Its own posts' numbers"). About 2 and 7 days
+after one of the business's own posts went up, the reading window reads its numbers (`src/research/own.ts`), each
+minute after posting and before any reading:
+
+- It asks for the next post whose read is due (`socialcontent.own.next`) on the networks it posts on with no warning
+  today, and opens the post by its link in each place it went up.
+- **Instagram:** the post's own answer by the number in its link (`mediaIdOf`, `mediaInfoPath`, read by `postOf` as
+  a creator's post is): views on a video, likes, comments and shares.
+- **Facebook and LinkedIn:** the post's own page, by the network's reader (`shownOf`); the post is the one that starts
+  the way its words do (`ownPostOf`, past "…" and See more), else the first. Its reactions count as likes, with its
+  comments; neither shows views or shares there.
+- It says what each place showed (`socialcontent.own.read`), or why it couldn't be read ("didn't show the post at its
+  link"). A warning keeps the network's words for the day, for both social add-ons, and says nothing: the read is
+  asked for again later, since one handed out is put off half an hour.
+
+### Putting the business's own posts up on Instagram (0.133.0)
+
+AI Social Media Content Creator's part 10 (`docs/socialcontent.md`, "Posting"). Instagram joins Facebook and LinkedIn:
+an OK'd Instagram post goes up from the reading window on Instagram's home page (`instagramPost` in
+`src/research/post-here.ts`):
+
+- **Create** in the side menu, then **Post** when Instagram asks which kind (only a **Post** that showed after Create
+  was pressed, never a comment's).
+- **The pictures, or the person's video,** into Create new post's file field (else **Select from computer** with the
+  file picker held back, else dropped on it). **OK** when Instagram says a video goes up as a reel, then **Next** past
+  cropping and editing.
+- **The words** in the caption box, only while it's empty, then **Share**, and waiting for "Your post has been
+  shared" (up to about 3 minutes for a video; "couldn't be shared" ends it). Instagram's words are read piece by piece
+  (`wordsIn`), as its boxes put them side by side with no space between.
+- **Its link** comes from the person's own newest posts, as Instagram's page asks for them (their name from the
+  Profile link in its side menu, the `me` hand), by its first words.
+- A post's files are handed to the tab up to 40 MB together, within what Chrome passes to a page in one go; a video is
+  up to 25 MB, core's most for a file.
+
+### Putting the business's own posts up (0.132.0)
+
+AI Social Media Content Creator's part 9 (`docs/socialcontent.md`, "Posting"). Each minute, before any reading, the
+reading computer asks HandsFreeOS for the next OK'd post whose time has come (`socialcontent.post.next`) on the
+networks it posts on with no warning today (Facebook and LinkedIn; Instagram from 0.133.0), and puts it up from
+its reading window (`src/research/posting.ts`):
+
+- **Its pictures** (or the person's video) are fetched from HandsFreeOS's storage on the person's own sign-in, and
+  handed to the tab as files.
+- **Facebook, the profile:** the home feed's "What's on your mind" box; words typed, pictures added, **Next** when
+  Facebook asks for it, then **Post**. Its link comes from the top of their own profile, by its first words.
+- **Facebook, the Page:** the Page's number from its page, then Meta Business Suite's Create post for it
+  (`business.facebook.com`, in the manifest from 0.132.0), so the person's own profile is never switched to the Page
+  while Social Outreach works as them. A tick for Instagram that's on there is turned off (Instagram has its own post).
+- **LinkedIn:** the feed's **Start a post**, then LinkedIn's **Next** or **Done** after its picture editor, then
+  **Post**; the link from **View post**, else from their own posts.
+- **Adding the files** (`src/research/post-here.ts`) tries the box's own file field, pasting them into the words, the
+  box's photo button with the computer's file picker held back (`holdPicker` in `src/research/tab.ts`, in the page's
+  own world, so no window opens on the person's screen), then dropping them on the box, until the box shows them.
+- **Never twice:** once Post is pressed in a place, it's never pressed there again on its own; a post that may have
+  gone up is the person's to look at (`socialcontent.post.went` keeps each place it went up). A network's warning
+  stops posting and reading there for the day, for both social add-ons, and the post goes back to waiting.
+- **When a place doesn't work,** the post says why on the Calendar (with **Post it now** to try again) and a problem
+  report goes to Admin → Problem reports with job `post.profile`, `post.page` or `post.feed`: what it did (`steps`),
+  and the page's outline. Never a name.
+
+Built from the networks' usual words and roles, not yet from page outlines of these boxes: the first reports will
+say what to fix.
+
+### Up to 50 of a creator's posts from their grid (0.131.0)
+
+On 10 Nov 2026 the first posts reads on 0.130.0 worked, one post at a time, but read only the 12 posts their profile
+first shows: standouts were judged against too few. From 0.131.0, while the furthest of their grid's posts is still
+since the read's start and fewer than 50 are, their profile is brought in front and scrolled (`moreLinked` in
+`src/research/instagram-read.ts`), as Instagram's grid draws more only on screen, and only while you've been away
+(decision 120). Up to 10 screens; two that show nothing new end it. Their page gives back up to 90 of its grid's
+links (`HELD_MOST.profilePosts`). Each post read is one of the day's steps, so a read cut off by the day's room
+saves what it read.
+
+### Their posts, when Instagram's list of them isn't there (0.130.0)
+
+On 10 Nov 2026 both ticked creators' posts reads ended in 10 seconds with nothing saved: Instagram's answer for their
+profiles isn't there any more (404), so their profile came from their page, with no account number to ask for their
+posts by, and the read stopped there ("no account id"). From 0.130.0 a posts read has more ways, in turn:
+
+- **By their number,** from Instagram's answer or, when it isn't there, from the name their profile page gives itself
+  in its own scripts (`"profilePage_<number>"`, `profilePageId` in `src/research/held.ts`).
+- **By their name** (`postsByNamePath`), as Instagram's profile page asks when it has no number: the same answer, read
+  on page by page the same way.
+- **One at a time** when neither list comes: the posts the page's data holds, else each post its grid links to
+  (`/api/v1/media/<number>/info/`, the number from its code), newest first back to the read's start, at most 24 (50 from 0.131.0). Two
+  that don't come in a row, before any did, end it.
+
+A way that doesn't come while another does has no helper and no report. When no post came at all, a problem report
+(`read.posts`) says what each way answered. (Until 0.131.0 a read done one at a time was reported too; it's the
+usual way now, so it isn't.) Their grid's posts
+all being older than the read's start finishes with nothing new, no report.
+
+### Ticked creators read the same day (0.129.0)
+
+On 9 Nov 2026 two Instagram creators ticked to study in the afternoon weren't read that day: six searches for new
+creators were ahead of them in the queue, and the searches used the whole day's room on Instagram. HandsFreeOS now
+hands out reading a ticked or added creator before any search, and from 0.129.0 searches stop at 300 of the day's 400
+pages and answers on a network, so the rest is there for the creators someone ticks. A search stopped that way says
+so ("Searching Instagram for new creators stopped for today…") and doesn't stop the network for the day.
+
+### Chats still loading, LinkedIn's framed messaging, and profiles in professional mode (0.128.4)
+
+The problem check of 9 Nov 2026 (evening) found three things on 0.128.2:
+
+- **A Facebook chat still drawing its box.** A message found no chat open with them: their new chat's window showed
+  the card about them and Facebook's loading mark where the box goes. Writing a message (`writeMessage` in
+  `src/networks/facebook/auto.ts`) now waits up to ten seconds more while a chat window over the page is still drawing
+  its box (`chatLoading`), after its first five.
+- **LinkedIn's conversation in its frame, the tab still at their profile.** Two messages found no box to write in:
+  their profile's Message opened a whole messaging page in LinkedIn's interop frame while the tab's address stayed
+  their profile's, so no window over the page was theirs. On their profile, the box in the frame's messaging page now
+  counts when the frame's open conversation is plainly with them (`messageBoxFor` in `src/networks/linkedin/auto.ts`).
+- **Profiles in professional mode.** Two friend requests said Facebook couldn't tell where things stand on profiles
+  with followers instead of friends, whose row beside Message held a button of the owner's choosing, Message and
+  Follow, and no Add friend. Those buttons ("Book now", "Call now": `PROFILE_ACTION_WORDS` in
+  `src/networks/facebook/vocabulary.ts`) now count with Follow and Search as saying nothing about where you stand, so
+  such a profile is passed over (decision 156), and the page outline shows them.
 
 ### Their other posts, still loading on Facebook (0.128.3)
 

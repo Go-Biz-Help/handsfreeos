@@ -1,9 +1,17 @@
-import { fmtTime, JOB_STATUS_WORDS, type JobStatus } from '@hfos/core';
+import {
+  fmtTime,
+  jobFits,
+  jobSteps,
+  placeKindOf,
+  JOB_STATUS_WORDS,
+  type JobStatus,
+  type JobStep,
+} from '@hfos/core';
 import * as React from 'react';
 import { View } from 'react-native';
 
 import { setJobStatus } from '@/calendar/actions';
-import { useVisitJob } from '@/calendar/use-calendar';
+import { useIndustry, useVisitJob } from '@/calendar/use-calendar';
 import { useBusiness } from '@/components/shell/business-context';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,23 +20,38 @@ import { Text } from '@/components/ui/text';
 import { toast } from '@/components/ui/toast';
 import { hereOrNull } from '@/lib/location';
 
-type Step = 'on_the_way' | 'in_progress' | 'waiting_on_parts' | 'done';
-const STEPS: readonly { status: Step; label: string }[] = [
-  { status: 'on_the_way', label: 'On my way' },
-  { status: 'in_progress', label: 'Started' },
-  { status: 'waiting_on_parts', label: 'Waiting on parts' },
-  { status: 'done', label: 'Job done' },
-];
+type Step = JobStep;
+const LABELS: Readonly<Record<Step, string>> = {
+  on_the_way: 'On my way',
+  in_progress: 'Started',
+  waiting_on_parts: 'Waiting on parts',
+  done: 'Job done',
+};
 
 /**
  * M18: a visit's job on the phone. The tech moves it along — On my way (with where they are, for when the customer
  * should expect them), Started, Waiting on parts, Job done — and the customer gets a text for each.
+ *
+ * Only on visits the team goes to (at the customer's address, or no place set in a business whose team goes out),
+ * and Waiting on parts only where work uses parts: core's `jobFits` and `jobSteps`, which the web follows too.
  */
-export function VisitJob({ appointmentId, timeZone }: { appointmentId: string; timeZone: string }) {
+export function VisitJob({
+  appointmentId,
+  location,
+  timeZone,
+}: {
+  appointmentId: string;
+  /** The visit's saved place, as the phone keeps it. */
+  location: string | null;
+  timeZone: string;
+}) {
   const { business } = useBusiness();
   const job = useVisitJob(appointmentId);
+  const industry = useIndustry();
   const [working, setWorking] = React.useState<Step | null>(null);
   const status = (job?.status ?? 'scheduled') as JobStatus;
+  if (!jobFits({ locationKind: placeKindOf(location), industry, status })) return null;
+  const steps = jobSteps({ industry, status });
 
   async function tap(step: Step) {
     setWorking(step);
@@ -71,19 +94,21 @@ export function VisitJob({ appointmentId, timeZone }: { appointmentId: string; t
         </Text>
       ) : null}
       <View className="flex-row flex-wrap gap-2 pt-1">
-        {STEPS.filter((s) => s.status !== status).map((s) => (
-          <Button
-            key={s.status}
-            size="md"
-            variant={s.status === nextOf(status) ? 'primary' : 'secondary'}
-            loading={working === s.status}
-            disabled={!!working}
-            onPress={() => void tap(s.status)}
-            testID={`job-${s.status}`}
-          >
-            {s.label}
-          </Button>
-        ))}
+        {steps
+          .filter((s) => s !== status)
+          .map((s) => (
+            <Button
+              key={s}
+              size="md"
+              variant={s === nextOf(status) ? 'primary' : 'secondary'}
+              loading={working === s}
+              disabled={!!working}
+              onPress={() => void tap(s)}
+              testID={`job-${s}`}
+            >
+              {LABELS[s]}
+            </Button>
+          ))}
       </View>
     </Card>
   );

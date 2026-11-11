@@ -19,6 +19,7 @@ import {
   InWorkspace,
   LIMITS,
   PlaybookGetOutput,
+  POST_KINDS,
   PlaybookSection,
   WatchTryInput,
   WatchTryOutput,
@@ -27,7 +28,7 @@ import {
 } from '../shapes';
 import { ideas, playbook } from '../tables';
 import { SOCIALCONTENT_WORDS as W } from '../words';
-import { inWorkspace, queueWork, settingsOf, type Ctx } from './common';
+import { inWorkspace, offerLiveOf, queueWork, settingsOf, type Ctx } from './common';
 import { CONTENT_NETWORK_INFO, handleShown, isContentNetwork } from '../networks';
 
 export const ideaOut = (i: typeof ideas.$inferSelect): Idea => ({
@@ -59,19 +60,42 @@ export async function standoutRefs(ctx: Ctx, ids: readonly string[]): Promise<St
         join addon_socialcontent.creators c on c.id = p.creator_id
         where p.workspace_id = ${ctx.scope.workspaceId!} and p.id = any(${`{${unique.join(',')}}`}::uuid[])`,
   );
+  // The business's own posts the Playbook came from too (part 11): by their record, with the link they went up at.
+  const own = await rows<{ id: string; link: string | null; network: string; format: string }>(
+    ctx.tx,
+    sql`select c.record_id as id, c.post_link as link, c.network, c.format
+        from addon_socialcontent.content c
+        where c.workspace_id = ${ctx.scope.workspaceId!}
+          and c.record_id = any(${`{${unique.join(',')}}`}::uuid[]) and c.post_link is not null`,
+  );
   const byId = new Map(found.map((f) => [f.id, f]));
-  return unique.flatMap((id) => {
+  const ownById = new Map(own.map((o) => [o.id, o]));
+  return unique.flatMap((id): StandoutRef[] => {
     const f = byId.get(id);
-    if (!f || !isContentNetwork(f.network)) return [];
-    return [
-      {
-        id: f.id,
-        link: f.link,
-        network: f.network,
-        kind: f.kind as StandoutRef['kind'],
-        creatorShown: handleShown(f.network, f.handle),
-      },
-    ];
+    if (f && isContentNetwork(f.network))
+      return [
+        {
+          id: f.id,
+          link: f.link,
+          network: f.network,
+          kind: f.kind as StandoutRef['kind'],
+          creatorShown: handleShown(f.network, f.handle),
+        },
+      ];
+    const o = ownById.get(id);
+    if (o?.link && isContentNetwork(o.network))
+      return [
+        {
+          id: o.id,
+          link: o.link,
+          network: o.network,
+          kind: (POST_KINDS as readonly string[]).includes(o.format)
+            ? (o.format as StandoutRef['kind'])
+            : 'other',
+          creatorShown: W.playbook.yourPost,
+        },
+      ];
+    return [];
   });
 }
 
@@ -121,7 +145,7 @@ export const playbookGet = defineAddonQuery(socialcontentAddon, {
 export const ideaList = defineAddonQuery(socialcontentAddon, {
   name: 'socialcontent.idea.list',
   description:
-    'The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped. Pass state to keep to one.',
+    'The content ideas the AI suggested for the business’s own posts, from the Playbook and its profile, newest first: each with its title, hook, format, network, an outline, why it should work and the standouts it’s based on (examples: each one’s link), and whether it’s new, saved, used or skipped; and whether the main offer is live (offerLive: until it is, the AI writes no ideas). Pass state to keep to one.',
   input: IdeaListInput,
   output: IdeaListOutput,
   permission: 'socialcontent.use',
@@ -145,6 +169,7 @@ export const ideaList = defineAddonQuery(socialcontentAddon, {
         ctx,
         found.flatMap((i) => i.basedOn),
       ),
+      offerLive: await offerLiveOf(ctx),
     };
   },
 });

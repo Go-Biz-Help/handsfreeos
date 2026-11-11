@@ -3,11 +3,13 @@
  * Ideas (docs/socialcontent.md, part 3): posts the AI suggests the business makes, from the Playbook and what
  * HandsFreeOS knows about the business, each with its hook, format, network, an outline, why it should work and the
  * standouts it's based on. New ones come on their own when the Playbook is written; **Get ideas** asks for more.
- * Anyone on the team saves one, marks it used once posted, or skips it, and can put it back to new.
+ * Anyone on the team saves one, marks it used once posted, or skips it, and can put it back to new. Until the main
+ * offer is live, no ideas are written, and the page says so (pick 7b, 11 Nov).
  */
 import { networkName } from '@hfos/core/addons/socialcontent/networks';
 import { SOCIALCONTENT_WORDS as W, daysAgo } from '@hfos/core/addons/socialcontent/words';
-import { Lightbulb } from 'lucide-react';
+import { Lightbulb, PenLine } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +20,7 @@ import { Segmented } from '@/components/ui/segmented';
 import { apiBrowser, unwrap } from '@/lib/api/client';
 import { workerPost } from '@/lib/api/worker';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
+import { OfferNotLive } from './offer-notice';
 import { StandoutLinks } from './standout-links';
 import type { Idea, StandoutRef } from './types';
 import { useAct } from './use-act';
@@ -36,11 +39,14 @@ export function IdeasPage({
   ideas,
   examples,
   hasPlaybook,
+  offerLive,
 }: {
   workspaceId: string;
   ideas: readonly Idea[];
   examples: readonly StandoutRef[];
   hasPlaybook: boolean;
+  /** Until the main offer is live, the AI writes no ideas (pick 7b). */
+  offerLive: boolean;
 }) {
   useLiveRefresh(['socialcontent_idea', 'socialcontent_playbook']);
   const { busy, act } = useAct();
@@ -64,6 +70,20 @@ export function IdeasPage({
         ),
       (out) => W.ideas.got(out.added),
     );
+  const router = useRouter();
+  const write = (i: Idea) =>
+    act(
+      `${i.id}:write`,
+      () =>
+        workerPost<{ postId: string }>(
+          '/v1/addons/socialcontent/actions/socialcontent.content.write',
+          { workspaceId, input: { ideaId: i.id } },
+        ),
+      W.calendar.written,
+    ).then((out) => {
+      if (out?.postId)
+        router.push(`/app/w/${workspaceId}/a/socialcontent/calendar?post=${out.postId}`);
+    });
   const decide = (i: Idea, state: State) =>
     act(
       `${i.id}:${state}`,
@@ -82,7 +102,7 @@ export function IdeasPage({
         title={W.ideas.title}
         description={W.ideas.intro}
         actions={
-          hasPlaybook ? (
+          hasPlaybook && offerLive ? (
             <Button
               loading={busy === 'get'}
               onClick={() => void get()}
@@ -94,6 +114,7 @@ export function IdeasPage({
           ) : null
         }
       />
+      {offerLive ? null : <OfferNotLive workspaceId={workspaceId} />}
       {!ideas.length ? (
         <Card>
           <EmptyState title={W.ideas.title} className="py-10">
@@ -122,6 +143,7 @@ export function IdeasPage({
                   examples={byId}
                   busy={busy}
                   onDecide={(state) => void decide(i, state)}
+                  onWrite={() => void write(i)}
                 />
               ))}
             </div>
@@ -137,12 +159,28 @@ function IdeaCard({
   examples,
   busy,
   onDecide,
+  onWrite,
 }: {
   idea: Idea;
   examples: ReadonlyMap<string, StandoutRef>;
   busy: string | null;
   onDecide: (state: State) => void;
+  onWrite: () => void;
 }) {
+  const writeIt =
+    i.state === 'new' || i.state === 'saved' ? (
+      <Button
+        size="sm"
+        variant="secondary"
+        loading={busy === `${i.id}:write`}
+        disabled={busy !== null && busy !== `${i.id}:write`}
+        onClick={onWrite}
+        data-testid="socialcontent-idea-write"
+      >
+        <PenLine className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden />
+        {busy === `${i.id}:write` ? W.calendar.writing : W.ideas.write}
+      </Button>
+    ) : null;
   const button = (state: State, label: string, variant: 'primary' | 'secondary' | 'ghost') => (
     <Button
       size="sm"
@@ -186,6 +224,7 @@ function IdeaCard({
         examples={examples}
       />
       <div className="mt-3 flex flex-wrap gap-2">
+        {writeIt}
         {i.state === 'new' ? (
           <>
             {button('saved', W.ideas.save, 'primary')}

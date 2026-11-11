@@ -38,6 +38,7 @@ import {
   stages,
 } from '../../../packages/core/src/addons/outreach/tables';
 import { PLAYBOOK_TEMPLATES } from '../../../packages/core/src/addons/outreach/playbooks';
+import type { AiProvider } from '@hfos/ai';
 import { scriptedAi } from '../src/ai/scripted';
 import { buildHttpServer } from '../src/http/server';
 import { testServices } from './helpers';
@@ -58,8 +59,28 @@ const draft = async (u: TestUser, input: Record<string, unknown>) =>
     payload: { workspaceId: ws, input },
   });
 
+/** Drafts the model answers next with nothing at all, no words written, as the AI service sometimes does. */
+let blanks = 0;
+const scripted = scriptedAi();
+const blanking: AiProvider = {
+  id: 'blanking',
+  model: scripted.model,
+  stream: (request, options) => {
+    if (blanks > 0 && String(request.system).startsWith('You write short')) {
+      blanks -= 1;
+      return Promise.resolve({
+        text: '',
+        toolCalls: [],
+        stopReason: 'refusal',
+        usage: { inputTokens: 2, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+      });
+    }
+    return scripted.stream(request, options);
+  },
+};
+
 beforeAll(async () => {
-  const s = testServices({ ai: { provider: scriptedAi() } });
+  const s = testServices({ ai: { provider: blanking } });
   [owner, member] = await Promise.all([
     createTestUser('outreach-draft-owner'),
     createTestUser('outreach-draft-member'),
@@ -698,5 +719,20 @@ describe('what the business knows (decision 122)', () => {
       });
     expect((await said('Are you open on Saturday?')).unanswered).toBeNull();
     expect((await said('Do you come out to Dallas?')).unanswered).toBe('do you come out to dallas');
+  });
+});
+
+describe('when the AI answers a draft with nothing', () => {
+  it('asks it once more, and says it couldn’t write one only after a second blank answer', async () => {
+    blanks = 1;
+    const res = await draft(owner, { kind: 'reply', chatId });
+    expect(res.statusCode).toBe(200);
+    expect(blanks).toBe(0);
+    expect(res.json().drafts.length).toBeGreaterThan(0);
+    blanks = 2;
+    const failed = await draft(owner, { kind: 'reply', chatId });
+    expect(blanks).toBe(0);
+    expect(failed.statusCode).toBe(502);
+    expect(failed.json().error.rule).toBe('ai_failed');
   });
 });

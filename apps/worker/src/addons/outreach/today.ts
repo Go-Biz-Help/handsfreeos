@@ -542,60 +542,62 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
       kind: CustomerDraftKind,
       again: readonly string[] | null = null,
     ): Promise<{ value: TodayDraftAnswer; drafts: string[] }> => {
-      const { value } = await askStructured(ctx, ctx.scope, {
-        system: todayDraftSystem(platform),
-        messages: [
-          {
-            role: 'user',
-            content: todayDraftPrompt({
-              kind,
-              business: found.business?.name ?? 'the business',
-              name,
-              facts: toldFacts,
-              recent,
-              playbook: playbook
-                ? { name: playbook.name, ...playbook.details, link, videoLink }
-                : null,
-              offer,
-              conversation,
-              post: found.engaged
-                ? {
-                    text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
-                    group: found.engaged.group,
-                  }
-                : found.post
-                  ? { text: found.post.body, group: found.post.group }
-                  : null,
-              lookup: toldLookup,
-              opener,
-              voice: found.voice,
-              lastAt: found.lastAt,
-              platform,
-              requests: toRequests,
-              demoWhen: found.demoAt
-                ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
-                : null,
-              occasion: found.occasion,
-              knows,
-              declined,
-              times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, contact) : null,
-              videos,
-              own: ownWordsFor(
+      const { value } = await askedTwice(() =>
+        askStructured(ctx, ctx.scope, {
+          system: todayDraftSystem(platform),
+          messages: [
+            {
+              role: 'user',
+              content: todayDraftPrompt({
                 kind,
-                found.samples,
-                found.notes,
-                found.conversation,
-                playbook?.id ?? null,
-              ),
-              again,
-            }),
-          },
-        ],
-        schema: TODAY_DRAFT_SCHEMA,
-        zod: TodayDraftAnswer,
-        maxTokens: 800,
-        usage: { source: 'addon', addonId: ctx.manifest.id },
-      });
+                business: found.business?.name ?? 'the business',
+                name,
+                facts: toldFacts,
+                recent,
+                playbook: playbook
+                  ? { name: playbook.name, ...playbook.details, link, videoLink }
+                  : null,
+                offer,
+                conversation,
+                post: found.engaged
+                  ? {
+                      text: `Your post: ${found.engaged.body ?? ''}\n\nTheir comment: ${found.engaged.comment}`,
+                      group: found.engaged.group,
+                    }
+                  : found.post
+                    ? { text: found.post.body, group: found.post.group }
+                    : null,
+                lookup: toldLookup,
+                opener,
+                voice: found.voice,
+                lastAt: found.lastAt,
+                platform,
+                requests: toRequests,
+                demoWhen: found.demoAt
+                  ? demoWhen(found.demoAt, found.business?.timezone ?? 'America/Chicago')
+                  : null,
+                occasion: found.occasion,
+                knows,
+                declined,
+                times: meeting && isTimeKind(kind) ? draftTimes(meeting, kind, contact) : null,
+                videos,
+                own: ownWordsFor(
+                  kind,
+                  found.samples,
+                  found.notes,
+                  found.conversation,
+                  playbook?.id ?? null,
+                ),
+                again,
+              }),
+            },
+          ],
+          schema: TODAY_DRAFT_SCHEMA,
+          zod: TodayDraftAnswer,
+          maxTokens: 800,
+          usage: { source: 'addon', addonId: ctx.manifest.id },
+        }),
+      );
       // A first message is one text (decision 137), as a comment is.
       const checked = checkedDrafts(
         value,
@@ -716,6 +718,20 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     }
   },
 };
+
+/**
+ * A draft asked for once more when the AI's answer came back unusable. The AI service sometimes answers with nothing at
+ * all, no words written (about 1 call in 25 on 9 Nov 2026, behind the owner's problem reports of "The AI couldn’t
+ * write that just now"), and asked again it writes one. A second unusable answer is the person's to hear about.
+ */
+async function askedTwice<T>(ask: () => Promise<T>): Promise<T> {
+  try {
+    return await ask();
+  } catch (e) {
+    if (!(e instanceof AiAskError) || e.code !== 'bad_output') throw e;
+    return ask();
+  }
+}
 
 /** What the person reads when the AI couldn't write a draft, and what to do. */
 function draftRefusal(e: unknown): unknown {

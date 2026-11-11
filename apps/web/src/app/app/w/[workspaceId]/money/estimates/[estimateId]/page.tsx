@@ -10,7 +10,9 @@ export const metadata: Metadata = { title: 'Estimate' };
 
 /**
  * One estimate. While it is a draft and you may bill, it is the editor; once it has gone out it is the document
- * itself — what the customer was shown, what they did about it, and what to do next.
+ * itself — what the customer was shown, what they did about it, and what to do next. A draft an add-on's builder
+ * wrote is the document too while that add-on runs here: it's changed and sent from there, which the add-on's
+ * panel on the page opens.
  */
 export default async function EstimatePage({
   params,
@@ -26,7 +28,7 @@ export default async function EstimatePage({
     loadEditorCatalogs(shell.api, workspaceId),
   ]);
   const est = data.estimate;
-  const editable = shell.canBill && est.status === 'draft' && !est.sentAt;
+  const editable = shell.canBill && est.status === 'draft' && !est.sentAt && !est.builtBy?.running;
 
   if (!editable)
     return (

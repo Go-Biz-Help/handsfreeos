@@ -15,6 +15,8 @@ const G = W.settings;
 const B = W.playbook;
 const I = W.ideas;
 const V = W.watch;
+const K = W.calendar;
+const O = W.post;
 
 export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
   {
@@ -56,14 +58,15 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
   },
   {
     label: P.playbook,
-    what: 'what works for the creators studied, written by the AI from its notes on their standouts',
+    what: 'what works for the creators studied and for the business’s own posts that did best, written by the AI from its notes on their standouts',
     where: [NAME, P.playbook],
     onScreen: [
       `A short summary, when it was written and from how many standouts, and ${B.write}`,
-      `Sections (like hooks, formats, topics, captions and timing), each a numbered list of things to do with why it works and ${B.examples} (the standouts it came from, each opening the post)`,
+      `Sections (like hooks, formats, topics, captions and timing), each a numbered list of things to do with why it works and ${B.examples} (the standouts it came from, each opening the post, and ${B.yourPost} for the business’s own)`,
     ],
     howTo: [
       'It’s written on its own once 3 standouts have notes, and again each time 5 more do',
+      `The business’s own posts count too: one that did well against its own other posts in the same place, 7 days after it went up, goes in and the Playbook is written again`,
       `Write it now: ${B.write}`,
     ],
     canChange: ['write the Playbook again now'],
@@ -75,23 +78,58 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
     where: [NAME, P.ideas],
     onScreen: [
       `${I.get}, and ${I.tabs.new}, ${I.tabs.saved}, ${I.tabs.used} and ${I.tabs.skipped}`,
-      `Each idea: its network, format, title, ${I.hook}, ${I.outline}, ${I.why} and the standouts it’s based on; ${I.save}, ${I.use} and ${I.skip} (or ${I.again} on used and skipped ones)`,
+      `Each idea: its network, format, title, ${I.hook}, ${I.outline}, ${I.why} and the standouts it’s based on; ${I.write} (the AI writes the post and opens it on the ${P.calendar}), ${I.save}, ${I.use} and ${I.skip} (or ${I.again} on used and skipped ones)`,
     ],
     howTo: [
       'New ideas come on their own each time the Playbook is written, while fewer than 5 new ones wait',
       `More ideas: ${I.get}. It needs a Playbook first`,
+      `Turn an idea into a post: ${I.write}. It goes on the next open day in the plan for its network, waiting for an OK`,
     ],
-    canChange: ['get ideas, and save, mark used, skip or put back an idea'],
+    canChange: [
+      'get ideas, write the post from an idea, and save, mark used, skip or put back an idea',
+    ],
     path: 'ideas',
   },
   {
+    label: P.calendar,
+    what: 'the business’s own posts for today and the next two weeks, written by the AI, each waiting for an OK',
+    where: [NAME, P.calendar],
+    onScreen: [
+      `${K.fill}, ${K.approveWeek} (when posts wait for an OK) and ${K.write}`,
+      `When it was last filled and when it fills again, ${K.plan} (how many posts a week on each network and at what time), how many are OK’d and going up, whose computer puts them up and when it last checked in`,
+      `Each day: its posts (network, time, format, ${O.states.draft}, ${O.states.ready}, ${O.states.skipped} and the rest, the picture, title and first line, and what one still needs before it can go) and each ${K.open} with ${K.writeFor}; posts with ${K.undated} below`,
+      `Opening a post: ${O.title}, ${O.network}, ${O.format}, ${O.when} and ${O.time}, ${O.facebookWhere} on Facebook, ${O.hook}, ${O.words}, ${O.hashtags}, ${O.slides} on a carousel and ${O.script} on a video`,
+      `Its ${O.picture}: ${O.ways.design} (words on a picture in the business’s colour), ${O.ways.photo} (9¢ each) or ${O.ways.own}; ${O.makeAgain} with ${O.makeAsk}, ${O.switchTo(O.ways.design)} or ${O.switchTo(O.ways.photo)}, ${O.upload} and ${O.remove}`,
+      `On a video: ${O.video}, with ${O.addVideo} or ${O.otherVideo} (up to 25 MB) and ${O.remove}`,
+      `${O.save}, ${O.approve} or ${O.takeBack}, ${O.postNow}, ${O.skip} or ${O.restore}, and ${O.rewrite} with ${O.rewriteAsk}`,
+      `Once it went up: ${O.seeIt.profile}, ${O.seeIt.page}, ${O.seeIt.feed('LinkedIn')} or ${O.seeIt.feed('Instagram')}; when it ${O.didntPost.toLowerCase()}, why, and ${O.postNow} to try again (places it already went up in are left out); ${O.copy} on networks posted by hand for now`,
+      `${O.numbers.title}: its views (where the network shows them), likes, comments and shares about 2 and 7 days after it went up, in each place, and whether it did well against the business’s own other posts there`,
+      `${K.recent}: what went up in the 30 days before, each with its latest numbers`,
+    ],
+    howTo: [
+      `Fill two weeks of posts: ${K.fill}. The AI writes one for each open day in the plan from saved ideas, new ideas and the Playbook, and tops up once a week on its own after the first time`,
+      `OK posts: ${O.approve} on one, or ${K.approveWeek} for every post waiting in the next 7 days that’s ready. Changing an OK’d post takes the OK back`,
+      `Change how often and when: ${NAME} → ${P.gear} → ${G.posting} (owners and admins)`,
+      `Facebook posts go to the person’s profile, their Page or both; posting to the Page needs its link in ${NAME} → ${P.gear} → ${G.posting}`,
+      'OK’d posts on Facebook (profile, Page or both), LinkedIn and Instagram go up at their times from the reading computer, in Chrome with the HandsFreeOS Social extension, while Chrome is open there (a Page’s post goes through Meta Business Suite, so the person’s profile isn’t switched). Up to a day late if that computer was off; after that they’re marked as didn’t post',
+      `Put one up now: ${O.postNow}. It counts as the OK`,
+      `A video post goes up with the person’s own video: record it from the script, then ${O.addVideo} on the post (up to 25 MB). It can’t be OK’d until it has one`,
+      `See how a post did: open it under ${K.recent} (or on its day). The reading computer reads its numbers about 2 and 7 days after it went up; one that did well goes into the Playbook`,
+    ],
+    canChange: [
+      'fill the calendar, write a post (for an open day, a network or from an idea), change a post’s words, day, time and picture, make its picture again or switch its kind, OK it or the whole week, take the OK back, put it up now, skip it or bring it back, and write it again',
+    ],
+    path: 'calendar',
+  },
+  {
     label: P.gear,
-    what: 'the networks studied, whose computer reads them, watching videos, and what the reading computer is doing',
+    what: 'the networks studied, whose computer reads them, watching videos, the posting plan, and what the reading computer is doing',
     where: [NAME, P.gear],
     onScreen: [
       `${G.networks}: Instagram, Facebook and LinkedIn; TikTok and YouTube say ${G.coming}`,
       `${G.reader}: whose computer reads, ${G.readOnMine} and ${G.getExtension}`,
       `${V.title}: ${V.on} (off until turned on, with the notice that it uses a lot more AI) and ${V.tryIt} (up to 5 of the newest standout videos, once)`,
+      `${G.posting}: posts a week and the time for Instagram, Facebook and LinkedIn, ${G.facebookPage} and ${G.facebookWhere} (profile, Page or both)`,
       `${G.doing}: what’s waiting, and what was asked lately with how it went, each waiting one with ${G.stop}`,
     ],
     howTo: [
@@ -100,7 +138,7 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
       `Test watching before turning it on: ${V.tryIt} (owners and admins)`,
     ],
     canChange: [
-      'pick the networks, whose computer reads and whether new standout videos are watched (owners and admins), try watching a few videos, and stop waiting work',
+      'pick the networks, whose computer reads, whether new standout videos are watched, and the posting plan, Facebook Page and where Facebook posts go (owners and admins), try watching a few videos, and stop waiting work',
     ],
     path: 'settings',
   },
@@ -110,4 +148,5 @@ export const SOCIALCONTENT_PLACES: readonly AppPlace[] = [
 export const SOCIALCONTENT_LOOK_ALIKES: readonly string[] = [
   'Its Settings page is the add-on’s own (AI Social Media Content Creator → Settings), not the business’s Settings.',
   'Creators here are people outside the business whose posts it studies, never customers or contacts.',
+  'Its Calendar is the business’s own social posts (AI Social Media Content Creator → Calendar), not the appointments Calendar.',
 ];

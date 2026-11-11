@@ -32,6 +32,7 @@ import { createModelPicker, createSpeech, createVoiceAi } from './voice-agent/in
 import { voiceTroubleAlarm } from './voice-agent/voice-trouble';
 import { createGeocoder } from './geo/geocoder';
 import { createOpinly } from './opinly';
+import { createPictures } from './pictures';
 import { createTranscriber } from './telephony/transcriber';
 import { createFfmpegConverter } from './telephony/video';
 import { createWorkflowAi } from './workflows/ai-runner';
@@ -83,6 +84,11 @@ export function createEngineServices(env: WorkerEnv, log: Logger, db: Db): Engin
         : null,
     ),
     wallet,
+    pictures: createPictures(env.openAiApiKey, {
+      model: env.openAiImageModel,
+      backupModel: env.openAiImageBackupModel,
+      complexity: env.openAiImageComplexity,
+    }),
     sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
     addonConnect: { fake: env.addonConnectors === 'fake', platformKeys: env.addonPlatformKeys },
     reminderOverrideMs: env.reminderOverrideMs,

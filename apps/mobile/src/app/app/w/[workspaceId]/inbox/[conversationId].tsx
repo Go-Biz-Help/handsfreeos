@@ -761,7 +761,7 @@ function Thread() {
     if (await actions.move(m.folder, m.remember)) backToList();
   };
 
-  /** Someone's own mail to the team's Inbox (M19): it leaves My mail, where it was opened from. */
+  /** Someone's own mail to the team's Inbox (M19): back to the list, where it now shows without Only you. */
   const share = async () => {
     setSharing(true);
     const ok = await actions.share();

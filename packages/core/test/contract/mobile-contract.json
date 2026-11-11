@@ -3435,6 +3435,95 @@
                 "type": "null"
               }
             ]
+          },
+          "options": {
+            "anyOf": [
+              {
+                "minItems": 2,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "lines": {
+                      "default": [],
+                      "maxItems": 200,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "description": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1000000
+                          },
+                          "unitLabel": {
+                            "default": "each",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "unitPriceCents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          },
+                          "taxable": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "discountCents": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          }
+                        },
+                        "required": ["name", "quantity", "unitPriceCents"]
+                      }
+                    }
+                  },
+                  "required": ["name"]
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["workspaceId", "personId"]
@@ -3659,6 +3748,95 @@
               }
             ]
           },
+          "options": {
+            "anyOf": [
+              {
+                "minItems": 2,
+                "maxItems": 3,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 60
+                    },
+                    "lines": {
+                      "default": [],
+                      "maxItems": 200,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "productId": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          },
+                          "description": {
+                            "default": null,
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 2000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "quantity": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1000000
+                          },
+                          "unitLabel": {
+                            "default": "each",
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "unitPriceCents": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          },
+                          "taxable": {
+                            "default": true,
+                            "type": "boolean"
+                          },
+                          "discountCents": {
+                            "default": 0,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000000
+                          }
+                        },
+                        "required": ["name", "quantity", "unitPriceCents"]
+                      }
+                    }
+                  },
+                  "required": ["name"]
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "baseRevision": {
             "type": "integer",
             "minimum": 1,
@@ -3736,7 +3914,10 @@
               "audio/mp4",
               "audio/aac",
               "audio/mpeg",
-              "audio/webm"
+              "audio/webm",
+              "video/mp4",
+              "video/quicktime",
+              "video/webm"
             ]
           },
           "sizeBytes": {
@@ -5355,6 +5536,44 @@
         "required": ["workspaceId", "revision", "parts"]
       }
     },
+    "main_offer.save_list": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "list": {
+            "type": "string",
+            "enum": [
+              "different",
+              "benefits",
+              "problems",
+              "questions",
+              "beforeAfter",
+              "story",
+              "topics",
+              "myths",
+              "voice",
+              "asks",
+              "never"
+            ]
+          },
+          "lines": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        },
+        "required": ["workspaceId", "list", "lines"]
+      }
+    },
     "message.cancel_scheduled": {
       "offline": "anytime",
       "input": {
@@ -5873,6 +6092,66 @@
                 "type": "string",
                 "maxLength": 500
               },
+              "email": {
+                "default": {
+                  "with": null,
+                  "domain": "",
+                  "local": "hello",
+                  "freeLocal": "",
+                  "name": "",
+                  "receive": null,
+                  "mine": false,
+                  "mineLocal": ""
+                },
+                "type": "object",
+                "properties": {
+                  "with": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["domain", "free"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "domain": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "local": {
+                    "default": "hello",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "freeLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "receive": {
+                    "default": null,
+                    "type": ["boolean", "null"]
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mineLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              },
               "ai": {
                 "default": {
                   "jobs": [],
@@ -6381,6 +6660,9 @@
               "customers",
               "booking",
               "number",
+              "email",
+              "email_records",
+              "email_own",
               "paid",
               "jobs",
               "facts",
@@ -6433,6 +6715,66 @@
                 "default": "",
                 "type": "string",
                 "maxLength": 500
+              },
+              "email": {
+                "default": {
+                  "with": null,
+                  "domain": "",
+                  "local": "hello",
+                  "freeLocal": "",
+                  "name": "",
+                  "receive": null,
+                  "mine": false,
+                  "mineLocal": ""
+                },
+                "type": "object",
+                "properties": {
+                  "with": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "enum": ["domain", "free"]
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "domain": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "local": {
+                    "default": "hello",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "freeLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "name": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  },
+                  "receive": {
+                    "default": null,
+                    "type": ["boolean", "null"]
+                  },
+                  "mine": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "mineLocal": {
+                    "default": "",
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
               },
               "ai": {
                 "default": {
@@ -14961,6 +15303,468 @@
         "required": ["workspaceId", "checkInId", "latitude", "longitude"]
       }
     },
+    "socialcontent.content.approve": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ok": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.approve_week": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.content.post_now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin"]
+          },
+          "format": {
+            "type": "string",
+            "enum": ["photo", "carousel", "video", "text"]
+          },
+          "words": {
+            "type": "string",
+            "maxLength": 3000
+          },
+          "hook": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hashtags": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 41
+            }
+          },
+          "slides": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "heading": {
+                  "type": "string"
+                },
+                "body": {
+                  "type": "string"
+                }
+              },
+              "required": ["heading", "body"]
+            }
+          },
+          "script": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "lines": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "shots": {
+                    "maxItems": 12,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": ["lines", "shots"]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "picture": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 600
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pictureWay": {
+            "type": "string",
+            "enum": ["design", "photo", "own"]
+          },
+          "fileIds": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "facebookWhere": {
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["profile", "page"]
+            }
+          },
+          "postAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.content.skip": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "skip": {
+            "default": true,
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.creator.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "link": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          }
+        },
+        "required": ["workspaceId", "link"]
+      }
+    },
+    "socialcontent.creator.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creatorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "study": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId", "creatorId", "study"]
+      }
+    },
+    "socialcontent.find.now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.idea.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ideaId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["new", "saved", "used", "skipped"]
+          }
+        },
+        "required": ["workspaceId", "ideaId", "state"]
+      }
+    },
+    "socialcontent.niche.add": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": ["workspaceId", "name"]
+      }
+    },
+    "socialcontent.niche.decide": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "nicheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["picked", "skipped"]
+          }
+        },
+        "required": ["workspaceId", "nicheId", "state"]
+      }
+    },
+    "socialcontent.read.now": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creatorId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.settings.save": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "networks": {
+            "minItems": 1,
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+            }
+          },
+          "readerUserId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "watchVideos": {
+            "type": "boolean"
+          },
+          "plan": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "enum": ["instagram", "facebook", "linkedin"]
+            },
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "perWeek": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "time": {
+                  "type": "string",
+                  "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                }
+              },
+              "required": ["perWeek", "time"]
+            }
+          },
+          "facebookPage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "facebookWhere": {
+            "minItems": 1,
+            "maxItems": 2,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["profile", "page"]
+            }
+          },
+          "autoFill": {
+            "type": "boolean"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.watch.try": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.work.stop": {
+      "offline": "online",
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "workId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "workId"]
+      }
+    },
     "subscription.request_card": {
       "offline": {
         "freshMinutes": 30
@@ -17061,9 +17865,9 @@
             "maxLength": 120
           },
           "kind": {
-            "description": "A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam",
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$"
+            "pattern": "^[a-z][a-z0-9_]{1,30}(\\.[a-z0-9_]{1,40})?$",
+            "description": "A kind from search.everything’s groups (contacts, companies, leads, money, messages, calendar, tasks, notes, files, forms, knowledge, record.<kind>, <add-on>.<kind>), or archived, bin (the Deleted bin) or spam"
           },
           "includeArchived": {
             "default": false,
@@ -17089,6 +17893,150 @@
           }
         },
         "required": ["workspaceId", "q", "kind"]
+      }
+    },
+    "socialcontent.calendar.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "days": {
+            "default": 15,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 42
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.content.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId", "postId"]
+      }
+    },
+    "socialcontent.creator.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["suggested", "studying", "skipped", "didnt_fit"]
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.idea.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["new", "saved", "used", "skipped"]
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.niche.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.overview": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.playbook.get": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": ["workspaceId"]
+      }
+    },
+    "socialcontent.post.list": {
+      "input": {
+        "type": "object",
+        "properties": {
+          "workspaceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "creatorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standoutsOnly": {
+            "default": false,
+            "type": "boolean"
+          },
+          "network": {
+            "type": "string",
+            "enum": ["instagram", "facebook", "linkedin", "tiktok", "youtube"]
+          },
+          "before": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "limit": {
+            "default": 50,
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": ["workspaceId"]
       }
     }
   },

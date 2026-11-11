@@ -176,6 +176,7 @@ export { default as ThumbsDown } from 'lucide-react-native/icons/thumbs-down';
 export { default as ThumbsUp } from 'lucide-react-native/icons/thumbs-up';
 export { default as Ticket } from 'lucide-react-native/icons/ticket';
 export { default as Trash } from 'lucide-react-native/icons/trash';
+export { default as TrendingUp } from 'lucide-react-native/icons/trending-up';
 export { default as TriangleAlert } from 'lucide-react-native/icons/triangle-alert';
 export { default as Type } from 'lucide-react-native/icons/type';
 export { default as Undo2 } from 'lucide-react-native/icons/undo-2';

@@ -20,6 +20,11 @@ export const ATTACHMENT_TYPES = [
   'audio/aac',
   'audio/mpeg',
   'audio/webm',
+  // A video for one of the business's own posts (AI Social Media Content Creator, part 10): what phones record and
+  // Instagram takes, up to the same 25 MB.
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
 ] as const;
 export const ATTACHMENT_MAX_BYTES = 25 * 1024 * 1024;
 /** What the worker may keep on a record beside what people upload: a transaction export's zip (round six). */

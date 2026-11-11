@@ -27,6 +27,7 @@ import {
   writingIn,
 } from '../looking/looks';
 import type { LookingSite } from '../looking/site';
+import { putPostIn } from '../post-text';
 import { went, type StepTry } from '../tries';
 import { postParts } from './read';
 
@@ -105,8 +106,11 @@ export function startPost(doc: Document): HTMLElement | null {
   );
 }
 
-/** Words compared as a page shows them: one space between words, in lower case, the first 60 characters. */
-const opening = (text: string) => clean(text).toLowerCase().slice(0, 60);
+/**
+ * Words compared with no spaces or line breaks at all, in lower case, the first 60 characters: a page may run a post's
+ * paragraphs together or put a line between them (decision 158).
+ */
+const opening = (text: string) => clean(text).replace(/\s+/g, '').toLowerCase().slice(0, 60);
 
 /** The link to the post just put up: a post at the top of the page that starts with its words. */
 function linkToIt(doc: Document, href: string, text: string): string | null {
@@ -147,7 +151,11 @@ export async function writeAlignablePost(
   const { box, part } = open;
   // Something written there already is the person's: left alone.
   if (writingIn(box)) return notSent;
-  writeIn(doc, box, text);
+  // A box drawn to write in gets the post pasted, so its paragraphs stay (decision 158); a plain box keeps them typed.
+  box.focus();
+  if (doc.activeElement === box && box.tagName !== 'TEXTAREA')
+    await putPostIn(doc, box, text, writingIn);
+  else writeIn(doc, box, text);
   await pause(800);
   if (!writingIn(box)) return notSent;
   const post = await waitFor(() => postButtonIn(part), 3_000);

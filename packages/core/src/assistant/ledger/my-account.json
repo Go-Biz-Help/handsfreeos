@@ -1,7 +1,7 @@
 {
   "area": "my-account",
   "title": "My account: profile, appearance, notifications, the side menu, my cell, my businesses and the More menu",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-10",
   "files": {
     "apps/mobile/src/app/app/extension-sign-in/[requestId].tsx": "28e53d7a9844",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/more.tsx": "cc0007aa5c1d",
@@ -33,6 +33,7 @@
     "apps/web/src/components/account/delete-account.tsx": "cf83035f8e5d",
     "apps/web/src/components/account/extension-sign-in-prompt.tsx": "5b27e8511869",
     "apps/web/src/components/calls/calls-pill.tsx": "8819d72926f6",
+    "apps/web/src/components/clock-check.tsx": "b26e26b8e9ae",
     "apps/web/src/components/look/business-mark.tsx": "e884715ba172",
     "apps/web/src/components/look/look-editor.tsx": "dea820065614",
     "apps/web/src/components/settings/appearance-section.tsx": "383c3fcbfc5b",
@@ -159,6 +160,13 @@
       "file": "apps/web/src/components/shell/user-menu.tsx:56",
       "covered": "person",
       "by": "signing in and out is the person's"
+    },
+    {
+      "path": "Every web page → this computer’s clock is off: note and close",
+      "kind": "see",
+      "file": "apps/web/src/components/clock-check.tsx:24",
+      "covered": "person",
+      "by": "this computer's own clock; the Assistant can't see or set it"
     },
     {
       "path": "Web side menu → switcher → current business and organization",

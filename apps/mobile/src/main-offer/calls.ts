@@ -4,12 +4,16 @@ import {
   MainOfferPublishOutput,
   MainOfferSaveDirectionOutput,
   MainOfferSaveDraftOutput,
+  MainOfferSaveListOutput,
   MainOfferTriesOutput,
   offerAiWords,
   type MainOfferNotes,
   type MainOfferParts,
   type MainOfferScore,
   type MainOfferTryOut,
+  type OfferList,
+  type OfferListMode,
+  type OfferListsAssistOutput,
   type ScoredPart,
 } from '@hfos/core';
 
@@ -19,8 +23,8 @@ import { workerPost } from '@/lib/worker';
 /**
  * Settings → Main offer's calls from the phone (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md), as the web's
  * lib/main-offer/actions.ts makes them: the offer and this round's tries, a part edited, the direction, going live,
- * and the AI's score and tries from the worker. All of them need signal: none goes into the queue of changes, because
- * each is for the draft as the server has it now (its revision).
+ * and the AI's score and tries from the worker; and the lists for content with the AI's help on them. All of them need
+ * signal: none goes into the queue of changes, because each is for the offer as the server has it now.
  */
 
 /** What a command takes, from the API's own description of it. */
@@ -79,6 +83,22 @@ export function mainOfferCalls(workspaceId: string) {
           }),
         ),
       ).version,
+    /** Keeps one of the lists for content as these lines (none clears it); the lines as kept. */
+    saveList: async (list: OfferList, lines: readonly string[]): Promise<string[]> =>
+      MainOfferSaveListOutput.parse(
+        unwrap(
+          await api.POST('/v1/commands/main_offer.save_list', {
+            body: { workspaceId, list, lines: [...lines] },
+          }),
+        ),
+      ).lines,
+    /** The lists' help: Write it for me, Improve a line, Examples, or What's missing. Nothing is kept. */
+    listsHelp: (input: {
+      mode: OfferListMode;
+      list?: OfferList;
+      line?: string;
+    }): Promise<OfferListsAssistOutput> =>
+      workerPost('/v1/main-offer/lists', { workspaceId, ...input }),
     /** The AI's score of the draft as it's kept at this revision, kept with it. */
     score: (revision: number): Promise<{ saved: boolean; score: MainOfferScore }> =>
       workerPost('/v1/main-offer/score', { workspaceId, revision }),

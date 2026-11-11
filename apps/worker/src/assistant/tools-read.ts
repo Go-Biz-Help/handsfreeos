@@ -238,6 +238,8 @@ interface ConversationItem {
   lastPreview: string | null;
   lastDirection: 'inbound' | 'outbound' | null;
   awaitingReplySince: string | null;
+  /** The person's own mail (M19), which the inbox shows beside the team's. */
+  private?: boolean;
 }
 
 /** Who answers a conversation and why it went to a person, as conversation.get and inbox.list carry it. */
@@ -1147,6 +1149,8 @@ export const readTools: Record<string, ReadTool> = {
           lastMessage: c.lastDirection === 'inbound' ? quoted(c.lastPreview) : c.lastPreview,
           waitingMinutes: c.awaitingReplySince ? minutesSince(c.awaitingReplySince) : null,
           assignee: c.assignee?.fullName ?? null,
+          // The person's own mail, among the team's as the inbox shows it (M19), as find_conversations says it.
+          ...(c.private ? { private: 'Only you see it, until you share it with the team.' } : {}),
         })),
       },
       card: rows.length

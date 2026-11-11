@@ -1,6 +1,12 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LOCAL_WEBHOOK_PASSWORD } from './email/local';
+import {
+  DEFAULT_PICTURE_MODEL,
+  pictureBackupModelOf,
+  pictureComplexityOf,
+  type PictureComplexity,
+} from './pictures';
 
 /** The website chat's IP-hashing key on your own computer (scripts/supabase-env.mjs); production refuses it. */
 export const LOCAL_CHAT_IP_KEY = 'local-chat-ip-key-for-development-only';
@@ -276,6 +282,15 @@ export interface WorkerEnv {
   readonly openAiAssistantModel: string;
   /** The backup on calls, whatever model they use on Claude: a fast one keeps the pauses short. */
   readonly openAiVoiceModel: string;
+  /**
+   * OpenAI's image model, for photo-style pictures on a business's own social posts (pictures.ts): GPT-Image-2.6
+   * Sunburst unless set. Uses OPENAI_API_KEY; without it, those pictures are designed instead.
+   */
+  readonly openAiImageModel: string;
+  /** Tried once when openAiImageModel is busy, down or gone: GPT-Image-2.6 Flare unless set; `none` for none. */
+  readonly openAiImageBackupModel: string | null;
+  /** How much the 2.6 image models plan a picture first (OPENAI_IMAGE_COMPLEXITY): more is slower, never dearer. */
+  readonly openAiImageComplexity: PictureComplexity;
   /** Who is emailed when the AI moves to OpenAI and back (AI_ALERT_EMAILS, else PLATFORM_OWNER_EMAILS). */
   readonly aiAlertEmails: readonly string[];
   /** Cloudflare Turnstile on the public booking page (its site key lives on the web); unset: no bot check. */
@@ -564,6 +579,10 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
   if (!['low', 'medium', 'high'].includes(assistantEffort))
     throw new Error('ASSISTANT_EFFORT must be low, medium or high');
   const openAiApiKey = env.OPENAI_API_KEY?.trim() || null;
+  const openAiImageModel = env.OPENAI_IMAGE_MODEL?.trim() || DEFAULT_PICTURE_MODEL;
+  const openAiImageComplexity = pictureComplexityOf(env.OPENAI_IMAGE_COMPLEXITY);
+  if (!openAiImageComplexity)
+    throw new Error('OPENAI_IMAGE_COMPLEXITY must be low, medium or high');
   const emails = (value: string | undefined) =>
     (value || '')
       .split(',')
@@ -788,6 +807,9 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): WorkerEnv {
     openAiModel: env.OPENAI_MODEL?.trim() || 'gpt-6-sol',
     openAiAssistantModel: env.OPENAI_ASSISTANT_MODEL?.trim() || 'gpt-6-sol',
     openAiVoiceModel: env.OPENAI_VOICE_MODEL?.trim() || 'gpt-6-luna',
+    openAiImageModel,
+    openAiImageBackupModel: pictureBackupModelOf(env.OPENAI_IMAGE_BACKUP_MODEL, openAiImageModel),
+    openAiImageComplexity,
     aiAlertEmails: aiAlertEmails.length ? aiAlertEmails : emails(env.PLATFORM_OWNER_EMAILS),
     turnstileSecretKey,
     bookingRateLimitFactor: production ? 1 : 10,

@@ -21,7 +21,7 @@ import { COMMENT, LIKE, LIKE_HOOK, likeStateOf, postBoxes, readPost } from './po
 import type { TidyPlan } from './tidy';
 import type { Named, ProfilePage, ProfileRef } from './types';
 import { classifyUrl, FACEBOOK } from './urls';
-import { UI_WORDS } from './vocabulary';
+import { NO_POSTS_WORDS, UI_WORDS } from './vocabulary';
 
 export type AutoJob = 'friend_request' | 'confirm';
 
@@ -219,6 +219,20 @@ export function theirPosts(
     });
   }
   return found;
+}
+
+/**
+ * Whether Facebook says their profile has no posts: its own line under Posts ("No posts available"), outside any post.
+ * A warm-up then has nothing to like, and nothing went wrong (the owner's problem reports of 2 and 9 Nov 2026).
+ */
+export function saysNoPosts(doc: Document): boolean {
+  const main = mainOf(doc);
+  const posts = [...postBoxes(main), ...main.querySelectorAll('[role="article"]')];
+  return [...main.querySelectorAll('span')].some(
+    (line) =>
+      NO_POSTS_WORDS.has(clean(line.textContent).toLowerCase()) &&
+      !posts.some((post) => post.contains(line)),
+  );
 }
 
 /** Times it waits on a post Facebook is still loading, while it has drawn fewer posts than it reads. */
@@ -847,6 +861,34 @@ export function openedWindowLinks(
   return person && sameByKey(person, them) === null ? person : null;
 }
 
+/** Times a writer waits, half a second apart, on a chat window still drawing its box, after the first few seconds. */
+const CHAT_LOADING_WAITS = 20;
+
+/**
+ * Whether a small chat window over the page is still drawing its box: the most around one Close chat that holds no
+ * other Close chat and no box to write in has Facebook's loading mark in it. A window that just opened draws its
+ * messages first and its box after (the owner's problem report of 9 Nov 2026: their new chat's window showed the card
+ * about them and Facebook's loading mark where the box goes, and nothing was sent).
+ */
+function chatLoading(doc: Document): boolean {
+  const main = mainIn(doc);
+  if (!main) return false;
+  return closesIn(doc.body).some((close) => {
+    if (main.contains(close)) return false;
+    let chatWindow: Element | null = null;
+    for (let up = close.parentElement; up && !up.contains(main); up = up.parentElement) {
+      if (closesIn(up).length > 1 || up.querySelectorAll(WRITING).length > 0) break;
+      chatWindow = up;
+    }
+    return (
+      chatWindow !== null &&
+      [...chatWindow.querySelectorAll('[role="status"]')].some((mark) =>
+        /^loading\b/i.test(labelOf(mark)),
+      )
+    );
+  });
+}
+
 /** How a message went: with, when its typing went into another chat's box and stayed there, whose that is. */
 export interface MessageWrote {
   readonly result: AutoResult;
@@ -863,13 +905,14 @@ export interface MessageWrote {
 }
 
 /**
- * Writes a message in their chat, and sends it (decisions 26 and 27): waits a few seconds for their chat's box, types
- * it there, presses the button that sends it (or Enter), and waits for the box to empty. It waits the whole time for a
+ * Writes a message in their chat, and sends it (decisions 26 and 27): waits a few seconds for their chat's box, and
+ * up to ten more while a chat window is still drawing its box (`chatLoading`), types it there, presses the button that sends it (or Enter), and waits for the box to empty. It waits the whole time for a
  * chat that links to them by key, and takes one by name only after, unless the message's text before went into that
  * same box. A box with writing in it already is left alone: the person may be writing there. Nothing is typed unless
  * the focus is in their box, and nothing is sent unless, once typed, it's still their chat's box and no other box took
  * the writing; else what was typed is taken out again, of every box it went in (`not_theirs`), and where it can't be,
- * that's said (`left`).
+ * that's said (`left`). With `close`, for the message's last text, its small chat window is closed once it has gone
+ * (`closeWindow`).
  */
 export async function writeMessage(
   doc: Document,
@@ -878,6 +921,7 @@ export async function writeMessage(
   them: ProfileRef,
   names: readonly string[],
   before: ChatsBefore | null = null,
+  close = false,
 ): Promise<MessageWrote> {
   // Message on their profile may move the tab to Messenger meanwhile.
   const here = () => doc.location?.href ?? href;
@@ -889,6 +933,10 @@ export async function writeMessage(
     await pause(500);
     box = byKey();
   }
+  for (let wait = 0; !box && wait < CHAT_LOADING_WAITS && chatLoading(doc); wait++) {
+    await pause(500);
+    box = byKey();
+  }
   box ??= theirs();
   if (!box) {
     const linksTo = openedWindowLinks(doc, here(), them, names, before);
@@ -896,7 +944,33 @@ export async function writeMessage(
   }
   const wrote = await typeAndSend(doc, box, text, theirs);
   if (wrote.result === 'done' && before?.doc === doc) before.sentIn = box;
+  if (wrote.result === 'done' && close) await closeWindow(doc, box);
   return wrote;
+}
+
+/** How long a sent message is left to go before its window is closed. */
+const CLOSE_AFTER_MS = 1_500;
+
+/**
+ * Closes the small chat window a message just went in, by that window's own Close chat, once the message has had a
+ * moment to go: whether it went. Messenger's own chat page, and a box with no window of its own around it, are left as
+ * they are. Facebook keeps chat windows open from page to page, so each one the extension opened and left stayed over
+ * every page after (the owner's problem reports of 10 Nov 2026: 6 windows open and 5 more in the corner, a message
+ * that couldn't tell which chat was theirs, and a like with the windows in its way).
+ */
+async function closeWindow(doc: Document, box: HTMLElement): Promise<boolean> {
+  const main = mainIn(doc);
+  if (!main || main.contains(box)) return false;
+  const around = chatWindowOf(box, main);
+  if (!around) return false;
+  await pause(CLOSE_AFTER_MS);
+  if (!box.isConnected) return true;
+  (around.close as HTMLElement).click();
+  for (let wait = 0; wait < 10; wait++) {
+    await pause(200);
+    if (!box.isConnected || !shown(box)) return true;
+  }
+  return false;
 }
 
 /** Whether the focus is in a box: on it, or on something inside it. */

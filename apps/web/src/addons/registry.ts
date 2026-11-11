@@ -42,11 +42,19 @@ import {
 import { Headset as salescoachAddonIcon } from 'lucide-react';
 import {
   BookOpen as socialcontentPlaybookIcon,
+  CalendarDays as socialcontentCalendarIcon,
   Lightbulb as socialcontentIdeasIcon,
   Settings2 as socialcontentSettingsIcon,
   Sparkles as socialcontentAddonIcon,
   TrendingUp as socialcontentStandoutsIcon,
   Users as socialcontentCreatorsIcon,
+} from 'lucide-react';
+import {
+  Calculator as contractorCostsIcon,
+  CalendarClock as contractorDispatchIcon,
+  FileText as contractorEstimatesIcon,
+  HardHat as contractorAddonIcon,
+  Settings2 as contractorSettingsIcon,
 } from 'lucide-react';
 
 /** Any lucide icon, as the side menu draws its places. */
@@ -80,6 +88,12 @@ export type SlotEntities = EverySlot<{
     readonly onUse: (text: string) => void;
   };
   'main_offer.panels': object;
+  /** An estimate's page in Money. `builtBy` is the add-on whose builder wrote it, if one did. */
+  'estimate.panels': {
+    readonly estimateId: string;
+    readonly status: string;
+    readonly builtBy: string | null;
+  };
 }>;
 
 /** What a panel in slot `S` is drawn with. */
@@ -273,7 +287,19 @@ export const ADDON_UI: Readonly<Record<string, AddonUi>> = {
       standouts: socialcontentStandoutsIcon,
       playbook: socialcontentPlaybookIcon,
       ideas: socialcontentIdeasIcon,
+      calendar: socialcontentCalendarIcon,
       gear: socialcontentSettingsIcon,
     },
+  },
+  contractor: {
+    icon: contractorAddonIcon,
+    navIcons: {
+      dispatch: contractorDispatchIcon,
+      estimates: contractorEstimatesIcon,
+      costs: contractorCostsIcon,
+      gear: contractorSettingsIcon,
+    },
+    slots: { 'estimate.panels': () => import('./contractor/estimate-panel') },
+    settings: () => import('./contractor/settings-link'),
   },
 };

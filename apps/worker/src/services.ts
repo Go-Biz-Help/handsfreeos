@@ -23,6 +23,7 @@ import type { MetaServices } from './social/index';
 import type { ObjectStore } from './storage';
 import type { SiteHost } from './hosting';
 import type { Opinly } from './opinly';
+import type { PictureMaker } from './pictures';
 import type { TelephonyProvider } from './telephony/provider';
 import type { DriveTimer } from './geo/driving';
 import type { Geocoder } from './geo/geocoder';
@@ -87,6 +88,11 @@ export interface WorkerServices {
    * without OPINLY_API_KEY**, and every handler checks: nothing is queued, rather than queued and refused.
    */
   readonly opinly: Opinly | null;
+  /**
+   * Photo-style pictures for a business's own social posts, from OpenAI's image model (pictures.ts). Null or absent
+   * without OPENAI_API_KEY: those pictures are designed instead.
+   */
+  readonly pictures?: PictureMaker | null;
   readonly sealer: Sealer;
   /** Tests and local demos shorten the reply reminder; production uses each workspace's setting. */
   readonly reminderOverrideMs: number | null;

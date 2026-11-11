@@ -30,7 +30,7 @@ import { voiceToken } from '../api/worker';
 import { errorMessage } from '../api/client';
 import { createDevice, type VoiceCall, type VoiceDevice } from '../calls/device';
 import { publicEnv } from '../env';
-import { supabaseBrowser } from '../supabase/client';
+import { browserAccessToken } from '../supabase/token';
 
 /** connecting: opening the call; ringing: the call over the phone line is being placed; live: it picked up. */
 export type LiveCallPhase = 'connecting' | 'ringing' | 'live' | 'ended';
@@ -145,7 +145,7 @@ export class LiveTestCall {
     }
     try {
       if (way === 'browser') await this.openMicrophone();
-      const token = (await supabaseBrowser().auth.getSession()).data.session?.access_token;
+      const token = await browserAccessToken();
       if (!token) return this.finish('Sign in to continue.');
       if (this.over) return;
       this.connect(token);

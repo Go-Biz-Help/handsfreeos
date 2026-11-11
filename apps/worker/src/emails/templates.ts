@@ -749,12 +749,17 @@ export function emailDomainVerifiedEmail(input: {
   business: string;
   domain: string;
   link: string;
+  /** The address booking emails switched to on their own (the business email step), when they did. */
+  sender?: string | null;
 }): EmailContent {
   const subject = `${input.domain} is verified`;
-  const text = `The DNS records for ${input.domain} check out, so ${input.business} can send email from addresses on it. Add one, or make one the default, in Settings → Email.\n\nOpen Settings → Email: ${input.link}`;
+  const then = input.sender
+    ? `Booking emails, reminders and invoices now go out from ${input.sender}.`
+    : 'Add an address on it, or make one the default, in Settings → Email.';
+  const text = `The DNS records for ${input.domain} check out, so ${input.business} can send email from addresses on it. ${then}\n\nOpen Settings → Email: ${input.link}`;
   const html = shell(
     para(
-      `The DNS records for <strong>${escapeHtml(input.domain)}</strong> check out, so ${escapeHtml(input.business)} can send email from addresses on it. Add one, or make one the default, in Settings → Email.`,
+      `The DNS records for <strong>${escapeHtml(input.domain)}</strong> check out, so ${escapeHtml(input.business)} can send email from addresses on it. ${escapeHtml(then)}`,
     ) +
       button(input.link, 'Open Settings → Email') +
       small(`Sent to the owners and admins of ${escapeHtml(input.business)}.`),
@@ -2323,6 +2328,67 @@ export function documentCodeEmail(input: {
       `<p style="font-size: 28px; font-weight: 700; letter-spacing: 4px; margin: 16px 0;">${escapeHtml(input.code)}</p>` +
       para('It works for 10 minutes.') +
       small('If you didn’t ask for it, ignore this email.'),
+  );
+  return { subject, text, html };
+}
+
+/** One record for the steps email: what to pick, and what to type in each box. */
+export interface StepsRecord {
+  readonly type: string;
+  readonly host: string;
+  readonly value: string;
+  readonly priority?: number;
+}
+
+/**
+ * The business email step's "Send the steps": the DNS records for a domain, with the steps for where it's managed,
+ * to the person setting it up or to whoever looks after the domain.
+ */
+export function emailDomainStepsEmail(input: {
+  business: string;
+  /** Who asked: "Maria Lopez". */
+  by: string;
+  domain: string;
+  /** Where the domain's DNS is managed, when we know. */
+  host: { label: string; url: string; where: string; add: string; note?: string } | null;
+  records: readonly StepsRecord[];
+}): EmailContent {
+  const n = input.records.length;
+  const subject = `Add ${n} DNS records for ${input.domain}`;
+  const intro = `${input.by} at ${input.business} asked for these: ${n} DNS records for ${input.domain}, so ${input.business}’s emails go out from it through HandsFreeOS and land in inboxes, not spam.`;
+  const where = input.host
+    ? `In ${input.host.label}, open ${input.domain} → ${input.host.where}, and press ${input.host.add} for each one.`
+    : `Sign in where ${input.domain} is managed (usually where it was bought), open its DNS settings, and add each one.`;
+  const note = input.host?.note ? ` ${input.host.note}` : '';
+  const lines = input.records.map(
+    (r, i) =>
+      `${i + 1}. ${r.type}${r.priority != null ? ` (priority ${r.priority})` : ''}\n   Name: ${r.host}\n   Value: ${r.value}`,
+  );
+  const after =
+    'HandsFreeOS checks for them on its own and switches over once they’re found. Records can take up to a few hours to show up.';
+  const text = `${intro}\n\n${where}${note}\n\n${lines.join('\n\n')}\n\n${after}${
+    input.host ? `\n\nOpen ${input.host.label}: ${input.host.url}` : ''
+  }`;
+  const cell = 'padding: 6px 8px; border-top: 1px solid #e4e8ee; vertical-align: top;';
+  const mono =
+    "font-family: 'SFMono-Regular', Menlo, Consolas, monospace; font-size: 13px; word-break: break-all;";
+  const rows = input.records
+    .map(
+      (r) =>
+        `<tr><td style="${cell} white-space: nowrap;">${escapeHtml(r.type)}${
+          r.priority != null
+            ? `<br /><span style="color: #5b616a; font-size: 12px;">priority ${r.priority}</span>`
+            : ''
+        }</td><td style="${cell} ${mono}">${escapeHtml(r.host)}</td><td style="${cell} ${mono}">${escapeHtml(r.value)}</td></tr>`,
+    )
+    .join('');
+  const html = shell(
+    para(escapeHtml(intro)) +
+      para(escapeHtml(where + note)) +
+      `<table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0 16px;"><tr><th style="text-align: left; padding: 6px 8px;">Type</th><th style="text-align: left; padding: 6px 8px;">Name</th><th style="text-align: left; padding: 6px 8px;">Value</th></tr>${rows}</table>` +
+      para(escapeHtml(after)) +
+      (input.host ? button(input.host.url, `Open ${input.host.label}`) : '') +
+      small(`Sent by HandsFreeOS for ${escapeHtml(input.business)}.`),
   );
   return { subject, text, html };
 }

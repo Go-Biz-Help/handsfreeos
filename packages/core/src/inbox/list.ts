@@ -24,10 +24,13 @@ export const INBOX_BOXES: readonly InboxBoxKey[] = [
 ];
 
 /**
- * Whose mail a list shows (M19): the team's, or the viewer's own mailbox — mail to an address that is theirs alone.
- * The same boxes work over both.
+ * Whose mail a list shows (M19): the team's with the viewer's own mail among it (each of theirs marked "Only you"), or
+ * the viewer's own mail alone ("My mail") — mail to an address that is theirs. The same boxes work over both.
  */
 export type InboxMailbox = 'team' | 'mine';
+
+/** What marks someone's own mail (M19), on its row in the list and inside the thread: only they see it. */
+export const ONLY_YOU = 'Only you';
 
 /** The email folders beside the Inbox (M19), and a person's own mail: "My mail · 2", "Other mail · 5", "Spam". */
 export const MAIL_BOX_NAMES = { mine: 'My mail', other: 'Other mail', spam: 'Spam' } as const;
@@ -43,6 +46,59 @@ export const STATUS_LABELS: Readonly<Record<ConversationStatus, string>> = {
   snoozed: 'Snoozed',
   closed: 'Closed',
 };
+
+/**
+ * What the Inbox shows, picked in one place (Chris, 2026-11-11): the web's menu beside the search and the phone's
+ * Open chip. The statuses come first, then where conversations are put away: Archived, and email's Other mail and
+ * Spam (M19). The person's own mail is in every one of them beside the team's, marked "Only you", so it has no page
+ * of its own. The phone has no Archived: archived conversations never reach it.
+ */
+export type InboxShowKey = ConversationStatus | 'archived' | 'other' | 'spam';
+export const INBOX_SHOW: readonly InboxShowKey[] = [
+  'open',
+  'snoozed',
+  'closed',
+  'archived',
+  'other',
+  'spam',
+];
+export const INBOX_SHOW_LABELS: Readonly<Record<InboxShowKey, string>> = {
+  ...STATUS_LABELS,
+  archived: 'Archived',
+  other: MAIL_BOX_NAMES.other,
+  spam: MAIL_BOX_NAMES.spam,
+};
+
+/** Which choice a list is on: Other mail or Spam, Archived, or else its status. */
+export function inboxShowOf(box: InboxBoxKey, status: ConversationStatus): InboxShowKey {
+  if (box === 'other' || box === 'spam' || box === 'archived') return box;
+  return status;
+}
+
+/**
+ * What picking a choice does to the list. Archived, Other mail and Spam are boxes of their own, their open
+ * conversations. A status keeps the box showing (Mine stays Mine), unless that was one of those three: then it's back
+ * to the person's usual box, `home`.
+ */
+export function inboxShowPick(
+  key: InboxShowKey,
+  box: InboxBoxKey,
+  home: InboxBoxKey,
+): { box: InboxBoxKey; status: ConversationStatus } {
+  if (key === 'archived' || key === 'other' || key === 'spam') return { box: key, status: 'open' };
+  return { box: box === 'archived' || box === 'other' || box === 'spam' ? home : box, status: key };
+}
+
+/** The line above Other mail and Spam: what's in it, and how a conversation gets out. */
+export const INBOX_SHOW_NOTES = {
+  other:
+    'Email from people who aren’t customers yet, and mail you moved here. Open one and press Move to Inbox to bring it in.',
+  spam: 'Email that looks like spam, the team’s and yours. It’s deleted after 30 days. Open one and press Not spam if it isn’t.',
+  /** Back to the open conversations. */
+  back: 'Back to Open',
+  /** What the dot on the menu means: something unread in Other mail. */
+  otherUnread: 'Something unread in Other mail',
+} as const;
 
 /**
  * "Mine · 3".
@@ -109,6 +165,7 @@ export function previewLine(
 
 /** One chip under a row, in the order the row shows them. */
 export type RowChip =
+  | { readonly kind: 'private'; readonly label: string }
   | { readonly kind: 'needs_person'; readonly label: string }
   | { readonly kind: 'wait'; readonly minutes: number; readonly label: string }
   | { readonly kind: 'ai'; readonly label: string }
@@ -121,7 +178,8 @@ export type RowChip =
   | { readonly kind: 'closed'; readonly label: string };
 
 /**
- * What needs attention on a row: how long the customer has waited (amber once past the reminder threshold), the AI
+ * What needs attention on a row: the viewer's own mail first ("Only you", M19: it sits among the team's threads, and
+ * this is what tells them apart), how long the customer has waited (amber once past the reminder threshold), the AI
  * teammate ("Ava", "Ava · draft waiting", or "Needs a person" with how long since), a chat visitor still on the site,
  * the open lead's stage, a number that isn't a customer yet, and snoozed or closed.
  */
@@ -144,6 +202,7 @@ export function conversationChips(
 ): RowChip[] {
   const now = opts.now ?? Date.now();
   const chips: RowChip[] = [];
+  if (c.private) chips.push({ kind: 'private', label: ONLY_YOU });
   const needsPerson = c.status === 'open' && !!c.needsPersonSince;
   const aiName = c.handledBy === 'ai' ? (c.teammate?.name ?? null) : null;
   const handedFor = needsPerson ? minutesWaiting(c.needsPersonSince, now) : null;

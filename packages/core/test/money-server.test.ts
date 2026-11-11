@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
 import { auditLogs, events } from '@hfos/db/schema';
-import { closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
+import { as, closeTestDbs, createTestUser, testDbs, type TestUser } from '@hfos/db/testing';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { z } from 'zod';
 import { reconcile } from '../src/attention/load';
@@ -567,6 +567,201 @@ describe('an estimate', () => {
     );
     expect(voided.status).toBe('void');
     expect(voided.number).toBe(sent.number);
+  });
+});
+
+// ---------- good, better, best ----------
+
+describe('an estimate with options', () => {
+  const good = [{ name: 'Repair the condenser', quantity: 1, unitPriceCents: 90_000 }];
+  const better = [{ name: 'New 14 SEER unit', quantity: 1, unitPriceCents: 480_000 }];
+  const best = [
+    { name: 'New 18 SEER unit', quantity: 1, unitPriceCents: 720_000 },
+    { name: 'Smart thermostat', quantity: 1, unitPriceCents: 25_000 },
+  ];
+  const three = [
+    { name: 'Good', lines: good },
+    { name: 'Better', lines: better },
+    { name: 'Best', lines: best },
+  ];
+  const reading = (estimateId: string) =>
+    ask(estimateGet, { workspaceId: w.wsId, estimateId }, w.owner).then((r) => r.estimate);
+  const send = (estimateId: string) =>
+    run(estimateSend, { workspaceId: w.wsId, estimateId }, w.owner);
+
+  it('keeps each option’s lines and totals, and reads as its first until one is picked', async () => {
+    const made = await newEstimate({ options: three, lines: [] });
+    const est = await reading(made.estimateId);
+    expect(est.optionCount).toBe(3);
+    expect(est.optionName).toBe('Good');
+    expect(est.options.map((o) => [o.position, o.name, o.picked])).toEqual([
+      [1, 'Good', true],
+      [2, 'Better', false],
+      [3, 'Best', false],
+    ]);
+    // The estimate's own lines and total are the first option's, so every older reader sees a whole estimate.
+    expect(est.lines.map((l) => l.name)).toEqual(['Repair the condenser']);
+    expect(est.totals.totalCents).toBe(est.options[0]!.totals.totalCents);
+    expect(est.options[2]!.lines.map((l) => l.name)).toEqual([
+      'New 18 SEER unit',
+      'Smart thermostat',
+    ]);
+    expect(est.options[2]!.totals.subtotalCents).toBe(745_000);
+    expect(est.options[1]!.totals.totalCents).toBeGreaterThan(est.options[0]!.totals.totalCents);
+    expect(est.builtBy).toBeNull();
+  });
+
+  it('refuses two options with one name, and fewer than two', async () => {
+    await expectHfos(
+      () =>
+        newEstimate({
+          options: [
+            { name: 'Good', lines: good },
+            { name: 'good ', lines: better },
+          ],
+        }),
+      'rule_violation',
+      'estimate_options',
+    );
+    await expectHfos(() => newEstimate({ options: [{ name: 'Good', lines: good }] }), 'validation');
+  });
+
+  it('keeps the options on a save that leaves them out, and takes them off on null', async () => {
+    const made = await newEstimate({ options: three, lines: [] });
+    const header = { workspaceId: w.wsId, estimateId: made.estimateId, personId: w.personId };
+    // A screen that shows one set of lines (the phone) saves the first option's and drops nothing.
+    const cheaper = [{ name: 'Repair the condenser', quantity: 1, unitPriceCents: 80_000 }];
+    const saved = await run(
+      estimateUpdate,
+      { ...header, lines: cheaper, baseRevision: made.revision },
+      w.owner,
+    );
+    let est = await reading(made.estimateId);
+    expect(est.optionCount).toBe(3);
+    expect(est.options[0]!.totals.subtotalCents).toBe(80_000);
+    expect(est.options[1]!.lines.map((l) => l.name)).toEqual(['New 14 SEER unit']);
+
+    const off = await run(
+      estimateUpdate,
+      { ...header, lines: better, options: null, baseRevision: saved.revision },
+      w.owner,
+    );
+    est = await reading(made.estimateId);
+    expect(est.optionCount).toBe(0);
+    expect(est.options).toEqual([]);
+    expect(est.optionName).toBeNull();
+    expect(est.lines.map((l) => l.name)).toEqual(['New 14 SEER unit']);
+    expect(off.revision).toBeGreaterThan(saved.revision);
+  });
+
+  it('won’t send while an option has nothing on it', async () => {
+    const made = await newEstimate({
+      options: [
+        { name: 'Good', lines: good },
+        { name: 'Better', lines: [] },
+      ],
+    });
+    const err = await expectHfos(
+      () => send(made.estimateId),
+      'rule_violation',
+      'money_document_empty',
+    );
+    expect(err.message).toContain('Better');
+  });
+
+  it('asks which option on approval, and makes the picked one the estimate', async () => {
+    const made = await newEstimate({ options: three, lines: [] });
+    await send(made.estimateId);
+    const before = await reading(made.estimateId);
+    const bestTotal = before.options[2]!.totals.totalCents;
+    // No option named: refused, and nothing is approved.
+    await expectHfos(
+      () =>
+        sys(estimateAcceptOnline, {
+          workspaceId: w.wsId,
+          estimateId: made.estimateId,
+          name: 'Maria L.',
+          wording: WORDING,
+        }),
+      'rule_violation',
+      'estimate_pick_option',
+    );
+    // An invoice is for what they picked, so it waits for their pick.
+    await expectHfos(
+      () => run(estimateConvert, { workspaceId: w.wsId, estimateId: made.estimateId }, w.owner),
+      'rule_violation',
+      'estimate_pick_option',
+    );
+    const accepted = await sys(estimateAcceptOnline, {
+      workspaceId: w.wsId,
+      estimateId: made.estimateId,
+      name: 'Maria L.',
+      wording: acceptanceWording(bestTotal, 'Lone Star Money', 'Best'),
+      option: 3,
+    });
+    expect(accepted.option).toEqual({ position: 3, name: 'Best' });
+    const est = await reading(made.estimateId);
+    expect(est.status).toBe('accepted');
+    expect(est.optionName).toBe('Best');
+    expect(est.options.map((o) => o.picked)).toEqual([false, false, true]);
+    expect(est.lines.map((l) => l.name)).toEqual(['New 18 SEER unit', 'Smart thermostat']);
+    expect(est.totals.totalCents).toBe(bestTotal);
+    // The options it went out with are still there to read.
+    expect(est.options[0]!.totals.totalCents).toBe(before.options[0]!.totals.totalCents);
+    // And the invoice is the picked option's.
+    const invoice = await run(
+      estimateConvert,
+      { workspaceId: w.wsId, estimateId: made.estimateId },
+      w.owner,
+    );
+    expect(invoice.totalCents).toBe(bestTotal);
+  });
+
+  it('takes a yes on the phone for a named option, and no other number', async () => {
+    const made = await newEstimate({
+      options: [
+        { name: 'Good', lines: good },
+        { name: 'Better', lines: better },
+      ],
+    });
+    await send(made.estimateId);
+    await expectHfos(
+      () =>
+        run(
+          estimateMarkAccepted,
+          { workspaceId: w.wsId, estimateId: made.estimateId, name: 'Maria', option: 3 },
+          w.owner,
+        ),
+      'rule_violation',
+      'estimate_pick_option',
+    );
+    const marked = await run(
+      estimateMarkAccepted,
+      { workspaceId: w.wsId, estimateId: made.estimateId, name: 'Maria', option: 2 },
+      w.owner,
+    );
+    expect(marked.option).toEqual({ position: 2, name: 'Better' });
+    const est = await reading(made.estimateId);
+    expect(est.lines.map((l) => l.name)).toEqual(['New 14 SEER unit']);
+    expect(est.acceptedWording).toContain('Better');
+  });
+
+  it('keeps a sent estimate’s options from anyone’s hands but the pick', async () => {
+    const made = await newEstimate({ options: three, lines: [] });
+    await send(made.estimateId);
+    // A person's own session can't rewrite what went out, nor pick without the right to bill.
+    await expect(
+      as(w.owner)((tx) =>
+        rows(tx, sql`update app.estimates set option_position = 2 where id = ${made.estimateId}`),
+      ),
+    ).rejects.toThrow();
+    await expect(
+      as(w.tech)((tx) =>
+        rows(tx, sql`select private.estimate_pick_option(${made.estimateId}::uuid, 2)`),
+      ),
+    ).rejects.toThrow();
+    const est = await reading(made.estimateId);
+    expect(est.optionName).toBe('Good');
   });
 });
 

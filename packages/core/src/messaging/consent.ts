@@ -221,13 +221,16 @@ function listUrls(urls: readonly string[]): string {
  * What the customer reads beside the box, quoted for the carrier, and what else the reviewer checks there. Quoting it
  * rather than describing it is what Twilio's 30924 asks for: the description has to show the consent language itself
  * (who is texting, the kinds of texts, frequency, rates, STOP and HELP), not promise that it exists.
+ *
+ * Two paragraphs: the quote on its own, so a reviewer (and the business reading it in the wizard) can find it at a
+ * glance, then what else is true of the box.
  */
-function disclosureClause(who: string): string {
-  return (
-    `The words beside the box read: "${smsConsentWords(who, 'form').detail}" Links to the privacy policy and ` +
-    'the terms sit beside the box. The box is never ticked for them and is never required. The date and time ' +
-    'of each agreement is kept against that customer.'
-  );
+function disclosureParagraphs(who: string): [quote: string, rest: string] {
+  return [
+    `The words beside the box read: "${smsConsentWords(who, 'form').detail}"`,
+    'Links to the privacy policy and the terms sit beside the box. The box is never ticked for them and is ' +
+      'never required. The date and time of each agreement is kept against that customer.',
+  ];
 }
 
 /** The offers box, said to the carrier, for a business that sends offers as well. */
@@ -281,6 +284,26 @@ function otherWaySentence(who: string, way: OtherOptIn): string {
 }
 
 /**
+ * **Short paragraphs, not one block.** The description is read by people: the business checking it in the wizard and
+ * the carrier's reviewer. One 1,500-character block was hard to read (owner, 2026-11-11), so each part (how customers
+ * agree, the words they read, the box, where to see it, every other way, STOP and START, the links) starts its own
+ * paragraph. Twilio's only rule for `message_flow` is 40 to 2,048 characters; a blank line between paragraphs costs
+ * one character more than the space it replaces. Empty parts are dropped, so nothing leaves a gap.
+ */
+const paragraphs = (...parts: readonly (string | null | undefined | false)[]): string =>
+  parts
+    .map((p) => (typeof p === 'string' ? p.trim() : ''))
+    .filter((p) => p.length > 0)
+    .join('\n\n');
+
+/**
+ * The same description, ignoring line breaks and spacing. A description saved before it had paragraphs is still
+ * "our wording" (the wizard keeps it following the answers, and puts the paragraphs in), not a business's own edit.
+ */
+export const sameDescription = (a: string, b: string): boolean =>
+  a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim();
+
+/**
  * The sentence the carrier reads, describing **the way this business actually collects consent** rather
  * than a way it might, and every other way it collects it too.
  *
@@ -300,17 +323,19 @@ export function optInDescriptionFor(
   const page = details.pageUrl?.trim() || null;
   const proof = details.proofUrl?.trim() || null;
   const offers = details.offers ? ` ${offersClause(who)}` : '';
-  const shown = proof ? ` What they see is shown at ${proof}.` : '';
-  const others = (details.otherWays ?? [])
-    .filter((w) => w.path !== path && w.url.trim())
-    .map((w) => ` ${otherWaySentence(who, w)}`)
-    .join('');
+  const shown = proof ? `What they see is shown at ${proof}.` : '';
   const policy = details.policyUrl?.trim() || null;
   const terms = details.termsUrl?.trim() || null;
-  const links = (policy ? ` Privacy policy: ${policy}.` : '') + (terms ? ` Terms: ${terms}.` : '');
+  // Each link on its own line, so it reads as a link rather than the end of a sentence.
+  const links = [policy ? `Privacy policy: ${policy}.` : '', terms ? `Terms: ${terms}.` : '']
+    .filter(Boolean)
+    .join('\n');
   // Twilio's own START handling lets someone who replied STOP rejoin: the campaign declares the keyword, so the
   // description says it too ("list every method").
-  const rejoin = ' Customers who replied STOP can rejoin by replying START.';
+  const rejoin = 'Customers who replied STOP can rejoin by replying START.';
+  const others = (details.otherWays ?? [])
+    .filter((w) => w.path !== path && w.url.trim())
+    .map((w) => otherWaySentence(who, w));
   switch (path) {
     case 'hosted': {
       // The chat on the business's own site, which asks for their details after their first message; any form or
@@ -318,19 +343,19 @@ export function optInDescriptionFor(
       const site = surfaces.siteUrl?.trim() || null;
       const chat = surfaces.chatUrl?.trim() || null;
       const more = liveSurfaces({ formUrl: surfaces.formUrl, bookingUrl: surfaces.bookingUrl });
-      return (
+      const [quote, box] = disclosureParagraphs(who);
+      return paragraphs(
         `Customers agree in the chat on ${site ?? `${who}'s website`}. After a visitor sends their first ` +
-        'message, the chat asks for their name, mobile number and email, and they can tick a box giving ' +
-        `${who} permission to text them. ` +
-        disclosureClause(who) +
-        offers +
+          'message, the chat asks for their name, mobile number and email, and they can tick a box giving ' +
+          `${who} permission to text them.`,
+        quote,
+        box + offers,
         (chat
-          ? ` A working sign-up page with the same form, where anyone can fill it in and agree, is at ${chat}.`
-          : '') +
-        (more.length ? ` The same box is on ${listUrls(more)}.` : '') +
-        others +
-        rejoin +
-        links
+          ? `A working sign-up page with the same form, where anyone can fill it in and agree, is at ${chat}.`
+          : '') + (more.length ? ` The same box is on ${listUrls(more)}.` : ''),
+        ...others,
+        rejoin,
+        links,
       );
     }
     case 'own_site': {
@@ -339,29 +364,31 @@ export function optInDescriptionFor(
         : urls.length
           ? `at ${listUrls(urls)}`
           : `on ${who}'s own website`;
-      return (
+      const [quote, box] = disclosureParagraphs(who);
+      return paragraphs(
         `Customers tick a box giving ${who} permission to text them, on the contact and enquiry forms ` +
-        `${where}. ` +
-        disclosureClause(who) +
-        offers +
-        shown +
-        others +
-        rejoin +
-        links
+          `${where}.`,
+        quote,
+        box + offers,
+        shown,
+        ...others,
+        rejoin,
+        links,
       );
     }
     case 'in_person':
-      return (
+      return paragraphs(
         `Customers give ${who} permission to text them in person or over the phone, when they ask for work ` +
-        `to be done. Before they agree they are told: "${smsConsentWords(who, 'form').detail}" Whoever takes ` +
-        'the permission records it against that customer, with the date and time.' +
-        (details.offers
-          ? ' Offers are asked about separately, and only customers who say yes to them get them.'
-          : '') +
-        (proof ? ` The sign-up sheet or the words used are shown at ${proof}.` : '') +
-        others +
-        rejoin +
-        links
+          'to be done.',
+        `Before they agree they are told: "${smsConsentWords(who, 'form').detail}"`,
+        'Whoever takes the permission records it against that customer, with the date and time.' +
+          (details.offers
+            ? ' Offers are asked about separately, and only customers who say yes to them get them.'
+            : ''),
+        proof ? `The sign-up sheet or the words used are shown at ${proof}.` : '',
+        ...others,
+        rejoin,
+        links,
       );
   }
 }

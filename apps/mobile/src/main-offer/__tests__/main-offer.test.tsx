@@ -19,6 +19,7 @@ import { openWeb } from '@/lib/open-web';
 import { workerPost } from '@/lib/worker';
 
 import { EditPartScreen } from '../edit';
+import { ContentListsScreen } from '../lists';
 import { useMainOfferRow } from '../row';
 import { MainOfferScreen } from '../screen';
 
@@ -588,5 +589,157 @@ describe('Edit it myself', () => {
       'Run the ads that bring calls',
       'Book the calls',
     ]);
+  });
+});
+
+describe('For your content (pick 6b: the lists change on the phone too, with the AI’s help)', () => {
+  const LISTS = '/v1/commands/main_offer.save_list';
+  const HELP = '/v1/main-offer/lists';
+
+  async function lists(permissions = MANAGE, list?: string) {
+    mockParams = list ? { list } : {};
+    await render(
+      <Provider permissions={permissions}>
+        <ContentListsScreen />
+      </Provider>,
+    );
+  }
+
+  it('is a row on Settings → Main offer, with how many lists are filled in', async () => {
+    answers['/v1/queries/main_offer.get'] = offerWith({
+      lists: { different: ['We answer every lead in 30 seconds'] },
+    });
+    await show();
+    const row = await screen.findByTestId('main-offer-lists-link');
+    expect(row).toHaveTextContent(/For your content.*1 of 11 lists filled in\./);
+    await fireEvent.press(row);
+    expect(router.push).toHaveBeenCalledWith(`/app/w/${LONE_STAR}/settings/main-offer-lists`);
+  });
+
+  it('adds a line, and keeps the lines the AI wrote that are ticked', async () => {
+    answers['/v1/queries/main_offer.get'] = offerWith({
+      lists: { different: ['We answer every lead in 30 seconds'] },
+    });
+    answers[LISTS] = { list: 'different', lines: [] };
+    await lists(MANAGE, 'different');
+    const input = await screen.findByTestId('main-offer-list-different-input');
+    await fireEvent.changeText(input, 'Texts go out from your own number');
+    answers[LISTS] = {
+      list: 'different',
+      lines: ['We answer every lead in 30 seconds', 'Texts go out from your own number'],
+    };
+    await fireEvent.press(screen.getByTestId('main-offer-list-different-add'));
+    await waitFor(() => expect(sent(LISTS)).toHaveLength(1));
+    expect(sent(LISTS)[0]![1].body).toEqual({
+      workspaceId: LONE_STAR,
+      list: 'different',
+      lines: ['We answer every lead in 30 seconds', 'Texts go out from your own number'],
+    });
+
+    worker[HELP] = { options: ['One AI for calls and texts', 'Set up in a day'], gaps: [] };
+    await fireEvent.press(screen.getByTestId('main-offer-list-different-write'));
+    expect(await screen.findByTestId('main-offer-list-different-suggestions')).toBeTruthy();
+    expect(askedWorker(HELP)[0]).toEqual({
+      workspaceId: LONE_STAR,
+      mode: 'write',
+      list: 'different',
+    });
+    // Both start ticked; untick the second, then keep the first.
+    await fireEvent.press(screen.getByTestId('main-offer-list-different-suggestion-1'));
+    answers[LISTS] = {
+      list: 'different',
+      lines: [
+        'We answer every lead in 30 seconds',
+        'Texts go out from your own number',
+        'One AI for calls and texts',
+      ],
+    };
+    expect(screen.getByTestId('main-offer-list-different-keep')).toHaveTextContent('Add 1 line');
+    await fireEvent.press(screen.getByTestId('main-offer-list-different-keep'));
+    await waitFor(() => expect(sent(LISTS)).toHaveLength(2));
+    expect(sent(LISTS)[1]![1].body['lines']).toEqual([
+      'We answer every lead in 30 seconds',
+      'Texts go out from your own number',
+      'One AI for calls and texts',
+    ]);
+    // The one left unticked stays on show, to add later.
+    const left = await screen.findByTestId('main-offer-list-different-suggestion-0');
+    expect(left).toHaveTextContent('Set up in a day');
+    expect(left).not.toBeChecked();
+  });
+
+  it('ticks several examples and adds them together, the rest kept on show', async () => {
+    answers['/v1/queries/main_offer.get'] = offerWith({ lists: {} });
+    worker[HELP] = {
+      options: ['Myth: AI sounds robotic', 'Myth: it’s only for big firms', 'Myth: it’s costly'],
+      gaps: [],
+    };
+    await lists(MANAGE, 'myths');
+    await fireEvent.press(await screen.findByTestId('main-offer-list-myths-examples-ask'));
+    expect(await screen.findByTestId('main-offer-list-myths-examples')).toBeTruthy();
+    // Examples start unticked: they're for another business like this one.
+    expect(screen.getByTestId('main-offer-list-myths-keep')).toHaveTextContent(
+      'Tick the ones to add',
+    );
+    await fireEvent.press(screen.getByTestId('main-offer-list-myths-example-0'));
+    await fireEvent.press(screen.getByTestId('main-offer-list-myths-example-2'));
+    expect(screen.getByTestId('main-offer-list-myths-keep')).toHaveTextContent('Add 2 lines');
+    answers[LISTS] = { list: 'myths', lines: ['Myth: AI sounds robotic', 'Myth: it’s costly'] };
+    await fireEvent.press(screen.getByTestId('main-offer-list-myths-keep'));
+    await waitFor(() => expect(sent(LISTS)).toHaveLength(1));
+    expect(sent(LISTS)[0]![1].body['lines']).toEqual([
+      'Myth: AI sounds robotic',
+      'Myth: it’s costly',
+    ]);
+    const left = await screen.findByTestId('main-offer-list-myths-example-0');
+    expect(left).toHaveTextContent('Myth: it’s only for big firms');
+    expect(screen.queryByTestId('main-offer-list-myths-example-1')).toBeNull();
+  });
+
+  it('improves a line three ways, and uses the one picked', async () => {
+    answers['/v1/queries/main_offer.get'] = offerWith({
+      lists: { voice: ['Friendly'] },
+    });
+    answers[LISTS] = { list: 'voice', lines: ['Friendly and plain, like a neighbour'] };
+    worker[HELP] = {
+      options: ['Friendly and plain, like a neighbour', 'Warm and direct', 'Plain words only'],
+      gaps: [],
+    };
+    await lists(MANAGE, 'voice');
+    await fireEvent.press(await screen.findByTestId('main-offer-list-line-improve'));
+    expect(await screen.findByTestId('main-offer-list-line-rewrites')).toBeTruthy();
+    expect(askedWorker(HELP)[0]).toEqual({
+      workspaceId: LONE_STAR,
+      mode: 'improve',
+      list: 'voice',
+      line: 'Friendly',
+    });
+    await fireEvent.press(screen.getByTestId('main-offer-list-line-rewrite-0'));
+    await waitFor(() => expect(sent(LISTS)).toHaveLength(1));
+    expect(sent(LISTS)[0]![1].body['lines']).toEqual(['Friendly and plain, like a neighbour']);
+  });
+
+  it('says what’s missing across the lists, and opens one from it', async () => {
+    worker[HELP] = {
+      options: [],
+      gaps: [{ list: 'story', note: 'Say why you started.' }],
+    };
+    await lists();
+    await fireEvent.press(await screen.findByTestId('main-offer-lists-gaps'));
+    const found = await screen.findByTestId('main-offer-lists-gaps-found');
+    expect(found).toHaveTextContent(/Your story.*Say why you started\./);
+    await fireEvent.press(screen.getByText('Say why you started.'));
+    expect(await screen.findByTestId('main-offer-list-story-input')).toBeTruthy();
+  });
+
+  it('is read only for everyone else', async () => {
+    answers['/v1/queries/main_offer.get'] = offerWith({ lists: { different: ['Fast answers'] } });
+    await lists(READ, 'different');
+    // In the list's row, and opened.
+    expect(await screen.findAllByText('Fast answers')).toHaveLength(2);
+    expect(screen.getByText('Only owners and admins can change these.')).toBeTruthy();
+    expect(screen.queryByTestId('main-offer-list-different-input')).toBeNull();
+    expect(screen.queryByTestId('main-offer-lists-gaps')).toBeNull();
+    expect(screen.queryByTestId('main-offer-list-line-improve')).toBeNull();
   });
 });

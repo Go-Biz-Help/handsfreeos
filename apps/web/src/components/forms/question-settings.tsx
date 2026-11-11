@@ -36,6 +36,7 @@ import type { FormCatalogsOut } from '@/lib/api/types';
 import { cueErrorMessage, writeCues } from '@/lib/forms/poll-cues';
 import { pollAiErrorMessage, suggestPoints } from '@/lib/forms/poll-leads';
 import { newChoice } from './editor-state';
+import { RequiredField, RequiredInput } from './required-text';
 
 const TARGET_KEYS = Object.keys(ANSWER_TARGETS) as AnswerTargetKey[];
 
@@ -79,14 +80,14 @@ export function QuestionSettings({
         <p className="text-[12px] font-medium uppercase tracking-wide text-text-3">
           {questionKindLabel(question)}
         </p>
-        <Field label="What does it ask?" htmlFor="q-title">
-          <Input
-            id="q-title"
-            value={question.title}
-            disabled={readOnly}
-            onChange={(e) => patch({ title: e.target.value })}
-          />
-        </Field>
+        <RequiredField
+          label="What does it ask?"
+          id="q-title"
+          holdKey={questionId}
+          value={question.title}
+          disabled={readOnly}
+          onSave={(title) => patch({ title })}
+        />
         <Field
           label="The smaller line underneath"
           htmlFor="q-help"
@@ -132,15 +133,15 @@ export function QuestionSettings({
 
       {question.type === 'content' ? (
         <Card className="p-4">
-          <Field label="What it says" htmlFor="q-body">
-            <Textarea
-              id="q-body"
-              rows={4}
-              value={String(config.body ?? '')}
-              disabled={readOnly}
-              onChange={(e) => patchConfig({ body: e.target.value })}
-            />
-          </Field>
+          <RequiredField
+            label="What it says"
+            id="q-body"
+            rows={4}
+            holdKey={questionId}
+            value={String(config.body ?? '')}
+            disabled={readOnly}
+            onSave={(body) => patchConfig({ body })}
+          />
         </Card>
       ) : null}
 
@@ -150,6 +151,7 @@ export function QuestionSettings({
 
       {question.type === 'button' ? (
         <ButtonSettings
+          questionId={questionId}
           config={config}
           patchConfig={patchConfig}
           readOnly={readOnly}
@@ -185,19 +187,16 @@ export function QuestionSettings({
 
       {question.type === 'signature' ? (
         <Card className="p-4">
-          <Field
+          <RequiredField
             label="What they are signing"
-            htmlFor="q-statement"
+            id="q-statement"
             hint="Shown above the box. They type their name to sign it."
-          >
-            <Textarea
-              id="q-statement"
-              rows={3}
-              value={String(config.statement ?? '')}
-              disabled={readOnly}
-              onChange={(e) => patchConfig({ statement: e.target.value })}
-            />
-          </Field>
+            rows={3}
+            holdKey={questionId}
+            value={String(config.statement ?? '')}
+            disabled={readOnly}
+            onSave={(statement) => patchConfig({ statement })}
+          />
         </Card>
       ) : null}
 
@@ -557,11 +556,13 @@ function PointsSettings({
 
 /** A live poll's button: its words, and what pressing it does. */
 function ButtonSettings({
+  questionId,
   config,
   patchConfig,
   readOnly,
   catalogs,
 }: {
+  questionId: string;
   config: Record<string, unknown>;
   patchConfig: (fields: Record<string, unknown>) => void;
   readOnly: boolean;
@@ -572,16 +573,16 @@ function ButtonSettings({
     'h-9 w-full rounded-control border border-border-strong bg-card px-2.5 text-sm text-text';
   return (
     <Card className="space-y-4 p-4" data-testid="question-button">
-      <Field label="The words on the button" htmlFor="q-button-label">
-        <Input
-          id="q-button-label"
-          value={String(config.label ?? '')}
-          maxLength={40}
-          disabled={readOnly}
-          onChange={(e) => patchConfig({ label: e.target.value })}
-          data-testid="button-label"
-        />
-      </Field>
+      <RequiredField
+        label="The words on the button"
+        id="q-button-label"
+        holdKey={questionId}
+        value={String(config.label ?? '')}
+        maxLength={40}
+        disabled={readOnly}
+        onSave={(label) => patchConfig({ label })}
+        testId="button-label"
+      />
       <Field label="Pressing it" htmlFor="q-button-action">
         <select
           id="q-button-action"
@@ -824,16 +825,17 @@ function Choices({
       <Label>The choices</Label>
       {choices.map((choice) => (
         <div key={choice.id} className="flex items-center gap-2">
-          <Input
+          <RequiredInput
+            holdKey={choice.id}
             value={choice.label}
             disabled={readOnly}
             aria-label="Choice"
-            onChange={(e) =>
+            onSave={(label) =>
               apply([
                 {
                   op: 'update_question',
                   questionId,
-                  patch: { config: { choices: [{ id: choice.id, label: e.target.value }] } },
+                  patch: { config: { choices: [{ id: choice.id, label }] } },
                 },
               ])
             }

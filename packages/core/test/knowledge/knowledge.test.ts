@@ -10,6 +10,7 @@ import {
   KnowledgeItemContent,
   KnowledgeProfile,
   KnowledgeSuggestionDraft,
+  profileWithBusinessHours,
   quoteCustomerText,
   similarGaps,
   suggestionFromGap,
@@ -96,6 +97,22 @@ describe('briefFromProfile', () => {
     });
     const words = briefFromProfile(huge, business).split(/\s+/).filter(Boolean).length;
     expect(words).toBeLessThanOrEqual(BRIEF_MAX_WORDS);
+  });
+});
+
+describe('profileWithBusinessHours', () => {
+  it('puts the business hours in place of the hours typed into the profile', () => {
+    const open = [1, 2, 3, 4, 5].map((day) => ({ day, start: '09:00', end: '17:00' }));
+    const read = profileWithBusinessHours(profile, [
+      ...open,
+      { day: 6, start: '10:00', end: '14:00' },
+    ]);
+    expect(read.hours).toBe('Mon–Fri 9:00 AM–5:00 PM; Sat 10:00 AM–2:00 PM');
+    expect(read.description).toBe(profile.description);
+    expect(briefFromProfile(read, business)).toContain(
+      'Hours: Mon–Fri 9:00 AM–5:00 PM; Sat 10:00 AM–2:00 PM',
+    );
+    expect(briefFromProfile(read, business)).not.toContain('7 AM');
   });
 });
 

@@ -43,6 +43,8 @@ import {
   DECLINE_LABEL,
   estimateAcceptOnline,
   estimateDeclineOnline,
+  estimateOptionsOf,
+  estimateOptionsOut,
   estimateRecordView,
   estimateSelect,
   estimateState,
@@ -202,6 +204,8 @@ const honeypot = { website: z.string().max(500).optional() };
 
 const AcceptBody = z.object({
   name: z.string().trim().min(1, 'Type your name.').max(120),
+  /** The option they picked (1, 2 or 3), on an estimate that offers more than one. */
+  option: z.int().min(1).max(3).nullable().default(null),
   ...honeypot,
 });
 const DeclineBody = z.object({
@@ -337,6 +341,9 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
     );
     const open = state === 'sent' || state === 'viewed';
     const business = await businessOf(tx, scope.workspaceId, deps.storageUrl);
+    const options = row.option_count
+      ? estimateOptionsOut(await estimateOptionsOf(tx, row.id), row)
+      : [];
     return {
       state: state as string,
       business,
@@ -357,6 +364,15 @@ async function estimateView(deps: HttpDeps, scope: TenantScope, estimateId: stri
         /** What is asked for up front, as it was written ("25%"), beside the figure it comes to. */
         deposit: depositTermsOf(row),
         depositCents: deposit(row),
+        /**
+         * Good, better, best: the options to pick from, in order, each with the words that sit above Approve
+         * when it's the one picked. Empty for an estimate with one price. Once one is approved, `picked` is it,
+         * and the lines and totals above are its own.
+         */
+        options: options.map((o) => ({
+          ...o,
+          wording: acceptanceWording(o.totals.totalCents, business.name, o.name),
+        })),
         expiresOn: row.expires_on,
         expiresAt,
         sentAt: moneyIso(row.sent_at),
@@ -928,7 +944,13 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
           );
           if (!found) throw linkNotFound();
           const business = await businessOf(tx, e.scope.workspaceId, deps.storageUrl);
-          return acceptanceWording(Number(found.total_cents), business.name);
+          // An option picked: the words name it and its own figure. One that isn't there is the command's to refuse.
+          const picked = body.option
+            ? (await estimateOptionsOf(tx, e.documentId))[body.option - 1]
+            : undefined;
+          return picked
+            ? acceptanceWording(picked.totals.totalCents, business.name, picked.name)
+            : acceptanceWording(Number(found.total_cents), business.name);
         });
         const { output } = await executeCommand(
           deps.httpDb,
@@ -938,6 +960,7 @@ export async function registerMoneyRoutes(app: FastifyInstance, deps: HttpDeps):
             estimateId: e.documentId,
             name: body.name,
             wording,
+            option: body.option,
           },
           systemActor(e.scope),
           meta(),

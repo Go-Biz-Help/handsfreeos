@@ -5,17 +5,17 @@ import {
   can,
   CONVERSATION_STATUSES,
   INBOX_BOXES,
+  INBOX_SHOW_NOTES,
   inboxEmptyWords,
-  MAIL_BOX_NAMES,
-  PRIVATE_THREAD_WORDS,
+  inboxShowOf,
+  inboxShowPick,
   rowName,
-  STATUS_LABELS,
   unreadFilterLabel,
   unreadLabel,
   type InboxBoxKey,
-  type InboxMailbox,
+  type InboxShowKey,
 } from '@hfos/core';
-import { Lock, Search, SquarePen, Trash2 } from 'lucide-react';
+import { Search, SquarePen, Trash2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   createContext,
@@ -29,7 +29,7 @@ import {
 import { DeleteDialog } from '@/components/bin/delete-dialog';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Input, Select } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Segmented } from '@/components/ui/segmented';
 import {
   useConversationsWithDrafts,
@@ -42,8 +42,8 @@ import { cn } from '@/lib/utils';
 import { TeammateBoxes } from './ai-bits';
 import { ConversationRow } from './conversation-row';
 import { useInboxList } from './hooks';
-import { MailBoxes } from './mail-boxes';
 import { NewMessageDialog } from './new-message-dialog';
+import { ShowMenu } from './show-menu';
 
 interface InboxContextValue {
   readonly workspaceId: string;
@@ -62,9 +62,6 @@ interface InboxContextValue {
 }
 
 const InboxContext = createContext<InboxContextValue | null>(null);
-
-/** The boxes of a person's own mail (M19): its Inbox (`all`), Other mail and Spam. */
-const OWN_BOXES: readonly InboxBoxKey[] = ['all', 'other', 'spam'];
 
 export function useInbox(): InboxContextValue {
   const value = useContext(InboxContext);
@@ -107,15 +104,12 @@ export function InboxShell({
   // that has narrowed its inbox (everyone who doesn't set up the channels, 0106) lands on them, because that is
   // what they came for; everybody else lands where they always have. Nothing is hidden either way — pressing
   // Everyone still shows them what they may see.
-  // The person's own mail (M19), beside the team's: its own Inbox, Other mail and Spam.
-  const mailbox: InboxMailbox = params.get('mail') === 'mine' ? 'mine' : 'team';
-  const home: InboxBoxKey =
-    mailbox === 'team' && narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';
-  const box: InboxBoxKey =
-    (INBOX_BOXES as readonly string[]).includes(boxParam) &&
-    (mailbox === 'team' || OWN_BOXES.includes(boxParam as InboxBoxKey))
-      ? (boxParam as InboxBoxKey)
-      : home;
+  // The person's own mail (M19) is in the list beside the team's, each thread of theirs marked "Only you", in every
+  // box it belongs in: there's no page of its own (Chris, 2026-11-11), so an old `?mail=mine` link shows everything.
+  const home: InboxBoxKey = narrowed && !can(permissions, 'channels.manage') ? 'mine' : 'all';
+  const box: InboxBoxKey = (INBOX_BOXES as readonly string[]).includes(boxParam)
+    ? (boxParam as InboxBoxKey)
+    : home;
   const status: ConversationStatus = (CONVERSATION_STATUSES as readonly string[]).includes(
     statusParam,
   )
@@ -131,7 +125,6 @@ export function InboxShell({
   // `status` still goes with it: the archived box ignores it server-side, since a thread keeps the status it had.
   const list = useInboxList(workspaceId, {
     box: archivedView ? ('archived' as InboxBoxKey) : box,
-    mailbox,
     status,
     ...(q ? { q } : {}),
     ...(unread ? { unread } : {}),
@@ -164,24 +157,21 @@ export function InboxShell({
   // The teammate's boxes: once there's a teammate, or while anything is in them.
   const showBoxes = !!teammate || needsPerson > 0 || aiCount > 0;
   const mail = summary?.mail ?? { mine: 0, other: 0, spam: 0, own: false };
-  // The badges count open conversations in the three boxes, the person's own Inbox and Other mail; anywhere else
-  // the chip has no number to show.
+  // The badges count open conversations in the three boxes and Other mail; anywhere else the chip has no number.
   const unreadCount =
     status !== 'open' || archivedView
       ? null
-      : mailbox === 'mine'
-        ? box === 'all'
-          ? mail.mine
-          : null
-        : box === 'mine' || box === 'unassigned' || box === 'all'
-          ? (summary?.unread[box] ?? null)
-          : box === 'other'
-            ? mail.other
-            : null;
+      : box === 'mine' || box === 'unassigned' || box === 'all'
+        ? (summary?.unread[box] ?? null)
+        : box === 'other'
+          ? mail.other
+          : null;
+  // What the Show menu is on, and picking another: a status keeps the box, Archived, Other mail and Spam are boxes
+  // of their own (Archived rides on `status`, where it always has).
+  const show: InboxShowKey = archivedView ? 'archived' : inboxShowOf(box, status);
 
   const listQuery = useMemo(() => {
     const p = new URLSearchParams();
-    if (mailbox === 'mine') p.set('mail', 'mine');
     if (box !== 'all') p.set('box', box);
     if (archivedView) p.set('status', 'archived');
     else if (status !== 'open') p.set('status', status);
@@ -189,7 +179,7 @@ export function InboxShell({
     if (unread) p.set('unread', '1');
     const s = p.toString();
     return s ? `?${s}` : '';
-  }, [mailbox, box, status, q, archivedView, unread]);
+  }, [box, status, q, archivedView, unread]);
 
   const setFilter = useCallback(
     (change: Record<string, string | null>) => {
@@ -199,11 +189,21 @@ export function InboxShell({
         else p.delete(k);
       }
       p.delete('new');
+      p.delete('mail');
       const s = p.toString();
       router.replace(`${pathname}${s ? `?${s}` : ''}`, { scroll: false });
     },
     [params, pathname, router],
   );
+  const pickShow = (key: InboxShowKey) => {
+    const next = inboxShowPick(key, archivedView ? 'archived' : box, home);
+    if (next.box === 'archived') setFilter({ status: 'archived', box: null });
+    else
+      setFilter({
+        box: next.box === home ? null : next.box,
+        status: next.status === 'open' ? null : next.status,
+      });
+  };
 
   // Search as you type, a beat after the last key; follow searches started elsewhere (the phone's top bar).
   useEffect(() => {
@@ -254,7 +254,6 @@ export function InboxShell({
     q,
     teammate?.name ?? 'The AI teammate',
     unread,
-    mailbox,
   );
 
   return (
@@ -283,64 +282,27 @@ export function InboxShell({
                 New message
               </Button>
             </div>
-            {mailbox === 'mine' ? (
-              <>
-                <div
-                  className="flex items-center justify-between gap-2 text-[13px]"
-                  data-testid="my-mail"
-                >
-                  <span className="flex min-w-0 items-center gap-1.5 text-text-2">
-                    <Lock className="h-3.5 w-3.5 flex-none" strokeWidth={1.5} />
-                    <span className="truncate">
-                      <span className="font-medium text-text">{MAIL_BOX_NAMES.mine}</span> ·{' '}
-                      {PRIVATE_THREAD_WORDS.onlyYou}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    className="flex-none font-medium text-accent-text"
-                    onClick={() => setFilter({ mail: null, box: null })}
-                    data-testid="mail-back"
-                  >
-                    {PRIVATE_THREAD_WORDS.back}
-                  </button>
-                </div>
-                <Segmented
-                  fill
-                  ariaLabel="My mail"
-                  className="max-md:[&>button]:h-9"
-                  value={box}
-                  onChange={(v) => setFilter({ box: v === 'all' ? null : v })}
-                  options={[
-                    { value: 'all', label: 'Inbox', testId: 'mail-inbox' },
-                    { value: 'other', label: MAIL_BOX_NAMES.other, testId: 'mail-other' },
-                    { value: 'spam', label: MAIL_BOX_NAMES.spam, testId: 'mail-spam' },
-                  ]}
-                />
-              </>
-            ) : (
-              <Segmented
-                fill
-                ariaLabel="Whose conversations"
-                className="max-md:[&>button]:h-9"
-                value={box}
-                onChange={(v) => setFilter({ box: v === home ? null : v })}
-                options={[
-                  { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
-                  {
-                    value: 'unassigned',
-                    label: boxLabel('unassigned', counts.unassigned),
-                    testId: 'box-unassigned',
-                  },
-                  {
-                    value: 'all',
-                    label: boxLabel('all', counts.all, narrowed),
-                    testId: 'box-all',
-                  },
-                ]}
-              />
-            )}
-            {mailbox === 'team' && showBoxes ? (
+            <Segmented
+              fill
+              ariaLabel="Whose conversations"
+              className="max-md:[&>button]:h-9"
+              value={box}
+              onChange={(v) => setFilter({ box: v === home ? null : v })}
+              options={[
+                { value: 'mine', label: boxLabel('mine', counts.mine), testId: 'box-mine' },
+                {
+                  value: 'unassigned',
+                  label: boxLabel('unassigned', counts.unassigned),
+                  testId: 'box-unassigned',
+                },
+                {
+                  value: 'all',
+                  label: boxLabel('all', counts.all, narrowed),
+                  testId: 'box-all',
+                },
+              ]}
+            />
+            {showBoxes ? (
               <TeammateBoxes
                 box={box}
                 name={teammate?.name ?? null}
@@ -349,23 +311,20 @@ export function InboxShell({
                 onPick={(b) => setFilter({ box: b === home ? null : b })}
               />
             ) : null}
-            {mailbox === 'team' ? (
-              <MailBoxes
-                on={box === 'other' || box === 'spam' ? box : null}
-                own={mail.own}
-                counts={mail}
-                onPick={(b) =>
-                  b === 'mine'
-                    ? setFilter({ mail: 'mine', box: null })
-                    : setFilter({ box: b ?? null })
-                }
-              />
-            ) : null}
-            <div className="flex items-center justify-between gap-2">
+            {/* Unread and Select on top, the search and the Show menu under them. At phone width the search is in the
+                top bar, so the Show menu moves up beside Unread. */}
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3">
               <UnreadToggle
                 on={unread}
                 count={unreadCount}
                 onToggle={() => setFilter({ unread: unread ? null : '1' })}
+                className="col-start-1 row-start-1"
+              />
+              <ShowMenu
+                value={show}
+                counts={{ other: mail.other, spam: mail.spam }}
+                onPick={pickShow}
+                className="col-start-2 row-start-1 justify-self-start md:col-start-3 md:row-start-2"
               />
               {canDelete ? (
                 <Button
@@ -373,14 +332,13 @@ export function InboxShell({
                   size="sm"
                   aria-pressed={picking}
                   onClick={() => (picking ? stopPicking() : setPicking(true))}
+                  className="col-start-3 row-start-1 justify-self-end"
                   data-testid="inbox-pick"
                 >
                   {picking ? 'Done' : 'Select'}
                 </Button>
               ) : null}
-            </div>
-            <div className="hidden gap-2 md:flex">
-              <div className="relative flex-1">
+              <div className="relative col-span-2 col-start-1 row-start-2 hidden md:block">
                 <Search
                   className="pointer-events-none absolute left-2.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-text-3"
                   strokeWidth={1.5}
@@ -395,23 +353,6 @@ export function InboxShell({
                   data-testid="inbox-search"
                 />
               </div>
-              <Select
-                selectSize="sm"
-                className="w-[112px]"
-                value={archivedView ? 'archived' : status}
-                aria-label="Status"
-                data-testid="inbox-status"
-                onChange={(e) =>
-                  setFilter({ status: e.target.value === 'open' ? null : e.target.value })
-                }
-              >
-                {CONVERSATION_STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
-                  </option>
-                ))}
-                <option value="archived">Archived</option>
-              </Select>
             </div>
             {q ? (
               <div className="flex items-center justify-between gap-2 text-[13px] text-text-2 md:hidden">
@@ -426,6 +367,24 @@ export function InboxShell({
               </div>
             ) : null}
           </div>
+          {show === 'other' || show === 'spam' ? (
+            <div
+              className="flex items-start gap-2.5 border-b border-border bg-card-2 px-3.5 py-2.5 md:px-4"
+              data-testid="inbox-show-note"
+            >
+              <p className="min-w-0 flex-1 text-[12.5px] leading-[1.45] text-text-2">
+                {INBOX_SHOW_NOTES[show]}
+              </p>
+              <button
+                type="button"
+                className="flex-none pt-px text-[12.5px] font-semibold text-accent-text hover:underline"
+                onClick={() => pickShow('open')}
+                data-testid="inbox-show-back"
+              >
+                {INBOX_SHOW_NOTES.back}
+              </button>
+            </div>
+          ) : null}
           <div
             className="min-h-0 flex-1 overflow-y-auto pb-[76px] md:pb-0"
             data-testid="conversation-list"
@@ -531,14 +490,16 @@ function UnreadToggle({
   on,
   count,
   onToggle,
+  className,
 }: {
   on: boolean;
   /** Null where the badges have no count for the list showing. */
   count: number | null;
   onToggle: () => void;
+  className?: string;
 }) {
   return (
-    <div className="flex">
+    <div className={cn('flex', className)}>
       <button
         type="button"
         aria-pressed={on}

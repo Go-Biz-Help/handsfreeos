@@ -27,6 +27,7 @@ import type { Engaged, PostResult } from '../facebook/compose';
 import { clean } from '../facebook/dom';
 import { shown } from '../facebook/fetch';
 import { sameName } from '../facebook/people';
+import { putPostIn } from '../post-text';
 import { hasWriting } from './actions';
 import { inNested, postOnPage, says, waitFor } from './auto';
 import { scrolls, SHOW_MORE } from './browse';
@@ -67,8 +68,11 @@ const CLOSE = /^(dismiss|close)$/i;
 /** How long the box closing is waited on once Post is pressed. */
 const POSTING_MS = 16_000;
 
-/** Words compared as a page shows them: one space between words, in lower case, the first 60 characters. */
-const opening = (text: string) => text.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 60);
+/**
+ * Words compared with no spaces or line breaks at all, in lower case, the first 60 characters: a page may run a post's
+ * paragraphs together or put a line between them (decision 158).
+ */
+const opening = (text: string) => text.replace(/\s+/g, '').toLowerCase().slice(0, 60);
 
 /** Whether a post on a page is this one: it starts the same way (LinkedIn cuts a long one short with …more). */
 export function startsLike(theirs: string, mine: string): boolean {
@@ -149,7 +153,8 @@ export async function writeFeedPost(
   writing.focus();
   writing.click();
   await pause(300);
-  doc.execCommand('insertText', false, text);
+  // Pasted, so its paragraphs stay (decision 158).
+  await putPostIn(doc, writing, text, hasWriting);
   await pause(800);
   if (!hasWriting(writing)) return notSent;
   const post = await waitFor(() => postButton(box), 3_000);

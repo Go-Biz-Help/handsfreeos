@@ -74,11 +74,19 @@ keystroke, and the form's parse trims every text, so it calls `applyFormOps` wit
 space typed at either end. Without it the space after a word was gone before the next word arrived. The server
 applies the same ops without `keepSpaces`, so nothing is stored with stray spaces.
 
+**The editor lets a box the form needs be emptied; it never saves it empty.** A question's words, a choice, the
+words on a button, what a words-only question says and what a signature is for can't be empty, so the parse
+refuses an op that empties one ("Write the question."). Applied on every keystroke, that refusal left the last
+letter behind when someone selected it all and pressed Backspace (2026-11-11). Those boxes use `RequiredField` and
+`RequiredInput` (`apps/web/src/components/forms/required-text.tsx`): while one is empty nothing is sent, the line
+under it says the form keeps its last words until new ones are typed, and the first letter goes through as usual.
+Drafts stay valid, so nothing about publishing changes.
+
 ## Checkboxes, and a single checkbox
 
 - **Checkboxes** (`type: 'checkboxes'`, called "Pick any" until 2026-11-02) is several choices where they check any
   number, with an optional least and most.
-- **A single checkbox** is one box to check, like "I agree to the terms" or "Text me updates". It isn't a type of its
+- **A single checkbox** is one box to check, like "I agree to the terms" or "I own my home". It isn't a type of its
   own: it's a yes or no shown as one box (`config.display = 'checkbox'`, `isSingleCheckbox`), so Results, show-if
   rules, the export, a quiz's grading, the phone and the AI teammate all read it as the yes or no they already know.
   The question's title is the words beside the box. The add menu has a row for it (`single_checkbox` in
@@ -91,6 +99,12 @@ applies the same ops without `keepSpaces`, so nothing is stored with stray space
 - **One that must be answered must be checked** (`CHECK_THIS_BOX` in `render.ts`). A No (said in a conversation, say)
   doesn't count as agreeing. Saving part way leaves that problem out until it's sent
   (`isUnansweredProblem`), as it does for any question not answered yet.
+- **A form never needs a texting box of its own** (2026-11-11). Every form that asks who they are already shows ours
+  under the questions (`smsConsentWords`): the carrier-approved words the texting registration quotes, never ticked,
+  never required, and the only box whose yes is saved on the customer. A yes or no the business adds asking the same
+  thing (`textingBoxesTwice` in `forms/texting-box.ts`) gets a warning card in the editor with **Delete this
+  question**, and the Assistant's `get_form` lists it under `asksForTextsTwice`. A warning, never a blocker: the words
+  are only a guess at what the question means. A required one is called out too, since carriers turn those down.
 
 ## The public page
 

@@ -314,6 +314,8 @@ export const customRecordCreate = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['custom_record.created'],
+  // The system too: an add-on's worker makes records of the kinds it manages (a Social post the calendar writes).
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const kind = await requireRecordType(ctx.tx, ws, input.typeId, { live: true });
@@ -382,6 +384,8 @@ export const customRecordUpdate = defineCommand({
   permission: 'records.write',
   scope: inWorkspace,
   emits: ['custom_record.updated'],
+  // The system too: an add-on's worker renames a record it wrote again (a Social post's title).
+  actors: ['human', 'system'],
   async handler(ctx, input) {
     const current = await requireCustomRecord(
       ctx.tx,

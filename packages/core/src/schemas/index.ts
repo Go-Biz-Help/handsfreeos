@@ -27,6 +27,7 @@ export * from './message';
 export * from './call';
 export * from './user-phone';
 export * from './email';
+export * from './email-setup';
 export * from './calendar';
 export * from './workflow';
 export * from './knowledge';

@@ -4,8 +4,51 @@
  * these in the language the person uses it in, so for now the readers expect English.
  */
 
+/**
+ * The buttons a profile in professional mode may show beside Message, as its owner picks one: never a friend button
+ * (the owner's problem reports of 9 Nov 2026: one of these, Message and Follow, and no Add friend). Lower-case.
+ */
+export const PROFILE_ACTION_WORDS: ReadonlySet<string> = new Set([
+  'apply now',
+  'book appointment',
+  'book now',
+  'buy tickets',
+  'call now',
+  'contact us',
+  'donate now',
+  'get directions',
+  'get offer',
+  'get quote',
+  'get started',
+  'get tickets',
+  'join now',
+  'learn more',
+  'listen now',
+  'order food',
+  'order now',
+  'play game',
+  'request appointment',
+  'see menu',
+  'send email',
+  'send message',
+  'send whatsapp message',
+  'shop now',
+  'sign up',
+  'start order',
+  'use app',
+  'view menu',
+  'view shop',
+  'visit website',
+  'watch video',
+]);
+
+/** Facebook's line under a profile's Posts when it shows none of theirs: hidden from you, or never posted. */
+export const NO_POSTS_WORDS: ReadonlySet<string> = new Set(['no posts available', 'no posts yet']);
+
 /** Lower-case, exactly as Facebook shows them. */
 export const UI_WORDS: ReadonlySet<string> = new Set([
+  ...PROFILE_ACTION_WORDS,
+  ...NO_POSTS_WORDS,
   'aa',
   'about',
   'accept',

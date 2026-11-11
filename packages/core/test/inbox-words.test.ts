@@ -34,6 +34,11 @@ import {
   heldLine,
   heldWhen,
   inboxEmptyWords,
+  INBOX_SHOW,
+  INBOX_SHOW_LABELS,
+  INBOX_SHOW_NOTES,
+  inboxShowOf,
+  inboxShowPick,
   unreadFilterLabel,
   keywordLine,
   listTime,
@@ -204,6 +209,15 @@ describe('the list', () => {
     expect(chips({ channel: 'chat', person: null, onSiteNow: true })).toEqual([
       'on_site:On the site now',
     ]);
+    // The viewer's own mail among the team's (M19): marked first, and never offered as a new customer.
+    expect(
+      chips({
+        channel: 'email',
+        person: null,
+        private: true,
+        awaitingReplySince: '2026-09-17T12:00:00Z',
+      }),
+    ).toEqual(['private:Only you', 'wait:Waiting 40 min']);
   });
 
   /**
@@ -258,6 +272,29 @@ describe('the list', () => {
     expect(inboxEmptyWords('all', 'open', 'duct', 'Ava', true).title).toBe(
       'Nothing matches “duct”',
     );
+  });
+
+  it('picks what the list shows in one place: the statuses, then Archived, Other mail and Spam', () => {
+    expect(INBOX_SHOW.map((k) => INBOX_SHOW_LABELS[k])).toEqual([
+      'Open',
+      'Snoozed',
+      'Closed',
+      'Archived',
+      'Other mail',
+      'Spam',
+    ]);
+    expect(inboxShowOf('mine', 'snoozed')).toBe('snoozed');
+    expect(inboxShowOf('other', 'open')).toBe('other');
+    expect(inboxShowOf('archived', 'open')).toBe('archived');
+    // A status keeps the box showing; Archived, Other mail and Spam are boxes of their own, their open ones.
+    expect(inboxShowPick('closed', 'mine', 'all')).toEqual({ box: 'mine', status: 'closed' });
+    expect(inboxShowPick('spam', 'mine', 'all')).toEqual({ box: 'spam', status: 'open' });
+    // Out of one of those, a status goes back to the person's usual box.
+    expect(inboxShowPick('open', 'spam', 'mine')).toEqual({ box: 'mine', status: 'open' });
+    expect(inboxShowPick('snoozed', 'archived', 'all')).toEqual({ box: 'all', status: 'snoozed' });
+    // Each folder says what's in it and how a thread gets out.
+    expect(INBOX_SHOW_NOTES.other).toContain('Move to Inbox');
+    expect(INBOX_SHOW_NOTES.spam).toContain('Not spam');
   });
 
   it('labels the Unread filter with its count when there is one', () => {

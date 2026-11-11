@@ -922,7 +922,10 @@ than a store extension, and for more features, and answered the questions the sa
     0.114.1, someone kept by username whose chat window links to them by number (as Facebook's do) has that number
     checked first: the extension opens its profile, and only when Facebook shows it at their username does the
     message go, into the window that links to that number (the owner's report of 30 Oct 2026, when two OK'd messages
-    came back "Couldn't find a chat open with them").
+    came back "Couldn't find a chat open with them"). From 0.134.1 (the owner's pick, 11 Nov 2026), once a message's last
+    text has gone on Facebook, the small chat window it went in is closed by its own Close chat, so the windows its
+    messages open don't pile up from page to page (11 were left open when a message couldn't tell which chat was the
+    person's); other windows, and Messenger's own chat page, are left as they are.
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
     rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Built: the
     AI says whether each reply it drafts is simple; with (b) a simple one goes as it is, with (c) every one does, and
@@ -3973,6 +3976,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         `ops/sends.ts`), so Today lists them again and the extension writes them afresh. A failed one tried again keeps
         its version, so it's written again too. Raise `RULES_VERSION` when another change to what the AI writes should
         reach the messages already drafted.
+
+158.  **Posts keep their paragraphs** (Chris, 11 Nov 2026, with a picture of his helpful post in a roofing group:
+      "posts should have line spacing instead of being all jumbled up like this"). The AI wrote short paragraphs with a
+      blank line between them, as `helpfulSystem` asks, and the kept post had them; Chrome's insertText with the whole
+      post lost every line break in Facebook's box (Lexical), so it went up as one block, "…just wait.Turns out…".
+      He picked 1a, 2a and 3a ("your picks"). Extension 0.134.2, no migration.
+      - **Pasted, as a person would** (`putPostIn` in `apps/extension/src/networks/post-text.ts`): a post with line
+        breaks goes into the box as a paste, which keeps each paragraph and the blank lines (1a). A plain box, or one
+        that takes no paste, is typed in as before.
+      - **Every post the extension puts up** (2a): a helpful post in a Facebook group, on LinkedIn and on Alignable,
+        and the Content Creator's posts on a profile, a Page, LinkedIn and Instagram.
+      - **Comments and messages are typed as before** (3a): they're one paragraph, and Enter would send them.
+      - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
+        LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
+        in its fortnight, and who commented and reacted become warm leads.
 
 ## Rules worth knowing before changing anything
 

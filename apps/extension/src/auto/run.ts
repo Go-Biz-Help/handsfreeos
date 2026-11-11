@@ -483,7 +483,13 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
     );
     return look ? { done: false, line, look } : { done: false, line };
   };
-  if (!theirs.posts.length) return missed(`No post of ${item.name}’s to like: ${after.without}`);
+  if (!theirs.posts.length) {
+    const line = `No post of ${item.name}’s to like: ${after.without}`;
+    if (!theirs.none) return missed(line);
+    // Facebook says they have no posts: nothing's left to try, and nothing went wrong to report (decision 145's skip).
+    await missed(line);
+    return { done: false, line, skip: true };
+  }
   const posts = theirs.posts.map((p) => ({
     text: p.text,
     pictures: [...p.pictures],
@@ -908,7 +914,9 @@ async function sendMessage(
   for (const [i, part] of parts.entries()) {
     // The next text a few seconds after, as long as typing it takes.
     if (i > 0) await pause(partPauseMs(part, Math.random()));
-    let wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+    // After the last, the window it went in is closed, so they don't pile up from send to send.
+    const close = i === parts.length - 1 ? ({ close: true } as const) : {};
+    let wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names, ...close });
     // The window their Message opened links to them by a key HandsFreeOS doesn't keep: that key, once Facebook shows
     // it's theirs, and only then is it asked again.
     if (i === 0 && wrote.ok && wrote.result === 'none' && wrote.linksTo) {
@@ -919,7 +927,7 @@ async function sendMessage(
           `${item.name}: couldn’t make sure the chat that opened was theirs, so nothing was sent`,
         );
       profile = checked.profile;
-      wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names });
+      wrote = await tab.ask({ type: 'hfos-message', text: part, profile, names, ...close });
     }
     const why = !wrote.ok
       ? wrote.error

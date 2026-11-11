@@ -1855,6 +1855,14 @@ export const emailDomains = app.table('email_domains', {
   ownershipProvedAt: ts('ownership_proved_at'),
   createdBy: userRef('created_by'),
   ...timestamps(),
+  /**
+   * What happens once its records check out (the business email step, 20261027025600): the team address made and
+   * the default, the person's own address, receiving its mail. Cleared once done.
+   */
+  plan: jsonb('plan').$type<Json>().notNull().default({}),
+  /** Where its mail goes now (none, google, microsoft…) and where its DNS is managed, as the worker last looked. */
+  mailHost: text('mail_host'),
+  dnsHost: text('dns_host'),
 });
 
 /** A sending address: on the shared subdomain (no domain) or on a verified workspace domain. */
@@ -3480,6 +3488,8 @@ export const mainOffers = app.table('main_offers', {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** The lists for content (20261027025900), each its lines; not scored or versioned, like the names. */
+  lists: jsonb('lists').$type<Json>().notNull().default({}),
   ...timestamps(),
 });
 
@@ -4271,6 +4281,15 @@ export const estimates = app.table('estimates', {
    * never chased from here (`imported: 'quiet'`). Invoices have carried the same since M9.
    */
   reminderState: jsonb('reminder_state').$type<Json>().notNull().default({}),
+  /**
+   * Good, better, best (20261027024100): two or three options, each `{ name, lines, totals }` as core worked them
+   * out, or null for an estimate with one price. The estimate's own lines and totals are always the option at
+   * `option_position`: the first until one is picked.
+   */
+  options: jsonb('options').$type<readonly unknown[]>(),
+  optionPosition: integer('option_position'),
+  /** The add-on whose builder wrote it, which changes and sends it while it runs in the business. */
+  addonId: text('addon_id'),
   createdBy: userRef('created_by'),
   ...timestamps(),
   // Milestone 10

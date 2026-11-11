@@ -1,7 +1,7 @@
 {
   "area": "salescoach",
   "title": "The AI Sales Coach add-on and any add-on page drawn by the generic add-on route",
-  "checkedOn": "2026-11-09",
+  "checkedOn": "2026-11-11",
   "files": {
     "apps/mobile/src/addons/gate.tsx": "7be28a0fe47e",
     "apps/mobile/src/addons/salescoach/call-card.tsx": "e11b62dde145",
@@ -9,7 +9,7 @@
     "apps/mobile/src/addons/salescoach/more.tsx": "6375527d5542",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/_layout.tsx": "a70094e99ef9",
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/a/salescoach/index.tsx": "fc20cb64c8ce",
-    "apps/web/src/addons/registry.ts": "e9761d069e05",
+    "apps/web/src/addons/registry.ts": "03150bd26303",
     "apps/web/src/addons/salescoach/call-panel.tsx": "04eeac0b46c2",
     "apps/web/src/addons/salescoach/calls-view.tsx": "9df2ca234691",
     "apps/web/src/addons/salescoach/composer-suggestions.tsx": "aa5c423c9d4e",
@@ -30,7 +30,7 @@
     {
       "path": "Side menu → AI Sales Coach (opens Live call)",
       "kind": "do",
-      "file": "apps/web/src/addons/registry.ts:260",
+      "file": "apps/web/src/addons/registry.ts:274",
       "covered": "yes",
       "by": "add-on directory line in the prompt; salescoach_live reads the page"
     },

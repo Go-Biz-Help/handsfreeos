@@ -58,6 +58,7 @@ import {
   uuidArray,
   workspaceZone,
 } from '../calendar/load';
+import { jobFits, jobSteps, placeKindOf } from '../calendar/job-steps';
 import { parseReminderState } from '../calendar/reminders';
 import { validateCalendar } from '../calendar/rules';
 import { HfosError } from '../errors';
@@ -528,10 +529,14 @@ async function jobFor(tx: Tx, workspaceId: string, appointmentId: string) {
     status_changed_at: Date | string | null;
     eta_at: Date | string | null;
     person_id: string | null;
+    location: unknown;
+    industry: string | null;
   }>(
     tx,
-    sql`select j.id, j.title, j.status, j.customer_note, j.status_changed_at, j.eta_at, j.person_id
+    sql`select j.id, j.title, j.status, j.customer_note, j.status_changed_at, j.eta_at, j.person_id,
+          a.location, w.industry
         from app.appointments a join app.jobs j on j.id = a.job_id
+        join app.workspaces w on w.id = a.workspace_id
         where a.id = ${appointmentId} and a.workspace_id = ${workspaceId}`,
   );
   if (!row) return null;
@@ -557,10 +562,17 @@ async function jobFor(tx: Tx, workspaceId: string, appointmentId: string) {
             order by a.starts_at limit 10`,
       )
     : [];
+  const fit = {
+    locationKind: placeKindOf(row.location),
+    industry: row.industry,
+    status: row.status,
+  };
   return {
     id: row.id,
     title: row.title,
     status: row.status,
+    fits: jobFits(fit),
+    steps: [...jobSteps(fit)],
     customerNote: row.customer_note,
     statusChangedAt: iso(row.status_changed_at),
     etaAt: iso(row.eta_at),

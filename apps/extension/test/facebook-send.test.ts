@@ -8,6 +8,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TodayListItem } from '../src/hfos/messages';
+import { theirPosts } from '../src/networks/facebook/auto';
 import { load } from './load';
 
 const FB = 'https://www.facebook.com';
@@ -86,10 +87,12 @@ vi.mock('../src/tab', async () => {
         if (!doc) return { ok: false, error: 'The Facebook tab was closed.' };
         const at = doc.location.href;
         if (message.type === 'hfos-read') return { ok: true, result: kit.readPage(doc, at) };
-        // The tab's script reads its own page and address.
-        const here = globalThis as { location?: unknown; document?: unknown };
+        // The tab's script reads its own page and address, and scrolls its own window.
+        const here = globalThis as { location?: unknown; document?: unknown; window?: unknown };
+        const hadWindow = 'window' in here;
         here.location = new URL(at);
         here.document = doc;
+        if (!hadWindow) here.window = { scrollBy: () => undefined, innerHeight: 800 };
         try {
           return (
             (await kit.work!(message)) ?? { ok: false, error: `Not expected: ${message.type}` }
@@ -97,6 +100,7 @@ vi.mock('../src/tab', async () => {
         } finally {
           delete here.location;
           delete here.document;
+          if (!hadWindow) delete here.window;
         }
       }
     },
@@ -201,6 +205,8 @@ function chatWindow(doc: Document, name: string, href: string | null): Element {
     .replaceAll('Riley', name.split(' ')[0]!)
     .replaceAll('/riley.quinn.7/', href ?? '');
   if (!href) chat.querySelector('a[href=""]')!.remove();
+  // Its Close chat takes it away, as Facebook's does.
+  chat.querySelector('[aria-label="Close chat"]')!.addEventListener('click', () => chat.remove());
   return chat;
 }
 
@@ -253,11 +259,11 @@ function danaProfile(
   return doc;
 }
 
-/** Sends it, with time passed for Facebook's waits. */
-async function send(item: TodayListItem) {
+/** Sends it, with time passed for Facebook's waits: as a few texts when `split`. */
+async function send(item: TodayListItem, split = false) {
   vi.useFakeTimers({ toFake: ['setTimeout'] });
   try {
-    const going = doWork({ do: 'send', item }, ME.businessId, false);
+    const going = doWork({ do: 'send', item }, ME.businessId, split);
     await vi.advanceTimersByTimeAsync(60_000);
     return await going;
   } finally {
@@ -295,6 +301,55 @@ describe('sending a message on Facebook', () => {
     expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
     // Noted with the chat HandsFreeOS keeps, which showed her name, as her replies there are matched by it.
     expect(noted()).toMatchObject({ thread: { id: THREAD_KEY } });
+  });
+
+  it('closes the chat window it sent in once the message has gone, and leaves the others open', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) =>
+      url === CHAT
+        ? load('chat-2026.html', CHAT)
+        : url === DANA
+          ? (page = danaProfile(sent, { opens: true, rileyOpen: true }))
+          : null;
+    const outcome = await send(approved());
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(sent).toEqual([{ to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' }]);
+    expect(page!.querySelector('[aria-label="Write to Dana Reyes"]')).toBeNull();
+    expect(page!.querySelector('[aria-label="Write to Riley Quinn"]')).not.toBeNull();
+  });
+
+  it('keeps the window open between a message’s texts, and closes it after the last', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) =>
+      url === CHAT
+        ? load('chat-2026.html', CHAT)
+        : url === DANA
+          ? (page = danaProfile(sent, { opens: true, rileyOpen: false }))
+          : null;
+    const text = 'Glad to help, Dana.\n\nWant me to send the link?';
+    const outcome = await send(approved({ send: { ...approved().send!, text } }), true);
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    // The second text went in her window too: it was still open.
+    expect(sent).toEqual([
+      { to: 'Write to Dana Reyes', text: 'Glad to help, Dana.' },
+      { to: 'Write to Dana Reyes', text: 'Want me to send the link?' },
+    ]);
+    expect(page!.querySelector('[aria-label="Write to Dana Reyes"]')).toBeNull();
+  });
+
+  it('leaves Messenger’s own chat page as it is after sending there', async () => {
+    const sent: Sent[] = [];
+    let page: Document | null = null;
+    world.pages = (url) => {
+      const doc = url === CHAT ? (page = load('chat-2026.html', CHAT)) : null;
+      if (doc) sends(doc, sent);
+      return doc;
+    };
+    const outcome = await send(approved({ profileUrl: `${FB}/profile.php?id=${THREAD_KEY}` }));
+    expect(outcome).toEqual({ done: true, line: 'Sent Dana Reyes a message' });
+    expect(page!.querySelector('[aria-label="Message Dana Reyes"]')).not.toBeNull();
   });
 
   it('sends nothing into the last person’s chat window when theirs doesn’t open, and says so', async () => {
@@ -645,6 +700,25 @@ describe('a friend request on Facebook', () => {
     expect(await step(request)).toEqual(PASSED_OVER);
   });
 
+  it('passes over one in professional mode, its own button and Follow beside Message (the owner’s reports of 9 Nov 2026)', async () => {
+    world.pages = (url) => {
+      if (url !== DANA) return null;
+      const doc = noAddFriend();
+      const message = doc.querySelector('[role="button"][aria-label="Message"]')!;
+      message.insertAdjacentHTML(
+        'beforebegin',
+        '<div role="button" aria-label="Book now"><span>Book now</span></div>',
+      );
+      message.insertAdjacentHTML(
+        'afterend',
+        '<div role="button" aria-label="Follow"><span>Follow</span></div>',
+      );
+      return doc;
+    };
+    expect(await step(request)).toEqual(PASSED_OVER);
+    expect(world.posted.filter((p) => p.path === CLOSED)).toHaveLength(1);
+  });
+
   it('hands one over as a page it couldn’t read when a button it doesn’t know is beside Message', async () => {
     world.pages = (url) => {
       if (url !== DANA) return null;
@@ -663,5 +737,51 @@ describe('a friend request on Facebook', () => {
       need: true,
     });
     expect(world.posted.filter((p) => p.path === CLOSED)).toEqual([]);
+  });
+});
+
+describe('a warm-up on Facebook', () => {
+  /** Dana's warm-up: a like on one of her posts, the day before her friend request. */
+  const warmUp = { ...approved(), kind: 'warm_up', send: null, threadKey: null } as TodayListItem;
+  const MISSED = '/v1/commands/outreach.warm_up.missed';
+  const LINE = 'No post of Dana Reyes’s to like: their friend request goes without';
+
+  /** Dana's profile with none of her posts drawn, and Facebook's line under Posts, or not. */
+  function noPosts(says: string | null): Document {
+    const doc = load('profile-2026.html', DANA);
+    const dana = { id: null, username: 'dana.reyes.12', url: DANA };
+    for (const { box } of theirPosts(doc, DANA, dana)) box.remove();
+    for (const box of doc.querySelectorAll('[role="article"]')) box.remove();
+    if (says)
+      doc
+        .querySelector('[role="main"]')!
+        .insertAdjacentHTML(
+          'beforeend',
+          `<h2><span>Posts</span></h2><span dir="auto">${says}</span>`,
+        );
+    return doc;
+  }
+
+  async function step(item: TodayListItem) {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    try {
+      const going = doWork({ do: 'step', item }, ME.businessId, false);
+      await vi.advanceTimersByTimeAsync(60_000);
+      return await going;
+    } finally {
+      vi.useRealTimers();
+    }
+  }
+
+  it('reports nothing when Facebook says they have no posts, and the request goes without (the owner’s reports of 9 Nov 2026)', async () => {
+    world.pages = (url) => (url === DANA ? noPosts('No posts available') : null);
+    expect(await step(warmUp)).toEqual({ done: false, line: LINE, skip: true });
+    expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
+  });
+
+  it('still says it found none when Facebook doesn’t say they have none', async () => {
+    world.pages = (url) => (url === DANA ? noPosts(null) : null);
+    expect(await step(warmUp)).toEqual({ done: false, line: LINE });
+    expect(world.posted.filter((p) => p.path === MISSED)).toHaveLength(1);
   });
 });

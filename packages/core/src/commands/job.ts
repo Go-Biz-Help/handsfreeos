@@ -1,13 +1,14 @@
 /**
  * Jobs (M18): the work a customer is waiting on. Every booked visit starts one (calendar/booking.ts); staff gather
  * more visits into it to make a project, and move it along — on the way, started, waiting on parts, done — from
- * the phone or the web. Each change can text the customer (the worker's `job.status_changed` handler), with the
- * arrival time for On my way.
+ * the phone or the web, on visits the team goes to (calendar/job-steps.ts says which, and where parts fit). Each
+ * change can text the customer (the worker's `job.status_changed` handler), with the arrival time for On my way.
  *
  * Events are filed under the visit (entityType `appointment`), so every screen that shows a visit refreshes.
  */
 import { and, asc, eq, ne } from 'drizzle-orm';
-import { appointmentAttendees, appointments, jobs } from '@hfos/db/schema';
+import { appointmentAttendees, appointments, jobs, workspaces } from '@hfos/db/schema';
+import { jobStepRefusal, placeKindOf } from '../calendar/job-steps';
 import { HfosError } from '../errors';
 import { userIdOf } from '../kernel/actor';
 import { defineCommand } from '../kernel/define';
@@ -94,6 +95,19 @@ export const jobSetStatus = defineCommand({
         `“${appt.title}” was cancelled, so its job can’t move along. Book a new visit if the work is still going ahead.`,
       );
     const job = await jobOf(ctx, appt);
+    const [ws] = await ctx.tx
+      .select({ industry: workspaces.industry })
+      .from(workspaces)
+      .where(eq(workspaces.id, appt.workspaceId));
+    // Only visits the team goes to get On my way and the rest, and Waiting on parts only where work uses parts.
+    const refused = jobStepRefusal({
+      title: appt.title,
+      locationKind: placeKindOf(appt.location),
+      industry: ws?.industry ?? null,
+      status: job.status,
+      to: input.status,
+    });
+    if (refused) throw HfosError.rule(refused.rule, 409, refused.message);
     const noteChanged =
       input.customerNote !== undefined && (input.customerNote || null) !== job.customerNote;
     const status = input.status as JobStatus;

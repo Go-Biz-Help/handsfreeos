@@ -31,6 +31,7 @@ import {
   onboardingSetupStopName,
   onboardingSetupSummary,
   onboardingSetupTitle,
+  onboardingSetupTouchedAfterSave,
   planOnboardingBooking,
   planOnboardingSetup,
   setupKindOf,
@@ -49,6 +50,11 @@ import { AppState, View, type ScrollView } from 'react-native';
 
 import { AiSetupScreen } from '@/components/ai-setup/screens';
 import { TryAva } from '@/components/ai-setup/try-ava';
+import {
+  EmailOwnScreen,
+  EmailRecordsScreen,
+  EmailSenderScreen,
+} from '@/components/email-setup/screens';
 import { ArrowLeft, Check, RotateCcw } from '@/components/icons';
 import { businessHref } from '@/components/shell/business-context';
 import { Button } from '@/components/ui/button';
@@ -219,10 +225,14 @@ export function OnboardingQuickSetup({
   /** Takes in what the server says now: all of it after the first screen, else what isn't answered on screen. */
   const adopt = React.useCallback((fresh: OnboardingSetupGot, all: boolean) => {
     setGot(fresh);
+    // All of it after the first screen, except what's changed on a screen not saved yet (`touched`).
     setAnswers((local) =>
-      all
-        ? fresh.answers
-        : mergeOnboardingSetupAnswers(local, fresh.answers, touched.current, reached.current),
+      mergeOnboardingSetupAnswers(
+        local,
+        fresh.answers,
+        touched.current,
+        all ? null : reached.current,
+      ),
     );
     if (!businessTouched.current) setBusinessDraft(onboardingSetupBusinessDraftOf(fresh.state));
   }, []);
@@ -343,7 +353,7 @@ export function OnboardingQuickSetup({
     try {
       const saved = await calls.save({ screen: 'booking', answers: latest.current.answers });
       reached.current = saved.reached;
-      touched.current.clear();
+      touched.current = onboardingSetupTouchedAfterSave(touched.current, saved.reached);
       setBooking({ ...NOTHING_MADE, changes: saved.changes, notes: saved.notes });
       await refresh();
     } catch (e) {
@@ -388,7 +398,12 @@ export function OnboardingQuickSetup({
         });
         reached.current = saved.reached;
         const [fresh, read] = await Promise.all([calls.get(), calls.ai.findings()]);
-        touched.current.clear();
+        // Picking where they start from picks those answers again (`onboarding_setup.save`), so they're taken as
+        // they are; otherwise what's changed on a screen not saved yet stays.
+        touched.current =
+          startPick !== undefined
+            ? new Set()
+            : onboardingSetupTouchedAfterSave(touched.current, saved.reached);
         businessTouched.current = false;
         setStartPick(undefined);
         // Kept as they were, and picked again for the kind of business when that changed.
@@ -416,7 +431,8 @@ export function OnboardingQuickSetup({
           ...(inviting ? { invite: emails } : {}),
         });
         reached.current = saved.reached;
-        touched.current.clear();
+        // The server keeps the screens finished; an answer changed further on (then Back) stays changed.
+        touched.current = onboardingSetupTouchedAfterSave(touched.current, saved.reached);
         setAnswers(clean);
         setCarrying(false);
         if (saved.notes.length) toast.show(saved.notes.join(' '));
@@ -424,8 +440,9 @@ export function OnboardingQuickSetup({
           setInvites(['']);
           void refresh();
         }
-        // The page is live (or down) now, and the AI teammate's chat goes on it: the screens ahead follow.
-        if (screen === 'page') await refresh();
+        // The page is live (or down) now, and the AI teammate's chat goes on it: the screens ahead follow. The
+        // business email's domain is added (or its plan kept), and its records follow.
+        if (screen === 'page' || screen === 'email' || screen === 'email_records') await refresh();
         const after = walk
           ? onboardingSetupOwnerNext(walk, screen)
           : onboardingSetupNextScreen(screen, clean, facts);
@@ -601,6 +618,24 @@ export function OnboardingQuickSetup({
         return <BookingScreen {...own} booking={booking} onRetry={() => void makeBooking()} />;
       case 'number':
         return <NumberScreen {...own} />;
+      case 'email':
+      case 'email_records':
+      case 'email_own': {
+        const email = {
+          state: state.email,
+          answers: answers.email,
+          set: (v: Answers['email']) => set('email', v),
+          problems,
+          calls: calls.email,
+        };
+        return screen === 'email' ? (
+          <EmailSenderScreen {...email} />
+        ) : screen === 'email_records' ? (
+          <EmailRecordsScreen {...email} onChanged={refresh} />
+        ) : (
+          <EmailOwnScreen {...email} onChanged={refresh} forClient={forClient} />
+        );
+      }
       case 'paid':
         return <PaidScreen {...own} />;
       case 'try':

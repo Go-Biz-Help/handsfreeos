@@ -17,6 +17,7 @@
 import { and, asc, desc, eq, inArray, ne, sql as dsql, type SQL } from 'drizzle-orm';
 import { rows, sql, type Tx } from '@hfos/db/client';
 import { paymentConnections, subscriptions } from '@hfos/db/schema';
+import { ADDON_CATALOG } from '../addons/catalog';
 import { workspaceTimezone } from '../crm/records';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -55,6 +56,8 @@ import {
   countersOf,
   isoAt,
   moneyIso,
+  estimateOptionsOf,
+  estimateOptionsOut,
   estimateOut,
   estimateSelect,
   invoiceOut,
@@ -398,6 +401,20 @@ export const estimateList = defineQuery({
   },
 });
 
+/** The add-on whose builder wrote an estimate, and whether it runs here (so it's the one to change and send it). */
+async function builtByOf(ctx: QueryContext, addonId: string | null) {
+  if (!addonId) return null;
+  const [on] = await rows<{ ok: boolean }>(
+    ctx.tx,
+    sql`select private.addon_in_use(${ctx.scope.workspaceId!}::uuid, ${addonId}, false) as ok`,
+  );
+  return {
+    addonId,
+    name: ADDON_CATALOG.find((a) => a.id === addonId)?.name ?? 'An add-on',
+    running: on?.ok === true,
+  };
+}
+
 export const estimateGet = defineQuery({
   name: 'estimate.get',
   description:
@@ -442,6 +459,10 @@ export const estimateGet = defineQuery({
         declinedReason: row.declined_reason,
         voidReason: row.void_reason,
         lines: linesOut(lines.get(row.id) ?? [], Number(row.discount_cents)),
+        options: row.option_count
+          ? estimateOptionsOut(await estimateOptionsOf(ctx.tx, row.id), row)
+          : [],
+        builtBy: await builtByOf(ctx, row.addon_id),
       },
       invoices: raised.map((r) => ({
         id: r.id,

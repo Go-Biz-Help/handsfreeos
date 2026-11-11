@@ -12,6 +12,9 @@
  * ended. A read that couldn't go on stops that network for a while (signed out, a reader that can't read the page) or
  * for the day (a warning, the day's room used).
  *
+ * Before any reading, each minute, it puts up the business's OK'd posts whose time has come (part 9, ./posting.ts),
+ * then reads how its own posts did about 2 and 7 days after they went up (part 11, ./own.ts).
+ *
  * It never does Social Outreach's work, and Social Outreach never does its: they share only the extension, the
  * network's pace and its day's warnings (decision 1).
  */
@@ -28,7 +31,9 @@ import {
 } from './hfos';
 import { INSTAGRAM_READS_BY_KIND } from './instagram-read';
 import { PAGE_READS_BY_KIND } from './page-read';
-import { roomOn, type ReadCtx, type ReadEnd } from './read';
+import { ownTurn } from './own';
+import { postTurn } from './posting';
+import { roomOn, searchRoomOn, type ReadCtx, type ReadEnd } from './read';
 import { ResearchTab } from './tab';
 
 export const RESEARCH_ALARM = 'hfos-research';
@@ -109,15 +114,42 @@ export async function researchTick(): Promise<void> {
   }
 }
 
-/** Takes and does the next thing waiting in any business: whether there was one. */
+/** The window for a network's work, opened once and kept. */
+function tabFor(network: ResearchNetwork): ResearchTab {
+  let tab = tabs.get(network);
+  if (!tab) {
+    tab = new ResearchTab(KITS[network]);
+    tabs.set(network, tab);
+  }
+  return tab;
+}
+
+/**
+ * Takes and does the next thing waiting in any business: whether there was one. A post due to go up (part 9,
+ * ./posting.ts) comes before any reading, whatever room reading has left today; then reading how its own posts did
+ * (part 11, ./own.ts), a few pages a day.
+ */
 async function next(): Promise<boolean> {
+  const version = chrome.runtime.getManifest().version;
+  for (const business of await businessesNow()) {
+    if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
+    if (await postTurn(business.id, tabFor, version)) return true;
+  }
+  // Then how its own posts did, about 2 and 7 days after they went up (part 11, ./own.ts).
+  for (const business of await businessesNow()) {
+    if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
+    if (await ownTurn(business.id, tabFor)) return true;
+  }
   const reads = await readsNow();
   if (!reads.length) return false;
+  // Searches for new creators only where their share of the day is left: the rest is for ticked creators (./read.ts).
+  const searchOn: ResearchNetwork[] = [];
+  for (const network of reads) if (await searchRoomOn(network)) searchOn.push(network);
   for (const business of await businessesNow()) {
     if ((notReaderUntil.get(business.id) ?? 0) > Date.now()) continue;
     let work: ResearchWork | null;
     try {
-      work = (await workNext(business.id, reads)).work;
+      work = (await workNext(business.id, reads, searchOn)).work;
     } catch (error) {
       if (error instanceof ResearchRefused && error.rule === 'socialcontent_not_reader')
         notReaderUntil.set(business.id, Date.now() + NOT_READER_FOR_MS);
@@ -135,11 +167,7 @@ async function next(): Promise<boolean> {
 /** Does one thing, and says how it ended. */
 async function doWork(businessId: string, work: ResearchWork): Promise<void> {
   const network = work.network as ResearchNetwork;
-  let tab = tabs.get(network);
-  if (!tab) {
-    tab = new ResearchTab(KITS[network]);
-    tabs.set(network, tab);
-  }
+  const tab = tabFor(network);
   let end: ReadEnd;
   try {
     end = await READS[network][work.kind]({ businessId, work, tab });

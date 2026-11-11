@@ -233,7 +233,12 @@ describe('showing it again', () => {
       key: 'door_code',
       viewedBy: agent.id,
     });
-    expect(JSON.stringify(events)).not.toContain('4417');
+    // Without the ids, which are random and can hold those four digits.
+    const words = JSON.stringify(events).replace(
+      /[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/g,
+      '',
+    );
+    expect(words).not.toContain('4417');
   });
 
   it('isn’t there for someone who can’t see the record', async () => {

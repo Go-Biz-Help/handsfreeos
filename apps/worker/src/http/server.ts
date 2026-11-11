@@ -18,9 +18,11 @@ import {
   registrationFingerprint,
   registrationRecordCheck,
   formatPhone,
+  framedAddresses,
   HfosError,
   policyAsText,
   privacyPolicy,
+  readConsentBox,
   SPOKEN_VOICE_HEADER,
   termsOfService,
   type FetchedPage,
@@ -514,6 +516,27 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       }
     };
 
+    /**
+     * A page where customers agree, and when it has no box of its own, the forms framed on it (core's
+     * `framedAddresses`): a reviewer's browser shows a framed form, so the check looks inside too. The first framed
+     * form with a box stands in for the page, keeping the page's address, since that is what the carrier is given.
+     */
+    const openWithFrames = async (raw: string | null | undefined): Promise<FetchedPage | null> => {
+      const page = await open(raw);
+      if (!page || page.status === null || page.status >= 400 || readConsentBox(page.html).found)
+        return page;
+      for (const address of framedAddresses(page.html, page.finalUrl ?? page.url)) {
+        const framed = await open(address);
+        if (framed?.status && framed.status < 400 && readConsentBox(framed.html).found)
+          return {
+            ...page,
+            html: framed.html,
+            framedUrl: framed.finalUrl ?? framed.url,
+          };
+      }
+      return page;
+    };
+
     // Our own policy and terms, as they'll read once sent: written from the wizard's answers, not fetched.
     const [site] = input.policyBusiness
       ? await asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
@@ -540,7 +563,7 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
       open(targets.website),
       hostedOr(targets.policyUrl, 'privacy'),
       hostedOr(targets.termsUrl, 'terms'),
-      open(optInPath === 'in_person' ? targets.optInProofUrl : targets.optInUrl),
+      optInPath === 'in_person' ? open(targets.optInProofUrl) : openWithFrames(targets.optInUrl),
       // The hosted path is the chat on their own site: its key (in the snippet) and where it was last seen open.
       optInPath === 'hosted'
         ? asWorker(deps.httpDb, { workspaceId: input.workspaceId }, (tx) =>
@@ -551,7 +574,11 @@ export async function buildHttpServer(deps: HttpDeps): Promise<FastifyInstance> 
             ),
           )
         : Promise.resolve(null),
-      Promise.all(targets.otherWays.map((w) => open(w.url))),
+      Promise.all(
+        targets.otherWays.map((w) =>
+          w.path === 'in_person' ? open(w.url) : openWithFrames(w.url),
+        ),
+      ),
     ]);
 
     const checks: PreflightCheck[] = [

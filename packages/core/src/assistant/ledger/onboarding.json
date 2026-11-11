@@ -1,35 +1,39 @@
 {
   "area": "onboarding",
   "title": "Onboarding and getting set up",
-  "checkedOn": "2026-11-08",
+  "checkedOn": "2026-11-11",
   "files": {
     "apps/mobile/src/app/app/index.tsx": "73fbf8b3712b",
+    "apps/mobile/src/app/app/w/[workspaceId]/email-setup.tsx": "281bc322da7c",
     "apps/mobile/src/app/app/w/[workspaceId]/setup.tsx": "db9834128278",
-    "apps/mobile/src/components/ai-setup/screens.tsx": "612a5fe08cdc",
+    "apps/mobile/src/components/ai-setup/screens.tsx": "cda7ad04ca31",
     "apps/mobile/src/components/ai-setup/try-ava.tsx": "98bce89daa16",
+    "apps/mobile/src/components/email-setup/email-setup-flow.tsx": "5e68d3bf29df",
+    "apps/mobile/src/components/email-setup/screens.tsx": "d611416b7a54",
     "apps/mobile/src/components/onboarding-setup/business.tsx": "11430d47d94b",
     "apps/mobile/src/components/onboarding-setup/create-business.tsx": "8aa7ebdb352b",
     "apps/mobile/src/components/onboarding-setup/frame.tsx": "9c4dd3dcf6cb",
     "apps/mobile/src/components/onboarding-setup/look.tsx": "94e41896520a",
     "apps/mobile/src/components/onboarding-setup/number.tsx": "928071d1d003",
     "apps/mobile/src/components/onboarding-setup/page.tsx": "8bc7baad0367",
-    "apps/mobile/src/components/onboarding-setup/quick-setup.tsx": "c2faeb8ce8b0",
-    "apps/mobile/src/components/onboarding-setup/screens.tsx": "455122d17aea",
+    "apps/mobile/src/components/onboarding-setup/quick-setup.tsx": "03350302e17c",
+    "apps/mobile/src/components/onboarding-setup/screens.tsx": "9ad6830ee642",
     "apps/mobile/src/components/onboarding/phone-tour.tsx": "0bfd1790f091",
-    "apps/mobile/src/onboarding-setup/calls.ts": "267484f15234",
+    "apps/mobile/src/onboarding-setup/calls.ts": "2c4ac736d210",
     "apps/mobile/src/onboarding-setup/use-onboarding-setup.ts": "9f7b55950621",
     "apps/mobile/src/onboarding-setup/words.ts": "2f69e31d6d18",
     "apps/mobile/src/onboarding/use-getting-started.ts": "e53c6c94e50d",
     "apps/web/src/app/founding/checkout/[id]/page.tsx": "97ce650e2e79",
+    "apps/web/src/app/onboarding/[workspaceId]/email/page.tsx": "5f93ae3bf250",
     "apps/web/src/app/onboarding/[workspaceId]/layout.tsx": "d097390c49e1",
     "apps/web/src/app/onboarding/[workspaceId]/page.tsx": "edcad14ee841",
     "apps/web/src/app/onboarding/[workspaceId]/plan/page.tsx": "6b59c562b310",
     "apps/web/src/app/onboarding/[workspaceId]/questions/page.tsx": "af29345fa2c7",
     "apps/web/src/app/onboarding/[workspaceId]/setup/[step]/page.tsx": "8a6e456498f8",
     "apps/web/src/app/onboarding/page.tsx": "f588bb2381d8",
-    "apps/web/src/components/ai-setup/fields.tsx": "5f6c5ac8a1ea",
-    "apps/web/src/components/ai-setup/quick-setup.tsx": "402a7cb0604b",
-    "apps/web/src/components/ai-setup/screens.tsx": "0aa6364fdcde",
+    "apps/web/src/components/ai-setup/fields.tsx": "e984ff863980",
+    "apps/web/src/components/ai-setup/quick-setup.tsx": "ac505a7a1feb",
+    "apps/web/src/components/ai-setup/screens.tsx": "be84fd802fdb",
     "apps/web/src/components/ai-setup/try-ava.tsx": "3fe517fdd2f6",
     "apps/web/src/components/ai-team/preset-picker.tsx": "10b8ce6d8c58",
     "apps/web/src/components/ai-team/teammate-tab.tsx": "b615137a6e7f",
@@ -37,6 +41,8 @@
     "apps/web/src/components/calendars/booking-site-form.tsx": "f9c406f07de7",
     "apps/web/src/components/calendars/services-page.tsx": "b24ab458a23f",
     "apps/web/src/components/calendars/weekly-hours.tsx": "86cab98e3be1",
+    "apps/web/src/components/email-setup/email-setup-flow.tsx": "f915f0e5b2f0",
+    "apps/web/src/components/email-setup/screens.tsx": "7c9827e63072",
     "apps/web/src/components/founding/checkout-status.tsx": "4a625aae0ff9",
     "apps/web/src/components/founding/pick-plan.tsx": "42dc147eaa62",
     "apps/web/src/components/home/phone-app-dialog.tsx": "7082b1060829",
@@ -49,8 +55,8 @@
     "apps/web/src/components/onboarding-setup/create-business.tsx": "4a60c1410436",
     "apps/web/src/components/onboarding-setup/frame.tsx": "5e67d37631eb",
     "apps/web/src/components/onboarding-setup/page-preview.tsx": "a756c826230f",
-    "apps/web/src/components/onboarding-setup/quick-setup.tsx": "efc0a6fe0277",
-    "apps/web/src/components/onboarding-setup/screens.tsx": "7276525abcd6",
+    "apps/web/src/components/onboarding-setup/quick-setup.tsx": "0a9346bd8104",
+    "apps/web/src/components/onboarding-setup/screens.tsx": "0e1251be3486",
     "apps/web/src/components/onboarding/calendar-setup.tsx": "c5dd55fe4559",
     "apps/web/src/components/onboarding/customers-setup.tsx": "996195460003",
     "apps/web/src/components/onboarding/number-setup.tsx": "c998228fa8f8",
@@ -674,6 +680,27 @@
       "by": "do_onboarding_setup_save refuses a day the screen would, with its words (onb-14)"
     },
     {
+      "path": "Set up → When are you open? → “only a guess” / “from your website” note",
+      "kind": "see",
+      "file": "apps/web/src/components/onboarding-setup/screens.tsx:341",
+      "covered": "partly",
+      "by": "the setup's answers say the hours; whether they're only a guess is said on the screen only"
+    },
+    {
+      "path": "Phone set up → When are you open? → “only a guess” / “from your website” note",
+      "kind": "see",
+      "file": "apps/mobile/src/components/onboarding-setup/screens.tsx:390",
+      "covered": "partly",
+      "by": "the setup's answers say the hours; whether they're only a guess is said on the screen only"
+    },
+    {
+      "path": "Set up → signed out part way: note (answers kept on this computer) and Sign in again",
+      "kind": "do",
+      "file": "apps/web/src/components/onboarding-setup/quick-setup.tsx:716",
+      "covered": "person",
+      "by": "signing in and out is the person's"
+    },
+    {
       "path": "Set up → Logo and colour → can’t change (no permission)",
       "kind": "see",
       "file": "apps/web/src/components/look/look-editor.tsx:200",
@@ -1148,6 +1175,202 @@
       "file": "apps/mobile/src/components/onboarding-setup/number.tsx:324",
       "covered": "yes",
       "by": "do_onboarding_send_link; number_port, number_import tools"
+    },
+    {
+      "path": "Set up → Your business email → Which address should customers see? My own domain (Best) / A free HandsFreeOS address",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:108",
+      "covered": "yes",
+      "by": "do_email_setup_save part sender, email.with (onboarding_setup.save saves the same on its stop)"
+    },
+    {
+      "path": "Set up → Your business email → Your domain, From your website / sign-up email",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:122",
+      "covered": "yes",
+      "by": "do_email_setup_save email.domain; read_email_setup_get state.websiteDomain and answers.domain"
+    },
+    {
+      "path": "Set up → Your business email → The address @domain, with hello / info / office / bookings chips",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:148",
+      "covered": "yes",
+      "by": "do_email_setup_save email.local"
+    },
+    {
+      "path": "Set up → Your business email → Your team reads it note",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:180",
+      "covered": "yes",
+      "by": "do_email_setup_save’s description: the default sender is always a team address"
+    },
+    {
+      "path": "Set up → Your business email → Your free address @mail.handsfreeos.com, why not Gmail",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:203",
+      "covered": "yes",
+      "by": "do_email_setup_save email.freeLocal; read_email_setup_get state.free"
+    },
+    {
+      "path": "Set up → Your business email → Name customers see",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:220",
+      "covered": "yes",
+      "by": "do_email_setup_save email.name"
+    },
+    {
+      "path": "Set up → Your business email → inbox preview",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:230",
+      "covered": "yes",
+      "by": "read_email_setup_get state.sender and answers"
+    },
+    {
+      "path": "Set up → Add your domain’s records → making your records",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:370",
+      "covered": "yes",
+      "by": "read_email_setup_get domains[].records empty"
+    },
+    {
+      "path": "Set up → Add your domain’s records → Add N records at <host>, managed at <host>",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:379",
+      "covered": "yes",
+      "by": "read_email_setup_get domains[].dnsHost, records"
+    },
+    {
+      "path": "Set up → Add your domain’s records → Get email at <domain> here too",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:385",
+      "covered": "yes",
+      "by": "do_email_setup_save part records, email.receive"
+    },
+    {
+      "path": "Set up → Add your domain’s records → its mail is at Google / Microsoft note",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:402",
+      "covered": "yes",
+      "by": "read_email_setup_get domains[].mailHost"
+    },
+    {
+      "path": "Set up → Add your domain’s records → steps at <host>, Open <host>",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:406",
+      "covered": "partly",
+      "by": "read_email_setup_get gives the host; the host’s own steps are the screen’s words (dnsHostFor), which the Assistant can describe from settings_help"
+    },
+    {
+      "path": "Set up → Add your domain’s records → each record’s name and value, Found / Waiting, copy",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:424",
+      "covered": "yes",
+      "by": "read_email_setup_get domains[].records"
+    },
+    {
+      "path": "Set up → Add your domain’s records → N of M found, Check now",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:428",
+      "covered": "yes",
+      "by": "do_email_domain_verify"
+    },
+    {
+      "path": "Set up → Add your domain’s records → All found / emails go out from the free address until then",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:442",
+      "covered": "yes",
+      "by": "read_email_setup_get domains[].status, state.sender"
+    },
+    {
+      "path": "Set up → Add your domain’s records → Someone else looks after your domain? Send the steps",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:466",
+      "covered": "yes",
+      "by": "do_email_domain_send_steps"
+    },
+    {
+      "path": "Set up → Add your domain’s records → Email me the steps",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:478",
+      "covered": "yes",
+      "by": "do_email_domain_send_steps to the person’s own email"
+    },
+    {
+      "path": "Set up → Your own email → You have <address>",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:538",
+      "covered": "yes",
+      "by": "read_email_setup_get state.mine"
+    },
+    {
+      "path": "Set up → Your own email → Do you want an address just for you? No / Yes, Your address",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:549",
+      "covered": "yes",
+      "by": "do_email_setup_save part own, email.mine and email.mineLocal"
+    },
+    {
+      "path": "Set up → Your own email → connected mailbox",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:590",
+      "covered": "yes",
+      "by": "read_email_setup_get state.mailboxes"
+    },
+    {
+      "path": "Set up → Your own email → Connect Gmail / Connect Outlook",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/screens.tsx:600",
+      "covered": "person",
+      "by": "signing in to Outlook or Gmail (mailbox.connect NEVER)"
+    },
+    {
+      "path": "Set up → Your own email → for someone from the agency: booking emails keep going",
+      "kind": "see",
+      "file": "apps/web/src/components/email-setup/screens.tsx:507",
+      "covered": "yes",
+      "by": "read_email_setup_get state.sender"
+    },
+    {
+      "path": "Set up your business email page (from Home) → N of M · Your business email, Back, Next, Done, Not now",
+      "kind": "do",
+      "file": "apps/web/src/components/email-setup/email-setup-flow.tsx:142",
+      "covered": "yes",
+      "by": "do_email_setup_save, a part at a time"
+    },
+    {
+      "path": "Phone → Set up → Your business email → own domain or free address, domain, address, name, preview",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/screens.tsx:131",
+      "covered": "yes",
+      "by": "do_email_setup_save part sender"
+    },
+    {
+      "path": "Phone → Set up → Add your domain’s records → Easier on a computer: Email me the steps, Send to someone",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/screens.tsx:408",
+      "covered": "yes",
+      "by": "do_email_domain_send_steps"
+    },
+    {
+      "path": "Phone → Set up → Add your domain’s records → Get email here too, steps, Open <host>, Share, records, Check now",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/screens.tsx:483",
+      "covered": "yes",
+      "by": "do_email_setup_save part records; do_email_domain_verify; read_email_setup_get records"
+    },
+    {
+      "path": "Phone → Set up → Your own email → address just for you, Connect Gmail / Outlook",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/screens.tsx:582",
+      "covered": "partly",
+      "by": "do_email_setup_save part own; connecting is the person’s own sign-in"
+    },
+    {
+      "path": "Phone → Set up your business email (from Home) → N of M, Back, Next, Done",
+      "kind": "do",
+      "file": "apps/mobile/src/components/email-setup/email-setup-flow.tsx:135",
+      "covered": "yes",
+      "by": "do_email_setup_save, a part at a time"
     },
     {
       "path": "Set up → Number → Texting & calls (setup) → Numbers on their way here: title, each number, where from, status and texting badges, not in Twilio, last error",

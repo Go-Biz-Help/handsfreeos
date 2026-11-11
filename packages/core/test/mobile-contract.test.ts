@@ -186,10 +186,11 @@ const ONLINE_COMMANDS = [
   'ai_teammate.answer_feedback',
   'teammate_lesson.dismiss',
   // Settings → Main offer (HANDSFREEOS_MAIN_OFFER_PHONE_IMPLEMENTATION_PLAN.md): a part edited, the direction, and
-  // going live.
+  // going live; and a list for content saved (docs/main-offer.md, "For your content", pick 6b).
   'main_offer.save_draft',
   'main_offer.save_direction',
   'main_offer.publish',
+  'main_offer.save_list',
   // A partner's page and a customer's Partner card (the partners plan, stage 2d): a contact made a partner, their
   // share or status changed, and which partner sent a customer.
   'partner.add',
@@ -198,6 +199,26 @@ const ONLINE_COMMANDS = [
   // The bell (20261027012600): opening it sees its notifications, and pressing one, or its push, opens it.
   'notification.seen',
   'notification.read',
+  // AI Social Media Content Creator's screens (docs/socialcontent.md, part 5), with signal: a niche added, searched or
+  // skipped, a creator added from a link, ticked, skipped or studied after all, finding creators or reading someone
+  // again now, its settings, trying watching on a few videos, stopping work, and an idea saved, used or skipped.
+  'socialcontent.niche.add',
+  'socialcontent.niche.decide',
+  'socialcontent.creator.add',
+  'socialcontent.creator.decide',
+  'socialcontent.find.now',
+  'socialcontent.read.now',
+  'socialcontent.settings.save',
+  'socialcontent.watch.try',
+  'socialcontent.work.stop',
+  'socialcontent.idea.decide',
+  // Its Calendar on the phone (part 12): a post saved, OK'd or its OK taken back, the week OK'd, a post skipped or
+  // brought back, and Post it now.
+  'socialcontent.content.save',
+  'socialcontent.content.approve',
+  'socialcontent.content.approve_week',
+  'socialcontent.content.skip',
+  'socialcontent.content.post_now',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social
@@ -320,6 +341,16 @@ const QUERIES = [
   // Search everything, with signal: the box, and one kind a page at a time (the search plan, stage 3).
   'search.everything',
   'search.kind',
+  // AI Social Media Content Creator's screens, with signal (part 5): what it's doing, the niches, the creators, their
+  // posts and the standouts, the Playbook and the ideas.
+  'socialcontent.overview',
+  'socialcontent.niche.list',
+  'socialcontent.creator.list',
+  'socialcontent.post.list',
+  'socialcontent.playbook.get',
+  'socialcontent.idea.list',
+  'socialcontent.calendar.get',
+  'socialcontent.content.get',
 ];
 
 /** An input's JSON Schema, without the regex a format already stands for (a uuid's, a date-time's). */

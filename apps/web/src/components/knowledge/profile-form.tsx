@@ -1,4 +1,5 @@
 'use client';
+import { settingEntry, settingHref } from '@hfos/core';
 import { Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -211,17 +212,32 @@ export function ProfileForm({
               placeholder="Houston inside the Beltway, Katy and Bellaire"
             />
           </Field>
+          {/* Hours always come from Business hours (the owner's rule, 2026-11-11), so they're shown, not typed. */}
           <div id="hours" className="scroll-mt-24">
-            <Field label="Hours" htmlFor="kp-hours" error={errors.hours}>
-              <Textarea
+            <Field
+              label="Hours"
+              htmlFor="kp-hours"
+              hint={
+                <>
+                  Your business hours, from{' '}
+                  <Link
+                    href={settingHref(workspaceId, settingEntry('workspace.hours')!)}
+                    className="font-medium text-accent-text underline"
+                    data-testid="kp-hours-link"
+                  >
+                    Settings → Workspace → Business hours
+                  </Link>
+                  . Change them there and the AI uses the new hours everywhere.
+                </>
+              }
+            >
+              <output
                 id="kp-hours"
-                value={p.hours}
-                onChange={(e) => set('hours', e.target.value)}
-                maxLength={500}
-                disabled={ro}
-                className="min-h-[72px]"
-                placeholder="Mon–Fri 7 AM–6 PM, Sat 8 AM–1 PM. Emergencies 24/7."
-              />
+                data-testid="kp-hours"
+                className="block min-h-[72px] w-full whitespace-pre-line rounded-control border border-border bg-card-2 px-3 py-2.5 text-[15px] leading-[1.45] text-text-2 max-md:text-base"
+              >
+                {p.hours}
+              </output>
             </Field>
           </div>
         </div>

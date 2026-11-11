@@ -21,14 +21,23 @@ export interface ResearchHeld {
   readonly loaded: readonly string[];
 }
 
-/** How much `held` gives back, at most, and the biggest script of the page's data it reads. */
-export const HELD_MOST = { accounts: 60, posts: 24, loaded: 40, scriptChars: 3_000_000 } as const;
+/**
+ * How much `held` gives back, at most, and the biggest script of the page's data it reads; `profilePosts`, how many of
+ * a profile's grid links `profileHeld` gives back.
+ */
+export const HELD_MOST = {
+  accounts: 60,
+  posts: 24,
+  profilePosts: 90,
+  loaded: 40,
+  scriptChars: 3_000_000,
+} as const;
 
 /** A post's code in a link to it: /p/<code>/, /reel/<code>/, or either under someone's name. */
 const POST_LINK = /^\/(?:[\w.]+\/)?(?:p|reel)\/([\w-]+)\/?/;
 
-/** The codes of the posts a page links to, each once, at most `HELD_MOST.posts`. */
-function postLinks(doc: Document, href: string): string[] {
+/** The codes of the posts a page links to, in the page's order, each once, at most `most`. */
+function postLinks(doc: Document, href: string, most: number = HELD_MOST.posts): string[] {
   const origin = new URL(href).origin;
   const posts = new Set<string>();
   for (const a of doc.querySelectorAll('a[href]')) {
@@ -40,7 +49,7 @@ function postLinks(doc: Document, href: string): string[] {
     }
     const code = url.origin === origin ? POST_LINK.exec(url.pathname)?.[1] : undefined;
     if (code) posts.add(code);
-    if (posts.size >= HELD_MOST.posts) break;
+    if (posts.size >= most) break;
   }
   return [...posts];
 }
@@ -104,8 +113,8 @@ function pageData(doc: Document, mentions: string): unknown[] {
 }
 
 /**
- * Someone's profile and posts as their profile page holds them (`profileHeld`): its data and description, and the
- * posts its grid links to, whose codes say when they posted.
+ * Someone's profile and posts as their profile page holds them (`profileHeld`): its data and description, the posts
+ * its grid links to, whose codes say when they posted, and their account's number from the page's name for itself.
  */
 export function profileHeldOn(doc: Document, username: string): InstagramPageProfile {
   const description =
@@ -116,6 +125,21 @@ export function profileHeldOn(doc: Document, username: string): InstagramPagePro
     pageData(doc, `"${username}"`),
     username,
     description,
-    postLinks(doc, doc.URL),
+    postLinks(doc, doc.URL, HELD_MOST.profilePosts),
+    profilePageId(doc),
   );
+}
+
+/** A profile page's own name for itself ("profilePage_<their account's number>"), whose number asks for their posts. */
+const PROFILE_PAGE_ID = /"profilePage_(\d{1,25})"/;
+
+/** Their account's number, from the name the profile page gives itself in its own scripts; null when it gives none. */
+function profilePageId(doc: Document): string | null {
+  for (const script of doc.querySelectorAll('script')) {
+    const text = script.textContent ?? '';
+    if (text.length > HELD_MOST.scriptChars) continue;
+    const id = PROFILE_PAGE_ID.exec(text)?.[1];
+    if (id) return id;
+  }
+  return null;
 }
