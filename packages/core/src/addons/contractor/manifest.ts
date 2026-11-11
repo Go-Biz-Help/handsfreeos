@@ -17,8 +17,11 @@
  * visit, with breaks, what an hour of each person costs, what each job has cost against its plan and where it's
  * heading, and a profit page by job, crew, service and customer. Part 6 is the phone's field pages: its jobs, a job
  * and a visit's work order on the phone, where ticking the checklist, adding its photos, counting what was used,
- * taking a break and leaving a typed, spoken or photographed note all work with no signal. The AI helpers come in
- * part 7.
+ * taking a break and leaving a typed, spoken or photographed note all work with no signal. Part 7 is the AI helpers,
+ * each of which prepares something and leaves the deciding to a person (the owner's rule): a draft of an estimate
+ * from a job's notes, photos and measurements, which a person opens, checks and saves; an alert for the people who
+ * may see job costs when a job heads over its budget, with the profit it's now heading for; and a daily report of
+ * each job from what its crew left that day, with an update for the customer that goes only when a person sends it.
  *
  * It's in `development`: offered nowhere, and installable only where HandsFreeOS staff hand it out to try.
  */
@@ -163,10 +166,17 @@ export const contractorAddon = defineAddon({
       permission: 'contractor.costs',
     },
     {
+      id: 'contractor.ai',
+      label: 'AI helpers',
+      description:
+        'An estimate drafted from a job’s notes, photos and measurements for a person to check and save, an alert when a job heads over budget, and a daily report of each job from what its crew left.',
+      permission: 'contractor.use',
+    },
+    {
       id: 'contractor.manage',
       label: 'Contractor Operations settings',
       description:
-        'The business’s trades, its crews, the phases and checklist new work starts with, and when missing materials are told.',
+        'The business’s trades, its crews, the phases and checklist new work starts with, when missing materials are told, and what the AI does on its own.',
       permission: 'contractor.manage',
     },
   ],
@@ -289,11 +299,21 @@ export const contractorAddon = defineAddon({
     'labor_rates',
     'other_costs',
     'notes',
+    'estimate_drafts',
+    'budget_watch',
+    'daily_reports',
   ],
   // Before a visit: what it's still missing from the job's materials (apps/worker/src/addons/contractor/materials.ts).
   // On a visit with time running: stopping what has run half a day (./time.ts there). A month after a job closes:
-  // taking it off phones (./phone.ts there).
-  jobs: ['contractor.materials_check', 'contractor.time_check', 'contractor.phone_check'],
+  // taking it off phones (./phone.ts there). A moment after something that costs money changes on a job: where its
+  // budget stands (./budget.ts there). The evening of a day with notes: its daily report (./reports.ts there).
+  jobs: [
+    'contractor.materials_check',
+    'contractor.time_check',
+    'contractor.phone_check',
+    'contractor.budget_check',
+    'contractor.report_write',
+  ],
   events: {
     emits: [
       'contractor.job.opened',
@@ -345,6 +365,11 @@ export const contractorAddon = defineAddon({
       'contractor.note.added',
       'contractor.note.removed',
       'contractor.note.transcribed',
+      'contractor.estimate_draft.ready',
+      'contractor.estimate_draft.dismissed',
+      'contractor.report.written',
+      'contractor.report.updated',
+      'contractor.report.sent',
     ],
     // A visit booked on a job moves it to Scheduled and gets its work order, with the checklist a new visit starts
     // with; a tech tapping Started on one of its visits moves it to In
@@ -354,7 +379,9 @@ export const contractorAddon = defineAddon({
     // whenever the visit moves or the job's materials change (./materials.ts there). Every status button on a visit
     // starts or stops the time of the people on it; time that changes gets what its hour cost, and a visit with time
     // running is looked at when it has run half a day (./time.ts there). A voice note's recording gets its words
-    // (./notes.ts there), and a job that closes leaves phones a month later (./phone.ts there).
+    // (./notes.ts there), and a job that closes leaves phones a month later (./phone.ts there). Whatever changes
+    // what a job costs or how far along it is has its budget looked at (./budget.ts there), and a day's notes get
+    // the day's report that evening (./reports.ts there).
     consumes: [
       'appointment.booked',
       'appointment.rescheduled',
@@ -378,7 +405,14 @@ export const contractorAddon = defineAddon({
       'contractor.labor_rate.set',
       'contractor.estimating.saved',
       'contractor.note.added',
+      'contractor.note.transcribed',
       'contractor.job.status_changed',
+      'contractor.job.money_set',
+      'contractor.job.percent_set',
+      'contractor.phase.updated',
+      'contractor.material.cost_set',
+      'contractor.other_cost.added',
+      'contractor.other_cost.removed',
     ],
   },
   // What phones keep, so the field pages work with no signal (part 6; migration 20261027025300 registers the same,
@@ -565,7 +599,7 @@ export const contractorAddon = defineAddon({
   },
   ai: {
     directory:
-      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it; crews (named groups of team members and subcontractors), a work order on every visit (instructions, what to bring, the crew and who’s going, subcontractors and texting them the job’s details, and a checklist of boxes to tick and photos to add, some required), a job that can’t be marked done while a required item is left unless an owner or admin says why, and dispatch (a day’s visits by person, the ones nobody is on, where each stands, and jobs with nothing booked); a job’s materials (what it needs, and how much of each is ordered, delivered, used, wasted and returned, the visit each is for, its supplier and the day it’s expected, what’s still missing for a visit, materials filled in from an approved estimate, what each costs for people who may see job costs, and the alert before a visit that’s still missing something); time on jobs (travel and work time started and stopped by a visit’s On the way, Started, Waiting on parts and Done buttons, breaks, each stretch with whose it is and how long, time stopped on its own after 12 hours, and fixing, adding and removing time with a reason for people who may); job costing for people who may see job costs (what an hour of each person costs, a job’s labor, materials and other costs planned, so far and heading for, its other costs like permits and fees, the profit it’s heading for, and profit by job, customer, crew and service); notes from the field on a job or one of its visits (typed, a voice note with its words, or photos), counting how much more of a material was used, wasted or sent back, and the phone’s pages (Jobs, a job and a visit’s work order), which work with no signal',
+      'contractor and home service jobs: every job and project with its customer, the property it’s at, its trade, status (new, scheduled, in progress, on hold, done, cancelled), deadline, job lead and team, phases with their dates and % done, its visits, and its price and budget for people who may see job costs; starting jobs, making a service call a project, moving jobs and phases along, adding properties, and its settings (the business’s trades and the phases a new project starts with); estimates with costs: an estimate builder with labor by the hour, materials at cost, markup, profit and margin, good, better and best options, what each price list item costs the business, the lowest margin an estimate may go out at, asking for and giving an owner’s or admin’s OK on one under it, and sending it; crews (named groups of team members and subcontractors), a work order on every visit (instructions, what to bring, the crew and who’s going, subcontractors and texting them the job’s details, and a checklist of boxes to tick and photos to add, some required), a job that can’t be marked done while a required item is left unless an owner or admin says why, and dispatch (a day’s visits by person, the ones nobody is on, where each stands, and jobs with nothing booked); a job’s materials (what it needs, and how much of each is ordered, delivered, used, wasted and returned, the visit each is for, its supplier and the day it’s expected, what’s still missing for a visit, materials filled in from an approved estimate, what each costs for people who may see job costs, and the alert before a visit that’s still missing something); time on jobs (travel and work time started and stopped by a visit’s On the way, Started, Waiting on parts and Done buttons, breaks, each stretch with whose it is and how long, time stopped on its own after 12 hours, and fixing, adding and removing time with a reason for people who may); job costing for people who may see job costs (what an hour of each person costs, a job’s labor, materials and other costs planned, so far and heading for, its other costs like permits and fees, the profit it’s heading for, and profit by job, customer, crew and service); notes from the field on a job or one of its visits (typed, a voice note with its words, or photos), counting how much more of a material was used, wasted or sent back, and the phone’s pages (Jobs, a job and a visit’s work order), which work with no signal; and the AI helpers: an estimate the AI drafts for a job from its notes, photos and what someone types, kept as a draft that a person opens in the builder, checks and saves (the AI never writes or sends an estimate on its own), where a job’s budget stands (heading over its planned cost, under the lowest margin or for a loss) with what’s driving it and what the business could do, and each job’s daily report (what got done, what needs a look, materials, what’s next, the crew’s hours and the day’s photos), with an update for the customer that goes only when a person sends it',
     places: CONTRACTOR_PLACES,
     lookAlikes: CONTRACTOR_LOOK_ALIKES,
   },

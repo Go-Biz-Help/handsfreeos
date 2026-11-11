@@ -2557,6 +2557,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/contractor.estimate_draft.dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set one of the AI’s estimate drafts aside, so it stops being offered on its job. Nothing else changes: no estimate was made from it.
+         * @description Risk level 1. Requires contractor.costs. Emits contractor.estimate_draft.dismissed.
+         */
+        post: operations["command_contractor_estimate_draft_dismiss"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/contractor.estimate.ask_ok": {
         parameters: {
             query?: never;
@@ -3131,6 +3151,46 @@ export interface paths {
          * @description Risk level 1. Requires contractor.use. Emits contractor.property.added.
          */
         post: operations["command_contractor_property_add"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.report.send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send the job’s customer a daily report’s update, by email or text, through HandsFreeOS’s own messages. Only the update written for the customer goes: never the office’s report, hours or costs.
+         * @description Risk level 2. Requires contractor.use. Emits contractor.report.sent.
+         */
+        post: operations["command_contractor_report_send"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/commands/contractor.report.update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a daily report’s words: its summary, what got done, issues, materials, what’s next and the update for the customer. It’s saved whole, and from then on the AI never writes over it unless someone asks.
+         * @description Risk level 1. Requires contractor.use. Emits contractor.report.updated.
+         */
+        post: operations["command_contractor_report_update"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19577,6 +19637,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/queries/contractor.estimate_draft.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The estimates the AI drafted for a job that are still waiting for someone to open, check and save, the newest first. For people who may see job costs.
+         * @description Requires contractor.costs.
+         */
+        post: operations["query_contractor_estimate_draft_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/queries/contractor.estimate.get": {
         parameters: {
             query?: never;
@@ -19811,6 +19891,26 @@ export interface paths {
          * @description Requires contractor.use.
          */
         post: operations["query_contractor_property_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/queries/contractor.report.list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A job’s daily reports, the newest day first: what happened, what got done, what went wrong or needs a decision, materials, what’s next, who worked how long, the day’s photos, and the update written for the customer with whether it was sent.
+         * @description Requires contractor.use.
+         */
+        post: operations["query_contractor_report_list"];
         delete?: never;
         options?: never;
         head?: never;
@@ -32298,6 +32398,41 @@ export interface operations {
             };
         };
     };
+    command_contractor_estimate_draft_dismiss: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    draftId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        changed: boolean;
+                        /** Format: uuid */
+                        draftId: string;
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
     command_contractor_estimate_ask_ok: {
         parameters: {
             query?: never;
@@ -32394,6 +32529,8 @@ export interface operations {
                         kind?: "none" | "percent" | "amount";
                         percentBp?: number;
                     };
+                    /** Format: uuid */
+                    draftId?: string;
                     /** Format: uuid */
                     estimateId?: string;
                     expiresOn?: string | null;
@@ -33485,6 +33622,97 @@ export interface operations {
                         name: string;
                         /** Format: uuid */
                         propertyId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_report_send: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default false */
+                    acknowledgeQuietHours?: boolean;
+                    body?: string;
+                    /** @enum {string} */
+                    channel: "email" | "sms";
+                    /** Format: uuid */
+                    reportId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        channel: "email" | "sms";
+                        customer: string;
+                        /** Format: date */
+                        day: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        reportId: string;
+                    };
+                };
+            };
+        };
+    };
+    command_contractor_report_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    done?: string[];
+                    /** @default null */
+                    forCustomer?: string | null;
+                    /** @default [] */
+                    issues?: string[];
+                    /** @default [] */
+                    materials?: string[];
+                    /** @default [] */
+                    next?: string[];
+                    /** Format: uuid */
+                    reportId: string;
+                    summary: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: date */
+                        day: string;
+                        /** Format: uuid */
+                        jobId: string;
+                        /** Format: uuid */
+                        reportId: string;
                     };
                 };
             };
@@ -75196,6 +75424,57 @@ export interface operations {
             };
         };
     };
+    query_contractor_estimate_draft_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        drafts: {
+                            askedBy: string | null;
+                            brief: string | null;
+                            createdAt: string;
+                            estimateId: string | null;
+                            guessed: number;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            jobId: string;
+                            lines: number;
+                            notesRead: number;
+                            optionCount: number;
+                            photosRead: number;
+                            questions: number;
+                            /** @enum {string} */
+                            state: "ready" | "used" | "dismissed";
+                            title: string | null;
+                        }[];
+                        /** Format: uuid */
+                        jobId: string;
+                    };
+                };
+            };
+        };
+    };
     query_contractor_estimate_get: {
         parameters: {
             query?: never;
@@ -75206,6 +75485,8 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
+                    draftId?: string;
                     /** Format: uuid */
                     estimateId?: string;
                     /** Format: uuid */
@@ -75262,6 +75543,46 @@ export interface operations {
                             option: number;
                             unitCostCents: number | null;
                         }[];
+                        draft: {
+                            askedBy: string | null;
+                            brief: string | null;
+                            createdAt: string;
+                            draft: {
+                                assumptions: string[];
+                                options: {
+                                    lines: {
+                                        description: string | null;
+                                        guessed: boolean;
+                                        /** @enum {string} */
+                                        kind: "labor" | "material" | "other";
+                                        name: string;
+                                        productId: string | null;
+                                        quantity: number;
+                                        taxable: boolean;
+                                        unitCostCents: number | null;
+                                        unitLabel: string;
+                                        unitPriceCents: number;
+                                    }[];
+                                    name: string;
+                                }[];
+                                questions: string[];
+                                title: string | null;
+                            };
+                            estimateId: string | null;
+                            guessed: number;
+                            /** Format: uuid */
+                            id: string;
+                            /** Format: uuid */
+                            jobId: string;
+                            lines: number;
+                            notesRead: number;
+                            optionCount: number;
+                            photosRead: number;
+                            questions: number;
+                            /** @enum {string} */
+                            state: "ready" | "used" | "dismissed";
+                            title: string | null;
+                        } | null;
                         estimate: {
                             acceptedAt: string | null;
                             acceptedBy: {
@@ -75588,6 +75909,14 @@ export interface operations {
                         uncostedHours: number;
                         uncostedMaterials: number;
                         underMargin: boolean;
+                        watch: {
+                            /** @enum {string} */
+                            level: "ok" | "over" | "under_margin" | "loss";
+                            overPercent: number | null;
+                            suggestions: string[];
+                            warnedAt: string | null;
+                            why: string | null;
+                        };
                     };
                 };
             };
@@ -76008,6 +76337,8 @@ export interface operations {
                             userId: string;
                         }[];
                         settings: {
+                            /** @default true */
+                            budgetWarnings: boolean;
                             /** @default [] */
                             checklist: {
                                 /**
@@ -76019,6 +76350,8 @@ export interface operations {
                                 /** @default false */
                                 required: boolean;
                             }[];
+                            /** @default true */
+                            dailyReports: boolean;
                             /** @default 24 */
                             materialsAlertHours: number;
                             /** @default [] */
@@ -76138,6 +76471,84 @@ export interface operations {
                             /** Format: uuid */
                             recordId: string;
                         }[];
+                    };
+                };
+            };
+        };
+    };
+    query_contractor_report_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    jobId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        canChange: boolean;
+                        customer: {
+                            email: boolean;
+                            name: string;
+                            sms: boolean;
+                        } | null;
+                        files: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        /** Format: uuid */
+                        jobId: string;
+                        onItsOwn: boolean;
+                        reports: {
+                            askedBy: string | null;
+                            crew: {
+                                hours: number;
+                                name: string;
+                            }[];
+                            /** Format: date */
+                            day: string;
+                            done: string[];
+                            edited: {
+                                at: string;
+                                by: string | null;
+                            } | null;
+                            forCustomer: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            issues: string[];
+                            materials: string[];
+                            next: string[];
+                            notesRead: number;
+                            photoFileIds: string[];
+                            photosRead: number;
+                            sent: {
+                                at: string;
+                                by: string | null;
+                                /** @enum {string} */
+                                channel: "email" | "sms";
+                            } | null;
+                            summary: string;
+                            writtenAt: string;
+                        }[];
+                        /** Format: date */
+                        today: string;
+                        truncated: boolean;
                     };
                 };
             };

@@ -72,21 +72,31 @@ function as(u: TestUser, name: string, input: Record<string, unknown> = {}): Pro
       ).then((r) => r.output)
     : executeQuery(api(), found as QueryDef, { workspaceId: ws, ...input }, human(u), meta());
 }
-/** As the worker, acting for the add-on. */
-function worker(name: string, input: Record<string, unknown>): Promise<Any> {
+/** As the worker, acting for the add-on: on its own, or for the person who asked. */
+function worker(name: string, input: Record<string, unknown>, forUser?: TestUser): Promise<Any> {
   const actor: SystemActor = {
     type: 'system',
     workspaceId: ws,
     organizationId: orgId,
     addon: addonRef(contractorAddon),
+    ...(forUser ? { onBehalfOf: forUser.id } : {}),
   };
-  return executeCommand(
-    testDbs().worker.db,
-    op(name) as CommandDef<z.ZodType, z.ZodType>,
-    { workspaceId: ws, ...input },
-    actor,
-    meta(),
-  ).then((r) => r.output);
+  const found = op(name);
+  return found.kind === 'command'
+    ? executeCommand(
+        testDbs().worker.db,
+        found as CommandDef<z.ZodType, z.ZodType>,
+        { workspaceId: ws, ...input },
+        actor,
+        meta(),
+      ).then((r) => r.output)
+    : executeQuery(
+        testDbs().worker.db,
+        found as QueryDef,
+        { workspaceId: ws, ...input },
+        actor,
+        meta(),
+      );
 }
 const refused = (p: Promise<unknown>) =>
   p.then(
@@ -2166,6 +2176,658 @@ describe('time and job costing (the owner’s decisions 10 and 11)', () => {
       stopped: [],
       flagged: [],
       nextAt: null,
+    });
+  });
+});
+
+describe('the AI helpers (part 7; the owner’s rule, and decisions 6 and 11)', () => {
+  const job = (name: string, more: Record<string, unknown> = {}) =>
+    as(owner, 'contractor.job.open', {
+      name,
+      customerPersonId: customerId,
+      newPropertyAddress: `${name}, 8 Elm St`,
+      trade: 'electrical',
+      ...more,
+    }).then((o) => o.jobId as string);
+  /** A price list item. */
+  const product = (name: string, unitPriceCents: number) =>
+    executeCommand(
+      api(),
+      productCreate,
+      { workspaceId: ws, name, kind: 'product', unitPriceCents, unitLabel: 'each' },
+      human(owner),
+      meta(),
+    ).then((r) => (r.output as Any).productId as string);
+  const one = async <T extends Record<string, unknown>>(q: ReturnType<typeof sql>) =>
+    (await rows<T>(admin(), q))[0]!;
+  /** How many rows of one of part 7's tables a person can read, whatever asks. */
+  const seen = (u: TestUser, table: 'estimate_drafts' | 'budget_watch' | 'daily_reports') =>
+    asUser(api(), u.claims, (tx) =>
+      rows<{ n: number }>(
+        tx,
+        sql`select count(*)::int as n from ${sql.raw(`addon_contractor.${table}`)}`,
+      ),
+    ).then((r) => r[0]!.n);
+  const labor = {
+    productId: null,
+    name: 'Install labor',
+    description: null,
+    quantity: 6,
+    unitLabel: 'hour',
+    unitPriceCents: 95_00,
+    taxable: false,
+    kind: 'labor',
+    unitCostCents: 40_00,
+    guessed: false,
+  };
+  const panel = {
+    productId: null,
+    name: '200A panel',
+    description: 'Square D, 40 spaces',
+    quantity: 1,
+    unitLabel: 'each',
+    unitPriceCents: 300_00,
+    taxable: true,
+    kind: 'material',
+    unitCostCents: 200_00,
+    guessed: true,
+  };
+  const drafted = (over: Record<string, unknown> = {}) => ({
+    title: 'Panel swap',
+    options: [{ name: '', lines: [labor, panel] }],
+    assumptions: ['The meter base is sound'],
+    questions: ['Does the city need a permit for this?'],
+    ...over,
+  });
+  /** The worker keeping what the AI drafted, for the person who pressed Draft with AI. */
+  const keep = (jobId: string, over: Record<string, unknown> = {}, by: TestUser = estimator) =>
+    worker(
+      'contractor.estimate_draft.keep',
+      { jobId, brief: 'Swap the panel', draft: drafted(over), notesRead: 2, photosRead: 1 },
+      by,
+    );
+  const drafts = (u: TestUser, jobId: string) =>
+    as(u, 'contractor.estimate_draft.list', { jobId }).then((r) => r.drafts as Any[]);
+  const costing = (jobId: string) => as(estimator, 'contractor.job.costing', { jobId });
+  const check = (jobId: string) => worker('contractor.budget.check', { jobId });
+  const reports = (u: TestUser, jobId: string) => as(u, 'contractor.report.list', { jobId });
+  const words = (over: Record<string, unknown> = {}) => ({
+    summary: 'The old panel is out and the new one is mounted.',
+    done: ['Pulled the Zinsco panel', 'Mounted the new 200A panel'],
+    issues: ['Two circuits have no ground'],
+    materials: ['Used 12 breakers'],
+    next: ['Land the circuits tomorrow'],
+    forCustomer: 'The new panel is mounted. We’ll finish the wiring tomorrow.',
+    ...over,
+  });
+  /** The worker keeping the report the AI wrote for a day: on its own, or for the person who pressed Write. */
+  const write = (jobId: string, day: string, more: Record<string, unknown> = {}, by?: TestUser) =>
+    worker(
+      'contractor.report.keep',
+      { jobId, day, body: words(), notesRead: 2, photosRead: 0, ...more },
+      by,
+    );
+
+  describe('an estimate the AI drafts', () => {
+    it('gives the AI the job, its notes and the price list with costs', async () => {
+      const jobId = await job('Zinsco panel', { details: 'Breakers keep tripping.' });
+      await as(member, 'contractor.note.add', {
+        jobId,
+        body: 'Panel is a Zinsco. Needs a 200A replacement.',
+      });
+      const productId = await product('P7 200A panel', 300_00);
+      await as(estimator, 'contractor.item_cost.set', { productId, costCents: 200_00 });
+      const source = await worker(
+        'contractor.estimate_draft.source',
+        { jobId, brief: '  Swap the panel  ', options: 3 },
+        estimator,
+      );
+      expect(source.job).toMatchObject({
+        name: 'Zinsco panel',
+        kind: 'Service call',
+        trade: 'Electrical',
+        details: 'Breakers keep tripping.',
+      });
+      expect(source.job.property).toContain('8 Elm St');
+      expect(source.brief).toBe('Swap the panel');
+      expect(source.notes).toEqual([
+        expect.objectContaining({
+          text: 'Panel is a Zinsco. Needs a 200A replacement.',
+          photos: 0,
+        }),
+      ]);
+      expect(source.photoFileIds).toEqual([]);
+      expect(source.items.find((i: Any) => i.productId === productId)).toMatchObject({
+        name: 'P7 200A panel',
+        unitLabel: 'each',
+        unitPriceCents: 300_00,
+        kind: 'material',
+        costCents: 200_00,
+      });
+      expect(source.estimating).toEqual({
+        markupBp: expect.any(Number),
+        laborRateCents: expect.any(Number),
+        laborCostCents: expect.any(Number),
+      });
+      expect(source.options).toBe(3);
+    });
+
+    it('keeps the draft beside the job for people who may see job costs, and makes no estimate', async () => {
+      const jobId = await job('Draft kept');
+      const kept = await keep(jobId);
+      expect(kept).toEqual({
+        draftId: expect.any(String),
+        jobId,
+        optionCount: 1,
+        lines: 2,
+        guessed: 1,
+        questions: 1,
+      });
+      const list = await drafts(estimator, jobId);
+      expect(list).toHaveLength(1);
+      expect(list[0]).toMatchObject({
+        id: kept.draftId,
+        jobId,
+        state: 'ready',
+        title: 'Panel swap',
+        brief: 'Swap the panel',
+        askedBy: 'Eli Estimator',
+        notesRead: 2,
+        photosRead: 1,
+        optionCount: 1,
+        lines: 2,
+        guessed: 1,
+        questions: 1,
+        estimateId: null,
+      });
+      // A list has no lines: they open in the builder.
+      expect(list[0].draft).toBeUndefined();
+      // A draft holds costs, so a tech is shown none: not by the query, and not by the database.
+      expect(await refused(drafts(member, jobId))).toBe('forbidden');
+      expect(await seen(member, 'estimate_drafts')).toBe(0);
+      expect(await seen(estimator, 'estimate_drafts')).toBeGreaterThan(0);
+      // A draft is never an estimate.
+      expect(
+        await one<{ n: number }>(
+          sql`select count(*)::int as n from addon_contractor.estimates where record_id = ${jobId}`,
+        ),
+      ).toEqual({ n: 0 });
+      // The job's history says a draft waits, with no amounts.
+      const event = await one<{ payload: Any }>(
+        sql`select payload from app.events
+            where workspace_id = ${ws} and entity_id = ${jobId}
+              and event_type = 'contractor.estimate_draft.ready'`,
+      );
+      expect(event.payload).toEqual({ draftId: kept.draftId, jobId, options: 1, lines: 2 });
+      // Only the worker keeps one: a person writes an estimate in the builder.
+      expect(
+        await refused(
+          as(owner, 'contractor.estimate_draft.keep', { jobId, brief: null, draft: drafted() }),
+        ),
+      ).toBe('forbidden');
+    });
+
+    it('keeps five waiting drafts on a job, and sets the oldest aside', async () => {
+      const jobId = await job('Many drafts');
+      const ids: string[] = [];
+      for (let i = 1; i <= 6; i += 1)
+        ids.push((await keep(jobId, { title: `Draft ${i}` })).draftId as string);
+      const list = await drafts(estimator, jobId);
+      expect(list.map((d) => d.title)).toEqual([
+        'Draft 6',
+        'Draft 5',
+        'Draft 4',
+        'Draft 3',
+        'Draft 2',
+      ]);
+      expect(
+        await one<{ state: string }>(
+          sql`select state from addon_contractor.estimate_drafts where id = ${ids[0]!}`,
+        ),
+      ).toEqual({ state: 'dismissed' });
+    });
+
+    it('is set aside by someone who may see job costs, once', async () => {
+      const jobId = await job('Set aside');
+      const { draftId } = await keep(jobId);
+      expect(await refused(as(member, 'contractor.estimate_draft.dismiss', { draftId }))).toBe(
+        'forbidden',
+      );
+      expect(await as(estimator, 'contractor.estimate_draft.dismiss', { draftId })).toEqual({
+        draftId,
+        jobId,
+        changed: true,
+      });
+      expect(await as(estimator, 'contractor.estimate_draft.dismiss', { draftId })).toEqual({
+        draftId,
+        jobId,
+        changed: false,
+      });
+      expect(await drafts(estimator, jobId)).toEqual([]);
+      expect(
+        await one<{ state: string; settled_by: string }>(
+          sql`select state, settled_by from addon_contractor.estimate_drafts where id = ${draftId}`,
+        ),
+      ).toEqual({ state: 'dismissed', settled_by: estimator.id });
+      expect(
+        await refused(
+          as(estimator, 'contractor.estimate_draft.dismiss', { draftId: randomUUID() }),
+        ),
+      ).toBe('not_found');
+    });
+
+    it('opens in the builder, and only a person’s save makes it an estimate', async () => {
+      const jobId = await job('From a draft');
+      const { draftId } = await keep(jobId);
+      const opened = await as(estimator, 'contractor.estimate.get', { jobId, draftId });
+      expect(opened.estimate).toBeNull();
+      expect(opened.draft).toMatchObject({
+        id: draftId,
+        state: 'ready',
+        askedBy: 'Eli Estimator',
+        draft: {
+          title: 'Panel swap',
+          options: [{ name: '', lines: [labor, panel] }],
+          assumptions: ['The meter base is sound'],
+          questions: ['Does the city need a permit for this?'],
+        },
+      });
+      // A draft opens for its own job only.
+      const elsewhere = await job('Another job');
+      expect(
+        await refused(as(estimator, 'contractor.estimate.get', { jobId: elsewhere, draftId })),
+      ).toBe('not_found');
+      // A tech can't open the builder at all.
+      expect(await refused(as(member, 'contractor.estimate.get', { jobId, draftId }))).toBe(
+        'forbidden',
+      );
+
+      // The person checks the lines and saves: the estimate is theirs, written like any other.
+      const line = (l: typeof labor | typeof panel) => ({
+        name: l.name,
+        quantity: l.quantity,
+        unitLabel: l.unitLabel,
+        unitPriceCents: l.unitPriceCents,
+        kind: l.kind,
+        unitCostCents: l.unitCostCents,
+      });
+      const saved = await as(estimator, 'contractor.estimate.save', {
+        jobId,
+        draftId,
+        title: 'Panel swap',
+        options: [{ name: '', lines: [line(labor), line(panel)] }],
+      });
+      expect(saved.created).toBe(true);
+      // $870 for $440 of costs: above the lowest margin, so it needs nobody's OK.
+      expect(saved.check.needsOk).toBeNull();
+      expect(await drafts(estimator, jobId)).toEqual([]);
+      expect(
+        await one<{ state: string; estimate_id: string; settled_by: string }>(
+          sql`select state, estimate_id, settled_by from addon_contractor.estimate_drafts
+              where id = ${draftId}`,
+        ),
+      ).toEqual({ state: 'used', estimate_id: saved.estimateId, settled_by: estimator.id });
+      // The saved estimate says where it started, and a used draft doesn't open a second one.
+      const again = await as(estimator, 'contractor.estimate.get', {
+        estimateId: saved.estimateId,
+      });
+      expect(again.draft).toMatchObject({
+        id: draftId,
+        state: 'used',
+        estimateId: saved.estimateId,
+      });
+      expect(await refused(as(estimator, 'contractor.estimate.get', { jobId, draftId }))).toBe(
+        'not_found',
+      );
+      // The job's timeline says both, in words and never in amounts.
+      const lines = await rows<{ words: string }>(
+        admin(),
+        sql`select meta->>'words' as words from app.activities
+            where custom_record_id = ${jobId} and meta->>'words' is not null order by created_at, id`,
+      );
+      const said = lines.map((l) => l.words).join('\n');
+      expect(said).toContain('had the AI draft an estimate for this job');
+      expect(said).toContain('checked the AI’s draft and saved it as an estimate for this job');
+      expect(said).not.toMatch(/\$|cents/i);
+    });
+  });
+
+  describe('a job heading over its budget', () => {
+    const cost = (jobId: string, name: string, amountCents: number) =>
+      as(estimator, 'contractor.other_cost.add', { jobId, name, amountCents });
+    const watched = (jobId: string) =>
+      one<{ level: string; band: number; why: string | null; warned: boolean }>(
+        sql`select level, band, why, warned_at is not null as warned
+            from addon_contractor.budget_watch where record_id = ${jobId}`,
+      );
+
+    it('tells people who may see job costs once, and again only when it gets worse', async () => {
+      const jobId = await job('Over budget');
+      await as(owner, 'contractor.job.set_money', {
+        jobId,
+        priceCents: 5_000_00,
+        otherCents: 1_000_00,
+      });
+      // On plan: nothing to tell, and nothing kept.
+      expect(await check(jobId)).toEqual({
+        jobId,
+        level: 'ok',
+        alert: null,
+        clear: true,
+        ask: null,
+      });
+      // 4% over isn't worth telling.
+      await cost(jobId, 'Permit', 1_040_00);
+      expect(await check(jobId)).toMatchObject({ level: 'ok', alert: null });
+
+      // 20% over: told, with the costs and the profit it's now heading for.
+      await cost(jobId, 'Dump fee', 160_00);
+      const told = await check(jobId);
+      expect(told).toMatchObject({ jobId, level: 'over', clear: false });
+      expect(told.alert.title).toBe('“Over budget” is heading over budget');
+      expect(told.alert.title).not.toMatch(/\$/);
+      expect(told.alert.detail).toContain('$1,200 in costs against $1,000 planned (20% over)');
+      expect(told.alert.detail).toContain('Profit is heading for $3,800');
+      expect(told.ask).toContain('Other costs so far: Permit $1,040; Dump fee $160');
+      expect(await watched(jobId)).toEqual({ level: 'over', band: 2, why: null, warned: true });
+
+      // Looked at again with nothing changed: said once.
+      expect(await check(jobId)).toEqual({
+        jobId,
+        level: 'over',
+        alert: null,
+        clear: false,
+        ask: null,
+      });
+
+      // What the AI said is kept for the people who may see job costs, and shown with the job's costs.
+      expect(
+        await worker('contractor.budget.advise', {
+          jobId,
+          why: 'Other costs are $200 over the $1,000 planned.',
+          suggestions: ['Check whether the dump fee belongs on this job'],
+        }),
+      ).toEqual({ jobId, kept: true });
+      expect((await costing(jobId)).watch).toEqual({
+        level: 'over',
+        overPercent: 20,
+        why: 'Other costs are $200 over the $1,000 planned.',
+        suggestions: ['Check whether the dump fee belongs on this job'],
+        warnedAt: expect.any(String),
+      });
+      // Where a job's money stands is for people who may see job costs only.
+      expect(await refused(as(member, 'contractor.job.costing', { jobId }))).toBe('forbidden');
+      expect(await seen(member, 'budget_watch')).toBe(0);
+      expect(await seen(estimator, 'budget_watch')).toBeGreaterThan(0);
+
+      // Another step over is news again, and what the AI said about how things stood is asked afresh.
+      await cost(jobId, 'Second permit', 100_00);
+      const worse = await check(jobId);
+      expect(worse).toMatchObject({ level: 'over', clear: false });
+      expect(worse.alert.detail).toContain('(30% over)');
+      expect(await watched(jobId)).toMatchObject({ level: 'over', band: 3, why: null });
+      expect((await costing(jobId)).watch).toMatchObject({ why: null, suggestions: [] });
+
+      // Back within its plan: any alert goes.
+      await as(owner, 'contractor.job.set_money', { jobId, otherCents: 2_000_00 });
+      expect(await check(jobId)).toEqual({
+        jobId,
+        level: 'ok',
+        alert: null,
+        clear: true,
+        ask: null,
+      });
+      expect(await watched(jobId)).toMatchObject({ level: 'ok', band: 0, why: null });
+      expect((await costing(jobId)).watch).toMatchObject({ level: 'ok', why: null });
+
+      // None of it is on the job's history, which everyone on the job reads.
+      const events = await rows<{ type: string }>(
+        admin(),
+        sql`select event_type as type from app.events
+            where workspace_id = ${ws} and entity_id = ${jobId} and event_type like 'contractor.budget%'`,
+      );
+      expect(events).toEqual([]);
+    });
+
+    it('says a loss as a loss, and nothing while warnings are off', async () => {
+      const jobId = await job('Losing job');
+      await as(owner, 'contractor.job.set_money', {
+        jobId,
+        priceCents: 1_000_00,
+        otherCents: 800_00,
+      });
+      await cost(jobId, 'Subcontractor', 1_500_00);
+      const setWarnings = (on: boolean) =>
+        rows(
+          admin(),
+          sql`update app.addon_installations
+              set settings = coalesce(settings, '{}'::jsonb) || ${JSON.stringify({ budgetWarnings: on })}::jsonb
+              where workspace_id = ${ws} and addon_id = 'contractor'`,
+        );
+      await setWarnings(false);
+      try {
+        expect(await check(jobId)).toEqual({
+          jobId,
+          level: 'ok',
+          alert: null,
+          clear: true,
+          ask: null,
+        });
+      } finally {
+        await setWarnings(true);
+      }
+      const told = await check(jobId);
+      expect(told.level).toBe('loss');
+      expect(told.alert.title).toBe('“Losing job” is heading for a loss');
+      expect(told.alert.detail).toContain('that’s a loss of $500');
+      // The card still shows where it stands, whatever the setting.
+      expect((await costing(jobId)).watch).toMatchObject({ level: 'loss', overPercent: 87 });
+      // A job that's gone has nothing to watch.
+      expect(await check(randomUUID())).toBeNull();
+    });
+  });
+
+  describe('a daily report', () => {
+    it('gives the AI one day of a job, and never a cost', async () => {
+      const jobId = await job('Report source');
+      await as(member, 'contractor.note.add', { jobId, body: 'Pulled the old panel.' });
+      const source = await worker('contractor.report.source', { jobId });
+      expect(source).toMatchObject({
+        jobId,
+        job: { name: 'Report source', kind: 'Service call', trade: 'Electrical', percentDone: 0 },
+        business: 'Bright Line Electric',
+        ticked: [],
+        photoFileIds: [],
+        waitingWords: 0,
+        existing: null,
+        onItsOwn: true,
+      });
+      expect(source.job.customerFirstName).toBe('Dana');
+      expect(source.notes).toEqual([
+        expect.objectContaining({ text: 'Pulled the old panel.', photos: 0, visit: null }),
+      ]);
+      expect(source.dayWords).toMatch(/^\w+day, \w+ \d+$/);
+      expect(JSON.stringify(source)).not.toMatch(/cents|cost|price/i);
+      // Another day has none of it.
+      const before = await worker('contractor.report.source', { jobId, day: '2026-01-05' });
+      expect(before).toMatchObject({ day: '2026-01-05', notes: [], dayWords: 'Monday, January 5' });
+    });
+
+    it('keeps one report a day, written again in place, and leaves a person’s words alone', async () => {
+      const jobId = await job('Reported job');
+      const { today } = await reports(member, jobId);
+      // Written on its own.
+      const first = await write(jobId, today);
+      expect(first).toEqual({ reportId: expect.any(String), jobId, day: today, kept: true });
+      let list = await reports(member, jobId);
+      expect(list).toMatchObject({
+        jobId,
+        today,
+        onItsOwn: true,
+        customer: { name: 'Dana Reyes' },
+        canChange: true,
+        truncated: false,
+      });
+      expect(list.reports).toEqual([
+        {
+          id: first.reportId,
+          day: today,
+          ...words(),
+          crew: [],
+          photoFileIds: [],
+          notesRead: 2,
+          photosRead: 0,
+          writtenAt: expect.any(String),
+          askedBy: null,
+          edited: null,
+          sent: null,
+        },
+      ]);
+      // A report has no money in it, so a tech reads it; and the worker alone keeps one.
+      expect(await seen(member, 'daily_reports')).toBeGreaterThan(0);
+      expect(
+        await refused(as(owner, 'contractor.report.keep', { jobId, day: today, body: words() })),
+      ).toBe('forbidden');
+
+      // Written again for someone who pressed Write: the same report, with the new words.
+      const again = await write(
+        jobId,
+        today,
+        { body: words({ summary: 'Circuits are landed.' }), crew: [{ name: 'Sam', hours: 6.5 }] },
+        estimator,
+      );
+      expect(again).toEqual({ reportId: first.reportId, jobId, day: today, kept: true });
+      list = await reports(member, jobId);
+      expect(list.reports).toHaveLength(1);
+      expect(list.reports[0]).toMatchObject({
+        summary: 'Circuits are landed.',
+        crew: [{ name: 'Sam', hours: 6.5 }],
+        askedBy: 'Eli Estimator',
+      });
+
+      // Someone changes its words: it's theirs now.
+      expect(
+        await as(member, 'contractor.report.update', {
+          reportId: first.reportId,
+          summary: 'Circuits are landed, by hand.',
+          done: ['- Landed 12 circuits', 'landed 12 CIRCUITS'],
+          forCustomer: null,
+        }),
+      ).toEqual({ reportId: first.reportId, jobId, day: today });
+      list = await reports(member, jobId);
+      expect(list.reports[0]).toMatchObject({
+        summary: 'Circuits are landed, by hand.',
+        done: ['Landed 12 circuits'],
+        issues: [],
+        forCustomer: null,
+        edited: { by: expect.any(String), at: expect.any(String) },
+      });
+      // The AI doesn't write over it on its own.
+      expect(await write(jobId, today)).toEqual({
+        reportId: first.reportId,
+        jobId,
+        day: today,
+        kept: false,
+      });
+      expect((await reports(member, jobId)).reports[0].summary).toBe(
+        'Circuits are landed, by hand.',
+      );
+      // Unless the person says to write it again.
+      expect(await write(jobId, today, { replace: true }, member)).toMatchObject({ kept: true });
+      list = await reports(member, jobId);
+      expect(list.reports[0]).toMatchObject({ summary: words().summary, edited: null });
+
+      // A report needs a summary, from the AI or from a person.
+      expect(await refused(write(jobId, today, { body: words({ summary: '   ' }) }))).toBe(
+        'validation',
+      );
+      expect(
+        await refused(
+          as(member, 'contractor.report.update', { reportId: first.reportId, summary: '  ' }),
+        ),
+      ).toBe('validation');
+
+      // Another day is another report, and the newest day comes first.
+      await write(jobId, '2026-01-05', { body: words({ summary: 'An earlier day.' }) });
+      expect((await reports(member, jobId)).reports.map((r: Any) => r.day)).toEqual([
+        today,
+        '2026-01-05',
+      ]);
+      // Written twice, said once on the job's history.
+      const events = await rows<{ payload: { again: boolean } }>(
+        admin(),
+        sql`select payload from app.events
+            where workspace_id = ${ws} and entity_id = ${jobId} and event_type = 'contractor.report.written'
+            order by created_at, id`,
+      );
+      expect(events.map((e) => e.payload.again)).toEqual([false, true, true, false]);
+      const lines = await rows<{ words: string }>(
+        admin(),
+        sql`select meta->>'words' as words from app.activities
+            where custom_record_id = ${jobId} and meta->>'words' is not null`,
+      );
+      expect(lines.filter((l) => /wrote the daily report/.test(l.words))).toHaveLength(2);
+    });
+
+    it('sends the customer only their update, once, when a person says so', async () => {
+      const [riley] = await rows<{ id: string }>(
+        admin(),
+        sql`insert into app.people (workspace_id, first_name, last_name, email, owner_user_id)
+            values (${ws}, 'Riley', 'Stone', ${`riley-${randomUUID().slice(0, 8)}@example.com`}, ${owner.id})
+            returning id`,
+      );
+      const jobId = await job('Kitchen rewire', { customerPersonId: riley!.id });
+      const { today } = await reports(owner, jobId);
+      const { reportId } = await write(jobId, today, { body: words({ forCustomer: null }) });
+      const send = (more: Record<string, unknown> = {}) =>
+        as(owner, 'contractor.report.send', { reportId, channel: 'email', ...more });
+      expect((await reports(owner, jobId)).customer).toEqual({
+        name: 'Riley Stone',
+        email: true,
+        sms: false,
+      });
+      // Nothing written for the customer: nothing to send.
+      expect(await refused(send())).toBe('contractor_report_nothing_to_send');
+      // No phone number: not by text.
+      expect(await refused(send({ channel: 'sms', body: 'The panel is in.' }))).toBe(
+        'contractor_report_cant_reach',
+      );
+      expect((await reports(owner, jobId)).reports[0].sent).toBeNull();
+
+      // What the person sends is what's kept as the customer's update.
+      expect(await send({ body: 'The panel is in. We’ll be back tomorrow.' })).toEqual({
+        reportId,
+        jobId,
+        day: today,
+        channel: 'email',
+        customer: 'Riley Stone',
+      });
+      const report = (await reports(owner, jobId)).reports[0];
+      expect(report).toMatchObject({
+        forCustomer: 'The panel is in. We’ll be back tomorrow.',
+        sent: { by: 'Olive Owner', channel: 'email', at: expect.any(String) },
+      });
+      const [message] = await rows<{ subject: string | null; body: string }>(
+        admin(),
+        sql`select m.subject, m.body_text as body from app.messages m
+            join app.conversations c on c.id = m.conversation_id
+            where m.workspace_id = ${ws} and c.person_id = ${riley!.id}`,
+      );
+      expect(message).toEqual({
+        subject: 'Today on your job: Kitchen rewire',
+        body: 'The panel is in. We’ll be back tomorrow.',
+      });
+      // Once: saying more is a message of their own. And what went stays as it went.
+      expect(await refused(send())).toBe('contractor_report_sent');
+      await as(owner, 'contractor.report.update', {
+        reportId,
+        summary: 'Changed after sending.',
+        forCustomer: 'Something else entirely.',
+      });
+      expect((await reports(owner, jobId)).reports[0]).toMatchObject({
+        summary: 'Changed after sending.',
+        forCustomer: 'The panel is in. We’ll be back tomorrow.',
+      });
     });
   });
 });

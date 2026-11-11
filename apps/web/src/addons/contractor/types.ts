@@ -56,3 +56,14 @@ export type LaborRateList = Ok<'/v1/queries/contractor.labor_rate.list'>;
 export type LaborRate = LaborRateList['people'][number];
 export type Profit = Ok<'/v1/queries/contractor.profit'>;
 export type ProfitRow = Profit['rows'][number];
+
+/** The AI's draft the builder opens from, or the one a saved estimate was started from. */
+export type BuilderDraft = NonNullable<EstimateBuilderData['draft']>;
+export type DraftedLine = BuilderDraft['draft']['options'][number]['lines'][number];
+export type EstimateDraftList = Ok<'/v1/queries/contractor.estimate_draft.list'>;
+/** An estimate the AI drafted for a job, still waiting for someone to open it. */
+export type WaitingDraft = EstimateDraftList['drafts'][number];
+export type ReportList = Ok<'/v1/queries/contractor.report.list'>;
+/** One day's report on a job. */
+export type DailyReport = ReportList['reports'][number];
+export type BudgetWatch = JobCosting['watch'];

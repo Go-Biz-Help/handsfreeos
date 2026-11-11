@@ -8,7 +8,8 @@ export const metadata: Metadata = { title: 'New estimate' };
 
 /**
  * A new estimate in the builder, for a job when one is named (`?jobId=`): its customer is who the estimate is for.
- * Nothing is kept until Save. For people who may see job costs.
+ * With `&draftId=` it opens from the AI's draft for that job, every line there to check. Nothing is kept until Save.
+ * For people who may see job costs.
  */
 export default async function ContractorNewEstimatePage({
   params,
@@ -19,14 +20,19 @@ export default async function ContractorNewEstimatePage({
 }) {
   const { workspaceId } = await params;
   const sp = await searchParams;
-  const wanted = Array.isArray(sp.jobId) ? sp.jobId[0] : sp.jobId;
-  const jobId = wanted && /^[0-9a-f-]{36}$/i.test(wanted) ? wanted : undefined;
+  const idOf = (v: string | string[] | undefined) => {
+    const wanted = Array.isArray(v) ? v[0] : v;
+    return wanted && /^[0-9a-f-]{36}$/i.test(wanted) ? wanted : undefined;
+  };
+  const jobId = idOf(sp.jobId);
+  // A draft is a job's: without the job there's nothing to open it for.
+  const draftId = jobId ? idOf(sp.draftId) : undefined;
   return addonPage(workspaceId, 'contractor', 'contractor.costs', async () => {
     const shell = await loadMoneyShell(workspaceId);
     const [data, catalogs, costs] = await Promise.all([
       shell.api
         .POST('/v1/queries/contractor.estimate.get', {
-          body: { workspaceId, ...(jobId ? { jobId } : {}) },
+          body: { workspaceId, ...(jobId ? { jobId } : {}), ...(draftId ? { draftId } : {}) },
         })
         .then(unwrapPage),
       loadEditorCatalogs(shell.api, workspaceId),

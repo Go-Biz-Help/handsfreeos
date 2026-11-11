@@ -1,6 +1,6 @@
 /**
  * Contractor Operations' own tables, in its schema `addon_contractor` (supabase/migrations/20261027024000, 024200,
- * 024300, 024400, 024500 and 025300): the Drizzle mirror its server code reads and writes through. Server-only.
+ * 024300, 024400, 024500, 025300 and 025700): the Drizzle mirror its server code reads and writes through. Server-only.
  * test/addons/contractor-ops.test.ts holds the mirror to the live columns.
  */
 import { sql } from 'drizzle-orm';
@@ -9,6 +9,7 @@ import {
   boolean,
   date,
   integer,
+  jsonb,
   numeric,
   pgSchema,
   primaryKey,
@@ -26,7 +27,9 @@ import {
   users,
   workspaces,
 } from '@hfos/db/schema';
+import type { WatchLevel } from './budget-watch';
 import type { ItemKind } from './checklists';
+import type { CheckedDraft } from './estimate-draft';
 import type { CostKind } from './estimating';
 import type { TranscriptState } from './notes';
 import type { JobKind, JobStatus, PhaseStatus } from './progress';
@@ -382,6 +385,73 @@ export const notes = addonContractor.table('notes', {
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
 
+/**
+ * An estimate the AI drafted for a job (part 7): a draft beside the job until a person saves it from the builder. It
+ * holds costs, so it's read only by people who may see job costs.
+ */
+export const estimateDrafts = addonContractor.table('estimate_drafts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  askedBy: userRef('asked_by'),
+  brief: text('brief'),
+  draft: jsonb('draft').notNull().$type<CheckedDraft>(),
+  notesRead: integer('notes_read').notNull().default(0),
+  photosRead: integer('photos_read').notNull().default(0),
+  state: text('state').notNull().$type<'ready' | 'used' | 'dismissed'>().default('ready'),
+  /** The estimate a person saved from it. */
+  estimateId: uuid('estimate_id').references(() => coreEstimates.id, { onDelete: 'set null' }),
+  settledBy: userRef('settled_by'),
+  settledAt: ts('settled_at'),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** Where a job's budget stood when it was last looked at, and what the AI said is driving it: costs only. */
+export const budgetWatch = addonContractor.table('budget_watch', {
+  recordId: uuid('record_id').primaryKey(),
+  workspaceId: workspaceRef(),
+  level: text('level').notNull().$type<WatchLevel>().default('ok'),
+  band: integer('band').notNull().default(0),
+  why: text('why'),
+  suggestions: jsonb('suggestions').notNull().$type<string[]>().default([]),
+  advisedAt: ts('advised_at'),
+  /** When people were last told. */
+  warnedAt: ts('warned_at'),
+  checkedAt: ts('checked_at').notNull().defaultNow(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
+/** One day of one job, written up from what the crew left. No money in it. */
+export const dailyReports = addonContractor.table('daily_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: workspaceRef(),
+  recordId: uuid('record_id').notNull(),
+  day: day('day').notNull(),
+  summary: text('summary').notNull(),
+  done: jsonb('done').notNull().$type<string[]>().default([]),
+  issues: jsonb('issues').notNull().$type<string[]>().default([]),
+  materials: jsonb('materials').notNull().$type<string[]>().default([]),
+  nextSteps: jsonb('next_steps').notNull().$type<string[]>().default([]),
+  /** The update for the customer: it goes only when a person sends it. */
+  forCustomer: text('for_customer'),
+  crew: jsonb('crew').notNull().$type<{ name: string; hours: number }[]>().default([]),
+  photoFileIds: uuid('photo_file_ids').array().notNull().default([]),
+  notesRead: integer('notes_read').notNull().default(0),
+  photosRead: integer('photos_read').notNull().default(0),
+  /** Who pressed Write; null when it was written on its own. */
+  askedBy: userRef('asked_by'),
+  writtenAt: ts('written_at').notNull().defaultNow(),
+  editedBy: userRef('edited_by'),
+  editedAt: ts('edited_at'),
+  sentBy: userRef('sent_by'),
+  sentAt: ts('sent_at'),
+  sentChannel: text('sent_channel').$type<'email' | 'sms'>(),
+  createdAt: ts('created_at').notNull().defaultNow(),
+  updatedAt: ts('updated_at').notNull().defaultNow(),
+});
+
 export const CONTRACTOR_TABLES = {
   jobs,
   phases,
@@ -404,4 +474,7 @@ export const CONTRACTOR_TABLES = {
   laborRates,
   otherCosts,
   notes,
+  estimateDrafts,
+  budgetWatch,
+  dailyReports,
 } as const;

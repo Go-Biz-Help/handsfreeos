@@ -68,6 +68,7 @@ import {
 } from '../tables';
 import { CONTRACTOR_WORDS as W, okNeededWords, REFUSALS } from '../words';
 import { inWorkspace, jobLine, loadJob, pairsOf, type Ctx, type Job } from './common';
+import { draftBy, draftOut, markDraftUsed } from './draft-rows';
 import { addEstimateMaterials, type EstimateMaterialLine } from './materials';
 
 const estimatePath = (id: string) => `a/contractor/estimates/${id}`;
@@ -388,6 +389,11 @@ export const estimateSave = defineAddonCommand(contractorAddon, {
       estimateId = made.output.estimateId;
       created = true;
     }
+    // Started from the AI's draft (part 7): a person has it now, so the draft is used. Only a new estimate can be.
+    const fromDraft =
+      created && input.draftId
+        ? await markDraftUsed(ctx, input.draftId, estimateId, job?.recordId ?? null)
+        : false;
 
     await ctx.tx
       .insert(links)
@@ -441,10 +447,18 @@ export const estimateSave = defineAddonCommand(contractorAddon, {
         options: input.options.length,
         created,
         waitingOk: !!check.asked && !check.canSend,
+        ...(fromDraft ? { fromDraft: true } : {}),
       },
     });
     if (created && fresh.jobId)
-      await jobLine(ctx, fresh.jobId, 'started an estimate for this job', { eventId });
+      await jobLine(
+        ctx,
+        fresh.jobId,
+        fromDraft
+          ? 'checked the AI’s draft and saved it as an estimate for this job'
+          : 'started an estimate for this job',
+        { eventId },
+      );
     return {
       estimateId,
       revision: fresh.revision,
@@ -889,6 +903,10 @@ export const estimateBuilder = defineAddonQuery(contractorAddon, {
                 from app.people where id = ${customer.personId} and workspace_id = ${ws} and archived_at is null`,
           )
         : [];
+      // The AI's draft to start from (part 7): only one still waiting, and only for the job named.
+      const found = input.draftId ? await draftBy(ctx, { draftId: input.draftId }) : null;
+      if (input.draftId && (!found || found.state !== 'ready' || found.recordId !== job?.id))
+        throw HfosError.notFound(REFUSALS.draftGone);
       return {
         estimate: null,
         costs: [],
@@ -896,6 +914,7 @@ export const estimateBuilder = defineAddonQuery(contractorAddon, {
         person: person
           ? { id: person.id, fullName: person.full_name, email: person.email, phone: person.phone }
           : null,
+        draft: found ? draftOut(found) : null,
         check: null,
         estimating: await estimatingOf(ctx),
         may,
@@ -906,11 +925,13 @@ export const estimateBuilder = defineAddonQuery(contractorAddon, {
       workspaceId: ws,
       estimateId: b.estimateId,
     });
+    const from = await draftBy(ctx, { estimateId: b.estimateId });
     return {
       estimate,
       costs: await costRowsOf(ctx, b.estimateId),
       job: await jobOf(b.jobId),
       person: estimate.person,
+      draft: from ? draftOut(from) : null,
       check: await checkOf(ctx, b),
       estimating: await estimatingOf(ctx),
       may,
@@ -991,6 +1012,47 @@ export const estimateList = defineAddonQuery(contractorAddon, {
   },
 });
 
+/** The price list with what each item costs the business, by name: what Item costs shows and the AI's draft reads. */
+export async function itemCostRows(ctx: Ctx, most = 1000) {
+  const list = await rows<{
+    id: string;
+    name: string;
+    description: string | null;
+    kind: 'product' | 'service' | 'fee';
+    unit_label: string;
+    unit_price_cents: number;
+    taxable: boolean;
+    cost_kind: CostKind | null;
+    cost_cents: number | null;
+  }>(
+    ctx.tx,
+    sql`select p.id, p.name, p.description, p.kind::text as kind, p.unit_label,
+          p.unit_price_cents::float8 as unit_price_cents, p.taxable, c.kind as cost_kind,
+          c.cost_cents::float8 as cost_cents
+        from app.products p
+        left join addon_contractor.item_costs c on c.product_id = p.id
+        where p.workspace_id = ${ctx.scope.workspaceId!} and p.archived_at is null
+        order by lower(p.name), p.id
+        limit ${most}`,
+  );
+  return list.map((p) => {
+    const cost = p.cost_cents === null ? null : Number(p.cost_cents);
+    const price = Number(p.unit_price_cents);
+    return {
+      productId: p.id,
+      name: p.name,
+      description: p.description,
+      productKind: p.kind,
+      unitLabel: p.unit_label,
+      unitPriceCents: price,
+      taxable: p.taxable,
+      kind: p.cost_kind ?? defaultCostKind(p.kind),
+      costCents: cost,
+      marginBp: cost === null ? null : marginBpOf(price, cost),
+    };
+  });
+}
+
 export const itemCostList = defineAddonQuery(contractorAddon, {
   name: 'contractor.item_cost.list',
   description:
@@ -1006,44 +1068,6 @@ export const itemCostList = defineAddonQuery(contractorAddon, {
     keywords: ['item costs', 'price list costs', 'what does it cost us'],
   },
   async handler(ctx) {
-    const list = await rows<{
-      id: string;
-      name: string;
-      description: string | null;
-      kind: 'product' | 'service' | 'fee';
-      unit_label: string;
-      unit_price_cents: number;
-      taxable: boolean;
-      cost_kind: CostKind | null;
-      cost_cents: number | null;
-    }>(
-      ctx.tx,
-      sql`select p.id, p.name, p.description, p.kind::text as kind, p.unit_label,
-            p.unit_price_cents::float8 as unit_price_cents, p.taxable, c.kind as cost_kind,
-            c.cost_cents::float8 as cost_cents
-          from app.products p
-          left join addon_contractor.item_costs c on c.product_id = p.id
-          where p.workspace_id = ${ctx.scope.workspaceId!} and p.archived_at is null
-          order by lower(p.name), p.id
-          limit 1000`,
-    );
-    return {
-      items: list.map((p) => {
-        const cost = p.cost_cents === null ? null : Number(p.cost_cents);
-        const price = Number(p.unit_price_cents);
-        return {
-          productId: p.id,
-          name: p.name,
-          description: p.description,
-          productKind: p.kind,
-          unitLabel: p.unit_label,
-          unitPriceCents: price,
-          taxable: p.taxable,
-          kind: p.cost_kind ?? defaultCostKind(p.kind),
-          costCents: cost,
-          marginBp: cost === null ? null : marginBpOf(price, cost),
-        };
-      }),
-    };
+    return { items: await itemCostRows(ctx) };
   },
 });

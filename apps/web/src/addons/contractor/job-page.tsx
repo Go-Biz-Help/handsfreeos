@@ -1,9 +1,10 @@
 'use client';
 /**
  * One job (docs/contractor.md, "A job's page"): its status, customer and property, the work to do, its phases and %
- * done, its lead and team, its visits, its materials, the time tracked on it, the crew's notes from the field, and
- * (for people who may see job costs, the owner's decision 11) its price and budget and what it's costing against
- * them. Files, tasks and the office's own notes are on core's page for its record, linked from here.
+ * done, its lead and team, its visits, its materials, the time tracked on it, the crew's notes from the field, its
+ * daily reports, and (for people who may see job costs, the owner's decision 11) its price and budget, what it's
+ * costing against them, and the estimates the AI drafted that wait for someone to check. Files, tasks and the
+ * office's own notes are on core's page for its record, linked from here.
  *
  * Each visit opens its work order, and booking one starts it and opens it, to put a crew on. Marking the job Done
  * waits on the required checklist items and photos on its work orders (the owner's decision 8): the server says
@@ -41,6 +42,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ApiError, apiBrowser, unwrap } from '@/lib/api/client';
 import { useLiveRefresh } from '@/lib/realtime/live-provider';
 import { cn } from '@/lib/utils';
+import { DraftWithAi, WaitingDrafts } from './ai-draft';
 import {
   ChecklistLine,
   contractorHref,
@@ -57,6 +59,7 @@ import { EditJobDialog, MoneyDialog, ReasonDialog } from './job-dialogs';
 import { MaterialsCard, type MaterialProduct } from './materials-card';
 import { FieldNotesCard } from './notes-card';
 import { PercentInput, PhasesCard } from './phases-card';
+import { DailyReportsCard } from './reports-card';
 import { TimeCard } from './time-card';
 import type {
   EstimateList,
@@ -65,7 +68,9 @@ import type {
   MaterialList,
   NoteList,
   Overview,
+  ReportList,
   TimeList,
+  WaitingDraft,
 } from './types';
 import { useAct } from './use-act';
 
@@ -90,7 +95,9 @@ export function JobPage({
   materials,
   time,
   notes,
+  reports,
   costing,
+  drafts,
   products,
   myUserId,
   timeZone,
@@ -107,8 +114,12 @@ export function JobPage({
   time: TimeList;
   /** The crew's notes from the field, the newest first. */
   notes: NoteList;
+  /** The job's daily reports, the newest first: never with a cost. */
+  reports: ReportList;
   /** What the job is costing against its plan; null for someone who may not see job costs. */
   costing: JobCosting | null;
+  /** The estimates the AI drafted that still wait for someone; empty for someone who may not see job costs. */
+  drafts: readonly WaitingDraft[];
   /** The price list to pick a material from; empty for someone who can't see it. */
   products: readonly MaterialProduct[];
   myUserId: string;
@@ -392,8 +403,20 @@ export function JobPage({
             timeZone={timeZone}
           />
 
+          <DailyReportsCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            reports={reports}
+            timeZone={timeZone}
+          />
+
           {costing ? (
-            <JobCostsCard workspaceId={workspaceId} costing={costing} today={overview.today} />
+            <JobCostsCard
+              workspaceId={workspaceId}
+              costing={costing}
+              today={overview.today}
+              timeZone={timeZone}
+            />
           ) : null}
 
           {overview.may.costs || estimates.length ? (
@@ -401,16 +424,25 @@ export function JobPage({
               <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
                 <h2 className="text-[15px] font-semibold">{CONTRACTOR_WORDS.estimates.title}</h2>
                 {overview.may.costs && !closed ? (
-                  <ButtonLink
-                    href={contractorHref(workspaceId, `estimates/new?jobId=${job.id}`)}
-                    size="sm"
-                    variant="ghost"
-                    data-testid="job-new-estimate"
-                  >
-                    {CONTRACTOR_WORDS.estimates.add}
-                  </ButtonLink>
+                  <span className="flex flex-wrap items-center gap-1">
+                    <DraftWithAi workspaceId={workspaceId} jobId={job.id} />
+                    <ButtonLink
+                      href={contractorHref(workspaceId, `estimates/new?jobId=${job.id}`)}
+                      size="sm"
+                      variant="ghost"
+                      data-testid="job-new-estimate"
+                    >
+                      {CONTRACTOR_WORDS.estimates.add}
+                    </ButtonLink>
+                  </span>
                 ) : null}
               </div>
+              <WaitingDrafts
+                workspaceId={workspaceId}
+                drafts={drafts}
+                timeZone={timeZone}
+                readOnly={closed}
+              />
               {estimates.length === 0 ? (
                 <p className="px-5 py-4 text-[13.5px] text-text-2">
                   {CONTRACTOR_WORDS.estimates.none}

@@ -19,6 +19,10 @@
  *   people on it, anything else stops them, and time left running half a day is stopped and flagged: ./time.ts.
  * - **A voice note gets its words** from its recording, a moment after the note arrives: ./notes.ts.
  * - **Phones keep a job** while it's open and for a month after it's done or cancelled: ./phone.ts.
+ * - **The AI helpers** (part 7), each of which prepares something and leaves the deciding to a person: an estimate
+ *   drafted from a job's notes and photos, kept as a draft a person checks and saves (./drafts.ts); a look at a
+ *   job's budget whenever something that costs money changes, and an alert for the people who may see job costs
+ *   when it heads over (./budget.ts); and each job's daily report from what its crew left that day (./reports.ts).
  */
 import { estimateFillJob } from '@hfos/core/addons/contractor/ops/estimates';
 import { jobFollowVisit } from '@hfos/core/addons/contractor/ops/jobs';
@@ -26,7 +30,9 @@ import { workOrderStart } from '@hfos/core/addons/contractor/ops/work-orders';
 import { catalogAddon, executeCommand } from '@hfos/core/server';
 import { asWorker, rows, sql } from '@hfos/db/client';
 import { clearAddonAlert, raiseAddonAlert } from '../alerts';
-import type { AddonEventContext, AddonWorkerModule } from '../types';
+import type { AddonEventContext, AddonSubscriber, AddonWorkerModule } from '../types';
+import { BUDGET_CHECK, budgetCheckJob, costsChanged } from './budget';
+import { DRAFT_ACTION, draftEstimate } from './drafts';
 import {
   materialAdded,
   MATERIALS_CHECK,
@@ -37,6 +43,13 @@ import {
 } from './materials';
 import { noteAdded } from './notes';
 import { jobStatusMoved, PHONE_CHECK, phoneCheckJob } from './phone';
+import {
+  noteForReport,
+  REPORT_ACTION,
+  REPORT_WRITE,
+  reportWriteJob,
+  writeReportNow,
+} from './reports';
 import {
   estimatingSaved,
   jobTimeChanged,
@@ -123,6 +136,15 @@ async function okAsked(ctx: AddonEventContext): Promise<void> {
   });
 }
 
+/** One after another, for an event more than one part of the add-on follows. Each is safe to run again. */
+const each =
+  (...subscribers: readonly AddonSubscriber[]): AddonSubscriber =>
+  async (ctx) => {
+    for (const subscriber of subscribers) await subscriber(ctx);
+  };
+/** What the event did, and then a look at the job's budget: it changed what the job costs or how far along it is. */
+const thenBudget = (subscriber: AddonSubscriber) => each(subscriber, costsChanged);
+
 const okDone = (reason: string) => async (ctx: AddonEventContext) => {
   const estimateId = estimateIdOf(ctx);
   if (estimateId) await clearAddonAlert(ctx, okAlertKey(estimateId), reason);
@@ -138,10 +160,17 @@ export const contractorAddonWorker: AddonWorkerModule = {
       await visitCancelled(ctx);
       await visitCancelledTime(ctx);
     },
-    'contractor.material.added': materialAdded,
-    'contractor.material.updated': materialsChanged,
-    'contractor.material.removed': materialsChanged,
-    'contractor.materials.filled': materialsChanged,
+    'contractor.material.added': thenBudget(materialAdded),
+    'contractor.material.updated': thenBudget(materialsChanged),
+    'contractor.material.removed': thenBudget(materialsChanged),
+    'contractor.materials.filled': thenBudget(materialsChanged),
+    'contractor.material.cost_set': costsChanged,
+    'contractor.other_cost.added': costsChanged,
+    'contractor.other_cost.removed': costsChanged,
+    // Its budget was set, or it moved along: both change where it's heading.
+    'contractor.job.money_set': costsChanged,
+    'contractor.job.percent_set': costsChanged,
+    'contractor.phase.updated': costsChanged,
     // A visit's crew pressing one of its status buttons (core's job.status_changed, its entity the appointment):
     // the clocks follow every one of them, and Started moves the job along too.
     'job.status_changed': async (ctx) => {
@@ -150,15 +179,19 @@ export const contractorAddonWorker: AddonWorkerModule = {
       await visitStatusMoved(ctx);
       if (payload['status'] === 'in_progress') await visitStarted(ctx);
     },
-    'contractor.time.tracked': visitTimeChanged,
-    'contractor.time.break_set': jobTimeChanged,
-    'contractor.time.fixed': jobTimeChanged,
-    'contractor.time.added': jobTimeChanged,
-    'contractor.time.removed': visitTimeChanged,
+    'contractor.time.tracked': thenBudget(visitTimeChanged),
+    'contractor.time.break_set': thenBudget(jobTimeChanged),
+    'contractor.time.fixed': thenBudget(jobTimeChanged),
+    'contractor.time.added': thenBudget(jobTimeChanged),
+    'contractor.time.removed': thenBudget(visitTimeChanged),
     'contractor.labor_rate.set': laborRateSet,
     'contractor.estimating.saved': estimatingSaved,
-    'contractor.note.added': noteAdded,
-    'contractor.job.status_changed': jobStatusMoved,
+    // A voice note gets its words, and the day's report is queued for the evening.
+    'contractor.note.added': each(noteAdded, noteForReport),
+    // Its words came: a report written before them is written again with them.
+    'contractor.note.transcribed': noteForReport,
+    // A job that closes leaves phones later, and stops being watched for its budget now.
+    'contractor.job.status_changed': thenBudget(jobStatusMoved),
     'estimate.accepted': async (ctx) => {
       const estimateId = estimateIdOf(ctx);
       if (!estimateId) return;
@@ -183,5 +216,11 @@ export const contractorAddonWorker: AddonWorkerModule = {
     [MATERIALS_CHECK]: materialsCheckJob,
     [TIME_CHECK]: timeCheckJob,
     [PHONE_CHECK]: phoneCheckJob,
+    [BUDGET_CHECK]: budgetCheckJob,
+    [REPORT_WRITE]: reportWriteJob,
+  },
+  actions: {
+    [DRAFT_ACTION]: draftEstimate,
+    [REPORT_ACTION]: writeReportNow,
   },
 };

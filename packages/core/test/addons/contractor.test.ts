@@ -11,12 +11,44 @@ import {
   queries,
 } from '../../src/server';
 import {
+  BUDGET_ADVICE_SYSTEM,
+  budgetAdviceAsk,
+  budgetAlertWords,
+  BudgetAdviceAnswer,
+  checkedBudgetAdvice,
+  WATCH,
+  watchBudget,
+  watchIsNews,
+} from '../../src/addons/contractor/budget-watch';
+import {
   checklistForNewVisit,
   checklistProgress,
   checklistWords,
   PLAIN_CHECKLIST,
   STARTER_CHECKLISTS,
 } from '../../src/addons/contractor/checklists';
+import {
+  checkedReport,
+  REPORT_LIMITS,
+  REPORT_SYSTEM,
+  reportAsk,
+  reportDayWords,
+  reportDueAt,
+  reportHasEnough,
+  type ReportSource,
+} from '../../src/addons/contractor/daily-report';
+import {
+  checkedEstimateDraft,
+  DRAFT_LIMITS,
+  draftHasEnough,
+  ESTIMATE_DRAFT_SCHEMA,
+  ESTIMATE_DRAFT_SYSTEM,
+  EstimateDraftAnswer,
+  estimateDraftAsk,
+  guessedLines,
+  type DraftItem,
+  type DraftSource,
+} from '../../src/addons/contractor/estimate-draft';
 import {
   checkMargin,
   costOption,
@@ -67,8 +99,10 @@ import {
 } from '../../src/addons/contractor/materials';
 import {
   ContractorSettingsSchema,
+  EstimateDraftBody,
   MaterialCountInput,
   NoteAddInput,
+  ReportBody,
 } from '../../src/addons/contractor/schemas';
 import { contractorAddonServer } from '../../src/addons/contractor/server';
 import {
@@ -1000,5 +1034,627 @@ describe('on the phone (part 6)', () => {
       expect(offline(name), name).toBe('anytime');
     for (const name of ['contractor.job.set_status', 'contractor.note.remove'])
       expect(offline(name), name).toBe('online');
+  });
+});
+
+describe('the AI helpers (part 7)', () => {
+  describe('an estimate the AI drafts (the owner’s decision 6)', () => {
+    const items: DraftItem[] = [
+      {
+        productId: '11111111-1111-4111-8111-111111111111',
+        name: 'Cedar picket, 6 ft',
+        description: null,
+        unitLabel: 'each',
+        unitPriceCents: 450,
+        taxable: true,
+        kind: 'material',
+        costCents: 280,
+      },
+      {
+        productId: '22222222-2222-4222-8222-222222222222',
+        name: 'Gate kit',
+        description: 'Hinges and a latch',
+        unitLabel: 'kit',
+        unitPriceCents: 9_500,
+        taxable: true,
+        kind: 'material',
+        costCents: null,
+      },
+    ];
+    const estimating = { markupBp: 5000, laborRateCents: 9_500, laborCostCents: 4_200 };
+    const source = (options: 1 | 3 = 1) => ({ items, estimating, options });
+    const line = (l: Record<string, unknown>) => ({
+      item: '',
+      name: '',
+      description: '',
+      quantity: 1,
+      unitLabel: '',
+      kind: 'material',
+      unitCostCents: 0,
+      ...l,
+    });
+    const answer = (lines: unknown[], more: Record<string, unknown> = {}) =>
+      EstimateDraftAnswer.parse({
+        title: 'North fence',
+        options: [{ name: '', lines }],
+        assumptions: [],
+        questions: [],
+        ...more,
+      });
+
+    it('keeps a price list item at the business’s own name, unit, price and cost', () => {
+      const d = checkedEstimateDraft(
+        answer([
+          line({
+            item: 'i1',
+            name: 'Premium pickets',
+            quantity: 80,
+            unitLabel: 'box',
+            unitCostCents: 1,
+          }),
+          line({ item: 'I2', quantity: 2 }),
+        ]),
+        source(),
+      )!;
+      expect(d.options).toHaveLength(1);
+      expect(d.options[0]!.name).toBe('');
+      expect(d.options[0]!.lines).toEqual([
+        {
+          productId: items[0]!.productId,
+          name: 'Cedar picket, 6 ft',
+          description: null,
+          quantity: 80,
+          unitLabel: 'each',
+          unitPriceCents: 450,
+          taxable: true,
+          kind: 'material',
+          unitCostCents: 280,
+          guessed: false,
+        },
+        {
+          productId: items[1]!.productId,
+          name: 'Gate kit',
+          description: 'Hinges and a latch',
+          quantity: 2,
+          unitLabel: 'kit',
+          unitPriceCents: 9_500,
+          taxable: true,
+          kind: 'material',
+          // The price list has no cost for it: that's the business's to put in, not the AI's to guess.
+          unitCostCents: null,
+          guessed: false,
+        },
+      ]);
+      expect(guessedLines(d)).toBe(0);
+    });
+
+    it('prices labor at the business’s hourly price and cost, never the AI’s', () => {
+      const d = checkedEstimateDraft(
+        answer([
+          line({
+            name: 'Install labor',
+            kind: 'labor',
+            quantity: 12.5,
+            unitLabel: 'day',
+            unitCostCents: 99_999,
+          }),
+        ]),
+        source(),
+      )!;
+      expect(d.options[0]!.lines[0]).toEqual({
+        productId: null,
+        name: 'Install labor',
+        description: null,
+        quantity: 12.5,
+        unitLabel: 'hour',
+        unitPriceCents: 9_500,
+        taxable: false,
+        kind: 'labor',
+        unitCostCents: 4_200,
+        guessed: false,
+      });
+    });
+
+    it('marks anything on no price list as a guess, priced at the starting markup', () => {
+      const d = checkedEstimateDraft(
+        answer([
+          line({ name: 'Concrete mix', quantity: 6, unitLabel: 'bag', unitCostCents: 700 }),
+          line({ name: 'Fence permit', kind: 'other', unitCostCents: 7_500 }),
+          line({ name: 'Post caps', quantity: 10 }),
+          // An item the price list doesn't have is a line the AI named, so a guess.
+          line({ item: 'I9', name: 'Stain', unitCostCents: 3_000 }),
+        ]),
+        source(),
+      )!;
+      const [mix, permit, caps, stain] = d.options[0]!.lines;
+      expect(mix).toMatchObject({
+        productId: null,
+        unitLabel: 'bag',
+        unitCostCents: 700,
+        unitPriceCents: priceFromMarkup(700, 5000),
+        taxable: true,
+        guessed: true,
+      });
+      expect(permit).toMatchObject({ kind: 'other', taxable: false, guessed: true });
+      // No guess at all: no cost and no price, still marked for the person to fill in.
+      expect(caps).toMatchObject({
+        unitLabel: 'each',
+        unitCostCents: null,
+        unitPriceCents: 0,
+        guessed: true,
+      });
+      expect(stain).toMatchObject({ productId: null, name: 'Stain', guessed: true });
+      expect(guessedLines(d)).toBe(4);
+    });
+
+    it('caps a guess, drops lines with no name or quantity, and says nothing came back when none are left', () => {
+      const d = checkedEstimateDraft(
+        answer([
+          line({ name: 'Crane', unitCostCents: 9_999_999_999 }),
+          line({ name: '', quantity: 3 }),
+          line({ name: 'Nothing', quantity: 0 }),
+          line({ name: 'Negative', quantity: -2 }),
+        ]),
+        source(),
+      )!;
+      expect(d.options[0]!.lines.map((l) => l.name)).toEqual(['Crane']);
+      expect(d.options[0]!.lines[0]!.unitCostCents).toBe(DRAFT_LIMITS.guessCents);
+      expect(checkedEstimateDraft(answer([line({ name: '', quantity: 3 })]), source())).toBeNull();
+      expect(checkedEstimateDraft(answer([]), source())).toBeNull();
+    });
+
+    it('writes one price unless three were asked for, and names the three', () => {
+      const three = answer([], {
+        options: [
+          { name: 'Repair', lines: [line({ item: 'I1', quantity: 10 })] },
+          { name: '', lines: [line({ item: 'I1', quantity: 40 })] },
+          { name: '', lines: [] },
+          { name: 'Extra', lines: [line({ item: 'I1', quantity: 90 })] },
+        ],
+      });
+      // One price asked for: only the first option, with no name.
+      const one = checkedEstimateDraft(three, source(1))!;
+      expect(one.options.map((o) => o.name)).toEqual(['']);
+      // Three asked for: an empty option is dropped, and a missing name is Good, Better or Best by its place.
+      const many = checkedEstimateDraft(three, source(3))!;
+      expect(many.options.map((o) => o.name)).toEqual(['Repair', 'Better']);
+    });
+
+    it('keeps what the AI assumed and asked, short and once each', () => {
+      const d = checkedEstimateDraft(
+        answer([line({ item: 'I1', quantity: 5 })], {
+          title: '  North   fence — 40 ft  ',
+          assumptions: ['10% waste on pickets', '10% WASTE on pickets', '', 'x'.repeat(900)],
+          questions: Array.from({ length: 9 }, (_, i) => `Question ${i + 1}?`),
+        }),
+        source(),
+      )!;
+      expect(d.title).not.toMatch(/—/);
+      expect(d.assumptions).toHaveLength(2);
+      expect(d.assumptions[1]!.length).toBeLessThanOrEqual(DRAFT_LIMITS.point);
+      expect(d.questions).toHaveLength(DRAFT_LIMITS.questions);
+    });
+
+    it('fits what the builder and the draft’s table take', () => {
+      const d = checkedEstimateDraft(
+        answer([
+          line({ item: 'I1', quantity: 80 }),
+          line({ name: 'Install labor', kind: 'labor', quantity: 12 }),
+          line({ name: 'Concrete mix', quantity: 6, unitLabel: 'bag', unitCostCents: 700 }),
+        ]),
+        source(),
+      )!;
+      expect(EstimateDraftBody.safeParse(d).success).toBe(true);
+    });
+
+    it('needs something to go on', () => {
+      const none = { brief: null, notes: [], photos: 0, job: { details: null } };
+      expect(draftHasEnough(none)).toBe(false);
+      expect(draftHasEnough({ ...none, brief: '  ' })).toBe(false);
+      expect(draftHasEnough({ ...none, brief: '40 ft of fence' })).toBe(true);
+      expect(draftHasEnough({ ...none, photos: 1 })).toBe(true);
+      expect(draftHasEnough({ ...none, job: { details: 'Replace the north fence' } })).toBe(true);
+      expect(
+        draftHasEnough({ ...none, notes: [{ by: null, when: 'Mon', text: '', photos: 0 }] }),
+      ).toBe(false);
+      expect(
+        draftHasEnough({
+          ...none,
+          notes: [{ by: 'Sam', when: 'Mon', text: 'Rotten posts', photos: 0 }],
+        }),
+      ).toBe(true);
+    });
+
+    it('shows the AI the price list by short names, never an id, and what it costs', () => {
+      const s: DraftSource = {
+        job: {
+          name: 'Fence at the Garcias’',
+          kind: 'Service call',
+          trade: 'Fencing',
+          details: null,
+          property: '12 Oak St',
+        },
+        brief: 'Replace 40 ft <b>of</b> fence',
+        notes: [{ by: 'Sam', when: 'Monday 2:14 PM', text: 'Three posts are rotten', photos: 2 }],
+        photos: 2,
+        items,
+        estimating,
+        options: 3,
+      };
+      const ask = estimateDraftAsk(s);
+      expect(ask).toContain('I1 | Cedar picket, 6 ft | material | $4.50 per each | costs $2.80');
+      expect(ask).toContain('I2 | Gate kit | material | $95.00 per kit | cost not set');
+      expect(ask).not.toContain(items[0]!.productId);
+      expect(ask).toContain('Three posts are rotten');
+      expect(ask).toContain('2 photos from the job are below.');
+      expect(ask).toContain('Write three options: Good, Better and Best.');
+      // The business's labor cost is its own: the AI is told the price only.
+      expect(ask).toContain('Labor is $95.00 an hour to the customer.');
+      expect(ask).not.toContain('42.00');
+      expect(ESTIMATE_DRAFT_SYSTEM).toContain('A person at the company checks every line');
+      expect(ESTIMATE_DRAFT_SYSTEM).toContain('never state that something meets code');
+      // No nulls in the schema's enums: the model refuses those.
+      expect(JSON.stringify(ESTIMATE_DRAFT_SCHEMA)).not.toContain('null');
+    });
+  });
+
+  describe('a job heading over its budget', () => {
+    const budget = (b: Partial<CostingBudget> = {}): CostingBudget => ({
+      priceCents: 500_000,
+      laborCents: 120_000,
+      materialsCents: 80_000,
+      otherCents: null,
+      laborHours: 30,
+      ...b,
+    });
+    const actual = (a: Partial<CostingActual> = {}): CostingActual => ({
+      laborCents: 0,
+      laborSeconds: 0,
+      uncostedSeconds: 0,
+      materialsCents: 0,
+      materialsPlannedCents: 0,
+      uncostedMaterials: 0,
+      otherCents: 0,
+      ...a,
+    });
+    const going = (
+      percentDone: number,
+      a: Partial<CostingActual>,
+      b: Partial<CostingBudget> = {},
+    ) => costJob({ status: 'in_progress', percentDone }, budget(b), actual(a));
+
+    it('is fine on plan, and a little over isn’t worth telling', () => {
+      expect(watchBudget(going(0, {}), 2000)).toEqual({ level: 'ok', overPercent: 0, band: 0 });
+      // Heading for $2,080 against $2,000: 4% over.
+      const c = going(50, { laborCents: 64_000, laborSeconds: 16 * 3600 });
+      expect(c.total.headingCents).toBe(208_000);
+      expect(watchBudget(c, 2000)).toEqual({ level: 'ok', overPercent: 4, band: 0 });
+    });
+
+    it('says over from 5% past the planned cost, by how much, in steps of ten', () => {
+      // Heading for $2,400 against $2,000: 20% over, still well above a 20% lowest margin.
+      const c = going(50, { laborCents: 80_000, laborSeconds: 20 * 3600 });
+      expect(c.overCents).toBe(40_000);
+      expect(watchBudget(c, 2000)).toEqual({ level: 'over', overPercent: 20, band: 2 });
+      expect(WATCH.overPercent).toBe(5);
+    });
+
+    it('says under the lowest margin only when the plan was above it', () => {
+      const c = going(40, { laborCents: 80_000, laborSeconds: 20 * 3600 });
+      // Heading for 44% against a 60% plan.
+      expect(c.profit.headingMarginBp).toBe(4400);
+      expect(watchBudget(c, 5800).level).toBe('under_margin');
+      // A job planned under the lowest margin was OK’d that way: being over is what’s told.
+      expect(watchBudget(c, 7000).level).toBe('over');
+    });
+
+    it('says a loss when it’s heading below nothing', () => {
+      const c = going(
+        20,
+        { laborCents: 120_000, laborSeconds: 30 * 3600 },
+        { priceCents: 250_000 },
+      );
+      expect(c.profit.headingCents).toBeLessThan(0);
+      expect(watchBudget(c, 2000).level).toBe('loss');
+    });
+
+    it('never watches a finished job', () => {
+      const c = costJob(
+        { status: 'done', percentDone: 100 },
+        budget(),
+        actual({ laborCents: 400_000, laborSeconds: 90 * 3600 }),
+      );
+      expect(c.finished).toBe(true);
+      expect(watchBudget(c, 2000).level).toBe('ok');
+    });
+
+    it('tells people when it first goes off plan, gets worse, or goes another step over', () => {
+      const over = (band: number) => ({ level: 'over' as const, overPercent: band * 10, band });
+      expect(watchIsNews(over(0), null)).toBe(true);
+      expect(watchIsNews(over(1), { level: 'ok', band: 0 })).toBe(true);
+      // Still over by about as much: said once.
+      expect(watchIsNews(over(1), { level: 'over', band: 1 })).toBe(false);
+      expect(watchIsNews(over(2), { level: 'over', band: 1 })).toBe(true);
+      // Getting better isn't news, and neither is being fine.
+      expect(watchIsNews(over(1), { level: 'over', band: 3 })).toBe(false);
+      expect(watchIsNews(over(1), { level: 'loss', band: 1 })).toBe(false);
+      expect(
+        watchIsNews({ level: 'loss', overPercent: 12, band: 1 }, { level: 'over', band: 1 }),
+      ).toBe(true);
+      expect(
+        watchIsNews({ level: 'ok', overPercent: 0, band: 0 }, { level: 'over', band: 2 }),
+      ).toBe(false);
+    });
+
+    it('keeps amounts out of the alert’s title, and puts the new profit in its detail', () => {
+      const c = going(50, { laborCents: 80_000, laborSeconds: 20 * 3600 });
+      const words = budgetAlertWords({
+        job: 'Fence at the Garcias’',
+        costing: c,
+        watch: watchBudget(c, 2000),
+        percentDone: 50,
+        minMarginBp: 2000,
+      });
+      // A title goes on history, which everyone on the job reads (the owner’s decision 11).
+      expect(words.title).toBe('“Fence at the Garcias’” is heading over budget');
+      expect(words.title).not.toMatch(/\$|\d%/);
+      expect(words.detail).toContain('$2,400 in costs against $2,000 planned (20% over)');
+      expect(words.detail).toContain('Profit is heading for $2,600 (52%), down from $3,000 (60%)');
+      expect(words.detail).toContain('Labor is the biggest part');
+      expect(words.detail).toContain('Open the job and look at Costs so far');
+    });
+
+    it('says a loss as a loss, and the lowest margin when that’s the line crossed', () => {
+      const lost = going(
+        20,
+        { laborCents: 120_000, laborSeconds: 30 * 3600 },
+        { priceCents: 250_000 },
+      );
+      const loss = budgetAlertWords({
+        job: 'Deck',
+        costing: lost,
+        watch: watchBudget(lost, 2000),
+        percentDone: 20,
+        minMarginBp: 2000,
+      });
+      expect(loss.title).toBe('“Deck” is heading for a loss');
+      expect(loss.detail).toContain('that’s a loss of');
+      const thin = going(40, { laborCents: 80_000, laborSeconds: 20 * 3600 });
+      const under = budgetAlertWords({
+        job: 'Deck',
+        costing: thin,
+        watch: watchBudget(thin, 5800),
+        percentDone: 40,
+        minMarginBp: 5800,
+      });
+      expect(under.title).toBe('“Deck” is heading under your lowest margin');
+      expect(under.detail).toContain('Your lowest margin is 58%.');
+    });
+
+    it('asks the AI for suggestions only, and tidies what it says', () => {
+      const c = going(50, { laborCents: 80_000, laborSeconds: 20 * 3600, otherCents: 15_000 });
+      const ask = budgetAdviceAsk({
+        job: 'Fence <at> the Garcias’',
+        trade: 'Fencing',
+        percentDone: 50,
+        costing: c,
+        minMarginBp: 2000,
+        otherCosts: [{ name: 'Permit', amountCents: 15_000 }],
+      });
+      expect(ask).toContain('Labor: planned $1,200, so far $800, heading for $1,600');
+      expect(ask).toContain('Other costs so far: Permit $150');
+      expect(ask).not.toContain('<at>');
+      expect(BUDGET_ADVICE_SYSTEM).toContain('You only suggest.');
+      const said = checkedBudgetAdvice(
+        BudgetAdviceAnswer.parse({
+          why: '  Labor is ahead   of progress.  ',
+          suggestions: [
+            'Check the % done',
+            'check the % DONE',
+            '',
+            'Talk to the customer',
+            'A',
+            'B',
+          ],
+        }),
+      )!;
+      expect(said.why).toBe('Labor is ahead of progress.');
+      expect(said.suggestions).toEqual(['Check the % done', 'Talk to the customer', 'A']);
+      expect(
+        checkedBudgetAdvice(BudgetAdviceAnswer.parse({ why: '  ', suggestions: ['x'] })),
+      ).toBeNull();
+      // Whatever shape comes back, it parses to something safe.
+      expect(BudgetAdviceAnswer.parse({ why: 7, suggestions: 'no' })).toEqual({
+        why: '',
+        suggestions: [],
+      });
+    });
+  });
+
+  describe('a daily report', () => {
+    const source = (s: Partial<ReportSource> = {}): ReportSource => ({
+      job: {
+        name: 'Fence at the Garcias’',
+        kind: 'Service call',
+        trade: 'Fencing',
+        percentDone: 40,
+        customerFirstName: 'Maria',
+      },
+      business: 'Oak Fence Co.',
+      day: 'Tuesday, November 10',
+      notes: [
+        {
+          by: 'Sam',
+          at: '2:14 PM',
+          visit: null,
+          text: 'Set 6 posts, ran out of concrete',
+          photos: 2,
+        },
+        { by: 'Lee', at: '4:40 PM', visit: null, text: '', photos: 1 },
+      ],
+      ticked: ['Photo of the finished work'],
+      crew: [{ name: 'Sam', hours: 6.5 }],
+      visits: [{ title: 'Fence install', status: 'in progress' }],
+      photos: 3,
+      ...s,
+    });
+
+    it('needs a note with words or a photo: hours alone aren’t a report', () => {
+      expect(reportHasEnough(source())).toBe(true);
+      expect(reportHasEnough(source({ notes: [], photos: 0 }))).toBe(false);
+      expect(
+        reportHasEnough(
+          source({
+            notes: [{ by: 'Sam', at: '1 PM', visit: null, text: '  ', photos: 0 }],
+            photos: 0,
+          }),
+        ),
+      ).toBe(false);
+      expect(reportHasEnough(source({ notes: [], photos: 1 }))).toBe(true);
+    });
+
+    it('gives the AI the day’s notes, ticks and hours, and never a cost', () => {
+      const ask = reportAsk(source());
+      expect(ask).toContain('Set 6 posts, ran out of concrete');
+      expect(ask).toContain('(photos only)');
+      expect(ask).toContain('Sam: 6.5 hours');
+      expect(ask).toContain('Photo of the finished work');
+      expect(ask).toContain('3 photos from that day are below.');
+      expect(ask).not.toMatch(/\$|cost|price/i);
+      expect(REPORT_SYSTEM).toContain('anything about cost or price');
+      expect(REPORT_SYSTEM).toContain('Never invent work');
+    });
+
+    it('keeps the report’s words tidy, and its paragraphs', () => {
+      const r = checkedReport({
+        summary: '  Six posts are set.\n\n\n\nConcrete   ran out — more is needed.  ',
+        done: [
+          '- Set 6 posts',
+          '• set 6 POSTS',
+          '',
+          ...Array.from({ length: 12 }, (_, i) => `Thing ${i}`),
+        ],
+        issues: ['x'.repeat(900)],
+        materials: [],
+        next: ['Pour the rest'],
+        forCustomer: '  We set six posts today.  ',
+      })!;
+      expect(r.summary).toBe('Six posts are set.\n\nConcrete ran out, more is needed.');
+      expect(r.done[0]).toBe('Set 6 posts');
+      expect(r.done).toHaveLength(REPORT_LIMITS.points);
+      expect(r.done.filter((d) => /set 6 posts/i.test(d))).toHaveLength(1);
+      expect(r.issues[0]!.length).toBe(REPORT_LIMITS.point);
+      expect(r.forCustomer).toBe('We set six posts today.');
+      expect(ReportBody.safeParse(r).success).toBe(true);
+    });
+
+    it('is nothing without a summary, and has no customer update when there’s nothing to say', () => {
+      const empty = {
+        summary: ' ',
+        done: ['x'],
+        issues: [],
+        materials: [],
+        next: [],
+        forCustomer: 'Hi',
+      };
+      expect(checkedReport(empty)).toBeNull();
+      expect(
+        checkedReport({ ...empty, summary: 'A quiet day.', forCustomer: '  ' })!.forCustomer,
+      ).toBeNull();
+      expect(
+        checkedReport({ ...empty, summary: 'A quiet day.', forCustomer: null })!.forCustomer,
+      ).toBeNull();
+    });
+
+    it('is due at 6 PM where the business is, summer and winter', () => {
+      // Central time: UTC-6 in winter, UTC-5 in summer.
+      expect(reportDueAt('2026-11-10', 'America/Chicago').toISOString()).toBe(
+        '2026-11-11T00:00:00.000Z',
+      );
+      expect(reportDueAt('2026-07-10', 'America/Chicago').toISOString()).toBe(
+        '2026-07-10T23:00:00.000Z',
+      );
+      expect(reportDueAt('2026-11-10', 'UTC').toISOString()).toBe('2026-11-10T18:00:00.000Z');
+      expect(reportDueAt('2026-11-10', 'Asia/Tokyo').toISOString()).toBe(
+        '2026-11-10T09:00:00.000Z',
+      );
+      expect(REPORT_LIMITS.writeHour).toBe(18);
+    });
+
+    it('names a day in words', () => {
+      expect(reportDayWords('2026-11-10')).toBe('Tuesday, November 10');
+    });
+  });
+
+  describe('what it may do on its own (the owner’s rule)', () => {
+    const op = (name: string) =>
+      [...(contractorAddonServer.commands ?? []), ...(contractorAddonServer.queries ?? [])].find(
+        (o) => o.name === name,
+      )!;
+
+    it('keeps the AI’s own work to the worker', () => {
+      for (const name of [
+        'contractor.estimate_draft.source',
+        'contractor.estimate_draft.keep',
+        'contractor.budget.check',
+        'contractor.budget.advise',
+        'contractor.report.source',
+        'contractor.report.keep',
+      ]) {
+        const o = op(name);
+        expect(o, name).toBeDefined();
+        expect(o.actors, name).toEqual(['system']);
+        // Nobody's Assistant is offered the worker's own operations.
+        expect(o.ai, name).toBeUndefined();
+      }
+    });
+
+    it('asks a person before a customer is sent anything', () => {
+      const send = op('contractor.report.send') as { risk?: number; ai?: { autonomy?: string } };
+      expect(send.risk).toBe(2);
+      expect(send.ai?.autonomy).toBe('confirm');
+    });
+
+    it('keeps where a job’s money stands off events', () => {
+      for (const name of ['contractor.budget.check', 'contractor.budget.advise']) {
+        const o = op(name) as { emits?: readonly string[] };
+        expect(o.emits ?? [], name).toEqual([]);
+      }
+      expect((contractorAddon.events?.emits ?? []).some((e) => /budget/.test(e))).toBe(false);
+    });
+
+    it('holds drafts and the budget watch to people who may see job costs, and reports to everyone on the add-on', () => {
+      for (const name of [
+        'contractor.estimate_draft.source',
+        'contractor.estimate_draft.keep',
+        'contractor.estimate_draft.list',
+        'contractor.estimate_draft.dismiss',
+        'contractor.budget.check',
+        'contractor.budget.advise',
+      ])
+        expect(op(name).permission, name).toBe('contractor.costs');
+      for (const name of [
+        'contractor.report.list',
+        'contractor.report.update',
+        'contractor.report.send',
+      ])
+        expect(op(name).permission, name).toBe('contractor.use');
+    });
+
+    it('is on unless the business turns it off', () => {
+      const s = ContractorSettingsSchema.parse({});
+      expect(s.budgetWarnings).toBe(true);
+      expect(s.dailyReports).toBe(true);
+      expect(
+        ContractorSettingsSchema.parse({ budgetWarnings: false, dailyReports: false }),
+      ).toMatchObject({ budgetWarnings: false, dailyReports: false });
+    });
+
+    it('declares its tables and jobs', () => {
+      for (const t of ['estimate_drafts', 'budget_watch', 'daily_reports'])
+        expect(contractorAddon.tables ?? [], t).toContain(t);
+      for (const j of ['contractor.budget_check', 'contractor.report_write'])
+        expect(contractorAddon.jobs ?? [], j).toContain(j);
+    });
   });
 });

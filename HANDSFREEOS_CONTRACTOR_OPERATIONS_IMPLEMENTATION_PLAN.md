@@ -61,7 +61,7 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
    dashboard by job, crew, service and customer.
 6. **The phone field app.** _Built._ Jobs, work orders, checklists, photos, materials used, time and voice notes,
    all with no signal.
-7. **AI helpers.** Draft an estimate from notes, photos and measurements; warn when a job heads over budget, with the
+7. **AI helpers.** _Built._ Draft an estimate from notes, photos and measurements; warn when a job heads over budget, with the
    new profit; turn a tech's voice notes and photos into a daily job report. Each waits for a person where the
    owner's rule says so.
 
@@ -257,3 +257,57 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
   - A finished job still takes notes, for a callback or something the customer said afterwards.
   - With no Deepgram key a voice note gets no words: the note keeps its recording, and the app says to play it.
   - The phone shows hours and never money.
+
+## Part 7 as built
+
+The owner's rule runs through all three: the AI prepares and recommends, and a person approves. None of the helpers
+saves an estimate, sets a price, changes a job or reaches a customer.
+
+- **Data.** `supabase/migrations/20261027025700_contractor_ai_helpers.sql`: three new tables. `estimate_drafts`
+  (an estimate the AI drafted for a job, kept beside it; it holds costs, so only people who may see job costs read
+  it), `budget_watch` (where each job's budget stood when it was last looked at, and the AI's advice; the same
+  people only), and `daily_reports` (one per job per day, no money in it, so everyone on the job reads it). Nothing
+  new goes to phones, and no setting needed a data step: the two new switches start on.
+- **Operations.** 7 commands and 4 queries. People's: list a job's waiting drafts and set one aside; list a job's
+  reports, change one, and send its update to the customer. The system's: what the AI reads for a draft and for a
+  report, keeping a draft, keeping a report, looking at a job's budget and keeping the AI's advice on it.
+  `contractor.estimate.get` and `contractor.estimate.save` take a `draftId`, and `contractor.job.costing` answers
+  the watch.
+- **Worker.** Two things a person presses: Draft with AI (`contractor.estimate.draft`) and Write today's report
+  (`contractor.report.write`). Two queued jobs: a look at a job's budget two minutes after something that costs
+  money changes, and a day's report at 6 PM where the business is. The AI's use is counted as the add-on's,
+  against the business's AI budget.
+- **Web.** On a job's page: **Draft with AI** and **Drafts from the AI** in the Estimates card, a **Daily
+  reports** card, and the AI's advice under the warning on **Costs so far**. In the estimate builder: a banner on a
+  draft from the AI, and **Guess** beside a guessed cost. In Settings: **AI helpers**, with two switches.
+- **The Assistant** can ask for a draft, list drafts and set one aside, write, read and change a report, and send
+  its update to the customer on a Confirm card. Saving an estimate from a draft is the same Confirm card as any
+  estimate it writes. 31 new items in its checklist.
+- **Left for later.** Daily reports and Draft with AI on the phone. A weekly or whole-job report, and one the
+  customer reads in their portal. The AI acting on its own advice, on purpose.
+- **Choices made while building.**
+  - Anyone who may see job costs can ask for a draft and check one. Saving it is an ordinary estimate save: under
+    the lowest margin it still waits for an owner's or admin's OK (decision 6).
+  - The AI never changes a price or a cost the business set. A line from the price list keeps the item's price and
+    cost, and labor is at the business's hourly price. A line on no price list carries the AI's guess at its cost,
+    priced at the starting markup, and it's marked Guess until a person changes it.
+  - With the draft the AI says what it assumed, and what to answer before sending.
+  - A job keeps its newest five waiting drafts. An older one is set aside, never deleted.
+  - Arithmetic decides whether a job is over budget, so the warning never waits on the AI. It's told at 5% over
+    its planned cost, when it heads under the lowest margin, and when it heads for a loss.
+  - People are told once, then only when it gets worse: a worse kind, or another 10 points over. Getting better is
+    never news.
+  - Only people who may see job costs are told, on Home, their phones and by email (decision 11). The alert's title
+    has no amount; its detail has the costs and the profit the job is now heading for.
+  - The AI's advice is a sentence on what's driving it and up to three things to do. Nothing it suggests is
+    carried out.
+  - A daily report is written after 6 PM on a day the crew left a note or a photo. Hours alone aren't a report.
+    A note that lands later has it written again half an hour on.
+  - A report has no prices or costs, so the whole crew can read it. Safety and code go under Needs a look, in the
+    crew's own words.
+  - Once a person changes a report, the AI never writes over it unless that person asks.
+  - The update for the customer goes only when a person presses Send, by email or text, once. It needs "use the
+    inbox", and core's consent and quiet hours apply. The AI is told to leave out hours, people's names, costs and
+    problems the crew caused, and never to promise a date nobody gave.
+  - Both helpers that run on their own (the budget warning and the evening's report) have a switch in Settings →
+    AI helpers. Both start on.
