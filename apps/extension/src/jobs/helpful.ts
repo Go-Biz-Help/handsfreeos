@@ -22,8 +22,11 @@ const PACE_MS = [8_000, 16_000] as const;
 /** The most posts read for who engaged in one run. */
 const READ_MOST = 5;
 
-/** Words compared as Facebook shows them: no line breaks or doubled spaces, in lower case. */
-const plain = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+/**
+ * Words compared with no spaces or line breaks at all, in lower case: a post typed before 0.134.2 went up with its
+ * paragraphs run together ("…just wait.Turns out…"), and one pasted since shows a line between them (decision 158).
+ */
+const plain = (s: string) => s.replace(/\s+/g, '').toLowerCase();
 
 /**
  * The post among those the page shows that starts the way this one does (Facebook may cut a long one short with See

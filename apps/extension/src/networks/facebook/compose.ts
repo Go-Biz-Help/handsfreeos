@@ -2,7 +2,8 @@
  * Helpful posts (docs/outreach.md, decision 50), in the window the extension works in:
  *
  * - **Putting one up:** on the group's page it presses the box that starts a post ("Write something…"), types the
- *   post into the box Facebook opens over the page, and presses **Post**; then waits for the box to close. A group
+ *   post into the box Facebook opens over the page (pasted, so its paragraphs stay: decision 158), and presses
+ *   **Post**; then waits for the box to close. A group
  *   whose admins approve posts first says so: the post is noted as up, waiting for them.
  * - **Who engaged:** on the person's own post it reads each comment and reply (who, and what they wrote) and, from
  *   the box **See who reacted to this** opens, who reacted. The person themselves is left out. Nothing is pressed but
@@ -15,6 +16,7 @@ import { COMMENT, commentsIn, postBoxes } from './posts';
 import type { ProfileRef } from './types';
 import { facebookUrl, profileFromUrl, profileKey } from './urls';
 import { hasWriting, WRITING } from './actions';
+import { putPostIn } from '../post-text';
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
@@ -83,7 +85,8 @@ export async function writeGroupPost(doc: Document, text: string): Promise<PostR
   writing.focus();
   writing.click();
   await pause(300);
-  doc.execCommand('insertText', false, text);
+  // Pasted, so its paragraphs stay (decision 158).
+  await putPostIn(doc, writing, text, hasWriting);
   await pause(800);
   if (!hasWriting(writing)) return 'not_sent';
   const post = [...box.querySelectorAll('[role="button"], button')].find(

@@ -3977,6 +3977,21 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
         its version, so it's written again too. Raise `RULES_VERSION` when another change to what the AI writes should
         reach the messages already drafted.
 
+158.  **Posts keep their paragraphs** (Chris, 11 Nov 2026, with a picture of his helpful post in a roofing group:
+      "posts should have line spacing instead of being all jumbled up like this"). The AI wrote short paragraphs with a
+      blank line between them, as `helpfulSystem` asks, and the kept post had them; Chrome's insertText with the whole
+      post lost every line break in Facebook's box (Lexical), so it went up as one block, "…just wait.Turns out…".
+      Picks pending; built on the starred ones (1a, 2a, 3a). Extension 0.134.2, no migration.
+      - **Pasted, as a person would** (`putPostIn` in `apps/extension/src/networks/post-text.ts`): a post with line
+        breaks goes into the box as a paste, which keeps each paragraph and the blank lines (1a). A plain box, or one
+        that takes no paste, is typed in as before.
+      - **Every post the extension puts up** (2a): a helpful post in a Facebook group, on LinkedIn and on Alignable,
+        and the Content Creator's posts on a profile, a Page, LinkedIn and Instagram.
+      - **Comments and messages are typed as before** (3a): they're one paragraph, and Enter would send them.
+      - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
+        LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
+        in its fortnight, and who commented and reacted become warm leads.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
