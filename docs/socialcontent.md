@@ -156,9 +156,12 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
     layout (bold, clean or split), the colours (from the business's colour, kept readable) and the words for each page;
     the worker draws each page as a 1080 by 1350 PNG with Inter. Words are drawn, never left to an image model, so
     they're spelled right; emoji are left out. Charged as the AI's words, like any ask.
-  - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, `gpt-image-2`) makes a lifelike picture
-    with no words from the AI's description, cropped to 1080 by 1350. Charged 9¢ each on the balance (`ai.image`),
-    and only when the balance has room. Without `OPENAI_API_KEY` posts get designed pictures only.
+  - **Photo-style, by the AI**: OpenAI's image model (`OPENAI_IMAGE_MODEL`, GPT-Image-2.6 Sunburst) makes a lifelike
+    picture with no words from the AI's description, cropped to 1080 by 1350. When it's busy, GPT-Image-2.6 Flare
+    tries once (`OPENAI_IMAGE_BACKUP_MODEL`); it plans at `medium` (`OPENAI_IMAGE_COMPLEXITY`). Charged 9¢ each on
+    the balance (`ai.image`), and only when the balance has room; the charge keeps OpenAI's real cost beside it.
+    Without `OPENAI_API_KEY` posts get designed pictures only. See "Photo-style pictures: the image models" in
+    docs/operations.md.
   - **Your own**: **Add your photo** uploads to the post's files; a video's file comes with Instagram posting.
     The sheet's **Make it again**, **Switch to designed** and **Switch to photo-style** make it again, with what to
     change.

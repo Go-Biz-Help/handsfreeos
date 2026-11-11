@@ -84,7 +84,11 @@ export function createEngineServices(env: WorkerEnv, log: Logger, db: Db): Engin
         : null,
     ),
     wallet,
-    pictures: createPictures(env.openAiApiKey, env.openAiImageModel),
+    pictures: createPictures(env.openAiApiKey, {
+      model: env.openAiImageModel,
+      backupModel: env.openAiImageBackupModel,
+      complexity: env.openAiImageComplexity,
+    }),
     sealer: createSealer(env.encryptionKey, env.encryptionKeysPrevious),
     addonConnect: { fake: env.addonConnectors === 'fake', platformKeys: env.addonPlatformKeys },
     reminderOverrideMs: env.reminderOverrideMs,
