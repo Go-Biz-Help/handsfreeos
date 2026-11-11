@@ -36,6 +36,7 @@ import { addDays, startOfLocalDay } from '../../src/calendar/engine/zoned';
 import type { RequestMeta } from '../../src/kernel/types';
 import {
   addonRef,
+  customRecordArchive,
   executeCommand,
   executeQuery,
   organizationCreate,
@@ -802,9 +803,13 @@ describe('the phone’s copy', () => {
     const closed = await job('Closed call');
     await close(closed);
     const archived = await job('Archived call');
-    await rows(
-      admin(),
-      sql`update app.custom_records set archived_at = now() where id = ${archived}`,
+    // Archived the way a person archives any record: core's own command, which the database holds everyone to.
+    await executeCommand(
+      api(),
+      customRecordArchive,
+      { workspaceId: ws, customRecordId: archived },
+      human(owner),
+      meta(),
     );
 
     const copy = contractorCopyOf(await phoneRows(member));
