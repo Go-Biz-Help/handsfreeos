@@ -9,7 +9,9 @@ appId: com.gobizhelp.handsfreeos
       id: 'inbox-search'
     timeout: 20000
 - tapOn:
-    id: 'status-open'
+    id: 'inbox-show'
+- tapOn:
+    id: 'inbox-show-open'
 - tapOn:
     id: 'box-all'
 - tapOn:

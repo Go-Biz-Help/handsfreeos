@@ -5573,7 +5573,7 @@ A campaign paused with "Email campaigns aren't set up on HandsFreeOS yet" means 
 
 HandsFreeOS's own business can use `handsfreeos.com` as its email (M19): `chris@handsfreeos.com` becomes
 Chris's own mailbox inside HandsFreeOS, with no Google or Outlook. Mail to it lands in Chris's **Inbox**, marked
-**Only you** (and in **Inbox → My mail**, which shows only his own), and only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
+**Only you**, and only Chris sees it. Nothing changes in Postmark or DNS: the support server from "Postmark Part K" already
 receives the whole domain and posts it to the worker, and the production server already sends for it.
 `support@` and `help@` (everything in `SUPPORT_ADDRESSES`) stay the support desk's.
 
@@ -5595,7 +5595,7 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 4. **Receive mail here too.** In the same card, click **Receive mail here**. The MX record already points at
    `inbound.postmarkapp.com`, so the badge turns to **Receiving** within 15 minutes.
 5. **Test it from outside.** From a personal email account, write to `chris@handsfreeos.com`.
-   - Within a minute it shows in the **Inbox** marked **Only you** (and in **My mail**), and Chris's phone buzzes.
+   - Within a minute it shows in the **Inbox** marked **Only you**, and Chris's phone buzzes.
    - Nobody else in the business sees it.
    - Reply from HandsFreeOS. The reply arrives from `chris@handsfreeos.com`, and answering it lands in the same
      thread.
@@ -5604,7 +5604,7 @@ Do it once the M19 migrations are on the hosted database and M19 is on `main`:
 If it goes wrong:
 
 - **"That domain is HandsFreeOS's own"** when adding the domain means step 1 wasn't done for this business.
-- **Nothing arrives in My mail.** In Postmark, open the **HandsFreeOS Support** server's inbound stream →
+- **Nothing arrives marked Only you.** In Postmark, open the **HandsFreeOS Support** server's inbound stream →
   **Activity**.
   - If every message shows **Retry**, the stream has no webhook. Its **Settings → Webhook** is empty: paste the
     address from "Postmark Part K" step 5 and save. Send one new test first. Once it lands, click **Retry** on

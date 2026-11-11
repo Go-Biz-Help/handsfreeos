@@ -166,7 +166,7 @@ export const InboxSummaryOutput = z.object({
   /**
    * Beside the team's Inbox (M19): unread in the viewer's own mailbox, unread in the team's Other mail, and open
    * threads in the team's Spam; and whether the viewer has mail of their own at all (an address that is theirs, or
-   * threads from one), so My mail shows only for them.
+   * threads from one).
    */
   mail: z.object({
     mine: z.number().int(),
