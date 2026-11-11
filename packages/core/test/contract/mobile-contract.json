@@ -15727,6 +15727,9 @@
               "type": "string",
               "enum": ["profile", "page"]
             }
+          },
+          "autoFill": {
+            "type": "boolean"
           }
         },
         "required": ["workspaceId"]
