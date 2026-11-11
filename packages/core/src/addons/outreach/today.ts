@@ -79,6 +79,7 @@ import { DraftOpener, type Opener } from './openers';
 import { WarningState } from './tidy';
 import { TodayGoal } from './goal';
 import { inNetworkWords, NETWORKS, type Platform } from './networks';
+import { VISIT_LIKES } from './keep-warm';
 import { PLATFORM_KEYS, type PlaybookDetails } from './playbooks';
 import { COMMENT_DRAFTS } from './posts';
 import { RECENT_SHOWN, RecentMessage } from './sends';
@@ -292,6 +293,17 @@ export const TodayItem = z.object({
    * Left out by builds of the phone from before it: read as not.
    */
   requests: z.boolean().optional(),
+  /**
+   * For a warm-up while they decide on the person's request (decision 161, ./keep-warm.ts): a visit to their page that
+   * likes up to `likes` of their newest posts, and no request after it, as their warm-up runs till `until`. Left out
+   * for a warm-up before a request, and by servers from before it.
+   */
+  keepWarm: z
+    .object({
+      likes: z.number().int().min(1).max(VISIT_LIKES.most),
+      until: z.iso.datetime(),
+    })
+    .optional(),
   /**
    * A step tried again from Steps it needs you for (Retry, decision 145): the step handed over, and when it was put
    * back. The extension tries it once more for each time it's put back, though it tried it today; one it finds done
@@ -633,15 +645,32 @@ export const TODAY_DRAFT_ASK = 'Write the message.';
  */
 export const todayDraftSystem = (
   platform: Platform = 'facebook',
-  o: { readonly partner?: boolean } = {},
+  o: { readonly partner?: boolean; readonly warm?: boolean } = {},
 ) =>
   [
     `You write short ${NETWORKS[platform].name} messages and comments that a small business owner sends themselves, as part of their own outreach.`,
     `Write as the owner, in the first person, ${NETWORKS[platform].words.messageLike}: no greeting card language, no hype, no pressure.`,
     ...DRAFT_RULES,
     ...(o.partner ? [] : [NO_GROUPS]),
-    ...(COMMENT_RULES[platform] ? [COMMENT_RULES[platform]] : []),
+    // A warm-up's comment (decision 161) is a person's, about their post: never the owner's field or offer.
+    ...(o.warm ? [WARM_COMMENT_RULE] : COMMENT_RULES[platform] ? [COMMENT_RULES[platform]] : []),
   ].join('\n');
+
+/**
+ * A warm-up's comment (decision 161, ./keep-warm.ts), under a post of someone deciding on the owner's request: what a
+ * person who likes what they see would say (the owner: "congratulating them, praising them, showing interests … more
+ * natural so it doesn't feel like an ai post"). Short, about one real thing in the post, nothing about the business, and
+ * nothing at all when the post has nothing to react to.
+ */
+export const WARM_COMMENT_TASK =
+  'They posted this. The owner is getting to know them and hasn’t talked with them yet. Write the owner’s short public comment under it, the way a real person who likes what they see would: congratulate them on a win or some news, praise something specific they did or show, or show real interest in what the post is about. 3 to 12 words, casual and warm, about one real thing in this post, named plainly (“Congrats on the new shop, the storefront looks great!”, “That kitchen came out so clean”). Nothing about the owner or their business: no pitch, no offer, no question about buying, no link, no web address and no hashtag. At most one emoji, and often none. Never praise that would fit any post (“Great post!”, “Love this!”, “Amazing!”, “So inspiring!”), never repeat their post back to them, and never sound like a brand, a bot or an ad. When the post has nothing real to react to (only a link, a repost or an ad), or it’s about a loss, an illness, trouble, politics or religion, write no drafts.';
+
+/** What a warm-up's comment is told in place of the network's comment rules (decision 161). */
+const WARM_COMMENT_RULE =
+  'A comment here is a person’s, not the business’s: short and natural, about what the post itself shows, with no link, no web address, no hashtag and nothing about the owner’s work.';
+
+/** How many of the owner's latest comments a warm-up's comment is told, so it never says the same words again. */
+export const WARM_COMMENTS_SAID = 8;
 
 /**
  * The most words in a comment where comments go through `sends` (decision 92) and the network keeps them short
@@ -993,7 +1022,16 @@ export function todayDraftPrompt(input: {
   /**
    * Their post, for a comment, and the group it's in: only whether it's in one is told (decision 157), never which.
    */
-  readonly post?: { readonly text: string; readonly group: string | null } | null;
+  readonly post?: {
+    readonly text: string;
+    readonly group: string | null;
+    /**
+     * A post a warm-up visit liked (decision 161, `posts.warm_up`): its comment is a person's (`WARM_COMMENT_TASK`), with
+     * nothing of the business's offer, and never the words of the owner's latest comments (`said`).
+     */
+    readonly warm?: boolean;
+    readonly said?: readonly string[];
+  } | null;
   /** What the extension looked up on their profile and business page just before. */
   readonly lookup?: readonly string[];
   /** For a first message: the style to open in (decision 23). */
@@ -1054,6 +1092,9 @@ export function todayDraftPrompt(input: {
   // and asks nothing of the playbook's conversation.
   const note = isOccasionKind(input.kind);
   const helping = input.kind === 'group_reply';
+  // A warm-up's comment (decision 161) is a person's, about their post: like a note, the playbook gives only its voice.
+  const warm = input.kind === 'comment' && input.post?.warm === true;
+  const plain = note || warm;
   // A message in Messenger can go as a few texts; a comment is one, in public, and so is a first message: one short
   // question (decision 137), to their Requests or not.
   const texts = isMessageKind(input.kind) && input.kind !== 'opener';
@@ -1064,22 +1105,24 @@ export function todayDraftPrompt(input: {
   const playbook = p
     ? [
         `Name: ${p.name}`,
-        p.offer && !note ? `Offer: ${p.offer}` : null,
+        p.offer && !plain ? `Offer: ${p.offer}` : null,
         // A message to their Requests carries no link (`REQUESTS_TASK`), nor does a note, a public comment (decision 144)
         // or anything to someone who turned the offer down (decision 134).
-        p.link && !requests && !note && !helping && input.kind !== 'comment' && !declined
+        p.link && !requests && !plain && !helping && input.kind !== 'comment' && !declined
           ? `Link: ${p.link}`
           : null,
-        p.audience && !note ? `For: ${p.audience}` : null,
-        p.niche && !note ? `Niche: ${p.niche}` : null,
-        p.proof?.length && !note && !helping
+        p.audience && !plain ? `For: ${p.audience}` : null,
+        p.niche && !plain ? `Niche: ${p.niche}` : null,
+        p.proof?.length && !plain && !helping
           ? `Proof for this niche:\n${p.proof.map((r) => `- ${r}`).join('\n')}`
           : null,
         p.tone ? `Tone: ${p.tone}` : null,
-        p.samples.length ? `Sample messages:\n${p.samples.map((s) => `- ${s}`).join('\n')}` : null,
+        p.samples.length && !warm
+          ? `Sample messages:\n${p.samples.map((s) => `- ${s}`).join('\n')}`
+          : null,
         p.avoid.length ? `Words to avoid: ${p.avoid.join(', ')}` : null,
         p.disclaimer ? `Every message must say: ${p.disclaimer}` : null,
-        p.questions.length && !note && !helping && !declined
+        p.questions.length && !plain && !helping && !declined
           ? `Conversation:\n${p.questions.map((q, i) => `${i + 1}. ${q.text}`).join('\n')}`
           : null,
       ]
@@ -1088,7 +1131,7 @@ export function todayDraftPrompt(input: {
     : 'None yet: keep it friendly and simple.';
   // The main offer's words, for the conversation's messages and Reconnect's question (decision 152); a public comment
   // gets only its angle (decision 144).
-  const angle = ANGLE_KINDS.has(input.kind);
+  const angle = ANGLE_KINDS.has(input.kind) && !warm;
   const o = OFFER_KINDS.has(input.kind) || angle ? (input.offer ?? null) : null;
   const offer = o
     ? [
@@ -1138,7 +1181,7 @@ export function todayDraftPrompt(input: {
     `<business>${quoteData(input.business)}</business>`,
     `<playbook>\n${quoteData(playbook)}\n</playbook>`,
     offer ? `<offer>\n${quoteData(offer)}\n</offer>` : null,
-    ...(input.knows !== undefined && knowsFor(input.kind) ? knowsBlocks(input.knows) : []),
+    ...(input.knows !== undefined && knowsFor(input.kind) && !warm ? knowsBlocks(input.knows) : []),
     `<person>${quoteData(input.name)}</person>`,
     input.facts.length ? `<facts>\n${quoteData(input.facts.join('\n'))}\n</facts>` : null,
     input.lookup?.length
@@ -1150,7 +1193,12 @@ export function todayDraftPrompt(input: {
       ? REQUESTS_TASK
       : catchUp
         ? inNetworkWords(RECONNECT_CATCH_UP, input.platform ?? 'facebook')
-        : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
+        : warm
+          ? WARM_COMMENT_TASK
+          : taskOn(input.kind, input.platform ?? 'facebook', !!input.post?.group),
+    warm && input.post?.said?.length
+      ? `<owner_comments>\n${quoteData(input.post.said.map((c) => `- ${c}`).join('\n'))}\n</owner_comments>\n\nUnder <owner_comments> are the owner’s latest comments on other people’s posts: never use their words or start the way they do.`
+      : null,
     where,
     declined ? declinedLine(declined.why) : null,
     useful,

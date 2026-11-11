@@ -44,7 +44,7 @@ offered to nobody; staff give it to a business from Admin → Businesses.
 | What the AI is asked to write and design, and its checks | `posts-ai.ts`; the shapes on the wire in `content-shapes.ts`                     |
 | The main offer and its lists, as the AI reads them       | `offer-ai.ts` (`offerForContent`); the worker's `socialcontent/business.ts`      |
 | The notice while the offer isn't live                    | `offer-notice.tsx` in the web's folder; `OfferNotLive` in the phone's `kit.tsx`  |
-| People's operations on posts: calendar, save, OK, skip   | `ops/content.ts`; the worker's keep in `ops/worker.ts`                           |
+| People's posts: calendar, save, OK, skip, remove         | `ops/content.ts`; the worker's keep in `ops/worker.ts`                           |
 | Writing, filling the calendar, and making pictures       | the worker's `socialcontent/content.ts`                                          |
 | Drawing a designed picture                               | the worker's `socialcontent/draw.ts` (Inter from `@fontsource/inter`)            |
 | OpenAI's photo-style pictures                            | `apps/worker/src/pictures.ts`                                                    |
@@ -140,11 +140,11 @@ offered to nobody; staff give it to a business from Admin → Businesses.
   network, format, a day in the next two weeks and a time in the business's time zone, where on Facebook, hook,
   words, hashtags, slides, script), shows where it went up and How it did, makes its picture again, takes the
   person's own photos (made smaller first, to 2048 px) or video (up to 25 MB) from the phone, OKs it or takes the OK
-  back, Post it now, Skip it, and Write it again. Pressing a picture opens the post's pictures full screen, to
+  back, Post it now, Skip it, Remove (owners and admins), and Write it again. Pressing a picture opens the post's pictures full screen, to
   swipe between (and pinch to zoom on iPhone). On a network the extension doesn't post on yet, Share the words
   hands them to the phone's share sheet. The day and clock words (`dayShown`, `timeShown`, `filledLine`,
   `planShown`) live in core's words, shared with the web. Its commands (`socialcontent.content.save`, `.approve`,
-  `.approve_week`, `.post_now`, `.skip`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
+  `.approve_week`, `.post_now`, `.skip`, `.remove`) are online commands; uploads ask `file.begin_upload` and `file.confirm`
   straight away (as an anytime command would only be queued) and put the file in storage between. The screens ask
   again every 20 seconds (the Calendar) and 15 (a post) while open, so a picture being made or a post going up shows
   when it's done.
@@ -219,6 +219,15 @@ Part 8 (decisions 13 to 20). The business's own posts, written by the AI from th
   the next 7 days that has everything it needs (words, its pictures or 2 slides, a video's own video, a day at least a minute ahead, and on
   Facebook where it goes, with the Page's link when it goes to the Page). What one still needs is shown on the post
   and said by OK the week. Changing an OK'd post takes the OK back; **Skip it** opens its day again.
+- **Removing a post** (the owner, 11 Nov: "give me the option to delete a post from the calendar page so when i click
+  fill calendar it writes one in to fill it"). An owner or admin presses the bin on a post's row on the Calendar, or
+  **Remove** in its sheet (and on the phone's post screen), and says **Remove it** when asked. It comes off the
+  calendar for good and never goes up, and its day is open again, so **Fill the calendar** or **Write one** puts a new
+  post there. `socialcontent.content.remove` archives its record through core's `custom_record.archive`: an add-on's
+  records are never deleted (docs/deleting.md), and archiving is `records.archive`'s, so the team (who can't) still
+  has Skip it, and the refusal says so (`socialcontent_remove_forbidden`). A post that went up or is going up can't be
+  removed. The Assistant removes one on a Confirm card (`socialcontent_remove_own_post`). It's an online command on
+  the phone.
 
 ## Posting
 

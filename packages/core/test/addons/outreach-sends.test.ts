@@ -478,7 +478,7 @@ describe('messages on their own', () => {
     const after = await today();
     expect(after).toMatchObject({ sending: 'everything', wheels: { on: true } });
     expect(after.limits.friend_request.most).toBe(10);
-    expect((await runAs(owner, ws, 'outreach.activity', { period: 'week' })).limits.like).toBe(20);
+    expect((await runAs(owner, ws, 'outreach.activity', { period: 'week' })).limits.like).toBe(35);
 
     const eli = await accepted(owner, 'eli.brook.2', 'Eli Brook');
     const s = await runAs(owner, ws, 'outreach.send.queue', {

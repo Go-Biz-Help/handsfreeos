@@ -766,7 +766,8 @@ export const OUTREACH_WORDS = {
     limits: 'Daily limits for each person',
     defaults: 'Where a new person starts',
     contacts: 'Who from Facebook chats goes in Contacts',
-    cancelAfter: 'Suggest cancelling friend requests after',
+    // The warm-up's length (decision 161, the owner's 5a): visits every few days, then the request is withdrawn.
+    cancelAfter: 'Warm up for, then unfollow or withdraw',
     foundChecks: 'People found by topic checked a day',
     morning: 'Morning push',
     weekly: 'Weekly report by email',
@@ -796,7 +797,7 @@ export const OUTREACH_WORDS = {
     contacts:
       'Each chat brought in from Facebook is read for a summary and your playbooks’ tags, and shows on the Chats tab. This says who also goes in Contacts.',
     cancelAfter:
-      'Requests nobody has answered by then show under Tidy up on the Friends tab, for you to tick.',
+      'On every network, after a friend request, invitation or follow, the extension visits their page every few days, on no set schedule, likes 1 or 2 of their newest posts and comments on one. With no answer by then, it unfollows them or withdraws the request on its own, and leaves them alone unless they follow back or write first.',
     foundChecks:
       'For each person, on Instagram, LinkedIn and Alignable: how many people found under your hashtags, phrases and searches the AI checks from their own page. Fewer is slower and safer. Halved on training wheels and for a week after a warning, and LinkedIn’s stay inside its 40 profiles read a day.',
     morning:

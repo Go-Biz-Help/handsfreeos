@@ -15637,6 +15637,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/commands/socialcontent.content.remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove one of the business’s own posts from the calendar for good, so it never goes up and its day is open for another (Fill the calendar or Write one then writes a new one there). Its record is archived, as an add-on’s records are never deleted. Not a post that went up or is going up. Owners and admins.
+         * @description Risk level 2. Requires socialcontent.use. Emits .
+         */
+        post: operations["command_socialcontent_content_remove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/commands/socialcontent.content.save": {
         parameters: {
             query?: never;
@@ -63494,6 +63514,39 @@ export interface operations {
             };
         };
     };
+    command_socialcontent_content_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    postId: string;
+                    /** Format: uuid */
+                    workspaceId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Default Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        openDay: string | null;
+                        /** Format: uuid */
+                        postId: string;
+                    };
+                };
+            };
+        };
+    };
     command_socialcontent_content_save: {
         parameters: {
             query?: never;
@@ -89213,6 +89266,11 @@ export interface operations {
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;
+                            keepWarm?: {
+                                likes: number;
+                                /** Format: date-time */
+                                until: string;
+                            };
                             /** @enum {string} */
                             kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             likeComment?: boolean;
@@ -89289,6 +89347,11 @@ export interface operations {
                             chatId: string | null;
                             demoBooked: boolean;
                             demoLink: string | null;
+                            keepWarm?: {
+                                likes: number;
+                                /** Format: date-time */
+                                until: string;
+                            };
                             /** @enum {string} */
                             kind: "reply" | "demo_reminder" | "rebook" | "birthday" | "new_job" | "warm_lead" | "pitch" | "video" | "opener" | "follow_up" | "check_in" | "reconnect" | "comment" | "group_reply" | "warm_up" | "friend_request" | "confirm" | "recommend" | "partner_reply" | "partner_details" | "partner_follow_up" | "partner_ask" | "partner_warm_up";
                             likeComment?: boolean;
