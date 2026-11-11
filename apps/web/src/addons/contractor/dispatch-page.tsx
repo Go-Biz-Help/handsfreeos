@@ -228,6 +228,11 @@ function Column({
                   <span className="text-text-2">{D.subs(v.subs.done, v.subs.total)}</span>
                 ) : null}
                 <ChecklistLine checklist={v.checklist} />
+                {v.materialsMissing && v.stage !== 'done' ? (
+                  <span className="text-danger-text" data-testid="dispatch-materials-missing">
+                    {D.materialsMissing(v.materialsMissing)}
+                  </span>
+                ) : null}
               </span>
             </Link>
           </li>

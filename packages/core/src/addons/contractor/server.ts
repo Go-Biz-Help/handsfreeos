@@ -35,6 +35,14 @@ import {
   jobUpdate,
   propertyAdd,
 } from './ops/jobs';
+import {
+  materialAdd,
+  materialList,
+  materialRemove,
+  materialSetCost,
+  materialStampCost,
+  materialUpdate,
+} from './ops/materials';
 import { phaseAdd, phaseRemove, phaseReorder, phaseUpdate } from './ops/phases';
 import { jobGet, jobList, overview, propertyList } from './ops/queries';
 import {
@@ -89,6 +97,11 @@ export const contractorAddonServer: AddonServerModule = {
     workOrderItemUpdate,
     workOrderItemRemove,
     workOrderItemSet,
+    materialAdd,
+    materialUpdate,
+    materialRemove,
+    materialSetCost,
+    materialStampCost,
   ],
   queries: [
     overview,
@@ -101,6 +114,7 @@ export const contractorAddonServer: AddonServerModule = {
     crewList,
     workOrderGet,
     dispatch,
+    materialList,
   ],
   notForTheAssistant: {},
 };

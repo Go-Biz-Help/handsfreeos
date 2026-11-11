@@ -48,6 +48,7 @@ import { workOrderItems, workOrderSubs, workOrders } from '../tables';
 import { CONTRACTOR_WORDS as W, namesWords, REFUSALS, subTextWords } from '../words';
 import { inWorkspace, jobLine, pairsOf, subOut, subsOf, timeZoneOf, type Ctx } from './common';
 import { crewMemberIds, loadCrew } from './crews';
+import { materialsOf } from './materials';
 import { jobsSql, rowOut } from './queries';
 import {
   ensureWorkOrder,
@@ -875,7 +876,7 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
 export const workOrderGet = defineAddonQuery(contractorAddon, {
   name: 'contractor.work_order.get',
   description:
-    'A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, and its checklist.',
+    'A visit’s work order: when it is and where it stands, its job, customer and property, the crew and people going, its subcontractors, its instructions, what to bring, its checklist, and the job’s materials it needs.',
   input: WorkOrderGetInput,
   output: WorkOrder,
   permission: 'contractor.use',
@@ -883,7 +884,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
   ai: {
     tool: 'contractor_get_work_order',
     description:
-      'A visit’s work order (by the visit’s appointment id, from a job’s visits or dispatch): when it is, where it stands (scheduled, on the way, started, done), its job with its customer and property, its crew, the team members going, its subcontractors (texted or not, work done or not), its instructions, what to bring, and its checklist (item ids, kind, required, done, photo, passed over) with how many required items are left.',
+      'A visit’s work order (by the visit’s appointment id, from a job’s visits or dispatch): when it is, where it stands (scheduled, on the way, started, done), its job with its customer and property, its crew, the team members going, its subcontractors (texted or not, work done or not), its instructions, what to bring, its checklist (item ids, kind, required, done, photo, passed over) with how many required items are left, and the job’s materials this visit needs (material ids, how much is needed, delivered and used, and what’s still short).',
     keywords: ['work order', 'checklist', 'visit'],
   },
   async handler(ctx, input) {
@@ -909,7 +910,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
           from addon_contractor.work_orders w left join addon_contractor.crews c on c.id = w.crew_id
           where w.appointment_id = ${input.appointmentId}`,
     );
-    const [items, subRows, people] = await Promise.all([
+    const [items, subRows, people, visitMaterials] = await Promise.all([
       rows<{
         id: string;
         position: number;
@@ -952,6 +953,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
             order by s.created_at, s.id`,
       ),
       staffOf(ctx, input.appointmentId),
+      materialsOf(ctx, visit.jobId, input.appointmentId),
     ]);
     const subs = await subsOf(
       ctx,
@@ -1019,6 +1021,7 @@ export const workOrderGet = defineAddonQuery(contractorAddon, {
           skipped: i.skipped_at !== null,
         })),
       ),
+      materials: visitMaterials,
     };
   },
 });

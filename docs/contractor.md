@@ -1,13 +1,14 @@
 # Contractor Operations
 
 An add-on (`contractor`) for contractors and home service companies: electricians, plumbers, HVAC, roofers,
-remodelers and general contractors. One shared engine runs jobs and projects, estimates with costs, and crews, work
-orders and dispatch, and later materials, job costing and a field app, with trade tools inside it after that.
+remodelers and general contractors. One shared engine runs jobs and projects, estimates with costs, crews, work
+orders and dispatch, and each job's materials, and later job costing and a field app, with trade tools inside it
+after that.
 
 The owner's decisions and the build order are in `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`; the
 numbers below (decision 1, and so on) are its decisions. Built: part 1, jobs and projects; part 2, costs and
-estimates; and part 3, crews, work orders and dispatch. The add-on is in `development`, offered to nobody; staff give
-it to a business from Admin → Businesses.
+estimates; part 3, crews, work orders and dispatch; and part 4, materials. The add-on is in `development`, offered
+to nobody; staff give it to a business from Admin → Businesses.
 
 ## Where things are
 
@@ -17,6 +18,7 @@ it to a business from Admin → Businesses.
 | The tables (and their Drizzle mirror)                          | `supabase/migrations/20261027024000_addon_contractor.sql`, `tables.ts` |
 | Part 2's tables: costs, estimates, OKs                         | `supabase/migrations/20261027024200_contractor_estimates.sql`          |
 | Part 3's tables: crews, work orders, checklists, subs          | `supabase/migrations/20261027024300_contractor_work_orders.sql`        |
+| Part 4's tables: materials and what each costs                 | `supabase/migrations/20261027024400_contractor_materials.sql`          |
 | Trades and their starter phases                                | `trades.ts` (pure; web, phone and server all use it)                   |
 | Statuses, % done, lateness and planned profit                  | `progress.ts` (pure)                                                   |
 | The pages' words, and every refusal's                          | `words.ts`                                                             |
@@ -29,10 +31,13 @@ it to a business from Admin → Businesses.
 | Crews                                                          | `ops/crews.ts`                                                         |
 | A visit and its work order                                     | `ops/visits.ts`, `ops/work-orders.ts`                                  |
 | Dispatch                                                       | `ops/dispatch.ts`                                                      |
+| What's missing, where a material stands, and when to tell      | `materials.ts` (pure)                                                  |
+| A job's materials: list, add, change, remove, cost             | `ops/materials.ts`                                                     |
 | Reading: overview, jobs, one job, properties                   | `ops/queries.ts`                                                       |
 | What it shares (loading a job, keeping % done, timelines)      | `ops/common.ts`                                                        |
 | Where the Assistant finds each page                            | `ai-places.ts`                                                         |
 | The worker: visits, work orders, approved estimates, OK alerts | `apps/worker/src/addons/contractor/`                                   |
+| The worker: what a visit is still missing, and its alert       | `apps/worker/src/addons/contractor/materials.ts`                       |
 | The web pages                                                  | `apps/web/src/addons/contractor/`, routes under `a/contractor/`        |
 | The Assistant's checklist for its screens                      | `packages/core/src/assistant/ledger/contractor.json`                   |
 
@@ -67,9 +72,10 @@ it to a business from Admin → Businesses.
 - **The team.** A job has one lead (anyone can lead their own; someone else takes `records.assign`) and up to 20
   others on its team. **My jobs** is the jobs someone leads or is on.
 - **Late.** A job or phase past its deadline and not finished is late, by the business's time zone.
-- **Settings** (decision 1). The trades the business does, the phases a new project starts with and the checklist
-  a new visit starts with, saved by core's `addon.save_settings` against the manifest's settings shape. A save
-  replaces all three, so the page always sends them together. Estimating and Crews are cards of their own there.
+- **Settings** (decision 1). The trades the business does, the phases a new project starts with, the checklist a
+  new visit starts with and how long before a visit its missing materials are told, saved by core's
+  `addon.save_settings` against the manifest's settings shape. A save replaces all four, so the page always sends
+  them together. Estimating and Crews are cards of their own there.
 
 ## Costs and estimates
 
@@ -175,7 +181,48 @@ the business's time zone, today to start:
 
 Where a visit stands is core's job status for it, which its crew presses on the phone or the calendar: scheduled, on
 the way, started, waiting on parts, done. Cancelled visits aren't shown, and neither are visits in the Deleted bin.
-A day answers up to 300 visits. Moving a visit or changing its time is the Calendar's; Dispatch only reads.
+A day answers up to 300 visits. Moving a visit or changing its time is the Calendar's; Dispatch only reads. A
+visit that's still missing materials says how many, in red.
+
+## Materials
+
+Part 4 (decision 9). Each job has **one list of materials**: what it needs, and what's happened to each so far. It
+records; it orders nothing. Stock in a warehouse or a van, and orders to suppliers, are Phase 2.
+
+- **Six counts** for each material (`addon_contractor.materials`): needed, ordered, delivered, used, wasted and
+  returned, to three decimal places, in whatever it's counted in (each, ft, box). Each count is the total so far,
+  never a step: "20 ft delivered" means 20 ft are here, not 20 more.
+- **Everything else is worked out from the counts** (`materials.ts`, pure, one copy for the server, both apps and
+  the AI). Where it stands: To order, On order, Here, or Used up. What's short is needed less delivered. What's left
+  is delivered less used, wasted and returned. Nothing stores a status, so the counts can never disagree with it.
+- **One press moves a material along.** Mark ordered, then Mark delivered, then Mark used (`nextStep`). Anything
+  finer (half delivered, some wasted, some sent back) is in the material's dialog.
+- **For one visit, or for any.** A material can be tied to one of the job's visits; one that isn't is needed on
+  every visit. A visit's work order shows the materials needed on it (`contractor.work_order.get`), and a material
+  added there is for that visit. A visit that isn't on the job is refused (`contractor_material_visit_elsewhere`).
+- **Missing.** A material is missing while less is delivered than needed. The job's Visits list and Dispatch say
+  how many each coming visit is still missing; the job's Materials card and the work order say which.
+- **The alert before a visit.** The worker looks at each visit on a job as long before it as Settings → Missing
+  materials says (a day to start; Never turns it off). If anything needed on it is missing, the job's lead and the
+  people on the visit get an alert on Home, their phones and their email, naming what's short. With no lead and
+  nobody on the visit, everyone who uses the add-on gets it. It's looked at again when the visit moves or the job's
+  materials change, so it says what's true now. It comes down once everything is here, the visit is over or
+  cancelled, or the job is closed. Like every alert that isn't critical, it waits for the business's open hours.
+- **From the price list, or typed.** Someone who can see the price list (`money.read`) picks an item, which gives
+  the name and what it's counted in. Everyone else types the name (`contractor_material_no_price_list`).
+- **What one costs** is kept apart (`material_costs`), where row security lets only `contractor.costs` read or set
+  it (decision 11). Someone with it gets the price list item's cost filled in as they add a material, or types
+  their own. When someone without it picks a price list item, the worker fills the cost in a moment later
+  (`contractor.material.stamp_cost`, the system's alone). People who may see costs see what the list is planned to
+  cost, what the job has taken so far, and how many materials have no cost yet. A work order never carries a cost.
+- **An approved estimate fills the list.** `contractor.estimate.fill_job` adds each line costed as a material, at
+  the option the customer picked, with its cost. Each line is added once (`estimate_id`, `estimate_line`), so
+  running it again adds nothing, and a material someone has changed since stays as they left it. A second approved
+  estimate on the job adds its own lines.
+- **A job's materials change only while the job is open.** A done or cancelled job's are read-only
+  (`contractor_job_closed`) until it's moved back. A job keeps up to 300.
+- **The job's timeline** gets a line when a material is added, when its counts change ("12/2 wire: 20 ft
+  delivered, 12 ft used") and when one is taken off. Costs are never on it.
 
 ## Rules worth knowing before changing anything
 
@@ -197,7 +244,9 @@ A day answers up to 300 visits. Moving a visit or changing its time is the Calen
   In part 3, ticking or changing a checklist item, removing one, putting a crew on a visit, marking a
   subcontractor's work, taking one off, texting the details and archiving a crew wait on a Confirm card; look-ups,
   starting a work order, its instructions, adding an item or a subcontractor and saving a crew run on their own.
-  Marking a job done with items left needs its reason on the same Confirm card as the status.
+  Marking a job done with items left needs its reason on the same Confirm card as the status. In part 4, adding a
+  material and changing its counts run on their own, because they record what happened and spend nothing; taking
+  one off and setting what one costs wait on a Confirm card.
 - **An estimate is core's; the add-on never copies one.** The builder saves through `estimate.create`,
   `estimate.update` and `estimate.send` (`executeCommandWithin`), so core's rules, numbering and totals apply
   unchanged. Never write to `app.estimates` or `app.estimate_lines` from the add-on.
@@ -218,22 +267,34 @@ A day answers up to 300 visits. Moving a visit or changing its time is the Calen
 - **A subcontractor is a contact and never signs in** (decision 7). Nothing gives them a login or a page; the
   office marks their work.
 - **A crew is archived, never deleted,** so past visits keep its name.
+- **Materials are per job, and the list orders nothing** (decision 9). No stock, no supplier orders and no
+  purchase approvals in Phase 1: Mark ordered records that someone ordered it. When ordering is built (Phase 2),
+  it's spending, so the AI prepares it and a person approves.
+- **A material's counts are totals, and its status is worked out,** never stored. Change the rules in
+  `materials.ts`, the one copy, and nowhere else.
+- **A material's cost lives in `material_costs`, never on `materials`,** so row security can keep it to
+  `contractor.costs`. `contractor.material.*` events and timeline lines carry no cost, and `material.list` answers
+  `costing: null` and no unit costs for everyone else.
+- **The missing-materials alert is one per visit** (key `materials:<the appointment's id>`), raised and cleared by
+  the worker only. It reads the visit from core and never changes it.
 - **Archiving and deleting go through core.** The add-on never deletes a job's record itself. What it does delete
-  is small and its own: a phase, a checklist item, a subcontractor taken off a visit, and a crew's member list when
-  the crew is saved. The Assistant asks first for the first three.
+  is small and its own: a phase, a checklist item, a subcontractor taken off a visit, a material taken off a job,
+  and a crew's member list when the crew is saved. The Assistant asks first for the first four.
 - **Every screen item is in the Assistant's checklist,** and every person-run operation declares `ai`.
 
 ## Not yet
 
-- Parts 4 to 7: materials, time and job costing, the phone's pages, and the AI helpers. See the plan.
-- An approved estimate fills its job's budget; filling the job's materials list comes with materials in part 4.
+- Parts 5 to 7: time and job costing, the phone's pages, and the AI helpers. See the plan.
+- Stock in warehouses and vans, purchase orders and suppliers: Phase 2. Until then a material's supplier is a
+  name typed on it, and Mark ordered records an order placed somewhere else.
+- What the materials really cost against the budget, beside labor: job costing, part 5. Today the Materials card
+  shows planned and taken so far to people who may see costs, and the budget's materials line is the estimate's.
 - An estimate the AI drafts on its own always waits for a person (decision 6): that comes with the AI helpers in
   part 7. Today the Assistant writes an estimate only as the person asking, on a Confirm card.
 - The builder is on the web. On the phone, Money won't send such a draft and says to open it in Contractor
   Operations; the add-on's phone pages are part 6.
 - Panels on a customer's or a property's page: Contacts lists jobs and properties as their own kinds already.
-- A work order's **materials to bring** is a note for now (What to bring); the job's materials list, and what's
-  missing for each visit, is part 4.
+- Materials used on the phone, with no signal: part 6. Until then the crew's counts are typed on the web.
 - Booking a crew in one step from the booking dialog: today a visit is booked with core's dialog, then its work
   order opens and the crew is picked there.
 - Work orders, checklists and photos on the phone, with no signal: part 6. Until then the phone shows the visit as

@@ -4,7 +4,15 @@
  * pages pop out of its one row in the side menu. Said only in businesses it runs in. Browser-safe and pure.
  */
 import type { AppPlace } from '../../assistant/places-map';
-import { CONTRACTOR_PAGES as P, CONTRACTOR_WORDS as W, JOB_STATUS_WORDS as S } from './words';
+import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIALS_ALERT_HOURS } from './materials';
+import {
+  alertHoursWords,
+  CONTRACTOR_PAGES as P,
+  CONTRACTOR_WORDS as W,
+  JOB_STATUS_WORDS as S,
+  MATERIAL_COUNT_WORDS,
+  MATERIAL_STATE_WORDS,
+} from './words';
 
 const NAME = W.title;
 const J = W.jobs;
@@ -19,8 +27,12 @@ const O = W.workOrder;
 const X = W.dispatch;
 const R = W.crews;
 const K = W.checklistSettings;
+const M = W.materials;
+const A = W.materialsSettings;
 
 const statuses = Object.values(S).join(', ');
+const materialCounts = Object.values(MATERIAL_COUNT_WORDS).join(', ');
+const materialStates = Object.values(MATERIAL_STATE_WORDS).join(', ');
 
 export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   {
@@ -42,7 +54,7 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   },
   {
     label: 'A job',
-    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits and budget',
+    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials and budget',
     where: [NAME, P.jobs],
     then: 'press the job',
     onScreen: [
@@ -50,7 +62,8 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${D.customer}, ${D.property}, ${D.trade}, ${D.startsOn}, ${D.dueOn}, ${D.lead} and ${D.team} (${D.addToTeam}, ${D.removeFromTeam}), with ${D.edit}`,
       `${D.details}`,
       `${D.phases.title}: each phase with its status, % done, ${D.phases.startsOn} and ${D.phases.dueOn}, ${D.phases.rename}, ${D.phases.moveUp}, ${D.phases.moveDown} and ${D.phases.remove}; ${D.phases.add}; on a service call ${D.phases.makeProject}`,
-      `${D.visits}: the visits booked on it, each with where it stands (Scheduled, On the way, Started, Done), its crew and its checklist’s progress, and ${D.bookVisit}; pressing a visit opens its work order`,
+      `${D.visits}: the visits booked on it, each with where it stands (Scheduled, On the way, Started, Done), its crew, its checklist’s progress and how many materials it’s still missing, and ${D.bookVisit}; pressing a visit opens its work order`,
+      `${M.title}: what the job needs, each with where it stands (${materialStates}), how much of what’s needed is here, what’s short, its supplier, the day it’s expected and the visit it’s for; one button moves it along (${M.markOrdered}, ${M.markDelivered}, ${M.markUsed}); ${M.add}, and ${M.edit} or ${M.remove} under each one’s menu. People who may see job costs also see what one costs, ${M.planned.toLowerCase()} and ${M.taken.toLowerCase()}`,
       `${D.money.title} (only for people who may see job costs and profit): ${D.money.price}, ${D.money.labor}, ${D.money.materials}, ${D.money.other}, ${D.money.hours}, ${D.money.total}, ${D.money.profit} and ${D.money.margin}`,
       `${E.title}: the estimates written for it, each with its status, total and whether it’s ${E.waitingOk.toLowerCase()}, and ${E.add} (for people who may see job costs)`,
       `${D.openRecord}: the job’s own record page, with its timeline, notes, files and tasks`,
@@ -62,26 +75,31 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Set how far along it is: a service call’s ${D.setPercent}; a project’s % done is the average of its phases’ (a done phase counts 100)`,
       `Set the budget: its page, ${D.money.title} → ${D.money.edit} (owners and admins, and anyone given “See job costs and profit”)`,
       `Book a visit on it: its page, ${D.visits} → ${D.bookVisit}. Its work order opens next, to put a crew on it`,
-      `Write an estimate for it: its page, ${E.title} → ${E.add}. When the customer approves it, the job’s price and budget are filled in from it on their own`,
+      `Write an estimate for it: its page, ${E.title} → ${E.add}. When the customer approves it, the job’s price and budget are filled in from it on their own, and its material lines go onto ${M.title}`,
+      `Add a material: its page, ${M.title} → ${M.add}. Pick it from your price list or type what it is, how much is needed, and (if it’s for one visit) ${M.forVisit}`,
+      `Say a material was ordered, arrived or was used: its page, ${M.title}, then ${M.markOrdered}, ${M.markDelivered} or ${M.markUsed}; for part of it, or what was wasted or returned, the material’s menu → ${M.edit} (${materialCounts})`,
+      `See what a visit is still missing: the job’s ${M.title} shows what’s short in red, and each visit under ${D.visits} says how many it’s missing. The job’s lead and the people going are also told before the visit (set when in ${NAME} → ${P.gear} → ${A.title})`,
     ],
     canChange: [
-      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, and set its price and budget (with job-cost access)',
+      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, and set its price and budget and what a material costs (with job-cost access)',
     ],
     notHere: [
-      'materials, time on jobs and job profit dashboards: coming in the next parts of Contractor Operations',
+      'ordering from a supplier, and stock in a warehouse or a van: the materials list records what a job needs and what’s happened; it places no order (supplier orders and stock come later)',
+      'time on jobs and job profit dashboards: coming in the next parts of Contractor Operations',
       'deleting a job: archive its record instead, and everything on it is kept',
     ],
     path: 'jobs/[jobId]',
   },
   {
     label: 'A work order',
-    what: 'one visit on a job: what to do and bring, its crew, the people and subcontractors going, and its checklist',
+    what: 'one visit on a job: what to do and bring, the materials it needs, its crew, the people and subcontractors going, and its checklist',
     where: [NAME, P.jobs],
     then: `press the job, then the visit under ${D.visits} (or press a visit on ${P.dispatch})`,
     onScreen: [
       `At the top: when the visit is, where it stands (Scheduled, On the way, Started, Waiting on parts, Done), its checklist’s progress, and ${O.openInCalendar}`,
       `${O.job}: the job, its customer, its property and the ${O.workToDo.toLowerCase()}`,
       `${O.instructions} and ${O.bring}, with ${O.edit}`,
+      `${M.visitTitle}: the job’s materials this visit needs (the ones for it, and the ones for any visit), each with how much is here and what’s short, ${M.markDelivered} or ${M.markUsed}, ${M.add}, and ${M.seeAll}`,
       `${O.checklist}: each item a box to tick or a photo to add, some marked ${O.required}; ${O.addPhoto}, ${O.seePhoto}, ${O.makeRequired} or ${O.makeOptional}, ${O.removeItem}, and ${O.addItem} (Checkbox or Photo, ${O.required} or not)`,
       `${O.whoGoes}: ${O.crew} (pick one of your crews, or ${O.noCrew}) and the ${O.people.toLowerCase()} members on the visit`,
       `${O.subs}: each with whether they were texted and whether their work is done; ${O.addSub}, ${O.tellSubs}, ${O.subWorkDone} and ${O.removeSub.toLowerCase()}`,
@@ -92,9 +110,10 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Mark a subcontractor’s work done: its work order → ${O.subs} → tick ${O.subWorkDone}. They don’t sign in, so the office marks it`,
       `Add a required photo: its work order → ${O.checklist} → type what it’s of, pick Photo, tick ${O.required}, then ${O.addItem}`,
       `Change who on the team is going without a crew: ${O.openInCalendar}, then Who’s going on the visit’s sheet`,
+      `Say what was used on a visit: its work order → ${M.visitTitle} → ${M.markUsed}, or the material’s menu → ${M.edit} to type how much was used or wasted`,
     ],
     canChange: [
-      'write its instructions and what to bring, put a crew on it, add, text, mark done and take off subcontractors, and add, tick, change and remove checklist items (a photo item is ticked by adding its photo, on the screen)',
+      'write its instructions and what to bring, put a crew on it, add, text, mark done and take off subcontractors, add, tick, change and remove checklist items (a photo item is ticked by adding its photo, on the screen), and add materials for the visit and say what was delivered and used',
     ],
     notHere: [
       'where the visit stands (On the way, Started, Done) is set by its crew on the visit’s sheet in Calendar or on their phones',
@@ -110,13 +129,14 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
     onScreen: [
       `The day, with ${X.previous}, ${X.next}, a day to pick and ${X.today}`,
       `${X.nobody}: the day’s visits with no one on the team on them`,
-      'A column for each person on a visit that day: each visit with its time, where it stands (Scheduled, On the way, Started, Done), its job, customer and property, its crew, its subcontractors and its checklist’s progress',
+      'A column for each person on a visit that day: each visit with its time, where it stands (Scheduled, On the way, Started, Done), its job, customer and property, its crew, its subcontractors, its checklist’s progress and, in red, how many materials it’s still missing',
       `${X.needsVisit}: open jobs with nothing booked from now on, each with ${X.openJob}`,
     ],
     howTo: [
       `See what each tech is doing today: ${NAME} → ${P.dispatch}`,
       `Find visits nobody is on: ${NAME} → ${P.dispatch} → ${X.nobody}; press one to open its work order and pick a crew`,
       `Find jobs that still need a visit: ${NAME} → ${P.dispatch} → ${X.needsVisit}, then ${X.openJob} → ${D.bookVisit}`,
+      `See which of the day’s visits are missing materials: ${NAME} → ${P.dispatch}; a visit that’s short says so in red. Press it to see what, under ${M.visitTitle}`,
     ],
     canChange: [
       'nothing on this page itself: a visit opens its work order, and a job opens its page',
@@ -189,12 +209,13 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
   },
   {
     label: P.gear,
-    what: 'the business’s trades, its crews, the phases a new project and the checklist a new visit start with, and how it estimates',
+    what: 'the business’s trades, its crews, the phases a new project and the checklist a new visit start with, when missing materials are told, and how it estimates',
     where: [NAME, P.gear],
     onScreen: [
       `${G.trades} (Electrical, Plumbing, HVAC, Roofing, Remodeling and General contracting)`,
       `${G.phases}, with ${G.addPhase} and Start from a trade’s starter phases`,
       `${K.title}: each item a box or a photo, required or not, with ${K.add} and Start from a trade’s starter checklist`,
+      `${A.title}: ${A.when} (${MATERIALS_ALERT_HOURS.map(alertHoursWords).join(', ')})`,
       `${R.title}: each crew with who’s in it, ${R.add}, ${R.edit}, ${R.archive} and ${R.showArchived}`,
       `${T.title}: ${T.minMargin}, ${T.markup}, ${T.laborRate} and ${T.laborCost}`,
     ],
@@ -202,11 +223,12 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Pick your trades: ${NAME} → ${P.gear} → ${G.trades} (owners and admins)`,
       `Change the phases a new project starts with: ${NAME} → ${P.gear} → ${G.phases}`,
       `Change the checklist a new visit starts with: ${NAME} → ${P.gear} → ${K.title}, then ${G.save}. Visits already booked keep the checklist they have`,
+      `Change when people are told a visit is missing materials, or turn it off: ${NAME} → ${P.gear} → ${A.title} → ${A.when}, then ${G.save}. It starts at ${alertHoursWords(DEFAULT_MATERIALS_ALERT_HOURS).toLowerCase()}; ${alertHoursWords(0)} turns it off`,
       `Make a crew: ${NAME} → ${P.gear} → ${R.title} → ${R.add}. Name it, tick its ${R.people.toLowerCase()}, and add its ${R.subs.toLowerCase()} from Contacts (for a company, the person you deal with there)`,
       `Change the lowest margin an estimate may go out at: ${NAME} → ${P.gear} → ${T.title} → ${T.minMargin} (owners and admins). It starts at 20%`,
     ],
     canChange: [
-      'pick the business’s trades, the phases a new project starts with and the checklist a new visit starts with, make, change, archive and bring back crews, and set the lowest margin, the starting markup and labor’s hourly price and cost',
+      'pick the business’s trades, the phases a new project starts with and the checklist a new visit starts with, set how long before a visit its missing materials are told, make, change, archive and bring back crews, and set the lowest margin, the starting markup and labor’s hourly price and cost',
     ],
     path: 'settings',
   },
@@ -221,4 +243,6 @@ export const CONTRACTOR_LOOK_ALIKES: readonly string[] = [
   'Dispatch (Contractor Operations → Dispatch) shows only visits booked on jobs. Calendar shows every appointment.',
   'An estimate written in Contractor Operations → Estimates is also in Money → Estimates, like any other. While Contractor Operations runs it’s changed and sent from its builder, which checks its margin first; the customer’s yes, its invoice and its payments are in Money.',
   'Item costs (Contractor Operations → Item costs) are what things cost the business. Their prices to the customer are the price list, in Settings → Products.',
+  'A job’s Materials (on the job’s page) is the list of what that one job needs and what’s been ordered, delivered and used. It isn’t the price list (Settings → Products), and it isn’t “What to bring” on a work order, which is a note for the crew.',
+  'Marking a material ordered records that someone ordered it. HandsFreeOS places no order with a supplier.',
 ];

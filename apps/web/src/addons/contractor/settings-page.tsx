@@ -1,8 +1,9 @@
 'use client';
 /**
  * Contractor Operations' settings (docs/contractor.md, "Settings"): the trades the business does (the owner's
- * decision 1), the phases a new project starts with, and the checklist a new visit's work order starts with. Saved by
- * core's `addon.save_settings`, checked against the manifest's settings shape. Owners and admins
+ * decision 1), the phases a new project starts with, the checklist a new visit's work order starts with, and how
+ * long before a visit its missing materials are told (the owner's decision 9). Saved by core's
+ * `addon.save_settings`, checked against the manifest's settings shape. Owners and admins
  * (`contractor.manage`). Its crews are beside them (./crews-card.tsx), saved by the add-on's own commands.
  *
  * Under them, how the business estimates: its lowest margin (the owner's decision 6), the markup a new line starts
@@ -16,6 +17,7 @@ import {
   type ItemKind,
   type StarterItem,
 } from '@hfos/core/addons/contractor/checklists';
+import { MATERIALS_ALERT_HOURS } from '@hfos/core/addons/contractor/materials';
 import { LIMITS } from '@hfos/core/addons/contractor/schemas';
 import {
   STARTER_PHASES,
@@ -23,7 +25,11 @@ import {
   TRADES,
   type Trade,
 } from '@hfos/core/addons/contractor/trades';
-import { CONTRACTOR_WORDS, ITEM_KIND_WORDS } from '@hfos/core/addons/contractor/words';
+import {
+  alertHoursWords,
+  CONTRACTOR_WORDS,
+  ITEM_KIND_WORDS,
+} from '@hfos/core/addons/contractor/words';
 import { ArrowDown, ArrowUp, Camera, X } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
@@ -41,6 +47,7 @@ import { useAct } from './use-act';
 const S = CONTRACTOR_WORDS.settings;
 const E = CONTRACTOR_WORDS.estimating;
 const C = CONTRACTOR_WORDS.checklistSettings;
+const A = CONTRACTOR_WORDS.materialsSettings;
 const W = CONTRACTOR_WORDS.workOrder;
 
 export function ContractorSettingsPage({
@@ -64,6 +71,7 @@ export function ContractorSettingsPage({
   const [trades, setTrades] = useState<readonly Trade[]>(settings.trades);
   const [phases, setPhases] = useState<readonly string[]>(settings.phases);
   const [checklist, setChecklist] = useState<readonly StarterItem[]>(settings.checklist);
+  const [alertHours, setAlertHours] = useState<number>(settings.materialsAlertHours);
   const [name, setName] = useState('');
   const { busy, errors, act } = useAct();
   const add = () => {
@@ -99,6 +107,7 @@ export function ContractorSettingsPage({
                       trades: TRADES.filter((t) => trades.includes(t)),
                       phases,
                       checklist,
+                      materialsAlertHours: alertHours,
                     },
                   },
                 }),
@@ -221,6 +230,39 @@ export function ContractorSettingsPage({
           trades={TRADES.filter((t) => trades.includes(t))}
           error={errors.checklist}
         />
+
+        <Card className="p-5" data-testid="settings-materials-alert">
+          <h2 className="text-[15px] font-semibold">{A.title}</h2>
+          <p className="mt-0.5 text-[13px] text-text-2">{A.hint}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label htmlFor="settings-alert-hours" className="text-[13.5px] font-medium">
+              {A.when}
+            </label>
+            <Select
+              id="settings-alert-hours"
+              selectSize="sm"
+              className="w-[190px]"
+              value={String(alertHours)}
+              onChange={(e) => setAlertHours(Number(e.target.value))}
+              data-testid="settings-alert-hours"
+            >
+              {/* A time someone set another way (the Assistant can) stays pickable. */}
+              {[...new Set([...MATERIALS_ALERT_HOURS, alertHours])]
+                .sort((a, b) => a - b)
+                .map((h) => (
+                  <option key={h} value={h}>
+                    {alertHoursWords(h)}
+                  </option>
+                ))}
+            </Select>
+          </div>
+          {alertHours !== settings.materialsAlertHours ? (
+            <p className="mt-2 text-[12.5px] text-text-3">{A.saveFirst}</p>
+          ) : null}
+          {errors.materialsAlertHours ? (
+            <p className="mt-2 text-[13px] text-danger-text">{errors.materialsAlertHours}</p>
+          ) : null}
+        </Card>
 
         <div className="flex justify-end">
           <Button type="submit" loading={busy === 'save'} data-testid="settings-save">

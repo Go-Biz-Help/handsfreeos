@@ -45,16 +45,17 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
    project with phases, deadlines, % done and a planned budget. Jobs page (board by status and a list; All, My jobs,
    Late; search; done and cancelled on a tick), a page for each job, and Settings (trades, a new project's phases).
    Visits booked or started on a job move it along. The Assistant can do all of it.
-2. **Costs and estimates.** _Built, but for the materials list, which comes with part 4._ A cost on each price list
+2. **Costs and estimates.** _Built._ A cost on each price list
    item; an estimate builder with labor (hours × rate), materials
    at cost, markup, profit and margin, making a normal HandsFreeOS estimate; good, better, best options in core's
    estimates (decision 5); the lowest margin and its OK (decision 6). An accepted estimate fills the job's budget and
-   its materials list.
+   its materials list (the list came with part 4).
 3. **Crews, scheduling and work orders.** _Built, on the web; the phone's pages come with part 6._ Crews
    (decision 7), booked from the job; a work order on each visit (instructions, checklist, materials to bring, who's
    going, photos required); starter checklists per trade; Done waits on the required items (decision 8); one dispatch
    screen.
-4. **Materials.** Per job (decision 9), with what's missing for each upcoming visit and an alert before it.
+4. **Materials.** _Built, on the web; the phone's pages come with part 6._ Per job (decision 9), with what's
+   missing for each upcoming visit and an alert before it.
 5. **Time and job costing.** Time from the status buttons (decision 10), each person's cost per hour, estimate
    against actual, the profit it's heading for, and a profit dashboard by job, crew, service and customer.
 6. **The phone field app.** Jobs, work orders, checklists, photos, materials used, time and voice notes, all with no
@@ -144,3 +145,32 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
     putting a crew on replaces who was on the visit.
   - Crews are set up by people who manage the add-on (`contractor.manage`); anyone who uses it puts one on a visit.
   - A cancelled visit's required items never hold its job.
+
+## Part 4 as built
+
+- **Data.** `supabase/migrations/20261027024400_contractor_materials.sql`: `materials` (one row per material on a
+  job: its name, what it's counted in, the price list item and the visit it's for, if any, the six counts, its
+  supplier, when it's expected, a note, and the estimate line it came from) and `material_costs` (what one costs,
+  readable only with `contractor.costs`). The add-on's settings gain `materialsAlertHours`. No new permission.
+- **Operations.** 5 commands and 1 query in `ops/materials.ts`: list, add, change, remove, set a cost, and the
+  system's own cost stamp. `contractor.estimate.fill_job` now puts an approved estimate's material lines on the
+  job. A job's visits, Dispatch and a work order each say what's missing. The rules are pure, in `materials.ts`.
+- **Worker.** `contractor.materials_check`, one queued job per visit, raises and clears the missing-materials
+  alert. It's armed when a visit is booked or moved, run again when the job's materials change, and taken down when
+  the visit is cancelled or over. The worker also fills in a price list item's cost for someone who couldn't see it.
+- **Web.** A Materials card on the job's page and on each visit's work order (the visit's own, with no costs), the
+  missing count on the job's visits and on Dispatch, and Missing materials in Settings.
+- **Left for later parts.** Actual material cost against the budget (part 5). Materials used from the phone, with
+  no signal (part 6). Stock, suppliers and purchase orders (Phase 2).
+- **Choices made while building.**
+  - Each count is the total so far, and where a material stands is worked out from the counts, never stored.
+  - A material is for one visit or for any. What a visit is missing counts both.
+  - Adding a material and changing its counts run on their own for the AI: they record what happened and order
+    nothing, so no money moves. Taking one off and setting a cost wait on a Confirm card.
+  - Costs live in their own table so the database, not the screen, keeps them to people who may see job costs.
+    The worker stamps a price list item's cost when the person adding it couldn't see it, so costing stays whole.
+  - Picking from the price list needs core's `money.read`, since the price list is core's. Everyone else types a
+    name.
+  - The alert goes to the job's lead and the people on the visit, a day before to start. A business picks 2 hours,
+    1, 2 or 3 days, a week, or never.
+  - An approved estimate's material lines are added once each, so a retry never doubles the list.

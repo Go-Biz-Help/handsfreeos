@@ -68,6 +68,7 @@ import {
 } from '../tables';
 import { CONTRACTOR_WORDS as W, okNeededWords, REFUSALS } from '../words';
 import { inWorkspace, jobLine, loadJob, pairsOf, type Ctx, type Job } from './common';
+import { addEstimateMaterials, type EstimateMaterialLine } from './materials';
 
 const estimatePath = (id: string) => `a/contractor/estimates/${id}`;
 const idIn = (v: unknown, key: string) => String((v as Record<string, unknown>)[key] ?? '');
@@ -614,20 +615,55 @@ export const estimateSendBuilt = defineAddonCommand(contractorAddon, {
   },
 });
 
+/** An approved estimate's lines costed as materials, at the option the customer picked. */
+async function materialLinesOf(
+  ctx: Ctx,
+  estimateId: string,
+  option: number,
+): Promise<EstimateMaterialLine[]> {
+  const list = await rows<{
+    position: number;
+    name: string;
+    quantity: number;
+    unit_label: string | null;
+    product_id: string | null;
+    unit_cost_cents: number | null;
+  }>(
+    ctx.tx,
+    sql`select l.position, l.name, l.quantity::float8 as quantity, l.unit_label, l.product_id,
+          c.unit_cost_cents::float8 as unit_cost_cents
+        from app.estimate_lines l
+        join addon_contractor.estimate_costs c on c.estimate_id = l.estimate_id
+          and c.option_position = ${option} and c.line_position = l.position and c.kind = 'material'
+        where l.estimate_id = ${estimateId}
+        order by l.position`,
+  );
+  return list.map((l) => ({
+    line: l.position,
+    name: l.name,
+    quantity: Number(l.quantity),
+    unitLabel: l.unit_label,
+    productId: l.product_id,
+    unitCostCents: l.unit_cost_cents === null ? null : Number(l.unit_cost_cents),
+  }));
+}
+
 /**
  * The worker: the customer said yes to an estimate, so its job's price and budget are what was agreed. Every
- * approved estimate on the job counts (a change order adds to the first), each at the option they picked.
+ * approved estimate on the job counts (a change order adds to the first), each at the option they picked. The
+ * estimate's material lines go onto the job's materials, once each (the owner's decision 9).
  */
 export const estimateFillJob = defineAddonCommand(contractorAddon, {
   name: 'contractor.estimate.fill_job',
-  description: 'Worker: an approved estimate fills its job’s price and budget.',
+  description:
+    'Worker: an approved estimate fills its job’s price and budget, and puts its materials on the job’s list.',
   risk: 0,
   input: EstimateFillJobInput,
   output: EstimateFillJobOutput,
   permission: 'contractor.use',
   actors: ['system'],
   scope: inWorkspace,
-  emits: ['contractor.job.money_set'],
+  emits: ['contractor.job.money_set', 'contractor.materials.filled'],
   async handler(ctx, input) {
     const ws = ctx.scope.workspaceId!;
     const [link] = await rows<{ record_id: string | null }>(
@@ -645,7 +681,8 @@ export const estimateFillJob = defineAddonCommand(contractorAddon, {
           where x.record_id = ${job.recordId} and x.workspace_id = ${ws} and e.status = 'accepted'
           order by e.accepted_at`,
     );
-    if (!approved.some((e) => e.id === input.estimateId)) return null;
+    const picked = approved.find((e) => e.id === input.estimateId);
+    if (!picked) return null;
     const sum = { priceCents: 0, laborCents: 0, materialsCents: 0, otherCents: 0, laborHours: 0 };
     for (const e of approved) {
       const lines = await ownLines(ctx, e.id, e.option, await costRowsOf(ctx, e.id));
@@ -682,7 +719,13 @@ export const estimateFillJob = defineAddonCommand(contractorAddon, {
       'set the job’s price and budget from the estimate the customer approved',
       { eventId },
     );
-    return { jobId: job.recordId, estimates: approved.length };
+    const added = await addEstimateMaterials(
+      ctx,
+      job,
+      picked.id,
+      await materialLinesOf(ctx, picked.id, picked.option),
+    );
+    return { jobId: job.recordId, estimates: approved.length, materials: added };
   },
 });
 
