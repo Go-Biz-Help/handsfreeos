@@ -1242,6 +1242,19 @@ HandsFreeOS lists visits only while your working computer runs 0.135.0 or later 
 would like one post and say a request comes next. When the wait ends with no answer, the tidying unfollows them or
 withdraws the request on its own, 20 a day, and they're left alone unless they follow back or write first.
 
+### A message after one that didn't go, on Facebook (0.134.3)
+
+The problem checks of 10 and 11 Nov 2026 found the same person's message failing twice, a day apart, with "couldn’t
+find a chat open with them". HandsFreeOS kept them by username, and their chat window links to them by number. The
+first try left that window open, and Facebook keeps a window from page to page, so on the next try their Message only
+brought it up again: nothing new opened, and a window open before proves nothing by its name, as a namesake's could be
+the one. From 0.134.3, when a window open before showed their name, the one window showing it is taken whether it opened
+now or was left open (`openedWindowLinks` in `src/networks/facebook/auto.ts`), and as for a window that opens without
+the cursor (0.114.1), nothing is typed on that: the runner opens the number it links to, and only when Facebook shows
+that profile at their username does the message go there, by that number, which HandsFreeOS keeps from then. Two
+windows with their name, or a number whose profile is someone else's, still send nothing. Once it has gone, the window
+is closed (0.134.1).
+
 ### Posts keep their paragraphs (0.134.2)
 
 The AI writes a helpful post in short paragraphs with a blank line between them, but Chrome's insertText with the whole

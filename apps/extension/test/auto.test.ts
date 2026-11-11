@@ -1397,10 +1397,26 @@ describe('writing a message', () => {
         await other.press({ name: 'Dana Reyes', href: '/dana.reyes.99/' }, 'after', false),
       ),
     ).toBeUndefined();
-    // Not without Message pressed on this page.
+    // Not without Message pressed on this page: what was open is from another one.
     const unpressed = profileWithChats(rileyChat);
     unpressed.open(hers);
-    expect(await linksTo(unpressed, chatsOpen(unpressed.doc))).toBeUndefined();
+    expect(await linksTo(unpressed, chatsOpen(profileWithChats(rileyChat).doc))).toBeUndefined();
+  });
+
+  it('says who her window left open from an earlier try links to, when it’s the one window with her name', async () => {
+    // The owner's problem reports of 10 and 11 Nov 2026: her Message only brings up the window already open.
+    const hers = { name: 'Dana Reyes', href: '/100009000000031/' };
+    const linksTo = async (made: ReturnType<typeof profileWithChats>) => {
+      const before = chatsOpen(made.doc);
+      return (await written(made.doc, URL, 'Hi Dana', dana, ['Dana Reyes'], before)).linksTo;
+    };
+    const left = profileWithChats(rileyChat, hers);
+    expect(await linksTo(left)).toMatchObject({ id: '100009000000031', username: null });
+    expect(left.sent).toEqual([]);
+    // Not beside another window with her name, linking to nobody.
+    const two = profileWithChats(rileyChat, hers);
+    two.open({ name: 'Dana Reyes', href: null });
+    expect(await linksTo(two)).toBeUndefined();
   });
 
   it('never takes a window that opened on their Message by name when it links to someone else elsewhere in it', async () => {

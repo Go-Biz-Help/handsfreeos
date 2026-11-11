@@ -926,7 +926,10 @@ than a store extension, and for more features, and answered the questions the sa
     came back "Couldn't find a chat open with them"). From 0.134.1 (the owner's pick, 11 Nov 2026), once a message's last
     text has gone on Facebook, the small chat window it went in is closed by its own Close chat, so the windows its
     messages open don't pile up from page to page (11 were left open when a message couldn't tell which chat was the
-    person's); other windows, and Messenger's own chat page, are left as they are.
+    person's); other windows, and Messenger's own chat page, are left as they are. From 0.134.3 that number check
+    also covers their window left open from a try that didn't send: their Message only brings it up again, so the one
+    window showing their name is checked whether it just opened or was open before (the problem reports of 10 and 11
+    Nov 2026, the same person's message failing twice a day apart).
 27. **Replies are a setting, per person:** (a) drafts wait for the person; (b) simple replies go on their own and the
     rest are handed over with a push; (c) every reply goes on its own. (b) and (c) start training wheels. Built: the
     AI says whether each reply it drafts is simple; with (b) a simple one goes as it is, with (c) every one does, and

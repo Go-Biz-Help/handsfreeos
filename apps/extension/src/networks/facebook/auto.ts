@@ -835,9 +835,12 @@ export function messageBoxFor(
  * not open before it, showing their name as `messageBoxFor` asks of a window by name but without the cursor in it,
  * that links to one person by a key HandsFreeOS doesn't keep for them. Facebook's windows link to people by number,
  * someone may be kept by username alone, and Facebook puts no cursor in a window that opens while the runner's is
- * behind the person's own (the owner's report of 30 Oct 2026). Never typed into on this: the runner opens that number's
- * profile, and only when Facebook shows it's theirs does the message go, by that number (src/auto/run.ts). Null when
- * there's no such window, or more than one.
+ * behind the person's own (the owner's report of 30 Oct 2026). When a window open before showed their name, the one
+ * window showing it is taken the same way, open before or not: a try that didn't send left their window open,
+ * Facebook keeps it from page to page, and their Message only brings it up again, so the message could never go to
+ * someone kept by username (the owner's problem reports of 10 and 11 Nov 2026). Never typed into on this: the runner
+ * opens that number's profile, and only when Facebook shows it's theirs does the message go, by that number
+ * (src/auto/run.ts). Null when there's no such window, or more than one.
  */
 export function openedWindowLinks(
   doc: Document,
@@ -849,14 +852,13 @@ export function openedWindowLinks(
   const main = mainIn(doc);
   const pressed = before?.doc === doc ? before : null;
   if (!main || !pressed || classifyUrl(href).kind === 'chat') return null;
-  if (pressed.names.some((name) => names.some((one) => mayBeSame(name, one)))) return null;
-  const opened = messageBoxes(doc).filter(
-    (box) =>
-      !main.contains(box) &&
-      !pressed.boxes.has(box) &&
-      windowProof(box, main, them, names, true) === 'name',
+  const named = messageBoxes(doc).filter(
+    (box) => !main.contains(box) && windowProof(box, main, them, names, true) === 'name',
   );
-  const linked = opened.length === 1 ? (windowParts(opened[0]!, main)?.linked ?? []) : [];
+  // A window open before showed their name: the one window with it, whether it opened now or was left open.
+  const shownBefore = pressed.names.some((name) => names.some((one) => mayBeSame(name, one)));
+  const pick = shownBefore ? named : named.filter((box) => !pressed.boxes.has(box));
+  const linked = pick.length === 1 ? (windowParts(pick[0]!, main)?.linked ?? []) : [];
   const person = linked.length === 1 ? linked[0]!.profile : null;
   return person && sameByKey(person, them) === null ? person : null;
 }
