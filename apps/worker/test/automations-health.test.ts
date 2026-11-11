@@ -321,6 +321,33 @@ describe('the AI teammate', () => {
     expect(await instructions()).toContain('Dryer vent cleaning costs $89 on its own.');
   });
 
+  it('points a lesson about the hours at Business hours, which Knowledge’s hours always are', async () => {
+    // A lesson read before the hours came from Business hours (2026-11-11) can still hold the profile's hours.
+    const [lesson] = await rows<{ id: string }>(
+      admin(),
+      sql`insert into app.teammate_lessons (workspace_id, teammate_id, line, conflict)
+          values (${t.workspaceId}, ${t.teammateId}, 'We open at 9.', ${JSON.stringify({
+            place: 'hours',
+            itemId: null,
+            where: 'Hours',
+            existing: 'Mon–Fri 8:00 AM–5:00 PM',
+            replacement: 'Mon–Fri 9:00 AM–5:00 PM',
+            explain: 'Your hours say you open at 8, but the correction says 9.',
+          })}::jsonb)
+          returning id`,
+    );
+    await expect(
+      executeCommand(
+        api(),
+        teammateLessonApply,
+        { workspaceId: t.workspaceId, lessonId: lesson!.id, replace: true },
+        owner(t),
+        meta(),
+      ),
+    ).rejects.toMatchObject({ rule: 'lesson_hours_in_settings' });
+    await rows(admin(), sql`delete from app.teammate_lessons where id = ${lesson!.id}`);
+  });
+
   it('flags a week of drafts nobody looked at', async () => {
     // It has been training for a fortnight, and the last decision above is set back past the week.
     await rows(

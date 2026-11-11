@@ -624,7 +624,8 @@ describe('the simple page', () => {
       area: 'Houston and Katy',
       place: 'Houston, Texas',
       openHours: OPEN,
-      hours: '',
+      // The profile's hours are always the business hours, though it was saved before they were set.
+      hours: 'Mon–Fri 7:00 AM–6:00 PM',
       privacyPath: `/legal/${site}/privacy`,
       termsPath: `/legal/${site}/terms`,
       // No number yet, so nothing to text.

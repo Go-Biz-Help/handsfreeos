@@ -4,7 +4,7 @@
  */
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import { rows, sql } from '@hfos/db/client';
-import { knowledgePacks, knowledgeProfiles } from '@hfos/db/schema';
+import { knowledgePacks, knowledgeProfiles, workspaces } from '@hfos/db/schema';
 import { userNames } from '../calendar/load';
 import { HfosError } from '../errors';
 import { defineQuery } from '../kernel/define';
@@ -28,7 +28,13 @@ import {
   type KnowledgeItemOut,
 } from '../schemas/knowledge';
 import type { KnowledgeKind, KnowledgeSource, KnowledgeStatus } from '../knowledge/items';
-import { emptyKnowledgeProfile, KnowledgeProfile, profileCompleteness } from '../knowledge/profile';
+import {
+  emptyKnowledgeProfile,
+  KnowledgeProfile,
+  profileCompleteness,
+  profileWithBusinessHours,
+} from '../knowledge/profile';
+import { openHoursOf } from '../schemas/workspace';
 import { knowledgeMatches, knowledgeRetriever } from '../knowledge/search';
 
 const inWorkspace = (i: { workspaceId: string }) => ({
@@ -53,7 +59,7 @@ const userRef = (id: string | null, names: ReadonlyMap<string, string>) =>
 export const knowledgeProfileGet = defineQuery({
   name: 'knowledge.profile',
   description:
-    'The business profile the AI writes from, how complete it is, and who changed it last.',
+    'The business profile the AI writes from, how complete it is, and who changed it last. Its hours are always the business hours (Settings → Workspace → Business hours).',
   input: KnowledgeProfileGetInput,
   output: KnowledgeProfileOutput,
   permission: 'workspace.read',
@@ -64,10 +70,18 @@ export const knowledgeProfileGet = defineQuery({
       .from(knowledgeProfiles)
       .where(eq(knowledgeProfiles.workspaceId, input.workspaceId));
     const parsed = row ? KnowledgeProfile.safeParse(row.profile) : null;
-    const profile: KnowledgeProfile = {
-      ...(parsed?.success ? parsed.data : emptyKnowledgeProfile()),
-      allowPrices: row?.allowPrices ?? false,
-    };
+    const [ws] = await ctx.tx
+      .select({ settings: workspaces.settings })
+      .from(workspaces)
+      .where(eq(workspaces.id, input.workspaceId));
+    // Hours always come from Settings → Workspace → Business hours.
+    const profile = profileWithBusinessHours(
+      {
+        ...(parsed?.success ? parsed.data : emptyKnowledgeProfile()),
+        allowPrices: row?.allowPrices ?? false,
+      },
+      openHoursOf(ws?.settings as Record<string, unknown> | null),
+    );
     const names = await userNames(ctx.tx, row?.updatedBy ? [row.updatedBy] : []);
     return {
       profile,
