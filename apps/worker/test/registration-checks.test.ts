@@ -59,6 +59,14 @@ const CONTACT = `<html><body><main><h1>Contact ${NAME}</h1>
 const HOME = `<html><body><main><h1>${LEGAL}</h1><p>${`${NAME} fixes heating and cooling across Houston, fast and friendly. `.repeat(8)}</p>
 <a href="${SITE}/privacy">Privacy policy</a> <a href="${SITE}/terms">Terms</a></main></body></html>`;
 
+/**
+ * The contact form framed on the page, the way a website builder (Wix, on shopyoursolar.com) wraps a pasted snippet:
+ * its own frame, with ours written inside it into `srcdoc`. The page's own HTML has no box; a reviewer sees one.
+ */
+const FRAMED = `<html><body><main><h1>Contact ${NAME}</h1>
+<iframe frameBorder="0" src="javascript: window.frameElement.getAttribute(&quot;srcdoc&quot;);" srcDoc="&lt;body style=&#x27;margin: 0&#x27;&gt;&lt;iframe src=&quot;${SITE}/contact&quot; title=&quot;Contact&quot;&gt;&lt;/iframe&gt;&lt;/body&gt;"></iframe>
+</main></body></html>`;
+
 const media = standInMedia({
   [`${SITE}/`]: { bytes: Buffer.from(HOME), contentType: 'text/html' },
   [SITE]: { bytes: Buffer.from(HOME), contentType: 'text/html' },
@@ -75,6 +83,7 @@ const media = standInMedia({
     contentType: 'text/html',
   },
   [`${SITE}/contact`]: { bytes: Buffer.from(CONTACT), contentType: 'text/html' },
+  [`${SITE}/framed`]: { bytes: Buffer.from(FRAMED), contentType: 'text/html' },
 });
 
 const business = {
@@ -204,6 +213,18 @@ describe('the review step’s checks, written down', () => {
       sql`select count(*)::int as n from app.registration_checks where workspace_id = ${ws}`,
     );
     expect(row?.n).toBe(0);
+  });
+
+  it('finds the box in a form framed on the page, as a reviewer’s browser shows it', async () => {
+    const res = await preflight({ optInUrl: `${SITE}/framed` });
+    expect(res.statusCode, res.body).toBe(200);
+    const check = (
+      res.json().checks as { id: string; ok: boolean; url: string; detail: string }[]
+    ).find((c) => c.id === 'opt_in_surface');
+    expect(check?.ok, check?.detail).toBe(true);
+    // The page's address is the one the carrier is given; the detail says where the box was.
+    expect(check?.url).toBe(`${SITE}/framed`);
+    expect(check?.detail).toContain(`${SITE}/contact`);
   });
 
   it('all green: written down, and exactly those details can be sent', async () => {

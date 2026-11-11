@@ -47,6 +47,11 @@ export interface FetchedPage {
   readonly finalUrl?: string | null;
   /** The fetcher's own reason, when it refused or failed before a response. */
   readonly error?: string | null;
+  /**
+   * The form framed on the page, when the box was found there rather than on the page itself (`framedAddresses`):
+   * `html` is then that form's, and `url` stays the page's, since that is the address the carrier is given.
+   */
+  readonly framedUrl?: string | null;
 }
 
 // ---------- reading a page ----------
@@ -251,6 +256,61 @@ export function readConsentBox(html: string, names: readonly string[] = []): Con
 /** Does this page carry a visible agreement box a reviewer could point at? */
 export function showsConsentBox(html: string): boolean {
   return readConsentBox(html).found;
+}
+
+/** The few entities an attribute's value is written with. */
+const unescapeAttr = (value: string): string =>
+  value
+    .replace(/&quot;/gi, '"')
+    .replace(/&#x27;|&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&');
+
+/** One attribute of a tag, quoted or not, entities undone; null when it isn't there. */
+function attrOf(tag: string, name: string): string | null {
+  const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
+  if (!m) return null;
+  return unescapeAttr(m[1] ?? m[2] ?? m[3] ?? '');
+}
+
+/**
+ * **The forms framed on a page, which a reviewer sees and a page's own HTML doesn't** (2026-11-11). A form pasted
+ * into a website builder usually lands in a frame: our own snippet is an `<iframe>`, and builders like Wix wrap
+ * whatever is pasted in a frame of their own, writing it into `srcdoc`, so our frame sits inside theirs. A reviewer's
+ * browser shows the box either way; the page's HTML only has the frame. So when a page has no box, the check opens
+ * these and looks there (Shop Your Solar's contact form, framed on shopyoursolar.com, read as "no tick box").
+ *
+ * Addresses come from `src` (and `data-src`, for frames that load late), also inside a `srcdoc`, made whole against
+ * the page's address. Only web addresses, each once, the page's own left out, and at most `limit` of them.
+ */
+export function framedAddresses(html: string, pageUrl: string, limit = 3): string[] {
+  const found: string[] = [];
+  const add = (raw: string | null) => {
+    const value = raw?.trim();
+    if (!value || found.length >= limit) return;
+    let url: URL;
+    try {
+      url = new URL(value, pageUrl);
+    } catch {
+      return;
+    }
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return;
+    url.hash = '';
+    const href = url.toString();
+    if (href !== pageUrl && !found.includes(href)) found.push(href);
+  };
+  const read = (markup: string, depth: number) => {
+    for (const m of withoutScripts(markup).matchAll(/<iframe\b[^>]*>/gi)) {
+      const tag = m[0];
+      add(attrOf(tag, 'src'));
+      add(attrOf(tag, 'data-src'));
+      const doc = attrOf(tag, 'srcdoc');
+      if (doc && depth < 2) read(doc, depth + 1);
+    }
+  };
+  read(html, 0);
+  return found;
 }
 
 /** Joins the missing things the way a sentence lists them: "a, b and c". */
@@ -615,13 +675,16 @@ export function checkOptInSurface(
         'The page shows the form, but sending it doesn’t sign anyone up, and a reviewer who tries it turns the registration down. This one is ours to fix: press “Ask HandsFreeOS to check it” below.',
       url,
     };
+  const framed = page.framedUrl
+    ? ` We found it in the form shown on that page (${page.framedUrl}).`
+    : '';
   return {
     ...base,
     ok: true,
     detail:
-      path === 'hosted'
+      (path === 'hosted'
         ? 'The form is there and works: the box starts empty, is optional, says what it has to, and sending it signs the person up.'
-        : 'The box is there, starts empty, is optional, and says what it has to.',
+        : 'The box is there, starts empty, is optional, and says what it has to.') + framed,
     url,
   };
 }
