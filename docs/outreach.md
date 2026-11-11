@@ -486,7 +486,8 @@ became.
   phone's `autopilot-list.tsx`): one switch at the top of General turns everything on its own on every network the
   person works, and an hour before each working day it lists the people it plans to reach for the first time, first on
   Needs you with a push, for them to OK, take off for the day, or mark Don't pitch or Never contact. Nobody on it is
-  reached till they're OK'd, and once OK'd the steps after go without asking. Their own picks come back when it's off.
+  reached till they're OK'd, and once OK'd the steps after go without asking. The list shows only while someone on it
+  waits, so it goes away once answered (decision 160). Their own picks come back when it's off.
 - **Live status and control** (decision 41, `/a/outreach?view=live`, `live.ts`, `ops/live.ts`, `ops/day.ts`, the
   web's `live-view.tsx`, the extension's `src/hfos/live.ts`): the **Live** tab shows what the person's extension is
   doing right now, on which computer, the next step, today's counts against the limits, how many things wait for
@@ -3991,6 +3992,17 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
         LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
         in its fortnight, and who commented and reacted become warm leads.
+159.  **Autopilot's day's list goes away once it's answered** (Chris, 11 Nov 2026: "after ok’ing the people to contact
+      in the social outreach it should go away instead of staying at the top"). After **OK all** the list stayed first
+      on Needs you, every row marked OK'd, under "You’ve OK’d everyone on today’s list". It now shows only while someone
+      on it waits for the OK (`autopilotListShown` in core's `autopilot.ts`, on the web's and the phone's
+      `autopilot-list.tsx`), so after OK all it's gone, and the toast says how many it OK'd.
+      - **Gone with it:** anyone left **Not today** (they're on the next day's list anyway), and the notes that sat at
+        the top while nothing waited: when the day's list comes, that it's being made, and that nobody's new today.
+        The morning push says when it's ready. The Assistant still reads the whole day's list
+        (`outreach_autopilot_list`), with who was OK'd and who's off for the day.
+      - Nothing changes on the server: the same `outreach.autopilot` answer, read the same way. No migration, no
+        extension release.
 
 ## Rules worth knowing before changing anything
 

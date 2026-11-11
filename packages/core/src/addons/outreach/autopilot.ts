@@ -19,7 +19,8 @@
  * - **Spares** (5a): a few past the day's limits (`autopilotSpares`), at the bottom, which go instead of anyone taken off.
  * - **Training wheels** (6a) stay: someone new still OKs each message until they've earned it.
  * - **Where** (7a): one switch, Settings → You, for every network; one list, on Needs you, grouped by network. The
- *   business allows it or not, like the other choices (`BusinessRules.autopilotAllowed`).
+ *   business allows it or not, like the other choices (`BusinessRules.autopilotAllowed`). The list shows there only
+ *   while someone on it waits for the OK (`autopilotListShown`, decision 160).
  *
  * Browser-safe: the web, the phone, the worker and the API read it.
  */
@@ -146,11 +147,6 @@ export const AUTOPILOT_WORDS = {
   okdLine: 'OK’d',
   spares: 'If you take anyone off, these go instead',
   okdCount: (n: number) => `${n} OK’d today`,
-  none: 'Nobody new to OK today. Anyone it finds later today waits for tomorrow’s list.',
-  allOkd: 'You’ve OK’d everyone on today’s list. Anyone it finds later waits for tomorrow’s.',
-  making: 'Making today’s list. It’s ready in a minute.',
-  /** Before today's list is made: when it comes. */
-  comes: (at: string) => `Today’s list comes at ${at}, an hour before your working hours.`,
   /** A message drafted for someone not OK'd yet waits (`needsYou`). */
   notOkd: 'they aren’t on a list you OK’d yet',
   push: (n: number) => ({
@@ -204,6 +200,19 @@ export const AutopilotOutput = z.object({
   waiting: z.number().int(),
 });
 export type AutopilotOutput = z.output<typeof AutopilotOutput>;
+
+/**
+ * Whether the day's list shows on Needs you, on the web and the phone: only while someone on it waits for the person's
+ * OK (decision 160; Chris, 11 Nov 2026: "after ok’ing the people to contact in the social outreach it should go away
+ * instead of staying at the top"). Before it's made, with nobody on it, and once everyone's answered, nothing shows:
+ * the morning push says when it's ready, the OK's toast says how many it OK'd, and anyone left Not today is on
+ * tomorrow's list.
+ */
+export const autopilotListShown = <
+  List extends { on: boolean; made: boolean; people: readonly { state: AutopilotState }[] },
+>(
+  list: List | null | undefined,
+): list is List => !!list?.on && list.made && list.people.some((p) => p.state === 'waiting');
 
 export const AutopilotAnswerInput = z.object({
   workspaceId: z.uuid(),

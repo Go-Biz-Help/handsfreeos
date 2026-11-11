@@ -1,12 +1,13 @@
 'use client';
 /**
- * Autopilot's day's list, first on Needs you (docs/outreach.md, decision 151; packages/core/src/addons/outreach/autopilot.ts):
- * the people it plans to reach today whom the person hasn't OK'd yet, grouped by network, the spares last under "If you
- * take anyone off, these go instead". Each name opens the person menu (./person-menu.tsx), for Don't pitch or Never
- * contact; each row has **Not today** (or **Put back**); and one button OKs everyone still waiting. Before the day's
- * list is made, it says when it comes. Nothing shows while Autopilot is off.
+ * Autopilot's day's list, first on Needs you (docs/outreach.md, decisions 151 and 160;
+ * packages/core/src/addons/outreach/autopilot.ts): the people it plans to reach today whom the person hasn't OK'd yet,
+ * grouped by network, the spares last under "If you take anyone off, these go instead". Each name opens the person
+ * menu (./person-menu.tsx), for Don't pitch or Never contact; each row has **Not today** (or **Put back**); and one
+ * button OKs everyone still waiting. It shows only while someone waits for the OK (`autopilotListShown`): nothing
+ * before the day's list is made, with nobody on it, once everyone's answered, or while Autopilot is off.
  */
-import { AUTOPILOT_WORDS as A } from '@hfos/core/addons/outreach/autopilot';
+import { AUTOPILOT_WORDS as A, autopilotListShown } from '@hfos/core/addons/outreach/autopilot';
 import { PLATFORM_KEYS } from '@hfos/core/addons/outreach/networks';
 import { TODAY_KINDS } from '@hfos/core/addons/outreach/today';
 import { OUTREACH_WORDS as W } from '@hfos/core/addons/outreach/words';
@@ -23,20 +24,6 @@ import { useAct } from './use-act';
 
 type Person = Autopilot['people'][number];
 
-/** "8:00 AM", on the business's clock. */
-function clockAt(iso: string, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      weekday: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return '';
-  }
-}
-
 export function AutopilotList({
   workspaceId,
   autopilot,
@@ -45,7 +32,7 @@ export function AutopilotList({
   autopilot: Autopilot | null;
 }) {
   const { busy, act } = useAct();
-  if (!autopilot?.on) return null;
+  if (!autopilotListShown(autopilot)) return null;
   const answer = (
     key: string,
     body: { answer: 'ok' | 'not_today' | 'waiting'; profileIds?: string[] },
@@ -66,34 +53,19 @@ export function AutopilotList({
     <Card className="p-0" data-testid="outreach-autopilot-list">
       <div className="flex flex-wrap items-baseline justify-between gap-3 px-5 pt-4">
         <h3 className="text-[15px] font-semibold">
-          {A.listTitle}{' '}
-          {autopilot.made ? (
-            <span className="text-text-3">· {waiting.length.toLocaleString()}</span>
-          ) : null}
+          {A.listTitle} <span className="text-text-3">· {waiting.length.toLocaleString()}</span>
         </h3>
-        {waiting.length ? (
-          <Button
-            size="sm"
-            disabled={busy !== null}
-            onClick={() => void answer('ok-all', { answer: 'ok' })}
-            data-testid="autopilot-ok-all"
-          >
-            <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
-            {takenOff ? A.okRest(waiting.length) : A.okAll(waiting.length)}
-          </Button>
-        ) : null}
+        <Button
+          size="sm"
+          disabled={busy !== null}
+          onClick={() => void answer('ok-all', { answer: 'ok' })}
+          data-testid="autopilot-ok-all"
+        >
+          <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
+          {takenOff ? A.okRest(waiting.length) : A.okAll(waiting.length)}
+        </Button>
       </div>
-      <p className="px-5 pt-1.5 text-[12.5px] text-text-2">
-        {!autopilot.made
-          ? autopilot.listAt
-            ? A.comes(clockAt(autopilot.listAt, autopilot.timezone))
-            : A.making
-          : !autopilot.people.length
-            ? A.none
-            : !waiting.length
-              ? A.allOkd
-              : A.listAbout}
-      </p>
+      <p className="px-5 pt-1.5 text-[12.5px] text-text-2">{A.listAbout}</p>
       <div className="mt-3 pb-2">
         <Rows workspaceId={workspaceId} people={main} busy={busy} answer={answer} />
         {spares.length ? (

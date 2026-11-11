@@ -20,6 +20,7 @@ import {
 import {
   AUTOPILOT_WORDS,
   autopilotDayDue,
+  autopilotListShown,
   autopilotSpares,
   autopilotTimes,
   nextAutopilotList,
@@ -150,7 +151,24 @@ describe('the day’s list, and when it comes', () => {
     expect(autopilotDayDue(HOURS, CHICAGO, at('2026-11-04', '17:00'))).toBeNull();
   });
 
-  it('says when it comes, how many wait, and what it waits on, in plain words', () => {
+  it('shows on Needs you only while someone on it waits for the OK (decision 160)', () => {
+    const list = (made: boolean, ...states: ('waiting' | 'ok' | 'not_today')[]) => ({
+      on: true,
+      made,
+      people: states.map((state) => ({ state })),
+    });
+    expect(autopilotListShown(list(true, 'waiting', 'ok', 'not_today'))).toBe(true);
+    // Once everyone's answered, OK'd or taken off for the day, it goes away.
+    expect(autopilotListShown(list(true, 'ok', 'ok'))).toBe(false);
+    expect(autopilotListShown(list(true, 'ok', 'not_today'))).toBe(false);
+    // Before it's made, with nobody on it, and while Autopilot is off, nothing shows either.
+    expect(autopilotListShown(list(false))).toBe(false);
+    expect(autopilotListShown(list(true))).toBe(false);
+    expect(autopilotListShown({ ...list(true, 'waiting'), on: false })).toBe(false);
+    expect(autopilotListShown(null)).toBe(false);
+  });
+
+  it('says how many wait and what it waits on, in plain words', () => {
     expect(AUTOPILOT_WORDS.okAll(3)).toBe('OK all 3');
     expect(AUTOPILOT_WORDS.okRest(1)).toBe('OK the one left');
     expect(AUTOPILOT_WORDS.push(1).title).toBe('1 person to OK for today');

@@ -1,5 +1,6 @@
 import {
   AUTOPILOT_WORDS as A,
+  autopilotListShown,
   type AutopilotAnswer,
   type AutopilotOutput,
   type AutopilotPerson,
@@ -22,30 +23,17 @@ import { NetworkName } from './networks';
 import { PersonName } from './person-menu';
 
 /**
- * Autopilot's day's list on the phone, first on Needs you (docs/outreach.md, decision 151; the web's is
+ * Autopilot's day's list on the phone, first on Needs you (docs/outreach.md, decisions 151 and 160; the web's is
  * apps/web/src/addons/outreach/autopilot-list.tsx): the people it plans to reach today whom the person hasn't OK'd
  * yet, grouped by network, the spares last under "If you take anyone off, these go instead". Each name opens the
  * person menu, for Don't pitch or Never contact; each row has **Not today** (or **Put back**); and one button OKs
- * everyone still waiting. Before the day's list is made, it says when it comes. Nothing shows while Autopilot is off.
- * It comes from HandsFreeOS, with signal.
+ * everyone still waiting. It shows only while someone waits for the OK (`autopilotListShown`): nothing before the
+ * day's list is made, with nobody on it, once everyone's answered, or while Autopilot is off. It comes from
+ * HandsFreeOS, with signal.
  */
 
 /** An answer about the day's list: OK, Not today or Put back, for the people named, or with OK and none, everyone. */
 export type AutopilotAnswerOf = (answer: AutopilotAnswer, profileIds?: string[]) => void;
-
-/** "Wed 8:00 AM", on the business's clock. */
-function clockAt(iso: string, timeZone: string): string {
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      weekday: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(iso));
-  } catch {
-    return '';
-  }
-}
 
 export function AutopilotList({
   list,
@@ -56,42 +44,29 @@ export function AutopilotList({
   online: boolean;
   onAnswer: AutopilotAnswerOf;
 }) {
-  if (!list?.on) return null;
+  if (!autopilotListShown(list)) return null;
   const waiting = list.people.filter((p) => p.state === 'waiting');
   const takenOff = list.people.some((p) => p.state === 'not_today' || p.neverContact);
   const main = list.people.filter((p) => !p.spare);
   const spares = list.people.filter((p) => p.spare);
-  const status = !list.made
-    ? list.listAt
-      ? A.comes(clockAt(list.listAt, list.timezone))
-      : A.making
-    : !list.people.length
-      ? A.none
-      : !waiting.length
-        ? A.allOkd
-        : A.listAbout;
   return (
     <View className="gap-2" testID="autopilot-list">
       <View className="gap-1 px-1">
         <Text className="text-[15px] font-semibold">
           {A.listTitle}
-          {list.made ? (
-            <Text className="text-text-3"> · {waiting.length.toLocaleString('en-US')}</Text>
-          ) : null}
+          <Text className="text-text-3"> · {waiting.length.toLocaleString('en-US')}</Text>
         </Text>
-        <Note>{status}</Note>
+        <Note>{A.listAbout}</Note>
       </View>
-      {waiting.length ? (
-        <Button
-          size="md"
-          icon={CheckCheck}
-          disabled={!online}
-          onPress={() => onAnswer('ok')}
-          testID="autopilot-ok-all"
-        >
-          {takenOff ? A.okRest(waiting.length) : A.okAll(waiting.length)}
-        </Button>
-      ) : null}
+      <Button
+        size="md"
+        icon={CheckCheck}
+        disabled={!online}
+        onPress={() => onAnswer('ok')}
+        testID="autopilot-ok-all"
+      >
+        {takenOff ? A.okRest(waiting.length) : A.okAll(waiting.length)}
+      </Button>
       <Rows people={main} online={online} onAnswer={onAnswer} />
       {spares.length ? (
         <>
