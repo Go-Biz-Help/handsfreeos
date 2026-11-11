@@ -111,3 +111,77 @@ function nullableEnum(node: Schema): Schema {
 export function structuredOutputSchema(schema: Record<string, unknown>): Record<string, unknown> {
   return strict(schema);
 }
+
+/**
+ * Claude's limits on strict schemas, counted across everything one request holds to a schema: its strict tools and
+ * its `responseFormat` (platform.claude.com, "Structured outputs", Schema complexity limits). Past any of them the
+ * API turns the whole request down ("Schema is too complex for compilation"), every time, not now and then: the form
+ * builder's tools had 21 fields that could be null, for 16, and never got an answer (2026-11-11).
+ */
+export const STRICT_LIMITS = { tools: 20, optional: 24, unions: 16 } as const;
+
+/** What a schema adds to a request's strict load. */
+export interface StrictLoad {
+  /** Properties left out of `required`. */
+  readonly optional: number;
+  /** Values that are one of several types: an `anyOf`, or a list of types (`['string', 'null']`). */
+  readonly unions: number;
+}
+
+/** A schema's share of the limits above, counted the way the API counts them: at every depth. */
+export function strictLoad(schema: Record<string, unknown>): StrictLoad {
+  let optional = 0;
+  let unions = 0;
+  const walk = (node: unknown, isValue: boolean) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    const n = node as Schema;
+    if (isValue && (Array.isArray(n.anyOf) || Array.isArray(n.type))) unions += 1;
+    const properties = (n.properties ?? {}) as Record<string, unknown>;
+    const required = new Set(Array.isArray(n.required) ? (n.required as string[]) : []);
+    for (const [key, value] of Object.entries(properties)) {
+      if (!required.has(key)) optional += 1;
+      walk(value, true);
+    }
+    for (const value of Object.values((n.$defs ?? {}) as Record<string, unknown>))
+      walk(value, true);
+    if (n.items) walk(n.items, true);
+    // A branch of a union is part of the value it belongs to, not another one.
+    for (const branch of (Array.isArray(n.anyOf) ? n.anyOf : []) as unknown[]) walk(branch, false);
+  };
+  walk(schema, false);
+  return { optional, unions };
+}
+
+/**
+ * Which tools can be held to their schemas in one request: each in turn while all of them together, and the
+ * request's own `responseFormat`, stay within `STRICT_LIMITS`. One that would go past is sent without `strict`, so
+ * the request is answered rather than refused; whoever runs a tool checks its input either way. The same tools
+ * always give the same answer, so the provider's cache still finds them.
+ */
+export function strictWithinLimits(
+  tools: readonly {
+    readonly name: string;
+    readonly inputSchema: Record<string, unknown>;
+    readonly strict?: boolean;
+  }[],
+  responseFormat?: Record<string, unknown> | null,
+): ReadonlySet<string> {
+  const used = responseFormat ? strictLoad(responseFormat) : { optional: 0, unions: 0 };
+  let optional = used.optional;
+  let unions = used.unions;
+  const kept = new Set<string>();
+  for (const tool of tools) {
+    if (!tool.strict) continue;
+    const load = strictLoad(tool.inputSchema);
+    if (
+      kept.size + 1 > STRICT_LIMITS.tools ||
+      optional + load.optional > STRICT_LIMITS.optional ||
+      unions + load.unions > STRICT_LIMITS.unions
+    )
+      continue;
+    kept.add(tool.name);
+    optional += load.optional;
+    unions += load.unions;
+  }
+  return kept;
+}

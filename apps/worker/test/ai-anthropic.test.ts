@@ -7,6 +7,9 @@ import {
   emptyUsage,
   parseStructured,
   searchesTools,
+  STRICT_LIMITS,
+  strictLoad,
+  strictWithinLimits,
   structuredOutputSchema,
   takesEffort,
   turnsThinkingOff,
@@ -14,6 +17,7 @@ import {
   type AiToolInput,
   type AiTurn,
 } from '@hfos/ai';
+import { builderToolDefs, FORM_BUILDER_TOOLS } from '@hfos/core/server';
 
 /** A streamed Messages API answer as the API sends it: server-sent events. */
 function sse(events: readonly (readonly [string, unknown])[]): Response {
@@ -1027,5 +1031,92 @@ describe('structured output', () => {
       issues = (e as AiOutputError).issues;
     }
     expect(issues[0]).toMatch(/^items\.0\.kind: /);
+  });
+});
+
+/**
+ * Claude refuses a whole request whose strict schemas go past its limits ("Schema is too complex for compilation"):
+ * the form builder's 21 fields that could be null, for 16, meant the Assistant could never add a question to a form
+ * (2026-11-11).
+ */
+describe('strict tools within Claude’s limits', () => {
+  const object = (properties: Record<string, unknown>, required: string[]) => ({
+    type: 'object',
+    properties,
+    required,
+    additionalProperties: false,
+  });
+  const nullable = { anyOf: [{ type: 'string' }, { type: 'null' }] };
+  /** A strict tool with `n` fields that may be null, all required. */
+  const unions = (name: string, n: number) => {
+    const properties = Object.fromEntries(Array.from({ length: n }, (_, i) => [`f${i}`, nullable]));
+    return {
+      name,
+      description: `The ${name} tool.`,
+      inputSchema: object(properties, Object.keys(properties)),
+      strict: true,
+    };
+  };
+
+  it('counts what can be left out and what can be one of several types, at every depth', () => {
+    expect(
+      strictLoad(
+        object(
+          {
+            a: { type: 'string' },
+            b: { type: ['string', 'null'] },
+            c: nullable,
+            d: { type: 'array', items: object({ e: nullable, f: { type: 'string' } }, ['e']) },
+          },
+          ['a', 'b'],
+        ),
+      ),
+    ).toEqual({ optional: 3, unions: 3 });
+  });
+
+  it('holds tools to their schemas only while they fit, so the request is answered instead of refused', async () => {
+    const { sent, fetch } = recording(() => sse(TOOL_TURN));
+    const provider = new AnthropicProvider({
+      apiKey: 'test-key',
+      model: 'claude-sonnet-5',
+      fetch,
+      maxRetries: 0,
+    });
+    const tools = [unions('one', 7), unions('two', 7), unions('three', 7), unions('four', 0)];
+    await provider.stream({ ...REQUEST, tools });
+    const strict = (sent[0]!.body['tools'] as { name: string; strict?: boolean }[]).map((t) => [
+      t.name,
+      t.strict === true,
+    ]);
+    // 7 + 7 fits in 16; a third 7 doesn't, and is sent as an ordinary tool; one with none still fits.
+    expect(strict).toEqual([
+      ['one', true],
+      ['two', true],
+      ['three', false],
+      ['four', true],
+    ]);
+    expect(strictWithinLimits(tools)).toEqual(new Set(['one', 'two', 'four']));
+  });
+
+  it('counts a structured answer’s schema first', () => {
+    const format = object({ a: nullable, b: nullable, c: nullable }, ['a', 'b', 'c']);
+    expect(strictWithinLimits([unions('one', 14)], format)).toEqual(new Set());
+    expect(strictWithinLimits([unions('one', 13)], format)).toEqual(new Set(['one']));
+  });
+
+  it('keeps every one of the form and workflow builders’ tools strict', () => {
+    for (const tools of [FORM_BUILDER_TOOLS, builderToolDefs()]) {
+      const total = tools.reduce(
+        (sum, t) => {
+          const load = strictLoad(t.inputSchema);
+          return { optional: sum.optional + load.optional, unions: sum.unions + load.unions };
+        },
+        { optional: 0, unions: 0 },
+      );
+      expect(tools.length).toBeLessThanOrEqual(STRICT_LIMITS.tools);
+      expect(total.optional).toBeLessThanOrEqual(STRICT_LIMITS.optional);
+      expect(total.unions).toBeLessThanOrEqual(STRICT_LIMITS.unions);
+      expect(strictWithinLimits(tools).size).toBe(tools.length);
+    }
   });
 });

@@ -11,7 +11,12 @@ import {
   type AiUsage,
 } from '@hfos/ai';
 import { describe, expect, it } from 'vitest';
-import { runToolLoop, type ToolLoopAnswer, type ToolLoopInput } from '../src/ai/tool-loop';
+import {
+  NOTE_CHARS,
+  runToolLoop,
+  type ToolLoopAnswer,
+  type ToolLoopInput,
+} from '../src/ai/tool-loop';
 
 const tool = (name: string) => ({
   name,
@@ -477,5 +482,94 @@ describe('runToolLoop', () => {
     expect(failed).toMatchObject({ stoppedBy: 'error', retryable: false, rounds: 1 });
     expect(failed.error).toBe(broken);
     expect(failed.toolCalls).toHaveLength(0);
+  });
+});
+
+/**
+ * The Assistant (2026-11-11): "Need form id; search for list forms.I couldn't add the fields…". Claude Opus 5.5 writes
+ * a short note to itself as text before a tool call, and every turn's text used to run together into the answer.
+ */
+describe('answerOnly: what is said, never the model’s notes to itself', () => {
+  /** A model that writes `text` in pieces and calls `calls`, one turn after another. */
+  function turns(...said: { text: string; calls?: string[] }[]): AiProvider {
+    let at = 0;
+    return {
+      id: 'turns',
+      model: 'turns',
+      stream: async (_request, options) => {
+        const turn = said[Math.min(at++, said.length - 1)]!;
+        for (const piece of turn.text.match(/.{1,7}/gs) ?? []) options?.onText?.(piece);
+        const toolCalls = (turn.calls ?? []).map((name, i) => ({
+          id: `c${at}-${i}`,
+          name,
+          arguments: {},
+        }));
+        return {
+          text: turn.text,
+          toolCalls,
+          stopReason: toolCalls.length ? 'tool_use' : 'end_turn',
+          usage: emptyUsage,
+        };
+      },
+    };
+  }
+  const answerOnly = (provider: AiProvider) => {
+    const shown: string[] = [];
+    return {
+      shown,
+      run: () =>
+        loop({
+          provider,
+          messages: question('Add the contact fields to the contact form'),
+          answerOnly: true,
+          onText: (d) => shown.push(d),
+        }),
+    };
+  };
+
+  it('keeps a note written before a tool call out of the answer, and in the conversation', async () => {
+    const note = 'Need form id; search for list forms.';
+    const { shown, run } = answerOnly(
+      turns(
+        { text: note, calls: ['look_up'] },
+        { text: '', calls: ['add_note'] },
+        { text: 'I added First name, Last name, Email and Phone to your Contact Form.' },
+      ),
+    );
+    const r = await run();
+    expect(r.text).toBe('I added First name, Last name, Email and Phone to your Contact Form.');
+    expect(shown.join('')).toBe(r.text);
+    expect(r.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: expect.arrayContaining([{ type: 'text', text: note }]),
+    });
+  });
+
+  it('streams words for the person as they come once they run past a note, a blank line after what came before', async () => {
+    const long = `Here is what is on your Contact Form today. ${'It asks for a name and a phone number. '.repeat(8)}`;
+    expect(long.length).toBeGreaterThan(NOTE_CHARS);
+    const { shown, run } = answerOnly(
+      turns({ text: long, calls: ['look_up'] }, { text: 'Want me to add an email box too?' }),
+    );
+    const r = await run();
+    expect(r.text).toBe(`${long}\n\nWant me to add an email box too?`);
+    expect(shown.join('')).toBe(r.text);
+    // It streamed: the first piece shown is the held part, the rest came as they were written.
+    expect(shown.length).toBeGreaterThan(3);
+  });
+
+  it('says the last note when the model ends having said nothing else', async () => {
+    const { run } = answerOnly(
+      turns({ text: 'I drafted the email to Dana for you.', calls: ['look_up'] }, { text: '' }),
+    );
+    expect((await run()).text).toBe('I drafted the email to Dana for you.');
+  });
+
+  it('runs every turn together as before without it', async () => {
+    const r = await loop({
+      provider: turns({ text: 'Looking. ', calls: ['look_up'] }, { text: 'Found it.' }),
+      messages: question('Find it'),
+    });
+    expect(r.text).toBe('Looking. Found it.');
   });
 });

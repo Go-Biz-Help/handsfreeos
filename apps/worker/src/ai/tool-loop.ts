@@ -16,6 +16,8 @@
  *   error ends the loop as `aborted` when Stop was pressed, otherwise as `error`, marked `retryable` when the
  *   provider was busy, so "try again in a minute" is the right thing to say.
  * - Stop reaches the model through `signal`; tools already running finish their round first.
+ * - With `answerOnly`, text the model writes and then calls a tool on is its own working note, kept in the
+ *   conversation but never shown (see `answerOnly`).
  */
 import {
   addUsage,
@@ -88,8 +90,17 @@ export interface ToolLoopInput {
   readonly thinkHarder?: AiEffort;
   /** The loop started thinking harder: once, before the next model call. */
   readonly onThinkHarder?: () => void;
-  /** Each piece of the model's text as it arrives, from every turn. */
+  /** Each piece of the model's text as it arrives, from every turn (only what's said, with `answerOnly`). */
   readonly onText?: (delta: string) => void;
+  /**
+   * Only what is said to the person reaches `onText` and `text`. A turn that writes a little and then calls a tool
+   * wrote a note to itself ("Need form id; search for list forms."), which Claude Opus 5.5 writes as text between tool
+   * calls (its longer notes come as thinking): it stays in the conversation the model reads, and out of the answer.
+   * So a turn's text is held until the turn ends without a tool, or until it runs past a note's length
+   * (`NOTE_CHARS`), from where it streams as it comes. When the model ends having said nothing else, its last note
+   * is said after all, rather than nothing. The turns that are said are kept apart by a blank line.
+   */
+  readonly answerOnly?: boolean;
   /** Each tool call as the model writes it, before it runs; `answer` counts the model's answers from 1. */
   readonly onToolInput?: (input: AiToolInput, answer: number) => void;
   /** Each model call as it's sent (after the budget check), then as its answer starts: what a stopwatch reads. */
@@ -103,7 +114,10 @@ export interface ToolLoopInput {
 }
 
 export interface ToolLoopResult {
-  /** Every piece of text the model streamed, all turns run together (what the Assistant shows and saves). */
+  /**
+   * Every piece of text the model streamed, all turns run together (what the Assistant shows and saves). With
+   * `answerOnly`, only what reached `onText`.
+   */
   readonly text: string;
   /**
    * The conversation with the loop's turns added: each round's calls and results, then the answer's text. A
@@ -131,10 +145,34 @@ export function toolErrorContent(e: unknown): { error: string; rule?: string } {
   return { error: 'That didn’t work. Nothing was changed.' };
 }
 
+/**
+ * How much a turn may write before calling a tool and still be a working note rather than words for the person: a
+ * sentence or two, which is as long as Claude Opus 5.5 lets one run as text before it moves it into its thinking.
+ */
+export const NOTE_CHARS = 280;
+
 export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult> {
   const messages: AiMessage[] = [...input.messages];
   const toolCalls: ToolLoopCall[] = [];
   let text = '';
+  /** `answerOnly`: this turn's text not shown yet, whether it is past a note's length, and the last note held back. */
+  let held = '';
+  let flowing = false;
+  let lastNote = '';
+  const show = (words: string) => {
+    if (!words) return;
+    // A turn said after another starts a paragraph of its own, rather than running on from it.
+    const piece = text && !text.endsWith('\n') ? `\n\n${words}` : words;
+    text += piece;
+    input.onText?.(piece);
+  };
+  /** The turn ended: its held text is said (`answer`) or was a note. */
+  const turnEnded = (answer: boolean) => {
+    if (answer) show(held);
+    else if (held.trim()) lastNote = held;
+    held = '';
+    flowing = false;
+  };
   let usage: AiUsage = emptyUsage;
   let rounds = 0;
   let answers = 0;
@@ -185,8 +223,17 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
         {
           ...(input.signal ? { signal: input.signal } : {}),
           onText: (delta) => {
-            text += delta;
-            input.onText?.(delta);
+            if (!input.answerOnly || flowing) {
+              text += delta;
+              input.onText?.(delta);
+            } else {
+              held += delta;
+              if (held.length > NOTE_CHARS) {
+                flowing = true;
+                show(held);
+                held = '';
+              }
+            }
           },
           ...(onToolInput ? { onToolInput: (call: AiToolInput) => onToolInput(call, answer) } : {}),
           ...(onStarted ? { onStarted: (first: AiFirstBlock) => onStarted(answer, first) } : {}),
@@ -205,8 +252,12 @@ export async function runToolLoop(input: ToolLoopInput): Promise<ToolLoopResult>
       }
       if (turn.stopReason !== 'tool_use' || turn.toolCalls.length === 0) {
         if (turn.text) said(turn.text);
+        turnEnded(true);
+        // Nothing said in the whole answer: the last note is better than silence.
+        if (input.answerOnly && !text) show(lastNote);
         return end('end_turn');
       }
+      turnEnded(false);
       if (++rounds > input.maxRounds) {
         if (turn.text) said(turn.text);
         return end('max_rounds');
