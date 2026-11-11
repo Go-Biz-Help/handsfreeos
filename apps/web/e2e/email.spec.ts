@@ -199,14 +199,19 @@ test('email: a bounce blocks the address, and mail from a stranger waits in Othe
     await expect(list).toContainText(karen, { timeout: 2000 });
   }).toPass({ timeout: 20_000 });
   await expect(list).toContainText('Do you service heat pumps?');
-  await expect(page.getByTestId('box-other')).toHaveAttribute('aria-pressed', 'true');
+  // The menu beside the search says it's Other mail, and the line above the list how a thread gets out.
+  await expect(page.getByTestId('inbox-show')).toContainText('Other mail');
+  await expect(page.getByTestId('inbox-show-note')).toContainText('Move to Inbox');
   // Not in the team's Inbox.
-  await page.getByTestId('box-other').click();
+  await page.getByTestId('inbox-show-back').click();
   await expect(page).toHaveURL(/\/inbox$/);
+  await expect(page.getByTestId('inbox-show')).toContainText('Open');
   await expect(list).not.toContainText(karen);
 
-  // Adding her as a customer puts the email in the Inbox, under her.
-  await page.goto(`/app/w/${workspaceId}/inbox?box=other`);
+  // Adding her as a customer puts the email in the Inbox, under her. Other mail is back in the same menu.
+  await page.getByTestId('inbox-show').click();
+  await page.getByTestId('inbox-show-other').click();
+  await expect(page).toHaveURL(/box=other/);
   await list.getByText(karen).click();
   await page.getByTestId('banner-add-person').click();
   // In the dialog: the inbox beside it labels its email rows too, and her name comes from her From line.

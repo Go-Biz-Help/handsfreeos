@@ -1,29 +1,31 @@
 {
   "area": "inbox",
   "title": "Inbox, a conversation, phone calls and video calls",
-  "checkedOn": "2026-11-10",
+  "checkedOn": "2026-11-11",
   "files": {
-    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "a00fe9b2d006",
+    "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx": "86ce119809c0",
     "apps/mobile/src/app/app/w/[workspaceId]/call/[callId].tsx": "1113c4963af3",
-    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "b8ce5a81a10c",
+    "apps/mobile/src/app/app/w/[workspaceId]/inbox/[conversationId].tsx": "b4b33eb7564f",
     "apps/mobile/src/components/inbox/call-sheet.tsx": "80613ce5fecf",
     "apps/mobile/src/components/inbox/composer.tsx": "bac1d11d4cf7",
     "apps/mobile/src/components/inbox/conversation-parts.tsx": "e30e42afb568",
     "apps/mobile/src/components/inbox/my-cell-card.tsx": "292ae0ecad2a",
     "apps/mobile/src/components/inbox/pending-reply.tsx": "aaf7f03fba24",
+    "apps/mobile/src/components/inbox/show-picker.tsx": "7884770e88af",
+    "apps/mobile/src/components/ui/filter-chip.tsx": "d67381860b2a",
     "apps/mobile/src/inbox/actions.ts": "50d7b1cb5a4b",
     "apps/mobile/src/inbox/calls.ts": "4ecefb579b2c",
     "apps/mobile/src/inbox/cell.ts": "a6c92858a696",
     "apps/mobile/src/inbox/contact-card.ts": "a7d21deead69",
     "apps/mobile/src/inbox/fixers.ts": "1667a9ef260a",
     "apps/mobile/src/inbox/outbox.ts": "3882e6442c7d",
-    "apps/mobile/src/inbox/queries.ts": "47039fc0b498",
+    "apps/mobile/src/inbox/queries.ts": "7ca7681df7b3",
     "apps/mobile/src/inbox/send.ts": "07bde52e7e84",
     "apps/mobile/src/inbox/storage.ts": "3283e09712d4",
     "apps/mobile/src/inbox/thread-entries.ts": "e3dc464a9723",
     "apps/mobile/src/inbox/use-conversation.ts": "c67133e71c09",
     "apps/mobile/src/inbox/use-email.ts": "e6a732688797",
-    "apps/mobile/src/inbox/use-inbox.ts": "7206a2137221",
+    "apps/mobile/src/inbox/use-inbox.ts": "468cc806ce2d",
     "apps/mobile/src/inbox/use-sender.ts": "201fd753bcd9",
     "apps/mobile/src/video-call/phone-call.tsx": "50f4c5dc00ff",
     "apps/web/src/app/app/w/[workspaceId]/call/[callId]/page.tsx": "8897698aa30f",
@@ -61,11 +63,10 @@
     "apps/web/src/components/inbox/conversations-card.tsx": "f83a51270af2",
     "apps/web/src/components/inbox/draft-card.tsx": "3a7f8fe6afad",
     "apps/web/src/components/inbox/hooks.ts": "f08d1f604e13",
-    "apps/web/src/components/inbox/inbox-shell.tsx": "9e13391561df",
+    "apps/web/src/components/inbox/inbox-shell.tsx": "19357ba4810d",
     "apps/web/src/components/inbox/lane-switcher.tsx": "22d907e03a2f",
     "apps/web/src/components/inbox/link-person-dialog.tsx": "ce32d9902288",
     "apps/web/src/components/inbox/mail-body.tsx": "20c0903ff378",
-    "apps/web/src/components/inbox/mail-boxes.tsx": "239fae1964a4",
     "apps/web/src/components/inbox/mail-card.tsx": "58e4e0c6c664",
     "apps/web/src/components/inbox/media-viewer.tsx": "eea9b3e6a2d4",
     "apps/web/src/components/inbox/message-log.tsx": "dc5c93220d39",
@@ -73,6 +74,7 @@
     "apps/web/src/components/inbox/new-message-dialog.tsx": "78cc4578cab4",
     "apps/web/src/components/inbox/rich-editor.tsx": "c594a4e0ed14",
     "apps/web/src/components/inbox/rich-message.tsx": "2197f796284c",
+    "apps/web/src/components/inbox/show-menu.tsx": "17cfe3903344",
     "apps/web/src/components/inbox/social-bits.tsx": "6aa8eafe26c4",
     "apps/web/src/components/inbox/template-picker.tsx": "2624a76622ae",
     "apps/web/src/components/tasks/task-dialog.tsx": "1714eecb5a55",
@@ -101,7 +103,7 @@
     {
       "path": "Inbox → New message → button",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:280",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:279",
       "covered": "yes",
       "by": "do_conversation_open"
     },
@@ -129,28 +131,28 @@
     {
       "path": "Inbox → Whose: Mine / Unassigned / All",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:324",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:292",
       "covered": "yes",
       "by": "find_conversations box"
     },
     {
       "path": "Inbox → Whose → counts",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:324",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:292",
       "covered": "yes",
       "by": "read_inbox_summary"
     },
     {
       "path": "Inbox → Needs a person box",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:344",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:306",
       "covered": "yes",
       "by": "find_conversations box needs_person"
     },
     {
       "path": "Inbox → AI is answering box",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:344",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:306",
       "covered": "yes",
       "by": "find_conversations box ai"
     },
@@ -162,58 +164,51 @@
       "by": "read_inbox_summary"
     },
     {
-      "path": "Inbox → My mail box → open",
+      "path": "Inbox → Show menu (phone: Show chip) → Other mail / Spam",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:353",
-      "covered": "yes",
-      "by": "find_conversations mailbox mine"
-    },
-    {
-      "path": "Inbox → My mail → Inbox / Other / Spam tabs, Show all",
-      "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:310",
-      "covered": "yes",
-      "by": "find_conversations mailbox mine, box all, other or spam"
-    },
-    {
-      "path": "Inbox → Other mail / Spam boxes → open",
-      "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:268",
+      "file": "apps/web/src/components/inbox/show-menu.tsx:1",
       "covered": "yes",
       "by": "find_conversations box other, spam"
     },
     {
-      "path": "Inbox → My mail / Other / Spam → counts",
+      "path": "Inbox → Show menu → Other mail / Spam counts, dot for unread Other mail",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/mail-boxes.tsx:1",
+      "file": "apps/web/src/components/inbox/show-menu.tsx:1",
       "covered": "yes",
       "by": "read_inbox_summary mail"
     },
     {
+      "path": "Inbox → Other mail / Spam → what's in it, Back to Open",
+      "kind": "do",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:373",
+      "covered": "yes",
+      "by": "find_conversations box other, spam; status open"
+    },
+    {
       "path": "Inbox → Unread only",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:365",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:317",
       "covered": "yes",
       "by": "find_conversations unread"
     },
     {
       "path": "Inbox → Search",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:395",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:353",
       "covered": "yes",
       "by": "find_conversations query"
     },
     {
-      "path": "Inbox → Status: Open / Snoozed / Closed / Archived",
+      "path": "Inbox → Show menu (phone: Show chip): Open / Snoozed / Closed / Archived",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:403",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:323",
       "covered": "yes",
       "by": "find_conversations status, box archived"
     },
     {
       "path": "Inbox → Select → Delete (several)",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:447",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:336",
       "covered": "yes",
       "by": "move_to_bin conversation, each"
     },
@@ -227,28 +222,28 @@
     {
       "path": "Inbox → Show more",
       "kind": "do",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:488",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:447",
       "covered": "yes",
       "by": "find_conversations cursor"
     },
     {
       "path": "Inbox → empty words",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:462",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:421",
       "covered": "yes",
       "by": "find_conversations empty"
     },
     {
       "path": "Inbox → didn't load, Try again",
       "kind": "see",
-      "file": "apps/web/src/components/inbox/inbox-shell.tsx:460",
+      "file": "apps/web/src/components/inbox/inbox-shell.tsx:419",
       "covered": "yes",
       "by": "tool error text"
     },
     {
       "path": "Phone Inbox → Search everything row",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:299",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/inbox.tsx:214",
       "covered": "yes",
       "by": "read_search_everything"
     },
