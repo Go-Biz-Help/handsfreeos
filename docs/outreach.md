@@ -235,8 +235,8 @@ became.
   are; **Mark as client** or **Not a client after all** (decision 91); **Demo booked**; and **Don't pitch** (a switch of its own on the Friends tab, beside **Keep**; both flip at once and send `outreach.friend.set` in the background, flipping back with the reason if it’s refused). Each Friends tab row keeps the name, **Facebook** and the "N mutual" chip on one line. A group whose admins aren't read yet has
   **Save its members** under **Save who runs these groups**.
 - **Tidying up friends** (decisions 10, 12 and 17, `tidy.ts`, `ops/tidy.ts`): the Friends tab suggests the sent
-  requests nobody answered after the business's wait (3 weeks to start, a setting in Social Outreach → Settings →
-  General, For your team), and friends to unfriend: only once the download file is in, and only those never kept, not in
+  requests nobody answered after the business's wait (2 weeks to start since decision 161, the warm-up's length, a
+  setting called "Warm up for, then unfollow or withdraw" in Social Outreach → Settings → General, For your team), and friends to unfriend: only once the download file is in, and only those never kept, not in
   Contacts, not on Don't pitch, with no likely-prospect chat, friends for over six months and with no message or step
   in six months either way. Under the Friends tab's **Tidy up** the person ticks who and presses **Cancel the ticked
   requests** or **Unfriend the ticked**, which asks their computer (`cancel`, `unfriend`): it opens each profile in a
@@ -984,8 +984,8 @@ built.
 From the plan, not contested: it reads only pages the person opens; group admins and moderators are never approached
 (as customers: decision 81 lets a partner playbook ask them to partner, each message with the person's OK);
 "Not interested" ends outreach for good; drafts mention only what's really on someone's profile or posts; and the
-starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 15 comments, 40
-likes and 1 post, half that for new or quiet accounts (decision 96).
+starting daily limits per Facebook account are 20 friend requests, 15 first messages, 20 follow-ups, 30 comments, 70
+likes (15 and 40 before decision 161's warm-ups) and 1 post, half that for new or quiet accounts (decision 96).
 
 The owner asked on 10 Oct 2026 for every setting to live in HandsFreeOS, with the extension only doing the work,
 showing what's going on and prompting, the app and the phone live too, and answered the questions the same day
@@ -2423,7 +2423,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
     network's once-a-day jobs tidy up as the person picks under that network in Settings, **Tidy up on its own**
     (`tidy` in its choices; Facebook's in `networks.facebook`): **Off** (only the ones they tick), the old requests
     (to start), or on Facebook the old requests and friends to unfriend.
-    - **Old requests** nobody answered in the business's wait (3 weeks to start, on General): Facebook cancels them,
+    - **Old requests** nobody answered in the business's wait (2 weeks to start since decision 161, on General): Facebook cancels them,
       LinkedIn and Alignable withdraw them, Instagram unfollows who didn't follow back (never anyone who wrote back, or
       a customer). Up to 20 a day (`OWN_TIDY_LIMITS`), the oldest first.
     - **Friends to unfriend, on Facebook,** only those the AI found aren't a fit and the person never chatted with
@@ -4027,6 +4027,43 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - The OK's toast still says how many it OK'd. Nothing changes on the server: the same `outreach.autopilot`,
         read the same way. No migration, no extension release.
 
+161.  **Warm them up while they decide, then unfollow or withdraw** (Chris, 11 Nov 2026: "like and comment on 2-3 of
+      their posts every other day for 2 weeks and if they still haven't followed us then unfollow them and remove them
+      from the list", on every network, with comments that "congratulate them, praise them or show interest" and don't
+      read as AI). He picked 1b, 2b, 3a, 4a, 5a and 6b ("your picks"), then made the visits random: "every other day
+      feels robotic just make it random and it can like 1-2 posts and comment on one". Extension 0.135.0, **migration
+      `20261027026100_outreach_keep_warm`**. Shared words and numbers in core's `addons/outreach/keep-warm.ts`, the
+      server's in `ops/keep-warm.ts`.
+      - **A visit every few days, at random**: from the day the request goes (a follow on Instagram) till they accept
+        it or the wait ends, Today lists a `warm_up` with `keepWarm` (`visitsDue`) a random 1 to 3 business days after
+        the last of the request, a fresh start and their last visit (a like on their page, or a visit with nothing to
+        like, `warm_up.missed`): `VISIT_GAP_DAYS`, picked from who they are and the day it counts from, so it holds
+        all day and changes from visit to visit. The extension looks at their page and likes 1 or 2 of their newest
+        posts (`visitLikes`, at random, one only when the day's likes are short) that nothing rules out (`neverLike`)
+        and that aren't liked already (`visitPicks`). No request after a visit. Listed only while the person's working computer runs 0.135.0 or later (`KEEP_WARM_SINCE`), and
+        their warm-ups are on. The day's likes go to visits first; the likes before new requests get what's left.
+      - **One comment a visit** (1b, 3a): the first post a visit liked is kept as a good post (`posts.warm_up`,
+        `keepWarmPost`, at most one a visit, `WARM_POST_GAP_HOURS`) and goes on Today as any comment does, counted against the day's comments.
+        It follows that network's comments: Facebook's go on their own, and Instagram's, LinkedIn's and Alignable's wait
+        for the person's OK till 25 are OK'd and a week has gone by (decision 102); Autopilot's on its own. The AI
+        writes it from the post alone as a person would (`WARM_COMMENT_TASK`, `todayDraftSystem`'s `warm`): 3 to 12
+        words that congratulate, praise one real thing or show interest, no pitch, link or hashtag, at most one emoji,
+        never words used in the person's last 8 comments, and nothing at all for a post with nothing real to react to
+        or a sad one.
+      - **Higher limits** (2b): Instagram 80 likes and 35 comments a day (from 30 and 10), Facebook 70 and 30 (from 40
+        and 15), still halved for new accounts and for a week after a warning. LinkedIn and Alignable as they were.
+      - **Then unfollow or withdraw on its own** (4a): once the wait is over, the tidying unfollows them on Instagram or
+        withdraws the request elsewhere (Cancel on Facebook), 20 a day as decision 98 does (its tidying is on its own
+        to start; one set to Off leaves them on the list to tick). Withdrawn that way, the end is kept
+        (`friend_ends.after_warm_up`) and nothing reaches them again (`warmUpEnded` in every pick's `openToMe`): no
+        follow, request, like, comment or message, unless they follow back, accept or write first. In People they're Not a fit, "Didn't follow back" (`noAnswerWhy`), and **Back in
+        play** takes them back (`clearWarmUpEnd`). One Cancel all took sooner had no warm-up to end.
+      - **One setting** (5a): "Warm up for, then unfollow or withdraw" on General (`cancelRequestsAfterWeeks`, same key),
+        for every network, 2 weeks to start (`CANCEL_AFTER_WEEKS`); a business that kept the old 3 went to 2.
+      - **Everyone already waiting started a fresh wait** (6b): the migration set `friends.warm_up_from` on every
+        request waiting then, and a wait runs from the later of it and `since`, so each got a whole one. Their first
+        visits are spread over the next 3 days, as the gap counts from it.
+
 ## Rules worth knowing before changing anything
 
 - **Nothing is saved until the person presses a button in HandsFreeOS** (an ask, below), except the four steps the
@@ -4293,6 +4330,11 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
 - **Never a message to someone who doesn't follow back on Instagram** (decision 159): their follow-back is the trigger,
   as accepting is on every other network. Today lists none and `outreach.send.queue` refuses one
   (`outreach_not_following`), whatever drafted it; a comment under their post can still go.
+- **Warm them up while they decide, then let them go** (decision 161): someone waiting on a request gets a visit
+  every few days at random (1 to 3 days apart, 1 or 2 likes, one comment under the first), and nothing else, till they accept or the business's
+  wait ends; then the request is withdrawn on its own and `friend_ends.after_warm_up` keeps every pick off them
+  (`warmUpEnded` in `openToMe`) till they follow back, accept or write first, or the person puts them back in play. A
+  wait runs from the later of `since` and `warm_up_from`.
 - **Each network's profile in Get ready is its own.** A LinkedIn day waits on LinkedIn's profile, never on
   Facebook's (`readinessFor` and `outreach.readiness` take a `platform`; Start my day and Today ask with theirs).
   LinkedIn's checklist (`PROFILE_ITEMS_ON`) has its photo, banner, headline (the `bio`, up to 220 characters), About,

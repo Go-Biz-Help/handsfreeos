@@ -57,8 +57,11 @@ export const TIDY_WORDS: Readonly<
 
 /** A friend with no contact either way for this long, and friends for longer, is suggested for unfriending. */
 export const UNFRIEND_QUIET_DAYS = 183;
-/** How long a sent request waits before it's suggested for cancelling, unless the business says (decision 12). */
-export const CANCEL_AFTER_WEEKS = 3;
+/**
+ * How long a sent request waits before it's suggested for cancelling, unless the business says (decision 12): its
+ * warm-up (decision 161, ../keep-warm.ts), 2 weeks to start (the owner's 5a), then it's withdrawn.
+ */
+export const CANCEL_AFTER_WEEKS = 2;
 /** The most of each listed at once. */
 export const TIDY_MOST = 200;
 

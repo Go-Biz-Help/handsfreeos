@@ -630,6 +630,69 @@ describe('what it does on LinkedIn’s list', () => {
     ]);
   });
 
+  it('visits while they decide on the invitation: likes up to the visit’s new posts, and sends nothing after (decision 161)', async () => {
+    world.pages = (url) =>
+      url.endsWith('recent-activity/all/')
+        ? { fixture: 'linkedin-activity.html' }
+        : { fixture: 'linkedin-profile.html' };
+    world.behave = (doc) => {
+      for (const like of doc.querySelectorAll('[aria-label="React Like"]'))
+        like.addEventListener('click', () => like.setAttribute('aria-pressed', 'true'));
+    };
+    const outcome = await doWork(
+      {
+        do: 'step',
+        item: item({
+          kind: 'warm_up',
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
+        }),
+      },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'Liked 2 posts of Dana Reyes’s while they decide on your invitation to connect',
+    });
+    expect(world.opened).toEqual([DANA, `${DANA}recent-activity/all/`]);
+    // Their post about a death in the family is passed over.
+    expect(notedAs()).toEqual(
+      [
+        `${LI}/feed/update/urn:li:activity:7380000000000000302/`,
+        `${LI}/feed/update/urn:li:activity:7380000000000000304/`,
+      ].map((postUrl) => ({ kind: 'like', auto: true, postUrl, platform: 'linkedin' })),
+    );
+  });
+
+  it('counts a visit with nothing new to like, and tells HandsFreeOS (decision 161)', async () => {
+    world.pages = (url) =>
+      url.endsWith('recent-activity/all/')
+        ? { fixture: 'linkedin-activity.html' }
+        : { fixture: 'linkedin-profile.html' };
+    world.behave = (doc) => {
+      for (const like of doc.querySelectorAll('[aria-label="React Like"]'))
+        like.setAttribute('aria-pressed', 'true');
+    };
+    world.answers = { '/v1/commands/outreach.warm_up.missed': () => ({ profileId: PROFILE_ID }) };
+    const outcome = await doWork(
+      {
+        do: 'step',
+        item: item({
+          kind: 'warm_up',
+          keepWarm: { likes: 2, until: '2026-11-26T06:00:00.000Z' },
+        }),
+      },
+      ME.businessId,
+      false,
+    );
+    expect(outcome).toEqual({
+      done: true,
+      line: 'No new post of Dana Reyes’s to like on this visit: the next comes in a few days',
+    });
+    expect(notedAs()).toEqual([]);
+    expect(world.posted.map((p) => p.path)).toContain('/v1/commands/outreach.warm_up.missed');
+  });
+
   describe('for a writer its post search found (decision 92)', () => {
     const FOUND = `${LI}/feed/update/urn:li:activity:7380000000000000777/`;
     const PRIYA = `${LI}/in/priya-dalton-hvac/`;

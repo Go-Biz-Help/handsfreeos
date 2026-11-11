@@ -249,15 +249,34 @@ export const isClient = (p: string) =>
     or (${sql.raw(p)}.workspace_id, ${sql.raw(p)}.platform, ${nameKeyOf(p)}) in (${clientNames}))`;
 
 /**
+ * Someone whose warm-up ended with no answer (decision 161): their request was withdrawn after it
+ * (`friend_ends.after_warm_up`), and since then they haven't followed back or accepted, sent their own request, or
+ * written to the person `me`. Nothing on Today reaches them; in People they're Not a fit, "Didn't follow back". Back in
+ * play clears it (`clearWarmUpEnd`). `p` is the profile's alias.
+ */
+export const warmUpEnded = (me: string, p: string) => {
+  const at = sql.raw(p);
+  return sql`(exists (select 1 from addon_outreach.friend_ends fe
+      where fe.profile_id = ${at}.id and fe.user_id = ${me} and fe.after_warm_up)
+    and not exists (select 1 from addon_outreach.friends wf
+      where wf.profile_id = ${at}.id and wf.user_id = ${me} and wf.state in ('friends', 'request_received'))
+    and not exists (select 1 from addon_outreach.replies wr
+      where wr.profile_id = ${at}.id and wr.user_id = ${me})
+    and not exists (select 1 from addon_outreach.file_chats wc
+      where wc.profile_id = ${at}.id and wc.user_id = ${me} and not wc.last_from_me))`;
+};
+
+/**
  * A profile open to the person `me` (decision 47): not marked not a fit, by them or by the AI's read of their chat.
  * "Not interested" ends outreach for good, until they put them back in play. Nor is one whose customer was pitched or
- * booked on another of their profiles (`reachedElsewhere`). Confirming a friend request goes by this alone: saying yes
- * is no pitch, so a client's is confirmed too. `p` is its alias.
+ * booked on another of their profiles (`reachedElsewhere`), nor one whose warm-up ended with no answer (`warmUpEnded`,
+ * decision 161). Confirming a friend request goes by this alone: saying yes is no pitch, so a client's is confirmed
+ * too. `p` is its alias.
  */
 export const openToMe = (me: string, p: string) => sql`(not exists (
   select 1 from addon_outreach.stages st
   where st.profile_id = ${sql.raw(p)}.id and st.user_id = ${me} and st.mark = 'lost')
-  and not ${reachedElsewhere(p)})`;
+  and not ${reachedElsewhere(p)} and not ${warmUpEnded(me, p)})`;
 
 /**
  * Not on the person `me`'s Later (decision 100): Later in the person menu takes someone off their Today for 2 weeks

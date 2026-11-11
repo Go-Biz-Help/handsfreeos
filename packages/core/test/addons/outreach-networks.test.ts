@@ -401,7 +401,7 @@ describe('each network’s own choices', () => {
     expect(
       (await runAs(dana, ws, 'outreach.today', { platform: 'linkedin' })).limits.like.most,
     ).toBe(15);
-    expect((await runAs(dana, ws, 'outreach.today', {})).limits.like.most).toBe(40);
+    expect((await runAs(dana, ws, 'outreach.today', {})).limits.like.most).toBe(70);
     // An owner ends LinkedIn's early; a LinkedIn warning puts them back on, and only LinkedIn's.
     expect(
       await runAs(owner, ws, 'outreach.wheels.end', { userId: dana.id, platform: 'linkedin' }),

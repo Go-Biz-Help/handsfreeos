@@ -85,6 +85,7 @@ import {
   knowsFor,
   TODAY_DRAFT_SCHEMA,
   todayDraftSystem,
+  WARM_COMMENTS_SAID,
   TodayDraftAnswer,
   TodayDraftInput,
   todayDraftPrompt,
@@ -164,14 +165,27 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
             )
           : [];
       const [post] = input.postId
-        ? await rows<{ profile_id: string; body: string; group: string | null }>(
+        ? await rows<{ profile_id: string; body: string; group: string | null; warm_up: boolean }>(
             tx,
             // The person's own posts only, like their chats.
-            sql`select po.profile_id, po.body, g.name as group from addon_outreach.posts po
+            sql`select po.profile_id, po.body, g.name as group, po.warm_up from addon_outreach.posts po
                 left join addon_outreach.groups g on g.id = po.group_id
                 where po.workspace_id = ${ws} and po.id = ${input.postId} and po.user_id = ${ctx.userId}`,
           )
         : [];
+      // A warm-up's comment (decision 161) never says what the owner's latest comments said.
+      const commentedLately =
+        post?.warm_up && input.kind === 'comment'
+          ? (
+              await rows<{ comment_text: string }>(
+                tx,
+                sql`select t.comment_text from addon_outreach.touches t
+                    where t.workspace_id = ${ws} and t.user_id = ${ctx.userId} and t.kind = 'comment'
+                      and t.comment_text is not null
+                    order by t.at desc limit ${WARM_COMMENTS_SAID}`,
+              )
+            ).map((r) => r.comment_text)
+          : [];
       const profileId = input.profileId ?? chat?.profile_id ?? post?.profile_id ?? null;
       // A warm lead (decision 50): their latest comment on one of the person's own helpful posts, and that post.
       const [engaged] =
@@ -343,6 +357,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
         business,
         chat,
         post,
+        commentedLately,
         engaged,
         profile,
         lines: lines[0]?.lines ?? [],
@@ -544,7 +559,9 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     ): Promise<{ value: TodayDraftAnswer; drafts: string[] }> => {
       const { value } = await askedTwice(() =>
         askStructured(ctx, ctx.scope, {
-          system: todayDraftSystem(platform),
+          system: todayDraftSystem(platform, {
+            warm: found.post?.warm_up === true && kind === 'comment',
+          }),
           messages: [
             {
               role: 'user',
@@ -565,7 +582,12 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
                       group: found.engaged.group,
                     }
                   : found.post
-                    ? { text: found.post.body, group: found.post.group }
+                    ? {
+                        text: found.post.body,
+                        group: found.post.group,
+                        warm: found.post.warm_up,
+                        said: found.commentedLately,
+                      }
                     : null,
                 lookup: toldLookup,
                 opener,

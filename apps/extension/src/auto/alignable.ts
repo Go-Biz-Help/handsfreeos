@@ -52,6 +52,7 @@ import {
   likedText,
   neverLike,
 } from '@hfos/core/addons/outreach/like-pick';
+import { visitLine, visitPicks } from '@hfos/core/addons/outreach/keep-warm';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { chatUrlOn, requestsLimitLine } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -595,6 +596,7 @@ async function likeFoundAnswer(
  * (decision 116) a business found by its answer on a good post gets the like on that answer, in the same way.
  */
 async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome> {
+  if (item.keepWarm) return visit(item, businessId, item.keepWarm.likes);
   const after = afterWarmUp(item);
   if (item.postUrl) {
     const found = item.likeComment
@@ -673,6 +675,73 @@ async function warmUp(item: TodayListItem, businessId: string): Promise<Outcome>
       ? `${item.name}’s post was liked already: ${after.next}`
       : `Looked at ${item.name}’s business page and liked a post of theirs: ${after.next}`,
   };
+}
+
+/**
+ * A visit while they decide on the connection request (decision 161): their business page, and up to `likes` of their
+ * recent posts liked that nothing rules out and that aren't liked already, newest first. Nothing new to like:
+ * HandsFreeOS hears it, and the visit counts. No request after it.
+ */
+async function visit(item: TodayListItem, businessId: string, likes: number): Promise<Outcome> {
+  const opened = await openBusiness(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  const theirs = await tab.ask({
+    type: 'hfos-their-posts',
+    profile: opened.noted,
+    most: LIKE_POSTS_READ,
+  });
+  if (!theirs.ok) throw new Error(theirs.error);
+  const recent = theirs.posts
+    .map((post, index) => ({ post, index }))
+    .filter(({ post }) => !longAgo(post.when));
+  const picks = visitPicks(
+    recent.map(({ post }) => post),
+    likes,
+    neverLike,
+  );
+  if (!picks.length) {
+    await missed(item, businessId);
+    return { done: true, line: visitLine(item.name, PLATFORM, 0) };
+  }
+  let liked = 0;
+  for (const pick of picks) {
+    if (liked) await pause(SETTLE_MS);
+    const { post, index } = recent[pick]!;
+    const went = await tab.ask({
+      type: 'hfos-like-post',
+      profile: opened.noted,
+      index,
+      url: post.url,
+    });
+    if (!went.ok) throw new Error(went.error);
+    if (went.result === 'none' || went.result === 'not_sent') {
+      if (liked) break;
+      await missed(item, businessId);
+      return { done: false, line: `Couldn’t like ${item.name}’s post on this visit`, look: true };
+    }
+    await pause(SETTLE_MS);
+    const stop = await warnedOn(await read(), businessId);
+    if (stop) return { stop };
+    await takeNote(
+      {
+        type: 'hfos-noted',
+        step: {
+          kind: 'like',
+          to: { name: item.name, profile: opened.noted },
+          group: null,
+          postUrl: went.postUrl ?? post.url,
+          thread: null,
+          replying: null,
+          auto: true,
+          postText: likedText({ text: post.text, pictures: [] }),
+        },
+        at: now(),
+      },
+      PLATFORM,
+    );
+    liked++;
+  }
+  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
 }
 
 /**

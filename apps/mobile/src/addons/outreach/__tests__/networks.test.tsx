@@ -794,7 +794,7 @@ describe('A network’s page of Settings on the phone, saved as it’s changed',
       '12Friend requests',
     );
     expect(screen.getByTestId('settings-networks-facebook-limit-like')).toHaveTextContent(
-      '40Likes',
+      '70Likes',
     );
     // No Chrome note on Facebook: the extension is let on there from the start.
     expect(screen.queryByTestId('settings-networks-facebook-chrome')).toBeNull();
@@ -1182,7 +1182,7 @@ describe('Each network’s say for everyone, on Team, for owners and admins (dec
     await fireEvent.press(screen.getByTestId('settings-rules-facebook-limit-like-down'));
     await act(async () => jest.advanceTimersByTime(SAVE_PAUSE_MS));
     const rules = savedOn(p, kept).rules;
-    expect(rules?.dailyLimits).toEqual({ like: 39 });
+    expect(rules?.dailyLimits).toEqual({ like: 69 });
     // LinkedIn's, set on its page, stay.
     expect(rules?.networkLimits).toEqual({ linkedin: { like: 5 } });
   });

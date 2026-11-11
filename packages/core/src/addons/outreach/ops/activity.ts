@@ -51,6 +51,7 @@ import {
 } from './common';
 import { limitsFor } from './automation';
 import { clearNeeds } from './needs';
+import { keepWarmPost } from './keep-warm';
 import { claimGroup, claimProfile } from './owners';
 import { notePartnerWarmed } from './partners';
 import { tally } from './tallies';
@@ -330,6 +331,8 @@ export const touchSave = defineAddonCommand(outreachAddon, {
         .returning({ id: touches.id });
       // What the extension did on its own counts (decision 140); what the person did themselves doesn't.
       if (input.auto) await tally(ctx, me, input.platform, input.kind, 1, at);
+      // A visit's first like, while they decide on the person's request, keeps its post for one comment (decision 161).
+      if (input.kind === 'like') await keepWarmPost(ctx, me, profile.id, input, at);
       // The first step on a network starts the person's 2 weeks at half limits there (decision 96): the earliest
       // noted, as a step taken offline can arrive after a later one.
       await ctx.tx

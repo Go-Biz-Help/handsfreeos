@@ -47,6 +47,7 @@ import { businessDay } from '@hfos/core/addons/outreach/automation';
 import type { MessageKind } from '@hfos/core/addons/outreach/automation';
 import { ASK_FIRST_WORDS } from '@hfos/core/addons/outreach/asks';
 import { LIKE_POSTS_READ, likedText, neverLike } from '@hfos/core/addons/outreach/like-pick';
+import { visitLine } from '@hfos/core/addons/outreach/keep-warm';
 import { standDownWords } from '@hfos/core/addons/outreach/live';
 import { chatUrlOn } from '@hfos/core/addons/outreach/network-words';
 import { NETWORKS, type Platform } from '@hfos/core/addons/outreach/networks';
@@ -662,6 +663,7 @@ async function likeStory(
  * the post's own page, in the same way: their latest in its place when it's gone or not right to like.
  */
 async function warmUp(item: TodayListItem, businessId: string, spare: number): Promise<Outcome> {
+  if (item.keepWarm) return visit(item, businessId, item.keepWarm.likes);
   const after = afterWarmUp(item);
   const found = item.likeComment
     ? await likeFoundComment(item, businessId)
@@ -725,6 +727,44 @@ async function warmUp(item: TodayListItem, businessId: string, spare: number): P
     } else break;
   }
   return done(liked);
+}
+
+/**
+ * A visit while they decide whether to follow back (decision 161): a look at their account and up to `likes` new likes
+ * on their recent posts, each on its own page, the newest first that nothing rules out; one liked already isn't counted,
+ * and the next is tried in its place. Nothing to like: HandsFreeOS hears it, and the visit counts. No follow after it.
+ */
+async function visit(item: TodayListItem, businessId: string, likes: number): Promise<Outcome> {
+  const opened = await openAccount(item, businessId);
+  if ('outcome' in opened) return opened.outcome;
+  const theirs = await tab.ask({
+    type: 'hfos-their-posts',
+    profile: opened.noted,
+    most: LIKE_POSTS_READ,
+  });
+  if (!theirs.ok) throw new Error(theirs.error);
+  const safe = theirs.posts.flatMap((p) =>
+    p.url && !neverLike({ text: p.text, pictures: [] }) ? [{ url: p.url, text: p.text }] : [],
+  );
+  let liked = 0;
+  let tried = 0;
+  for (const post of safe) {
+    if (liked >= likes) break;
+    if (tried++) await pause(SETTLE_MS);
+    const went = await likeOne(item, businessId, opened.noted, post);
+    if (typeof went === 'object') return went;
+    if (went === 'liked') liked++;
+    else if (went === 'not') {
+      if (liked) break;
+      await missed(item, businessId);
+      return { done: false, line: `Couldn’t like ${item.name}’s post on this visit`, look: true };
+    }
+  }
+  if (!liked) {
+    await missed(item, businessId);
+    return { done: true, line: visitLine(item.name, PLATFORM, 0) };
+  }
+  return { done: true, line: visitLine(item.name, PLATFORM, liked) };
 }
 
 /** A follow, with their account's own Follow (or Follow Back), then their account read again to see it went. */
@@ -1166,11 +1206,18 @@ export function instagramWorkLeft(
   );
 }
 
-/** The likes the day has room for past one each for the warm-ups still to do: a warm-up's second like takes one. */
+/**
+ * The likes the day has room for past one each for the warm-ups still to do, and a visit's own (decision 161, its
+ * `keepWarm.likes`): a warm-up's second like takes one.
+ */
 export function spareLikes(list: Pick<TodayList, 'limits'>, left: readonly Work[]): number {
-  const warmUps = left.filter(
-    (w) => w.do === 'step' && (w.item.kind === 'warm_up' || w.item.kind === 'partner_warm_up'),
-  ).length;
+  const warmUps = left.reduce(
+    (n, w) =>
+      w.do === 'step' && (w.item.kind === 'warm_up' || w.item.kind === 'partner_warm_up')
+        ? n + (w.item.keepWarm?.likes ?? 1)
+        : n,
+    0,
+  );
   return Math.max(0, list.limits.like.most - list.limits.like.done - warmUps);
 }
 
