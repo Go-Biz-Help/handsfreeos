@@ -8,7 +8,7 @@
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/(more)/settings/main-offer.tsx": "3dfbcbbe2aaf",
     "apps/mobile/src/main-offer/anyway-sheet.tsx": "3215b7e1f61d",
     "apps/mobile/src/main-offer/edit.tsx": "c49b9b7e6c29",
-    "apps/mobile/src/main-offer/lists.tsx": "486403516f08",
+    "apps/mobile/src/main-offer/lists.tsx": "a637d32fb200",
     "apps/mobile/src/main-offer/live.tsx": "bb297395b473",
     "apps/mobile/src/main-offer/review.tsx": "abeb2f08542d",
     "apps/mobile/src/main-offer/row.ts": "43335ea807b5",
@@ -44,7 +44,7 @@
     "apps/web/src/components/knowledge/website-scan.tsx": "779002bbbe34",
     "apps/web/src/components/main-offer/box.tsx": "955b91d0cb14",
     "apps/web/src/components/main-offer/builder.tsx": "3af6cc1d6b2e",
-    "apps/web/src/components/main-offer/content-lists.tsx": "ad7e0e8f4d5b",
+    "apps/web/src/components/main-offer/content-lists.tsx": "bd8b24738092",
     "apps/web/src/components/main-offer/names.tsx": "65fe41d75352",
     "apps/web/src/components/main-offer/page.tsx": "43ce7cfbf0ce",
     "apps/web/src/components/main-offer/review.tsx": "c8a283b94f30",
@@ -1665,63 +1665,63 @@
     {
       "path": "Settings → Main offer → For your content: hint, how many of the 11 lists are filled in, each list with its first line and how many lines",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:83",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:86",
       "covered": "yes",
       "by": "get_settings main_offer → lists"
     },
     {
       "path": "Settings → Main offer → For your content → What’s missing (the AI says which lists are thin), each note opens its list",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:101",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:104",
       "covered": "yes",
       "by": "help_main_offer_lists gaps"
     },
     {
       "path": "Settings → Main offer → For your content → open a list: its hint, its lines",
       "kind": "see",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:217",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:226",
       "covered": "yes",
       "by": "get_settings main_offer → lists"
     },
     {
       "path": "Settings → Main offer → For your content → a list → Add a line, Add",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:354",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:341",
       "covered": "yes",
       "by": "manage_main_offer set_list (whole list)"
     },
     {
-      "path": "Settings → Main offer → For your content → a list → Write it for me: lines to tick, Keep, Not now",
+      "path": "Settings → Main offer → For your content → a list → Write it for me: lines to tick (as many as the list has room for), Add N lines, the rest stay on show, Not now",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:369",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:356",
       "covered": "yes",
       "by": "help_main_offer_lists write, then manage_main_offer set_list"
     },
     {
-      "path": "Settings → Main offer → For your content → a list → Examples to model: tap one to start from it",
+      "path": "Settings → Main offer → For your content → a list → Examples to model: tick several, Add N lines, the rest stay on show, Not now",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:380",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:367",
       "covered": "yes",
-      "by": "help_main_offer_lists examples"
+      "by": "help_main_offer_lists examples, then manage_main_offer set_list"
     },
     {
       "path": "Settings → Main offer → For your content → a line → Improve: three rewrites, pick one or Keep mine",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:478",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:465",
       "covered": "yes",
       "by": "help_main_offer_lists improve, then manage_main_offer set_list"
     },
     {
       "path": "Settings → Main offer → For your content → a line → Change this line, Save, Cancel",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:484",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:471",
       "covered": "yes",
       "by": "manage_main_offer set_list"
     },
     {
       "path": "Settings → Main offer → For your content → a line → Remove this line",
       "kind": "do",
-      "file": "apps/web/src/components/main-offer/content-lists.tsx:492",
+      "file": "apps/web/src/components/main-offer/content-lists.tsx:479",
       "covered": "yes",
       "by": "manage_main_offer set_list"
     },
@@ -1735,56 +1735,56 @@
     {
       "path": "Phone → Main offer → For your content: hint, how many filled in, each list with its first line, only owners and admins change them",
       "kind": "see",
-      "file": "apps/mobile/src/main-offer/lists.tsx:69",
+      "file": "apps/mobile/src/main-offer/lists.tsx:73",
       "covered": "yes",
       "by": "get_settings main_offer → lists"
     },
     {
       "path": "Phone → Main offer → For your content → What’s missing, each note opens its list",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:187",
+      "file": "apps/mobile/src/main-offer/lists.tsx:191",
       "covered": "yes",
       "by": "help_main_offer_lists gaps"
     },
     {
       "path": "Phone → Main offer → For your content → a list → Add a line, Add",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:425",
+      "file": "apps/mobile/src/main-offer/lists.tsx:415",
       "covered": "yes",
       "by": "manage_main_offer set_list (whole list)"
     },
     {
-      "path": "Phone → Main offer → For your content → a list → Write it for me: lines to tick, Keep, Not now",
+      "path": "Phone → Main offer → For your content → a list → Write it for me: lines to tick (as many as the list has room for), Add N lines, the rest stay on show, Not now",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:443",
+      "file": "apps/mobile/src/main-offer/lists.tsx:433",
       "covered": "yes",
       "by": "help_main_offer_lists write, then manage_main_offer set_list"
     },
     {
-      "path": "Phone → Main offer → For your content → a list → Examples to model: tap one to start from it",
+      "path": "Phone → Main offer → For your content → a list → Examples to model: tick several, Add N lines, the rest stay on show, Not now",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:453",
+      "file": "apps/mobile/src/main-offer/lists.tsx:443",
       "covered": "yes",
-      "by": "help_main_offer_lists examples"
+      "by": "help_main_offer_lists examples, then manage_main_offer set_list"
     },
     {
       "path": "Phone → Main offer → For your content → a line → Improve: three rewrites, pick one or Keep mine",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:549",
+      "file": "apps/mobile/src/main-offer/lists.tsx:539",
       "covered": "yes",
       "by": "help_main_offer_lists improve, then manage_main_offer set_list"
     },
     {
       "path": "Phone → Main offer → For your content → a line → Change this line, Save, Cancel",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:558",
+      "file": "apps/mobile/src/main-offer/lists.tsx:548",
       "covered": "yes",
       "by": "manage_main_offer set_list"
     },
     {
       "path": "Phone → Main offer → For your content → a line → Remove this line",
       "kind": "do",
-      "file": "apps/mobile/src/main-offer/lists.tsx:567",
+      "file": "apps/mobile/src/main-offer/lists.tsx:557",
       "covered": "yes",
       "by": "manage_main_offer set_list"
     }

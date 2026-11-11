@@ -9,6 +9,8 @@ import { IDEAS_SYSTEM } from '../src/addons/socialcontent/notes-ai';
 import {
   checkedOfferLists,
   cleanListLines,
+  firstPicked,
+  leftAfterAdding,
   listsFilled,
   listsOf,
   listsText,
@@ -18,7 +20,10 @@ import {
   OFFER_LISTS_SCHEMA,
   OfferListsAssistInput,
   offerListsPrompt,
+  roomIn,
+  togglePicked,
   type OfferListsBusiness,
+  MAIN_OFFER_LISTS_WORDS as W,
 } from '../src/main-offer/lists';
 import { MainOfferParts } from '../src/main-offer/parts';
 
@@ -80,6 +85,34 @@ describe('the lists for content', () => {
       'Say which line to improve.',
     );
     expect(input({ mode: 'gaps' })).toEqual({ mode: 'gaps' });
+  });
+});
+
+describe('picking several of the AI’s lines at once (the owner, 11 Nov)', () => {
+  const eleven = Array.from({ length: 11 }, (_, i) => `Line ${i}`);
+
+  it('starts with what Write it for me gave ticked, as far as there’s room, and no example', () => {
+    expect(firstPicked('write', ['A', 'B', 'C'], [])).toEqual(['A', 'B', 'C']);
+    expect(firstPicked('write', ['A', 'B', 'C'], eleven)).toEqual(['A']);
+    expect(firstPicked('examples', ['A', 'B'], [])).toEqual([]);
+    expect(roomIn(eleven)).toBe(1);
+    expect(roomIn([...eleven, 'x', 'y'])).toBe(0);
+  });
+
+  it('ticks one more only while the list has room, and unticks any', () => {
+    expect(togglePicked(['A'], 'B', [])).toEqual(['A', 'B']);
+    expect(togglePicked(['A', 'B'], 'A', [])).toEqual(['B']);
+    expect(togglePicked(['A'], 'B', eleven)).toEqual(['A']);
+    expect(togglePicked(['A'], 'A', eleven)).toEqual([]);
+  });
+
+  it('keeps the rest on show once the ticked ones are added', () => {
+    expect(leftAfterAdding(['A', 'B', 'C'], ['A', 'C'])).toEqual(['B']);
+    expect(leftAfterAdding(['A'], ['A'])).toEqual([]);
+    expect(W.addPicked(0)).toBe('Tick the ones to add');
+    expect(W.addPicked(1)).toBe('Add 1 line');
+    expect(W.addPicked(3)).toBe('Add 3 lines');
+    expect(W.room(2)).toBe('Room for 2 more lines.');
   });
 });
 

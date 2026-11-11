@@ -646,7 +646,15 @@ describe('For your content (pick 6b: the lists change on the phone too, with the
     });
     // Both start ticked; untick the second, then keep the first.
     await fireEvent.press(screen.getByTestId('main-offer-list-different-suggestion-1'));
-    answers[LISTS] = { list: 'different', lines: [] };
+    answers[LISTS] = {
+      list: 'different',
+      lines: [
+        'We answer every lead in 30 seconds',
+        'Texts go out from your own number',
+        'One AI for calls and texts',
+      ],
+    };
+    expect(screen.getByTestId('main-offer-list-different-keep')).toHaveTextContent('Add 1 line');
     await fireEvent.press(screen.getByTestId('main-offer-list-different-keep'));
     await waitFor(() => expect(sent(LISTS)).toHaveLength(2));
     expect(sent(LISTS)[1]![1].body['lines']).toEqual([
@@ -654,6 +662,38 @@ describe('For your content (pick 6b: the lists change on the phone too, with the
       'Texts go out from your own number',
       'One AI for calls and texts',
     ]);
+    // The one left unticked stays on show, to add later.
+    const left = await screen.findByTestId('main-offer-list-different-suggestion-0');
+    expect(left).toHaveTextContent('Set up in a day');
+    expect(left).not.toBeChecked();
+  });
+
+  it('ticks several examples and adds them together, the rest kept on show', async () => {
+    answers['/v1/queries/main_offer.get'] = offerWith({ lists: {} });
+    worker[HELP] = {
+      options: ['Myth: AI sounds robotic', 'Myth: it’s only for big firms', 'Myth: it’s costly'],
+      gaps: [],
+    };
+    await lists(MANAGE, 'myths');
+    await fireEvent.press(await screen.findByTestId('main-offer-list-myths-examples-ask'));
+    expect(await screen.findByTestId('main-offer-list-myths-examples')).toBeTruthy();
+    // Examples start unticked: they're for another business like this one.
+    expect(screen.getByTestId('main-offer-list-myths-keep')).toHaveTextContent(
+      'Tick the ones to add',
+    );
+    await fireEvent.press(screen.getByTestId('main-offer-list-myths-example-0'));
+    await fireEvent.press(screen.getByTestId('main-offer-list-myths-example-2'));
+    expect(screen.getByTestId('main-offer-list-myths-keep')).toHaveTextContent('Add 2 lines');
+    answers[LISTS] = { list: 'myths', lines: ['Myth: AI sounds robotic', 'Myth: it’s costly'] };
+    await fireEvent.press(screen.getByTestId('main-offer-list-myths-keep'));
+    await waitFor(() => expect(sent(LISTS)).toHaveLength(1));
+    expect(sent(LISTS)[0]![1].body['lines']).toEqual([
+      'Myth: AI sounds robotic',
+      'Myth: it’s costly',
+    ]);
+    const left = await screen.findByTestId('main-offer-list-myths-example-0');
+    expect(left).toHaveTextContent('Myth: it’s only for big firms');
+    expect(screen.queryByTestId('main-offer-list-myths-example-1')).toBeNull();
   });
 
   it('improves a line three ways, and uses the one picked', async () => {

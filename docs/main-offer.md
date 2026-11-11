@@ -147,6 +147,11 @@ idea from, with the AI's help to fill them.
   never naming a real company or claiming real results; and **What's missing** says which lists are empty or thin, up
   to 5. What comes back is checked (`checkedOfferLists`): no line the list has, none twice, no long dashes, and never
   the line it was asked to improve. Nothing is saved until the person keeps a line.
+- **Picking several at once** (the owner, 11 Nov): Write it for me's lines and the examples are ticked and added
+  together (**Add N lines**), never one at a time. Write it for me's start ticked, as far as the list has room; the
+  examples start unticked, since they're for another business like it. Nothing can be ticked past the list's 12, and
+  once the ticked ones are added the rest stay on show, to add too or leave (`firstPicked`, `togglePicked`,
+  `leftAfterAdding`).
 - **The screens.** Settings → Main offer shows **For your content** under the names, a row a list with how many lines
   it has. Owners and admins open a row to add, change and remove lines, with the AI's buttons under it, each change
   saved at once; everyone else reads them. The phone has the same as its own screen (decision 6b), linked from the
