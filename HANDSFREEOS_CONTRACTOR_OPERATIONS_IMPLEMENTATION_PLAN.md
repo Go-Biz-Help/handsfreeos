@@ -50,17 +50,17 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
    at cost, markup, profit and margin, making a normal HandsFreeOS estimate; good, better, best options in core's
    estimates (decision 5); the lowest margin and its OK (decision 6). An accepted estimate fills the job's budget and
    its materials list (the list came with part 4).
-3. **Crews, scheduling and work orders.** _Built, on the web; the phone's pages come with part 6._ Crews
+3. **Crews, scheduling and work orders.** _Built._ Crews
    (decision 7), booked from the job; a work order on each visit (instructions, checklist, materials to bring, who's
    going, photos required); starter checklists per trade; Done waits on the required items (decision 8); one dispatch
    screen.
-4. **Materials.** _Built, on the web; the phone's pages come with part 6._ Per job (decision 9), with what's
+4. **Materials.** _Built._ Per job (decision 9), with what's
    missing for each upcoming visit and an alert before it.
-5. **Time and job costing.** _Built, on the web; the phone's pages come with part 6._ Time from the status buttons
+5. **Time and job costing.** _Built._ Time from the status buttons
    (decision 10), each person's cost per hour, estimate against actual, the profit it's heading for, and a profit
    dashboard by job, crew, service and customer.
-6. **The phone field app.** Jobs, work orders, checklists, photos, materials used, time and voice notes, all with no
-   signal.
+6. **The phone field app.** _Built._ Jobs, work orders, checklists, photos, materials used, time and voice notes,
+   all with no signal.
 7. **AI helpers.** Draft an estimate from notes, photos and measurements; warn when a job heads over budget, with the
    new profit; turn a tech's voice notes and photos into a daily job report. Each waits for a person where the
    owner's rule says so.
@@ -113,8 +113,8 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
 - **Web.** Estimates (all, or waiting for an OK), the builder, Item costs, an Estimating card in Settings, an
   Estimates card on the job, a waiting notice on Jobs, and the Costs and profit panel on Money's estimate page.
 - **Left for later parts.** The job's materials list from an approved estimate (part 4). Estimate against actual
-  (part 5). The phone's builder (part 6). An estimate the AI drafts on its own, which always waits for a person
-  (part 7).
+  (part 5). A builder on the phone (not in Phase 1: part 6 kept estimates on the web). An estimate the AI drafts on
+  its own, which always waits for a person (part 7).
 - **Choices made while building.** An OK stands when the lowest margin is raised afterwards. Whoever may OK an
   estimate still has to OK it before sending, so nothing goes out unchecked by a slip. A line with no cost counts
   as unchecked only for labor and materials; a permit or a fee with no cost is fine.
@@ -219,3 +219,41 @@ How it works, and the rules worth knowing before changing anything: `docs/contra
   - For the AI, a break runs on its own. Every other change to time, a cost per hour or a job's other costs waits
     on a Confirm card.
   - Costs stay off events, timelines and AI outcomes.
+
+## Part 6 as built
+
+- **Data.** `supabase/migrations/20261027025300_contractor_on_the_phone.sql`: one new table, `notes` (a note from
+  the field on a job or one of its visits: typed, a recording with its words, or photos), an `id` on `team`, and
+  what phones keep. Phones keep each job with its phases, team, work orders, checklists, subcontractors, materials,
+  time and notes, and the business's crews. They keep no money (decision 11). Nothing changed in
+  `apps/sync/sync-config.yaml`: the rows travel the way Real Estate's do.
+- **Operations.** 3 new commands and 1 query: counting a material (`contractor.material.count`), and adding,
+  taking off and listing notes; plus the system's own (`contractor.note.transcribed`). Six commands may wait on a
+  phone with no signal: a tick, a count, a break, a note, a phase's status and a service call's % done. The phone's
+  views are pure, in `views/phone.ts`, and a test holds them to the server's answers.
+- **Worker.** A voice note's recording is put into words by the transcriber calls use, and billed the same way, as
+  speech. A job that closes leaves phones a month later (a queued job per job, `contractor.phone_check`), and
+  comes back when it's opened again.
+- **Phone.** A Jobs row in More. Jobs (my visits today, then my jobs, all or late, with a search), a job (status,
+  customer with Call, progress, visits, materials, time, notes), and a visit's work order (when and where with
+  Directions, the visit's status buttons, instructions, checklist with photos, materials, time with the break
+  button, notes). A visit on a job also has a Work order row on its page in Calendar.
+- **Web.** A Notes from the field card on the job's page and on each visit's work order, where the office reads
+  what the crew left and can type a note.
+- **Left for later.** On the phone: starting a job, booking a visit, dispatch, estimates, costs and settings;
+  adding or changing materials, checklist items, crews and subcontractors; fixing time; marking a job done anyway;
+  looking at a note's photos and playing its recording. A daily report made from the notes and photos (part 7).
+- **Choices made while building.**
+  - Everyone who uses the add-on gets every job on their phone, so a tech can cover a visit that isn't theirs.
+  - A done or cancelled job stays on phones 30 days, then leaves with everything on it.
+  - Work done with no signal counts from when it was done. A tick or a count made while the job was open still
+    lands after the office closed it.
+  - A count from the phone adds to what's counted, so two people counting both add up. It can take some back, never
+    under nothing.
+  - A job's status needs signal, because Done is checked against every visit's checklist. So does taking a note
+    off.
+  - A note is typed, spoken or photographed, and never edited. People take off their own; owners and admins take
+    off anyone's. Its photos and recording stay in the job's files.
+  - A finished job still takes notes, for a callback or something the customer said afterwards.
+  - With no Deepgram key a voice note gets no words: the note keeps its recording, and the app says to play it.
+  - The phone shows hours and never money.

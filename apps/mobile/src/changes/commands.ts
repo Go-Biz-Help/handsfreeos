@@ -431,6 +431,24 @@ import {
   RequestSetAsideOutput,
 } from '@hfos/core/addons/outreach/waiting';
 import {
+  JobSetPercentInput as ContractorJobSetPercentInput,
+  JobSetPercentOutput as ContractorJobSetPercentOutput,
+  JobSetStatusInput as ContractorJobSetStatusInput,
+  JobSetStatusOutput as ContractorJobSetStatusOutput,
+  MaterialCountInput as ContractorMaterialCountInput,
+  MaterialCountOutput as ContractorMaterialCountOutput,
+  NoteAddInput as ContractorNoteAddInput,
+  NoteAddOutput as ContractorNoteAddOutput,
+  NoteRefInput as ContractorNoteRefInput,
+  NoteRemoveOutput as ContractorNoteRemoveOutput,
+  PhaseChangeOutput as ContractorPhaseChangeOutput,
+  PhaseUpdateInput as ContractorPhaseUpdateInput,
+  TimeSetBreakInput as ContractorTimeSetBreakInput,
+  TimeSetBreakOutput as ContractorTimeSetBreakOutput,
+  WorkOrderItemOutput as ContractorWorkOrderItemOutput,
+  WorkOrderItemSetInput as ContractorWorkOrderItemSetInput,
+} from '@hfos/core/addons/contractor/schemas';
+import {
   Creator as SocialcontentCreator,
   CreatorAddInput as SocialcontentCreatorAddInput,
   CreatorDecideInput as SocialcontentCreatorDecideInput,
@@ -564,6 +582,41 @@ export const PHONE_COMMANDS = {
   'company.create': command(ANYTIME, CompanyCreateInput, CompanyCreateOutput),
   'company.restore': command(ANYTIME, CompanyRestoreInput, CompanyRestoreOutput),
   'company.update': command(ANYTIME, CompanyUpdateInput, CompanyUpdateOutput),
+  // Contractor Operations in the field (docs/contractor.md, "On the phone"). What a tech does on site waits as
+  // long as it takes: a checklist tick, a count of what was used, a break, a note, how far along the work is. A
+  // job's own status and taking a note off need signal: each is decided on what HandsFreeOS holds now.
+  'contractor.job.set_percent': command(
+    ANYTIME,
+    ContractorJobSetPercentInput,
+    ContractorJobSetPercentOutput,
+  ),
+  'contractor.job.set_status': command(
+    ONLINE,
+    ContractorJobSetStatusInput,
+    ContractorJobSetStatusOutput,
+  ),
+  'contractor.material.count': command(
+    ANYTIME,
+    ContractorMaterialCountInput,
+    ContractorMaterialCountOutput,
+  ),
+  'contractor.note.add': command(ANYTIME, ContractorNoteAddInput, ContractorNoteAddOutput),
+  'contractor.note.remove': command(ONLINE, ContractorNoteRefInput, ContractorNoteRemoveOutput),
+  'contractor.phase.update': command(
+    ANYTIME,
+    ContractorPhaseUpdateInput,
+    ContractorPhaseChangeOutput,
+  ),
+  'contractor.time.set_break': command(
+    ANYTIME,
+    ContractorTimeSetBreakInput,
+    ContractorTimeSetBreakOutput,
+  ),
+  'contractor.work_order.item_set': command(
+    ANYTIME,
+    ContractorWorkOrderItemSetInput,
+    ContractorWorkOrderItemOutput,
+  ),
   // Putting a thread away and bringing it back. Both are idempotent — the command returns early when it is
   // already where it is going — which is why they can wait out a tunnel.
   'conversation.archive': command(ANYTIME, ConversationRefInput, ConversationRefOutput),

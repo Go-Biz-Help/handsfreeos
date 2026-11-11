@@ -5,6 +5,8 @@
  */
 import type { AppPlace } from '../../assistant/places-map';
 import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIALS_ALERT_HOURS } from './materials';
+import { CONTRACTOR_PHONE_WORDS as PH } from './phone-words';
+import { PHONE_DAYS } from './progress';
 import { MAX_RUNNING_HOURS } from './time';
 import {
   alertHoursWords,
@@ -36,6 +38,7 @@ const H = W.time;
 const Q = W.costing;
 const L = W.laborCosts;
 const F = W.profit;
+const V = W.notes;
 
 const statuses = Object.values(S).join(', ');
 const materialCounts = Object.values(MATERIAL_COUNT_WORDS).join(', ');
@@ -52,18 +55,24 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${J.counts.open}, ${J.counts.late}, ${J.counts.onHold} and ${J.counts.doneThisMonth}`,
       `${J.newJob}, ${J.search}, ${J.filters.all}, ${J.filters.mine} and ${J.filters.late}, ${J.views.board} or ${J.views.list}, and ${J.showClosed}`,
       `The board: a column for each status (${statuses}); each job with its customer, property, % done, deadline (red when late), lead and next visit`,
+      `On the phone it’s More → ${PH.more.jobs}: ${PH.jobs.today} (each opens its work order), then ${PH.jobs.filters.mine}, ${PH.jobs.filters.all} and ${PH.jobs.filters.late}, a search, and ${PH.jobs.closedToo}. It’s kept on the phone, so it opens with no signal`,
     ],
     howTo: [
       `Start a job: ${NAME} → ${P.jobs} → ${J.newJob}. Pick ${N.kindHints.service.toLowerCase().replace(/\.$/, '')} (${W.newJob.kind}: Service call) or a project, its customer, its property (or a new address), its trade, lead, start and deadline`,
       `See what’s running late: ${NAME} → ${P.jobs} → ${J.filters.late}`,
       `See only my jobs: ${NAME} → ${P.jobs} → ${J.filters.mine} (jobs you lead or are on the team of)`,
+      `Work a job from the phone with no signal: More → ${PH.more.jobs}, then the job or one of today’s visits. Ticking the checklist and adding its photos, counting materials, a break, notes, a phase’s status and a service call’s % done all work with no signal: they’re kept on the phone and send on their own. Changing a job’s status and removing a note need signal`,
     ],
     canChange: ['start a job or a project, and find jobs by name, customer or property'],
+    notHere: [
+      `on the phone: starting a job, dispatch, estimates, costs, profit and settings. ${PH.more.onTheWeb}`,
+      `a job done or cancelled more than ${PHONE_DAYS} days ago isn’t kept on phones: it’s on the web`,
+    ],
     path: '',
   },
   {
     label: 'A job',
-    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials, time, costs so far and budget',
+    what: 'one job or project: its status, customer, property, phases, deadlines, team, visits, materials, time, notes from the field, costs so far and budget',
     where: [NAME, P.jobs],
     then: 'press the job',
     onScreen: [
@@ -74,10 +83,12 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${D.visits}: the visits booked on it, each with where it stands (Scheduled, On the way, Started, Done), its crew, its checklist’s progress and how many materials it’s still missing, and ${D.bookVisit}; pressing a visit opens its work order`,
       `${M.title}: what the job needs, each with where it stands (${materialStates}), how much of what’s needed is here, what’s short, its supplier, the day it’s expected and the visit it’s for; one button moves it along (${M.markOrdered}, ${M.markDelivered}, ${M.markUsed}); ${M.add}, and ${M.edit} or ${M.remove} under each one’s menu. People who may see job costs also see what one costs, ${M.planned.toLowerCase()} and ${M.taken.toLowerCase()}`,
       `${H.title}: the hours tracked on the job (${H.work}, ${H.travel} and ${H.breaks}, and how many people are on the clock now), then each stretch with whose it is, what it was, from when to when and how long; one that was ${H.autoStopped.toLowerCase().replace(/\.$/, '')} says so, and a fixed one says who fixed it and why. ${H.takeBreak} or ${H.backToWork} while you’re on the clock; for people who may fix time, ${H.add}, and ${H.fix} or ${H.remove} under each one’s menu`,
+      `${V.title}: what the crew typed, said or photographed on the job, the newest first, each with who left it, when and the visit it was taken on; a voice note shows its words once they’ve come, with ${V.recording}, and each photo opens among the job’s files; ${V.add}, and ${V.remove} under a note’s menu (your own, or anyone’s for owners and admins)`,
       `${Q.title} (only for people who may see job costs and profit): ${Q.labor}, ${Q.materials}, ${Q.other}, ${Q.total}, ${Q.hours}, ${Q.price}, ${Q.profit} and ${Q.margin}, each ${Q.planned}, ${Q.soFar} and ${Q.heading}; a warning when it’s heading over its plan or under the lowest margin, or when time or materials have no cost yet; ${Q.byPerson}; and ${Q.otherTitle} with ${Q.otherAdd} and ${Q.otherRemove}`,
       `${D.money.title} (only for people who may see job costs and profit): ${D.money.price}, ${D.money.labor}, ${D.money.materials}, ${D.money.other}, ${D.money.hours}, ${D.money.total}, ${D.money.profit} and ${D.money.margin}`,
       `${E.title}: the estimates written for it, each with its status, total and whether it’s ${E.waitingOk.toLowerCase()}, and ${E.add} (for people who may see job costs)`,
       `${D.openRecord}: the job’s own record page, with its timeline, notes, files and tasks`,
+      `On the phone (More → ${PH.more.jobs} → the job): its status with ${PH.job.changeStatus}, ${PH.job.about.toLowerCase()} with ${PH.job.callShort} for its customer, ${PH.job.progress} (press a phase to move it along, or set a service call’s % done), its visits, ${M.title}, ${H.title} and ${V.title}. No price, budget or cost is on the phone`,
     ],
     howTo: [
       `Move a job along: its page, then ${D.status}. It also moves on its own: a visit booked on it makes it Scheduled, and a tech pressing Started on one of its visits makes it In progress`,
@@ -96,21 +107,26 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Add time nobody tracked: the job’s page, ${H.title} → ${H.add}. Pick who, what it was, from when to when, and say why`,
       `See whether a job is making money: its page, ${Q.title}. ${Q.soFar} is what it has really cost; ${Q.heading} is where it ends up if it goes on as it has (labor is paced by the job’s % done)`,
       `Add a permit, a fee or a subcontractor’s bill to a job’s costs: its page, ${Q.title} → ${Q.otherTitle} → ${Q.otherAdd}`,
+      `Read what a tech said about a job: its page, ${V.title}. A voice note’s words come a moment after the recording reaches HandsFreeOS; until then it says “${V.wordsWaiting}”`,
+      `Leave a note on a job: on the web, its page → ${V.title} → ${V.add}. On the phone, the job or the visit’s work order → ${V.title} → ${PH.notes.type}, ${PH.notes.photo} or ${PH.notes.voice}; with no signal it’s kept on the phone and sends on its own`,
+      `Say how much of a material was used from the phone: the job or the visit’s work order → ${M.title} → press the material, type what was used, wasted or sent back just now, then ${PH.materials.add}. It adds to what’s counted already`,
     ],
     canChange: [
-      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, take a break or come back from one, fix, add and remove time (with “Fix time on jobs”), and set its price and budget and what a material costs and add and remove its other costs (with job-cost access)',
+      'change its status, details, dates, customer, property, lead and team, set a service call’s % done, make it a project, add, rename, reorder, move along and remove phases, add, change and remove materials and say how much is ordered, delivered, used, wasted and returned, take a break or come back from one, fix, add and remove time (with “Fix time on jobs”), leave a typed note and take one off, add to how much of a material was used, wasted or sent back, and set its price and budget and what a material costs and add and remove its other costs (with job-cost access)',
     ],
     notHere: [
       'ordering from a supplier, and stock in a warehouse or a van: the materials list records what a job needs and what’s happened; it places no order (supplier orders and stock come later)',
       'starting or stopping work time by hand: it follows the visit’s buttons (On the way, Started, Waiting on parts, Done), on the visit’s sheet in Calendar or on the crew’s phones. Someone who may fix time adds or fixes it afterwards',
       'paying people: the time here is for what jobs cost, and nothing here runs payroll',
       'deleting a job: archive its record instead, and everything on it is kept',
+      'recording a voice note or taking a photo: that’s done on the phone. The Assistant leaves typed notes, and puts a photo or a recording on a note only when it’s already in the job’s files',
+      'changing what a note says: take it off and leave a new one',
     ],
     path: 'jobs/[jobId]',
   },
   {
     label: 'A work order',
-    what: 'one visit on a job: what to do and bring, the materials it needs, the time on it, its crew, the people and subcontractors going, and its checklist',
+    what: 'one visit on a job: what to do and bring, the materials it needs, the time on it, its crew, the people and subcontractors going, its checklist, and the notes left on it from the field',
     where: [NAME, P.jobs],
     then: `press the job, then the visit under ${D.visits} (or press a visit on ${P.dispatch})`,
     onScreen: [
@@ -120,8 +136,10 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `${M.visitTitle}: the job’s materials this visit needs (the ones for it, and the ones for any visit), each with how much is here and what’s short, ${M.markDelivered} or ${M.markUsed}, ${M.add}, and ${M.seeAll}`,
       `${H.visitTitle}: the hours tracked on this visit and each stretch of them, with ${H.takeBreak} or ${H.backToWork} while you’re on the clock, and ${H.seeAll}`,
       `${O.checklist}: each item a box to tick or a photo to add, some marked ${O.required}; ${O.addPhoto}, ${O.seePhoto}, ${O.makeRequired} or ${O.makeOptional}, ${O.removeItem}, and ${O.addItem} (Checkbox or Photo, ${O.required} or not)`,
+      `${V.visitTitle}: what the crew typed, said or photographed on this visit, with ${V.add} and ${V.remove}`,
       `${O.whoGoes}: ${O.crew} (pick one of your crews, or ${O.noCrew}) and the ${O.people.toLowerCase()} members on the visit`,
       `${O.subs}: each with whether they were texted and whether their work is done; ${O.addSub}, ${O.tellSubs}, ${O.subWorkDone} and ${O.removeSub.toLowerCase()}`,
+      `On the phone (More → ${PH.more.jobs} → a visit under ${PH.jobs.today}, or the ${PH.visit.panel} row on the visit’s page in Calendar): when and where it is with ${PH.visit.directions}, the visit’s On my way, Started, Waiting on parts and Done buttons, the instructions and what to bring, who’s going, the checklist (tick a box, or ${PH.visit.takePhoto.toLowerCase()} for a photo item), ${M.visitTitle}, ${H.visitTitle} with the break button, and ${V.visitTitle}. It all works with no signal`,
     ],
     howTo: [
       `Put a crew on a visit: its work order → ${O.whoGoes} → ${O.crew}. Everyone on the team in the crew is booked on the visit, and its subcontractors are added. If someone isn’t free then it says so, with ${O.crewAnyway}`,
@@ -131,9 +149,11 @@ export const CONTRACTOR_PLACES: readonly AppPlace[] = [
       `Change who on the team is going without a crew: ${O.openInCalendar}, then Who’s going on the visit’s sheet`,
       `Say what was used on a visit: its work order → ${M.visitTitle} → ${M.markUsed}, or the material’s menu → ${M.edit} to type how much was used or wasted`,
       `Take a break on a visit: its work order → ${H.visitTitle} → ${H.takeBreak}, then ${H.backToWork} when you’re back. It’s there once the visit is Started and you’re on the clock`,
+      `Work a visit’s checklist with no signal: on the phone, its work order → ${O.checklist}. A tick, a photo, a count, a break or a note made with no signal waits on the phone (“${PH.kept.waitingToSend}”) and sends on its own; it counts from the moment it was made, even if the office closed the job meanwhile`,
+      `Leave a note on a visit: its work order → ${V.visitTitle} → ${V.add} (on the phone: ${PH.notes.type}, ${PH.notes.photo} or ${PH.notes.voice})`,
     ],
     canChange: [
-      'write its instructions and what to bring, put a crew on it, add, text, mark done and take off subcontractors, add, tick, change and remove checklist items (a photo item is ticked by adding its photo, on the screen), add materials for the visit and say what was delivered and used, and take a break or come back from one',
+      'write its instructions and what to bring, put a crew on it, add, text, mark done and take off subcontractors, add, tick, change and remove checklist items (a photo item is ticked by adding its photo, on the screen), add materials for the visit and say what was delivered and used, take a break or come back from one, and leave a typed note on the visit or take one off',
     ],
     notHere: [
       'where the visit stands (On the way, Started, Done) is set by its crew on the visit’s sheet in Calendar or on their phones',
@@ -295,4 +315,6 @@ export const CONTRACTOR_LOOK_ALIKES: readonly string[] = [
   'Time on a job comes from the visit’s buttons (On the way, Started, Waiting on parts, Done) and the Break button. It’s for what jobs cost, not payroll: nothing in Contractor Operations pays anyone.',
   'What an hour costs you (Contractor Operations → Settings) is each person’s cost to the business, and turns tracked time into labor cost. Labor’s price and cost per hour under Estimating are what a new labor line on an estimate starts at; that cost also counts for anyone with no cost of their own.',
   'Profit (Contractor Operations → Profit) sets each job’s price against what the job cost. What was invoiced and paid is in Money.',
+  'Notes from the field (on a job’s page and a visit’s work order) are what the crew typed, said or photographed, mostly from their phones. The Notes on the job’s record page under Contacts are the business’s ordinary notes; a note from the field also shows as a line on the job’s timeline there.',
+  'On the phone, Contractor Operations is the Jobs row in More: Jobs, a job and a visit’s work order, all kept on the phone so they work with no signal. A visit on a job also has a Work order row on its page in Calendar.',
 ];

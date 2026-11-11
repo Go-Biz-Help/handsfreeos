@@ -14,6 +14,7 @@ import { JOB_STATUSES as VISIT_STAGES } from '../../schemas/job';
 import { ITEM_KINDS } from './checklists';
 import { COST_KINDS } from './estimating';
 import { DEFAULT_MATERIALS_ALERT_HOURS, MATERIAL_STATES } from './materials';
+import { NOTE_LIMITS, TRANSCRIPT_STATES } from './notes';
 import { JOB_KINDS, JOB_STATUSES, PHASE_STATUSES } from './progress';
 import { PROFIT_GROUPS, PROFIT_PERIODS } from './job-costing';
 import { TIME_KINDS, TIME_SOURCES } from './time';
@@ -797,6 +798,38 @@ export const MaterialChangeOutput = z.object({
 
 export const MaterialRefInput = z.object({ workspaceId: uuid, materialId: uuid });
 
+/** How much more of a material: up or down, to three decimal places. */
+const quantityMore = z
+  .number()
+  .min(-LIMITS.quantity, 'That’s more than a million.')
+  .max(LIMITS.quantity, 'That’s more than a million.')
+  .refine((q) => Math.abs(Math.round(q * 1000) - q * 1000) < 1e-6, {
+    error: 'Three decimal places at most.',
+  });
+/**
+ * Counting on the job (part 6): how much more was used, wasted or sent back since the last count, so two people
+ * counting the same material both add up, and a count made with no signal lands right whenever it arrives.
+ */
+export const MaterialCountInput = z
+  .object({
+    workspaceId: uuid,
+    materialId: uuid,
+    /** How much more was used. Below 0 takes some back, never under nothing. */
+    used: quantityMore.optional(),
+    wasted: quantityMore.optional(),
+    returned: quantityMore.optional(),
+  })
+  .refine((v) => !!v.used || !!v.wasted || !!v.returned, {
+    error: 'Say how much more was used, wasted or sent back.',
+    path: ['used'],
+  });
+export const MaterialCountOutput = MaterialChangeOutput.extend({
+  /** The totals now. */
+  used: z.number(),
+  wasted: z.number(),
+  returned: z.number(),
+});
+
 export const MaterialSetCostInput = MaterialRefInput.extend({
   /** What one costs the business, in cents; null takes the cost off. */
   unitCostCents: unitCost.nullable(),
@@ -1338,5 +1371,94 @@ export const ProfitOutput = z.object({
   total: ProfitRow,
   rows: z.array(ProfitRow),
   minMarginBp: z.int(),
+  truncated: z.boolean(),
+});
+
+// ---------- notes from the field (part 6) ----------
+
+export const TranscriptState = z.enum(TRANSCRIPT_STATES);
+const noteBody = z
+  .string()
+  .trim()
+  .min(1, 'Write the note first.')
+  .max(NOTE_LIMITS.body, 'Keep a note to 4,000 characters.');
+
+export const NoteAddInput = z
+  .object({
+    workspaceId: uuid,
+    jobId: uuid,
+    /** The note's own id, made by the phone, so one sent twice is added once. Left out, it gets one. */
+    id: uuid.optional(),
+    /** The visit it was taken on. */
+    appointmentId: uuid.optional(),
+    body: noteBody.optional(),
+    /** A recording, already one of the job's files. Its words follow on their own. */
+    audioFileId: uuid.optional(),
+    /** Photos, already among the job's files. */
+    photoFileIds: z
+      .array(uuid)
+      .max(NOTE_LIMITS.photos, `Up to ${NOTE_LIMITS.photos} photos on a note.`)
+      .default([]),
+  })
+  .refine((v) => !!v.body || !!v.audioFileId || v.photoFileIds.length > 0, {
+    error: 'Write a note, record one or add a photo.',
+    path: ['body'],
+  });
+export const NoteAddOutput = z.object({
+  noteId: uuid,
+  jobId: uuid,
+  appointmentId: uuid.nullable(),
+});
+export const NoteRefInput = z.object({ workspaceId: uuid, noteId: uuid });
+export const NoteRemoveOutput = z.object({ noteId: uuid, jobId: uuid, removed: z.boolean() });
+
+/** The worker's: a recording's words, or that they couldn't be made. */
+export const NoteTranscribedInput = z.object({
+  workspaceId: uuid,
+  noteId: uuid,
+  transcript: z.string().max(NOTE_LIMITS.transcript).nullable(),
+});
+export const NoteTranscribedOutput = z
+  .object({ noteId: uuid, jobId: uuid, changed: z.boolean() })
+  .nullable();
+
+export const Note = z.object({
+  id: uuid,
+  /** The visit it was taken on; null for the job itself, or once that visit is deleted for good. */
+  appointmentId: uuid.nullable(),
+  body: z.string().nullable(),
+  /** A voice note: its recording (null once the file is gone), and its words once they come. */
+  audio: z
+    .object({
+      fileId: uuid.nullable(),
+      transcript: z.string().nullable(),
+      state: TranscriptState,
+    })
+    .nullable(),
+  /** Its photos' files, in the order they were taken. */
+  photoFileIds: z.array(uuid),
+  /** Who left it; null for someone who has left HandsFreeOS. */
+  by: Person.nullable(),
+  /** When it was taken. */
+  notedAt: z.string(),
+});
+export type Note = z.infer<typeof Note>;
+
+export const NoteListInput = z.object({
+  workspaceId: uuid,
+  jobId: uuid,
+  /** Only the notes taken on one visit. */
+  appointmentId: uuid.optional(),
+});
+export const NoteListOutput = z.object({
+  jobId: uuid,
+  /** The newest first. */
+  notes: z.array(Note),
+  /** The names of the files the notes point at (recordings and photos), for a link to each. */
+  files: z.array(z.object({ id: uuid, name: z.string() })),
+  may: z.object({
+    /** Take off anyone's note, not only one's own. */
+    removeAny: z.boolean(),
+  }),
   truncated: z.boolean(),
 });

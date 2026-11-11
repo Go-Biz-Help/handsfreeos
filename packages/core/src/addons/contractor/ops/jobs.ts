@@ -47,6 +47,7 @@ import {
   keepPercent,
   kindIds,
   loadJob,
+  madeWhileOpen,
   pairsOf,
   phasesOf,
   propertyName,
@@ -573,6 +574,8 @@ export const jobSetPercent = defineAddonCommand(contractorAddon, {
   output: JobSetPercentOutput,
   permission: 'contractor.use',
   scope: inWorkspace,
+  // Set on the job with no signal: it's kept on the phone and sent when there is some.
+  offline: 'anytime',
   ai: {
     tool: 'contractor_set_job_percent',
     description:
@@ -588,12 +591,17 @@ export const jobSetPercent = defineAddonCommand(contractorAddon, {
     if (job.archived) throw HfosError.notFound(REFUSALS.jobGone);
     if (job.kind === 'project' && (await phasesOf(ctx, job.recordId)).length)
       throw HfosError.rule('contractor_percent_on_project', 409, REFUSALS.percentOnProject);
-    if (!isOpen(job.status))
+    if (!isOpen(job.status)) {
+      // Set on a phone while the job was open, and here after it closed: the job's own % stands, and the phone has
+      // nothing to be told off for.
+      if (await madeWhileOpen(ctx, job))
+        return { jobId: job.recordId, percentDone: job.percentDone };
       throw HfosError.rule(
         'contractor_job_closed',
         409,
         REFUSALS.closedJob(job.name, JOB_STATUS_WORDS[job.status]),
       );
+    }
     if (input.percentDone === job.percentDone)
       return { jobId: job.recordId, percentDone: job.percentDone };
     await ctx.tx

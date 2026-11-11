@@ -39,6 +39,14 @@ import {
 } from '../../src/addons/contractor/job-costing';
 import { contractorAddon } from '../../src/addons/contractor/manifest';
 import {
+  noteAddedWords,
+  noteLine,
+  NOTE_LIMITS,
+  type NoteParts,
+} from '../../src/addons/contractor/notes';
+import { clockOfSeconds, CONTRACTOR_PHONE_WORDS } from '../../src/addons/contractor/phone-words';
+import { leavesPhonesAt, PHONE_DAYS } from '../../src/addons/contractor/progress';
+import {
   amountWords,
   costMaterials,
   DEFAULT_MATERIALS_ALERT_HOURS,
@@ -57,7 +65,11 @@ import {
   toOrderOf,
   type MaterialCounts,
 } from '../../src/addons/contractor/materials';
-import { ContractorSettingsSchema } from '../../src/addons/contractor/schemas';
+import {
+  ContractorSettingsSchema,
+  MaterialCountInput,
+  NoteAddInput,
+} from '../../src/addons/contractor/schemas';
 import { contractorAddonServer } from '../../src/addons/contractor/server';
 import {
   clockFor,
@@ -824,5 +836,169 @@ describe('job costing and profit (the owner’s decisions 10 and 11)', () => {
       expect(rows.reduce((n, r) => n + r.profitCents, 0)).toBe(total.profitCents);
     expect(groupProfit([], 'job')).toEqual([]);
     expect(profitTotal([])).toMatchObject({ jobs: 0, profitCents: 0, marginBp: null });
+  });
+});
+
+describe('on the phone (part 6)', () => {
+  const note = (n: Partial<NoteParts>): NoteParts => ({
+    body: null,
+    spoken: false,
+    transcript: null,
+    transcriptState: 'none',
+    photos: 0,
+    ...n,
+  });
+
+  it('says a note in one line: what was typed, else what was said, with its photos', () => {
+    expect(noteLine(note({ body: 'The shutoff  valve is\nbehind the heater.' }))).toBe(
+      'The shutoff valve is behind the heater.',
+    );
+    expect(noteLine(note({ body: 'Gate code 4411', photos: 2 }))).toBe('Gate code 4411 (2 photos)');
+    expect(
+      noteLine(
+        note({ spoken: true, transcript: 'The coil is iced over.', transcriptState: 'done' }),
+      ),
+    ).toBe('The coil is iced over.');
+    // What was typed wins over what was said.
+    expect(
+      noteLine(note({ body: 'Typed', spoken: true, transcript: 'Said', transcriptState: 'done' })),
+    ).toBe('Typed');
+    expect(noteLine(note({ spoken: true, transcriptState: 'waiting' }))).toBe(
+      'Voice note, its words are on their way',
+    );
+    expect(noteLine(note({ spoken: true, transcriptState: 'failed', photos: 1 }))).toBe(
+      'Voice note (1 photo)',
+    );
+    expect(noteLine(note({ photos: 3 }))).toBe('3 photos');
+    expect(noteLine(note({}))).toBe('Note');
+    const long = noteLine(note({ body: 'word '.repeat(100) }), 40);
+    expect(long.length).toBeLessThanOrEqual(40);
+    expect(long.endsWith('…')).toBe(true);
+  });
+
+  it('puts a note on the job’s timeline without its recording', () => {
+    expect(noteAddedWords({ body: 'Gate code 4411', spoken: false, photos: 0 })).toBe(
+      'added a note: “Gate code 4411”',
+    );
+    expect(noteAddedWords({ body: null, spoken: true, photos: 2 })).toBe(
+      'added a voice note with 2 photos',
+    );
+    expect(noteAddedWords({ body: null, spoken: false, photos: 1 })).toBe('added 1 photo');
+    expect(noteAddedWords({ body: null, spoken: false, photos: 0 })).toBe('added a note');
+  });
+
+  it('takes a note that says something, and a count that counts something', () => {
+    const file = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const on = { workspaceId: file(1), jobId: file(2) };
+    expect(NoteAddInput.safeParse(on).success).toBe(false);
+    expect(NoteAddInput.safeParse({ ...on, body: '   ' }).success).toBe(false);
+    expect(NoteAddInput.safeParse({ ...on, body: 'Gate code 4411' }).success).toBe(true);
+    expect(NoteAddInput.safeParse({ ...on, audioFileId: file(3) }).success).toBe(true);
+    expect(NoteAddInput.safeParse({ ...on, photoFileIds: [file(4)] }).success).toBe(true);
+    expect(
+      NoteAddInput.safeParse({
+        ...on,
+        photoFileIds: Array.from({ length: NOTE_LIMITS.photos + 1 }, (_, i) => file(i + 10)),
+      }).success,
+    ).toBe(false);
+    const material = { workspaceId: file(1), materialId: file(5) };
+    expect(MaterialCountInput.safeParse(material).success).toBe(false);
+    expect(MaterialCountInput.safeParse({ ...material, used: 0 }).success).toBe(false);
+    expect(MaterialCountInput.safeParse({ ...material, used: 2, wasted: 0.5 }).success).toBe(true);
+    // Below nothing takes some back: a slip of the thumb can be undone.
+    expect(MaterialCountInput.safeParse({ ...material, used: -1 }).success).toBe(true);
+  });
+
+  it('keeps an open job on phones, and a closed one a month', () => {
+    const at = Date.UTC(2026, 8, 16);
+    for (const status of ['new', 'scheduled', 'in_progress', 'on_hold'] as const)
+      expect(leavesPhonesAt({ status, statusAt: at }), status).toBeNull();
+    for (const status of ['done', 'cancelled'] as const)
+      expect(leavesPhonesAt({ status, statusAt: at }), status).toBe(at + PHONE_DAYS * 86_400_000);
+    expect(PHONE_DAYS).toBe(30);
+  });
+
+  it('says how many changes wait, and how long a recording ran', () => {
+    const P = CONTRACTOR_PHONE_WORDS;
+    expect(P.kept.waiting(1)).toBe(
+      'No signal. 1 change waits on this phone and will send on its own.',
+    );
+    expect(P.kept.waiting(3)).toBe(
+      'No signal. 3 changes wait on this phone and will send on their own.',
+    );
+    expect(P.more.detail(4, 0)).toBe('4 open');
+    expect(P.more.detail(4, 1)).toBe('4 open · 1 visit for you today');
+    expect(P.more.detail(0, 2)).toBe('0 open · 2 visits for you today');
+    expect(clockOfSeconds(0)).toBe('0:00');
+    expect(clockOfSeconds(65.9)).toBe('1:05');
+    expect(clockOfSeconds(-3)).toBe('0:00');
+    // Where a fix is on the phone itself, the words name the setting.
+    expect(P.visit.noCamera).toContain('Settings → HandsFreeOS → Camera');
+    expect(P.notes.noMicrophone).toContain('Settings → HandsFreeOS → Microphone');
+  });
+
+  it('keeps its table, jobs, events, phone pages and what phones hold in the manifest, with no money', () => {
+    expect(contractorAddon.tables).toEqual(expect.arrayContaining(['notes']));
+    expect(contractorAddon.jobs).toEqual(expect.arrayContaining(['contractor.phone_check']));
+    expect(contractorAddon.events?.consumes).toEqual(
+      expect.arrayContaining(['contractor.note.added', 'contractor.job.status_changed']),
+    );
+    expect(contractorAddon.ui?.phone).toEqual([
+      { path: '', query: ['filter', 'q'] },
+      { path: 'jobs/:jobId' },
+      { path: 'visits/:appointmentId' },
+    ]);
+    const kept = contractorAddon.offline?.tables ?? [];
+    expect(contractorAddon.offline?.permission).toBe('contractor.use');
+    expect(kept.map((t) => t.table).sort()).toEqual([
+      'crews',
+      'jobs',
+      'materials',
+      'notes',
+      'phases',
+      'team',
+      'time_entries',
+      'work_order_items',
+      'work_order_subs',
+      'work_orders',
+    ]);
+    // Every table a phone keeps is one of the add-on's own.
+    for (const t of kept) expect(contractorAddon.tables, t.table).toContain(t.table);
+    // The owner's decision 11: no price, budget or cost leaves for a phone.
+    expect(
+      kept.flatMap((t) => t.columns).filter((c) => /cents|cost|price|rate|margin|budget/.test(c)),
+    ).toEqual([]);
+  });
+
+  it('lets the AI add a note and a count on its own, asks before it removes a note, and waits where phones can', () => {
+    const all = [
+      ...(contractorAddonServer.commands ?? []),
+      ...(contractorAddonServer.queries ?? []),
+    ];
+    const op = (name: string) => all.find((c) => c.name === name);
+    const tool = (name: string) => op(name)?.ai as { autonomy?: string } | undefined;
+    for (const name of ['contractor.note.add', 'contractor.material.count']) {
+      expect(tool(name), name).toBeDefined();
+      expect(tool(name)?.autonomy, name).toBeUndefined();
+    }
+    expect(tool('contractor.note.remove')?.autonomy).toBe('confirm');
+    expect(tool('contractor.note.list')).toBeDefined();
+    // The worker's own: a recording's words.
+    expect(tool('contractor.note.transcribed')).toBeUndefined();
+    for (const name of ['contractor.note.add', 'contractor.note.remove', 'contractor.note.list'])
+      expect(op(name)?.permission, name).toBe('contractor.use');
+    // What a tech does with no signal waits on the phone; what must be checked against everything else doesn't.
+    const offline = (name: string) => (op(name) as { offline?: unknown } | undefined)?.offline;
+    for (const name of [
+      'contractor.note.add',
+      'contractor.material.count',
+      'contractor.work_order.item_set',
+      'contractor.time.set_break',
+      'contractor.job.set_percent',
+      'contractor.phase.update',
+    ])
+      expect(offline(name), name).toBe('anytime');
+    for (const name of ['contractor.job.set_status', 'contractor.note.remove'])
+      expect(offline(name), name).toBe('online');
   });
 });
