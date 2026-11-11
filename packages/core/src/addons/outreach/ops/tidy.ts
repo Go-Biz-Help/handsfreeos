@@ -210,16 +210,15 @@ export const friendsTidy = defineAddonQuery(outreachAddon, {
     const done = await endsToday(ctx, me, todayFrom, input.platform);
     // On a follow network (Instagram's) tidying unfollows (the Instagram and Alignable plan's question 5): never anyone
     // who wrote back, a customer, someone kept, or anyone the person followed before HandsFreeOS saw it.
-    const unfollowing =
-      kit.requestsMessageAfterDays !== null
-        ? sql`and p.person_id is null and not f.keep
+    const unfollowing = kit.follows
+      ? sql`and p.person_id is null and not f.keep
             and exists (select 1 from addon_outreach.touches t
               where t.profile_id = p.id and t.user_id = ${me} and t.kind = 'friend_request')
             and not exists (select 1 from addon_outreach.replies r
               where r.profile_id = p.id and r.user_id = ${me})
             and not exists (select 1 from addon_outreach.file_chats c
               where c.profile_id = p.id and c.user_id = ${me} and not c.last_from_me)`
-        : sql``;
+      : sql``;
 
     // Past the business's wait, or marked by Cancel all however new (decision 121).
     const cancel = await rows<Found>(
@@ -654,7 +653,7 @@ export const friendsCancelAll = defineAddonCommand(outreachAddon, {
     const now = at.getTime();
     const kit = NETWORKS[input.platform];
     const { friendRequests } = kit.words;
-    if (kit.requestsMessageAfterDays !== null)
+    if (kit.follows)
       throw HfosError.rule(
         'outreach_cancel_all_follows',
         409,

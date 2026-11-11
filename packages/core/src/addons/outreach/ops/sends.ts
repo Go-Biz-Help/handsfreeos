@@ -17,7 +17,7 @@ import { GROUP_REPLIES_SINCE, groupRepliesOn } from '../active';
 import { AUTOPILOT_WORDS, waitsForPeopleOk } from '../autopilot';
 import { underAPost, type PostSendKind, type SendKind } from '../automation';
 import { chatUrlOn } from '../network-words';
-import { NETWORKS, PLATFORMS, type Platform } from '../networks';
+import { FOLLOW_PLATFORMS, NETWORKS, PLATFORMS, type Platform } from '../networks';
 import type { DraftOpener } from '../openers';
 import {
   changed,
@@ -296,6 +296,39 @@ async function dropStaleCatchUps(ctx: CommandContext, me: string, at: Date): Pro
 }
 
 /**
+ * On a follow network (Instagram's), someone who doesn't follow the person back, and never wrote to them (a reply seen,
+ * or a message of theirs in a chat kept), is never written to (decision 159): a message lands in their Requests, never their inbox, and their follow-back is the
+ * trigger. `p` is the profile.
+ */
+const notFollowingBack = (me: string) => sql`(p.platform::text in (${sql.join(
+  FOLLOW_PLATFORMS.map((f) => sql`${f}`),
+  sql`, `,
+)}) and not exists (select 1 from addon_outreach.friends f
+    where f.profile_id = p.id and f.user_id = ${me} and f.state = 'friends')
+  and not exists (select 1 from addon_outreach.replies r where r.profile_id = p.id and r.user_id = ${me})
+  and not ${talkedWith(me)})`;
+
+/**
+ * Messages to someone who doesn't follow the person back (decision 159), drafted before it, chiefly Instagram's one
+ * message to their Requests: the person's own still waiting for an OK go, and one OK'd is skipped. Run as each draft
+ * is queued, as `dropStaleCatchUps` is. A comment under their post isn't one.
+ */
+async function dropNotFollowing(ctx: CommandContext, me: string, at: Date): Promise<void> {
+  const unfollowed = sql`s.workspace_id = ${ctx.scope.workspaceId!} and s.user_id = ${me} and s.post_id is null
+    and exists (select 1 from addon_outreach.profiles p where p.id = s.profile_id and ${notFollowingBack(me)})`;
+  await rows(
+    ctx.tx,
+    sql`delete from addon_outreach.sends s where ${unfollowed} and s.state = 'waiting'`,
+  );
+  await rows(
+    ctx.tx,
+    sql`update addon_outreach.sends s set state = 'skipped', done_at = ${at.toISOString()}::timestamptz,
+            updated_at = ${at.toISOString()}::timestamptz
+          where ${unfollowed} and s.state = 'approved'`,
+  );
+}
+
+/**
  * Messages drafted under older rules (decision 157, ../sends.ts `RULES_VERSION`): the person's own still waiting for an
  * OK, or OK'd and not yet sent, go, so Today lists them again and the extension writes them under the rules as they
  * are. Run as each draft is queued, as `dropStaleCatchUps` is; till then nothing lists, OKs or sends them.
@@ -326,6 +359,7 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
     const me = requireHuman(ctx).userId;
     const ws = ctx.scope.workspaceId!;
     await dropStaleCatchUps(ctx, me, changeMoment(ctx.meta));
+    await dropNotFollowing(ctx, me, changeMoment(ctx.meta));
     await rewriteOlder(ctx, me);
     const open = () =>
       listed(
@@ -345,11 +379,13 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
       name: string;
       platform: Platform;
       off: boolean;
+      not_following: boolean;
       client: boolean;
       client_cause: ClientCause | null;
     }>(
       ctx.tx,
       sql`select p.id, p.name, p.platform, not ${contactable('p')} as off,
+            ${notFollowingBack(me)} as not_following,
             ${outreach ? isClient('p') : sql`false`} as client,
             ${outreach ? clientCauseOf('p') : sql`null`} as client_cause
           from addon_outreach.profiles p
@@ -365,6 +401,14 @@ export const sendQueue = defineAddonCommand(outreachAddon, {
         'outreach_never_contact',
         422,
         `${profile.name} is on the Never contact list, so no message goes to them. To write to them, take them off it in Social Outreach → People → Friends.`,
+      );
+    // On a follow network (Instagram's), a message only once they follow the person back, or wrote to them (decision
+    // 159): before that it would land in their Requests, never their inbox. A comment under their post can go.
+    if (profile.not_following && !underAPost(input.kind))
+      throw HfosError.rule(
+        'outreach_not_following',
+        422,
+        `${profile.name} doesn’t follow you back on ${PLATFORMS[profile.platform]}, so no message goes to them: it would land in their Requests, not their inbox. Their first message comes once they follow you back.`,
       );
     // A client gets no outreach (decision 91), only replies, and a partner's messages stay: Today never lists them, so
     // this holds whatever drafted it.
