@@ -3981,7 +3981,7 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       "posts should have line spacing instead of being all jumbled up like this"). The AI wrote short paragraphs with a
       blank line between them, as `helpfulSystem` asks, and the kept post had them; Chrome's insertText with the whole
       post lost every line break in Facebook's box (Lexical), so it went up as one block, "…just wait.Turns out…".
-      Picks pending; built on the starred ones (1a, 2a, 3a). Extension 0.134.2, no migration.
+      He picked 1a, 2a and 3a ("your picks"). Extension 0.134.2, no migration.
       - **Pasted, as a person would** (`putPostIn` in `apps/extension/src/networks/post-text.ts`): a post with line
         breaks goes into the box as a paste, which keeps each paragraph and the blank lines (1a). A plain box, or one
         that takes no paste, is typed in as before.
