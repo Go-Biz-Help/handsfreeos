@@ -74,6 +74,14 @@ keystroke, and the form's parse trims every text, so it calls `applyFormOps` wit
 space typed at either end. Without it the space after a word was gone before the next word arrived. The server
 applies the same ops without `keepSpaces`, so nothing is stored with stray spaces.
 
+**The editor lets a box the form needs be emptied; it never saves it empty.** A question's words, a choice, the
+words on a button, what a words-only question says and what a signature is for can't be empty, so the parse
+refuses an op that empties one ("Write the question."). Applied on every keystroke, that refusal left the last
+letter behind when someone selected it all and pressed Backspace (2026-11-11). Those boxes use `RequiredField` and
+`RequiredInput` (`apps/web/src/components/forms/required-text.tsx`): while one is empty nothing is sent, the line
+under it says the form keeps its last words until new ones are typed, and the first letter goes through as usual.
+Drafts stay valid, so nothing about publishing changes.
+
 ## Checkboxes, and a single checkbox
 
 - **Checkboxes** (`type: 'checkboxes'`, called "Pick any" until 2026-11-02) is several choices where they check any
