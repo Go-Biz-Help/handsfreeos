@@ -456,6 +456,8 @@ import {
   ContentApproveWeekInput as SocialcontentContentApproveWeekInput,
   ContentApproveWeekOutput as SocialcontentContentApproveWeekOutput,
   ContentPostNowInput as SocialcontentContentPostNowInput,
+  ContentRemoveInput as SocialcontentContentRemoveInput,
+  ContentRemoveOutput as SocialcontentContentRemoveOutput,
   ContentSaveInput as SocialcontentContentSaveInput,
   ContentSkipInput as SocialcontentContentSkipInput,
 } from '@hfos/core/addons/socialcontent/content-shapes';
@@ -906,6 +908,11 @@ export const PHONE_COMMANDS = {
     ONLINE,
     SocialcontentContentPostNowInput,
     SocialcontentContent,
+  ),
+  'socialcontent.content.remove': command(
+    ONLINE,
+    SocialcontentContentRemoveInput,
+    SocialcontentContentRemoveOutput,
   ),
   'socialcontent.content.save': command(
     ONLINE,

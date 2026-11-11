@@ -213,12 +213,13 @@ const ONLINE_COMMANDS = [
   'socialcontent.work.stop',
   'socialcontent.idea.decide',
   // Its Calendar on the phone (part 12): a post saved, OK'd or its OK taken back, the week OK'd, a post skipped or
-  // brought back, and Post it now.
+  // brought back, Post it now, and a post removed (the owner, 11 Nov).
   'socialcontent.content.save',
   'socialcontent.content.approve',
   'socialcontent.content.approve_week',
   'socialcontent.content.skip',
   'socialcontent.content.post_now',
+  'socialcontent.content.remove',
 ];
 /**
  * Commands only the browser extension sends, which can wait in it as long as the browser is offline (Social

@@ -4,7 +4,7 @@
  * hook, hashtags, a carousel's slides or a video's script, its pictures, where on Facebook it goes and when it goes.
  * Anyone who uses the add-on changes it, has the AI write it again or make its pictures again (designed, or
  * photo-style, decision 14), adds their own photo, OKs it (decision 15) or skips it. Changing an OK'd post takes the
- * OK back.
+ * OK back. An owner or admin removes it from the calendar for good (records.archive), which opens its day.
  */
 import { localDateOf, localInstant } from '@hfos/core';
 import {
@@ -43,8 +43,10 @@ import { uploadFile } from '@/components/files/upload-zone';
 import { Badge, type BadgeVariant } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field } from '@/components/ui/field';
 import { Input, Select } from '@/components/ui/input';
+import { useCan } from '@/components/shell/workspace-shell';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { apiBrowser, unwrap } from '@/lib/api/client';
@@ -237,6 +239,63 @@ function draftOf(p: Content, timeZone: string): Draft {
   };
 }
 
+/**
+ * Asks before a post comes off the calendar for good (owners and admins: records.archive). Its record is archived, as
+ * an add-on's records are never deleted, and its day opens for Fill the calendar or Write one. Opened from a post's row
+ * on the Calendar and from its sheet.
+ */
+export function RemovePostDialog({
+  workspaceId,
+  post,
+  onClose,
+  onRemoved,
+}: {
+  workspaceId: string;
+  post: Content | null;
+  onClose: () => void;
+  onRemoved?: () => void;
+}) {
+  const { busy, act } = useAct();
+  const remove = async () => {
+    if (!post) return;
+    const out = await act(
+      'remove',
+      () =>
+        apiBrowser()
+          .POST('/v1/commands/socialcontent.content.remove', {
+            body: { workspaceId, postId: post.id },
+          })
+          .then(unwrap),
+      (o) => W.post.removed(o.openDay !== null),
+    );
+    if (!out) return;
+    onClose();
+    onRemoved?.();
+  };
+  return (
+    <Dialog open={post !== null} onOpenChange={(open) => (open || busy ? null : onClose())}>
+      {post ? (
+        <DialogContent title={W.post.removeTitle} description={W.post.removeAsk}>
+          <p className="mt-3 truncate text-[13.5px] font-medium text-text">{post.title}</p>
+          <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" disabled={busy !== null} onClick={onClose}>
+              {W.post.removeNo}
+            </Button>
+            <Button
+              variant="danger"
+              loading={busy === 'remove'}
+              onClick={() => void remove()}
+              data-testid="socialcontent-post-remove-yes"
+            >
+              {W.post.removeYes}
+            </Button>
+          </div>
+        </DialogContent>
+      ) : null}
+    </Dialog>
+  );
+}
+
 export function PostSheet({
   workspaceId,
   post: p,
@@ -260,6 +319,8 @@ export function PostSheet({
   const fileInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
   const changeable = p.state !== 'posted' && p.state !== 'posting';
+  const canRemove = useCan('records.archive');
+  const [removing, setRemoving] = useState(false);
   const was = draftOf(p, timeZone);
   const dirty = JSON.stringify(d) !== JSON.stringify(was);
   // What the post changed to while it was open (pictures made, written again) shows unless it's being edited.
@@ -952,6 +1013,17 @@ export function PostSheet({
                     {W.post.skip}
                   </Button>
                 )}
+                {canRemove ? (
+                  <Button
+                    variant="ghost"
+                    disabled={busy !== null}
+                    onClick={() => setRemoving(true)}
+                    data-testid="socialcontent-post-remove"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                    {W.post.remove}
+                  </Button>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Input
@@ -979,6 +1051,12 @@ export function PostSheet({
           at={viewing}
           onAt={setViewing}
           onClose={() => setViewing(null)}
+        />
+        <RemovePostDialog
+          workspaceId={workspaceId}
+          post={removing ? p : null}
+          onClose={() => setRemoving(false)}
+          onRemoved={onClose}
         />
       </SheetContent>
     </Sheet>

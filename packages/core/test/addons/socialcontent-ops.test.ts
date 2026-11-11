@@ -812,6 +812,40 @@ describe('the business’s own posts', () => {
     ).toBe('draft');
   });
 
+  it('lets an owner remove a post for good, so its day is open for another (the owner, 11 Nov)', async () => {
+    const slot = (await as(member, 'socialcontent.calendar.get')).open.find(
+      (o: Any) => o.network === 'linkedin',
+    );
+    const { postId } = await worker('socialcontent.content.put', {
+      network: 'linkedin',
+      postAt: new Date(slot.at).toISOString(),
+      post: written({ title: 'One to remove' }),
+    });
+    expect(
+      (await as(member, 'socialcontent.calendar.get')).open.map((o: Any) => o.date),
+    ).not.toContain(slot.date);
+    // Removing archives its record, which is records.archive's: owners and admins.
+    expect(await refused(as(member, 'socialcontent.content.remove', { postId }))).toBe(
+      'socialcontent_remove_forbidden',
+    );
+    expect(await as(owner, 'socialcontent.content.remove', { postId })).toEqual({
+      postId,
+      openDay: slot.date,
+    });
+    const after = await as(member, 'socialcontent.calendar.get');
+    expect(after.posts.map((p: Any) => p.id)).not.toContain(postId);
+    expect(after.open).toContainEqual(
+      expect.objectContaining({ network: 'linkedin', date: slot.date }),
+    );
+    expect(await refused(as(member, 'socialcontent.content.get', { postId }))).toBe('not_found');
+    // Kept, archived, as an add-on's records are never deleted.
+    const [rec] = await rows<{ archived: boolean }>(
+      admin(),
+      sql`select archived_at is not null as archived from app.custom_records where id = ${postId}`,
+    );
+    expect(rec).toEqual({ archived: true });
+  });
+
   it('notes when the calendar was filled, and when it fills again', async () => {
     await worker('socialcontent.calendar.filled', { written: 2 });
     const cal = await as(member, 'socialcontent.calendar.get');
