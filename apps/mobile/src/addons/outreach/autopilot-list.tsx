@@ -1,9 +1,11 @@
 import {
   AUTOPILOT_WORDS as A,
-  autopilotListShown,
+  autopilotLine,
+  autopilotPlace,
   type AutopilotAnswer,
   type AutopilotOutput,
   type AutopilotPerson,
+  type AutopilotPlace,
 } from '@hfos/core/addons/outreach/autopilot';
 import { PLATFORM_KEYS } from '@hfos/core/addons/outreach/networks';
 import { TODAY_KINDS } from '@hfos/core/addons/outreach/today';
@@ -23,32 +25,88 @@ import { NetworkName } from './networks';
 import { PersonName } from './person-menu';
 
 /**
- * Autopilot's day's list on the phone, first on Needs you (docs/outreach.md, decisions 151 and 160; the web's is
+ * Autopilot's day's list on the phone, on Needs you (docs/outreach.md, decisions 151 and 160; the web's is
  * apps/web/src/addons/outreach/autopilot-list.tsx): the people it plans to reach today whom the person hasn't OK'd
  * yet, grouped by network, the spares last under "If you take anyone off, these go instead". Each name opens the
  * person menu, for Don't pitch or Never contact; each row has **Not today** (or **Put back**); and one button OKs
- * everyone still waiting. It shows only while someone waits for the OK (`autopilotListShown`): nothing before the
- * day's list is made, with nobody on it, once everyone's answered, or while Autopilot is off. It comes from
+ * everyone still waiting. Needs you draws it twice, `place` saying which (`autopilotPlace`): first, whole, while
+ * someone waits for the OK; otherwise one line at the bottom (`autopilotLine`): when the list comes, that nobody's new,
+ * or how it was answered, with **Show** to open the list there. Nothing shows while Autopilot is off. It comes from
  * HandsFreeOS, with signal.
  */
 
 /** An answer about the day's list: OK, Not today or Put back, for the people named, or with OK and none, everyone. */
 export type AutopilotAnswerOf = (answer: AutopilotAnswer, profileIds?: string[]) => void;
 
+/** "Wed 8:00 AM", on the business's clock. */
+function clockAt(iso: string, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    return '';
+  }
+}
+
 export function AutopilotList({
   list,
   online,
   onAnswer,
+  place,
 }: {
   list: AutopilotOutput | null;
   online: boolean;
   onAnswer: AutopilotAnswerOf;
+  /** Which of the two this is: first on Needs you, or the line at its bottom. */
+  place: AutopilotPlace;
 }) {
-  if (!autopilotListShown(list)) return null;
+  const [open, setOpen] = React.useState(false);
+  if (!list || autopilotPlace(list) !== place) return null;
   const waiting = list.people.filter((p) => p.state === 'waiting');
   const takenOff = list.people.some((p) => p.state === 'not_today' || p.neverContact);
   const main = list.people.filter((p) => !p.spare);
   const spares = list.people.filter((p) => p.spare);
+  const rows = (
+    <>
+      <Rows people={main} online={online} onAnswer={onAnswer} />
+      {spares.length ? (
+        <>
+          <Text className="px-1 pt-2 text-[13px] font-medium text-text-3" testID="autopilot-spares">
+            {A.spares}
+          </Text>
+          <Rows people={spares} online={online} onAnswer={onAnswer} />
+        </>
+      ) : null}
+    </>
+  );
+  if (place === 'bottom') {
+    // Once it's answered, Show opens the list here, to put back someone left Not today.
+    const answered = list.made && list.people.length > 0;
+    return (
+      <View className="gap-2" testID="autopilot-line">
+        <Card className="flex-row items-center gap-3 px-4 py-3">
+          <View className="flex-1">
+            <Note>{autopilotLine(list, (iso) => clockAt(iso, list.timezone))}</Note>
+          </View>
+          {answered ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onPress={() => setOpen((was) => !was)}
+              testID="autopilot-show"
+            >
+              {open ? A.hide : A.show}
+            </Button>
+          ) : null}
+        </Card>
+        {answered && open ? rows : null}
+      </View>
+    );
+  }
   return (
     <View className="gap-2" testID="autopilot-list">
       <View className="gap-1 px-1">
@@ -67,15 +125,7 @@ export function AutopilotList({
       >
         {takenOff ? A.okRest(waiting.length) : A.okAll(waiting.length)}
       </Button>
-      <Rows people={main} online={online} onAnswer={onAnswer} />
-      {spares.length ? (
-        <>
-          <Text className="px-1 pt-2 text-[13px] font-medium text-text-3" testID="autopilot-spares">
-            {A.spares}
-          </Text>
-          <Rows people={spares} online={online} onAnswer={onAnswer} />
-        </>
-      ) : null}
+      {rows}
     </View>
   );
 }

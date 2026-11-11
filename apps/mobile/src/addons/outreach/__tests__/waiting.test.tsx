@@ -185,8 +185,9 @@ describe('Autopilot’s day’s list on the phone (decision 151)', () => {
     expect(onAutopilot).toHaveBeenCalledWith('waiting', [id(71)]);
   });
 
-  it('shows nothing once everyone’s answered, before the list is made, or while Autopilot is off (decision 160)', async () => {
+  it('shrinks to a line at the bottom once everyone’s answered, whose Show opens it to put someone back (decision 160)', async () => {
     const h = handlers();
+    const onAutopilot = jest.fn();
     const body = (autopilot: AutopilotOutput) => (
       <WaitingBody
         phone={waitingOfCopy([], ME)}
@@ -196,11 +197,11 @@ describe('Autopilot’s day’s list on the phone (decision 151)', () => {
         timeZone={TZ}
         now={NOW}
         autopilot={autopilot}
-        onAutopilot={jest.fn()}
+        onAutopilot={onAutopilot}
         {...h}
       />
     );
-    // Everyone OK'd but the one taken off: the list goes away.
+    // Everyone OK'd but the one taken off: no list at the top, one line at the bottom.
     const answered: AutopilotOutput = {
       ...AUTOPILOT,
       waiting: 0,
@@ -210,6 +211,14 @@ describe('Autopilot’s day’s list on the phone (decision 151)', () => {
     };
     const { rerender } = await render(body(answered));
     expect(screen.queryByTestId('autopilot-list')).toBeNull();
+    const line = screen.getByTestId('autopilot-line');
+    expect(within(line).getByText(AUTOPILOT_WORDS.answered(2, 1))).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-put-back')).toBeNull();
+    await fireEvent.press(screen.getByTestId('autopilot-show'));
+    expect(within(line).getByText('Jordan New')).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('autopilot-put-back'));
+    expect(onAutopilot).toHaveBeenCalledWith('waiting', [id(71)]);
+    // Before the list is made, the line says when it comes, with nothing to show.
     await rerender(
       body({
         ...AUTOPILOT,
@@ -219,14 +228,20 @@ describe('Autopilot’s day’s list on the phone (decision 151)', () => {
         listAt: '2026-10-11T12:00:00.000Z',
       }),
     );
-    expect(screen.queryByTestId('autopilot-list')).toBeNull();
+    expect(
+      screen.getByText(/^Today’s list comes at .+, an hour before your working hours\.$/),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-show')).toBeNull();
     await rerender(body({ ...AUTOPILOT, people: [], waiting: 0 }));
-    expect(screen.queryByTestId('autopilot-list')).toBeNull();
+    expect(screen.getByText(AUTOPILOT_WORDS.none)).toBeTruthy();
+    // Nothing at all while Autopilot is off.
     await rerender(body({ ...AUTOPILOT, on: false }));
     expect(screen.queryByTestId('autopilot-list')).toBeNull();
-    // Someone waits again: it's back.
+    expect(screen.queryByTestId('autopilot-line')).toBeNull();
+    // Someone waits again: it's back at the top, and the line is gone.
     await rerender(body(AUTOPILOT));
     expect(screen.getByTestId('autopilot-list')).toBeTruthy();
+    expect(screen.queryByTestId('autopilot-line')).toBeNull();
   });
 
   it('sends OK for everyone waiting with nobody named, and Not today for the one named', async () => {
