@@ -4,7 +4,7 @@
   "checkedOn": "2026-11-11",
   "files": {
     "apps/mobile/src/app/app/w/[workspaceId]/(tabs)/calendar.tsx": "bf2926675f7a",
-    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "b914706a7c70",
+    "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx": "99f851115c11",
     "apps/mobile/src/calendar/actions.ts": "f893cebae555",
     "apps/mobile/src/calendar/outbox.ts": "73e8c8f98bf3",
     "apps/mobile/src/calendar/queries.ts": "c05679afc32a",
@@ -722,7 +722,7 @@
     {
       "path": "Appointment (phone) → Cancel sheet → tell or don’t",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:597",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:602",
       "covered": "yes",
       "by": "cancel_appointment notify"
     },
@@ -1093,7 +1093,7 @@
     {
       "path": "Appointment (phone) → Reminders the calendar sends",
       "kind": "see",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:332",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:335",
       "covered": "yes",
       "by": "get_calendar_settings reminders"
     },
@@ -1212,9 +1212,16 @@
     {
       "path": "Appointment (phone) → Check in",
       "kind": "do",
-      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:360",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:365",
       "covered": "no",
       "by": "safety.check_in has no tool"
+    },
+    {
+      "path": "Appointment (phone) → what an add-on puts on a visit (Contractor Operations: Work order, for a visit on a job)",
+      "kind": "do",
+      "file": "apps/mobile/src/app/app/w/[workspaceId]/calendar/[appointmentId].tsx:356",
+      "covered": "yes",
+      "by": "contractor_get_work_order (the visit’s appointmentId); the add-on’s A work order place"
     },
     {
       "path": "Check in → Where, Check out by, Other time",

@@ -24,12 +24,13 @@ describe('the add-on gate', () => {
     expect(holdsAddon({ role: 'owner', permissions: null }, 'realestate.use')).toBe(false);
   });
 
-  it('lists Real Estate Agent, Social Outreach, AI Sales Coach and AI Social Media Content Creator, each behind its use permission', () => {
+  it('lists Real Estate Agent, Social Outreach, AI Sales Coach, AI Social Media Content Creator and Contractor Operations, each behind its use permission', () => {
     expect(PHONE_ADDONS.map((a) => [a.addonId, a.permission])).toEqual([
       ['realestate', 'realestate.use'],
       ['outreach', 'outreach.use'],
       ['salescoach', 'salescoach.use'],
       ['socialcontent', 'socialcontent.use'],
+      ['contractor', 'contractor.use'],
     ]);
   });
 });

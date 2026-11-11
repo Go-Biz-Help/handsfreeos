@@ -2,13 +2,14 @@
 
 An add-on (`contractor`) for contractors and home service companies: electricians, plumbers, HVAC, roofers,
 remodelers and general contractors. One shared engine runs jobs and projects, estimates with costs, crews, work
-orders and dispatch, each job's materials, and time and job costing, and later a field app, with trade tools inside
-it after that.
+orders and dispatch, each job's materials, time and job costing, and the crew's pages on the phone, which work with
+no signal. Trade tools come inside it after that.
 
 The owner's decisions and the build order are in `HANDSFREEOS_CONTRACTOR_OPERATIONS_IMPLEMENTATION_PLAN.md`; the
 numbers below (decision 1, and so on) are its decisions. Built: part 1, jobs and projects; part 2, costs and
-estimates; part 3, crews, work orders and dispatch; part 4, materials; and part 5, time and job costing. The add-on
-is in `development`, offered to nobody; staff give it to a business from Admin â†’ Businesses.
+estimates; part 3, crews, work orders and dispatch; part 4, materials; part 5, time and job costing; and part 6,
+the phone's field pages. The add-on is in `development`, offered to nobody; staff give it to a business from
+Admin â†’ Businesses.
 
 ## Where things are
 
@@ -20,6 +21,7 @@ is in `development`, offered to nobody; staff give it to a business from Admin â
 | Part 3's tables: crews, work orders, checklists, subs          | `supabase/migrations/20261027024300_contractor_work_orders.sql`        |
 | Part 4's tables: materials and what each costs                 | `supabase/migrations/20261027024400_contractor_materials.sql`          |
 | Part 5's tables: time, what an hour cost, other costs          | `supabase/migrations/20261027024500_contractor_time.sql`               |
+| Part 6's table (notes), and what phones keep                   | `supabase/migrations/20261027025300_contractor_on_the_phone.sql`       |
 | Trades and their starter phases                                | `trades.ts` (pure; web, phone and server all use it)                   |
 | Statuses, % done, lateness and planned profit                  | `progress.ts` (pure)                                                   |
 | The pages' words, and every refusal's                          | `words.ts`                                                             |
@@ -38,13 +40,21 @@ is in `development`, offered to nobody; staff give it to a business from Admin â
 | Planned, so far, heading for, and the profit page's sums       | `job-costing.ts` (pure)                                                |
 | Time on a job, breaks, fixes, and what an hour costs           | `ops/time.ts`                                                          |
 | A job's costing, its other costs, and the profit page          | `ops/costing.ts`                                                       |
+| What a note may hold, and how it reads in a line               | `notes.ts` (pure)                                                      |
+| Notes from the field                                           | `ops/notes.ts`                                                         |
+| What the phone's pages answer, from the rows a phone keeps     | `views/phone.ts` (pure)                                                |
+| The words only the phone's pages say                           | `phone-words.ts`                                                       |
 | Reading: overview, jobs, one job, properties                   | `ops/queries.ts`                                                       |
 | What it shares (loading a job, keeping % done, timelines)      | `ops/common.ts`                                                        |
 | Where the Assistant finds each page                            | `ai-places.ts`                                                         |
 | The worker: visits, work orders, approved estimates, OK alerts | `apps/worker/src/addons/contractor/`                                   |
 | The worker: what a visit is still missing, and its alert       | `apps/worker/src/addons/contractor/materials.ts`                       |
 | The worker: time from a visit's buttons, and time left running | `apps/worker/src/addons/contractor/time.ts`                            |
+| The worker: a voice note's words                               | `apps/worker/src/addons/contractor/notes.ts`                           |
+| The worker: when a closed job leaves phones                    | `apps/worker/src/addons/contractor/phone.ts`                           |
 | The web pages                                                  | `apps/web/src/addons/contractor/`, routes under `a/contractor/`        |
+| The phone's pages                                              | `apps/mobile/src/addons/contractor/` (see its `README.md`)             |
+| What a change waiting on a phone is called                     | `apps/mobile/src/changes/describe-contractor.ts`                       |
 | The Assistant's checklist for its screens                      | `packages/core/src/assistant/ledger/contractor.json`                   |
 
 ## How it works
@@ -289,6 +299,62 @@ the jobs up.
   far, Profit and What an hour costs you are for `contractor.costs` only, and row security closes their tables to
   everyone else.
 
+## On the phone
+
+Part 6. A crew works where there's no signal: a basement, a roof, a new build with no tower near. So the phone
+keeps the add-on's jobs, and its three pages (Jobs, a job, and a visit's work order) read and change them with none.
+
+- **What phones keep** is in `manifest.offline`, and migration `20261027025300_contractor_on_the_phone.sql`
+  registers the same; a test holds the two equal. It's each job with its phases, team, work orders, checklist
+  items, subcontractors, materials, time and notes, plus the business's crews. They travel as core's add-on phone
+  rows (`app.addon_phone_rows`, on the `records_v1` stream), so `apps/sync/sync-config.yaml` didn't change.
+  Everyone with `contractor.use` gets every job, so a tech can cover someone else's visit.
+- **No money goes to a phone** (decision 11). Not a job's price or budget, what a material or an hour costs, its
+  other costs, nor anything of an estimate. Those tables aren't in the list, and the pages say "Its estimate, costs
+  and budget are on the web."
+- **A job leaves phones a month after it's done or cancelled** (`leavesPhonesAt` and `PHONE_DAYS`, in
+  `progress.ts`). The worker (`phone.ts`) hears `contractor.job.status_changed`, sets whether phones keep the job
+  (`private.record_phone_window`), and queues `contractor.phone_check` for the day it leaves. A job's rows follow
+  its record, so they leave together, and come back together when the job is opened again.
+- **The phone reads its own copy by the server's rules.** `views/phone.ts` (pure) answers, from the rows a phone
+  holds, what the server's queries answer from the tables: `phoneJobList`, `phoneJob`, `phoneWorkOrder`,
+  `phoneMaterials`, `phoneTime`, `phoneNotes` and `phoneDayVisits`. They use the same pure rules (`progress.ts`,
+  `checklists.ts`, `materials.ts`, `time.ts`). A database test runs both on one business and compares them.
+- **Six changes wait on the phone** (`offline: 'anytime'`): ticking a checklist item
+  (`contractor.work_order.item_set`), counting a material (`contractor.material.count`), a break
+  (`contractor.time.set_break`), a note (`contractor.note.add`), a phase's status (`contractor.phase.update`) and a
+  service call's % done (`contractor.job.set_percent`). Each shows at once, marked "Waiting to send", and goes when
+  there's signal. Two need signal: a job's status, which is checked against every visit's checklist, and taking a
+  note off.
+- **Late work counts as when it was done.** A tick carries the moment it was made (`changeMoment`). A break sits
+  where it was pressed, even when the visit's clock stopped before the phone got through. A note carries when it
+  was taken. And what was ticked or counted while the job was still open lands after the office closed it
+  (`madeWhileOpen`: the change's moment is before the job's `status_at`). A change made now on a closed job is
+  still refused.
+- **Counting adds** (`contractor.material.count`). The phone sends how much more was used, wasted or sent back,
+  never a total, so two people counting with no signal both add up. Below 0 takes some back, never under nothing.
+  The web's Edit still sets totals.
+- **A photo item is ticked by its photo.** The phone keeps the picture, uploads it as one of the job's files, and
+  the tick waits for the upload.
+- **Notes from the field** (`addon_contractor.notes`): typed, a recording, or photos, on the job or on one of its
+  visits. A note carries an id made by the phone, so one sent twice is added once. Its photos and its recording
+  must already be the job's own files. People take off their own notes; `contractor.manage` takes off anyone's. A
+  note taken off leaves its photos and recording in the job's files. A note is never edited. A done or cancelled
+  job still takes notes; an archived one doesn't.
+- **A voice note gets its words on its own.** The worker (`notes.ts`) hears `contractor.note.added`, reads the
+  recording, and hands it to the transcriber calls use, billed the same way, as speech.
+  `contractor.note.transcribed` (the system's) settles a waiting note once. When the transcriber is Twilio's (no
+  Deepgram key), which reads only its own recordings of calls, no words are made, and the note says to play the
+  recording.
+- **The pages** (`apps/mobile/src/addons/contractor/`). More â†’ Jobs: my visits today, then my jobs, all or late,
+  with a search. A job: its status, the customer with Call, progress, visits, materials, time and notes. A work
+  order: when and where with Directions, the visit's own status buttons (core's, which start and stop the clock,
+  and show where core's rule says they fit: on a visit the team goes to), instructions, the checklist, materials,
+  time with the break button, and notes. A visit on a job also gets a Work order row on its page in Calendar,
+  through the phone registry's `VisitPanel` slot.
+- **The web shows the notes** on the job's page and on each visit's work order (`notes-card.tsx`), and the office
+  can type one there.
+
 ## Rules worth knowing before changing anything
 
 - **One add-on for every trade** (decision 1). A trade brings its starter lists; it never becomes its own add-on. New
@@ -313,7 +379,9 @@ the jobs up.
   material and changing its counts run on their own, because they record what happened and spend nothing; taking
   one off and setting what one costs wait on a Confirm card. In part 5, taking a break and coming back run on their
   own; fixing, adding and removing time, setting what an hour of someone costs, and adding and removing a job's
-  other costs wait on a Confirm card, because they change the record of hours and money.
+  other costs wait on a Confirm card, because they change the record of hours and money. In part 6, leaving a
+  typed note and adding to a material's count run on their own, because they record what happened; taking a note
+  off waits on a Confirm card.
 - **An estimate is core's; the add-on never copies one.** The builder saves through `estimate.create`,
   `estimate.update` and `estimate.send` (`executeCommandWithin`), so core's rules, numbering and totals apply
   unchanged. Never write to `app.estimates` or `app.estimate_lines` from the add-on.
@@ -354,19 +422,44 @@ the jobs up.
 - **The costing math has one copy,** `job-costing.ts`. `ops/costing.ts` only adds up what it feeds it. Change how a
   job heads for a number there, and nowhere else.
 - **The time alert is one per visit** (key `time:<the appointment's id>`), raised and cleared by the worker only.
+- **No money on a phone** (decision 11). Never add a table or a column that holds a price, a budget, a cost, a
+  rate or a margin to `manifest.offline`. A test refuses one.
+- **What phones keep is declared twice and held equal:** `manifest.offline`, and the migration's
+  `private.addon_phone_table` calls. Changing it takes a new migration. It never takes a change to
+  `apps/sync/sync-config.yaml`.
+- **The phone's pages show what `views/phone.ts` answers.** A status, a count or a total is never worked out in a
+  screen. Change a rule in its pure file, and both apps and the server follow. The pages' reads are plain SELECTs
+  on the phone's copy, which `phone-sql.test.ts` checks.
+- **What may wait on a phone must be safe late and safe twice.** A command marked `offline: 'anytime'` takes its
+  moment from `changeMoment(ctx.meta)`, brings its own id when it makes a row, and decides with `madeWhileOpen`
+  what happens when the job closed meanwhile. A job's status and taking a note off stay online.
+- **A count from the phone adds; it never sets a total.**
+- **A note is added and taken off, never edited.** Its photos and recording are the job's files, and outlive it.
+- **A finished job still takes notes** (a callback, something the customer said afterwards). An archived one
+  doesn't.
 - **Archiving and deleting go through core.** The add-on never deletes a job's record itself. What it does delete
   is small and its own: a phase, a checklist item, a subcontractor taken off a visit, a material taken off a job,
-  a stretch of time removed from a job, one of a job's other costs, and a crew's member list when the crew is
-  saved. The Assistant asks first for all but the last.
+  a stretch of time removed from a job, one of a job's other costs, a note taken off a job, and a crew's member
+  list when the crew is saved. The Assistant asks first for all but the last.
 - **Every screen item is in the Assistant's checklist,** and every person-run operation declares `ai`.
 
 ## Not yet
 
-- Parts 6 and 7: the phone's pages, and the AI helpers. See the plan.
+- Part 7: the AI helpers. See the plan.
+- On the phone: starting a job, booking a visit, Dispatch, estimates and their builder, costs, profit and
+  Settings. They're on the web, and the phone's pages say so.
+- On the phone: adding or changing a material, a checklist item, a work order's instructions, its crew or its
+  subcontractors, and fixing time. The crew ticks, counts, takes breaks and leaves notes there; the office sets a
+  visit up on the web.
+- On the phone: marking a job done anyway while required items are left. The phone shows why it was refused, and
+  an owner or admin does it on the web with a reason.
+- On the phone: looking at a note's photos and playing its recording. The phone shows how many photos a note has
+  and a voice note's words; the pictures and the recording open on the web, among the job's files.
+- A voice note's words when the transcriber is Twilio's (no Deepgram key): the note keeps its recording and says to
+  play it.
+- A report of the day made from the notes and photos: part 7.
 - Stock in warehouses and vans, purchase orders and suppliers: Phase 2. Until then a material's supplier is a
   name typed on it, and Mark ordered records an order placed somewhere else.
-- The Break button and the Time card on the phone: part 6. Time itself already follows the buttons a tech taps on
-  the phone, since those are core's.
 - Payroll, pay rates, overtime and a timesheet to export: Phase 2. Time here is for what jobs cost.
 - A warning sent when a job heads over budget: part 7, with the AI helpers. Today the Costs so far card shows it.
 - What was invoiced and paid on the Profit page: it sets a job's price against its costs. Change orders and
@@ -376,12 +469,9 @@ the jobs up.
 - An estimate the AI drafts on its own always waits for a person (decision 6): that comes with the AI helpers in
   part 7. Today the Assistant writes an estimate only as the person asking, on a Confirm card.
 - The builder is on the web. On the phone, Money won't send such a draft and says to open it in Contractor
-  Operations; the add-on's phone pages are part 6.
+  Operations on the web.
 - Panels on a customer's or a property's page: Contacts lists jobs and properties as their own kinds already.
-- Materials used on the phone, with no signal: part 6. Until then the crew's counts are typed on the web.
 - Booking a crew in one step from the booking dialog: today a visit is booked with core's dialog, then its work
   order opens and the crew is picked there.
-- Work orders, checklists and photos on the phone, with no signal: part 6. Until then the phone shows the visit as
-  the appointment it is, and the web has its work order.
 - Dragging a visit to another person or time on Dispatch: it reads only, and the Calendar moves visits.
 - A subcontractor's insurance and payments, and a page of their own to mark work done: Phase 2.

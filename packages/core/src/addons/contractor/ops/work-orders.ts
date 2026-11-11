@@ -18,6 +18,7 @@ import { messageSend } from '../../../commands/message';
 import { HfosError } from '../../../errors';
 import { userIdOf } from '../../../kernel/actor';
 import { executeCommandWithin } from '../../../kernel/execute';
+import { changeMoment } from '../../../kernel/moment';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand, defineAddonQuery } from '../../server';
 import { checklistProgress } from '../checklists';
@@ -794,6 +795,8 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
   output: WorkOrderItemOutput,
   permission: 'contractor.use',
   scope: inWorkspace,
+  // Ticked on the job with no signal: it's kept on the phone and sent when there is some.
+  offline: 'anytime',
   ai: {
     tool: 'contractor_set_checklist_item',
     description:
@@ -815,7 +818,7 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
   },
   emits: ['contractor.work_order.item_set', 'contractor.work_order.started'],
   async handler(ctx, input) {
-    const { item, job, visit } = await workOrderOfItem(ctx, input.itemId);
+    const { item, job, visit } = await workOrderOfItem(ctx, input.itemId, { late: true });
     const out = async (done: boolean) => ({
       itemId: item.id,
       appointmentId: item.appointmentId,
@@ -846,7 +849,8 @@ export const workOrderItemSet = defineAddonCommand(contractorAddon, {
     await ctx.tx
       .update(workOrderItems)
       .set({
-        doneAt: input.done ? (item.doneAt ?? dsql`now()`) : null,
+        // When it was ticked, which for a tick that waited on a phone is earlier than now.
+        doneAt: input.done ? (item.doneAt ?? changeMoment(ctx.meta)) : null,
         doneBy: input.done ? (item.doneBy ?? userIdOf(ctx.actor)) : null,
         fileId,
         // Done for real now, so it's no longer something that was passed over.

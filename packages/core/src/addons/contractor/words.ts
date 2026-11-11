@@ -778,6 +778,38 @@ export const CONTRACTOR_WORDS = {
         : `${n} materials have no cost yet, so these run low.`,
     menu: (name: string) => `More for ${name}`,
     seeAll: 'See all the job’s materials',
+    counted: (words: string) => `Counted: ${words}.`,
+  },
+  // Notes from the field (part 6): what the crew typed, said or photographed on the job.
+  notes: {
+    title: 'Notes from the field',
+    visitTitle: 'Notes on this visit',
+    hint: 'What the crew typed, said or photographed on the job. A voice note’s words follow on their own.',
+    none: 'No notes yet.',
+    noneForVisit: 'No notes on this visit yet.',
+    add: 'Add a note',
+    addHint: 'For the crew and the office to read. Photos and voice notes come from the phone.',
+    label: 'Note',
+    placeholder: 'The shutoff valve is behind the water heater.',
+    save: 'Save the note',
+    cancel: 'Cancel',
+    added: 'Note added.',
+    remove: 'Remove',
+    removeTitle: 'Remove this note?',
+    removeAsk: 'It can’t be brought back. Its photos and its recording stay in the job’s files.',
+    removed: 'The note is removed.',
+    voice: 'Voice note',
+    wordsWaiting: 'Its words are on their way.',
+    wordsFailed: 'Its words couldn’t be made. Play the recording instead.',
+    recording: 'Play the recording',
+    recordingGone: 'The recording was deleted.',
+    photo: (n: number) => `Photo ${n}`,
+    gone: 'Someone who’s left',
+    onVisit: (when: string) => `On the visit of ${when}`,
+    truncated: (n: number) => `Showing the newest ${n} notes.`,
+    showAll: (n: number) => `Show all ${n}`,
+    showFewer: 'Show fewer',
+    menu: 'More for this note',
   },
   materialsSettings: {
     title: 'Missing materials',
@@ -1048,6 +1080,17 @@ export const REFUSALS = {
     `${name} already has ${other} then, and nobody is in two places. Change the times so they don’t overlap, or fix that one first.`,
   timeVisitElsewhere: (job: string) =>
     `That visit isn’t on “${job}”. Pick one of this job’s visits, or leave the visit out.`,
+  noteGone: 'That note isn’t there anymore. Someone may have removed it. Refresh and try again.',
+  noteVisitElsewhere: (job: string) =>
+    `That visit isn’t on “${job}”. Pick one of this job’s visits, or leave the visit out.`,
+  notePhotoNotOnJob: (job: string) =>
+    `A photo on that note isn’t in the files of “${job}”. Add the photo to the job again, then save the note.`,
+  noteNotAPhoto: 'One of those files isn’t a picture. Add photos, such as JPG, PNG or HEIC.',
+  noteRecordingNotOnJob: (job: string) =>
+    `That recording isn’t in the files of “${job}”. Record the note again, then save it.`,
+  noteNotARecording: 'That file isn’t a recording. Record the note again, or type it instead.',
+  noteSomeoneElse:
+    'Only an owner or admin removes someone else’s note. Ask one of them, or ask for “Set up Contractor Operations” in Settings → Team.',
   otherCostGone:
     'That cost isn’t on the job anymore. Someone may have removed it. Refresh and try again.',
   tooManyOtherCosts: (max: number) =>

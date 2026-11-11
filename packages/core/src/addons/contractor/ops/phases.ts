@@ -5,6 +5,7 @@
  */
 import { and, eq, sql as dsql } from 'drizzle-orm';
 import { HfosError } from '../../../errors';
+import { changeMoment } from '../../../kernel/moment';
 import { isUniqueViolation } from '../../../kernel/pg-errors';
 import type { CommandContext } from '../../../kernel/types';
 import { defineAddonCommand } from '../../server';
@@ -127,6 +128,8 @@ export const phaseUpdate = defineAddonCommand(contractorAddon, {
   output: PhaseChangeOutput,
   permission: 'contractor.use',
   scope: inWorkspace,
+  // Moved along on the job with no signal: it's kept on the phone and sent when there is some.
+  offline: 'anytime',
   ai: {
     tool: 'contractor_update_phase',
     description:
@@ -156,7 +159,7 @@ export const phaseUpdate = defineAddonCommand(contractorAddon, {
     if (dueOn !== phase.dueOn) set.dueOn = dueOn;
     if (status !== phase.status) {
       set.status = status;
-      set.doneAt = status === 'done' ? new Date() : null;
+      set.doneAt = status === 'done' ? changeMoment(ctx.meta) : null;
     }
     if (percent !== phase.percentDone) set.percentDone = percent;
     if (!Object.keys(set).length)

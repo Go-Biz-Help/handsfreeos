@@ -2,8 +2,8 @@
 /**
  * A visit's work order (docs/contractor.md, "Crews and work orders"): when it is and where it stands, what to do and
  * what to bring, the job's materials it needs, the crew and the people going, its subcontractors (texted the job's
- * details, and marked done by the office), and its checklist of boxes to tick and photos to add. The job can't be marked Done while a required item
- * is left (the owner's decision 8).
+ * details, and marked done by the office), its checklist of boxes to tick and photos to add, and the notes the crew
+ * left on it from the field. The job can't be marked Done while a required item is left (the owner's decision 8).
  *
  * Who on the team is going is the visit's own people (core's): picking a crew changes them through core, with its
  * warnings when someone isn't free. A done or cancelled job's work orders are read-only, as the job is.
@@ -51,8 +51,17 @@ import { cn } from '@/lib/utils';
 import { ChecklistLine, jobHref, jobRecordHref, StageBadge, StatusBadge } from './bits';
 import { ConfirmDialog } from './job-dialogs';
 import { MaterialsCard, type MaterialProduct } from './materials-card';
+import { FieldNotesCard } from './notes-card';
 import { TimeCard } from './time-card';
-import type { ChecklistItem, Crew, Teammate, TimeList, VisitSub, WorkOrder } from './types';
+import type {
+  ChecklistItem,
+  Crew,
+  NoteList,
+  Teammate,
+  TimeList,
+  VisitSub,
+  WorkOrder,
+} from './types';
 import { useAct } from './use-act';
 
 const W = CONTRACTOR_WORDS.workOrder;
@@ -63,8 +72,10 @@ export function WorkOrderPage({
   order,
   crews,
   time,
+  notes,
   people,
   products,
+  myUserId,
   timeZone,
 }: {
   workspaceId: string;
@@ -73,13 +84,16 @@ export function WorkOrderPage({
   crews: readonly Crew[];
   /** The time tracked on this visit: never with what it cost. */
   time: TimeList;
+  /** The notes the crew left on this visit, the newest first. */
+  notes: NoteList;
   /** The people time can be added for, by someone who may fix time. */
   people: readonly Teammate[];
   /** The price list to pick a material from; empty for someone who can't see it. */
   products: readonly MaterialProduct[];
+  myUserId: string;
   timeZone: string;
 }) {
-  // Time that starts or stops arrives as the add-on's own news about the job's record.
+  // Time that starts or stops, and a note from the field, arrive as the add-on's own news about the job's record.
   useLiveRefresh(['custom_record', 'appointment']);
   const { busy, act } = useAct();
   const { job, visit } = order;
@@ -235,6 +249,15 @@ export function WorkOrderPage({
             forVisit={order.appointmentId}
           />
           <ChecklistCard workspaceId={workspaceId} order={order} readOnly={readOnly} />
+          <FieldNotesCard
+            workspaceId={workspaceId}
+            jobId={job.id}
+            notes={notes}
+            visits={[]}
+            myUserId={myUserId}
+            timeZone={timeZone}
+            forVisit={order.appointmentId}
+          />
         </div>
         <div className="space-y-4">
           <CrewCard workspaceId={workspaceId} order={order} crews={crews} readOnly={readOnly} />

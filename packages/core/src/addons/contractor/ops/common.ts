@@ -160,6 +160,21 @@ export async function loadJob(
   };
 }
 
+/**
+ * Whether a change that waited on a phone was made while the job was still open: before whatever closed it. What a
+ * tech ticked or counted on the job with no signal still counts when the office closed the job before their phone
+ * got through. Never true for a change made now.
+ */
+export async function madeWhileOpen(ctx: CommandContext, job: Job): Promise<boolean> {
+  const at = ctx.meta.occurredAt;
+  if (!at) return false;
+  const [j] = await rows<{ status_at: string }>(
+    ctx.tx,
+    sql`select status_at::text from addon_contractor.jobs where record_id = ${job.recordId}`,
+  );
+  return !!j && at.getTime() < new Date(j.status_at).getTime();
+}
+
 /** A job's phases, in order. */
 export async function phasesOf(ctx: Ctx, jobId: string) {
   return ctx.tx

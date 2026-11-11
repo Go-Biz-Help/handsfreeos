@@ -6,9 +6,9 @@ import { apiServer, unwrapPage } from '@/lib/api/server';
 export const metadata: Metadata = { title: 'Job' };
 
 /**
- * One job: its status, details, phases and % done, team, visits, its materials, the time tracked on it, its
- * estimates, and (for people who may see job costs) its price and budget and what it's costing. A job that isn't
- * here, or was archived, is the business's not-found page.
+ * One job: its status, details, phases and % done, team, visits, its materials, the time tracked on it, the crew's
+ * notes from the field, its estimates, and (for people who may see job costs) its price and budget and what it's
+ * costing. A job that isn't here, or was archived, is the business's not-found page.
  */
 export default async function ContractorJobPage({
   params,
@@ -18,7 +18,7 @@ export default async function ContractorJobPage({
   const { workspaceId, jobId } = await params;
   return addonPage(workspaceId, 'contractor', 'contractor.use', async () => {
     const { api, userId } = await apiServer();
-    const [got, overview, job, members, estimates, materials, time] = await Promise.all([
+    const [got, overview, job, members, estimates, materials, time, notes] = await Promise.all([
       api.POST('/v1/queries/workspace.get', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/contractor.overview', { body: { workspaceId } }).then(unwrapPage),
       api.POST('/v1/queries/contractor.job.get', { body: { workspaceId, jobId } }).then(unwrapPage),
@@ -31,6 +31,9 @@ export default async function ContractorJobPage({
         .then(unwrapPage),
       api
         .POST('/v1/queries/contractor.time.list', { body: { workspaceId, jobId } })
+        .then(unwrapPage),
+      api
+        .POST('/v1/queries/contractor.note.list', { body: { workspaceId, jobId } })
         .then(unwrapPage),
     ]);
     // What the job is costing is for people who may see job costs: nobody else is even asked.
@@ -52,6 +55,7 @@ export default async function ContractorJobPage({
         estimates={estimates.estimates}
         materials={materials}
         time={time}
+        notes={notes}
         costing={costing}
         products={products.map((p) => ({ id: p.id, name: p.name, unitLabel: p.unitLabel }))}
         myUserId={userId}
