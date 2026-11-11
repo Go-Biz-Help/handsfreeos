@@ -30,6 +30,7 @@ import {
   optInDescriptionFor,
   ownSiteBoxText,
   privacyPolicy,
+  sameDescription,
   sampleSuggestions,
   senderForCarriers,
   SENSITIVE_TOPICS,
@@ -523,7 +524,7 @@ function Progress({ current, total }: { current: number; total: number }) {
  * Copies `text`, and `html` beside it when given: a website editor pasting it keeps the headings and lists, and a
  * plain box gets the text.
  */
-function CopyButton({
+export function CopyButton({
   text,
   html,
   label = 'Copy',
@@ -1066,14 +1067,14 @@ function OptInStep({
             id="optin-description"
             value={form.optIn}
             onChange={(e) => set('optIn', e.target.value)}
-            rows={8}
+            rows={14}
           />
           <div className="mt-1.5 flex flex-wrap items-start justify-between gap-2">
             <p className="min-w-0 flex-1 text-[13px] text-text-3">
               Written from your answers above. Edit it if it does not describe how you really do it
               — but everything it claims has to be true, because it is checked.
             </p>
-            {form.optIn !== ourWording ? (
+            {!sameDescription(form.optIn, ourWording) ? (
               <Button
                 type="button"
                 variant="secondary"
@@ -1314,11 +1315,20 @@ export function A2pWizard({
       if (
         key !== 'optIn' &&
         f.optInPath &&
-        f.optIn === describeFor(businessName, f, surfaces, origin)
+        sameDescription(f.optIn, describeFor(businessName, f, surfaces, origin))
       )
         next.optIn = describeFor(businessName, next, surfaces, origin);
       return next;
     });
+
+  // A sentence saved before it had paragraphs is still ours: put the paragraphs in, without counting it as an edit.
+  useEffect(() => {
+    setForm((f) => {
+      if (!f.optInPath) return f;
+      const ours = describeFor(businessName, f, surfaces, origin);
+      return f.optIn !== ours && sameDescription(f.optIn, ours) ? { ...f, optIn: ours } : f;
+    });
+  }, [businessName, surfaces, origin]);
 
   // ---- saved as it goes ----
   // Every change is kept a moment after it is made, so a refresh or coming back tomorrow picks up here. The

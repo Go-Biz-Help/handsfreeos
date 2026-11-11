@@ -1,5 +1,12 @@
 'use client';
-import { allQuestions, POLL_WORDS, type FormDefinition, type FormOp } from '@hfos/core';
+import {
+  allQuestions,
+  POLL_WORDS,
+  textingBoxesTwice,
+  type FormDefinition,
+  type FormOp,
+  type TextingBoxTwice,
+} from '@hfos/core';
 import { AlertTriangle, Check, Loader2, Sparkles, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -202,6 +209,13 @@ export function FormEditor({
         </Card>
       ) : null}
 
+      <TextingBoxTwiceCard
+        twice={textingBoxesTwice(editor.definition)}
+        apply={editor.apply}
+        readOnly={!canManage}
+        onDeleted={(id) => setSelected((s) => (s === id ? null : s))}
+      />
+
       {tab === 'questions' ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-3">
@@ -349,6 +363,71 @@ function WriteAllCues({
       <Button size="sm" variant="secondary" loading={busy} onClick={() => void write()}>
         {POLL_WORDS.writeAllCues}
       </Button>
+    </Card>
+  );
+}
+
+/**
+ * A question asking for permission to text, on a form that already shows our box (core's `textingBoxesTwice`).
+ * A warning, never a blocker: customers would see two boxes, and only ours saves their yes and carries the words the
+ * texting registration quotes. One press deletes the question; Undo brings it back.
+ */
+function TextingBoxTwiceCard({
+  twice,
+  apply,
+  readOnly,
+  onDeleted,
+}: {
+  twice: readonly TextingBoxTwice[];
+  apply: (ops: FormOp[]) => void;
+  readOnly: boolean;
+  onDeleted: (questionId: string) => void;
+}) {
+  if (!twice.length) return null;
+  const one = twice.length === 1;
+  return (
+    <Card
+      className="flex gap-3 border-warning/40 bg-warning-soft p-3.5"
+      data-testid="form-texting-box-twice"
+    >
+      <AlertTriangle className="h-4 w-4 shrink-0 text-warning-text" strokeWidth={1.75} />
+      <div className="min-w-0 flex-1 text-[13px] text-text-2">
+        <p className="font-medium text-text">Customers will see two boxes asking to text them</p>
+        <p className="mt-1">
+          HandsFreeOS already adds a “Text me” box to this form, worded the way the carriers
+          approved. Only that box saves their yes to texts.{' '}
+          {one ? 'This question asks the same thing:' : 'These questions ask the same thing:'}
+        </p>
+        <ul className="mt-2 space-y-2">
+          {twice.map((q) => (
+            <li key={q.questionId} className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="line-clamp-2 text-text">“{q.title || 'Untitled question'}”</p>
+                {q.required ? (
+                  <p className="mt-0.5 text-[12.5px] text-warning-text">
+                    It must be checked to send the form, and carriers turn down a texting box that’s
+                    required.
+                  </p>
+                ) : null}
+              </div>
+              {readOnly ? null : (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    apply([{ op: 'delete_question', questionId: q.questionId }]);
+                    onDeleted(q.questionId);
+                    toast.success('Deleted. Publish changes to take it off the live form.');
+                  }}
+                  data-testid="form-texting-box-delete"
+                >
+                  Delete this question
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </Card>
   );
 }

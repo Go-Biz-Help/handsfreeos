@@ -20,6 +20,7 @@ import {
   optInDescriptionDefault,
   optInDescriptionFor,
   ownSiteBoxText,
+  sameDescription,
   sendsOffers,
   smsConsentWords,
   type ConsentPlace,
@@ -198,9 +199,58 @@ describe('the description names the pages a reviewer can open', () => {
       {},
       { policyUrl: 'https://gobizhelp.test/privacy', termsUrl: 'https://gobizhelp.test/terms' },
     );
+    // Each on its own line at the end, so a reviewer reads them as links.
     expect(text).toMatch(
-      /Privacy policy: https:\/\/gobizhelp\.test\/privacy\. Terms: https:\/\/gobizhelp\.test\/terms\.$/,
+      /\n\nPrivacy policy: https:\/\/gobizhelp\.test\/privacy\.\nTerms: https:\/\/gobizhelp\.test\/terms\.$/,
     );
+  });
+
+  it('reads as short paragraphs, not one block (owner, 2026-11-11)', () => {
+    const text = optInDescriptionFor(
+      'Lone Star HVAC',
+      'hosted',
+      {
+        siteUrl: 'https://lonestarhvac.com',
+        chatUrl: 'https://app.handsfreeos.com/chat/wk_x',
+      },
+      {
+        offers: true,
+        policyUrl: 'https://lonestarhvac.com/privacy',
+        termsUrl: 'https://lonestarhvac.com/terms',
+        otherWays: [{ path: 'own_site', url: 'https://lonestarhvac.com/contact' }],
+      },
+    );
+    const parts = text.split('\n\n');
+    expect(parts[0]).toMatch(/^Customers agree in the chat on https:\/\/lonestarhvac\.com\./);
+    // The words customers read stand alone, so they're found at a glance; the quote itself is never broken.
+    expect(parts).toContain(
+      `The words beside the box read: "${smsConsentWords('Lone Star HVAC', 'form').detail}"`,
+    );
+    expect(
+      parts.some((p) => /^Links to the privacy policy/.test(p) && /second, separate box/.test(p)),
+    ).toBe(true);
+    expect(parts).toContain(
+      'A working sign-up page with the same form, where anyone can fill it in and agree, is at https://app.handsfreeos.com/chat/wk_x.',
+    );
+    expect(parts.some((p) => p.startsWith('Customers can also agree on'))).toBe(true);
+    expect(parts).toContain('Customers who replied STOP can rejoin by replying START.');
+    // Nothing empty in between, and no paragraph starts or ends with a space.
+    for (const p of parts) expect(p).toBe(p.trim());
+    expect(parts.every((p) => p.length > 0)).toBe(true);
+    for (const path of ['own_site', 'in_person'] as const)
+      expect(optInDescriptionFor('Lone Star HVAC', path).split('\n\n').length).toBeGreaterThan(3);
+  });
+
+  it('counts a description saved before the paragraphs as the same one', () => {
+    const now = optInDescriptionFor(
+      'Lone Star HVAC',
+      'own_site',
+      {},
+      { pageUrl: 'https://x.test/c' },
+    );
+    const before = now.replace(/\s+/g, ' ');
+    expect(sameDescription(before, now)).toBe(true);
+    expect(sameDescription(`${before} We also ask at the counter.`, now)).toBe(false);
   });
 
   it('lists every other way customers agree, each with where to see it (30896)', () => {

@@ -1217,11 +1217,18 @@
       "by": "the reason comes back; the advice is written on the page"
     },
     {
-      "path": "Texting → Turned down → opt-in line to copy",
+      "path": "Texting → Turned down → words for a box on your own website",
       "kind": "see",
-      "file": "apps/web/src/components/settings/texting-page.tsx:1442",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1457",
       "covered": "no",
-      "by": "written in the browser"
+      "by": "core's ownSiteBoxText, worked out in the browser; no tool returns it"
+    },
+    {
+      "path": "Texting → Turned down → words for a box on your own website → Copy",
+      "kind": "do",
+      "file": "apps/web/src/components/settings/texting-page.tsx:1460",
+      "covered": "no",
+      "by": "the clipboard"
     },
     {
       "path": "Texting → Turned down → Fix and send again",
