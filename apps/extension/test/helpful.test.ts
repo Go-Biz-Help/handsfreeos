@@ -10,6 +10,7 @@ import { readPage } from '../src/networks/facebook/page';
 import type { HfosAsk } from '../src/hfos/messages';
 import type { Hfos, Job, JobTab } from '../src/jobs/job';
 import { load } from './load';
+import { canPaste, paragraphs, pastesLikeFacebook } from './paste';
 
 // A person's pace is minutes; here, none.
 vi.mock('../src/jobs/job', async (original) => ({
@@ -63,6 +64,21 @@ describe('putting a helpful post up', () => {
     const none = composerPage();
     none.doc.getElementById('start')!.remove();
     expect(await writeGroupPost(none.doc, 'A tip.')).toBe('none');
+  });
+
+  it('pastes a post of paragraphs, so they stay apart (decision 158)', async () => {
+    const { doc } = composerPage();
+    canPaste(doc);
+    const box = doc.getElementById('box')!;
+    pastesLikeFacebook(box);
+    let shown: string[] = [];
+    doc.getElementById('post')!.addEventListener('click', () => (shown = paragraphs(box)), {
+      capture: true,
+    });
+    const post =
+      'We used to send a quote and just wait.\n\nNow we text two days after.\n\nHow do you?';
+    expect(await writeGroupPost(doc, post)).toBe('done');
+    expect(shown).toEqual(post.split('\n'));
   });
 });
 
@@ -139,6 +155,15 @@ describe('the jobs', () => {
     const page = readPage(load('group-feed.html', GROUP_URL), GROUP_URL);
     expect(foundPost(page, `${MEETUP} Bring a friend!`)).toMatch(/2233445566778899/);
     expect(foundPost(page, 'Something nobody posted at all, ever.')).toBeNull();
+  });
+
+  it('finds a post whose paragraphs went up run together, or with lines between (decision 158)', () => {
+    const [first, ...rest] = MEETUP.split(' ');
+    const kept = `${first}\n\n${rest.join(' ')} Bring a friend!`;
+    const runTogether = { posts: [{ text: `${first}${rest.join(' ')}`, url: POST_URL }] };
+    expect(foundPost(runTogether, kept)).toBe(POST_URL);
+    const page = readPage(load('group-feed.html', GROUP_URL), GROUP_URL);
+    expect(foundPost(page, kept)).toMatch(/2233445566778899/);
   });
 
   it('puts the OK’d post up, finds its link at the top of the newest, and notes it', async () => {

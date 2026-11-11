@@ -24,6 +24,7 @@
  */
 import { clean, labelOf } from '../networks/facebook/dom';
 import { shown } from '../networks/facebook/fetch';
+import { putPostIn } from '../networks/post-text';
 
 /** A file to add, as the background fetched it. */
 export interface PostFileIn {
@@ -514,7 +515,7 @@ async function instagramPost(
   if (writing.tagName === 'TEXTAREA') {
     (writing as HTMLTextAreaElement).value = ask.text;
     writing.dispatchEvent(new win.Event('input', { bubbles: true }));
-  } else doc.execCommand('insertText', false, ask.text);
+  } else await putPostIn(doc, writing, ask.text, (b) => !!clean(b.textContent));
   await pause(800);
   if (!clean(writing.textContent) && !(writing as HTMLTextAreaElement).value)
     return end('not_sent');
@@ -577,7 +578,7 @@ export async function postHere(doc: Document, ask: PostAsk): Promise<PostDone> {
   if (writing.tagName === 'TEXTAREA') {
     (writing as HTMLTextAreaElement).value = ask.text;
     writing.dispatchEvent(new (windowOf(doc).Event)('input', { bubbles: true }));
-  } else doc.execCommand('insertText', false, ask.text);
+  } else await putPostIn(doc, writing, ask.text, (b) => !!clean(b.textContent));
   await pause(800);
   if (!clean(writing.textContent) && !(writing as HTMLTextAreaElement).value)
     return end('not_sent');

@@ -1220,6 +1220,22 @@ was reported. From 0.126.2:
 - When that chat ends with the person's own message, the step ends there: no draft, nothing reported, and the read
   takes them off Today's replies (`yoursLast` in `src/hfos/saves.ts`).
 
+### Posts keep their paragraphs (0.134.2)
+
+The AI writes a helpful post in short paragraphs with a blank line between them, but Chrome's insertText with the whole
+post lost every line break in Facebook's box: the owner's post in a roofing group on 10 Nov 2026 went up as "…and just
+wait.Turns out most folks…", one block with no space after each full stop. Instagram's box is the same kind (Lexical).
+From 0.134.2 a post with line breaks is pasted into the box, as a person pasting it would, and the box keeps each
+paragraph and the blank lines (`putPostIn` in `src/networks/post-text.ts`). A plain box (a textarea), or one that takes
+no paste, is typed in as before. It's every post the extension puts up: a helpful post in a Facebook group, on
+LinkedIn and on Alignable, and the business's own posts (`src/research/post-here.ts`). Comments and messages are typed
+as before: they're one paragraph, and Enter would send them.
+
+The run-together post also couldn't be found again: its words didn't start like the ones kept, so neither its link nor
+who engaged with it was read. Posts are compared now with no spaces or line breaks at all (`foundPost` in
+`src/jobs/helpful.ts`, LinkedIn's `startsLike` and Alignable's `linkToIt`), so the run-together ones up in the last
+fortnight are found by the next daily read, and their comments and reactions become warm leads.
+
 ### Chat windows closed after a message (0.134.1)
 
 Facebook keeps every small chat window open from page to page, and the extension never closed the ones its messages
