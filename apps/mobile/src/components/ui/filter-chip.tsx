@@ -15,7 +15,9 @@ export function FilterChip({
   onPress,
   icon,
   count,
+  trailing,
   disabled,
+  accessibilityLabel,
   testID,
 }: {
   label: string;
@@ -24,13 +26,17 @@ export function FilterChip({
   icon?: React.ReactNode;
   /** A number after the words ("Contacts 7"), quieter than them. */
   count?: string | number | null;
+  /** Anything after the words and count: the Inbox's Show chip has a dot and an arrow. */
+  trailing?: React.ReactNode;
   disabled?: boolean;
+  accessibilityLabel?: string;
   testID?: string;
 }) {
   return (
     <Pressable
       role="button"
       accessibilityState={{ selected: on, disabled: !!disabled }}
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       disabled={disabled}
       hitSlop={{ top: 6, bottom: 6 }}
@@ -50,6 +56,7 @@ export function FilterChip({
           {String(count)}
         </Text>
       ) : null}
+      {trailing}
     </Pressable>
   );
 }

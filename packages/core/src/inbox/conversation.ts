@@ -239,10 +239,6 @@ export const PRIVATE_THREAD_WORDS = {
   /** Inside the thread, as on its row in the list. */
   badge: ONLY_YOU,
   banner: 'Only you can see this. Share it with the team to hand it to them.',
-  /** Beside My mail in the inbox. */
-  onlyYou: 'only you see it',
-  /** Out of My mail, back to everything: the team's threads with the person's own among them. */
-  back: 'Show all',
   /** Where a customer's details would be. */
   panel:
     'Mail to your own address stays out of Contacts while it’s yours. Share it with the team to add them as a customer.',

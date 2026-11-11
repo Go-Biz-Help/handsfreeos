@@ -31,7 +31,7 @@ env:
     id: 'box-unassigned'
     text: 'Unassigned · \d+'
 - assertVisible:
-    id: 'status-snoozed'
+    id: 'inbox-show'
 - runFlow: subflows/open-test-changes.yaml
 - runFlow: subflows/nothing-waiting.yaml
 - runFlow:

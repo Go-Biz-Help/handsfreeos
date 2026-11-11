@@ -67,7 +67,7 @@ const CONVERSATION_BASE = `
 export const CONVERSATIONS_SQL = `${CONVERSATION_BASE} AND c.archived_at IS NULL
   AND (c.private_to IS NULL OR c.private_to = ?)`;
 
-/** Whether the viewer has an address of their own (M19), so My mail shows before any mail has come to it. */
+/** Whether the viewer has an address of their own (M19), before any mail has come to it. */
 export const OWN_ADDRESS_SQL = `
   SELECT EXISTS (SELECT 1 FROM email_addresses WHERE workspace_id = ? AND owner_user_id = ?) AS own`;
 
