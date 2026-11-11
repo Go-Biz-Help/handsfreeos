@@ -131,9 +131,9 @@ export const PROBLEM_FIXES: readonly ProblemFix[] = [
     area: 'facebook',
     job: 'send',
     note: 'couldn’t find a chat open with them',
-    fixedIn: '0.134.1',
-    pr: 577,
-    said: 'Their new chat’s window showed Facebook’s loading mark where the box goes: the writer waits up to ten seconds more now while a chat window is still drawing its box (0.128.4, #562). Then 6 chat windows were left open over the page, and 5 more in the corner, from earlier messages: each window a message went in is closed once it has gone now.',
+    fixedIn: '0.134.3',
+    pr: 595,
+    said: 'Their new chat’s window showed Facebook’s loading mark where the box goes: the writer waits up to ten seconds more now while a chat window is still drawing its box (0.128.4, #562). Then 6 chat windows were left open over the page, and 5 more in the corner, from earlier messages: each window a message went in is closed once it has gone now (0.134.1, #577). Then one person’s message failed twice, a day apart: the first try left their window open, linking to them by a number HandsFreeOS didn’t keep, and their Message only brought it up again. That window is checked now as one that just opened: their number’s profile is opened, and the message goes once Facebook shows it’s theirs.',
   },
   {
     area: 'linkedin',
