@@ -16,6 +16,10 @@ import {
   industriesForPicker,
   INDUSTRIES,
   mergeOnboardingSetupAnswers,
+  onboardingSetupTouchedAfterSave,
+  onboardingSetupUnsavedOf,
+  onboardingSetupUnsavedRestored,
+  ONBOARDING_SETUP_UNSAVED_DAYS,
   myHoursFrom,
   NEW_ONBOARDING_SETUP_BUSINESS,
   ONBOARDING_KIND_INFO,
@@ -942,6 +946,83 @@ describe('the screens’ behaviour', () => {
     expect(later.ai.description).toBe('We fix AC.');
     expect(later.ai.jobs).toEqual(local.ai.jobs);
     expect(later.ai.tone).toBe('professional');
+  });
+
+  it('keep hours set on screen when someone goes Back and saves an earlier screen', () => {
+    // Full Spectrum, 10 Nov: their own hours set on "When are you open?", then Back, and Next on "About your
+    // business". The server keeps only the screens finished, so it reads the hours back as the starting picks.
+    const state = business();
+    const theirs = [1, 2, 3, 4, 5].map((day) => ({ day, start: '10:00', end: '18:00' }));
+    const start = startingOnboardingSetupAnswers(state);
+    const local = { ...start, ai: { ...start.ai, openHours: theirs } };
+    // Next on "About your business" saves every answer, and the furthest screen finished is still that one.
+    const reached = 'about' as const;
+    const server = resumeOnboardingSetup(state, { draft: local, reached, kind: state.kind });
+    expect(server.ai.openHours).toEqual(start.ai.openHours);
+    // Before: everything counted as saved, and the server's read undid the hours on the next screen.
+    expect(mergeOnboardingSetupAnswers(local, server, new Set(), reached).ai.openHours).toEqual(
+      start.ai.openHours,
+    );
+    // Now: the hours' screen isn't finished, so they still count as changed on screen, and stay.
+    const touched = onboardingSetupTouchedAfterSave(new Set(['ai.openHours', 'goal']), reached);
+    expect([...touched]).toEqual(['ai.openHours']);
+    expect(mergeOnboardingSetupAnswers(local, server, touched, reached).ai.openHours).toEqual(
+      theirs,
+    );
+    // The first screen saved again takes in everything else, and still not the hours.
+    const all = mergeOnboardingSetupAnswers(local, { ...server, goal: 'paid' }, touched, null);
+    expect(all.goal).toBe('paid');
+    expect(all.ai.openHours).toEqual(theirs);
+    // Once "When are you open?" is saved, the server keeps them and they stop counting as changed.
+    expect([...onboardingSetupTouchedAfterSave(touched, 'hours')]).toEqual([]);
+    expect(
+      resumeOnboardingSetup(state, { draft: local, reached: 'hours', kind: state.kind }).ai
+        .openHours,
+    ).toEqual(theirs);
+    // An answer no screen asks always follows the server.
+    expect([...onboardingSetupTouchedAfterSave(new Set(['ai.answerWhen']), null)]).toEqual([]);
+  });
+
+  it('keep answers not saved yet on the device, and put them back after signing in again', () => {
+    // Full Spectrum, 10 Nov: the hours set, then the sign-in dropped before Next saved them; signing in again reloaded
+    // the setup from the server, which had the starting picks.
+    const state = business();
+    const theirs = [1, 2, 3, 4, 5].map((day) => ({ day, start: '10:00', end: '18:00' }));
+    const start = startingOnboardingSetupAnswers(state);
+    const local = { ...start, ai: { ...start.ai, openHours: theirs } };
+    const now = Date.UTC(2026, 10, 10, 21, 26);
+    expect(onboardingSetupUnsavedOf(local, new Set(), now)).toBeNull();
+    // An answer no screen asks isn't kept: it always follows the server.
+    expect(onboardingSetupUnsavedOf(local, new Set(['ai.answerWhen']), now)).toBeNull();
+    const kept = JSON.parse(
+      JSON.stringify(onboardingSetupUnsavedOf(local, new Set(['ai.openHours']), now)),
+    ) as unknown;
+    // Back from signing in: the server's answers, with something new from it on another screen.
+    const server = { ...start, goal: 'paid' as const };
+    const back = onboardingSetupUnsavedRestored(kept, server, now + 120_000);
+    expect(back?.answers.ai.openHours).toEqual(theirs);
+    expect(back?.answers.goal).toBe('paid');
+    // Still counted as changed, so Next on "When are you open?" sends them.
+    expect([...(back?.touched ?? [])]).toEqual(['ai.openHours']);
+    // Nothing usable: none, too old, or not something this setup kept.
+    expect(onboardingSetupUnsavedRestored(null, server, now)).toBeNull();
+    expect(
+      onboardingSetupUnsavedRestored(
+        kept,
+        server,
+        now + (ONBOARDING_SETUP_UNSAVED_DAYS + 1) * 86_400_000,
+      ),
+    ).toBeNull();
+    expect(
+      onboardingSetupUnsavedRestored(
+        { v: 1, at: now, touched: ['ai.openHours'], answers: 'x' },
+        server,
+        now,
+      ),
+    ).toBeNull();
+    expect(
+      onboardingSetupUnsavedRestored({ ...(kept as object), touched: ['nope'] }, server, now),
+    ).toBeNull();
   });
 
   it('say the business in one line before it’s made', () => {

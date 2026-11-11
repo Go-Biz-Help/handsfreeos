@@ -8,6 +8,7 @@ import {
   AI_SETUP_TEMPLATE_WORDS,
   AI_SETUP_TONE_LABELS,
   AI_SETUP_TONE_TEXTS,
+  aiSetupOpenHoursNote,
   aiSetupProblemAt,
   firstTextPreview,
   HOURS_MODES,
@@ -53,6 +54,7 @@ import { useColors } from '@/theme';
 import {
   Field,
   KindField,
+  OpenHoursNote,
   Option,
   Pills,
   QualifyField,
@@ -334,6 +336,7 @@ function HoursScreen({ state, answers, set, problems }: ScreenProps) {
       <Reading state={state} answers={answers} />
       <View className="gap-1">
         <Label>{W.openHours}</Label>
+        <OpenHoursNote note={aiSetupOpenHoursNote(state, answers.openHours, name)} />
         <HoursField
           value={answers.openHours}
           onChange={(next) => set('openHours', next)}

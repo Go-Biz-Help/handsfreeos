@@ -402,9 +402,15 @@ describe('the screens in between', () => {
     });
     const saturday = screen.getByTestId('ai-setup-open-day-sat');
     expect(saturday).toHaveTextContent(P.closed, { exact: false });
+    // Weekdays 9 to 5 to start, and the screen says that's only a guess.
+    expect(screen.getByTestId('setup-open-hours-note')).toHaveTextContent(
+      'This is only a guess. Set your real hours: Ava tells customers these.',
+    );
 
     // Saturday on, open till midnight.
     await fireEvent(screen.getByTestId('ai-setup-open-day-sat-switch'), 'press');
+    // Their own hours now: no more note.
+    expect(screen.queryByTestId('setup-open-hours-note')).toBeNull();
     expect(screen.getByTestId('ai-setup-open-sat-0-start')).toHaveTextContent('9:00 AM');
     await fireEvent.press(screen.getByTestId('ai-setup-open-sat-0-end'));
     await fireEvent.press(await screen.findByTestId('ai-setup-open-time-sheet-1440'));
