@@ -155,6 +155,12 @@ export type AutoAsk =
       readonly profile?: ProfileRef;
       readonly names?: readonly string[];
       readonly opened?: string | null;
+      /**
+       * Facebook: the message's last text. Once it's gone, the small chat window it went in is closed by its own Close
+       * chat, so windows the extension opened don't pile up over the pages it works on (the owner's problem reports of
+       * 10 Nov 2026: 11 left open). Messenger's own chat page is left as it is.
+       */
+      readonly close?: true;
     };
 
 /**
