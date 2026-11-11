@@ -423,7 +423,7 @@ export const todayDraft: AddonWorkerAction<TodayDraftInput> = {
     const toRequests =
       input.kind === 'opener' &&
       found.profile !== undefined &&
-      NETWORKS[found.profile.platform].requestsMessageAfterDays !== null &&
+      NETWORKS[found.profile.platform].follows &&
       found.friendState !== 'friends';
     // One of the business's own openers goes as written, with their first name and the offer's words in: no AI. One
     // that names the offer's words when there are none is written by the AI instead, and so is one too long for their

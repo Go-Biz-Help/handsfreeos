@@ -98,14 +98,12 @@ export interface NetworkKit {
    */
   readonly hashtags: boolean;
   /**
-   * On a follow network (Instagram's), a message to someone who doesn't follow the person back lands in their Requests,
-   * and passes only one text till they accept it (the Instagram and Alignable plan's "The steps"): after how many days
-   * without a follow-back that one short message goes (no link, no video), and at most how many of the day's first
-   * messages go there. No follow-up goes in a chat they haven't answered or accepted. Null where a first message waits
-   * for them to accept.
+   * Whether it's a follow network (Instagram's): a follow is its friend request, and their follow back is its
+   * accepting. Nothing is ever written to someone there who doesn't follow the person (decision 159, the owner: "them
+   * following us is the trigger to inbox them"), as a message to them lands in their Requests, never their inbox: their
+   * follow-back is what starts the first message, as accepting does on every other network.
    */
-  readonly requestsMessageAfterDays: number | null;
-  readonly requestsMessagesPerDay: number | null;
+  readonly follows: boolean;
   /**
    * On a follow network (Instagram's), how many accounts the person followed the extension looks at a day to see who
    * follows them back (the owner, 21 Oct 2026): their own account says so ("Follows you", Follow Back), so the
@@ -173,8 +171,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,
-    requestsMessageAfterDays: null,
-    requestsMessagesPerDay: null,
+    follows: false,
     followBackLooksPerDay: null,
     // Its group members are weighed by the words they show (decision 92 leaves Facebook as it was).
     foundChecksPerDay: null,
@@ -217,8 +214,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: false,
-    requestsMessageAfterDays: null,
-    requestsMessagesPerDay: null,
+    follows: false,
     followBackLooksPerDay: null,
     // People found by its post search are checked inside the 40 profiles read, found people first (decision 92), from
     // 5 good posts' reactors and commenters a day. Its comments wait for the person's OK at first, as Instagram's and
@@ -245,8 +241,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     },
   },
   // A follow network (the plan's "The networks after LinkedIn"): follow, like, comment, then a message once they follow
-  // back; else one short message after 3 days, which waits in their Requests. Instagram blocks fast, so its limits
-  // start low. Its steps are built from what Check Instagram reads.
+  // back, and never before (decision 159). Instagram blocks fast, so its limits start low. Its steps are built from
+  // what Check Instagram reads.
   instagram: {
     name: PLATFORMS.instagram,
     // Working from its part 12 (the app), as Alignable did before its runner, and on its own from part 14 (its runner).
@@ -266,9 +262,8 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     forumAnswersPerDay: null,
     recommends: false,
     hashtags: true,
-    // No follow-back in 3 days: one short message to their Requests, at most 5 of the day's 10 first messages.
-    requestsMessageAfterDays: 3,
-    requestsMessagesPerDay: 5,
+    // Never a message to someone who doesn't follow them back (decision 159): their follow-back is the trigger.
+    follows: true,
     // Who follows them back, from the accounts they followed, 30 a day at most (the owner, 21 Oct 2026).
     followBackLooksPerDay: 30,
     // People found under its hashtags, 30 a day beside the 20 followers checked, from 5 good posts' likers and
@@ -316,8 +311,7 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     forumAnswersPerDay: 2,
     recommends: true,
     hashtags: false,
-    requestsMessageAfterDays: null,
-    requestsMessagesPerDay: null,
+    follows: false,
     followBackLooksPerDay: null,
     // Businesses its search and its groups found, 30 a day beside its 30 reads (the build's choice, decision 92), and
     // from 0.108.0 who liked and answered 5 good posts a day (decision 116). Comments wait for an OK at first, and it
@@ -348,6 +342,11 @@ export const NETWORKS: Readonly<Record<Platform, NetworkKit>> = {
     },
   },
 };
+
+/** The follow networks (Instagram's): a follow is the request, and their follow-back the accepting (decision 159). */
+export const FOLLOW_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(
+  (p) => NETWORKS[p].follows,
+);
 
 /** The networks past their look: all four now. */
 export const WORKING_PLATFORMS: readonly Platform[] = PLATFORM_KEYS.filter(

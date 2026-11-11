@@ -1546,7 +1546,8 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       Instagram's friends list (`outreach.friends.save`). Someone they followed who's among them is a friend, and
       their first message comes as on the other networks ("Followed you back today"). From 0.85.0 it reads only the
       newest, and who followed back is seen on their own accounts too (below, **Instagram's newest followers**).
-    - **No follow-back in 3 days: one short message** (the plan's "The steps"): someone followed 3 or more days ago who
+    - **No follow-back in 3 days: one short message** (the plan's "The steps"; **gone from decision 159**: nobody who
+      doesn't follow back is ever messaged, as it lands in their Requests): someone followed 3 or more days ago who
       hasn't followed back and has had no message gets one first message on Today, marked as going to their Requests
       (`TodayItem.requests`, with no demo link): one text with no link, no video and no price, as Instagram passes only
       one till they accept. At most 5 of the day's 10 first messages go there, those sent there today counted (its
@@ -3992,7 +3993,25 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
       - **A run-together post is found again:** posts are compared with no spaces or line breaks at all (`foundPost`,
         LinkedIn's `startsLike`, Alignable's `linkToIt`), so one put up before 0.134.2 is found by the next daily read
         in its fortnight, and who commented and reacted become warm leads.
-159.  **Autopilot's day's list shrinks to a line at the bottom once it's answered** (Chris, 11 Nov 2026: "after ok’ing
+159.  **Never a message to someone who doesn't follow back on Instagram** (Chris, 11 Nov 2026: "the social outreach
+      tool add people to message that have not followed us back on instagram", then "again we never message people
+      that don't follow us because it doesn't go to their inbox and them following us is the trigger to inbox them").
+      Instagram listed one short first message, to their Requests, for anyone followed 3 or more days before who hadn't
+      followed back (part 12's "No follow-back in 3 days"); 7 went in the 2 weeks before, 6 on their own. The trigger
+      to message on each network is now the same: on Instagram their follow-back, on Facebook, LinkedIn and Alignable
+      their accepting the request. No migration and no extension update.
+      - **Today lists no message to their Requests** (`ops/today.ts`): the block and the kit's `requestsMessagesPerDay`
+        are gone, and `requestsMessageAfterDays` became `follows`, which only says a network is a follow network.
+      - **`outreach.send.queue` refuses one** (`outreach_not_following`): on a follow network, any message (never a
+        comment under their post) to someone who doesn't follow the person back and never wrote to them (no reply
+        seen, no message of theirs in a chat kept, `notFollowingBack`). So an older build, Autopilot or a draft from
+        before can't send one.
+      - **Those drafted before go** (`dropNotFollowing`, as each draft is queued, as decision 155's catch-ups did): one
+        waiting for an OK is taken off, and one OK'd is skipped.
+      - **Who doesn't follow back is unfollowed** after the business's wait, as before (decision 98). Warming them up
+        in the meantime is the owner's next ask, in its own part.
+
+160.  **Autopilot's day's list shrinks to a line at the bottom once it's answered** (Chris, 11 Nov 2026: "after ok’ing
       the people to contact in the social outreach it should go away instead of staying at the top"; asked where it
       goes, he picked "Shrink to a line at the bottom"). After **OK all** the list stayed first on Needs you, every row
       marked OK'd, under "You’ve OK’d everyone on today’s list".
@@ -4268,6 +4287,9 @@ where decisions 37 and 59 put the settings; what they decided stands. Settled to
   good posts' people a day on Instagram and LinkedIn), `commentsWait` (`hold` where comments go through `sends`:
   Instagram, Alignable and, from decision 102, LinkedIn; `never` on Facebook) and `joinsPerDay` (3 on Facebook and
   Alignable).
+- **Never a message to someone who doesn't follow back on Instagram** (decision 159): their follow-back is the trigger,
+  as accepting is on every other network. Today lists none and `outreach.send.queue` refuses one
+  (`outreach_not_following`), whatever drafted it; a comment under their post can still go.
 - **Each network's profile in Get ready is its own.** A LinkedIn day waits on LinkedIn's profile, never on
   Facebook's (`readinessFor` and `outreach.readiness` take a `platform`; Start my day and Today ask with theirs).
   LinkedIn's checklist (`PROFILE_ITEMS_ON`) has its photo, banner, headline (the `bio`, up to 220 characters), About,

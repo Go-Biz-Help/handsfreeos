@@ -16,11 +16,9 @@
  * - **Confirm their request** (decision 30): friend requests the person got from people who fit a playbook well.
  * - **First message** (decision 65, ./conversation.ts): new friends who accepted the person's request a day or more
  *   ago (the playbook's pace) and haven't had a message yet. It asks straight out whether the main offer would help
- *   them (decision 152). On a follow network (Instagram's) a follow-back is the accepting; someone who hasn't followed
- *   back in 3 days (its kit's
- *   `requestsMessageAfterDays`) gets one short message, marked as going to their Requests (`requests`): no link, no
- *   video, one text, and at most 5 of the day's first messages (`requestsMessagesPerDay`). No follow-up goes in a chat
- *   they haven't answered or accepted.
+ *   them (decision 152). On a follow network (Instagram's) a follow-back is the accepting, and nothing goes to someone
+ *   who hasn't followed back (decision 159): a message to them lands in their Requests, never their inbox. No
+ *   follow-up goes in a chat they haven't answered or accepted.
  * - **Reconnect** (decision 46): friends and people they've chatted with whom the AI found a good fit (./checks.ts),
  *   when neither side has written for a month: a short catch-up, then the first message's question (decision 152).
  *   They count against the first messages.
@@ -165,10 +163,6 @@ export const doneOnItsOwn = (kind: TodayKind, auto: readonly TodayKind[]) =>
 
 /** The businesses Today suggests recommending a day, where the network has recommendations (Alignable's). */
 export const RECOMMEND_PER_DAY = 1;
-/** Why a first message is marked as going to their Requests, on a follow network (Instagram's). */
-export const REQUESTS_WHY =
-  'Goes to their Requests: one short message with no link or video, as only one gets through till they accept';
-
 /** Why a business is suggested for a recommendation, and what to do. */
 export const RECOMMEND_WORDS = {
   partner: 'Your partner',
@@ -373,7 +367,7 @@ export function requestsHeldOn(
   },
 ): RequestsHeld | null {
   const kit = NETWORKS[platform];
-  if (kit.requestsMessageAfterDays !== null) return null;
+  if (kit.follows) return null;
   const most = kit.friendsCap - FRIENDS_CAP_ROOM;
   const more = {
     extension: counts.extension ?? 0,
