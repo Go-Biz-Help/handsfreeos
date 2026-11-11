@@ -20,6 +20,7 @@ import {
   freeLocalPartFor,
   mailHostOf,
   NO_EMAIL_SETUP,
+  normalizeEmailDomain,
   onboardingSetupOwnerScreens,
   onboardingSetupScreenApplies,
   personLocalPartFor,
@@ -121,6 +122,20 @@ describe('where a domain’s mail and DNS are', () => {
     expect(emailDomainPlanOf(null)).toEqual({});
     expect(emailDomainPlanOf({ team: { localPart: '' } })).toEqual({});
     expect(emailDomainPlanOf({ receive: true })).toEqual({ receive: true });
+  });
+});
+
+describe('what someone typed in the domain box', () => {
+  it('is cut down to the domain, quickly whatever it holds', () => {
+    expect(normalizeEmailDomain(' https://LoneStarHVAC.com/contact?x=1#top ')).toBe(
+      'lonestarhvac.com',
+    );
+    expect(normalizeEmailDomain('bellas.com.')).toBe('bellas.com');
+    expect(normalizeEmailDomain('bellas.com#a\nb')).toBe('bellas.com');
+    expect(normalizeEmailDomain('bellas.com')).toBe('bellas.com');
+    const started = Date.now();
+    expect(normalizeEmailDomain(`${'#'.repeat(50_000)}\n`)).toBe('');
+    expect(Date.now() - started).toBeLessThan(500);
   });
 });
 
